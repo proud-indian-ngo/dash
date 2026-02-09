@@ -1,0 +1,26 @@
+{
+  "name": "@pi-dash/notifications",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pi-dash/db": "workspace:*",
+    "@pi-dash/env": "workspace:*",
+    "@pi-dash/whatsapp": "workspace:*",
+    "@trycourier/courier": "^7.7.1",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

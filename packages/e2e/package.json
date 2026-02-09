@@ -1,0 +1,20 @@
+{
+  "name": "@pi-dash/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bash run-e2e.sh",
+    "test:ui": "bash run-e2e.sh --ui",
+    "seed": "SKIP_VALIDATION=true bun run helpers/seed-test-user.ts"
+  },
+  "dependencies": {
+    "@pi-dash/auth": "workspace:*",
+    "@pi-dash/db": "workspace:*",
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "uuidv7": "catalog:"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:"
+  }
+}

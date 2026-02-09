@@ -1,0 +1,7 @@
+{
+  "extends": "@pi-dash/config/tsconfig.base.json",
+  "compilerOptions": {
+    "strictNullChecks": true
+  },
+  "exclude": ["node_modules", "./apps/web/dist"]
+}

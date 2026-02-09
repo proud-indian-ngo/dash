@@ -1,0 +1,215 @@
+import {
+  LogoutIcon,
+  NotificationIcon,
+  Settings01Icon,
+  UnfoldMoreIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@pi-dash/design-system/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@pi-dash/design-system/components/ui/dropdown-menu";
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@pi-dash/design-system/components/ui/sidebar";
+import { useTheme } from "@pi-dash/design-system/lib/theme-provider";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  CourierInbox,
+  type CourierInboxListItemFactoryProps,
+  type CourierInboxTheme,
+} from "@trycourier/courier-react";
+import { useState } from "react";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { useApp } from "@/context/app-context";
+import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
+import { authClient } from "@/lib/auth-client";
+import { buildAvatarUrl } from "@/lib/avatar";
+
+const PRIMARY_LIGHT = "oklch(0.65 0.18 132)";
+const PRIMARY_DARK = "oklch(0.77 0.2 131)";
+
+function courierTheme(primary: string): CourierInboxTheme {
+  return {
+    inbox: {
+      header: {
+        feeds: {
+          button: {
+            unreadCountIndicator: { backgroundColor: primary },
+          },
+          tabs: {
+            selected: {
+              indicatorColor: primary,
+              unreadIndicator: { backgroundColor: primary },
+            },
+            default: {
+              unreadIndicator: { backgroundColor: primary },
+            },
+          },
+        },
+        tabs: {
+          selected: {
+            indicatorColor: primary,
+            unreadIndicator: { backgroundColor: primary },
+          },
+          default: {
+            unreadIndicator: { backgroundColor: primary },
+          },
+        },
+      },
+      list: {
+        item: {
+          unreadIndicatorColor: primary,
+        },
+      },
+    },
+  };
+}
+
+const COURIER_LIGHT_THEME = courierTheme(PRIMARY_LIGHT);
+const COURIER_DARK_THEME = courierTheme(PRIMARY_DARK);
+
+export function NavUser() {
+  const { isMobile } = useSidebar();
+  const navigate = useNavigate();
+  const { user, openSettings } = useApp();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { theme: mode } = useTheme();
+  const unreadCount = useUnreadNotificationCount();
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
+          <DropdownMenuTrigger
+            render={
+              <SidebarMenuButton
+                className="flex-1 aria-expanded:bg-muted"
+                size="lg"
+              />
+            }
+          >
+            <span className="relative">
+              <Avatar>
+                <AvatarImage
+                  alt={user.name}
+                  src={buildAvatarUrl(user.email, user.gender)}
+                />
+                <AvatarFallback>CN</AvatarFallback>
+              </Avatar>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-sidebar" />
+              )}
+            </span>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs">{user.email}</span>
+            </div>
+            <HugeiconsIcon
+              className="ml-auto size-4"
+              icon={UnfoldMoreIcon}
+              strokeWidth={2}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-56 rounded-lg"
+            side={isMobile ? "bottom" : "right"}
+            sideOffset={4}
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar>
+                    <AvatarImage
+                      alt={user.name}
+                      src={buildAvatarUrl(user.email, user.gender)}
+                    />
+                    <AvatarFallback>CN</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{user.name}</span>
+                    <span className="truncate text-xs">{user.email}</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="ml-auto inline-flex size-5 items-center justify-center rounded-full bg-destructive font-medium text-[10px] text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-96 p-0">
+                  <div className="h-[400px] w-full overflow-hidden">
+                    <CourierInbox
+                      darkTheme={COURIER_DARK_THEME}
+                      height="400px"
+                      lightTheme={COURIER_LIGHT_THEME}
+                      mode={mode}
+                      onMessageClick={({
+                        message,
+                      }: CourierInboxListItemFactoryProps) => {
+                        const clickAction = (
+                          message.data as { clickAction?: string } | undefined
+                        )?.clickAction;
+                        if (clickAction) {
+                          setMenuOpen(false);
+                          navigate({ to: clickAction });
+                        }
+                      }}
+                    />
+                  </div>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => openSettings("profile")}>
+                <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+                Settings
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() =>
+                authClient.signOut({
+                  fetchOptions: {
+                    onSuccess: () => {
+                      navigate({
+                        to: "/",
+                      });
+                    },
+                  },
+                })
+              }
+            >
+              <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+      <SettingsDialog />
+    </SidebarMenu>
+  );
+}

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "skills": {
+    "better-auth-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "computedHash": "a24359053259e55a75972cab4bf0b0e37e1393bac5f3756ec2e3a7b4b3778d2a"
+    },
+    "create-evlog-adapter": {
+      "source": "hugorcd/evlog",
+      "sourceType": "github",
+      "computedHash": "f2d3a04c43a5db91cf632f8c3256824887423e189311e06b81e954905af908bd"
+    },
+    "create-evlog-enricher": {
+      "source": "hugorcd/evlog",
+      "sourceType": "github",
+      "computedHash": "49b8d8cf918a3f7232b9799f28fb67acde61fda20d1a6307f550fc4b7a729c3d"
+    },
+    "doc-coauthoring": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "b964e4c3ffe13f66f76dd7919073e60c7aec622cd8a8363bb36323188100cf8e"
+    },
+    "gh-cli": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "cbe644b0c6760ae2a1eaafa39133920d889331327065d92a131675a665273e56"
+    },
+    "grepai-search-advanced": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "731410305e2bc48c56d704b2f23e77e725dd15a3168fcaa5b6f4b3d56eb58e33"
+    },
+    "grepai-search-basics": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "6d1c8fd307579231238ffa15f6f6b615106862bacb0bc056af670ee0ea513d36"
+    },
+    "grepai-search-boosting": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "a0a38813abc393fee7b2ab5c21f45ce979ec6a55bd7d04ef0f4c024106080e6c"
+    },
+    "grepai-search-tips": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "82cc599fdc810adfdce58e96c5da83b2561ea05dca0fd16df1a2145b5dee0015"
+    },
+    "grepai-trace-callees": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "d5e39bf3c3cf0c3ee4fb63d66b48cd3ec8b2ecbf43c049ee3a30388b5338f61b"
+    },
+    "grepai-trace-callers": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "2f9ba2d3f051247bed54ec30a76874e22a175597ed0236d73e8de751ace6f75b"
+    },
+    "grepai-trace-graph": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "eff44529eaeb6f4f6d198d513db05fb609dcebc4bdcacda4226d421c030c878c"
+    },
+    "grepai-troubleshooting": {
+      "source": "yoanbernabeu/grepai-skills",
+      "sourceType": "github",
+      "computedHash": "363fc75761e3489ad51601925b65a4e2fa8811ee6ab68b23d0c3eec981309baf"
+    },
+    "playwright-best-practices": {
+      "source": "currents-dev/playwright-best-practices-skill",
+      "sourceType": "github",
+      "computedHash": "363a92f66b703f0701d41c394a3d654493a0cf34d40d8513c3e87965facfaa2c"
+    },
+    "playwriter": {
+      "source": "remorses/playwriter",
+      "sourceType": "github",
+      "computedHash": "a00b8e2a74a2245ee7a77ec30965e3e3f9010e55a3cfef85097dd8c6404ef9cc"
+    },
+    "postgres": {
+      "source": "planetscale/database-skills",
+      "sourceType": "github",
+      "computedHash": "b4f561e91e066eba314e69309e03b9a624bf7467f55a6a3818df4874aeee608e"
+    },
+    "react-best-practices": {
+      "source": "0xbigboss/claude-code",
+      "sourceType": "github",
+      "computedHash": "aa9b223c6803bc5d1aaa6829efe33e17de1f69927abf00819d0fd2b9e319ff4f"
+    },
+    "react-doctor": {
+      "source": "millionco/react-doctor",
+      "sourceType": "github",
+      "computedHash": "efa8db174b3c60e27b34d76842e3a9a7c0e5e602fd4d66eec897372d0ce3f30b"
+    },
+    "review-logging-patterns": {
+      "source": "hugorcd/evlog",
+      "sourceType": "github",
+      "computedHash": "c4469d4ea1ff92c8be6bcfdb066b4465966caee05df02529155e5bcb8c15c01e"
+    },
+    "tanstack-start-best-practices": {
+      "source": "deckardger/tanstack-agent-skills",
+      "sourceType": "github",
+      "computedHash": "50c1b6d9b35b05927fa0c81962d560634385c9567b7b1d66396b171965b33105"
+    },
+    "typescript-best-practices": {
+      "source": "0xbigboss/claude-code",
+      "sourceType": "github",
+      "computedHash": "838d6737e59e8b15457a6af23112bc3a107a8ac098606a19a43c2be0db2dbe5a"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "4365be772fd3b41994a72ad478472c6d680678e7f3859860ab010e9c46e48ee0"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+    }
+  }
+}

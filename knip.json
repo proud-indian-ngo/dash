@@ -1,0 +1,34 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "tags": ["-lintignore"],
+  "ignoreDependencies": [
+    "@biomejs/biome",
+    "@commitlint/cli",
+    "@playwright/test"
+  ],
+  "ignoreIssues": {
+    "src/generated/**": ["exports", "types"],
+    "**/*.generated.ts": ["exports", "types"],
+    "packages/design-system/components/**": ["exports", "types"],
+    "packages/zero/src/schema.ts": ["duplicates"]
+  },
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {},
+    "apps/web": {
+      "ignoreFiles": ["src/entry-server.ts"]
+    },
+    "packages/e2e": {
+      "ignoreFiles": ["global-setup.ts"]
+    },
+    "packages/design-system": {
+      "ignoreFiles": ["components/**", "hooks/**", "styles.css"],
+      "ignoreDependencies": [
+        "@tailwindcss/.*",
+        "tailwindcss",
+        "tw-animate-css",
+        "@fontsource-variable/inter"
+      ]
+    }
+  }
+}

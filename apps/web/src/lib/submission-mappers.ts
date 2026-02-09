@@ -1,0 +1,48 @@
+import type { Attachment, LineItem } from "./form-schemas";
+
+interface RawLineItem {
+  amount: number | string;
+  categoryId: string;
+  description: null | string;
+  id: string;
+}
+
+interface RawAttachment {
+  filename?: null | string;
+  id: string;
+  mimeType?: null | string;
+  objectKey?: null | string;
+  type: "file" | "url";
+  url?: null | string;
+}
+
+export function mapLineItemsToFormValues(
+  lineItems: readonly RawLineItem[]
+): LineItem[] {
+  return lineItems.map((li) => ({
+    id: li.id,
+    categoryId: li.categoryId,
+    description: li.description ?? "",
+    amount: String(li.amount),
+  }));
+}
+
+export function mapAttachmentsToFormValues(
+  attachments: readonly RawAttachment[]
+): Attachment[] {
+  return attachments.map((att) =>
+    att.type === "file"
+      ? {
+          id: att.id,
+          type: "file" as const,
+          filename: att.filename ?? "attachment",
+          objectKey: att.objectKey ?? "",
+          mimeType: att.mimeType ?? undefined,
+        }
+      : {
+          id: att.id,
+          type: "url" as const,
+          url: att.url ?? "",
+        }
+  );
+}

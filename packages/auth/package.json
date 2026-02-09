@@ -1,0 +1,28 @@
+{
+  "name": "@pi-dash/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "auth:seed-admin": "bun run ./src/seed-admin.ts",
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pi-dash/db": "workspace:*",
+    "@pi-dash/email": "workspace:*",
+    "@pi-dash/env": "workspace:*",
+    "@pi-dash/whatsapp": "workspace:*",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

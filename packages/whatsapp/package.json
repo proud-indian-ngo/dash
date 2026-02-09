@@ -1,0 +1,25 @@
+{
+  "name": "@pi-dash/whatsapp",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@pi-dash/db": "workspace:*",
+    "@pi-dash/env": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

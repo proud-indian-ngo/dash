@@ -1,0 +1,35 @@
+{
+  "name": "@pi-dash/db",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate",
+    "db:start": "bun --env-file=../../.env run docker compose up -d",
+    "db:watch": "bun --env-file=../../.env run docker compose up",
+    "db:stop": "docker compose stop",
+    "db:down": "docker compose down",
+    "whatsapp:start": "bun --env-file=../../.env run docker compose up -d whatsapp",
+    "whatsapp:stop": "docker compose stop whatsapp",
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pi-dash/env": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "drizzle-kit": "^0.31.9",
+    "typescript": "catalog:"
+  }
+}

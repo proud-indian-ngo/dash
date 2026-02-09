@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "files": {
+    "includes": [
+      "**/*",
+      "!packages/design-system/components",
+      "!packages/design-system/lib/utils.ts",
+      "!packages/design-system/hooks/use-mobile.ts",
+      "!packages/design-system/styles.css",
+      "!packages/db/src/migrations/**/*",
+      "!packages/zero/src/schema.ts",
+      "!apps/web/src/routeTree.gen.ts"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": ["apps/web/src/routes/api/auth/$.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/e2e/**/*.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "useTopLevelRegex": "off"
+          },
+          "suspicious": {
+            "noSkippedTests": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off",
+            "noExportedImports": "off"
+          }
+        }
+      }
+    }
+  ]
+}

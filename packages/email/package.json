@@ -1,0 +1,24 @@
+{
+  "name": "@pi-dash/email",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.tsx"
+    }
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pi-dash/env": "workspace:*",
+    "@react-email/components": "^1.0.8",
+    "nodemailer": "^8.0.2",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "@types/nodemailer": "^7.0.11",
+    "@types/react": "catalog:",
+    "typescript": "catalog:"
+  }
+}

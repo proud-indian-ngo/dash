@@ -1,0 +1,29 @@
+{
+  "name": "@pi-dash/zero",
+  "type": "module",
+  "exports": {
+    "./context": "./src/context.ts",
+    "./schema": "./src/schema.ts",
+    "./queries": "./src/queries.ts",
+    "./mutators": "./src/mutators.ts",
+    "./validation": "./src/validation.ts"
+  },
+  "scripts": {
+    "dev": "bun run --env-file=../../.env zero-cache-dev",
+    "zero:generate": "drizzle-zero generate -f -s ../db/src/schema/index.ts -o src/schema.ts",
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@pi-dash/db": "workspace:*",
+    "@pi-dash/notifications": "workspace:*",
+    "@rocicorp/zero": "catalog:",
+    "date-fns": "catalog:",
+    "drizzle-zero": "^0.17.4",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

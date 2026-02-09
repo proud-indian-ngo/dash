@@ -1,0 +1,25 @@
+{
+  "name": "@pi-dash/env",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./web": "./src/web.ts",
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@t3-oss/env-core": "^0.13.10",
+    "dotenv": "catalog:",
+    "dotenv-expand": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: bun run check:types
+
+    fix:
+      glob: "*.{js,ts,jsx,tsx}"
+      run: bunx ultracite fix {staged_files}
+      stage_fixed: true
+
+    test:
+      glob: "*.{ts,tsx}"
+      run: bun run test:unit
+
+    unused:
+      glob: "*.{ts,tsx}"
+      run: bun run check:unused
