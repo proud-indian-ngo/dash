@@ -4,6 +4,7 @@ import { appConfigQueries } from "./queries/app-config";
 import { bankAccountQueries } from "./queries/bank-account";
 import { expenseCategoryQueries } from "./queries/expense-category";
 import { reimbursementQueries } from "./queries/reimbursement";
+import { teamQueries } from "./queries/team";
 import { userQueries } from "./queries/user";
 import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
@@ -14,5 +15,6 @@ export const queries = defineQueries({
   reimbursement: reimbursementQueries,
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,
+  team: teamQueries,
   whatsappGroup: whatsappGroupQueries,
 });

@@ -6,4 +6,5 @@ export * from "./bank-account";
 export * from "./expense-category";
 export * from "./reimbursement";
 export * from "./shared";
+export * from "./team";
 export * from "./whatsapp-group";

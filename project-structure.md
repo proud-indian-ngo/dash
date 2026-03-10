@@ -64,6 +64,9 @@ All paths are relative to project root.
 | `routes/_app/advance-payments/index.tsx` | Advance payments list |
 | `routes/_app/advance-payments/new.tsx` | Create advance payment |
 | `routes/_app/advance-payments/$id.tsx` | View/edit advance payment |
+| `routes/_app/teams/route.tsx` | Teams layout |
+| `routes/_app/teams/index.tsx` | Teams list |
+| `routes/_app/teams/$id.tsx` | Team detail |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
 | `routes/_auth/reset-password.tsx` | Reset password |
@@ -85,6 +88,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/users/` | users-table, user-form, password-form, ban-user-form, delete-user-dialog |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
+| `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
 | `components/login/` | login-form, forgot-password-form, reset-password-form |
@@ -147,7 +151,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
 | `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission), `src/topics.ts`, `src/preferences.ts`, `src/whatsapp.ts`, `src/jwt.ts`, `src/helpers.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, submission-helpers), `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, submission-helpers), `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs), `fixtures/` (auth emails), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
@@ -169,6 +173,8 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentLineItem` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentAttachment` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
+| `team` | `packages/db/src/schema/team.ts` |
+| `teamMember` | `packages/db/src/schema/team.ts` |
 
 ## Notifications
 

@@ -2,6 +2,7 @@ import {
   HomeIcon,
   Invoice01Icon,
   MoneySendSquareIcon,
+  UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import type { NavItem } from "@/components/layout/nav-main";
@@ -31,6 +32,12 @@ const advancePaymentsNavItem: NavItem = {
   icon: MoneySendSquareIcon,
 };
 
+const teamsNavItem: NavItem = {
+  title: "Teams",
+  url: "/teams",
+  icon: UserGroupIcon,
+};
+
 export const useNavItems = () => {
   const { data: session } = authClient.useSession();
 
@@ -38,7 +45,12 @@ export const useNavItems = () => {
     return [];
   }
 
-  const items = [homeNavItem, reimbursementsNavItem, advancePaymentsNavItem];
+  const items = [
+    homeNavItem,
+    reimbursementsNavItem,
+    advancePaymentsNavItem,
+    teamsNavItem,
+  ];
 
   if (session.user.role === "admin") {
     items.push(usersNavItem);

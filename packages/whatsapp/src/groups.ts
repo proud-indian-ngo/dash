@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { appConfig } from "@pi-dash/db/schema/app-config";
 import { user } from "@pi-dash/db/schema/auth";
+import { team } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { eq } from "drizzle-orm";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
@@ -65,6 +66,39 @@ export async function removeFromWhatsAppGroup(
   }
 }
 
+export async function createWhatsAppGroup(
+  name: string,
+  participants: string[] = []
+): Promise<{ jid: string }> {
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    throw new Error("WhatsApp API URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/group`, {
+    method: "POST",
+    headers: getWhatsAppHeaders(),
+    body: JSON.stringify({
+      title: name,
+      participants: participants.map(formatPhoneForWhatsApp),
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`WhatsApp group create error ${response.status}: ${text}`);
+  }
+
+  const data = (await response.json()) as {
+    results?: { group_id?: string };
+  };
+  const groupId = data.results?.group_id;
+  if (!groupId) {
+    throw new Error("Invalid WhatsApp API response: missing group_id");
+  }
+  return { jid: groupId };
+}
+
 const ORIENTATION_GROUP_ID = "orientation_group_id";
 const ALL_VOLUNTEERS_GROUP_ID = "all_volunteers_group_id";
 
@@ -76,6 +110,18 @@ async function getGroupJidByConfigKey(
     .from(appConfig)
     .innerJoin(whatsappGroup, eq(whatsappGroup.id, appConfig.value))
     .where(eq(appConfig.key, configKey))
+    .limit(1);
+  return rows[0]?.jid ?? null;
+}
+
+export async function getTeamWhatsAppGroupJid(
+  teamId: string
+): Promise<string | null> {
+  const rows = await db
+    .select({ jid: whatsappGroup.jid })
+    .from(team)
+    .innerJoin(whatsappGroup, eq(whatsappGroup.id, team.whatsappGroupId))
+    .where(eq(team.id, teamId))
     .limit(1);
   return rows[0]?.jid ?? null;
 }

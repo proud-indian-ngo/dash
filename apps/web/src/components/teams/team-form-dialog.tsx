@@ -1,0 +1,220 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@pi-dash/design-system/components/ui/dialog";
+import { Input } from "@pi-dash/design-system/components/ui/input";
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@pi-dash/design-system/components/ui/select";
+import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { mutators } from "@pi-dash/zero/mutators";
+import { queries } from "@pi-dash/zero/queries";
+import type { WhatsappGroup } from "@pi-dash/zero/schema";
+import { useQuery, useZero } from "@rocicorp/zero/react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { toast } from "sonner";
+
+function submitButtonLabel(submitting: boolean, isEdit: boolean): string {
+  if (submitting) {
+    return isEdit ? "Saving..." : "Creating...";
+  }
+  return isEdit ? "Save" : "Create";
+}
+
+interface TeamFormDialogProps {
+  initialValues?: {
+    id: string;
+    name: string;
+    description: string | null;
+    whatsappGroupId: string | null;
+  };
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}
+
+export function TeamFormDialog({
+  initialValues,
+  onOpenChange,
+  open,
+}: TeamFormDialogProps) {
+  const zero = useZero();
+  const isEdit = !!initialValues;
+
+  const [name, setName] = useState(initialValues?.name ?? "");
+  const [description, setDescription] = useState(
+    initialValues?.description ?? ""
+  );
+  const [whatsappGroupId, setWhatsappGroupId] = useState(
+    initialValues?.whatsappGroupId ?? ""
+  );
+  const [createWaGroup, setCreateWaGroup] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
+  const groupNameMap = useMemo(
+    () => new Map((whatsappGroups ?? []).map((g) => [g.id, g.name])),
+    [whatsappGroups]
+  );
+
+  useEffect(() => {
+    if (open) {
+      setName(initialValues?.name ?? "");
+      setDescription(initialValues?.description ?? "");
+      setWhatsappGroupId(initialValues?.whatsappGroupId ?? "");
+      setCreateWaGroup(false);
+    }
+  }, [open, initialValues]);
+
+  const handleSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        if (isEdit) {
+          await zero.mutate(
+            mutators.team.update({
+              id: initialValues.id,
+              name: trimmedName,
+              description: description.trim() || undefined,
+              whatsappGroupId: whatsappGroupId || undefined,
+            })
+          );
+          toast.success("Team updated");
+        } else {
+          await zero.mutate(
+            mutators.team.create({
+              id: crypto.randomUUID(),
+              name: trimmedName,
+              description: description.trim() || undefined,
+              whatsappGroupId: whatsappGroupId || undefined,
+              createWhatsAppGroup: createWaGroup || undefined,
+            })
+          );
+          toast.success(
+            createWaGroup
+              ? "Team created. WhatsApp group will be created shortly."
+              : "Team created"
+          );
+        }
+        onOpenChange(false);
+      } catch {
+        toast.error(isEdit ? "Failed to update team" : "Failed to create team");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [
+      name,
+      description,
+      whatsappGroupId,
+      createWaGroup,
+      isEdit,
+      initialValues,
+      zero,
+      onOpenChange,
+    ]
+  );
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Team" : "Create Team"}</DialogTitle>
+        </DialogHeader>
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="grid gap-2">
+            <Label htmlFor="team-name">Name</Label>
+            <Input
+              id="team-name"
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Team name"
+              required
+              value={name}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="team-description">Description</Label>
+            <Textarea
+              id="team-description"
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description"
+              rows={3}
+              value={description}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="team-whatsapp">WhatsApp Group</Label>
+            <Select
+              disabled={createWaGroup}
+              onValueChange={(v) => setWhatsappGroupId(v ?? "")}
+              value={whatsappGroupId}
+            >
+              <SelectTrigger id="team-whatsapp">
+                <SelectValue placeholder="None">
+                  {groupNameMap.get(whatsappGroupId) ?? "None"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {(whatsappGroups ?? []).map((g: WhatsappGroup) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!(isEdit || whatsappGroupId) && (
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="create-wa-group">Create WhatsApp group</Label>
+              <Switch
+                checked={createWaGroup}
+                id="create-wa-group"
+                onCheckedChange={(checked) => {
+                  setCreateWaGroup(checked);
+                  if (checked) {
+                    setWhatsappGroupId("");
+                  }
+                }}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              disabled={submitting}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button disabled={submitting || !name.trim()} type="submit">
+              {submitButtonLabel(submitting, isEdit)}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

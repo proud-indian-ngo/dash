@@ -40,8 +40,15 @@ export const Route = createFileRoute("/api/zero/mutate")({
           request
         );
 
-        // Run notifications AFTER successful commit
-        await Promise.allSettled(asyncTasks.map((task) => task()));
+        // Run async tasks (e.g. WhatsApp group ops) AFTER successful commit
+        const results = await Promise.allSettled(
+          asyncTasks.map((task) => task())
+        );
+        for (const r of results) {
+          if (r.status === "rejected") {
+            console.error("[mutate] async task failed:", r.reason);
+          }
+        }
 
         return Response.json(result);
       },

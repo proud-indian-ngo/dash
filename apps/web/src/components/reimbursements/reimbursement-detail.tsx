@@ -4,11 +4,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@pi-dash/design-system/components/ui/avatar";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -25,12 +20,12 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
-import { buildAvatarUrl } from "@/lib/avatar";
 import { formatINR } from "@/lib/form-schemas";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
@@ -140,22 +135,11 @@ export function ReimbursementDetail({
               <span className="text-muted-foreground text-sm">
                 Requested by
               </span>
-              <Avatar className="size-6">
-                <AvatarImage
-                  alt={reimbursement.user.name}
-                  src={buildAvatarUrl(
-                    reimbursement.user.email,
-                    reimbursement.user.gender
-                  )}
-                />
-                <AvatarFallback className="text-xs">
-                  {reimbursement.user.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                className="size-6"
+                fallbackClassName="text-xs"
+                user={reimbursement.user}
+              />
               <span className="font-medium text-sm">
                 {reimbursement.user.name}
               </span>

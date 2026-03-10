@@ -2,11 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@pi-dash/design-system/components/ui/avatar";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +19,7 @@ import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { FormModal } from "@/components/form/form-modal";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { BanUserForm } from "@/components/users/ban-user-form";
 import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
 import { PasswordForm } from "@/components/users/password-form";
@@ -33,7 +29,6 @@ import {
   UserForm,
 } from "@/components/users/user-form";
 import { authClient } from "@/lib/auth-client";
-import { buildAvatarUrl } from "@/lib/avatar";
 
 type RowFormKind = "ban" | "delete" | "edit" | "password";
 type RowFormAction = {
@@ -439,19 +434,7 @@ export function UsersTable({
         ),
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
-            <Avatar className="size-8">
-              <AvatarImage
-                alt={row.original.name}
-                src={buildAvatarUrl(row.original.email, row.original.gender)}
-              />
-              <AvatarFallback>
-                {row.original.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar className="size-8" user={row.original} />
             <div className="space-y-px">
               <div className="font-medium text-foreground">
                 {row.original.name}

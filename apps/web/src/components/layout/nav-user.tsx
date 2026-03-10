@@ -6,11 +6,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@pi-dash/design-system/components/ui/avatar";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -37,10 +32,10 @@ import {
 } from "@trycourier/courier-react";
 import { useState } from "react";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
 import { authClient } from "@/lib/auth-client";
-import { buildAvatarUrl } from "@/lib/avatar";
 
 const PRIMARY_LIGHT = "oklch(0.65 0.18 132)";
 const PRIMARY_DARK = "oklch(0.77 0.2 131)";
@@ -106,13 +101,7 @@ export function NavUser() {
             }
           >
             <span className="relative">
-              <Avatar>
-                <AvatarImage
-                  alt={user.name}
-                  src={buildAvatarUrl(user.email, user.gender)}
-                />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
+              <UserAvatar user={user} />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-sidebar" />
               )}
@@ -136,13 +125,7 @@ export function NavUser() {
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar>
-                    <AvatarImage
-                      alt={user.name}
-                      src={buildAvatarUrl(user.email, user.gender)}
-                    />
-                    <AvatarFallback>CN</AvatarFallback>
-                  </Avatar>
+                  <UserAvatar user={user} />
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>
                     <span className="truncate text-xs">{user.email}</span>

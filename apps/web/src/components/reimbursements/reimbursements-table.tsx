@@ -12,11 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@pi-dash/design-system/components/ui/alert-dialog";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@pi-dash/design-system/components/ui/avatar";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -37,8 +32,8 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { authClient } from "@/lib/auth-client";
-import { buildAvatarUrl } from "@/lib/avatar";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
 export type ReimbursementRow = Reimbursement & {
@@ -211,19 +206,7 @@ export function ReimbursementsTable({
           }
           return (
             <div className="flex items-center gap-3">
-              <Avatar className="size-8">
-                <AvatarImage
-                  alt={user.name}
-                  src={buildAvatarUrl(user.email, user.gender)}
-                />
-                <AvatarFallback>
-                  {user.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar className="size-8" user={user} />
               <div className="space-y-px">
                 <div className="font-medium text-foreground text-sm">
                   {user.name}
