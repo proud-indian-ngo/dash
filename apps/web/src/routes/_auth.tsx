@@ -16,7 +16,11 @@ export const Route = createFileRoute("/_auth")({
 
 function AuthLayout() {
   return (
-    <div className="flex min-h-dvh items-center justify-center p-6 md:p-10">
+    <div
+      className="flex min-h-dvh items-center justify-center p-6 md:p-10"
+      id="main"
+      tabIndex={-1}
+    >
       <div className="w-full max-w-sm">
         <Outlet />
       </div>

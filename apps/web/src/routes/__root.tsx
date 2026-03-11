@@ -55,6 +55,12 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body>
+        <a
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-4 focus:text-foreground"
+          href="#main"
+        >
+          Skip to content
+        </a>
         <ScriptOnce>
           {/* Apply theme early to avoid FOUC */}
           {`document.documentElement.classList.toggle(

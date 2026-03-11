@@ -55,6 +55,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
               {item.subItems?.length && (
                 <>
                   <CollapsibleTrigger
+                    aria-label={`Toggle ${item.title} submenu`}
                     render={
                       <HugeiconsIcon
                         className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90"

@@ -1,6 +1,7 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
@@ -32,6 +33,13 @@ function searchEvent(row: PublicEventRow, query: string): boolean {
     .toLowerCase()
     .includes(q);
 }
+
+const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
+const SKELETON_DATE = <Skeleton className="h-5 w-36" />;
+const SKELETON_LOCATION = <Skeleton className="h-5 w-28" />;
+const SKELETON_TEAM = <Skeleton className="h-5 w-28" />;
+const SKELETON_COUNT = <Skeleton className="h-5 w-12" />;
+const SKELETON_INTEREST = <Skeleton className="h-8 w-24" />;
 
 const statusBadgeMap = {
   member: { label: "Joined", variant: "default" as const },
@@ -138,7 +146,7 @@ function PublicEventsRouteComponent() {
             {row.original.name}
           </Link>
         ),
-        meta: { headerTitle: "Event" },
+        meta: { headerTitle: "Event", skeleton: SKELETON_NAME },
         size: 220,
       },
       {
@@ -156,7 +164,7 @@ function PublicEventsRouteComponent() {
             {format(row.original.startTime, "MMM d, yyyy h:mm a")}
           </span>
         ),
-        meta: { headerTitle: "Date & Time" },
+        meta: { headerTitle: "Date & Time", skeleton: SKELETON_DATE },
         size: 180,
       },
       {
@@ -170,7 +178,7 @@ function PublicEventsRouteComponent() {
             {row.original.location || "\u2014"}
           </span>
         ),
-        meta: { headerTitle: "Location" },
+        meta: { headerTitle: "Location", skeleton: SKELETON_LOCATION },
         size: 160,
       },
       {
@@ -193,7 +201,7 @@ function PublicEventsRouteComponent() {
             {row.original.team?.name || "\u2014"}
           </button>
         ),
-        meta: { headerTitle: "Team" },
+        meta: { headerTitle: "Team", skeleton: SKELETON_TEAM },
         size: 160,
       },
       {
@@ -205,7 +213,7 @@ function PublicEventsRouteComponent() {
         cell: ({ row }) => (
           <Badge variant="secondary">{row.original.members.length}</Badge>
         ),
-        meta: { headerTitle: "Volunteers" },
+        meta: { headerTitle: "Volunteers", skeleton: SKELETON_COUNT },
         size: 90,
       },
       {
@@ -222,7 +230,7 @@ function PublicEventsRouteComponent() {
             userId={session.user.id}
           />
         ),
-        meta: { headerTitle: "Interest" },
+        meta: { headerTitle: "Interest", skeleton: SKELETON_INTEREST },
         size: 150,
       },
     ],
