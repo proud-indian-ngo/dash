@@ -1,0 +1,2 @@
+ALTER TABLE "reimbursement" ADD CONSTRAINT "reimbursement_rejection_reason_chk" CHECK ((status = 'rejected' AND rejection_reason IS NOT NULL) OR (status != 'rejected' AND rejection_reason IS NULL));--> statement-breakpoint
+ALTER TABLE "team_event" ADD CONSTRAINT "team_event_end_after_start_chk" CHECK (end_time IS NULL OR end_time >= start_time);

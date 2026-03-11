@@ -1,5 +1,6 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   jsonb,
@@ -56,6 +57,10 @@ export const reimbursement = pgTable(
   (table) => [
     index("reimbursement_userId_idx").on(table.userId),
     index("reimbursement_status_idx").on(table.status),
+    check(
+      "reimbursement_rejection_reason_chk",
+      sql`(status = 'rejected' AND rejection_reason IS NOT NULL) OR (status != 'rejected' AND rejection_reason IS NULL)`
+    ),
   ]
 );
 

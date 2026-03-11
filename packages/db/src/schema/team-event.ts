@@ -1,7 +1,8 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -57,6 +58,10 @@ export const teamEvent = pgTable(
     uniqueIndex("team_event_parent_start_uidx").on(
       table.parentEventId,
       table.startTime
+    ),
+    check(
+      "team_event_end_after_start_chk",
+      sql`end_time IS NULL OR end_time >= start_time`
     ),
   ]
 );
