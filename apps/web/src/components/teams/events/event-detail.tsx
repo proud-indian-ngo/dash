@@ -20,11 +20,17 @@ import type { TeamDetailData } from "@/components/teams/team-detail";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventFormDialog } from "./event-form-dialog";
 import type { EventRow } from "./events-table";
+import type { InterestWithUser } from "./interest-requests";
+import { InterestRequests } from "./interest-requests";
+import { ShowInterestDialog } from "./show-interest-dialog";
 
 interface EventDetailProps {
   canManage: boolean;
   event: EventRow;
+  interests?: readonly InterestWithUser[];
   isAdmin: boolean;
+  isMember?: boolean;
+  myInterest?: InterestWithUser | null;
   team: TeamDetailData;
 }
 
@@ -111,10 +117,85 @@ function EventInfoSection({ event }: { event: EventRow }) {
   );
 }
 
+const interestStatusMap = {
+  pending: { label: "Interest Pending", variant: "outline" as const },
+  approved: { label: "Interest Approved", variant: "default" as const },
+  rejected: { label: "Interest Declined", variant: "secondary" as const },
+};
+
+function VolunteerInterestSection({
+  canManage,
+  interests,
+  isMember,
+  isPublic,
+  myInterest,
+  onShowInterest,
+}: {
+  canManage: boolean;
+  interests?: readonly InterestWithUser[];
+  isMember?: boolean;
+  isPublic: boolean;
+  myInterest?: InterestWithUser | null;
+  onShowInterest: () => void;
+}) {
+  const zero = useZero();
+  const showButton = !(canManage || isMember || myInterest) && isPublic;
+
+  const handleCancel = useCallback(async () => {
+    if (!myInterest) {
+      return;
+    }
+    const res = await zero.mutate(
+      mutators.eventInterest.cancel({ id: myInterest.id })
+    ).server;
+    if (res.type === "error") {
+      toast.error("Failed to cancel interest");
+    } else {
+      toast.success("Interest cancelled");
+    }
+  }, [zero, myInterest]);
+
+  return (
+    <>
+      {showButton ? (
+        <Button onClick={onShowInterest} size="sm" variant="outline">
+          Show Interest
+        </Button>
+      ) : null}
+      {myInterest && !isMember ? (
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={
+              interestStatusMap[
+                myInterest.status as keyof typeof interestStatusMap
+              ]?.variant ?? "outline"
+            }
+          >
+            {interestStatusMap[
+              myInterest.status as keyof typeof interestStatusMap
+            ]?.label ?? myInterest.status}
+          </Badge>
+          {myInterest.status === "pending" ? (
+            <Button onClick={handleCancel} size="sm" variant="ghost">
+              Cancel Interest
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {canManage && interests ? (
+        <InterestRequests interests={interests} />
+      ) : null}
+    </>
+  );
+}
+
 export function EventDetail({
   canManage,
   event,
+  interests,
   isAdmin,
+  isMember,
+  myInterest,
   team,
 }: EventDetailProps) {
   const zero = useZero();
@@ -123,6 +204,7 @@ export function EventDetail({
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [interestOpen, setInterestOpen] = useState(false);
 
   const eventTime = event.endTime ?? event.startTime;
   const isPastEvent = new Date(eventTime) < new Date();
@@ -207,6 +289,15 @@ export function EventDetail({
 
         <EventInfoSection event={event} />
 
+        <VolunteerInterestSection
+          canManage={canManage}
+          interests={interests}
+          isMember={isMember}
+          isPublic={!!event.isPublic}
+          myInterest={myInterest}
+          onShowInterest={() => setInterestOpen(true)}
+        />
+
         <Separator />
 
         <div className="flex items-center justify-between">
@@ -277,6 +368,12 @@ export function EventDetail({
         onOpenChange={setCancelOpen}
         open={cancelOpen}
         title="Cancel event"
+      />
+
+      <ShowInterestDialog
+        eventId={event.id}
+        onOpenChange={setInterestOpen}
+        open={interestOpen}
       />
     </>
   );

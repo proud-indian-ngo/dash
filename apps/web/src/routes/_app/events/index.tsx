@@ -1,13 +1,21 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import type { TeamEvent, TeamEventMember } from "@pi-dash/zero/schema";
-import { useQuery } from "@rocicorp/zero/react";
+import type {
+  EventInterest,
+  TeamEvent,
+  TeamEventMember,
+} from "@pi-dash/zero/schema";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ShowInterestDialog } from "@/components/teams/events/show-interest-dialog";
 
 type PublicEventRow = TeamEvent & {
   members: readonly TeamEventMember[];
@@ -25,17 +33,93 @@ function searchEvent(row: PublicEventRow, query: string): boolean {
     .includes(q);
 }
 
+const statusBadgeMap = {
+  member: { label: "Joined", variant: "default" as const },
+  approved: { label: "Interest Approved", variant: "default" as const },
+  rejected: { label: "Interest Declined", variant: "secondary" as const },
+};
+
+function InterestCell({
+  eventId,
+  myInterests,
+  members,
+  onShowInterest,
+  userId,
+}: {
+  eventId: string;
+  myInterests: readonly EventInterest[];
+  members: readonly TeamEventMember[];
+  onShowInterest: (eventId: string) => void;
+  userId: string;
+}) {
+  const zero = useZero();
+
+  if (members.some((m) => m.userId === userId)) {
+    return <Badge variant="default">Joined</Badge>;
+  }
+
+  const interest = myInterests.find((i) => i.eventId === eventId);
+  if (interest) {
+    if (interest.status === "pending") {
+      return (
+        <Button
+          onClick={async (e) => {
+            e.stopPropagation();
+            const res = await zero.mutate(
+              mutators.eventInterest.cancel({ id: interest.id })
+            ).server;
+            if (res.type === "error") {
+              toast.error("Failed to cancel interest");
+            }
+          }}
+          size="sm"
+          variant="outline"
+        >
+          Cancel Interest
+        </Button>
+      );
+    }
+    const mapped =
+      statusBadgeMap[interest.status as keyof typeof statusBadgeMap];
+    if (mapped) {
+      return <Badge variant={mapped.variant}>{mapped.label}</Badge>;
+    }
+  }
+
+  return (
+    <Button
+      onClick={(e) => {
+        e.stopPropagation();
+        onShowInterest(eventId);
+      }}
+      size="sm"
+      variant="outline"
+    >
+      Show Interest
+    </Button>
+  );
+}
+
 export const Route = createFileRoute("/_app/events/")({
   loader: ({ context }) => {
     context.zero?.run(queries.teamEvent.public());
+    context.zero?.run(queries.eventInterest.byCurrentUser());
   },
   component: PublicEventsRouteComponent,
 });
 
 function PublicEventsRouteComponent() {
   const navigate = useNavigate();
+  const { session } = Route.useRouteContext();
   const [data, result] = useQuery(queries.teamEvent.public());
+  const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const isLoading = result.type === "unknown";
+
+  const [interestEventId, setInterestEventId] = useState<string | null>(null);
+
+  const handleShowInterest = useCallback((eventId: string) => {
+    setInterestEventId(eventId);
+  }, []);
 
   const columns = useMemo<ColumnDef<PublicEventRow>[]>(
     () => [
@@ -124,8 +208,25 @@ function PublicEventsRouteComponent() {
         meta: { headerTitle: "Volunteers" },
         size: 90,
       },
+      {
+        id: "interest",
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Interest" visibility />
+        ),
+        cell: ({ row }) => (
+          <InterestCell
+            eventId={row.original.id}
+            members={row.original.members}
+            myInterests={myInterests}
+            onShowInterest={handleShowInterest}
+            userId={session.user.id}
+          />
+        ),
+        meta: { headerTitle: "Interest" },
+        size: 150,
+      },
     ],
-    [navigate]
+    [navigate, session.user.id, myInterests, handleShowInterest]
   );
 
   return (
@@ -150,6 +251,16 @@ function PublicEventsRouteComponent() {
           }}
         />
       </div>
+
+      <ShowInterestDialog
+        eventId={interestEventId ?? ""}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInterestEventId(null);
+          }
+        }}
+        open={interestEventId !== null}
+      />
     </div>
   );
 }

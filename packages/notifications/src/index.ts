@@ -16,10 +16,21 @@ export {
   notifyAdvancePaymentSubmitted,
 } from "./send/advance-payment";
 export {
+  notifyEventInterestApproved,
+  notifyEventInterestReceived,
+  notifyEventInterestRejected,
+} from "./send/event-interest";
+export {
   notifyReimbursementApproved,
   notifyReimbursementRejected,
   notifyReimbursementSubmitted,
 } from "./send/reimbursement";
+export {
+  notifyAddedToTeam,
+  notifyRemovedFromTeam,
+  notifyTeamDeleted,
+  notifyTeamUpdated,
+} from "./send/team";
 export {
   notifyAddedToEvent,
   notifyEventCancelled,

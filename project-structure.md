@@ -92,7 +92,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
-| `components/teams/events/` | events-table, event-form-dialog, event-detail-sheet, add-event-member-dialog |
+| `components/teams/events/` | events-table, event-form-dialog, event-detail, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
 | `components/login/` | login-form, forgot-password-form, reset-password-form |
@@ -181,12 +181,13 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `teamMember` | `packages/db/src/schema/team.ts` |
 | `teamEvent` | `packages/db/src/schema/team-event.ts` |
 | `teamEventMember` | `packages/db/src/schema/team-event.ts` |
+| `eventInterest` | `packages/db/src/schema/event-interest.ts` |
 
 ## Notifications
 
 - **Package**: `packages/notifications/` — Courier-based multi-channel notifications.
 - **Client**: `src/client.ts` initializes CourierClient from `COURIER_API_KEY`.
-- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, user, submission). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
+- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, user, team-event, event-interest). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
 - **Topics**: Defined in `src/topics.ts` (GENERAL, ACCOUNT, EVENTS). User preferences managed via `src/preferences.ts`.
 - **WhatsApp**: Optional integration in `src/whatsapp.ts`; requires `WHATSAPP_API_URL` env var to be set.
 - **JWT**: `src/jwt.ts` generates Courier JWTs for client-side inbox.

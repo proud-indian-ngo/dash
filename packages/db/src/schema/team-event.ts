@@ -11,6 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { eventInterest } from "./event-interest";
 import { team } from "./team";
 import { whatsappGroup } from "./whatsapp-group";
 
@@ -98,6 +99,7 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
   }),
   occurrences: many(teamEvent, { relationName: "parentChild" }),
   members: many(teamEventMember),
+  interests: many(eventInterest),
   creator: one(user, {
     fields: [teamEvent.createdBy],
     references: [user.id],

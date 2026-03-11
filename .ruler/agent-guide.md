@@ -33,6 +33,7 @@
 - DO NOT: Invent commands or scripts not in repo manifests.
 - DO NOT: Perform broad refactors during focused tasks.
 - DO NOT: Add backwards-compatibility shims (re-exports, type aliases, renamed `_vars`, `// removed` comments). This is a new app with no external consumers — delete old code outright.
+- DO NOT: Use `Date.now()` in notification idempotency keys — it defeats deduplication. Pass a deterministic timestamp from the mutator instead.
 - INSTEAD: For router tree changes, edit route source files and regenerate through app workflow.
 - INSTEAD: For Zero schema changes, edit Drizzle schema then run `bun run zero:generate`.
 - INSTEAD: For DB schema changes, run `bun run db:generate` then required migrate/push step.

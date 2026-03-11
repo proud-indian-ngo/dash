@@ -2,6 +2,7 @@ import { defineMutators } from "@rocicorp/zero";
 import { advancePaymentMutators } from "./mutators/advance-payment";
 import { appConfigMutators } from "./mutators/app-config";
 import { bankAccountMutators } from "./mutators/bank-account";
+import { eventInterestMutators } from "./mutators/event-interest";
 import { expenseCategoryMutators } from "./mutators/expense-category";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { teamMutators } from "./mutators/team";
@@ -14,6 +15,7 @@ export const mutators = defineMutators({
   reimbursement: reimbursementMutators,
   advancePayment: advancePaymentMutators,
   appConfig: appConfigMutators,
+  eventInterest: eventInterestMutators,
   team: teamMutators,
   teamEvent: teamEventMutators,
   whatsappGroup: whatsappGroupMutators,

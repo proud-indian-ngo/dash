@@ -39,6 +39,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Advance payments | Request, review, approve/reject advance payment requests with line items |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
+| Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
 | File attachments | Upload files to Cloudflare R2; attach URLs to reimbursements |
 | Bank accounts | Users manage bank accounts for reimbursement payouts |
 | Expense categories | Admin-managed categories for reimbursement line items |

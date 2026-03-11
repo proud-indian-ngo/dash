@@ -133,6 +133,15 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
 
   const [events] = useQuery(queries.teamEvent.byTeam({ teamId: team.id }));
 
+  const pendingInterestCount = canManage
+    ? events.reduce(
+        (acc, e) =>
+          acc +
+          (e.interests?.filter((i) => i.status === "pending").length ?? 0),
+        0
+      )
+    : 0;
+
   const handleDeleteTeam = useCallback(async () => {
     setIsDeletingTeam(true);
     const res = await zero.mutate(mutators.team.delete({ id: team.id })).server;
@@ -311,6 +320,12 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
             strokeWidth={2}
           />
           Events
+          {pendingInterestCount > 0 ? (
+            <Badge className="ml-2" variant="outline">
+              {pendingInterestCount} pending interest
+              {pendingInterestCount !== 1 ? "s" : ""}
+            </Badge>
+          ) : null}
         </h2>
 
         <EventsTable

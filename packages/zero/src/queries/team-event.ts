@@ -5,7 +5,8 @@ import { zql } from "../schema";
 function withRelated(q: typeof zql.teamEvent) {
   return q
     .related("members", (m) => m.related("user"))
-    .related("whatsappGroup");
+    .related("whatsappGroup")
+    .related("interests", (i) => i.related("user"));
 }
 
 export const teamEventQueries = {

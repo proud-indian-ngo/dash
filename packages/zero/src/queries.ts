@@ -2,6 +2,7 @@ import { defineQueries } from "@rocicorp/zero";
 import { advancePaymentQueries } from "./queries/advance-payment";
 import { appConfigQueries } from "./queries/app-config";
 import { bankAccountQueries } from "./queries/bank-account";
+import { eventInterestQueries } from "./queries/event-interest";
 import { expenseCategoryQueries } from "./queries/expense-category";
 import { reimbursementQueries } from "./queries/reimbursement";
 import { teamQueries } from "./queries/team";
@@ -16,6 +17,7 @@ export const queries = defineQueries({
   reimbursement: reimbursementQueries,
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,
+  eventInterest: eventInterestQueries,
   team: teamQueries,
   teamEvent: teamEventQueries,
   whatsappGroup: whatsappGroupQueries,
