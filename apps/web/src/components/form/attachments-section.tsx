@@ -50,7 +50,11 @@ const uploadSingleFile = async (
   getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
 ): Promise<Attachment> => {
   const { presignedUrl, key } = await getUploadUrl({
-    data: { fileName: file.name, mimeType: file.type as AllowedMimeType },
+    data: {
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type as AllowedMimeType,
+    },
   });
 
   const response = await fetch(presignedUrl, {

@@ -7,6 +7,7 @@ import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const dbProvider = zeroDrizzle(schema, db);
 
@@ -24,6 +25,11 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const { session, error } = await requireSession(request);
         if (error) {
           return error;
+        }
+
+        const rl = checkRateLimit(`mutate:${session.user.id}`, 100);
+        if (!rl.allowed) {
+          return rateLimitResponse(rl);
         }
 
         const { role, userId } = buildSessionContext(session);

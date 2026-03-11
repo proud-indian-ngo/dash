@@ -4,6 +4,7 @@ import { mustGetQuery } from "@rocicorp/zero";
 import { handleQueryRequest } from "@rocicorp/zero/server";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const Route = createFileRoute("/api/zero/query")({
   server: {
@@ -12,6 +13,11 @@ export const Route = createFileRoute("/api/zero/query")({
         const { session, error } = await requireSession(request);
         if (error) {
           return error;
+        }
+
+        const rl = checkRateLimit(`query:${session.user.id}`, 200);
+        if (!rl.allowed) {
+          return rateLimitResponse(rl);
         }
 
         const ctx = buildSessionContext(session);
