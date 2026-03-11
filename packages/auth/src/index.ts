@@ -31,6 +31,10 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [env.CORS_ORIGIN],
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh daily
+  },
   rateLimit: {
     window: 60,
     max: 100,
@@ -106,12 +110,12 @@ export const auth = betterAuth({
       },
     }),
   ],
-  advanced: env.COOKIE_DOMAIN
-    ? {
-        crossSubDomainCookies: {
-          enabled: true,
-          domain: env.COOKIE_DOMAIN,
-        },
-      }
-    : undefined,
+  advanced: {
+    ...(env.COOKIE_DOMAIN && {
+      crossSubDomainCookies: {
+        enabled: true,
+        domain: env.COOKIE_DOMAIN,
+      },
+    }),
+  },
 });
