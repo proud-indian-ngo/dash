@@ -18,6 +18,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
@@ -78,6 +79,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppExportRoute = AppExportRouteImport.update({
+  id: '/export',
+  path: '/export',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTeamsRouteRoute = AppTeamsRouteRouteImport.update({
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
+  '/export': typeof AppExportRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -200,6 +207,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/export': typeof AppExportRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/_app/events': typeof AppEventsRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
+  '/_app/export': typeof AppExportRoute
   '/_app/users': typeof AppUsersRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/reimbursements'
     | '/teams'
+    | '/export'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/export'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/_app/events'
     | '/_app/reimbursements'
     | '/_app/teams'
+    | '/_app/export'
     | '/_app/users'
     | '/_auth/forgot-password'
     | '/_auth/login'
@@ -406,6 +418,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/export': {
+      id: '/_app/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof AppExportRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/teams': {
@@ -606,6 +625,7 @@ interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
+  AppExportRoute: typeof AppExportRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -615,6 +635,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
+  AppExportRoute: AppExportRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
 }

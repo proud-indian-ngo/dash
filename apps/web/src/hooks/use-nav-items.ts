@@ -1,5 +1,6 @@
 import {
   Calendar03Icon,
+  FileExportIcon,
   HomeIcon,
   Invoice01Icon,
   MoneySendSquareIcon,
@@ -19,6 +20,12 @@ const usersNavItem: NavItem = {
   title: "Users",
   url: "/users",
   icon: UserIcon,
+};
+
+const exportNavItem: NavItem = {
+  title: "Export",
+  url: "/export",
+  icon: FileExportIcon,
 };
 
 const reimbursementsNavItem: NavItem = {
@@ -62,6 +69,7 @@ export const useNavItems = () => {
 
   if (session.user.role === "admin") {
     items.push(usersNavItem);
+    items.push(exportNavItem);
   }
 
   return items;
