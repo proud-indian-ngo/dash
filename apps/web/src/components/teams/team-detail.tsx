@@ -1,4 +1,5 @@
 import {
+  Calendar03Icon,
   Delete02Icon,
   Edit02Icon,
   PlusSignIcon,
@@ -6,33 +7,29 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
+import { queries } from "@pi-dash/zero/queries";
 import type {
   Team,
   TeamMember,
   User,
   WhatsappGroup,
 } from "@pi-dash/zero/schema";
-import { useZero } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
+import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
+import type { EventRow } from "@/components/teams/events/events-table";
+import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
+import { isTeamLead } from "@/lib/team-utils";
 
 export type TeamDetailData = Team & {
   members: ReadonlyArray<TeamMember & { user: User | undefined }>;
@@ -43,13 +40,6 @@ interface TeamDetailProps {
   isAdmin: boolean;
   team: TeamDetailData;
   userId: string;
-}
-
-function isTeamLead(
-  members: TeamDetailData["members"],
-  userId: string
-): boolean {
-  return members.some((m) => m.userId === userId && m.role === "lead");
 }
 
 function MemberRow({
@@ -136,16 +126,22 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
   const [isDeletingTeam, setIsDeletingTeam] = useState(false);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
 
+  const [createEventOpen, setCreateEventOpen] = useState(false);
+  const [editEventData, setEditEventData] = useState<EventRow | null>(null);
+  const [cancelEventData, setCancelEventData] = useState<EventRow | null>(null);
+  const [isCancellingEvent, setIsCancellingEvent] = useState(false);
+
+  const [events] = useQuery(queries.teamEvent.byTeam({ teamId: team.id }));
+
   const handleDeleteTeam = useCallback(async () => {
     setIsDeletingTeam(true);
-    try {
-      await zero.mutate(mutators.team.delete({ id: team.id }));
+    const res = await zero.mutate(mutators.team.delete({ id: team.id })).server;
+    if (res.type === "error") {
+      setIsDeletingTeam(false);
+      toast.error("Failed to delete team");
+    } else {
       toast.success("Team deleted");
       navigate({ to: "/teams" });
-    } catch {
-      toast.error("Failed to delete team");
-    } finally {
-      setIsDeletingTeam(false);
     }
   }, [zero, team.id, navigate]);
 
@@ -154,38 +150,63 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       return;
     }
     setIsRemovingMember(true);
-    try {
-      await zero.mutate(
-        mutators.team.removeMember({
-          teamId: team.id,
-          memberId: removeMemberId,
-        })
-      );
+    const res = await zero.mutate(
+      mutators.team.removeMember({
+        teamId: team.id,
+        memberId: removeMemberId,
+      })
+    ).server;
+    setIsRemovingMember(false);
+    if (res.type === "error") {
+      toast.error(res.error.message || "Failed to remove member");
+    } else {
       toast.success("Member removed");
       setRemoveMemberId(null);
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to remove member";
-      toast.error(msg);
-    } finally {
-      setIsRemovingMember(false);
     }
   }, [zero, team.id, removeMemberId]);
 
   const handleToggleRole = useCallback(
     async (memberId: string, currentRole: string) => {
       const newRole = currentRole === "lead" ? "member" : "lead";
-      try {
-        await zero.mutate(
-          mutators.team.setMemberRole({ memberId, role: newRole })
-        );
-        toast.success(`Role updated to ${newRole}`);
-      } catch {
+      const res = await zero.mutate(
+        mutators.team.setMemberRole({ memberId, role: newRole })
+      ).server;
+      if (res.type === "error") {
         toast.error("Failed to update role");
+      } else {
+        toast.success(`Role updated to ${newRole}`);
       }
     },
     [zero]
   );
+
+  const handleConfirmCancelEvent = useCallback(async () => {
+    if (!cancelEventData) {
+      return;
+    }
+    setIsCancellingEvent(true);
+    const res = await zero.mutate(
+      mutators.teamEvent.cancel({ id: cancelEventData.id })
+    ).server;
+    setIsCancellingEvent(false);
+    if (res.type === "error") {
+      toast.error("Failed to cancel event");
+    } else {
+      toast.success("Event cancelled");
+      setCancelEventData(null);
+    }
+  }, [zero, cancelEventData]);
+
+  const handleSelectEvent = useCallback(
+    (event: EventRow) => {
+      navigate({ to: "/events/$id", params: { id: event.id } });
+    },
+    [navigate]
+  );
+
+  const handleEditEvent = useCallback((event: EventRow) => {
+    setEditEventData(event);
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
@@ -279,7 +300,45 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         )}
       </div>
 
-      {/* Edit Dialog */}
+      <Separator />
+
+      {/* Events */}
+      <div className="flex flex-col gap-3">
+        <h2 className="font-medium text-sm">
+          <HugeiconsIcon
+            className="mr-1 inline size-4"
+            icon={Calendar03Icon}
+            strokeWidth={2}
+          />
+          Events
+        </h2>
+
+        <EventsTable
+          canManage={canManage}
+          events={(events as EventRow[]) ?? []}
+          onCancelEvent={setCancelEventData}
+          onEditEvent={handleEditEvent}
+          onSelectEvent={handleSelectEvent}
+          toolbarActions={
+            canManage ? (
+              <Button
+                onClick={() => setCreateEventOpen(true)}
+                size="sm"
+                type="button"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={PlusSignIcon}
+                  strokeWidth={2}
+                />
+                Create Event
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
+
+      {/* Edit Team Dialog */}
       {isAdmin ? (
         <TeamFormDialog
           initialValues={{
@@ -304,79 +363,85 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         />
       ) : null}
 
+      {/* Create Event Dialog */}
+      <EventFormDialog
+        onOpenChange={setCreateEventOpen}
+        open={createEventOpen}
+        teamId={team.id}
+      />
+
+      {/* Edit Event Dialog */}
+      {editEventData ? (
+        <EventFormDialog
+          initialValues={{
+            id: editEventData.id,
+            name: editEventData.name,
+            description: editEventData.description,
+            endTime: editEventData.endTime,
+            isPublic: editEventData.isPublic ?? false,
+            location: editEventData.location,
+            parentEventId: editEventData.parentEventId,
+            recurrenceRule: editEventData.recurrenceRule as {
+              frequency: "weekly" | "biweekly" | "monthly";
+              endDate?: string;
+            } | null,
+            startTime: editEventData.startTime,
+            whatsappGroupId: editEventData.whatsappGroupId,
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditEventData(null);
+            }
+          }}
+          open
+          teamId={team.id}
+        />
+      ) : null}
+
       {/* Delete Team Confirmation */}
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTeamOpen(false);
-          }
-        }}
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description={`This will permanently delete "${team.name}" and remove all members. This action cannot be undone.`}
+        loading={isDeletingTeam}
+        loadingLabel="Deleting..."
+        onConfirm={handleDeleteTeam}
+        onOpenChange={setDeleteTeamOpen}
         open={deleteTeamOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete team</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete "{team.name}" and remove all members.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={isDeletingTeam}
-              size="default"
-              variant="outline"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isDeletingTeam}
-              onClick={handleDeleteTeam}
-              variant="destructive"
-            >
-              {isDeletingTeam ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete team"
+      />
 
       {/* Remove Member Confirmation */}
-      <AlertDialog
+      <ConfirmDialog
+        confirmLabel="Remove"
+        description={`Are you sure you want to remove this member from the team?${team.whatsappGroup ? " They will also be removed from the linked WhatsApp group." : ""}`}
+        loading={isRemovingMember}
+        loadingLabel="Removing..."
+        onConfirm={handleRemoveMember}
         onOpenChange={(open) => {
           if (!open) {
             setRemoveMemberId(null);
           }
         }}
         open={removeMemberId !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove this member from the team?
-              {team.whatsappGroup
-                ? " They will also be removed from the linked WhatsApp group."
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={isRemovingMember}
-              size="default"
-              variant="outline"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isRemovingMember}
-              onClick={handleRemoveMember}
-              variant="destructive"
-            >
-              {isRemovingMember ? "Removing..." : "Remove"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Remove member"
+      />
+
+      {/* Cancel Event Confirmation */}
+      <ConfirmDialog
+        cancelLabel="Keep Event"
+        confirmLabel="Cancel Event"
+        description={`Are you sure you want to cancel "${cancelEventData?.name}"? This action cannot be undone and all members will be notified.`}
+        loading={isCancellingEvent}
+        loadingLabel="Cancelling..."
+        onConfirm={handleConfirmCancelEvent}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancelEventData(null);
+          }
+        }}
+        open={cancelEventData !== null}
+        title="Cancel event"
+      />
     </div>
   );
 }

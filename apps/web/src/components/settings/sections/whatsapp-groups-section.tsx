@@ -4,16 +4,6 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
@@ -37,6 +27,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 const ORIENTATION_GROUP_ID = "orientation_group_id";
 const ALL_VOLUNTEERS_GROUP_ID = "all_volunteers_group_id";
@@ -110,8 +101,15 @@ function GroupAssignments({ groups }: { groups: readonly WhatsappGroup[] }) {
   );
 
   const handleChange = (key: string, value: string) => {
-    zero.mutate(mutators.appConfig.upsert({ key, value }));
-    toast.success("Assignment updated");
+    zero
+      .mutate(mutators.appConfig.upsert({ key, value }))
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to update assignment");
+        } else {
+          toast.success("Assignment updated");
+        }
+      });
   };
 
   return (
@@ -186,19 +184,19 @@ export function WhatsAppGroupsSection() {
   const groupList = groups ?? [];
 
   const handleCreate = async (values: GroupFormValues) => {
-    try {
-      await zero.mutate(
-        mutators.whatsappGroup.create({
-          id: uuidv7(),
-          name: values.name,
-          jid: values.jid,
-          description: values.description,
-        })
-      );
+    const res = await zero.mutate(
+      mutators.whatsappGroup.create({
+        id: uuidv7(),
+        name: values.name,
+        jid: values.jid,
+        description: values.description,
+      })
+    ).server;
+    if (res.type === "error") {
+      toast.error("Failed to create group");
+    } else {
       toast.success("Group created");
       setInlineMode(null);
-    } catch {
-      toast.error("Failed to create group");
     }
   };
 
@@ -206,19 +204,19 @@ export function WhatsAppGroupsSection() {
     if (inlineMode?.kind !== "edit") {
       return;
     }
-    try {
-      await zero.mutate(
-        mutators.whatsappGroup.update({
-          id: inlineMode.group.id,
-          name: values.name,
-          jid: values.jid,
-          description: values.description,
-        })
-      );
+    const res = await zero.mutate(
+      mutators.whatsappGroup.update({
+        id: inlineMode.group.id,
+        name: values.name,
+        jid: values.jid,
+        description: values.description,
+      })
+    ).server;
+    if (res.type === "error") {
+      toast.error("Failed to update group");
+    } else {
       toast.success("Group updated");
       setInlineMode(null);
-    } catch {
-      toast.error("Failed to update group");
     }
   };
 
@@ -226,14 +224,14 @@ export function WhatsAppGroupsSection() {
     if (rowAction?.kind !== "delete") {
       return;
     }
-    try {
-      await zero.mutate(
-        mutators.whatsappGroup.delete({ id: rowAction.group.id })
-      );
+    const res = await zero.mutate(
+      mutators.whatsappGroup.delete({ id: rowAction.group.id })
+    ).server;
+    if (res.type === "error") {
+      toast.error("Failed to delete group");
+    } else {
       toast.success("Group deleted");
       setRowAction(null);
-    } catch {
-      toast.error("Failed to delete group");
     }
   };
 
@@ -352,29 +350,22 @@ export function WhatsAppGroupsSection() {
         </>
       ) : null}
 
-      <AlertDialog
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description={
+          rowAction?.kind === "delete"
+            ? `"${rowAction.group.name}" will be permanently deleted. This cannot be undone.`
+            : ""
+        }
+        onConfirm={handleDelete}
         onOpenChange={(open) => {
           if (!open) {
             setRowAction(null);
           }
         }}
         open={rowAction?.kind === "delete"}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete group?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {rowAction?.kind === "delete"
-                ? `"${rowAction.group.name}" will be permanently deleted. This cannot be undone.`
-                : null}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete group?"
+      />
     </div>
   );
 }

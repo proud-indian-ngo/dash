@@ -1,0 +1,1 @@
+ALTER TABLE "team_event" ADD COLUMN "copy_all_members" boolean DEFAULT false NOT NULL;

@@ -1,4 +1,5 @@
 import {
+  Calendar03Icon,
   HomeIcon,
   Invoice01Icon,
   MoneySendSquareIcon,
@@ -38,6 +39,12 @@ const teamsNavItem: NavItem = {
   icon: UserGroupIcon,
 };
 
+const eventsNavItem: NavItem = {
+  title: "Events",
+  url: "/events",
+  icon: Calendar03Icon,
+};
+
 export const useNavItems = () => {
   const { data: session } = authClient.useSession();
 
@@ -50,6 +57,7 @@ export const useNavItems = () => {
     reimbursementsNavItem,
     advancePaymentsNavItem,
     teamsNavItem,
+    eventsNavItem,
   ];
 
   if (session.user.role === "admin") {

@@ -33,6 +33,7 @@
     "@trycourier/courier-ui-inbox": "^2.3.0",
     "better-auth": "catalog:",
     "date-fns": "catalog:",
+    "drizzle-orm": "catalog:",
     "lodash": "catalog:",
     "nuqs": "^2.8.9",
     "react": "catalog:",

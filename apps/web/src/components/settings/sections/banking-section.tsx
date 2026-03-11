@@ -33,19 +33,19 @@ export function BankingSection() {
       ifscCode: "",
     } satisfies BankAccountFormValues,
     onSubmit: async ({ value }) => {
-      try {
-        await zero.mutate(
-          mutators.bankAccount.create({
-            id: uuidv7(),
-            accountName: value.accountName,
-            accountNumber: value.accountNumber,
-            ifscCode: value.ifscCode,
-          })
-        );
+      const res = await zero.mutate(
+        mutators.bankAccount.create({
+          id: uuidv7(),
+          accountName: value.accountName,
+          accountNumber: value.accountNumber,
+          ifscCode: value.ifscCode,
+        })
+      ).server;
+      if (res.type === "error") {
+        toast.error("Failed to add bank account");
+      } else {
         form.reset();
         toast.success("Bank account added");
-      } catch {
-        toast.error("Failed to add bank account");
       }
     },
     validators: {
@@ -97,11 +97,10 @@ export function BankingSection() {
                   {account.isDefault ? null : (
                     <Button
                       onClick={async () => {
-                        try {
-                          await zero.mutate(
-                            mutators.bankAccount.setDefault({ id: account.id })
-                          );
-                        } catch {
+                        const res = await zero.mutate(
+                          mutators.bankAccount.setDefault({ id: account.id })
+                        ).server;
+                        if (res.type === "error") {
                           toast.error("Failed to set default bank account");
                         }
                       }}
@@ -115,11 +114,10 @@ export function BankingSection() {
                   <Button
                     aria-label="Delete account"
                     onClick={async () => {
-                      try {
-                        await zero.mutate(
-                          mutators.bankAccount.delete({ id: account.id })
-                        );
-                      } catch {
+                      const res = await zero.mutate(
+                        mutators.bankAccount.delete({ id: account.id })
+                      ).server;
+                      if (res.type === "error") {
                         toast.error("Failed to delete bank account");
                       }
                     }}

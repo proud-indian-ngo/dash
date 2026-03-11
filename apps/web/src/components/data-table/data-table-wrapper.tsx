@@ -32,14 +32,17 @@ import {
 import type {
   ColumnDef,
   ColumnPinningState,
+  ExpandedState,
   FilterFn,
   PaginationState,
+  Row,
   SortingState,
   Updater,
   VisibilityState,
 } from "@tanstack/react-table";
 import {
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -47,7 +50,7 @@ import {
 } from "@tanstack/react-table";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
 
@@ -59,6 +62,7 @@ export interface DataTableWrapperProps<TData extends object> {
   defaultPageSize?: number;
   emptyMessage?: string;
   enableRowSelection?: boolean;
+  getRowCanExpand?: (row: Row<TData>) => boolean;
   getRowId: (row: TData) => string;
   isLoading?: boolean;
   onFilteredDataChange?: (filteredData: TData[]) => void;
@@ -92,6 +96,7 @@ export function DataTableWrapper<TData extends object>({
   defaultPageSize = 10,
   enableRowSelection = false,
   emptyMessage = "No results found.",
+  getRowCanExpand,
   getRowId,
   isLoading,
   onFilteredDataChange,
@@ -156,6 +161,8 @@ export function DataTableWrapper<TData extends object>({
     parseAsString.withDefault("")
   );
 
+  const [expanded, setExpanded] = useState<ExpandedState>({});
+
   const resetPage = useCallback(() => {
     setPagination((current) => ({
       ...current,
@@ -206,6 +213,7 @@ export function DataTableWrapper<TData extends object>({
       columnPinning,
       columnSizing,
       columnVisibility,
+      expanded,
       globalFilter: searchQuery,
       pagination,
       rowSelection,
@@ -216,12 +224,15 @@ export function DataTableWrapper<TData extends object>({
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnPinningChange: setColumnPinning,
+    onExpandedChange: setExpanded,
     onPaginationChange,
     onRowSelectionChange: setRowSelection,
     onSortingChange,
     onGlobalFilterChange,
     enableRowSelection,
+    ...(getRowCanExpand && { getRowCanExpand }),
     getCoreRowModel: getCoreRowModel(),
+    ...(getRowCanExpand && { getExpandedRowModel: getExpandedRowModel() }),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),

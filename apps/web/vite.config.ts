@@ -13,7 +13,17 @@ export default defineConfig({
     tsconfigPaths(),
     tailwindcss(),
     tanstackStart(),
-    nitro({ preset: "bun" }),
+    nitro({
+      preset: "bun",
+      experimental: {
+        tasks: true,
+        vite: {},
+      },
+      scheduledTasks: {
+        // Every day at midnight UTC
+        "0 0 * * *": ["create-recurring-events"],
+      },
+    }),
     viteReact({
       babel: {
         plugins: ["babel-plugin-react-compiler"],

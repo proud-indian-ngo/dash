@@ -73,7 +73,7 @@ export function AdvancePaymentForm({
       lineItems: initialValues?.lineItems ?? [newLineItem()],
       attachments: initialValues?.attachments ?? [],
     } as AdvancePaymentFormValues,
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const id = existingId ?? uuidv7();
       const lineItems = value.lineItems.map((item, index) => ({
         ...item,
@@ -89,9 +89,8 @@ export function AdvancePaymentForm({
       const bankAccountIfscCode =
         selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "";
 
-      try {
-        if (existingId) {
-          zero.mutate(
+      const mutation = existingId
+        ? zero.mutate(
             mutators.advancePayment.update({
               id: existingId,
               title: value.title,
@@ -102,9 +101,8 @@ export function AdvancePaymentForm({
               lineItems,
               attachments,
             })
-          );
-        } else {
-          zero.mutate(
+          )
+        : zero.mutate(
             mutators.advancePayment.create({
               id,
               title: value.title,
@@ -116,13 +114,12 @@ export function AdvancePaymentForm({
               attachments,
             })
           );
-        }
-
+      const res = await mutation.server;
+      if (res.type === "error") {
+        toast.error("Failed to submit advance payment");
+      } else {
         toast.success("Advance payment submitted");
         onSaved(id);
-      } catch (error) {
-        toast.error("Failed to submit advance payment");
-        console.error("Advance payment submit error:", error);
       }
     },
     validators: {

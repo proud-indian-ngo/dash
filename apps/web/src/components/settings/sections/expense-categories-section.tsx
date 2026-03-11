@@ -4,16 +4,6 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -29,6 +19,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -88,39 +79,60 @@ export function ExpenseCategoriesSection() {
   const categoryList = categories ?? [];
 
   const handleCreate = (values: CategoryFormValues) => {
-    zero.mutate(
-      mutators.expenseCategory.create({
-        id: uuidv7(),
-        name: values.name,
-        description: values.description,
-      })
-    );
-    toast.success("Category created");
-    setInlineMode(null);
+    zero
+      .mutate(
+        mutators.expenseCategory.create({
+          id: uuidv7(),
+          name: values.name,
+          description: values.description,
+        })
+      )
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to create category");
+        } else {
+          toast.success("Category created");
+          setInlineMode(null);
+        }
+      });
   };
 
   const handleUpdate = (values: CategoryFormValues) => {
     if (inlineMode?.kind !== "edit") {
       return;
     }
-    zero.mutate(
-      mutators.expenseCategory.update({
-        id: inlineMode.category.id,
-        name: values.name,
-        description: values.description,
-      })
-    );
-    toast.success("Category updated");
-    setInlineMode(null);
+    zero
+      .mutate(
+        mutators.expenseCategory.update({
+          id: inlineMode.category.id,
+          name: values.name,
+          description: values.description,
+        })
+      )
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to update category");
+        } else {
+          toast.success("Category updated");
+          setInlineMode(null);
+        }
+      });
   };
 
   const handleDelete = () => {
     if (rowAction?.kind !== "delete") {
       return;
     }
-    zero.mutate(mutators.expenseCategory.delete({ id: rowAction.category.id }));
-    toast.success("Category deleted");
-    setRowAction(null);
+    zero
+      .mutate(mutators.expenseCategory.delete({ id: rowAction.category.id }))
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to delete category");
+        } else {
+          toast.success("Category deleted");
+          setRowAction(null);
+        }
+      });
   };
 
   return (
@@ -227,29 +239,22 @@ export function ExpenseCategoriesSection() {
         </>
       ) : null}
 
-      <AlertDialog
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description={
+          rowAction?.kind === "delete"
+            ? `"${rowAction.category.name}" will be permanently deleted. This cannot be undone.`
+            : ""
+        }
+        onConfirm={handleDelete}
         onOpenChange={(open) => {
           if (!open) {
             setRowAction(null);
           }
         }}
         open={rowAction?.kind === "delete"}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete category?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {rowAction?.kind === "delete"
-                ? `"${rowAction.category.name}" will be permanently deleted. This cannot be undone.`
-                : null}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete category?"
+      />
     </div>
   );
 }

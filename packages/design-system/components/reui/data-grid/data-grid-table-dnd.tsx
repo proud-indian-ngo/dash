@@ -115,6 +115,9 @@ function DataGridTableDndHeader<TData>({
 
 function DataGridTableDndCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
   const isPinned = cell.column.getIsPinned()
+  const canOrder =
+    (cell.column.columnDef as { enableColumnOrdering?: boolean })
+      .enableColumnOrdering !== false
   const { isDragging, setNodeRef, transform, transition } = useSortable({
     id: cell.column.id,
   })
@@ -126,6 +129,9 @@ function DataGridTableDndCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
     transition,
     width: cell.column.getSize(),
     ...(!isPinned && { zIndex: isDragging ? 1 : 0 }),
+    // Align cell content with header text (past the drag handle).
+    // Base cell padding is 12px (px-3); drag handle adds 18px offset.
+    ...(canOrder && { paddingInlineStart: 30 }),
   }
 
   return (

@@ -90,19 +90,16 @@ export function TeamFormDialog({
       }
 
       setSubmitting(true);
-      try {
-        if (isEdit) {
-          await zero.mutate(
+      const mutation = isEdit
+        ? zero.mutate(
             mutators.team.update({
               id: initialValues.id,
               name: trimmedName,
               description: description.trim() || undefined,
               whatsappGroupId: whatsappGroupId || undefined,
             })
-          );
-          toast.success("Team updated");
-        } else {
-          await zero.mutate(
+          )
+        : zero.mutate(
             mutators.team.create({
               id: crypto.randomUUID(),
               name: trimmedName,
@@ -111,18 +108,20 @@ export function TeamFormDialog({
               createWhatsAppGroup: createWaGroup || undefined,
             })
           );
-          toast.success(
-            createWaGroup
-              ? "Team created. WhatsApp group will be created shortly."
-              : "Team created"
-          );
-        }
-        onOpenChange(false);
-      } catch {
+      const res = await mutation.server;
+      setSubmitting(false);
+      if (res.type === "error") {
         toast.error(isEdit ? "Failed to update team" : "Failed to create team");
-      } finally {
-        setSubmitting(false);
+        return;
       }
+      let successMsg = "Team created";
+      if (isEdit) {
+        successMsg = "Team updated";
+      } else if (createWaGroup) {
+        successMsg = "Team created. WhatsApp group will be created shortly.";
+      }
+      toast.success(successMsg);
+      onOpenChange(false);
     },
     [
       name,

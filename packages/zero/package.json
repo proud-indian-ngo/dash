@@ -6,7 +6,8 @@
     "./schema": "./src/schema.ts",
     "./queries": "./src/queries.ts",
     "./mutators": "./src/mutators.ts",
-    "./validation": "./src/validation.ts"
+    "./validation": "./src/validation.ts",
+    "./lib/recurrence": "./src/lib/recurrence.ts"
   },
   "scripts": {
     "dev": "bun run --env-file=../../.env zero-cache-dev",

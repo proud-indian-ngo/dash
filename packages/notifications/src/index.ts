@@ -21,6 +21,13 @@ export {
   notifyReimbursementSubmitted,
 } from "./send/reimbursement";
 export {
+  notifyAddedToEvent,
+  notifyEventCancelled,
+  notifyEventCreated,
+  notifyEventUpdated,
+  notifyRemovedFromEvent,
+} from "./send/team-event";
+export {
   notifyRoleChanged,
   notifyUserBanned,
   notifyUserUnbanned,

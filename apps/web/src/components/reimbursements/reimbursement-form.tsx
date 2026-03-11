@@ -74,7 +74,7 @@ export function ReimbursementForm({
       lineItems: initialValues?.lineItems ?? [newLineItem()],
       attachments: initialValues?.attachments ?? [],
     } as ReimbursementFormValues,
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const id = existingId ?? uuidv7();
       const lineItems = value.lineItems.map((item, index) => ({
         ...item,
@@ -90,9 +90,8 @@ export function ReimbursementForm({
       const bankAccountIfscCode =
         selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "";
 
-      try {
-        if (existingId) {
-          zero.mutate(
+      const mutation = existingId
+        ? zero.mutate(
             mutators.reimbursement.update({
               id: existingId,
               title: value.title,
@@ -104,9 +103,8 @@ export function ReimbursementForm({
               lineItems,
               attachments,
             })
-          );
-        } else {
-          zero.mutate(
+          )
+        : zero.mutate(
             mutators.reimbursement.create({
               id,
               title: value.title,
@@ -119,13 +117,12 @@ export function ReimbursementForm({
               attachments,
             })
           );
-        }
-
+      const res = await mutation.server;
+      if (res.type === "error") {
+        toast.error("Failed to submit reimbursement");
+      } else {
         toast.success("Reimbursement submitted");
         onSaved(id);
-      } catch (error) {
-        toast.error("Failed to submit reimbursement");
-        console.error("Reimbursement submit error:", error);
       }
     },
     validators: {

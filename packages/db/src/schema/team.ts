@@ -9,6 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { teamEvent } from "./team-event";
 import { whatsappGroup } from "./whatsapp-group";
 
 const teamMemberRoleValues = ["member", "lead"] as const;
@@ -62,6 +63,7 @@ export const teamRelations = relations(team, ({ one, many }) => ({
     references: [whatsappGroup.id],
   }),
   members: many(teamMember),
+  events: many(teamEvent),
 }));
 
 export const teamMemberRelations = relations(teamMember, ({ one }) => ({

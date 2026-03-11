@@ -86,29 +86,29 @@ export function ReimbursementDetail({
     0
   );
 
-  const handleApprove = async () => {
-    try {
-      await zero.mutate(
-        mutators.reimbursement.approve({ id: reimbursement.id })
-      );
-      toast.success("Reimbursement approved");
-    } catch (err) {
-      console.error("Failed to approve reimbursement", err);
-      toast.error("Failed to approve reimbursement");
-    }
+  const handleApprove = () => {
+    zero
+      .mutate(mutators.reimbursement.approve({ id: reimbursement.id }))
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to approve reimbursement");
+        } else {
+          toast.success("Reimbursement approved");
+        }
+      });
   };
 
-  const handleReject = async (reason: string) => {
-    try {
-      await zero.mutate(
-        mutators.reimbursement.reject({ id: reimbursement.id, reason })
-      );
-      toast.success("Reimbursement rejected");
-      setRejectOpen(false);
-    } catch (err) {
-      console.error("Failed to reject reimbursement", err);
-      toast.error("Failed to reject reimbursement");
-    }
+  const handleReject = (reason: string) => {
+    zero
+      .mutate(mutators.reimbursement.reject({ id: reimbursement.id, reason }))
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to reject reimbursement");
+        } else {
+          toast.success("Reimbursement rejected");
+          setRejectOpen(false);
+        }
+      });
   };
 
   return (

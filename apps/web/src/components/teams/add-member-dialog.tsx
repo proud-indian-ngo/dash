@@ -1,37 +1,27 @@
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Combobox,
-  ComboboxChip,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-  useComboboxAnchor,
-} from "@pi-dash/design-system/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@pi-dash/design-system/components/ui/select";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { TeamMember } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useCallback, useMemo, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { UserAvatar } from "@/components/shared/user-avatar";
+import z from "zod";
+import { CustomField } from "@/components/form/custom-field";
+import { FormActions } from "@/components/form/form-actions";
+import { FormLayout } from "@/components/form/form-layout";
+import { SelectField } from "@/components/form/select-field";
+import { UserPicker } from "@/components/shared/user-picker";
+
+const addTeamMemberSchema = z.object({
+  userIds: z.array(z.string()).min(1, "Select at least one member"),
+  role: z.enum(["member", "lead"]),
+});
 
 interface AddMemberDialogProps {
   existingMembers: readonly TeamMember[];
@@ -50,74 +40,63 @@ export function AddMemberDialog({
 }: AddMemberDialogProps) {
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all());
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [role, setRole] = useState<"member" | "lead">("member");
-  const [submitting, setSubmitting] = useState(false);
-  const anchorRef = useComboboxAnchor();
+  const prevOpenRef = useRef(false);
 
   const existingUserIds = useMemo(
     () => new Set(existingMembers.map((m) => m.userId)),
     [existingMembers]
   );
 
-  const availableUsers = useMemo(
-    () => (allUsers ?? []).filter((u) => !existingUserIds.has(u.id)),
-    [allUsers, existingUserIds]
-  );
-
-  const userMap = useMemo(
-    () => new Map(availableUsers.map((u) => [u.id, u])),
-    [availableUsers]
-  );
-
-  const handleAdd = useCallback(async () => {
-    if (selectedUserIds.length === 0) {
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const effectiveRole = selectedUserIds.length > 1 ? "member" : role;
-      await Promise.all(
-        selectedUserIds.map((userId) =>
-          zero.mutate(
-            mutators.team.addMember({
-              id: crypto.randomUUID(),
-              teamId,
-              userId,
-              role: effectiveRole,
-            })
-          )
+  const form = useForm({
+    defaultValues: {
+      userIds: [] as string[],
+      role: "member" as "member" | "lead",
+    },
+    onSubmit: async ({ value }) => {
+      const effectiveRole = value.userIds.length > 1 ? "member" : value.role;
+      const results = await Promise.all(
+        value.userIds.map(
+          (userId) =>
+            zero.mutate(
+              mutators.team.addMember({
+                id: crypto.randomUUID(),
+                teamId,
+                userId,
+                role: effectiveRole,
+              })
+            ).server
         )
       );
-      const count = selectedUserIds.length;
-      toast.success(count === 1 ? "Member added" : `${count} members added`);
-      setSelectedUserIds([]);
-      setRole("member");
+      const failed = results.filter((r) => r.type === "error").length;
+      if (failed > 0) {
+        toast.error(`Failed to add ${failed} member(s)`);
+      } else {
+        const count = value.userIds.length;
+        toast.success(count === 1 ? "Member added" : `${count} members added`);
+      }
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to add member");
-    } finally {
-      setSubmitting(false);
+    },
+    validators: {
+      onSubmit: addTeamMemberSchema,
+    },
+  });
+
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      form.reset();
     }
-  }, [selectedUserIds, teamId, role, zero, onOpenChange]);
+    prevOpenRef.current = open;
+  }, [open, form]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
-        setSelectedUserIds([]);
-        setRole("member");
+        form.reset();
       }
       onOpenChange(nextOpen);
     },
-    [onOpenChange]
+    [onOpenChange, form]
   );
-
-  let buttonText = "Add Member";
-  if (submitting) {
-    buttonText = "Adding...";
-  } else if (selectedUserIds.length > 1) {
-    buttonText = `Add ${selectedUserIds.length} Members`;
-  }
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
@@ -125,82 +104,41 @@ export function AddMemberDialog({
         <DialogHeader>
           <DialogTitle>Add Member</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-2">
-            <Label>Search users</Label>
-            <Combobox
-              multiple
-              onValueChange={setSelectedUserIds}
-              value={selectedUserIds}
-            >
-              <ComboboxChips ref={anchorRef}>
-                {selectedUserIds.map((id) => {
-                  const user = userMap.get(id);
-                  return (
-                    <ComboboxChip key={id}>{user?.name ?? id}</ComboboxChip>
-                  );
-                })}
-                <ComboboxChipsInput placeholder="Search by name or email..." />
-              </ComboboxChips>
-              <ComboboxContent anchor={anchorRef}>
-                <ComboboxList>
-                  <ComboboxEmpty>No matching users found.</ComboboxEmpty>
-                  {availableUsers.map((u) => (
-                    <ComboboxItem key={u.id} value={u.id}>
-                      <UserAvatar
-                        className="size-7"
-                        fallbackClassName="text-xs"
-                        user={u}
-                      />
-                      <div>
-                        <div className="font-medium">{u.name}</div>
-                        <div className="text-muted-foreground text-xs">
-                          {u.email}
-                        </div>
-                      </div>
-                    </ComboboxItem>
-                  ))}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          </div>
-
-          {isAdmin && selectedUserIds.length === 1 ? (
-            <div className="grid gap-2">
-              <Label htmlFor="member-role">Role</Label>
-              <Select
-                onValueChange={(v) => setRole(v as "member" | "lead")}
-                value={role}
-              >
-                <SelectTrigger id="member-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="lead">Lead</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button
-            disabled={submitting}
-            onClick={() => handleOpenChange(false)}
-            type="button"
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={submitting || selectedUserIds.length === 0}
-            onClick={handleAdd}
-            type="button"
-          >
-            {buttonText}
-          </Button>
-        </DialogFooter>
+        <FormLayout form={form}>
+          <CustomField<string[]> isRequired label="Search users" name="userIds">
+            {(field) => (
+              <UserPicker
+                excludeUserIds={existingUserIds}
+                onValueChange={(ids) => field.handleChange(ids)}
+                users={allUsers ?? []}
+                value={field.state.value ?? []}
+              />
+            )}
+          </CustomField>
+          <form.Subscribe selector={(state) => state.values.userIds.length}>
+            {(count) => (
+              <>
+                {isAdmin && count === 1 ? (
+                  <SelectField
+                    label="Role"
+                    name="role"
+                    options={[
+                      { label: "Member", value: "member" },
+                      { label: "Lead", value: "lead" },
+                    ]}
+                  />
+                ) : null}
+                <FormActions
+                  onCancel={() => handleOpenChange(false)}
+                  submitLabel={
+                    count > 1 ? `Add ${count} Members` : "Add Member"
+                  }
+                  submittingLabel="Adding..."
+                />
+              </>
+            )}
+          </form.Subscribe>
+        </FormLayout>
       </DialogContent>
     </Dialog>
   );

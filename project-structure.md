@@ -67,6 +67,9 @@ All paths are relative to project root.
 | `routes/_app/teams/route.tsx` | Teams layout |
 | `routes/_app/teams/index.tsx` | Teams list |
 | `routes/_app/teams/$id.tsx` | Team detail |
+| `routes/_app/events/route.tsx` | Events layout |
+| `routes/_app/events/index.tsx` | Public events list |
+| `routes/api/cron/create-recurring-events.ts` | Cron endpoint for recurring event creation |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
 | `routes/_auth/reset-password.tsx` | Reset password |
@@ -89,6 +92,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
+| `components/teams/events/` | events-table, event-form-dialog, event-detail-sheet, add-event-member-dialog |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
 | `components/login/` | login-form, forgot-password-form, reset-password-form |
@@ -150,9 +154,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission), `src/topics.ts`, `src/preferences.ts`, `src/whatsapp.ts`, `src/jwt.ts`, `src/helpers.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, submission-helpers), `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs), `fixtures/` (auth emails), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
+| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission, team-event), `src/topics.ts`, `src/preferences.ts`, `src/whatsapp.ts`, `src/jwt.ts`, `src/helpers.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/e2e/` | `tests/` (feature specs: auth, users, roles, reimbursements, advance-payments, teams, events, dashboard, sidebar, settings), `fixtures/` (auth emails), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
 
@@ -175,13 +179,15 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
 | `team` | `packages/db/src/schema/team.ts` |
 | `teamMember` | `packages/db/src/schema/team.ts` |
+| `teamEvent` | `packages/db/src/schema/team-event.ts` |
+| `teamEventMember` | `packages/db/src/schema/team-event.ts` |
 
 ## Notifications
 
 - **Package**: `packages/notifications/` — Courier-based multi-channel notifications.
 - **Client**: `src/client.ts` initializes CourierClient from `COURIER_API_KEY`.
 - **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, user, submission). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
-- **Topics**: Defined in `src/topics.ts` (GENERAL, ACCOUNT). User preferences managed via `src/preferences.ts`.
+- **Topics**: Defined in `src/topics.ts` (GENERAL, ACCOUNT, EVENTS). User preferences managed via `src/preferences.ts`.
 - **WhatsApp**: Optional integration in `src/whatsapp.ts`; requires `WHATSAPP_API_URL` env var to be set.
 - **JWT**: `src/jwt.ts` generates Courier JWTs for client-side inbox.
 - **Helpers**: `src/helpers.ts` provides `getAdminUserIds`, `getUserName`, `syncCourierUser`.
@@ -200,7 +206,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 ## E2E Testing
 
 - **When to write E2E tests**: Write E2E tests when adding a major feature (new route/page, new CRUD workflow, new role-gated capability). Minor UI tweaks and refactors do not require E2E tests.
-- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `users/`, `reimbursements/`, `advance-payments/`, `roles/`, `dashboard/`, `sidebar/`).
+- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `users/`, `reimbursements/`, `advance-payments/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
 - **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up.
 - **Projects**: Three Playwright projects — `admin` (authenticated as admin), `volunteer` (authenticated as volunteer), `unauthenticated` (no auth, for login/forgot-password tests).
 - **Auth state**: Global setup (`packages/e2e/global-setup.ts`) logs in both test users and saves storage state to `packages/e2e/.auth/`. Feature tests reuse these sessions.

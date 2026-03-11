@@ -29,11 +29,11 @@ function TeamsRouteComponent() {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      try {
-        await zero.mutate(mutators.team.delete({ id }));
-        toast.success("Team deleted");
-      } catch {
+      const res = await zero.mutate(mutators.team.delete({ id })).server;
+      if (res.type === "error") {
         toast.error("Failed to delete team");
+      } else {
+        toast.success("Team deleted");
       }
     },
     [zero]

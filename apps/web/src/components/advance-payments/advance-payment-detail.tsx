@@ -87,29 +87,29 @@ export function AdvancePaymentDetail({
     0
   );
 
-  const handleApprove = async () => {
-    try {
-      await zero.mutate(
-        mutators.advancePayment.approve({ id: advancePayment.id })
-      );
-      toast.success("Advance payment approved");
-    } catch (err) {
-      console.error("Failed to approve advance payment", err);
-      toast.error("Failed to approve advance payment");
-    }
+  const handleApprove = () => {
+    zero
+      .mutate(mutators.advancePayment.approve({ id: advancePayment.id }))
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to approve advance payment");
+        } else {
+          toast.success("Advance payment approved");
+        }
+      });
   };
 
-  const handleReject = async (reason: string) => {
-    try {
-      await zero.mutate(
-        mutators.advancePayment.reject({ id: advancePayment.id, reason })
-      );
-      toast.success("Advance payment rejected");
-      setRejectOpen(false);
-    } catch (err) {
-      console.error("Failed to reject advance payment", err);
-      toast.error("Failed to reject advance payment");
-    }
+  const handleReject = (reason: string) => {
+    zero
+      .mutate(mutators.advancePayment.reject({ id: advancePayment.id, reason }))
+      .server.then((res) => {
+        if (res.type === "error") {
+          toast.error("Failed to reject advance payment");
+        } else {
+          toast.success("Advance payment rejected");
+          setRejectOpen(false);
+        }
+      });
   };
 
   return (

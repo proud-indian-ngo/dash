@@ -1,0 +1,2 @@
+ALTER TABLE "team_event" DROP CONSTRAINT "team_event_whatsapp_group_id_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "team_event_parent_start_uidx" ON "team_event" USING btree ("parent_event_id","start_time");
