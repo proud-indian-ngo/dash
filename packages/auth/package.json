@@ -19,7 +19,8 @@
     "@pi-dash/env": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
     "better-auth": "catalog:",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "@pi-dash/observability": "workspace:*"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

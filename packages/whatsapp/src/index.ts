@@ -1,9 +1,11 @@
 // biome-ignore lint/performance/noBarrelFile: intentional
 export {
   addToWhatsAppGroup,
+  addUsersToWhatsAppGroup,
   createWhatsAppGroup,
   getTeamWhatsAppGroupJid,
   getUserPhone,
+  getUserPhones,
   manageOrientationGroupMembership,
   removeFromWhatsAppGroup,
 } from "./groups";

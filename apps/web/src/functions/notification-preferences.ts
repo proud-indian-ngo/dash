@@ -7,6 +7,7 @@ import {
   setWhatsAppNotifications,
 } from "@pi-dash/whatsapp";
 import { createServerFn } from "@tanstack/react-start";
+import { createRequestLogger } from "evlog";
 import z from "zod";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -37,7 +38,15 @@ export const getNotificationPreferences = createServerFn({ method: "GET" })
         })
       );
     } catch (error) {
-      console.error("Failed to fetch Courier preferences:", error);
+      const log = createRequestLogger();
+      log.set({
+        handler: "getNotificationPreferences",
+        userId,
+      });
+      log.error(error instanceof Error ? error : String(error), {
+        step: "fetch-courier-preferences",
+      });
+      log.emit();
       return [];
     }
   });

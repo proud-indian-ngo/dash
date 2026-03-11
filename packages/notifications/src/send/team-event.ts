@@ -1,4 +1,4 @@
-import { sendMessage } from "../send-message";
+import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
 function formatEventDetails(
@@ -19,16 +19,6 @@ function formatEventDetails(
   return parts.join("");
 }
 
-async function batchPromises<T>(
-  items: T[],
-  fn: (item: T) => Promise<void>,
-  batchSize = 10
-): Promise<void> {
-  for (let i = 0; i < items.length; i += batchSize) {
-    await Promise.all(items.slice(i, i + batchSize).map(fn));
-  }
-}
-
 interface AddedToEventOptions {
   eventId: string;
   eventName: string;
@@ -36,6 +26,15 @@ interface AddedToEventOptions {
   startTime: number;
   teamId: string;
   userId: string;
+}
+
+interface UsersAddedToEventOptions {
+  eventId: string;
+  eventName: string;
+  location: string | null;
+  startTime: number;
+  teamId: string;
+  userIds: string[];
 }
 
 interface RemovedFromEventOptions {
@@ -90,6 +89,24 @@ export async function notifyAddedToEvent({
   });
 }
 
+export async function notifyUsersAddedToEvent({
+  userIds,
+  eventName,
+  startTime,
+  location,
+  teamId,
+  eventId,
+}: UsersAddedToEventOptions): Promise<void> {
+  await sendBulkMessage({
+    userIds,
+    title: "Added to Event",
+    body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    clickAction: `/teams/${teamId}`,
+    idempotencyKey: `event-member-added-${eventId}`,
+    topic: TOPICS.EVENTS,
+  });
+}
+
 export async function notifyRemovedFromEvent({
   userId,
   eventName,
@@ -114,16 +131,14 @@ export async function notifyEventCreated({
   teamId,
   eventId,
 }: EventCreatedOptions): Promise<void> {
-  await batchPromises(teamMemberIds, (userId) =>
-    sendMessage({
-      to: userId,
-      title: "New Event",
-      body: `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
-      clickAction: `/teams/${teamId}`,
-      idempotencyKey: `event-created-${eventId}-${userId}`,
-      topic: TOPICS.EVENTS,
-    })
-  );
+  await sendBulkMessage({
+    userIds: teamMemberIds,
+    title: "New Event",
+    body: `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
+    clickAction: `/teams/${teamId}`,
+    idempotencyKey: `event-created-${eventId}`,
+    topic: TOPICS.EVENTS,
+  });
 }
 
 export async function notifyEventUpdated({
@@ -135,16 +150,14 @@ export async function notifyEventUpdated({
   eventId,
   updatedAt,
 }: EventUpdatedOptions): Promise<void> {
-  await batchPromises(eventMemberIds, (userId) =>
-    sendMessage({
-      to: userId,
-      title: "Event Updated",
-      body: `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
-      clickAction: `/teams/${teamId}`,
-      idempotencyKey: `event-updated-${eventId}-${userId}-${updatedAt}`,
-      topic: TOPICS.EVENTS,
-    })
-  );
+  await sendBulkMessage({
+    userIds: eventMemberIds,
+    title: "Event Updated",
+    body: `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
+    clickAction: `/teams/${teamId}`,
+    idempotencyKey: `event-updated-${eventId}-${updatedAt}`,
+    topic: TOPICS.EVENTS,
+  });
 }
 
 export async function notifyEventCancelled({
@@ -154,14 +167,12 @@ export async function notifyEventCancelled({
   eventId,
   cancelledAt,
 }: EventCancelledOptions): Promise<void> {
-  await batchPromises(eventMemberIds, (userId) =>
-    sendMessage({
-      to: userId,
-      title: "Event Cancelled",
-      body: `${eventName} has been cancelled.`,
-      clickAction: `/teams/${teamId}`,
-      idempotencyKey: `event-cancelled-${eventId}-${userId}-${cancelledAt}`,
-      topic: TOPICS.EVENTS,
-    })
-  );
+  await sendBulkMessage({
+    userIds: eventMemberIds,
+    title: "Event Cancelled",
+    body: `${eventName} has been cancelled.`,
+    clickAction: `/teams/${teamId}`,
+    idempotencyKey: `event-cancelled-${eventId}-${cancelledAt}`,
+    topic: TOPICS.EVENTS,
+  });
 }

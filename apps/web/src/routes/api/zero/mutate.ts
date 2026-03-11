@@ -5,6 +5,7 @@ import { mustGetMutator } from "@rocicorp/zero";
 import { handleMutateRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
+import { createRequestLogger } from "evlog";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 
 const dbProvider = zeroDrizzle(schema, db);
@@ -44,9 +45,15 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const results = await Promise.allSettled(
           asyncTasks.map((task) => task())
         );
-        for (const r of results) {
+        for (const [i, r] of results.entries()) {
           if (r.status === "rejected") {
-            console.error("[mutate] async task failed:", r.reason);
+            const log = createRequestLogger();
+            log.set({ handler: "mutate", userId });
+            log.error(r.reason instanceof Error ? r.reason : String(r.reason), {
+              step: "async-task",
+              taskIndex: i,
+            });
+            log.emit();
           }
         }
 

@@ -16,7 +16,11 @@
   "workspaces": {
     ".": {},
     "apps/web": {
-      "ignoreFiles": ["src/entry-server.ts", "server/tasks/**"]
+      "ignoreFiles": [
+        "src/entry-server.ts",
+        "server/tasks/**",
+        "src/lib/logger.ts"
+      ]
     },
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"]

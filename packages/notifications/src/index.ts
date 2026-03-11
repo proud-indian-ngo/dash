@@ -37,6 +37,7 @@ export {
   notifyEventCreated,
   notifyEventUpdated,
   notifyRemovedFromEvent,
+  notifyUsersAddedToEvent,
 } from "./send/team-event";
 export {
   notifyRoleChanged,

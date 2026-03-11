@@ -1,7 +1,7 @@
 import { env } from "@pi-dash/env/server";
 import type { LineItemDetail } from "../helpers";
 import { getAdminUserIds } from "../helpers";
-import { sendMessage } from "../send-message";
+import { sendBulkMessage, sendMessage } from "../send-message";
 
 const currencyFormat = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -80,18 +80,14 @@ export function createSubmissionNotifier({
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `${submitterName} submitted "${title}" for review.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
-      await Promise.all(
-        adminIds.map((adminId) =>
-          sendMessage({
-            to: adminId,
-            title: `New ${entityLabel} Submitted`,
-            body: `${baseMessage}${totalSuffix}`,
-            emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
-            clickAction: `/${routePrefix}/${entityId}`,
-            idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}-${adminId}`,
-          })
-        )
-      );
+      await sendBulkMessage({
+        userIds: adminIds,
+        title: `New ${entityLabel} Submitted`,
+        body: `${baseMessage}${totalSuffix}`,
+        emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
+        clickAction: `/${routePrefix}/${entityId}`,
+        idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
+      });
     },
 
     async notifyApproved({ entityId, title, submitterId }) {

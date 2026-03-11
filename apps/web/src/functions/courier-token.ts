@@ -1,4 +1,5 @@
 import { generateCourierJwt, syncCourierUser } from "@pi-dash/notifications";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -13,7 +14,10 @@ export const getCourierToken = createServerFn({ method: "GET" })
 
     const token = await generateCourierJwt(id);
 
-    syncCourierUser({ userId: id, email, name }).catch(console.error);
+    withFireAndForgetLog(
+      { handler: "getCourierToken", userId: id, email, name },
+      () => syncCourierUser({ userId: id, email, name })
+    );
 
     return { token };
   });

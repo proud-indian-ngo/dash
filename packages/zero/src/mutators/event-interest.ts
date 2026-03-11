@@ -1,3 +1,4 @@
+import { withTaskLog } from "@pi-dash/observability";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -61,38 +62,49 @@ export const eventInterestMutators = {
         const eventName = event.name;
         const teamId = event.teamId;
         const volunteerUserId = ctx.userId;
-        ctx.asyncTasks?.push(async () => {
-          const { notifyEventInterestReceived } = await import(
-            "@pi-dash/notifications"
-          );
-          const { db } = await import("@pi-dash/db");
-          const { teamMember } = await import("@pi-dash/db/schema/team");
-          const { user } = await import("@pi-dash/db/schema/auth");
-          const { eq: eqOp, and: andOp } = await import("drizzle-orm");
+        ctx.asyncTasks?.push(() =>
+          withTaskLog(
+            {
+              mutator: "createEventInterest",
+              eventId,
+              eventName,
+              teamId,
+              volunteerUserId,
+            },
+            async () => {
+              const { notifyEventInterestReceived } = await import(
+                "@pi-dash/notifications"
+              );
+              const { db } = await import("@pi-dash/db");
+              const { teamMember } = await import("@pi-dash/db/schema/team");
+              const { user } = await import("@pi-dash/db/schema/auth");
+              const { eq: eqOp, and: andOp } = await import("drizzle-orm");
 
-          const leads = await db
-            .select({ userId: teamMember.userId })
-            .from(teamMember)
-            .where(
-              andOp(
-                eqOp(teamMember.teamId, teamId),
-                eqOp(teamMember.role, "lead")
-              )
-            );
+              const leads = await db
+                .select({ userId: teamMember.userId })
+                .from(teamMember)
+                .where(
+                  andOp(
+                    eqOp(teamMember.teamId, teamId),
+                    eqOp(teamMember.role, "lead")
+                  )
+                );
 
-          const volunteer = await db.query.user.findFirst({
-            where: eqOp(user.id, volunteerUserId),
-          });
-          const volunteerName = volunteer?.name ?? "A volunteer";
+              const volunteer = await db.query.user.findFirst({
+                where: eqOp(user.id, volunteerUserId),
+              });
+              const volunteerName = volunteer?.name ?? "A volunteer";
 
-          await notifyEventInterestReceived({
-            eventId,
-            eventName,
-            leadUserIds: leads.map((l) => l.userId),
-            teamId,
-            volunteerName,
-          });
-        });
+              await notifyEventInterestReceived({
+                eventId,
+                eventName,
+                leadUserIds: leads.map((l) => l.userId),
+                teamId,
+                volunteerName,
+              });
+            }
+          )
+        );
       }
     }
   ),
@@ -155,38 +167,58 @@ export const eventInterestMutators = {
         const whatsappGroupId = event.whatsappGroupId;
 
         if (whatsappGroupId) {
-          ctx.asyncTasks?.push(async () => {
-            const { addToWhatsAppGroup, getUserPhone } = await import(
-              "@pi-dash/whatsapp"
-            );
-            const { db } = await import("@pi-dash/db");
-            const { whatsappGroup } = await import(
-              "@pi-dash/db/schema/whatsapp-group"
-            );
-            const { eq } = await import("drizzle-orm");
+          ctx.asyncTasks?.push(() =>
+            withTaskLog(
+              {
+                mutator: "approveEventInterest",
+                eventId,
+                userId,
+                whatsappGroupId,
+              },
+              async () => {
+                const { addToWhatsAppGroup, getUserPhone } = await import(
+                  "@pi-dash/whatsapp"
+                );
+                const { db } = await import("@pi-dash/db");
+                const { whatsappGroup } = await import(
+                  "@pi-dash/db/schema/whatsapp-group"
+                );
+                const { eq } = await import("drizzle-orm");
 
-            const group = await db.query.whatsappGroup.findFirst({
-              where: eq(whatsappGroup.id, whatsappGroupId),
-            });
-            if (group) {
-              const phone = await getUserPhone(userId);
-              if (phone) {
-                await addToWhatsAppGroup(group.jid, phone);
+                const group = await db.query.whatsappGroup.findFirst({
+                  where: eq(whatsappGroup.id, whatsappGroupId),
+                });
+                if (group) {
+                  const phone = await getUserPhone(userId);
+                  if (phone) {
+                    await addToWhatsAppGroup(group.jid, phone);
+                  }
+                }
               }
-            }
-          });
+            )
+          );
         }
 
-        ctx.asyncTasks?.push(async () => {
-          const { notifyEventInterestApproved } = await import(
-            "@pi-dash/notifications"
-          );
-          await notifyEventInterestApproved({
-            eventId,
-            eventName,
-            userId,
-          });
-        });
+        ctx.asyncTasks?.push(() =>
+          withTaskLog(
+            {
+              mutator: "approveEventInterest",
+              eventId,
+              eventName,
+              userId,
+            },
+            async () => {
+              const { notifyEventInterestApproved } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyEventInterestApproved({
+                eventId,
+                eventName,
+                userId,
+              });
+            }
+          )
+        );
       }
     }
   ),
@@ -238,16 +270,26 @@ export const eventInterestMutators = {
         const eventId = interest.eventId;
         const eventName = event.name;
 
-        ctx.asyncTasks?.push(async () => {
-          const { notifyEventInterestRejected } = await import(
-            "@pi-dash/notifications"
-          );
-          await notifyEventInterestRejected({
-            eventId,
-            eventName,
-            userId,
-          });
-        });
+        ctx.asyncTasks?.push(() =>
+          withTaskLog(
+            {
+              mutator: "rejectEventInterest",
+              eventId,
+              eventName,
+              userId,
+            },
+            async () => {
+              const { notifyEventInterestRejected } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyEventInterestRejected({
+                eventId,
+                eventName,
+                userId,
+              });
+            }
+          )
+        );
       }
     }
   ),

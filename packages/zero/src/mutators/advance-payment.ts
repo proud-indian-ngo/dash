@@ -1,4 +1,5 @@
 import { cityValues } from "@pi-dash/db/schema/shared";
+import { withTaskLog } from "@pi-dash/observability";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -68,17 +69,28 @@ export const advancePaymentMutators = {
       });
 
       if (tx.location === "server") {
-        ctx.asyncTasks?.push(async () => {
-          const { getUserName, notifyAdvancePaymentSubmitted } = await import(
-            "@pi-dash/notifications"
-          );
-          const submitterName = await getUserName(userId);
-          await notifyAdvancePaymentSubmitted({
-            advancePaymentId: args.id,
-            title: args.title,
-            submitterName,
-          });
-        });
+        const advancePaymentId = args.id;
+        const title = args.title;
+        ctx.asyncTasks?.push(() =>
+          withTaskLog(
+            {
+              mutator: "createAdvancePayment",
+              userId,
+              advancePaymentId,
+              title,
+            },
+            async () => {
+              const { getUserName, notifyAdvancePaymentSubmitted } =
+                await import("@pi-dash/notifications");
+              const submitterName = await getUserName(userId);
+              await notifyAdvancePaymentSubmitted({
+                advancePaymentId,
+                title,
+                submitterName,
+              });
+            }
+          )
+        );
       }
     }
   ),
@@ -193,16 +205,26 @@ export const advancePaymentMutators = {
       if (tx.location === "server") {
         const { title, userId: ownerId } = advancePayment;
         const id = args.id;
-        ctx.asyncTasks?.push(async () => {
-          const { notifyAdvancePaymentApproved } = await import(
-            "@pi-dash/notifications"
-          );
-          await notifyAdvancePaymentApproved({
-            advancePaymentId: id,
-            title,
-            submitterId: ownerId,
-          });
-        });
+        ctx.asyncTasks?.push(() =>
+          withTaskLog(
+            {
+              mutator: "approveAdvancePayment",
+              advancePaymentId: id,
+              title,
+              submitterId: ownerId,
+            },
+            async () => {
+              const { notifyAdvancePaymentApproved } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyAdvancePaymentApproved({
+                advancePaymentId: id,
+                title,
+                submitterId: ownerId,
+              });
+            }
+          )
+        );
       }
     }
   ),
@@ -285,17 +307,28 @@ export const advancePaymentMutators = {
         const { title, userId: ownerId } = advancePayment;
         const id = args.id;
         const reason = args.reason;
-        ctx.asyncTasks?.push(async () => {
-          const { notifyAdvancePaymentRejected } = await import(
-            "@pi-dash/notifications"
-          );
-          await notifyAdvancePaymentRejected({
-            advancePaymentId: id,
-            title,
-            submitterId: ownerId,
-            reason,
-          });
-        });
+        ctx.asyncTasks?.push(() =>
+          withTaskLog(
+            {
+              mutator: "rejectAdvancePayment",
+              advancePaymentId: id,
+              title,
+              submitterId: ownerId,
+              reason,
+            },
+            async () => {
+              const { notifyAdvancePaymentRejected } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyAdvancePaymentRejected({
+                advancePaymentId: id,
+                title,
+                submitterId: ownerId,
+                reason,
+              });
+            }
+          )
+        );
       }
     }
   ),

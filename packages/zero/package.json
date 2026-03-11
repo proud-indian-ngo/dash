@@ -23,6 +23,7 @@
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zero": "^0.17.4",
+    "@pi-dash/observability": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

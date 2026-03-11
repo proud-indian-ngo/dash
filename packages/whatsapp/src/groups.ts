@@ -3,7 +3,7 @@ import { appConfig } from "@pi-dash/db/schema/app-config";
 import { user } from "@pi-dash/db/schema/auth";
 import { team } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
 
@@ -14,6 +14,25 @@ export async function getUserPhone(userId: string): Promise<string | null> {
     .where(eq(user.id, userId))
     .limit(1);
   return rows[0]?.phone ?? null;
+}
+
+export async function getUserPhones(
+  userIds: string[]
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({ id: user.id, phone: user.phone })
+    .from(user)
+    .where(inArray(user.id, userIds));
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (row.phone) {
+      map.set(row.id, row.phone);
+    }
+  }
+  return map;
 }
 
 export async function addToWhatsAppGroup(
@@ -32,6 +51,33 @@ export async function addToWhatsAppGroup(
     body: JSON.stringify({
       group_id: groupJid,
       participants: [formatted],
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`WhatsApp group add error ${response.status}: ${text}`);
+  }
+}
+
+export async function addUsersToWhatsAppGroup(
+  groupJid: string,
+  phones: string[]
+): Promise<void> {
+  if (phones.length === 0) {
+    return;
+  }
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    return;
+  }
+
+  const response = await fetch(`${apiUrl}/group/participants`, {
+    method: "POST",
+    headers: getWhatsAppHeaders(),
+    body: JSON.stringify({
+      group_id: groupJid,
+      participants: phones.map(formatPhoneForWhatsApp),
     }),
   });
 

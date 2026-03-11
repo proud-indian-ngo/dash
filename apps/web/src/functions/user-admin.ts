@@ -6,6 +6,7 @@ import {
   notifyUserWelcome,
   syncCourierUser,
 } from "@pi-dash/notifications";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { manageOrientationGroupMembership } from "@pi-dash/whatsapp";
 import { createServerFn } from "@tanstack/react-start";
 import z from "zod";
@@ -194,20 +195,28 @@ export const createUserAdmin = createServerFn({ method: "POST" })
 
     // Fire-and-forget: sync user to Courier, then send welcome notification
     // (welcome must wait for sync so the email channel is registered)
-    syncCourierUser({
-      userId: created.user.id,
-      email: data.email,
-      name: data.name,
-    })
-      .then(() =>
-        notifyUserWelcome({ userId: created.user.id, name: data.name })
-      )
-      .catch(console.error);
+    withFireAndForgetLog(
+      {
+        handler: "createUser",
+        userId: created.user.id,
+        email: data.email,
+        name: data.name,
+      },
+      () =>
+        syncCourierUser({
+          userId: created.user.id,
+          email: data.email,
+          name: data.name,
+        }).then(() =>
+          notifyUserWelcome({ userId: created.user.id, name: data.name })
+        )
+    );
 
     // Fire-and-forget: add new volunteer to orientation WhatsApp group
     if (data.role === "volunteer" && !data.attendedOrientation) {
-      manageOrientationGroupMembership(created.user.id, false).catch(
-        console.error
+      withFireAndForgetLog(
+        { handler: "createUser", userId: created.user.id, role: data.role },
+        () => manageOrientationGroupMembership(created.user.id, false)
       );
     }
 
@@ -256,26 +265,37 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
     });
 
     if (data.role && data.role !== previousRole) {
+      const newRole = data.role;
       await auth.api.setRole({
         body: {
-          role: data.role,
+          role: newRole,
           userId: data.userId,
         },
         headers: context.headers,
       });
 
       // Fire-and-forget: notify role change
-      notifyRoleChanged({ userId: data.userId, newRole: data.role }).catch(
-        console.error
+      withFireAndForgetLog(
+        { handler: "updateUser", userId: data.userId, newRole },
+        () => notifyRoleChanged({ userId: data.userId, newRole })
       );
     }
 
     // Fire-and-forget: sync updated profile to Courier
-    syncCourierUser({
-      userId: data.userId,
-      email: data.email,
-      name: data.name,
-    }).catch(console.error);
+    withFireAndForgetLog(
+      {
+        handler: "updateUser",
+        userId: data.userId,
+        email: data.email,
+        name: data.name,
+      },
+      () =>
+        syncCourierUser({
+          userId: data.userId,
+          email: data.email,
+          name: data.name,
+        })
+    );
 
     // Fire-and-forget: manage WhatsApp group membership on orientation change
     // Only applies to volunteers, not admins
@@ -285,10 +305,18 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       data.attendedOrientation !== undefined &&
       data.attendedOrientation !== previousAttendedOrientation
     ) {
-      manageOrientationGroupMembership(
-        data.userId,
-        data.attendedOrientation
-      ).catch(console.error);
+      withFireAndForgetLog(
+        {
+          handler: "updateUser",
+          userId: data.userId,
+          attendedOrientation: data.attendedOrientation,
+        },
+        () =>
+          manageOrientationGroupMembership(
+            data.userId,
+            data.attendedOrientation as boolean
+          )
+      );
     }
 
     return data.userId;
@@ -351,11 +379,20 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
 
     // Fire-and-forget: notify ban/unban
     if (data.banned) {
-      notifyUserBanned({ userId: data.userId, reason: data.banReason }).catch(
-        console.error
+      withFireAndForgetLog(
+        {
+          handler: "setUserBan",
+          userId: data.userId,
+          banned: true,
+          banReason: data.banReason,
+        },
+        () => notifyUserBanned({ userId: data.userId, reason: data.banReason })
       );
     } else {
-      notifyUserUnbanned({ userId: data.userId }).catch(console.error);
+      withFireAndForgetLog(
+        { handler: "setUserBan", userId: data.userId, banned: false },
+        () => notifyUserUnbanned({ userId: data.userId })
+      );
     }
 
     return data.userId;

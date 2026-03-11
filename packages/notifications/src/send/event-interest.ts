@@ -1,4 +1,4 @@
-import { sendMessage } from "../send-message";
+import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
 interface InterestReceivedOptions {
@@ -27,18 +27,14 @@ export async function notifyEventInterestReceived({
   leadUserIds,
   volunteerName,
 }: InterestReceivedOptions): Promise<void> {
-  await Promise.all(
-    leadUserIds.map((leadId) =>
-      sendMessage({
-        to: leadId,
-        title: "New Event Interest",
-        body: `${volunteerName} is interested in ${eventName}.`,
-        clickAction: `/events/${eventId}`,
-        idempotencyKey: `event-interest-received-${eventId}-${leadId}`,
-        topic: TOPICS.EVENTS,
-      })
-    )
-  );
+  await sendBulkMessage({
+    userIds: leadUserIds,
+    title: "New Event Interest",
+    body: `${volunteerName} is interested in ${eventName}.`,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `event-interest-received-${eventId}`,
+    topic: TOPICS.EVENTS,
+  });
 }
 
 export async function notifyEventInterestApproved({

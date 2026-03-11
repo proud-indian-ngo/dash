@@ -21,6 +21,8 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 - **WhatsApp** — optional self-hosted WhatsApp gateway via go-whatsapp-web-multidevice
 - **React Email + Nodemailer** — transactional email (verification, password reset)
 - **Cloudflare R2** — S3-compatible object storage for file attachments
+- **evlog** — structured wide-event logging (server-side)
+- **GitHub Actions** — CI pipeline (type check, lint, unit tests)
 - **Vitest** — unit testing for business logic and utilities
 - **Turborepo** — optimized monorepo build orchestration
 - **Bun** — fast package manager and runtime

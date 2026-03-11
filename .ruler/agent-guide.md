@@ -37,6 +37,10 @@
 - INSTEAD: For router tree changes, edit route source files and regenerate through app workflow.
 - INSTEAD: For Zero schema changes, edit Drizzle schema then run `bun run zero:generate`.
 - INSTEAD: For DB schema changes, run `bun run db:generate` then required migrate/push step.
+- DO: Use `createRequestLogger()` + `log.set()` / `log.error()` / `log.emit()` from `evlog` for server-side error logging. Never use `console.error` on the server.
+- DO NOT: Pass custom fields to `createRequestLogger()` — it only accepts `{ method?, path?, requestId? }`. Use `log.set({ ... })` for context.
+- DO NOT: Pass raw `unknown` to `log.error()` — use `error instanceof Error ? error : String(error)`.
+- DO: Add maximum context to every `log.set()` call — include all available closure variables (IDs, names, counts, flags, timestamps) so logs are self-contained and debuggable without cross-referencing.
 
 ## E2E Testing
 

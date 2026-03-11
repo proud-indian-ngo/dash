@@ -29,6 +29,7 @@ All paths are relative to project root.
 
 | File | Purpose |
 |---|---|
+| `.github/workflows/ci.yml` | CI pipeline (type check, lint, unit tests) |
 | `README.md` | Project overview |
 | `package.json` | Root scripts/workspaces |
 | `turbo.json` | Task orchestration |
@@ -137,6 +138,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/form-schemas.ts` | Form-level Zod schemas |
 | `lib/table-utils.ts` | Table state utilities |
 | `lib/errors.ts` | Error handling utilities |
+| `lib/logger.ts` | evlog init (imported at server startup) |
 | `lib/attachment-links.ts` | Generic attachment URL helpers (shared by reimbursements & advance payments) |
 | `lib/stats.ts` | Shared stat computation helpers |
 | `lib/status-badge.ts` | Status → badge variant mapping |
@@ -267,3 +269,27 @@ Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. 
 3. `routes/api/zero/mutate.ts` awaits async tasks after mutation completes
 4. Notification function in `packages/notifications/src/send/` sends via Courier
 5. Client-side inbox powered by Courier JWT from `functions/courier-token.ts`
+
+### Structured Logging (evlog)
+
+All server-side error logging uses evlog wide events instead of `console.error`. Pattern:
+
+```ts
+import { createRequestLogger } from "evlog";
+
+const log = createRequestLogger();
+log.set({ mutator: "createTeam", teamId, teamName });
+try {
+  // ... work ...
+} catch (error) {
+  log.error(error instanceof Error ? error : String(error), { step: "notify" });
+  throw error;
+} finally {
+  log.emit();
+}
+```
+
+- Logger initialized in `apps/web/src/lib/logger.ts`, imported by `entry-server.ts`.
+- `createRequestLogger()` only accepts `{ method?, path?, requestId? }`. Use `log.set()` for custom context.
+- All mutator async tasks in `packages/zero/src/mutators/` wrap bodies in try/catch/finally with evlog.
+- Fire-and-forget catches in `apps/web/src/functions/` use inline `createRequestLogger()` → `set()` → `error()` → `emit()`.

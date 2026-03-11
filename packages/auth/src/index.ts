@@ -3,6 +3,7 @@ import { db } from "@pi-dash/db";
 import * as schema from "@pi-dash/db/schema/auth";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
@@ -21,7 +22,10 @@ export const auth = betterAuth({
         after: async (user) => {
           const { syncWhatsAppStatus } = await import("@pi-dash/whatsapp");
           const phone = typeof user.phone === "string" ? user.phone : undefined;
-          syncWhatsAppStatus(user.id, phone).catch(console.error);
+          withFireAndForgetLog(
+            { hook: "afterUserUpdate", userId: user.id, phone },
+            () => syncWhatsAppStatus(user.id, phone)
+          );
         },
       },
     },

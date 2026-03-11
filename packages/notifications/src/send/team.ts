@@ -1,4 +1,4 @@
-import { sendMessage } from "../send-message";
+import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
 interface TeamUpdatedOptions {
@@ -32,18 +32,14 @@ export async function notifyTeamUpdated({
   teamName,
   updatedAt,
 }: TeamUpdatedOptions): Promise<void> {
-  await Promise.all(
-    memberIds.map((userId) =>
-      sendMessage({
-        to: userId,
-        title: "Team Updated",
-        body: `${teamName} has been updated.`,
-        clickAction: `/teams/${teamId}`,
-        idempotencyKey: `team-updated-${teamId}-${userId}-${updatedAt}`,
-        topic: TOPICS.GENERAL,
-      })
-    )
-  );
+  await sendBulkMessage({
+    userIds: memberIds,
+    title: "Team Updated",
+    body: `${teamName} has been updated.`,
+    clickAction: `/teams/${teamId}`,
+    idempotencyKey: `team-updated-${teamId}-${updatedAt}`,
+    topic: TOPICS.GENERAL,
+  });
 }
 
 export async function notifyTeamDeleted({
@@ -51,18 +47,14 @@ export async function notifyTeamDeleted({
   memberIds,
   teamName,
 }: TeamDeletedOptions): Promise<void> {
-  await Promise.all(
-    memberIds.map((userId) =>
-      sendMessage({
-        to: userId,
-        title: "Team Deleted",
-        body: `${teamName} has been deleted.`,
-        clickAction: "/teams",
-        idempotencyKey: `team-deleted-${teamName}-${userId}-${deletedAt}`,
-        topic: TOPICS.GENERAL,
-      })
-    )
-  );
+  await sendBulkMessage({
+    userIds: memberIds,
+    title: "Team Deleted",
+    body: `${teamName} has been deleted.`,
+    clickAction: "/teams",
+    idempotencyKey: `team-deleted-${teamName}-${deletedAt}`,
+    topic: TOPICS.GENERAL,
+  });
 }
 
 export async function notifyAddedToTeam({
