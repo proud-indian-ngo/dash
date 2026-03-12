@@ -325,3 +325,33 @@ try {
 - `createRequestLogger()` only accepts `{ method?, path?, requestId? }`. Use `log.set()` for custom context.
 - All mutator async tasks in `packages/zero/src/mutators/` wrap bodies in try/catch/finally with evlog.
 - Fire-and-forget catches in `apps/web/src/functions/` use inline `createRequestLogger()` → `set()` → `error()` → `emit()`.
+
+## Documentation References (Context7)
+
+Use `mcp__context7__query-docs` with these library IDs to fetch up-to-date documentation.
+
+| Library | Context7 Library ID |
+|---|---|
+| React | `/websites/react_dev` |
+| TanStack Start | `/websites/tanstack_start_framework_react` |
+| TanStack Router | `/tanstack/router` |
+| TanStack Form | `/tanstack/form` |
+| TanStack Table | `/websites/tanstack_table` |
+| Rocicorp Zero | `/llmstxt/zero_rocicorp_dev_llms_txt` |
+| Drizzle ORM | `/drizzle-team/drizzle-orm-docs` |
+| drizzle-zero | `/briefhq/drizzle-zero` |
+| Better Auth | `/better-auth/better-auth` |
+| Zod | `/colinhacks/zod` |
+| Tailwind CSS v4 | `/websites/tailwindcss` |
+| shadcn/ui | `/shadcn/ui` |
+| Vitest | `/vitest-dev/vitest` |
+| Playwright | `/microsoft/playwright` |
+| Cloudflare R2 | `/llmstxt/developers_cloudflare_r2_llms-full_txt` |
+| evlog | `/hugorcd/evlog` |
+| Biome | `/biomejs/biome` |
+| Turborepo | `/vercel/turborepo` |
+| React Email | `/resend/react-email` |
+| Nodemailer | `/nodemailer/nodemailer` |
+| nuqs | `/47ng/nuqs` |
+| dnd-kit | `/clauderic/dnd-kit` |
+| t3-env | `/t3-oss/t3-env` |

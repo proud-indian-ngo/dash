@@ -8,8 +8,8 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 
 - **TypeScript** — end-to-end type safety across all packages
 - **TanStack Start** — SSR framework with file-based routing via TanStack Router
-- **TanStack Query** — data fetching and server state management
 - **TanStack Form** — type-safe form state management with Zod validation
+- **TanStack Table** — headless data grid with sorting, filtering, pagination, and column management
 - **TailwindCSS v4** — utility-first styling
 - **shadcn/ui + reui** — reusable component library
 - **Hugeicons** — icon library

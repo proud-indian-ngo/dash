@@ -107,6 +107,7 @@ For project structure, file paths, command map, and architectural patterns, read
 - For social science, economics, law, or finance research, use `search_ssrn` with `read_url` (or `parallel_read_url`) together.
 - Never run `search_web`, `search_arxiv`, or `search_ssrn` alone; every search must be paired with `read_url` or `parallel_read_url`.
 - Use parallel search and read variants when multiple sources are needed for speed and coverage.
+- For library documentation, use Context7 MCP with library IDs listed in `project-structure.md` § Documentation References.
 
 ## Skills Policy
 
