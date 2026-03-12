@@ -193,6 +193,9 @@ function DataGridTableHeadRowCellResize<TData>({
   return (
     <div
       {...{
+        role: "separator" as const,
+        "aria-orientation": "vertical" as const,
+        "aria-label": "Resize column",
         onDoubleClick: () => column.resetSize(),
         onMouseDown: header.getResizeHandler(),
         onTouchStart: header.getResizeHandler(),
@@ -432,9 +435,10 @@ function DataGridTableLoader() {
   const { props } = useDataGrid()
 
   return (
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" role="status" aria-live="polite">
       <div className="text-muted-foreground bg-card rounded-none text-xs flex items-center gap-2 border px-4 py-2 leading-none font-medium">
         <svg
+          aria-hidden="true"
           className="text-muted-foreground -ml-1 h-5 w-5 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -559,8 +563,9 @@ function DataGridTable<TData>() {
           // Show spinner loading immediately
           <tr>
             <td colSpan={table.getVisibleFlatColumns().length} className="p-8">
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center" role="status" aria-live="polite">
                 <svg
+                  aria-hidden="true"
                   className="text-muted-foreground mr-3 -ml-1 h-5 w-5 animate-spin"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"

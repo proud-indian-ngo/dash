@@ -119,6 +119,9 @@ export function SettingsDialog() {
                     {navItems.map((item) => (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton
+                          aria-current={
+                            settingsSection === item.id ? "page" : undefined
+                          }
                           isActive={settingsSection === item.id}
                           onClick={() => setSettingsSection(item.id)}
                         >

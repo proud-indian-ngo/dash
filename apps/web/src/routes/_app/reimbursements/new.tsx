@@ -2,6 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 
 export const Route = createFileRoute("/_app/reimbursements/new")({
+  head: () => ({
+    meta: [{ title: "New Reimbursement | Proud Indian Dashboard" }],
+  }),
   component: NewReimbursementRouteComponent,
 });
 

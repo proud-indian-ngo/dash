@@ -47,7 +47,11 @@ export function NavMain({ items }: { items: NavItem[] }) {
                 isActive={activePath === item.url}
                 tooltip={item.title}
               >
-                <Link className="flex items-center gap-2" to={item.url}>
+                <Link
+                  aria-current={activePath === item.url ? "page" : undefined}
+                  className="flex items-center gap-2"
+                  to={item.url}
+                >
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                   <span>{item.title}</span>
                 </Link>

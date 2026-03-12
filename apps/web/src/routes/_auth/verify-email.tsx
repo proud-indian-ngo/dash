@@ -18,6 +18,9 @@ const verifyEmailToken = createServerFn({ method: "GET" })
   });
 
 export const Route = createFileRoute("/_auth/verify-email")({
+  head: () => ({
+    meta: [{ title: "Verify Email | Proud Indian Dashboard" }],
+  }),
   validateSearch: z.object({
     token: z.string().optional(),
   }),
@@ -44,6 +47,11 @@ function VerifyEmailPage() {
   const { verificationError } = Route.useRouteContext();
 
   return (
-    <p className="text-center text-destructive text-sm">{verificationError}</p>
+    <>
+      <h1 className="sr-only">Verify Email</h1>
+      <p className="text-center text-destructive text-sm">
+        {verificationError}
+      </p>
+    </>
   );
 }

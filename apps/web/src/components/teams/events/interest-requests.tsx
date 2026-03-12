@@ -72,25 +72,27 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
       {interest.status === "pending" ? (
         <div className="flex gap-1">
           <Button
+            aria-label={`Approve ${interest.user?.name ?? "request"}`}
             disabled={isSubmitting}
             onClick={handleApprove}
             size="icon"
-            title="Approve"
             variant="ghost"
           >
             <HugeiconsIcon
+              aria-hidden="true"
               className="size-4 text-green-600"
               icon={Tick02Icon}
             />
           </Button>
           <Button
+            aria-label={`Reject ${interest.user?.name ?? "request"}`}
             disabled={isSubmitting}
             onClick={handleReject}
             size="icon"
-            title="Reject"
             variant="ghost"
           >
             <HugeiconsIcon
+              aria-hidden="true"
               className="size-4 text-destructive"
               icon={Cancel01Icon}
             />
@@ -118,9 +120,9 @@ export function InterestRequests({ interests }: InterestRequestsProps) {
     <>
       <Separator />
       <div className="flex flex-col gap-2">
-        <h3 className="font-medium text-sm">
+        <h2 className="font-medium text-sm">
           Interest Requests ({pendingInterests.length})
-        </h3>
+        </h2>
         {pendingInterests.map((interest) => (
           <InterestRow interest={interest} key={interest.id} />
         ))}

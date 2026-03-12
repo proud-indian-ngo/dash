@@ -58,7 +58,12 @@ export function CustomField<TValue = unknown>({
               htmlFor={typedField.name}
             >
               {label}
-              {isRequired ? <span className="text-destructive"> *</span> : null}
+              {isRequired ? (
+                <span aria-hidden="true" className="text-destructive">
+                  {" "}
+                  *
+                </span>
+              ) : null}
             </FieldLabel>
             {children(typedField)}
             {description ? (

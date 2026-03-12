@@ -11,6 +11,9 @@ import {
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/reimbursements/$id")({
+  head: () => ({
+    meta: [{ title: "Reimbursement Details | Proud Indian Dashboard" }],
+  }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.reimbursement.byId({ id: params.id }));
   },

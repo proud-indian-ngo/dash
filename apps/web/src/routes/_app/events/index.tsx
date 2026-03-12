@@ -9,6 +9,9 @@ import {
 import { ShowInterestDialog } from "@/components/teams/events/show-interest-dialog";
 
 export const Route = createFileRoute("/_app/events/")({
+  head: () => ({
+    meta: [{ title: "Events | Proud Indian Dashboard" }],
+  }),
   loader: ({ context }) => {
     context.zero?.run(queries.teamEvent.public());
     context.zero?.run(queries.eventInterest.byCurrentUser());

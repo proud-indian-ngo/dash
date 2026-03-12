@@ -201,6 +201,7 @@ export function AttachmentsSection({
       </div>
 
       <button
+        aria-label="Drop files here or click to browse files for upload"
         className={cn(
           "relative rounded-lg border border-dashed p-6 text-center transition-colors",
           isDragging
@@ -239,7 +240,10 @@ export function AttachmentsSection({
       </button>
 
       {errors.length > 0 ? (
-        <div className="flex flex-col gap-1 rounded-md border border-destructive/50 px-3 py-2">
+        <div
+          className="flex flex-col gap-1 rounded-md border border-destructive/50 px-3 py-2"
+          role="alert"
+        >
           {errors.map((error) => (
             <p className="text-destructive text-xs" key={error}>
               {error}

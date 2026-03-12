@@ -11,6 +11,9 @@ import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 
 export const Route = createFileRoute("/_app/teams/")({
+  head: () => ({
+    meta: [{ title: "Teams | Proud Indian Dashboard" }],
+  }),
   loader: ({ context }) => {
     context.zero?.run(queries.team.all());
   },

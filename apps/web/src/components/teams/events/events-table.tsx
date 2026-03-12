@@ -99,7 +99,13 @@ function EventActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button className="size-7" size="icon" type="button" variant="ghost">
+          <Button
+            aria-label="Row actions"
+            className="size-7"
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
             <HugeiconsIcon
               className="size-4"
               icon={MoreVerticalIcon}
@@ -266,6 +272,11 @@ export function EventsTable({
         cell: ({ row }) =>
           row.getCanExpand() ? (
             <Button
+              aria-label={
+                row.getIsExpanded()
+                  ? "Collapse occurrences"
+                  : "Expand occurrences"
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 row.toggleExpanded();

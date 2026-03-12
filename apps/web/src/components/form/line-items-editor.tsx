@@ -79,6 +79,7 @@ function LineItemRow({
                 <SelectTrigger
                   aria-describedby={hasError ? errorId : undefined}
                   aria-invalid={hasError || undefined}
+                  aria-label={`Category for line item ${index + 1}`}
                   className="w-full"
                 >
                   <span
@@ -117,6 +118,7 @@ function LineItemRow({
               <Input
                 aria-describedby={hasError ? errorId : undefined}
                 aria-invalid={hasError || undefined}
+                aria-label={`Description for line item ${index + 1}`}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
                 placeholder="Description"
@@ -141,6 +143,7 @@ function LineItemRow({
               <Input
                 aria-describedby={hasError ? errorId : undefined}
                 aria-invalid={hasError || undefined}
+                aria-label={`Amount for line item ${index + 1}`}
                 inputMode="decimal"
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
@@ -158,7 +161,7 @@ function LineItemRow({
       </form.Field>
 
       <Button
-        aria-label="Remove line item"
+        aria-label={`Remove line item ${index + 1}`}
         onClick={onRemove}
         size="icon"
         type="button"
@@ -221,7 +224,7 @@ export function LineItemsEditor({
 
             {form.state.submissionAttempts > 0 &&
             arrayField.state.value.length === 0 ? (
-              <p className="text-destructive text-xs">
+              <p className="text-destructive text-xs" role="alert">
                 At least one line item is required
               </p>
             ) : null}

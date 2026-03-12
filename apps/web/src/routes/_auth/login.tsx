@@ -4,6 +4,9 @@ import { z } from "zod";
 import { LoginForm } from "@/components/login/login-form";
 
 export const Route = createFileRoute("/_auth/login")({
+  head: () => ({
+    meta: [{ title: "Login | Proud Indian Dashboard" }],
+  }),
   validateSearch: z.object({
     status: z.enum(["email-verified", "password-reset"]).optional(),
   }),
@@ -11,5 +14,10 @@ export const Route = createFileRoute("/_auth/login")({
 });
 
 function RouteComponent() {
-  return <LoginForm />;
+  return (
+    <>
+      <h1 className="sr-only">Login</h1>
+      <LoginForm />
+    </>
+  );
 }

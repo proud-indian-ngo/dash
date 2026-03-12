@@ -69,7 +69,12 @@ function EventMemberRow({
         </div>
       </div>
       {canManage ? (
-        <Button onClick={() => onRemove(member.id)} size="icon" variant="ghost">
+        <Button
+          aria-label={`Remove ${member.user?.name ?? "volunteer"}`}
+          onClick={() => onRemove(member.id)}
+          size="icon"
+          variant="ghost"
+        >
           <HugeiconsIcon className="size-4" icon={UserRemoveIcon} />
         </Button>
       ) : null}
@@ -303,9 +308,9 @@ export function EventDetail({
         <Separator />
 
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-sm">
+          <h2 className="font-medium text-sm">
             Volunteers ({event.members.length})
-          </h3>
+          </h2>
           {canManageVolunteers ? (
             <Button
               onClick={() => dialog.open({ type: "addMember" })}

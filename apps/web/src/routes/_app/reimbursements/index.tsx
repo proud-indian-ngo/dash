@@ -13,6 +13,9 @@ import { StatsCards } from "@/components/stats/stats-cards";
 import { deleteUploadedAssets } from "@/functions/attachments";
 
 export const Route = createFileRoute("/_app/reimbursements/")({
+  head: () => ({
+    meta: [{ title: "Reimbursements | Proud Indian Dashboard" }],
+  }),
   loader: ({ context }) => {
     context.zero?.run(queries.reimbursement.all());
   },

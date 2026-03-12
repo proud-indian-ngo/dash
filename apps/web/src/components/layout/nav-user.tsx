@@ -103,7 +103,13 @@ export function NavUser() {
             <span className="relative">
               <UserAvatar user={user} />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-sidebar" />
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-sidebar"
+                />
+              )}
+              {unreadCount > 0 && (
+                <span className="sr-only">You have unread notifications</span>
               )}
             </span>
             <div className="grid flex-1 text-left text-sm leading-tight">

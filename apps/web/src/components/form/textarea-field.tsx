@@ -48,6 +48,7 @@ export function TextareaField({
           <Textarea
             {...props}
             {...fieldErrorProps(field)}
+            aria-required={isRequired}
             id={field.name}
             name={field.name}
             onBlur={field.handleBlur}

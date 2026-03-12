@@ -65,7 +65,10 @@ export function FormLayout({
         }}
       >
         {submitErrorMessage ? (
-          <div className="rounded-none border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm">
+          <div
+            className="rounded-none border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm"
+            role="alert"
+          >
             {submitErrorMessage}
           </div>
         ) : null}

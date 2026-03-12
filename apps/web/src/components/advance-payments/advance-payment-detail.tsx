@@ -51,7 +51,7 @@ function HistoryEntry({
 }) {
   return (
     <div className="flex gap-3">
-      <div className="mt-1 flex flex-col items-center">
+      <div aria-hidden="true" className="mt-1 flex flex-col items-center">
         <div className="size-2 rounded-full bg-border" />
         <div className="w-px flex-1 bg-border" />
       </div>
@@ -259,6 +259,9 @@ export function AdvancePaymentDetail({
                       target="_blank"
                     >
                       Preview
+                      <span className="sr-only">
+                        {getAttachmentLabel(att)} (opens in new tab)
+                      </span>
                     </a>
                     <a
                       className="font-medium text-primary text-xs underline-offset-2 hover:underline"
@@ -268,6 +271,9 @@ export function AdvancePaymentDetail({
                       target="_blank"
                     >
                       Download
+                      <span className="sr-only">
+                        {getAttachmentLabel(att)} (opens in new tab)
+                      </span>
                     </a>
                   </div>
                 </div>

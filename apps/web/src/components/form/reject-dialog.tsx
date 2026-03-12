@@ -37,6 +37,7 @@ export function RejectDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <Textarea
+          aria-label="Rejection reason"
           className="min-h-24"
           onChange={(e) => setReason(e.target.value)}
           placeholder="Rejection reason..."

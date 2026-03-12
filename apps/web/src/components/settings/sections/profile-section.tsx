@@ -66,8 +66,13 @@ export function ProfileSection() {
       <div className="flex flex-col gap-4">
         <InputField isRequired label="Name" name="name" />
         <div className="flex flex-col gap-1.5">
-          <Label>Email</Label>
-          <Input className="opacity-60" disabled value={user?.email ?? ""} />
+          <Label htmlFor="profile-email">Email</Label>
+          <Input
+            className="opacity-60"
+            disabled
+            id="profile-email"
+            value={user?.email ?? ""}
+          />
         </div>
       </div>
 

@@ -306,6 +306,7 @@ export function DataTableWrapper<TData extends object>({
                   </InputGroupAddon>
 
                   <InputGroupInput
+                    aria-label={searchPlaceholder}
                     onChange={(event) => {
                       table.setGlobalFilter(event.target.value);
                     }}

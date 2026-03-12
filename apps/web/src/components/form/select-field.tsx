@@ -69,6 +69,7 @@ export function SelectField({
           >
             <SelectTrigger
               {...fieldErrorProps(field)}
+              aria-required={isRequired}
               className={triggerClassName}
               id={field.name}
               onBlur={field.handleBlur}

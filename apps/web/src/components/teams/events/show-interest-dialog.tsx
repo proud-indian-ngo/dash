@@ -59,29 +59,36 @@ export function ShowInterestDialog({
         <DialogHeader>
           <DialogTitle>Show Interest</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="interest-message">Message (optional)</Label>
-          <Textarea
-            id="interest-message"
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Why are you interested in this event?"
-            rows={3}
-            value={message}
-          />
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={isSubmitting}
-            onClick={() => onOpenChange(false)}
-            type="button"
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button disabled={isSubmitting} onClick={handleSubmit} type="button">
-            {isSubmitting ? "Submitting..." : "Submit Interest"}
-          </Button>
-        </DialogFooter>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          <div className="flex flex-col gap-3">
+            <Label htmlFor="interest-message">Message (optional)</Label>
+            <Textarea
+              id="interest-message"
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Why are you interested in this event?"
+              rows={3}
+              value={message}
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button
+              disabled={isSubmitting}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Submitting..." : "Submit Interest"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

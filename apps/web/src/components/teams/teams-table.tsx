@@ -51,6 +51,7 @@ function RowActions({
       <DropdownMenuTrigger
         render={
           <Button
+            aria-label="Row actions"
             className="size-7"
             data-testid="row-actions"
             size="icon"

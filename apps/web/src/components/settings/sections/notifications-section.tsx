@@ -90,6 +90,7 @@ export function NotificationsSection() {
               </p>
             </div>
             <Switch
+              aria-label={pref.topicName}
               checked={pref.enabled}
               disabled={pref.required}
               id={pref.topicId}
@@ -109,6 +110,7 @@ export function NotificationsSection() {
             </p>
           </div>
           <Switch
+            aria-label="WhatsApp Notifications"
             checked={whatsappEnabled}
             id="whatsapp-notifications"
             onCheckedChange={handleWhatsAppToggle}

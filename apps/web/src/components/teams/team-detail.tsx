@@ -104,10 +104,10 @@ function MemberRow({
         ) : null}
         {canRemove ? (
           <Button
+            aria-label={`Remove ${user?.name ?? "member"}`}
             className="size-7"
             onClick={() => onRemove(member.id)}
             size="icon"
-            title="Remove member"
             type="button"
             variant="ghost"
           >
@@ -290,6 +290,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         <div className="flex flex-col gap-3">
           <h2 className="font-medium text-sm">
             <HugeiconsIcon
+              aria-hidden="true"
               className="mr-1 inline size-4"
               icon={Calendar03Icon}
               strokeWidth={2}

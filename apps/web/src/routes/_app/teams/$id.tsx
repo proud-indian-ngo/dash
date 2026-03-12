@@ -4,6 +4,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { TeamDetail } from "@/components/teams/team-detail";
 
 export const Route = createFileRoute("/_app/teams/$id")({
+  head: () => ({
+    meta: [{ title: "Team Details | Proud Indian Dashboard" }],
+  }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.team.byId({ id: params.id }));
     context.zero?.run(queries.teamEvent.byTeam({ teamId: params.id }));

@@ -126,7 +126,7 @@ function GroupAssignments({ groups }: { groups: readonly WhatsappGroup[] }) {
             }}
             value={orientationGroupId}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="New volunteer group">
               <SelectValue placeholder="Select a group">
                 {groupNameMap.get(orientationGroupId) ?? "Select a group"}
               </SelectValue>
@@ -153,7 +153,7 @@ function GroupAssignments({ groups }: { groups: readonly WhatsappGroup[] }) {
             }}
             value={allVolunteersGroupId}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Orientation completed group">
               <SelectValue placeholder="Select a group">
                 {groupNameMap.get(allVolunteersGroupId) ?? "Select a group"}
               </SelectValue>

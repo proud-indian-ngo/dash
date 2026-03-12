@@ -4,6 +4,9 @@ import { z } from "zod";
 import { ResetPasswordForm } from "@/components/login/reset-password-form";
 
 export const Route = createFileRoute("/_auth/reset-password")({
+  head: () => ({
+    meta: [{ title: "Reset Password | Proud Indian Dashboard" }],
+  }),
   validateSearch: z.object({
     token: z.string().optional(),
   }),
@@ -16,5 +19,10 @@ export const Route = createFileRoute("/_auth/reset-password")({
 });
 
 function RouteComponent() {
-  return <ResetPasswordForm />;
+  return (
+    <>
+      <h1 className="sr-only">Reset Password</h1>
+      <ResetPasswordForm />
+    </>
+  );
 }

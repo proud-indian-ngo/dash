@@ -183,10 +183,17 @@ export function ReimbursementForm({
                     value={selectedAccount?.id ?? ""}
                   >
                     <SelectTrigger
+                      aria-describedby={
+                        field.state.meta.errors.length > 0
+                          ? `${field.name}-error`
+                          : undefined
+                      }
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
                       className="w-full"
+                      id={field.name}
+                      onBlur={field.handleBlur}
                     >
                       <span
                         className="flex flex-1 items-center text-left"

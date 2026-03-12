@@ -26,6 +26,9 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/users")({
+  head: () => ({
+    meta: [{ title: "Users | Proud Indian Dashboard" }],
+  }),
   loader: ({ context }) => {
     if (context.session.user.role !== "admin") {
       throw redirect({

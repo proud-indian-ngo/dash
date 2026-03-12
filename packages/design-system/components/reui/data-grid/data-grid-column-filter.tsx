@@ -87,6 +87,7 @@ function DataGridColumnFilter<TData, TValue>({
         <div className="p-2">
           <Input
             placeholder={title}
+            aria-label={`Filter ${title}`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8"
@@ -98,12 +99,15 @@ function DataGridColumnFilter<TData, TValue>({
               No results found.
             </div>
           ) : (
-            <div className="p-1">
+            <div className="p-1" role="listbox" aria-label={`${title} options`}>
               {filteredOptions.map((option) => {
                 const isSelected = selectedValues.has(option.value)
                 return (
-                  <div
+                  <button
                     key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
                     onClick={() => {
                       if (isSelected) {
                         selectedValues.delete(option.value)
@@ -116,8 +120,8 @@ function DataGridColumnFilter<TData, TValue>({
                       )
                     }}
                     className={cn(
-                      "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none",
-                      "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                      "relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none",
+                      "hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus:bg-accent focus:text-accent-foreground"
                     )}
                   >
                     <div
@@ -139,7 +143,7 @@ function DataGridColumnFilter<TData, TValue>({
                         {facets.get(option.value)}
                       </span>
                     )}
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -148,12 +152,13 @@ function DataGridColumnFilter<TData, TValue>({
             <>
               <div className="bg-border -mx-1 my-1 h-px" />
               <div className="p-1">
-                <div
+                <button
+                  type="button"
                   onClick={() => column?.setFilterValue(undefined)}
-                  className="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none"
+                  className="hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none"
                 >
                   Clear filters
-                </div>
+                </button>
               </div>
             </>
           )}

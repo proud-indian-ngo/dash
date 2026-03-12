@@ -49,6 +49,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
         <Input
           aria-describedby={urlError !== null ? "add-url-error" : undefined}
           aria-invalid={urlError !== null}
+          aria-label="Attachment URL"
           className="flex-1"
           onBlur={() => {
             setTouched(true);

@@ -11,6 +11,9 @@ import {
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/advance-payments/$id")({
+  head: () => ({
+    meta: [{ title: "Advance Payment Details | Proud Indian Dashboard" }],
+  }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.advancePayment.byId({ id: params.id }));
   },

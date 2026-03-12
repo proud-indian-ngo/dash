@@ -13,6 +13,9 @@ import { formatINR } from "@/lib/form-schemas";
 import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 
 export const Route = createFileRoute("/_app/")({
+  head: () => ({
+    meta: [{ title: "Dashboard | Proud Indian Dashboard" }],
+  }),
   loader: ({ context }) => {
     context.zero?.run(queries.reimbursement.all());
     context.zero?.run(queries.advancePayment.all());

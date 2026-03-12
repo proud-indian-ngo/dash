@@ -43,6 +43,7 @@ export function CheckboxField({
         return (
           <Switch
             {...fieldErrorProps(field)}
+            aria-required={isRequired}
             checked={Boolean(field.state.value)}
             disabled={readonly}
             id={field.name}

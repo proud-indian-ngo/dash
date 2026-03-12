@@ -22,6 +22,9 @@ import { downloadCsv } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/export")({
+  head: () => ({
+    meta: [{ title: "Export Data | Proud Indian Dashboard" }],
+  }),
   beforeLoad: ({ context }) => {
     if (!context.session || context.session.user.role !== "admin") {
       throw redirect({ to: "/" });

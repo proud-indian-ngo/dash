@@ -8,6 +8,9 @@ import type { TeamDetailData } from "@/components/teams/team-detail";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/$id")({
+  head: () => ({
+    meta: [{ title: "Event Details | Proud Indian Dashboard" }],
+  }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.teamEvent.byId({ id: params.id }));
     context.zero?.run(queries.eventInterest.byEvent({ eventId: params.id }));

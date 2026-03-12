@@ -60,9 +60,14 @@ export function AccountSection() {
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex flex-col gap-1.5">
-        <Label>Email</Label>
+        <Label htmlFor="account-email">Email</Label>
         <div className="flex items-center gap-2">
-          <Input className="opacity-60" disabled value={user?.email ?? ""} />
+          <Input
+            className="opacity-60"
+            disabled
+            id="account-email"
+            value={user?.email ?? ""}
+          />
           {user?.emailVerified ? (
             <Badge variant="secondary">Verified</Badge>
           ) : (

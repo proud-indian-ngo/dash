@@ -48,6 +48,7 @@ export function PhoneField({
           <PhoneInput
             {...props}
             {...fieldErrorProps(field)}
+            aria-required={isRequired}
             id={field.name}
             onBlur={field.handleBlur}
             onChange={(value) => field.handleChange(value)}
