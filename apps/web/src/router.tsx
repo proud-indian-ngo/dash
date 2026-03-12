@@ -1,11 +1,8 @@
+import type { Zero } from "@rocicorp/zero";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
 import { DefaultNotFound } from "@/components/default-not-found";
-
 import { Loader } from "./components/loader";
-import "./index.css";
-import type { Zero } from "@rocicorp/zero";
 import { routeTree } from "./routeTree.gen";
 
 export interface RouterContext {

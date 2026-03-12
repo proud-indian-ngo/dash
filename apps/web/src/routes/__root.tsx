@@ -14,7 +14,13 @@ import { lazy, useEffect } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ZeroInit } from "@/components/zero-init";
 import type { RouterContext } from "@/router";
+// In dev, Vite injects CSS via HMR — no <link> needed (and avoids ?t= hydration mismatch).
+// In prod, we need an explicit <link> for SSR.
 import appCss from "../index.css?url";
+
+if (import.meta.env.DEV) {
+  import("../index.css");
+}
 
 const LazyDevTools = import.meta.env.DEV
   ? lazy(() => import("@/components/dev-tools"))
@@ -36,12 +42,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         title: "Proud Indian Dashboard",
       },
     ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
+    links: import.meta.env.DEV
+      ? []
+      : [
+          {
+            rel: "stylesheet",
+            href: appCss,
+          },
+        ],
   }),
 
   component: RootDocument,
