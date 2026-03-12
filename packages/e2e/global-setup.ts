@@ -30,38 +30,12 @@ async function authenticate(
   await page.waitForURL("/");
 }
 
-async function waitForZeroSync(
-  page: import("@playwright/test").Page,
-  url: string,
-  locator: import("@playwright/test").Locator,
-  label: string
-) {
-  await page.goto(url);
-  await locator.waitFor({ state: "visible", timeout: 30_000 }).catch(() => {
-    throw new Error(
-      `Zero sync timed out waiting for "${label}" on ${url} (30s)`
-    );
-  });
-}
-
 setup("authenticate as admin", async ({ page }) => {
   await authenticate(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await waitForZeroSync(
-    page,
-    "/users",
-    page.getByText("test-volunteer@pi-dash.test"),
-    "admin: user table synced"
-  );
   await page.context().storageState({ path: adminAuthFile });
 });
 
 setup("authenticate as volunteer", async ({ page }) => {
   await authenticate(page, VOLUNTEER_EMAIL, VOLUNTEER_PASSWORD);
-  await waitForZeroSync(
-    page,
-    "/reimbursements",
-    page.getByText("Rows per page"),
-    "volunteer: Zero query resolved"
-  );
   await page.context().storageState({ path: volunteerAuthFile });
 });

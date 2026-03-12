@@ -277,9 +277,9 @@ export function WhatsAppGroupsSection() {
                   <p className="mb-3 font-medium text-sm">Edit Group</p>
                   <GroupForm
                     initialValues={{
-                      name: group.name,
-                      jid: group.jid,
-                      description: group.description ?? "",
+                      name: inlineMode.group.name,
+                      jid: inlineMode.group.jid,
+                      description: inlineMode.group.description ?? "",
                     }}
                     key={`edit-${group.id}`}
                     onCancel={() => setInlineMode(null)}

@@ -21,7 +21,6 @@ export class ReimbursementPage {
     await expect(
       this.page.getByRole("heading", { name: "Reimbursements" })
     ).toBeVisible();
-    await this.list.waitForZeroTable();
   }
 
   async navigateToNew(): Promise<void> {

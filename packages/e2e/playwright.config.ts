@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: isCI ? [["github"], ["html"]] : "html",
   timeout: 45_000,
   expect: {
-    timeout: 15_000,
+    timeout: 10_000,
   },
   use: {
     baseURL: process.env.BASE_URL ?? `http://localhost:${webServerPort}`,

@@ -9,13 +9,6 @@ export class ListPage {
     this.page = page;
   }
 
-  /** Wait for the Zero-powered table to finish initial sync (skeleton → real data). */
-  async waitForZeroTable(timeout = 30_000): Promise<void> {
-    await this.page
-      .getByText("Rows per page")
-      .waitFor({ state: "visible", timeout });
-  }
-
   getTable(): Locator {
     return this.page.getByRole("table");
   }

@@ -21,7 +21,6 @@ export class AdvancePaymentPage {
     await expect(
       this.page.getByRole("heading", { name: "Advance Payments" })
     ).toBeVisible();
-    await this.list.waitForZeroTable();
   }
 
   async navigateToNew(): Promise<void> {

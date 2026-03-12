@@ -52,7 +52,7 @@ export class RequestFormPage {
     await this.page.getByRole("option", { name: cityName }).click();
   }
 
-  async selectBankAccount(timeout = 30_000): Promise<void> {
+  async selectBankAccount(timeout = 15_000): Promise<void> {
     const bankAccountGroup = this.page
       .getByRole("group")
       .filter({ hasText: "Bank Account" });
