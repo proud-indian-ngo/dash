@@ -50,7 +50,7 @@ function RootDocument() {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {import.meta.env.DEV && (
+        {import.meta.env.DEV && !import.meta.env.VITE_E2E && (
           <script src="https://unpkg.com/react-scan@0.4.3/dist/auto.global.js" />
         )}
         <HeadContent />
@@ -80,7 +80,8 @@ function RootDocument() {
           </TooltipProvider>
         </ThemeProvider>
         {import.meta.env.DEV && <LazyDevTools />}
-        {process.env.NODE_ENV === "development" && <Agentation />}
+        {process.env.NODE_ENV === "development" &&
+          !import.meta.env.VITE_E2E && <Agentation />}
         <Scripts />
       </body>
     </html>

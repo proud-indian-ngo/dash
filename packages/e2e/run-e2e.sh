@@ -75,6 +75,7 @@ export ZERO_QUERY_URL="http://localhost:$TEST_WEB_PORT/api/zero/query"
 export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
+export VITE_E2E=true
 
 # Clean stale replica
 rm -f /tmp/pi-dash-test.db*
