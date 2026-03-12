@@ -272,6 +272,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | Script | Description |
 |---|---|
 | `cd packages/e2e && bash run-e2e.sh` | Run full E2E suite (starts test DB, seeds, runs Playwright, cleans up) |
+| `cd packages/e2e && bash run-e2e.sh tests/foo.spec.ts` | Run specific test files (paths relative to `packages/e2e/`) |
 | `cd packages/e2e && bash run-e2e.sh --ui` | Run E2E tests with Playwright UI mode |
 | `bun run test:seed` | Seed E2E test data |
 | `bun run test:e2e` | Run E2E tests via Turborepo |

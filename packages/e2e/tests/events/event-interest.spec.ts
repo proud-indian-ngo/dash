@@ -105,8 +105,11 @@ test.describe("Event interest flow", () => {
       timeout: 10_000,
     });
 
-    // Click first event link
-    const eventLink = page.getByRole("link").filter({ hasText: /.+/ });
+    // Click first event name link in the table
+    const eventLink = page
+      .getByRole("table")
+      .getByRole("link")
+      .filter({ hasText: /.+/ });
     if ((await eventLink.count()) === 0) {
       test.skip(true, "No public events found");
       return;

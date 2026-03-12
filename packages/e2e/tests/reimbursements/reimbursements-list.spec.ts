@@ -1,42 +1,33 @@
 import { expect, test } from "../../fixtures/test";
+import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.describe("Reimbursements list", () => {
+  let reimbursement: ReimbursementPage;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto("/reimbursements");
-    await expect(
-      page.getByRole("heading", { name: "Reimbursements" })
-    ).toBeVisible();
+    reimbursement = new ReimbursementPage(page);
+    await reimbursement.navigateToList();
   });
 
-  test("renders table with expected columns", async ({ page }) => {
-    const header = page.getByRole("row").first();
-    await expect(
-      header.getByRole("columnheader", { name: /Title/ })
-    ).toBeVisible();
-    await expect(
-      header.getByRole("columnheader", { name: /Status/ })
-    ).toBeVisible();
-    await expect(
-      header.getByRole("columnheader", { name: /Total/ })
-    ).toBeVisible();
-    await expect(
-      header.getByRole("columnheader", { name: /Expense Date/ })
-    ).toBeVisible();
-    await expect(
-      header.getByRole("columnheader", { name: /Submitted/ })
-    ).toBeVisible();
+  test("renders table with expected columns", async () => {
+    const headers = reimbursement.list.getColumnHeaders();
+    await expect(headers.filter({ hasText: /Title/ })).toBeVisible();
+    await expect(headers.filter({ hasText: /Status/ })).toBeVisible();
+    await expect(headers.filter({ hasText: /Total/ })).toBeVisible();
+    await expect(headers.filter({ hasText: /Expense Date/ })).toBeVisible();
+    await expect(headers.filter({ hasText: /Submitted/ })).toBeVisible();
   });
 
-  test("search box is present", async ({ page }) => {
+  test("search box is present", async () => {
     await expect(
-      page.getByPlaceholder("Search reimbursements...")
+      reimbursement.list.getSearchInput("Search reimbursements...")
     ).toBeVisible();
   });
 
   test("New request button navigates to /reimbursements/new", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "New request" }).click();
+    await reimbursement.list.getNewRequestButton().click();
     await page.waitForURL(/\/reimbursements\/new/);
     await expect(
       page.getByRole("heading", { name: "New Reimbursement" })
@@ -44,9 +35,7 @@ test.describe("Reimbursements list", () => {
   });
 
   test("columns dropdown toggles column visibility", async ({ page }) => {
-    const columnsButton = page.getByRole("button", { name: "Columns" });
-    await columnsButton.click();
-    // Verify column checkboxes are present
+    await reimbursement.list.getColumnsButton().click();
     await expect(
       page.getByRole("menuitemcheckbox", { name: "Title" })
     ).toBeVisible();
@@ -57,8 +46,8 @@ test.describe("Reimbursements list", () => {
     await expect(page.getByText("Rows per page")).toBeVisible();
   });
 
-  test("shows stats cards", async ({ page }) => {
-    const cards = page.locator("[data-slot='card-title']");
+  test("shows stats cards", async () => {
+    const cards = reimbursement.list.getStatsCards();
     await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
     await expect(cards.getByText("Pending")).toBeVisible();
     await expect(cards.getByText("Approved")).toBeVisible();

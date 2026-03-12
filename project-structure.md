@@ -18,6 +18,7 @@ All paths are relative to project root.
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
 | `bun run whatsapp:stop` | Stop WhatsApp gateway container |
 | `cd packages/e2e && bash run-e2e.sh` | Run E2E tests (full stack) |
+| `cd packages/e2e && bash run-e2e.sh tests/foo.spec.ts` | Run specific test files |
 | `bun run test:seed` | Seed E2E test data |
 | `bun run test:e2e` | Run E2E tests via Turborepo |
 | `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
@@ -158,7 +159,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
 | `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission, team-event), `src/topics.ts`, `src/preferences.ts`, `src/whatsapp.ts`, `src/jwt.ts`, `src/helpers.ts` |
 | `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs: auth, users, roles, reimbursements, advance-payments, teams, events, dashboard, sidebar, settings), `fixtures/` (auth emails), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
+| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, advance-payments, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page, advance-payment-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
 
@@ -209,18 +210,23 @@ All lib paths above are prefixed with `apps/web/src/`.
 ## E2E Testing
 
 - **When to write E2E tests**: Write E2E tests when adding a major feature (new route/page, new CRUD workflow, new role-gated capability). Minor UI tweaks and refactors do not require E2E tests.
-- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `users/`, `reimbursements/`, `advance-payments/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
-- **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up.
+- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `reimbursements/`, `advance-payments/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
+- **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up. Pass test file paths as args for targeted runs (e.g., `bash run-e2e.sh tests/reimbursements/reimbursement-delete.spec.ts`).
+- **Timeout**: Global timeout is 45s. Use `test.slow()` (triples to 135s) for multi-step CRUD tests.
 - **Projects**: Three Playwright projects — `admin` (authenticated as admin), `volunteer` (authenticated as volunteer), `unauthenticated` (no auth, for login/forgot-password tests).
 - **Auth state**: Global setup (`packages/e2e/global-setup.ts`) logs in both test users and saves storage state to `packages/e2e/.auth/`. Feature tests reuse these sessions.
-- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`). Use plain `@playwright/test` for unauthenticated tests.
+- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`, `consoleErrors`). The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
+- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `ReimbursementPage` and `AdvancePaymentPage` for feature tests — they compose `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`. New feature test suites should follow this pattern.
+- **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via direct API calls to `/api/zero/mutate`.
 - **Seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts. Extend this file when new seed data is needed.
-- **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Avoid CSS class selectors.
+- **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
 - **Env**: Test credentials live in `packages/e2e/.env.test`. Do not commit real credentials.
 - DO: Add E2E tests for new major features covering the happy path and key error states.
 - DO: Place tests in the appropriate feature subdirectory under `packages/e2e/tests/`.
+- DO: Use page objects from `packages/e2e/pages/` for reimbursement, advance-payment, and user tests.
 - DO: Test both admin and volunteer perspectives when the feature is role-gated.
 - DO NOT: Write E2E tests for trivial UI changes or refactors.
+- DO NOT: Place API authorization tests in `tests/auth/` — use `tests/authorization/` to avoid the volunteer project's `testIgnore: /auth\//` filter.
 
 ## Key Patterns
 

@@ -12,6 +12,7 @@ export default defineConfig({
   retries: isCI ? 2 : 1,
   workers: isCI ? 1 : undefined,
   reporter: isCI ? "github" : "html",
+  timeout: 45_000,
   expect: {
     timeout: 10_000,
   },

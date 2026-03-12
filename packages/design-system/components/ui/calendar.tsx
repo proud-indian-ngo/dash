@@ -213,6 +213,7 @@ function CalendarDayButton({
         className
       )}
       {...props}
+      aria-current={modifiers.today ? "date" : undefined}
     />
   )
 }

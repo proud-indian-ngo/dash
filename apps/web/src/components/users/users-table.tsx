@@ -128,7 +128,7 @@ function UserActionsMenu({
         render={
           <Button
             className="size-7"
-            data-testid="user-row-actions"
+            data-testid="row-actions"
             size="icon"
             type="button"
             variant="ghost"

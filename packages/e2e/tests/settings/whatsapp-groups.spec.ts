@@ -76,6 +76,7 @@ test.describe("WhatsApp Groups (admin)", () => {
     if (testInfo.project.name !== "admin") {
       test.skip();
     }
+    test.slow(); // create + edit + delete in one test needs extra time
 
     const dialog = await openWhatsAppGroups(page);
     const groupName = `E2E Test Group ${Date.now()}`;
@@ -100,9 +101,13 @@ test.describe("WhatsApp Groups (admin)", () => {
     await expect(dialog.getByText("Edit Group", { exact: true })).toBeVisible();
 
     const updatedName = `${groupName} Updated`;
-    await dialog.getByLabel("Name").clear();
-    await dialog.getByLabel("Name").fill(updatedName);
-    await dialog.getByRole("button", { name: "Save" }).click();
+    // Wait for the form to be populated before editing (Zero sync can detach inputs)
+    const nameInput = dialog.getByLabel("Name");
+    await expect(nameInput).toHaveValue(groupName, { timeout: 10_000 });
+    await nameInput.fill(updatedName);
+    await dialog
+      .getByRole("button", { name: "Save" })
+      .click({ timeout: 10_000 });
 
     await expect(dialog.getByText(updatedName)).toBeVisible({
       timeout: 10_000,

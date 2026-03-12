@@ -24,39 +24,31 @@ async function createTeam(
 }
 
 /**
- * Opens the actions dropdown on a row. Retries if Zero re-render closes it.
+ * Opens the actions dropdown on a row and clicks a menu item atomically.
+ * Retries the full sequence if Zero re-render closes the menu.
  */
-async function openRowActionMenu(
+async function openRowActionAndClick(
   page: import("@playwright/test").Page,
-  row: import("@playwright/test").Locator
+  row: import("@playwright/test").Locator,
+  menuItemName: string
 ) {
   const trigger = row.getByTestId("row-actions");
-  const viewItem = page.getByRole("menuitem", { name: "View" });
+  const menuItem = page.getByRole("menuitem", { name: menuItemName });
 
   for (let attempt = 0; attempt < 3; attempt++) {
     await trigger.click();
     try {
-      await expect(viewItem).toBeVisible({ timeout: 3000 });
+      await expect(menuItem).toBeVisible({ timeout: 3000 });
+      await menuItem.click();
       return;
     } catch {
-      // Menu didn't open — retry click
+      // Menu didn't open or item disappeared — dismiss and retry
+      await page.keyboard.press("Escape");
     }
   }
-  // Final attempt with full timeout
+  // Final attempt — let it fail with a clear error
   await trigger.click();
-  await expect(viewItem).toBeVisible();
-}
-
-/**
- * Clicks a menu item using dispatchEvent to bypass Base UI animation instability.
- */
-async function clickMenuItem(
-  page: import("@playwright/test").Page,
-  name: string
-) {
-  const item = page.getByRole("menuitem", { name });
-  await expect(item).toBeVisible();
-  await item.dispatchEvent("click");
+  await menuItem.click();
 }
 
 test.describe("Team delete", () => {
@@ -76,8 +68,7 @@ test.describe("Team delete", () => {
     await expect(row).toBeVisible({ timeout: 10_000 });
 
     // Open actions menu and click Delete
-    await openRowActionMenu(page, row);
-    await clickMenuItem(page, "Delete");
+    await openRowActionAndClick(page, row, "Delete");
 
     // Confirmation dialog
     const dialog = page.getByRole("alertdialog");
@@ -111,8 +102,7 @@ test.describe("Team delete", () => {
     const row = table.getByRole("row").filter({ hasText: teamName });
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    await openRowActionMenu(page, row);
-    await clickMenuItem(page, "Delete");
+    await openRowActionAndClick(page, row, "Delete");
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();

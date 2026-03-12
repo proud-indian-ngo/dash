@@ -1,7 +1,11 @@
 import { expect, test } from "../../fixtures/test";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("User row actions (admin)", () => {
+  let list: ListPage;
+
   test.beforeEach(async ({ page }) => {
+    list = new ListPage(page);
     await page.goto("/users");
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
     // Search for the volunteer to ensure it's visible (may be paginated)
@@ -13,44 +17,17 @@ test.describe("User row actions (admin)", () => {
     });
   });
 
-  async function openRowActionMenu(page: import("@playwright/test").Page) {
-    // Find the volunteer row and open the action menu.
-    // Zero sync may re-render the table, so retry the click if the menu doesn't open.
-    const row = page
+  function getVolunteerRow() {
+    return list
+      .getTable()
       .getByRole("row")
       .filter({ hasText: "test-volunteer@pi-dash.test" });
-    const trigger = row.getByTestId("user-row-actions");
-    const editItem = page.getByRole("menuitem", { name: "Edit" });
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await trigger.click();
-      try {
-        await expect(editItem).toBeVisible({ timeout: 3000 });
-        return;
-      } catch {
-        // Menu didn't open — retry click
-      }
-    }
-    // Final attempt with full timeout
-    await trigger.click();
-    await expect(editItem).toBeVisible();
-  }
-
-  async function clickMenuItem(
-    page: import("@playwright/test").Page,
-    name: string
-  ) {
-    // Base UI dropdown re-mounts DOM nodes during open animation, causing
-    // Playwright's stability check to fail. Use dispatchEvent to bypass.
-    const item = page.getByRole("menuitem", { name });
-    await expect(item).toBeVisible();
-    await item.dispatchEvent("click");
   }
 
   test("row action menu shows Edit, Reset password, Ban user, Delete", async ({
     page,
   }) => {
-    await openRowActionMenu(page);
+    await list.openRowActionMenu(getVolunteerRow(), "Edit");
 
     await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
     await expect(
@@ -63,8 +40,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Edit opens dialog with pre-populated fields", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Edit");
+    await list.openRowActionAndClick(getVolunteerRow(), "Edit");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -77,8 +53,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Edit cancel closes dialog", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Edit");
+    await list.openRowActionAndClick(getVolunteerRow(), "Edit");
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -86,8 +61,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Delete opens confirmation alertdialog", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Delete");
+    await list.openRowActionAndClick(getVolunteerRow(), "Delete");
 
     const alertDialog = page.getByRole("alertdialog");
     await expect(alertDialog).toBeVisible();
@@ -103,8 +77,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Delete cancel closes confirmation", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Delete");
+    await list.openRowActionAndClick(getVolunteerRow(), "Delete");
 
     const alertDialog = page.getByRole("alertdialog");
     await alertDialog.getByRole("button", { name: "Cancel" }).click();
@@ -112,8 +85,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Ban user opens dialog with Ban reason", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Ban user");
+    await list.openRowActionAndClick(getVolunteerRow(), "Ban user");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -122,8 +94,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Ban user cancel closes dialog", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Ban user");
+    await list.openRowActionAndClick(getVolunteerRow(), "Ban user");
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -131,8 +102,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Reset password opens dialog", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Reset password");
+    await list.openRowActionAndClick(getVolunteerRow(), "Reset password");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -149,8 +119,7 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Reset password cancel closes dialog", async ({ page }) => {
-    await openRowActionMenu(page);
-    await clickMenuItem(page, "Reset password");
+    await list.openRowActionAndClick(getVolunteerRow(), "Reset password");
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -161,6 +130,12 @@ test.describe("User row actions (admin)", () => {
 // --- Destructive action tests using throwaway users ---
 
 test.describe("User destructive actions (admin)", () => {
+  let list: ListPage;
+
+  test.beforeEach(({ page }) => {
+    list = new ListPage(page);
+  });
+
   async function createThrowawayUser(
     page: import("@playwright/test").Page,
     suffix: string
@@ -184,44 +159,22 @@ test.describe("User destructive actions (admin)", () => {
     return uniqueEmail;
   }
 
-  async function openRowActionMenuForUser(
+  async function searchAndOpenAction(
     page: import("@playwright/test").Page,
-    email: string
+    email: string,
+    menuItemName: string
   ) {
     const searchBox = page.getByPlaceholder("Search users...");
     await searchBox.fill(email);
     await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 });
 
     const row = page.getByRole("row").filter({ hasText: email });
-    const trigger = row.getByTestId("user-row-actions");
-    const editItem = page.getByRole("menuitem", { name: "Edit" });
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await trigger.click();
-      try {
-        await expect(editItem).toBeVisible({ timeout: 3000 });
-        return;
-      } catch {
-        // Menu didn't open — retry
-      }
-    }
-    await trigger.click();
-    await expect(editItem).toBeVisible();
-  }
-
-  async function clickMenuItem(
-    page: import("@playwright/test").Page,
-    name: string
-  ) {
-    const item = page.getByRole("menuitem", { name });
-    await expect(item).toBeVisible();
-    await item.dispatchEvent("click");
+    await list.openRowActionAndClick(row, menuItemName);
   }
 
   test("edit user saves changes", async ({ page }) => {
     const email = await createThrowawayUser(page, "edit");
-    await openRowActionMenuForUser(page, email);
-    await clickMenuItem(page, "Edit");
+    await searchAndOpenAction(page, email, "Edit");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -237,8 +190,7 @@ test.describe("User destructive actions (admin)", () => {
 
   test("delete user removes them from the list", async ({ page }) => {
     const email = await createThrowawayUser(page, "delete");
-    await openRowActionMenuForUser(page, email);
-    await clickMenuItem(page, "Delete");
+    await searchAndOpenAction(page, email, "Delete");
 
     const alertDialog = page.getByRole("alertdialog");
     await expect(alertDialog).toBeVisible();
@@ -253,8 +205,7 @@ test.describe("User destructive actions (admin)", () => {
 
   test("ban user changes their status", async ({ page }) => {
     const email = await createThrowawayUser(page, "ban");
-    await openRowActionMenuForUser(page, email);
-    await clickMenuItem(page, "Ban user");
+    await searchAndOpenAction(page, email, "Ban user");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -267,8 +218,7 @@ test.describe("User destructive actions (admin)", () => {
 
   test("reset password updates the password", async ({ page }) => {
     const email = await createThrowawayUser(page, "resetpw");
-    await openRowActionMenuForUser(page, email);
-    await clickMenuItem(page, "Reset password");
+    await searchAndOpenAction(page, email, "Reset password");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();

@@ -130,7 +130,13 @@ if [ -f /tmp/pi-dash-test.db ]; then
 fi
 
 # Run Playwright
-echo "Running Playwright tests..."
+# Accept optional test file paths relative to packages/e2e/ (e.g., tests/foo.spec.ts)
+# If no args given, runs all tests.
+if [ $# -gt 0 ]; then
+  echo "Running Playwright tests: $*"
+else
+  echo "Running all Playwright tests..."
+fi
 set +e
 bunx playwright test --config packages/e2e/playwright.config.ts "$@"
 EXIT_CODE=$?
