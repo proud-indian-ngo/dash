@@ -11,15 +11,36 @@ let index = 0;
 const listeners = new Set<() => void>();
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
+function startInterval() {
+  intervalId = setInterval(() => {
+    index = (index + 1) % frames.length;
+    for (const l of listeners) l();
+  }, INTERVAL);
+}
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
-  if (!intervalId) {
-    intervalId = setInterval(() => {
-      index = (index + 1) % frames.length;
-      for (const l of listeners) l();
-    }, INTERVAL);
+  const mql =
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      : undefined;
+
+  if (!intervalId && !mql?.matches) {
+    startInterval();
   }
+
+  const handleChange = (e: MediaQueryListEvent) => {
+    if (e.matches && intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    } else if (!e.matches && !intervalId && listeners.size > 0) {
+      startInterval();
+    }
+  };
+  mql?.addEventListener("change", handleChange);
+
   return () => {
+    mql?.removeEventListener("change", handleChange);
     listeners.delete(cb);
     if (listeners.size === 0 && intervalId) {
       clearInterval(intervalId);

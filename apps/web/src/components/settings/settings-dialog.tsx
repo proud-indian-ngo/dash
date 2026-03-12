@@ -155,7 +155,12 @@ export function SettingsDialog() {
             </header>
             <div className="flex flex-1 flex-col overflow-y-auto">
               <AppErrorBoundary level="section">
-                {SECTION_CONTENT[settingsSection]}
+                <div
+                  className="fade-in-0 animate-in duration-75"
+                  key={settingsSection}
+                >
+                  {SECTION_CONTENT[settingsSection]}
+                </div>
               </AppErrorBoundary>
             </div>
           </main>
