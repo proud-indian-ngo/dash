@@ -37,8 +37,8 @@ import { useApp } from "@/context/app-context";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
 import { authClient } from "@/lib/auth-client";
 
-const PRIMARY_LIGHT = "oklch(0.65 0.18 132)";
-const PRIMARY_DARK = "oklch(0.77 0.2 131)";
+const PRIMARY_LIGHT = "oklch(0.52 0.105 223.128)";
+const PRIMARY_DARK = "oklch(0.45 0.085 224.283)";
 
 function courierTheme(primary: string): CourierInboxTheme {
   return {

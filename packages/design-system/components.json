@@ -6,14 +6,14 @@
   "tailwind": {
     "config": "",
     "css": "styles.css",
-    "baseColor": "neutral",
+    "baseColor": "mauve",
     "cssVariables": true,
     "prefix": ""
   },
   "iconLibrary": "hugeicons",
   "rtl": false,
-  "menuColor": "default",
-  "menuAccent": "bold",
+  "menuColor": "default-translucent",
+  "menuAccent": "subtle",
   "aliases": {
     "components": "@pi-dash/design-system/components",
     "utils": "@pi-dash/design-system/lib/utils",
