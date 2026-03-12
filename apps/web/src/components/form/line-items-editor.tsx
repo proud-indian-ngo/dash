@@ -10,13 +10,13 @@ import {
   SelectTrigger,
 } from "@pi-dash/design-system/components/ui/select";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
-import type { ReactNode } from "react";
 import {
   computeRunningTotal,
   formatINR,
   type LineItem,
   newLineItem,
 } from "@/lib/form-schemas";
+import type { FormInstance } from "./form-context";
 import { useResolvedForm } from "./form-context";
 
 interface ArrayFieldApi {
@@ -35,24 +35,15 @@ interface SubFieldApi {
   };
 }
 
-interface LineItemForm {
-  Field: (props: {
-    children: (field: unknown) => ReactNode;
-    mode?: "array";
-    name: string;
-  }) => ReactNode;
-  state: { submissionAttempts: number };
-}
-
 interface LineItemsEditorProps {
   categories: ExpenseCategory[];
-  form?: unknown;
+  form?: FormInstance;
   name?: string;
 }
 
 interface LineItemRowProps {
   categoryOptions: { label: string; value: string }[];
-  form: LineItemForm;
+  form: FormInstance;
   index: number;
   name: string;
   onRemove: () => void;
@@ -74,7 +65,7 @@ function LineItemRow({
   return (
     <div className="grid grid-cols-[1fr_1fr_100px_32px] items-start gap-2">
       <form.Field name={`${name}[${index}].categoryId`}>
-        {(rawField) => {
+        {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
           const { hasError, errorId } = subFieldErrorProps(field);
           return (
@@ -118,7 +109,7 @@ function LineItemRow({
       </form.Field>
 
       <form.Field name={`${name}[${index}].description`}>
-        {(rawField) => {
+        {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
           const { hasError, errorId } = subFieldErrorProps(field);
           return (
@@ -142,7 +133,7 @@ function LineItemRow({
       </form.Field>
 
       <form.Field name={`${name}[${index}].amount`}>
-        {(rawField) => {
+        {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
           const { hasError, errorId } = subFieldErrorProps(field);
           return (
@@ -184,10 +175,7 @@ export function LineItemsEditor({
   form: formProp,
   name = "lineItems",
 }: LineItemsEditorProps) {
-  const form = useResolvedForm(
-    formProp,
-    "LineItemsEditor"
-  ) as unknown as LineItemForm;
+  const form = useResolvedForm(formProp, "LineItemsEditor");
 
   const categoryOptions = categories.map((category) => ({
     label: category.name,
@@ -196,7 +184,7 @@ export function LineItemsEditor({
 
   return (
     <form.Field mode="array" name={name}>
-      {(rawField) => {
+      {(rawField: unknown) => {
         const arrayField = rawField as ArrayFieldApi;
         const total = computeRunningTotal(arrayField.state.value);
 

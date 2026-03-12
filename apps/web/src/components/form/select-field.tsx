@@ -7,7 +7,11 @@ import {
 import type { ReactNode } from "react";
 
 import { CustomField } from "./custom-field";
-import { type FieldValidatorConfig, fieldErrorProps } from "./form-context";
+import {
+  type FieldValidatorConfig,
+  type FormInstance,
+  fieldErrorProps,
+} from "./form-context";
 
 export interface SelectOption {
   label: string;
@@ -17,7 +21,7 @@ export interface SelectOption {
 interface SelectFieldProps {
   description?: ReactNode;
   disabled?: boolean;
-  form?: unknown;
+  form?: FormInstance;
   hideLabel?: boolean;
   isRequired?: boolean;
   label: string;

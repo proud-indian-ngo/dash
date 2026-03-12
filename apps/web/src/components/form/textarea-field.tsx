@@ -2,7 +2,11 @@ import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { CustomField } from "./custom-field";
-import { type FieldValidatorConfig, fieldErrorProps } from "./form-context";
+import {
+  type FieldValidatorConfig,
+  type FormInstance,
+  fieldErrorProps,
+} from "./form-context";
 
 type BaseTextareaProps = Omit<
   ComponentPropsWithoutRef<typeof Textarea>,
@@ -11,7 +15,7 @@ type BaseTextareaProps = Omit<
 
 interface TextareaFieldProps extends BaseTextareaProps {
   description?: ReactNode;
-  form?: unknown;
+  form?: FormInstance;
   hideLabel?: boolean;
   isRequired?: boolean;
   label: string;

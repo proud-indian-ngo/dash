@@ -7,14 +7,18 @@ import {
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ReactNode } from "react";
 
-import type { FieldValidatorConfig, FormFieldApi } from "./form-context";
+import type {
+  FieldValidatorConfig,
+  FormFieldApi,
+  FormInstance,
+} from "./form-context";
 import { getFieldErrorState, useResolvedForm } from "./form-context";
 
 interface CustomFieldProps<TValue = unknown> {
   children: (field: FormFieldApi<TValue>) => ReactNode;
   className?: string;
   description?: ReactNode;
-  form?: unknown;
+  form?: FormInstance;
   hideLabel?: boolean;
   isRequired?: boolean;
   label: ReactNode;
@@ -39,7 +43,7 @@ export function CustomField<TValue = unknown>({
 
   return (
     <resolvedForm.Field name={name} validators={validators}>
-      {(field) => {
+      {(field: unknown) => {
         const typedField = field as FormFieldApi<TValue>;
         const { hasError, errorMessageId } = getFieldErrorState(typedField);
 

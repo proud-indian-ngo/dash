@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { CustomField } from "./custom-field";
-import type { FieldValidatorConfig } from "./form-context";
+import type { FieldValidatorConfig, FormInstance } from "./form-context";
 import { getFieldErrorState } from "./form-context";
 
 const parseDateInputValue = (value: string): Date | undefined => {
@@ -59,7 +59,7 @@ interface DateFieldProps {
   description?: ReactNode;
   disabled?: boolean;
   endMonth?: Date;
-  form?: unknown;
+  form?: FormInstance;
   hideLabel?: boolean;
   isRequired?: boolean;
   label: string;

@@ -40,11 +40,15 @@ export interface FormWithHandleSubmit {
 }
 
 export interface FormWithField {
-  Field: <TValue>(props: {
-    children: (field: unknown) => ReactNode;
-    name: string;
-    validators?: FieldValidatorConfig<TValue>;
-  }) => ReactNode | Promise<ReactNode>;
+  // biome-ignore lint/suspicious/noExplicitAny: uses `any` so concrete ReactFormExtendedApi<T> types remain assignable to FormInstance — TanStack Form's deep generics (validators, field API, form listeners) create contravariance chains that prevent structural compatibility with narrower types
+  Field: (...args: any[]) => any;
+}
+
+export interface FormWithState {
+  state: {
+    errorMap?: { onSubmit?: unknown };
+    submissionAttempts: number;
+  };
 }
 
 export interface FormWithSubscribe {
@@ -61,24 +65,21 @@ export interface FormWithSubscribe {
 
 export type FormInstance = FormWithField &
   FormWithHandleSubmit &
-  FormWithSubscribe;
+  FormWithSubscribe &
+  FormWithState;
 
 const FormContext = createContext<FormInstance | undefined>(undefined);
 
 interface FormContextProviderProps {
   children: ReactNode;
-  form: unknown;
+  form: FormInstance;
 }
 
 export function FormContextProvider({
   children,
   form,
 }: FormContextProviderProps) {
-  return (
-    <FormContext.Provider value={form as FormInstance}>
-      {children}
-    </FormContext.Provider>
-  );
+  return <FormContext.Provider value={form}>{children}</FormContext.Provider>;
 }
 
 export function getFieldErrorState(field: FormFieldApi) {
@@ -96,11 +97,11 @@ export function fieldErrorProps(field: FormFieldApi) {
 }
 
 export function useResolvedForm(
-  form: unknown,
+  form: FormInstance | undefined,
   componentName: string
 ): FormInstance {
   const contextForm = useContext(FormContext);
-  const resolvedForm = (form as FormInstance | undefined) ?? contextForm;
+  const resolvedForm = form ?? contextForm;
 
   if (!resolvedForm) {
     throw new Error(

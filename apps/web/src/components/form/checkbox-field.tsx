@@ -1,12 +1,16 @@
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import type { ReactNode } from "react";
 import { CustomField } from "./custom-field";
-import { type FieldValidatorConfig, fieldErrorProps } from "./form-context";
+import {
+  type FieldValidatorConfig,
+  type FormInstance,
+  fieldErrorProps,
+} from "./form-context";
 
 interface CheckboxFieldProps {
   className?: string;
   description?: ReactNode;
-  form?: unknown;
+  form?: FormInstance;
   isRequired?: boolean;
   label: string;
   name: string;

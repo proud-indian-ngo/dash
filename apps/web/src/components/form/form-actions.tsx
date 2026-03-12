@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentPropsWithoutRef } from "react";
+import type { FormInstance } from "./form-context";
 import { useResolvedForm } from "./form-context";
 
 interface FormActionsProps {
@@ -8,7 +9,7 @@ interface FormActionsProps {
   cancelVariant?: ComponentPropsWithoutRef<typeof Button>["variant"];
   className?: string;
   disableWhenInvalid?: boolean;
-  form?: unknown;
+  form?: FormInstance;
   onCancel?: () => void;
   submitClassName?: string;
   submitLabel: string;

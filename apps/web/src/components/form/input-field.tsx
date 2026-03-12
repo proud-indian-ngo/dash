@@ -2,7 +2,11 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { CustomField } from "./custom-field";
-import { type FieldValidatorConfig, fieldErrorProps } from "./form-context";
+import {
+  type FieldValidatorConfig,
+  type FormInstance,
+  fieldErrorProps,
+} from "./form-context";
 
 type BaseInputProps = Omit<
   ComponentPropsWithoutRef<typeof Input>,
@@ -11,7 +15,7 @@ type BaseInputProps = Omit<
 
 interface InputFieldProps extends BaseInputProps {
   description?: ReactNode;
-  form?: unknown;
+  form?: FormInstance;
   hideLabel?: boolean;
   isRequired?: boolean;
   label: string;

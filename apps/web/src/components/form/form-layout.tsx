@@ -1,19 +1,17 @@
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-import type { FormWithHandleSubmit } from "./form-context";
+import type { FormInstance } from "./form-context";
 import { FormContextProvider } from "./form-context";
 
 interface FormLayoutProps
   extends Omit<ComponentPropsWithoutRef<"form">, "onSubmit"> {
   children: ReactNode;
-  form: unknown;
+  form: FormInstance;
   showSubmitError?: boolean;
 }
 
-const getSubmitErrorMessage = (form: unknown): string | undefined => {
-  const submitError = (
-    form as { state?: { errorMap?: { onSubmit?: unknown } } }
-  ).state?.errorMap?.onSubmit;
+const getSubmitErrorMessage = (form: FormInstance): string | undefined => {
+  const submitError = form.state.errorMap?.onSubmit;
 
   if (!submitError) {
     return undefined;
@@ -51,7 +49,6 @@ export function FormLayout({
   showSubmitError = false,
   ...props
 }: FormLayoutProps) {
-  const submitForm = form as FormWithHandleSubmit;
   const submitErrorMessage = showSubmitError
     ? getSubmitErrorMessage(form)
     : null;
@@ -64,7 +61,7 @@ export function FormLayout({
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          submitForm.handleSubmit();
+          form.handleSubmit();
         }}
       >
         {submitErrorMessage ? (

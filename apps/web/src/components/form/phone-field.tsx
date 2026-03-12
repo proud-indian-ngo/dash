@@ -2,7 +2,11 @@ import { PhoneInput } from "@pi-dash/design-system/components/ui/phone-input";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { CustomField } from "./custom-field";
-import { type FieldValidatorConfig, fieldErrorProps } from "./form-context";
+import {
+  type FieldValidatorConfig,
+  type FormInstance,
+  fieldErrorProps,
+} from "./form-context";
 
 type BasePhoneProps = Omit<
   ComponentPropsWithoutRef<typeof PhoneInput>,
@@ -11,7 +15,7 @@ type BasePhoneProps = Omit<
 
 interface PhoneFieldProps extends BasePhoneProps {
   description?: ReactNode;
-  form?: unknown;
+  form?: FormInstance;
   hideLabel?: boolean;
   isRequired?: boolean;
   label: string;
