@@ -32,24 +32,46 @@ const reimbursementsNavItem: NavItem = {
   title: "Reimbursements",
   url: "/reimbursements",
   icon: Invoice01Icon,
+  subItems: [
+    { title: "New Reimbursement", url: "/reimbursements/new", isHidden: true },
+    {
+      title: "Reimbursement Details",
+      url: "/reimbursements/$id",
+      isHidden: true,
+    },
+  ],
 };
 
 const advancePaymentsNavItem: NavItem = {
   title: "Advance Payments",
   url: "/advance-payments",
   icon: MoneySendSquareIcon,
+  subItems: [
+    {
+      title: "New Advance Payment",
+      url: "/advance-payments/new",
+      isHidden: true,
+    },
+    {
+      title: "Advance Payment Details",
+      url: "/advance-payments/$id",
+      isHidden: true,
+    },
+  ],
 };
 
 const teamsNavItem: NavItem = {
   title: "Teams",
   url: "/teams",
   icon: UserGroupIcon,
+  subItems: [{ title: "Team Details", url: "/teams/$id", isHidden: true }],
 };
 
 const eventsNavItem: NavItem = {
   title: "Events",
   url: "/events",
   icon: Calendar03Icon,
+  subItems: [{ title: "Event Details", url: "/events/$id", isHidden: true }],
 };
 
 export const useNavItems = () => {

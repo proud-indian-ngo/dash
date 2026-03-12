@@ -18,13 +18,9 @@ import { Link } from "@tanstack/react-router";
 import { useActivePath } from "@/hooks/use-active-path";
 
 export interface NavItem {
-  icon: IconSvgElement;
+  icon?: IconSvgElement;
   isHidden?: boolean;
-  subItems?: {
-    title: string;
-    url: string;
-    isHidden?: boolean;
-  }[];
+  subItems?: NavItem[];
   title: string;
   url: string;
 }
@@ -52,36 +48,42 @@ export function NavMain({ items }: { items: NavItem[] }) {
                   className="flex items-center gap-2"
                   to={item.url}
                 >
-                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  {item.icon && (
+                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  )}
                   <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
-              {item.subItems?.length && (
+              {item.subItems?.some((s) => !s.isHidden) && (
                 <>
                   <CollapsibleTrigger
                     aria-label={`Toggle ${item.title} submenu`}
                     render={
-                      <HugeiconsIcon
-                        className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90"
-                        icon={ArrowRight01Icon}
-                        strokeWidth={2}
-                      />
+                      <button className="ml-auto" type="button">
+                        <HugeiconsIcon
+                          className="transition-transform duration-200 group-data-open/collapsible:rotate-90"
+                          icon={ArrowRight01Icon}
+                          strokeWidth={2}
+                        />
+                      </button>
                     }
                   />
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {item.subItems?.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton>
-                            <Link
-                              className="flex items-center gap-2"
-                              to={subItem.url}
-                            >
-                              {subItem.title}
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                      {item.subItems
+                        ?.filter((s) => !s.isHidden)
+                        .map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton>
+                              <Link
+                                className="flex items-center gap-2"
+                                to={subItem.url}
+                              >
+                                {subItem.title}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </>

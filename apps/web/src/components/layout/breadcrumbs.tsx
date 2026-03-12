@@ -8,55 +8,54 @@ import {
 } from "@pi-dash/design-system/components/ui/breadcrumb";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Fragment } from "react";
+import type { NavItem } from "@/components/layout/nav-main";
 import { useNavItems } from "@/hooks/use-nav-items";
+
+function buildNavItemsMap(items: NavItem[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const item of items) {
+    map[item.url] = item.title;
+    if (item.subItems) {
+      Object.assign(map, buildNavItemsMap(item.subItems));
+    }
+  }
+  return map;
+}
+
+function resolveTitle(
+  navItemsMap: Record<string, string>,
+  path: string
+): string | undefined {
+  if (navItemsMap[path]) {
+    return navItemsMap[path];
+  }
+  // Replace last segment with $id for dynamic route matching
+  const segments = path.split("/");
+  segments[segments.length - 1] = "$id";
+  const patternPath = segments.join("/");
+  return navItemsMap[patternPath];
+}
 
 export function Breadcrumbs() {
   const navItems = useNavItems();
-  const navItemsMap = navItems.reduce(
-    (acc, item) => {
-      acc[item.url] = item.title;
-      if (item.subItems) {
-        for (const subItem of item.subItems) {
-          acc[subItem.url] = subItem.title;
-        }
-      }
-      return acc;
-    },
-    {} as Record<string, string>
-  );
+  const navItemsMap = buildNavItemsMap(navItems);
   const { pathname } = useLocation();
   const pathnames = pathname.split("/").slice(1);
-
-  const breadcrumPaths = pathnames.reduce<string[]>((acc, _path, index) => {
-    const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
-
-    if (navItemsMap[currentPath]) {
-      acc.push(currentPath);
-    }
-    return acc;
-  }, []);
 
   const breadcrumbItems =
     pathname === "/"
       ? []
-      : breadcrumPaths.map((path, index) => {
-          const isLast = index === breadcrumPaths.length - 1;
-
-          return (
-            <Fragment key={path}>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                {isLast ? (
-                  <BreadcrumbPage>{navItemsMap[path]}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink
-                    render={<Link to={path}>{navItemsMap[path]}</Link>}
-                  />
-                )}
-              </BreadcrumbItem>
-            </Fragment>
-          );
-        });
+      : pathnames.reduce<{ path: string; title: string }[]>(
+          (acc, _segment, index) => {
+            const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
+            const title = resolveTitle(navItemsMap, currentPath);
+            if (title) {
+              acc.push({ path: currentPath, title });
+            }
+            return acc;
+          },
+          []
+        );
 
   return (
     <Breadcrumb>
@@ -64,7 +63,21 @@ export function Breadcrumbs() {
         <BreadcrumbItem className="hidden md:block">
           <BreadcrumbLink render={<Link to="/">Dashboard</Link>} />
         </BreadcrumbItem>
-        {...breadcrumbItems}
+        {breadcrumbItems.map(({ path, title }, index) => {
+          const isLast = index === breadcrumbItems.length - 1;
+          return (
+            <Fragment key={path}>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage>{title}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink render={<Link to={path}>{title}</Link>} />
+                )}
+              </BreadcrumbItem>
+            </Fragment>
+          );
+        })}
       </BreadcrumbList>
     </Breadcrumb>
   );

@@ -146,7 +146,7 @@ export function NavUser() {
                   <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
                   Notifications
                   {unreadCount > 0 && (
-                    <span className="ml-auto inline-flex size-5 items-center justify-center rounded-full bg-destructive font-medium text-[10px] text-white">
+                    <span className="![color:white] ml-auto inline-flex size-5 items-center justify-center rounded-full bg-destructive font-medium text-[10px]">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
