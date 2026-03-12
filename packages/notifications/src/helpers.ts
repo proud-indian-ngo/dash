@@ -38,6 +38,9 @@ export async function syncCourierUser({
   email: string;
   name: string;
 }): Promise<void> {
+  if (!courier) {
+    return;
+  }
   await courier.profiles.replace(userId, {
     profile: { email, name },
   });

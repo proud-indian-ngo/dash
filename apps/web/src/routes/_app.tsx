@@ -41,7 +41,9 @@ function CourierAuth({ userId }: { userId: string }) {
     signedInRef.current = true;
 
     getCourierToken().then(({ token }) => {
-      courier.shared.signIn({ userId, jwt: token });
+      if (token) {
+        courier.shared.signIn({ userId, jwt: token });
+      }
     });
   }, [userId, courier]);
 

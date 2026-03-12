@@ -12,7 +12,12 @@ export const getCourierToken = createServerFn({ method: "GET" })
 
     const { id, email, name } = context.session.user;
 
-    const token = await generateCourierJwt(id);
+    let token: string | null = null;
+    try {
+      token = await generateCourierJwt(id);
+    } catch {
+      return { token: null };
+    }
 
     withFireAndForgetLog(
       { handler: "getCourierToken", userId: id, email, name },

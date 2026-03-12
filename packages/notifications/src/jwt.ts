@@ -1,6 +1,10 @@
 import { courier } from "./client";
 
 export async function generateCourierJwt(userId: string): Promise<string> {
+  if (!courier) {
+    throw new Error("Courier is not configured (COURIER_API_KEY missing)");
+  }
+
   const { token } = await courier.auth.issueToken({
     scope: `user_id:${userId} inbox:read:messages inbox:write:events read:preferences write:preferences read:brands`,
     expires_in: "7 days",

@@ -28,40 +28,44 @@ export async function sendMessage({
   clickAction,
   topic = TOPICS.GENERAL,
 }: SendMessageOptions): Promise<void> {
-  const inboxPromise = courier.send.message(
-    {
-      message: {
-        to: { user_id: to },
-        content: { title, body },
-        ...(clickAction && { data: { clickAction } }),
-        routing: {
-          method: "all",
-          channels: ["inbox"],
+  const inboxPromise = courier
+    ? courier.send.message(
+        {
+          message: {
+            to: { user_id: to },
+            content: { title, body },
+            ...(clickAction && { data: { clickAction } }),
+            routing: {
+              method: "all",
+              channels: ["inbox"],
+            },
+            preferences: {
+              subscription_topic_id: topic,
+            },
+          },
         },
-        preferences: {
-          subscription_topic_id: topic,
-        },
-      },
-    },
-    { idempotencyKey: `${idempotencyKey}-inbox` }
-  );
+        { idempotencyKey: `${idempotencyKey}-inbox` }
+      )
+    : undefined;
 
-  const emailPromise = courier.send.message(
-    {
-      message: {
-        to: { user_id: to },
-        content: { title, body: emailBody ?? body },
-        routing: {
-          method: "all",
-          channels: ["email"],
+  const emailPromise = courier
+    ? courier.send.message(
+        {
+          message: {
+            to: { user_id: to },
+            content: { title, body: emailBody ?? body },
+            routing: {
+              method: "all",
+              channels: ["email"],
+            },
+            preferences: {
+              subscription_topic_id: topic,
+            },
+          },
         },
-        preferences: {
-          subscription_topic_id: topic,
-        },
-      },
-    },
-    { idempotencyKey: `${idempotencyKey}-email` }
-  );
+        { idempotencyKey: `${idempotencyKey}-email` }
+      )
+    : undefined;
 
   const whatsappPromise = (async () => {
     try {
@@ -117,40 +121,44 @@ export async function sendBulkMessage({
 
   const recipients = userIds.map((id) => ({ user_id: id }));
 
-  const inboxPromise = courier.send.message(
-    {
-      message: {
-        to: recipients,
-        content: { title, body },
-        ...(clickAction && { data: { clickAction } }),
-        routing: {
-          method: "all",
-          channels: ["inbox"],
+  const inboxPromise = courier
+    ? courier.send.message(
+        {
+          message: {
+            to: recipients,
+            content: { title, body },
+            ...(clickAction && { data: { clickAction } }),
+            routing: {
+              method: "all",
+              channels: ["inbox"],
+            },
+            preferences: {
+              subscription_topic_id: topic,
+            },
+          },
         },
-        preferences: {
-          subscription_topic_id: topic,
-        },
-      },
-    },
-    { idempotencyKey: `${idempotencyKey}-inbox` }
-  );
+        { idempotencyKey: `${idempotencyKey}-inbox` }
+      )
+    : undefined;
 
-  const emailPromise = courier.send.message(
-    {
-      message: {
-        to: recipients,
-        content: { title, body: emailBody ?? body },
-        routing: {
-          method: "all",
-          channels: ["email"],
+  const emailPromise = courier
+    ? courier.send.message(
+        {
+          message: {
+            to: recipients,
+            content: { title, body: emailBody ?? body },
+            routing: {
+              method: "all",
+              channels: ["email"],
+            },
+            preferences: {
+              subscription_topic_id: topic,
+            },
+          },
         },
-        preferences: {
-          subscription_topic_id: topic,
-        },
-      },
-    },
-    { idempotencyKey: `${idempotencyKey}-email` }
-  );
+        { idempotencyKey: `${idempotencyKey}-email` }
+      )
+    : undefined;
 
   const whatsappPromise = (async () => {
     try {
