@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@pi-dash/env/web", () => ({
+  env: {
+    VITE_ASSET_CDN: "http://localhost",
+    VITE_PUBLIC_ZERO_CACHE_URL: "http://localhost",
+  },
+}));
+
 import { getAttachmentLabel } from "./attachment-links";
 
 describe("getAttachmentLabel", () => {

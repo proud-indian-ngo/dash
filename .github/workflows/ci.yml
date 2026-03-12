@@ -8,6 +8,8 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -48,6 +50,7 @@ jobs:
       DATABASE_URL: postgres://postgres:test@localhost:5433/pi-dash-test
       SKIP_VALIDATION: "true"
       CI: "true"
+      TURBO_TELEMETRY_DISABLED: "1"
       BETTER_AUTH_URL: http://localhost:3099
       BETTER_AUTH_SECRET: ci-test-secret-value-at-least-32-chars-long
       CORS_ORIGIN: http://localhost:3099
