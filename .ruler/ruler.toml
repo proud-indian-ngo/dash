@@ -32,6 +32,10 @@ args = ["mcp-serve"]
 command = "npx"
 args = ["-y", "@hugeicons/mcp-server"]
 
+[mcp_servers.agentation]
+command = "npx"
+args = ["-y", "agentation-mcp", "server"]
+
 # --- Global .gitignore Configuration ---
 [gitignore]
 # Enable/disable automatic .gitignore updates (default: true)

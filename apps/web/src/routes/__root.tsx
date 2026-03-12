@@ -8,6 +8,7 @@ import {
   ScriptOnce,
   Scripts,
 } from "@tanstack/react-router";
+import { Agentation } from "agentation";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { lazy } from "react";
 import { ZeroInit } from "@/components/zero-init";
@@ -79,6 +80,7 @@ function RootDocument() {
           </TooltipProvider>
         </ThemeProvider>
         {import.meta.env.DEV && <LazyDevTools />}
+        {process.env.NODE_ENV === "development" && <Agentation />}
         <Scripts />
       </body>
     </html>
