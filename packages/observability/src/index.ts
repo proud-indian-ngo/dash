@@ -1,18 +1,41 @@
 import { createRequestLogger } from "evlog";
+import pRetry from "p-retry";
 
 function coerceError(error: unknown): Error | string {
   return error instanceof Error ? error : String(error);
 }
 
-/** For mutator async tasks (ctx.asyncTasks). Logs + emits on both success and failure. Does NOT re-throw. */
+function isHttpClientError(error: Error): boolean {
+  if ("status" in error && typeof error.status === "number") {
+    return error.status >= 400 && error.status < 500;
+  }
+  if ("statusCode" in error && typeof error.statusCode === "number") {
+    return error.statusCode >= 400 && error.statusCode < 500;
+  }
+  return false;
+}
+
+/** For mutator async tasks (ctx.asyncTasks). Retries with exponential backoff, logs + emits on both success and failure. Does NOT re-throw. */
 export async function withTaskLog(
   context: Record<string, unknown>,
-  fn: () => Promise<void>
+  fn: () => Promise<void>,
+  options?: { retries?: number }
 ): Promise<void> {
+  const { retries = 3 } = options ?? {};
   const log = createRequestLogger();
   log.set(context);
   try {
-    await fn();
+    await pRetry(fn, {
+      retries,
+      minTimeout: 500,
+      shouldRetry: ({ error }) => !isHttpClientError(error),
+      onFailedAttempt: (error) => {
+        log.set({
+          attempt: error.attemptNumber,
+          retriesLeft: error.retriesLeft,
+        });
+      },
+    });
   } catch (error) {
     log.error(coerceError(error));
   } finally {

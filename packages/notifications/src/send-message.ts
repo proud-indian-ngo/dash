@@ -4,6 +4,7 @@ import {
   getUserPhones,
   sendWhatsAppMessage,
 } from "@pi-dash/whatsapp";
+import { createRequestLogger } from "evlog";
 import { courier } from "./client";
 import type { Topic } from "./topics";
 import { TOPICS } from "./topics";
@@ -81,7 +82,10 @@ export async function sendMessage({
         `*${title}*\n\n${whatsappBody}${footer}`
       );
     } catch (error) {
-      console.error("WhatsApp notification failed:", error);
+      const log = createRequestLogger();
+      log.set({ handler: "sendMessage", channel: "whatsapp", userId: to });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
     }
   })();
 
@@ -171,7 +175,14 @@ export async function sendBulkMessage({
         )
       );
     } catch (error) {
-      console.error("WhatsApp bulk notification failed:", error);
+      const log = createRequestLogger();
+      log.set({
+        handler: "sendBulkMessage",
+        channel: "whatsapp",
+        userCount: userIds.length,
+      });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
     }
   })();
 

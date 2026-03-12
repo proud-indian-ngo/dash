@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { eq } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
 
@@ -41,6 +42,9 @@ export async function syncWhatsAppStatus(
     }
     await db.update(user).set({ isOnWhatsapp }).where(eq(user.id, userId));
   } catch (error) {
-    console.error("Failed to sync WhatsApp status:", error);
+    const log = createRequestLogger();
+    log.set({ handler: "syncWhatsAppStatus", userId, phone });
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
   }
 }

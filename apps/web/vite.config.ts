@@ -30,6 +30,11 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      external: ["bun", "bun:sqlite"],
+    },
+  },
   server: {
     port: 3001,
   },

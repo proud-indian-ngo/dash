@@ -1,11 +1,11 @@
 import { db } from "@pi-dash/db";
+import { withTaskLog } from "@pi-dash/observability";
 import { mutators } from "@pi-dash/zero/mutators";
 import { schema } from "@pi-dash/zero/schema";
 import { mustGetMutator } from "@rocicorp/zero";
 import { handleMutateRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
-import { createRequestLogger } from "evlog";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -47,21 +47,15 @@ export const Route = createFileRoute("/api/zero/mutate")({
           request
         );
 
-        // Run async tasks (e.g. WhatsApp group ops) AFTER successful commit
-        const results = await Promise.allSettled(
-          asyncTasks.map((task) => task())
+        // Run async tasks (e.g. WhatsApp group ops) AFTER successful commit — retried via withTaskLog
+        await Promise.allSettled(
+          asyncTasks.map((task, i) =>
+            withTaskLog(
+              { handler: "mutate", userId, step: "async-task", taskIndex: i },
+              () => task()
+            )
+          )
         );
-        for (const [i, r] of results.entries()) {
-          if (r.status === "rejected") {
-            const log = createRequestLogger();
-            log.set({ handler: "mutate", userId });
-            log.error(r.reason instanceof Error ? r.reason : String(r.reason), {
-              step: "async-task",
-              taskIndex: i,
-            });
-            log.emit();
-          }
-        }
 
         return Response.json(result);
       },

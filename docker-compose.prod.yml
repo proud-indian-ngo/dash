@@ -1,0 +1,88 @@
+name: pi-dash
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      VITE_PUBLIC_ZERO_CACHE_URL: ${VITE_PUBLIC_ZERO_CACHE_URL}
+      GRAVATAR_ACCESS_TOKEN: ${GRAVATAR_ACCESS_TOKEN:-}
+      GRAVATAR_DICEBEAR_SEED: ${GRAVATAR_DICEBEAR_SEED:-}
+      GRAVATAR_API_BASE_URL: ${GRAVATAR_API_BASE_URL:-https://api.gravatar.com/v3}
+      GRAVATAR_TIMEOUT_MS: ${GRAVATAR_TIMEOUT_MS:-5000}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_KEY_ID: ${R2_SECRET_KEY_ID:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      ASSET_FOLDER: ${ASSET_FOLDER:-}
+      VITE_ASSET_CDN: ${VITE_ASSET_CDN:-}
+      COURIER_API_KEY: ${COURIER_API_KEY:-}
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      WHATSAPP_AUTH_USER: ${WHATSAPP_AUTH_USER:-}
+      WHATSAPP_AUTH_PASS: ${WHATSAPP_AUTH_PASS:-}
+      APP_URL: ${APP_URL:-}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: pi-dash
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c wal_level=logical
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  zero-cache:
+    image: rocicorp/zero:0.25.13
+    ports:
+      - "4848:4848"
+    environment:
+      ZERO_UPSTREAM_DB: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
+      ZERO_CVR_DB: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
+      ZERO_CHANGE_DB: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
+      ZERO_REPLICA_FILE: /data/zero.db
+      ZERO_ADMIN_PASSWORD: ${ZERO_ADMIN_PASSWORD:-}
+      ZERO_MUTATE_FORWARD_COOKIES: "true"
+      ZERO_MUTATE_URL: http://web:${PORT:-3000}/api/zero/mutate
+      ZERO_QUERY_FORWARD_COOKIES: "true"
+      ZERO_QUERY_URL: http://web:${PORT:-3000}/api/zero/query
+      ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
+    volumes:
+      - zero_cache_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4848/keepalive"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  zero_cache_data:

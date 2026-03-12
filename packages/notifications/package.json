@@ -15,6 +15,7 @@
   "dependencies": {
     "@pi-dash/db": "workspace:*",
     "@pi-dash/env": "workspace:*",
+    "evlog": "catalog:",
     "@pi-dash/whatsapp": "workspace:*",
     "@trycourier/courier": "^7.7.1",
     "drizzle-orm": "catalog:"

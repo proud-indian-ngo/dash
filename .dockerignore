@@ -1,0 +1,14 @@
+node_modules
+.git
+.github
+.claude
+.agents
+.ruler
+*.md
+packages/e2e/tests
+packages/e2e/pages
+packages/e2e/playwright-report
+apps/web/.output
+apps/web/.vinxi
+.env.local
+.env.*.local

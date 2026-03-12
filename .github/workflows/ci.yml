@@ -25,3 +25,79 @@ jobs:
         run: bun run check
       - name: Unit tests
         run: bun run test:unit
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [checks]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: pi-dash-test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+    env:
+      TEST_DB_URL: postgres://postgres:test@localhost:5433/pi-dash-test
+      DATABASE_URL: postgres://postgres:test@localhost:5433/pi-dash-test
+      SKIP_VALIDATION: "true"
+      CI: "true"
+      BETTER_AUTH_URL: http://localhost:3099
+      BETTER_AUTH_SECRET: ci-test-secret-value-at-least-32-chars-long
+      CORS_ORIGIN: http://localhost:3099
+      ZERO_UPSTREAM_DB: postgres://postgres:test@localhost:5433/pi-dash-test
+      ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
+      ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate
+      ZERO_QUERY_URL: http://localhost:3099/api/zero/query
+      VITE_PUBLIC_ZERO_CACHE_URL: http://localhost:4870
+      VITE_ASSET_CDN: http://localhost:3099
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Push schema to test database
+        run: cd packages/db && bunx drizzle-kit push
+
+      - name: Seed test users
+        run: cd packages/e2e && bun run helpers/seed-test-user.ts
+
+      - name: Start zero-cache
+        run: |
+          cd packages/zero && ZERO_PORT=4870 ZERO_CHANGE_STREAMER_PORT=4871 \
+            bunx zero-cache-dev &
+          # Wait for zero-cache to be ready
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:4870 >/dev/null 2>&1; then
+              echo "zero-cache ready"
+              break
+            fi
+            sleep 1
+          done || (echo "zero-cache failed to start" && exit 1)
+
+      - name: Run Playwright tests
+        run: bunx playwright test --config packages/e2e/playwright.config.ts
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: packages/e2e/playwright-report/
+          retention-days: 14

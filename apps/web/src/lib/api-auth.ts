@@ -1,6 +1,7 @@
 import { auth } from "@pi-dash/auth";
 import type { UserRole } from "@pi-dash/db/schema/auth";
 import { userRoleEnum } from "@pi-dash/db/schema/auth";
+import { createRequestLogger } from "evlog";
 
 export interface SessionContext {
   role: UserRole;
@@ -21,6 +22,17 @@ export async function requireSession(
 > {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {
+    const url = new URL(request.url);
+    const log = createRequestLogger({
+      method: request.method,
+      path: url.pathname,
+    });
+    log.set({
+      event: "auth_failure",
+      userAgent: request.headers.get("user-agent"),
+      origin: request.headers.get("origin"),
+    });
+    log.emit();
     return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   return { session };

@@ -11,7 +11,7 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 2 : 1,
   workers: isCI ? 1 : undefined,
-  reporter: isCI ? "github" : "html",
+  reporter: isCI ? [["github"], ["html"]] : "html",
   timeout: 45_000,
   expect: {
     timeout: 10_000,
