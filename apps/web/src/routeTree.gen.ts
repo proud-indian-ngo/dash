@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
@@ -51,6 +52,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAvatarRoute = ApiAvatarRouteImport.update({
   id: '/api/avatar',
@@ -196,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/health': typeof ApiHealthRoute
   '/advance-payments/$id': typeof AppAdvancePaymentsIdRoute
   '/advance-payments/new': typeof AppAdvancePaymentsNewRoute
   '/events/$id': typeof AppEventsIdRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/health': typeof ApiHealthRoute
   '/advance-payments/$id': typeof AppAdvancePaymentsIdRoute
   '/advance-payments/new': typeof AppAdvancePaymentsNewRoute
   '/events/$id': typeof AppEventsIdRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
   '/_app/advance-payments/$id': typeof AppAdvancePaymentsIdRoute
   '/_app/advance-payments/new': typeof AppAdvancePaymentsNewRoute
@@ -284,6 +293,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/api/avatar'
+    | '/api/health'
     | '/advance-payments/$id'
     | '/advance-payments/new'
     | '/events/$id'
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/api/avatar'
+    | '/api/health'
     | '/advance-payments/$id'
     | '/advance-payments/new'
     | '/events/$id'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/_auth/reset-password'
     | '/_auth/verify-email'
     | '/api/avatar'
+    | '/api/health'
     | '/_app/'
     | '/_app/advance-payments/$id'
     | '/_app/advance-payments/new'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   ApiAvatarRoute: typeof ApiAvatarRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
@@ -390,6 +403,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/avatar': {
       id: '/api/avatar'
@@ -682,6 +702,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   ApiAvatarRoute: ApiAvatarRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
