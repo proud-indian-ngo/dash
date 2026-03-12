@@ -1,6 +1,9 @@
 import type { UserRole } from "@pi-dash/db/schema/auth";
 
-export type AsyncTask = () => Promise<void>;
+export interface AsyncTask {
+  fn: () => Promise<void>;
+  meta: { mutator: string; [key: string]: unknown };
+}
 
 export interface Context {
   asyncTasks?: AsyncTask[];

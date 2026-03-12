@@ -1,4 +1,3 @@
-import { withTaskLog } from "@pi-dash/observability";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -34,8 +33,9 @@ export const teamMutators = {
         const teamId = args.id;
         const teamName = args.name;
         const creatorUserId = ctx.userId;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog({ mutator: "createTeam", teamId, teamName }, async () => {
+        ctx.asyncTasks?.push({
+          meta: { mutator: "createTeam", teamId, teamName },
+          fn: async () => {
             const { createWhatsAppGroup, getUserPhone } = await import(
               "@pi-dash/whatsapp"
             );
@@ -64,8 +64,8 @@ export const teamMutators = {
               .update(team)
               .set({ whatsappGroupId: groupId })
               .where(eq(team.id, teamId));
-          })
-        );
+          },
+        });
       }
     }
   ),
@@ -95,8 +95,9 @@ export const teamMutators = {
         const teamId = args.id;
         const teamName = args.name;
         const updatedAt = Date.now();
-        ctx.asyncTasks?.push(() =>
-          withTaskLog({ mutator: "updateTeam", teamId, teamName }, async () => {
+        ctx.asyncTasks?.push({
+          meta: { mutator: "updateTeam", teamId, teamName },
+          fn: async () => {
             const { notifyTeamUpdated } = await import(
               "@pi-dash/notifications"
             );
@@ -115,8 +116,8 @@ export const teamMutators = {
               teamName,
               updatedAt,
             });
-          })
-        );
+          },
+        });
       }
     }
   ),
@@ -142,25 +143,23 @@ export const teamMutators = {
 
       if (tx.location === "server") {
         const deletedAt = Date.now();
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            {
-              mutator: "deleteTeam",
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "deleteTeam",
+            teamName,
+            memberCount: memberUserIds.length,
+          },
+          fn: async () => {
+            const { notifyTeamDeleted } = await import(
+              "@pi-dash/notifications"
+            );
+            await notifyTeamDeleted({
+              deletedAt,
+              memberIds: memberUserIds,
               teamName,
-              memberCount: memberUserIds.length,
-            },
-            async () => {
-              const { notifyTeamDeleted } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyTeamDeleted({
-                deletedAt,
-                memberIds: memberUserIds,
-                teamName,
-              });
-            }
-          )
-        );
+            });
+          },
+        });
       }
     }
   ),
@@ -208,41 +207,37 @@ export const teamMutators = {
       if (tx.location === "server") {
         const teamId = args.teamId;
         const userId = args.userId;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            { mutator: "addTeamMember", teamId, userId },
-            async () => {
-              const {
-                addToWhatsAppGroup,
-                getTeamWhatsAppGroupJid,
-                getUserPhone,
-              } = await import("@pi-dash/whatsapp");
+        ctx.asyncTasks?.push({
+          meta: { mutator: "addTeamMember", teamId, userId },
+          fn: async () => {
+            const {
+              addToWhatsAppGroup,
+              getTeamWhatsAppGroupJid,
+              getUserPhone,
+            } = await import("@pi-dash/whatsapp");
 
-              const jid = await getTeamWhatsAppGroupJid(teamId);
-              if (jid) {
-                const phone = await getUserPhone(userId);
-                if (phone) {
-                  await addToWhatsAppGroup(jid, phone);
-                }
+            const jid = await getTeamWhatsAppGroupJid(teamId);
+            if (jid) {
+              const phone = await getUserPhone(userId);
+              if (phone) {
+                await addToWhatsAppGroup(jid, phone);
               }
             }
-          )
-        );
+          },
+        });
 
         const teamName = (await tx.run(zql.team.where("id", args.teamId).one()))
           ?.name;
         if (teamName) {
-          ctx.asyncTasks?.push(() =>
-            withTaskLog(
-              { mutator: "addTeamMember", teamId, teamName, userId },
-              async () => {
-                const { notifyAddedToTeam } = await import(
-                  "@pi-dash/notifications"
-                );
-                await notifyAddedToTeam({ userId, teamName, teamId });
-              }
-            )
-          );
+          ctx.asyncTasks?.push({
+            meta: { mutator: "addTeamMember", teamId, teamName, userId },
+            fn: async () => {
+              const { notifyAddedToTeam } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyAddedToTeam({ userId, teamName, teamId });
+            },
+          });
         }
       }
     }
@@ -286,44 +281,40 @@ export const teamMutators = {
 
       if (tx.location === "server") {
         const teamId = args.teamId;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            { mutator: "removeTeamMember", teamId, memberUserId },
-            async () => {
-              const {
-                getTeamWhatsAppGroupJid,
-                getUserPhone,
-                removeFromWhatsAppGroup,
-              } = await import("@pi-dash/whatsapp");
+        ctx.asyncTasks?.push({
+          meta: { mutator: "removeTeamMember", teamId, memberUserId },
+          fn: async () => {
+            const {
+              getTeamWhatsAppGroupJid,
+              getUserPhone,
+              removeFromWhatsAppGroup,
+            } = await import("@pi-dash/whatsapp");
 
-              const jid = await getTeamWhatsAppGroupJid(teamId);
-              if (jid) {
-                const phone = await getUserPhone(memberUserId);
-                if (phone) {
-                  await removeFromWhatsAppGroup(jid, phone);
-                }
+            const jid = await getTeamWhatsAppGroupJid(teamId);
+            if (jid) {
+              const phone = await getUserPhone(memberUserId);
+              if (phone) {
+                await removeFromWhatsAppGroup(jid, phone);
               }
             }
-          )
-        );
+          },
+        });
 
         if (teamName) {
           const removedAt = Date.now();
-          ctx.asyncTasks?.push(() =>
-            withTaskLog(
-              { mutator: "removeTeamMember", memberUserId, teamName },
-              async () => {
-                const { notifyRemovedFromTeam } = await import(
-                  "@pi-dash/notifications"
-                );
-                await notifyRemovedFromTeam({
-                  removedAt,
-                  userId: memberUserId,
-                  teamName,
-                });
-              }
-            )
-          );
+          ctx.asyncTasks?.push({
+            meta: { mutator: "removeTeamMember", memberUserId, teamName },
+            fn: async () => {
+              const { notifyRemovedFromTeam } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyRemovedFromTeam({
+                removedAt,
+                userId: memberUserId,
+                teamName,
+              });
+            },
+          });
         }
       }
     }

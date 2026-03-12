@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import { withTaskLog } from "@pi-dash/observability";
+import type { AsyncTask } from "@pi-dash/zero/context";
 import { mutators } from "@pi-dash/zero/mutators";
 import { schema } from "@pi-dash/zero/schema";
 import { mustGetMutator } from "@rocicorp/zero";
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/api/zero/mutate")({
         }
 
         const { role, userId } = buildSessionContext(session);
-        const asyncTasks: Array<() => Promise<void>> = [];
+        const asyncTasks: AsyncTask[] = [];
         const ctx = { asyncTasks, role, userId };
 
         const result = await handleMutateRequest(
@@ -51,8 +52,8 @@ export const Route = createFileRoute("/api/zero/mutate")({
         await Promise.allSettled(
           asyncTasks.map((task, i) =>
             withTaskLog(
-              { handler: "mutate", userId, step: "async-task", taskIndex: i },
-              () => task()
+              { ...task.meta, handler: "mutate", userId, taskIndex: i },
+              () => task.fn()
             )
           )
         );

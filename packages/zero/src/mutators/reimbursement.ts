@@ -1,5 +1,4 @@
 import { cityValues } from "@pi-dash/db/schema/shared";
-import { withTaskLog } from "@pi-dash/observability";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -74,21 +73,25 @@ export const reimbursementMutators = {
       if (tx.location === "server") {
         const reimbursementId = args.id;
         const title = args.title;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            { mutator: "createReimbursement", userId, reimbursementId, title },
-            async () => {
-              const { getUserName, notifyReimbursementSubmitted } =
-                await import("@pi-dash/notifications");
-              const submitterName = await getUserName(userId);
-              await notifyReimbursementSubmitted({
-                reimbursementId,
-                title,
-                submitterName,
-              });
-            }
-          )
-        );
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "createReimbursement",
+            userId,
+            reimbursementId,
+            title,
+          },
+          fn: async () => {
+            const { getUserName, notifyReimbursementSubmitted } = await import(
+              "@pi-dash/notifications"
+            );
+            const submitterName = await getUserName(userId);
+            await notifyReimbursementSubmitted({
+              reimbursementId,
+              title,
+              submitterName,
+            });
+          },
+        });
       }
     }
   ),
@@ -205,26 +208,24 @@ export const reimbursementMutators = {
       if (tx.location === "server") {
         const { title, userId: ownerId } = reimbursement;
         const id = args.id;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            {
-              mutator: "approveReimbursement",
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "approveReimbursement",
+            reimbursementId: id,
+            title,
+            submitterId: ownerId,
+          },
+          fn: async () => {
+            const { notifyReimbursementApproved } = await import(
+              "@pi-dash/notifications"
+            );
+            await notifyReimbursementApproved({
               reimbursementId: id,
               title,
               submitterId: ownerId,
-            },
-            async () => {
-              const { notifyReimbursementApproved } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyReimbursementApproved({
-                reimbursementId: id,
-                title,
-                submitterId: ownerId,
-              });
-            }
-          )
-        );
+            });
+          },
+        });
       }
     }
   ),
@@ -307,28 +308,26 @@ export const reimbursementMutators = {
         const { title, userId: ownerId } = reimbursement;
         const id = args.id;
         const reason = args.reason;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            {
-              mutator: "rejectReimbursement",
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "rejectReimbursement",
+            reimbursementId: id,
+            title,
+            submitterId: ownerId,
+            reason,
+          },
+          fn: async () => {
+            const { notifyReimbursementRejected } = await import(
+              "@pi-dash/notifications"
+            );
+            await notifyReimbursementRejected({
               reimbursementId: id,
               title,
               submitterId: ownerId,
               reason,
-            },
-            async () => {
-              const { notifyReimbursementRejected } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyReimbursementRejected({
-                reimbursementId: id,
-                title,
-                submitterId: ownerId,
-                reason,
-              });
-            }
-          )
-        );
+            });
+          },
+        });
       }
     }
   ),

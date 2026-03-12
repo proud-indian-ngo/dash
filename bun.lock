@@ -228,7 +228,6 @@
       "dependencies": {
         "@pi-dash/db": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
-        "@pi-dash/observability": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "date-fns": "catalog:",

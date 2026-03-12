@@ -1,5 +1,4 @@
 import { cityValues } from "@pi-dash/db/schema/shared";
-import { withTaskLog } from "@pi-dash/observability";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -71,26 +70,25 @@ export const advancePaymentMutators = {
       if (tx.location === "server") {
         const advancePaymentId = args.id;
         const title = args.title;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            {
-              mutator: "createAdvancePayment",
-              userId,
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "createAdvancePayment",
+            userId,
+            advancePaymentId,
+            title,
+          },
+          fn: async () => {
+            const { getUserName, notifyAdvancePaymentSubmitted } = await import(
+              "@pi-dash/notifications"
+            );
+            const submitterName = await getUserName(userId);
+            await notifyAdvancePaymentSubmitted({
               advancePaymentId,
               title,
-            },
-            async () => {
-              const { getUserName, notifyAdvancePaymentSubmitted } =
-                await import("@pi-dash/notifications");
-              const submitterName = await getUserName(userId);
-              await notifyAdvancePaymentSubmitted({
-                advancePaymentId,
-                title,
-                submitterName,
-              });
-            }
-          )
-        );
+              submitterName,
+            });
+          },
+        });
       }
     }
   ),
@@ -205,26 +203,24 @@ export const advancePaymentMutators = {
       if (tx.location === "server") {
         const { title, userId: ownerId } = advancePayment;
         const id = args.id;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            {
-              mutator: "approveAdvancePayment",
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "approveAdvancePayment",
+            advancePaymentId: id,
+            title,
+            submitterId: ownerId,
+          },
+          fn: async () => {
+            const { notifyAdvancePaymentApproved } = await import(
+              "@pi-dash/notifications"
+            );
+            await notifyAdvancePaymentApproved({
               advancePaymentId: id,
               title,
               submitterId: ownerId,
-            },
-            async () => {
-              const { notifyAdvancePaymentApproved } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyAdvancePaymentApproved({
-                advancePaymentId: id,
-                title,
-                submitterId: ownerId,
-              });
-            }
-          )
-        );
+            });
+          },
+        });
       }
     }
   ),
@@ -307,28 +303,26 @@ export const advancePaymentMutators = {
         const { title, userId: ownerId } = advancePayment;
         const id = args.id;
         const reason = args.reason;
-        ctx.asyncTasks?.push(() =>
-          withTaskLog(
-            {
-              mutator: "rejectAdvancePayment",
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "rejectAdvancePayment",
+            advancePaymentId: id,
+            title,
+            submitterId: ownerId,
+            reason,
+          },
+          fn: async () => {
+            const { notifyAdvancePaymentRejected } = await import(
+              "@pi-dash/notifications"
+            );
+            await notifyAdvancePaymentRejected({
               advancePaymentId: id,
               title,
               submitterId: ownerId,
               reason,
-            },
-            async () => {
-              const { notifyAdvancePaymentRejected } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyAdvancePaymentRejected({
-                advancePaymentId: id,
-                title,
-                submitterId: ownerId,
-                reason,
-              });
-            }
-          )
-        );
+            });
+          },
+        });
       }
     }
   ),
