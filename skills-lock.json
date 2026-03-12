@@ -26,20 +26,10 @@
       "sourceType": "github",
       "computedHash": "cbe644b0c6760ae2a1eaafa39133920d889331327065d92a131675a665273e56"
     },
-    "grepai-search-advanced": {
-      "source": "yoanbernabeu/grepai-skills",
-      "sourceType": "github",
-      "computedHash": "731410305e2bc48c56d704b2f23e77e725dd15a3168fcaa5b6f4b3d56eb58e33"
-    },
     "grepai-search-basics": {
       "source": "yoanbernabeu/grepai-skills",
       "sourceType": "github",
       "computedHash": "6d1c8fd307579231238ffa15f6f6b615106862bacb0bc056af670ee0ea513d36"
-    },
-    "grepai-search-boosting": {
-      "source": "yoanbernabeu/grepai-skills",
-      "sourceType": "github",
-      "computedHash": "a0a38813abc393fee7b2ab5c21f45ce979ec6a55bd7d04ef0f4c024106080e6c"
     },
     "grepai-search-tips": {
       "source": "yoanbernabeu/grepai-skills",
@@ -60,11 +50,6 @@
       "source": "yoanbernabeu/grepai-skills",
       "sourceType": "github",
       "computedHash": "eff44529eaeb6f4f6d198d513db05fb609dcebc4bdcacda4226d421c030c878c"
-    },
-    "grepai-troubleshooting": {
-      "source": "yoanbernabeu/grepai-skills",
-      "sourceType": "github",
-      "computedHash": "363fc75761e3489ad51601925b65a4e2fa8811ee6ab68b23d0c3eec981309baf"
     },
     "playwright-best-practices": {
       "source": "currents-dev/playwright-best-practices-skill",
