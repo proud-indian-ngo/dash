@@ -94,6 +94,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
+| `components/events/` | public-events-table |
 | `components/teams/events/` | events-table, event-form-dialog, event-detail, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
@@ -233,6 +234,29 @@ All lib paths above are prefixed with `apps/web/src/`.
 ### DataTableWrapper
 
 Generic `DataTableWithFilters<TData>` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, reimbursements-table) are thin wrappers that pass columns, data, and filter config.
+
+### Adding a New Table
+
+Every feature table follows the same structure. Use existing tables (reimbursements-table, advance-payments-table, events/public-events-table) as reference.
+
+1. **Row type**: Define `export type FooRow = ZeroModel & { ...relations }` at the top of the table component file.
+2. **Search function**: Module-level `function searchFoo(row: FooRow, query: string): boolean` — check relevant text fields against `query.trim().toLowerCase()`.
+3. **Skeletons**: Module-level `const SKELETON_*` for each column, using `<Skeleton className="h-5 w-NN" />`.
+4. **Props interface**: Accept `data`, `isLoading?`, plus any feature-specific props (callbacks, related data). Keep the route file as a thin shell.
+5. **Columns**: `useMemo<ColumnDef<FooRow>[]>` inside the component. Each column should use `DataGridColumnHeader` with `visibility` prop, and include `meta: { headerTitle, skeleton }`.
+6. **Actions column**: `id: "actions"`, `enableHiding: false`, `enableResizing: false`, `enableSorting: false`, `enableColumnOrdering: false`, `size: 52`, `minSize: 52`.
+7. **DataTableWrapper**: Always include the full `tableLayout`:
+   ```tsx
+   tableLayout={{
+     columnsResizable: true,
+     columnsDraggable: true,
+     columnsVisibility: true,
+     columnsPinnable: true,
+   }}
+   ```
+   Use `defaultColumnPinning` to pin non-reorderable columns (e.g., expand on left, actions/interest on right).
+8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, manages dialog state, passes data + callbacks as props.
+9. **Delete confirmation**: Use a confirmation dialog in the route, pass `onDelete` callback to the table.
 
 ### Form Fields
 

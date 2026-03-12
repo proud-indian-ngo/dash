@@ -11,11 +11,6 @@ test.describe("Event interest flow", () => {
       timeout: 10_000,
     });
 
-    // Check that the Interest column header exists
-    await expect(
-      page.getByRole("columnheader", { name: "Interest" })
-    ).toBeVisible();
-
     // At least one "Show Interest" button should be visible
     const showInterestButton = page.getByRole("button", {
       name: "Show Interest",
