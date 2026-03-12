@@ -111,6 +111,7 @@ jobs:
             -e ZERO_QUERY_URL="$ZERO_QUERY_URL" \
             -e ZERO_MUTATE_FORWARD_COOKIES=true \
             -e ZERO_QUERY_FORWARD_COOKIES=true \
+            -e ZERO_ADMIN_PASSWORD=ci-test-admin \
             -e ZERO_LOG_LEVEL=info \
             rocicorp/zero:0.25.13
           # Wait for zero-cache to be ready
