@@ -4,6 +4,9 @@ test.describe("Teams list (admin)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/teams");
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
+    await page
+      .getByText("Rows per page")
+      .waitFor({ state: "visible", timeout: 30_000 });
   });
 
   test("renders table with expected columns", async ({ page }) => {
