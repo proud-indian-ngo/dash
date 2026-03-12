@@ -60,6 +60,7 @@ jobs:
       ZERO_QUERY_URL: http://localhost:3099/api/zero/query
       VITE_PUBLIC_ZERO_CACHE_URL: http://localhost:4870
       VITE_ASSET_CDN: http://localhost:3099
+      COURIER_API_KEY: dummy-ci-key
     steps:
       - uses: actions/checkout@v4
 
