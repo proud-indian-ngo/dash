@@ -52,10 +52,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `bunx --bun vite dev --port ${webServerPort}`,
+    command: isCI
+      ? `PORT=${webServerPort} bun run .output/server/index.mjs`
+      : `bunx --bun vite dev --port ${webServerPort}`,
     url: `http://localhost:${webServerPort}`,
     reuseExistingServer: !(isCI || isTestDB),
-    timeout: 120_000,
+    timeout: isCI ? 30_000 : 120_000,
+    stdout: "pipe",
+    stderr: "pipe",
     cwd: path.resolve(import.meta.dirname, "../../apps/web"),
     env: {
       ...process.env,

@@ -58,7 +58,7 @@ jobs:
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
       ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate
       ZERO_QUERY_URL: http://localhost:3099/api/zero/query
-      VITE_PUBLIC_ZERO_CACHE_URL: http://localhost:4870
+      VITE_PUBLIC_ZERO_CACHE_URL: http://localhost:4848
       VITE_ASSET_CDN: http://localhost:3099
       COURIER_API_KEY: dummy-ci-key
     steps:
@@ -97,19 +97,33 @@ jobs:
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
+      - name: Build web app
+        run: cd apps/web && bun run build
+
       - name: Start zero-cache
         run: |
-          cd packages/zero && ZERO_PORT=4870 ZERO_CHANGE_STREAMER_PORT=4871 \
-            bunx zero-cache-dev &
+          docker run -d --name zero-cache --network host \
+            -e ZERO_UPSTREAM_DB="$ZERO_UPSTREAM_DB" \
+            -e ZERO_CVR_DB="$ZERO_UPSTREAM_DB" \
+            -e ZERO_CHANGE_DB="$ZERO_UPSTREAM_DB" \
+            -e ZERO_REPLICA_FILE="$ZERO_REPLICA_FILE" \
+            -e ZERO_MUTATE_URL="$ZERO_MUTATE_URL" \
+            -e ZERO_QUERY_URL="$ZERO_QUERY_URL" \
+            -e ZERO_MUTATE_FORWARD_COOKIES=true \
+            -e ZERO_QUERY_FORWARD_COOKIES=true \
+            -e ZERO_LOG_LEVEL=info \
+            rocicorp/zero:0.25.13
           # Wait for zero-cache to be ready
           for _ in $(seq 1 30); do
-            if curl -sf http://localhost:4870 >/dev/null 2>&1; then
+            if curl -sf http://localhost:4848/keepalive >/dev/null 2>&1; then
               echo "zero-cache ready"
               exit 0
             fi
             sleep 1
           done
-          echo "zero-cache failed to start" && exit 1
+          echo "zero-cache failed to start"
+          docker logs zero-cache
+          exit 1
 
       - name: Run Playwright tests
         run: bunx playwright test --config packages/e2e/playwright.config.ts
