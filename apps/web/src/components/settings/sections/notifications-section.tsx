@@ -15,7 +15,8 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
     "Advance payments, reimbursements, approvals, and rejections.",
   "Account Notifications":
     "Welcome messages, role changes, and account status updates.",
-  "Marketing Notifications": "Product updates, tips, and announcements.",
+  "Event Notifications":
+    "Team event creation, updates, cancellations, and interest responses.",
 };
 
 export function NotificationsSection() {
