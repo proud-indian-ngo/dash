@@ -1,16 +1,6 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -28,9 +18,11 @@ import type {
 } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
 
 export type TeamRow = Team & {
@@ -43,16 +35,16 @@ const SKELETON_DESC = <Skeleton className="h-5 w-48" />;
 const SKELETON_COUNT = <Skeleton className="h-5 w-12" />;
 const SKELETON_WA = <Skeleton className="h-5 w-32" />;
 
-function ActionsMenu({
+function RowActions({
+  id,
   isAdmin,
   onNavigate,
   onRequestDelete,
-  teamId,
 }: {
+  id: string;
   isAdmin: boolean;
   onNavigate: (id: string) => void;
-  onRequestDelete: (id: string) => void;
-  teamId: string;
+  onRequestDelete: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -74,16 +66,11 @@ function ActionsMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={() => onNavigate(teamId)}>
-          View
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
         {isAdmin ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onRequestDelete(teamId)}
-              variant="destructive"
-            >
+            <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
               Delete
             </DropdownMenuItem>
           </>
@@ -119,27 +106,13 @@ export function TeamsTable({
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user?.role === "admin";
 
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleRequestDelete = useCallback((id: string) => {
-    setDeleteTargetId(id);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!deleteTargetId) {
-      return;
-    }
-    setIsDeleting(true);
-    try {
-      await onDelete(deleteTargetId);
-      setDeleteTargetId(null);
-    } catch {
-      toast.error("Failed to delete team");
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [deleteTargetId, onDelete]);
+  const deleteAction = useConfirmAction<string>({
+    onConfirm: async (id) => {
+      await onDelete(id);
+      return { type: "ok" };
+    },
+    onError: () => toast.error("Failed to delete team"),
+  });
 
   const columns = useMemo<ColumnDef<TeamRow>[]>(
     () => [
@@ -222,11 +195,11 @@ export function TeamsTable({
         id: "actions",
         header: "",
         cell: ({ row }) => (
-          <ActionsMenu
+          <RowActions
+            id={row.original.id}
             isAdmin={isAdmin}
             onNavigate={onNavigate}
-            onRequestDelete={handleRequestDelete}
-            teamId={row.original.id}
+            onRequestDelete={() => deleteAction.trigger(row.original.id)}
           />
         ),
         enableHiding: false,
@@ -238,7 +211,7 @@ export function TeamsTable({
         minSize: 52,
       },
     ],
-    [isAdmin, onNavigate, handleRequestDelete]
+    [isAdmin, onNavigate, deleteAction.trigger]
   );
 
   return (
@@ -260,41 +233,20 @@ export function TeamsTable({
         }}
         toolbarActions={toolbarActions}
       />
-
-      <AlertDialog
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description="This will permanently delete this team and remove all members. This action cannot be undone."
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
         onOpenChange={(open) => {
           if (!open) {
-            setDeleteTargetId(null);
+            deleteAction.cancel();
           }
         }}
-        open={deleteTargetId !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete team</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this team and remove all members.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={isDeleting}
-              size="default"
-              variant="outline"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isDeleting}
-              onClick={handleConfirmDelete}
-              variant="destructive"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        open={deleteAction.isOpen}
+        title="Delete team"
+      />
     </>
   );
 }

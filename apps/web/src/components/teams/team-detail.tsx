@@ -20,7 +20,7 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -29,6 +29,8 @@ import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
 import type { EventRow } from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { isTeamLead } from "@/lib/team-utils";
 
 export type TeamDetailData = Team & {
@@ -41,6 +43,12 @@ interface TeamDetailProps {
   team: TeamDetailData;
   userId: string;
 }
+
+type TeamDialog =
+  | { type: "edit" }
+  | { type: "addMember" }
+  | { type: "createEvent" }
+  | { type: "editEvent"; event: EventRow };
 
 function MemberRow({
   canManage,
@@ -119,17 +127,31 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
   const navigate = useNavigate();
   const canManage = isAdmin || isTeamLead(team.members, userId);
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [deleteTeamOpen, setDeleteTeamOpen] = useState(false);
-  const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
-  const [isDeletingTeam, setIsDeletingTeam] = useState(false);
-  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const dialog = useDialogManager<TeamDialog>();
 
-  const [createEventOpen, setCreateEventOpen] = useState(false);
-  const [editEventData, setEditEventData] = useState<EventRow | null>(null);
-  const [cancelEventData, setCancelEventData] = useState<EventRow | null>(null);
-  const [isCancellingEvent, setIsCancellingEvent] = useState(false);
+  const deleteTeam = useConfirmAction({
+    onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
+    onSuccess: () => {
+      toast.success("Team deleted");
+      navigate({ to: "/teams" });
+    },
+    onError: () => toast.error("Failed to delete team"),
+  });
+
+  const removeMember = useConfirmAction<string>({
+    onConfirm: (memberId) =>
+      zero.mutate(mutators.team.removeMember({ teamId: team.id, memberId }))
+        .server,
+    onSuccess: () => toast.success("Member removed"),
+    onError: (msg) => toast.error(msg || "Failed to remove member"),
+  });
+
+  const cancelEvent = useConfirmAction<EventRow>({
+    onConfirm: (event) =>
+      zero.mutate(mutators.teamEvent.cancel({ id: event.id })).server,
+    onSuccess: () => toast.success("Event cancelled"),
+    onError: () => toast.error("Failed to cancel event"),
+  });
 
   const [events] = useQuery(queries.teamEvent.byTeam({ teamId: team.id }));
 
@@ -141,38 +163,6 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         0
       )
     : 0;
-
-  const handleDeleteTeam = useCallback(async () => {
-    setIsDeletingTeam(true);
-    const res = await zero.mutate(mutators.team.delete({ id: team.id })).server;
-    if (res.type === "error") {
-      setIsDeletingTeam(false);
-      toast.error("Failed to delete team");
-    } else {
-      toast.success("Team deleted");
-      navigate({ to: "/teams" });
-    }
-  }, [zero, team.id, navigate]);
-
-  const handleRemoveMember = useCallback(async () => {
-    if (!removeMemberId) {
-      return;
-    }
-    setIsRemovingMember(true);
-    const res = await zero.mutate(
-      mutators.team.removeMember({
-        teamId: team.id,
-        memberId: removeMemberId,
-      })
-    ).server;
-    setIsRemovingMember(false);
-    if (res.type === "error") {
-      toast.error(res.error.message || "Failed to remove member");
-    } else {
-      toast.success("Member removed");
-      setRemoveMemberId(null);
-    }
-  }, [zero, team.id, removeMemberId]);
 
   const handleToggleRole = useCallback(
     async (memberId: string, currentRole: string) => {
@@ -189,23 +179,6 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
     [zero]
   );
 
-  const handleConfirmCancelEvent = useCallback(async () => {
-    if (!cancelEventData) {
-      return;
-    }
-    setIsCancellingEvent(true);
-    const res = await zero.mutate(
-      mutators.teamEvent.cancel({ id: cancelEventData.id })
-    ).server;
-    setIsCancellingEvent(false);
-    if (res.type === "error") {
-      toast.error("Failed to cancel event");
-    } else {
-      toast.success("Event cancelled");
-      setCancelEventData(null);
-    }
-  }, [zero, cancelEventData]);
-
   const handleSelectEvent = useCallback(
     (event: EventRow) => {
       navigate({ to: "/events/$id", params: { id: event.id } });
@@ -213,9 +186,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
     [navigate]
   );
 
-  const handleEditEvent = useCallback((event: EventRow) => {
-    setEditEventData(event);
-  }, []);
+  const editEventData = dialog.getData("editEvent");
 
   return (
     <div className="flex flex-col gap-6">
@@ -235,7 +206,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         {isAdmin ? (
           <div className="flex gap-2">
             <Button
-              onClick={() => setEditOpen(true)}
+              onClick={() => dialog.open({ type: "edit" })}
               size="sm"
               type="button"
               variant="outline"
@@ -248,7 +219,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
               Edit
             </Button>
             <Button
-              onClick={() => setDeleteTeamOpen(true)}
+              onClick={() => deleteTeam.trigger()}
               size="sm"
               type="button"
               variant="destructive"
@@ -274,7 +245,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
           </h2>
           {canManage ? (
             <Button
-              onClick={() => setAddMemberOpen(true)}
+              onClick={() => dialog.open({ type: "addMember" })}
               size="sm"
               type="button"
               variant="outline"
@@ -297,7 +268,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
                 canRemove={isAdmin || (canManage && member.role !== "lead")}
                 key={member.id}
                 member={member}
-                onRemove={setRemoveMemberId}
+                onRemove={(id) => removeMember.trigger(id)}
                 onToggleRole={handleToggleRole}
               />
             ))}
@@ -331,13 +302,13 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         <EventsTable
           canManage={canManage}
           events={(events as EventRow[]) ?? []}
-          onCancelEvent={setCancelEventData}
-          onEditEvent={handleEditEvent}
+          onCancelEvent={(event) => cancelEvent.trigger(event)}
+          onEditEvent={(event) => dialog.open({ type: "editEvent", event })}
           onSelectEvent={handleSelectEvent}
           toolbarActions={
             canManage ? (
               <Button
-                onClick={() => setCreateEventOpen(true)}
+                onClick={() => dialog.open({ type: "createEvent" })}
                 size="sm"
                 type="button"
               >
@@ -362,8 +333,8 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
             description: team.description,
             whatsappGroupId: team.whatsappGroupId,
           }}
-          onOpenChange={setEditOpen}
-          open={editOpen}
+          onOpenChange={dialog.onOpenChange}
+          open={dialog.isOpen("edit")}
         />
       ) : null}
 
@@ -372,16 +343,16 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         <AddMemberDialog
           existingMembers={team.members}
           isAdmin={isAdmin}
-          onOpenChange={setAddMemberOpen}
-          open={addMemberOpen}
+          onOpenChange={dialog.onOpenChange}
+          open={dialog.isOpen("addMember")}
           teamId={team.id}
         />
       ) : null}
 
       {/* Create Event Dialog */}
       <EventFormDialog
-        onOpenChange={setCreateEventOpen}
-        open={createEventOpen}
+        onOpenChange={dialog.onOpenChange}
+        open={dialog.isOpen("createEvent")}
         teamId={team.id}
       />
 
@@ -389,25 +360,21 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       {editEventData ? (
         <EventFormDialog
           initialValues={{
-            id: editEventData.id,
-            name: editEventData.name,
-            description: editEventData.description,
-            endTime: editEventData.endTime,
-            isPublic: editEventData.isPublic ?? false,
-            location: editEventData.location,
-            parentEventId: editEventData.parentEventId,
-            recurrenceRule: editEventData.recurrenceRule as {
+            id: editEventData.event.id,
+            name: editEventData.event.name,
+            description: editEventData.event.description,
+            endTime: editEventData.event.endTime,
+            isPublic: editEventData.event.isPublic ?? false,
+            location: editEventData.event.location,
+            parentEventId: editEventData.event.parentEventId,
+            recurrenceRule: editEventData.event.recurrenceRule as {
               frequency: "weekly" | "biweekly" | "monthly";
               endDate?: string;
             } | null,
-            startTime: editEventData.startTime,
-            whatsappGroupId: editEventData.whatsappGroupId,
+            startTime: editEventData.event.startTime,
+            whatsappGroupId: editEventData.event.whatsappGroupId,
           }}
-          onOpenChange={(open) => {
-            if (!open) {
-              setEditEventData(null);
-            }
-          }}
+          onOpenChange={dialog.onOpenChange}
           open
           teamId={team.id}
         />
@@ -417,11 +384,15 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       <ConfirmDialog
         confirmLabel="Delete"
         description={`This will permanently delete "${team.name}" and remove all members. This action cannot be undone.`}
-        loading={isDeletingTeam}
+        loading={deleteTeam.isLoading}
         loadingLabel="Deleting..."
-        onConfirm={handleDeleteTeam}
-        onOpenChange={setDeleteTeamOpen}
-        open={deleteTeamOpen}
+        onConfirm={deleteTeam.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteTeam.cancel();
+          }
+        }}
+        open={deleteTeam.isOpen}
         title="Delete team"
       />
 
@@ -429,15 +400,15 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       <ConfirmDialog
         confirmLabel="Remove"
         description={`Are you sure you want to remove this member from the team?${team.whatsappGroup ? " They will also be removed from the linked WhatsApp group." : ""}`}
-        loading={isRemovingMember}
+        loading={removeMember.isLoading}
         loadingLabel="Removing..."
-        onConfirm={handleRemoveMember}
+        onConfirm={removeMember.confirm}
         onOpenChange={(open) => {
           if (!open) {
-            setRemoveMemberId(null);
+            removeMember.cancel();
           }
         }}
-        open={removeMemberId !== null}
+        open={removeMember.isOpen}
         title="Remove member"
       />
 
@@ -445,16 +416,16 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       <ConfirmDialog
         cancelLabel="Keep Event"
         confirmLabel="Cancel Event"
-        description={`Are you sure you want to cancel "${cancelEventData?.name}"? This action cannot be undone and all members will be notified.`}
-        loading={isCancellingEvent}
+        description={`Are you sure you want to cancel "${cancelEvent.payload?.name}"? This action cannot be undone and all members will be notified.`}
+        loading={cancelEvent.isLoading}
         loadingLabel="Cancelling..."
-        onConfirm={handleConfirmCancelEvent}
+        onConfirm={cancelEvent.confirm}
         onOpenChange={(open) => {
           if (!open) {
-            setCancelEventData(null);
+            cancelEvent.cancel();
           }
         }}
-        open={cancelEventData !== null}
+        open={cancelEvent.isOpen}
         title="Cancel event"
       />
     </div>

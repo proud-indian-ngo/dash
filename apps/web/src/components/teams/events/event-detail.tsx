@@ -12,11 +12,13 @@ import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import type { TeamDetailData } from "@/components/teams/team-detail";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventFormDialog } from "./event-form-dialog";
 import type { EventRow } from "./events-table";
@@ -33,6 +35,11 @@ interface EventDetailProps {
   myInterest?: InterestWithUser | null;
   team: TeamDetailData;
 }
+
+type EventDialog =
+  | { type: "edit" }
+  | { type: "addMember" }
+  | { type: "interest" };
 
 function EventMemberRow({
   canManage,
@@ -200,29 +207,23 @@ export function EventDetail({
 }: EventDetailProps) {
   const zero = useZero();
   const navigate = useNavigate();
-  const [editOpen, setEditOpen] = useState(false);
-  const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [interestOpen, setInterestOpen] = useState(false);
+
+  const dialog = useDialogManager<EventDialog>();
+
+  const cancelAction = useConfirmAction({
+    onConfirm: () =>
+      zero.mutate(mutators.teamEvent.cancel({ id: event.id })).server,
+    onSuccess: () => {
+      toast.success("Event cancelled");
+      navigate({ to: "/teams/$id", params: { id: event.teamId } });
+    },
+    onError: () => toast.error("Failed to cancel event"),
+  });
 
   const eventTime = event.endTime ?? event.startTime;
   const isPastEvent = new Date(eventTime) < new Date();
   const canCancel = isPastEvent ? isAdmin : canManage;
   const canManageVolunteers = isPastEvent ? isAdmin : canManage;
-
-  const handleCancel = useCallback(async () => {
-    setIsCancelling(true);
-    const res = await zero.mutate(mutators.teamEvent.cancel({ id: event.id }))
-      .server;
-    if (res.type === "error") {
-      setIsCancelling(false);
-      toast.error("Failed to cancel event");
-    } else {
-      toast.success("Event cancelled");
-      navigate({ to: "/teams/$id", params: { id: event.teamId } });
-    }
-  }, [event.id, event.teamId, zero, navigate]);
 
   const handleRemoveMember = useCallback(
     async (memberId: string) => {
@@ -266,7 +267,7 @@ export function EventDetail({
             <div className="flex gap-2">
               {canManage ? (
                 <Button
-                  onClick={() => setEditOpen(true)}
+                  onClick={() => dialog.open({ type: "edit" })}
                   size="sm"
                   variant="outline"
                 >
@@ -276,7 +277,7 @@ export function EventDetail({
               ) : null}
               {canCancel ? (
                 <Button
-                  onClick={() => setCancelOpen(true)}
+                  onClick={() => cancelAction.trigger()}
                   size="sm"
                   variant="destructive"
                 >
@@ -295,7 +296,7 @@ export function EventDetail({
           isMember={isMember}
           isPublic={!!event.isPublic}
           myInterest={myInterest}
-          onShowInterest={() => setInterestOpen(true)}
+          onShowInterest={() => dialog.open({ type: "interest" })}
         />
 
         <Separator />
@@ -306,7 +307,7 @@ export function EventDetail({
           </h3>
           {canManageVolunteers ? (
             <Button
-              onClick={() => setAddMemberOpen(true)}
+              onClick={() => dialog.open({ type: "addMember" })}
               size="sm"
               variant="outline"
             >
@@ -346,34 +347,38 @@ export function EventDetail({
           parentEventId: event.parentEventId,
           recurrenceRule: recurrence ?? null,
         }}
-        onOpenChange={setEditOpen}
-        open={editOpen}
+        onOpenChange={dialog.onOpenChange}
+        open={dialog.isOpen("edit")}
         teamId={event.teamId}
       />
 
       <AddEventMemberDialog
         eventId={event.id}
         existingMembers={event.members}
-        onOpenChange={setAddMemberOpen}
-        open={addMemberOpen}
+        onOpenChange={dialog.onOpenChange}
+        open={dialog.isOpen("addMember")}
       />
 
       <ConfirmDialog
         cancelLabel="Keep Event"
         confirmLabel="Cancel Event"
         description={`Are you sure you want to cancel "${event.name}"? This action cannot be undone and all volunteers will be notified.`}
-        loading={isCancelling}
+        loading={cancelAction.isLoading}
         loadingLabel="Cancelling..."
-        onConfirm={handleCancel}
-        onOpenChange={setCancelOpen}
-        open={cancelOpen}
+        onConfirm={cancelAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            cancelAction.cancel();
+          }
+        }}
+        open={cancelAction.isOpen}
         title="Cancel event"
       />
 
       <ShowInterestDialog
         eventId={event.id}
-        onOpenChange={setInterestOpen}
-        open={interestOpen}
+        onOpenChange={dialog.onOpenChange}
+        open={dialog.isOpen("interest")}
       />
     </>
   );

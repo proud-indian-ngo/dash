@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@pi-dash/design-system/components/ui/alert-dialog";
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 interface ConfirmDialogProps {
   cancelLabel?: string;
@@ -35,15 +35,6 @@ export function ConfirmDialog({
   title,
   variant = "destructive",
 }: ConfirmDialogProps) {
-  const [submitted, setSubmitted] = useState(false);
-  const isDisabled = loading || submitted;
-
-  useEffect(() => {
-    if (!open) {
-      setSubmitted(false);
-    }
-  }, [open]);
-
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent>
@@ -53,18 +44,15 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel
-            disabled={isDisabled}
+            disabled={loading}
             size="default"
             variant="outline"
           >
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={isDisabled}
-            onClick={() => {
-              setSubmitted(true);
-              onConfirm();
-            }}
+            disabled={loading}
+            onClick={onConfirm}
             variant={variant}
           >
             {loading && loadingLabel ? loadingLabel : confirmLabel}

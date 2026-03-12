@@ -2,16 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -30,9 +20,11 @@ import type {
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
@@ -69,16 +61,16 @@ interface AdvancePaymentsTableProps {
   toolbarActions?: ReactNode;
 }
 
-function ActionsMenu({
-  advancePaymentId,
+function RowActions({
   canDelete,
+  id,
   onNavigate,
   onRequestDelete,
 }: {
-  advancePaymentId: string;
   canDelete: boolean;
+  id: string;
   onNavigate: (id: string) => void;
-  onRequestDelete: (id: string) => void;
+  onRequestDelete: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -100,19 +92,11 @@ function ActionsMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem
-          onClick={() => {
-            onNavigate(advancePaymentId);
-          }}
-        >
-          View
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={!canDelete}
-          onClick={() => {
-            onRequestDelete(advancePaymentId);
-          }}
+          onClick={onRequestDelete}
           variant="destructive"
         >
           Delete
@@ -144,25 +128,12 @@ export function AdvancePaymentsTable({
   const currentUserId = session?.user?.id ?? "";
   const isAdmin = session?.user?.role === "admin";
 
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleRequestDelete = useCallback((id: string) => {
-    setDeleteTargetId(id);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!deleteTargetId) {
-      return;
-    }
-    setIsDeleting(true);
-    try {
-      await onDelete(deleteTargetId);
-      setDeleteTargetId(null);
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [deleteTargetId, onDelete]);
+  const deleteAction = useConfirmAction<string>({
+    onConfirm: async (id) => {
+      await onDelete(id);
+      return { type: "ok" };
+    },
+  });
 
   const columns = useMemo<ColumnDef<AdvancePaymentRow>[]>(
     () => [
@@ -293,11 +264,11 @@ export function AdvancePaymentsTable({
           const isOwner = ap.userId === currentUserId;
           const canDelete = isAdmin || (isOwner && ap.status === "pending");
           return (
-            <ActionsMenu
-              advancePaymentId={ap.id}
+            <RowActions
               canDelete={canDelete}
+              id={ap.id}
               onNavigate={onNavigate}
-              onRequestDelete={handleRequestDelete}
+              onRequestDelete={() => deleteAction.trigger(ap.id)}
             />
           );
         },
@@ -310,7 +281,7 @@ export function AdvancePaymentsTable({
         minSize: 52,
       },
     ],
-    [currentUserId, isAdmin, onNavigate, handleRequestDelete]
+    [currentUserId, isAdmin, onNavigate, deleteAction.trigger]
   );
 
   return (
@@ -332,41 +303,20 @@ export function AdvancePaymentsTable({
         }}
         toolbarActions={toolbarActions}
       />
-
-      <AlertDialog
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description="This will permanently delete this advance payment including all line items and attachments. This action cannot be undone."
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
         onOpenChange={(open) => {
           if (!open) {
-            setDeleteTargetId(null);
+            deleteAction.cancel();
           }
         }}
-        open={deleteTargetId !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete advance payment</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this advance payment including all
-              line items and attachments. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={isDeleting}
-              size="default"
-              variant="outline"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isDeleting}
-              onClick={handleConfirmDelete}
-              variant="destructive"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        open={deleteAction.isOpen}
+        title="Delete advance payment"
+      />
     </>
   );
 }

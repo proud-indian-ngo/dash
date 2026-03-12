@@ -109,6 +109,8 @@ All component paths above are prefixed with `apps/web/src/`.
 | File | Purpose |
 |---|---|
 | `hooks/use-active-path.ts` | Current nav view from pathname |
+| `hooks/use-confirm-action.ts` | Confirm→loading→execute→close pattern for destructive actions |
+| `hooks/use-dialog-manager.ts` | Discriminated-union state for managing multiple dialogs |
 | `hooks/use-local-storage.ts` | Generic localStorage with JSON serialization |
 | `hooks/use-nav-items.ts` | Nav items by user role |
 | `hooks/use-table-state.ts` | Table state (pagination, sorting, filters, column persistence) |
@@ -255,8 +257,8 @@ Every feature table follows the same structure. Use existing tables (reimburseme
    }}
    ```
    Use `defaultColumnPinning` to pin non-reorderable columns (e.g., expand on left, actions/interest on right).
-8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, manages dialog state, passes data + callbacks as props.
-9. **Delete confirmation**: Use a confirmation dialog in the route, pass `onDelete` callback to the table.
+8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, passes data + callbacks as props.
+9. **Delete confirmation**: Localize in a `RowActions` component inside the table file using `useConfirmAction` + `ConfirmDialog`. No dialog state at the table level.
 
 ### Form Fields
 
