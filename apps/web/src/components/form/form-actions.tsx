@@ -1,3 +1,4 @@
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentPropsWithoutRef } from "react";
@@ -51,7 +52,14 @@ export function FormActions({
               type="submit"
               variant={submitVariant}
             >
-              {state.isSubmitting ? submittingLabel : submitLabel}
+              {state.isSubmitting ? (
+                <>
+                  <BrailleSpinner variant="inline" />
+                  {submittingLabel}
+                </>
+              ) : (
+                submitLabel
+              )}
             </Button>
             {onCancel ? (
               <Button onClick={onCancel} type="button" variant={cancelVariant}>

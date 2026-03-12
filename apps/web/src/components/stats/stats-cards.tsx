@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 
 export interface StatItem {
   accent?: string;
@@ -43,7 +44,36 @@ export function StatCard({ item }: { item: StatItem }) {
   );
 }
 
-export function StatsCards({ items }: { items: StatItem[] }) {
+function StatsCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id) => (
+        <Card key={id} size="sm">
+          <CardHeader>
+            <CardTitle>
+              <Skeleton className="h-3 w-20" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-7 w-16" />
+            <Skeleton className="mt-1 h-3 w-24" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function StatsCards({
+  items,
+  isLoading,
+}: {
+  items: StatItem[];
+  isLoading?: boolean;
+}) {
+  if (isLoading) {
+    return <StatsCardsSkeleton />;
+  }
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {items.map((item) => (

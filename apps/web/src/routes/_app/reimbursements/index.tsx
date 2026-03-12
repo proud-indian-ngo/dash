@@ -64,7 +64,10 @@ function ReimbursementsRouteComponent() {
       </p>
 
       <div className="mt-6 grid gap-6">
-        <StatsCards items={computeReimbursementStats(data ?? [])} />
+        <StatsCards
+          isLoading={isLoading}
+          items={computeReimbursementStats(data ?? [])}
+        />
         <ReimbursementsTable
           data={data ?? []}
           isLoading={isLoading}

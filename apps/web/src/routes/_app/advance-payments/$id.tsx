@@ -1,3 +1,4 @@
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -35,7 +36,7 @@ function AdvancePaymentDetailRouteComponent() {
   if (isLoading) {
     return (
       <div className="app-container mx-auto max-w-3xl px-4 py-6">
-        <p className="text-muted-foreground text-sm">Loading...</p>
+        <BrailleSpinner />
       </div>
     );
   }

@@ -1,3 +1,4 @@
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,7 +56,14 @@ export function ConfirmDialog({
             onClick={onConfirm}
             variant={variant}
           >
-            {loading && loadingLabel ? loadingLabel : confirmLabel}
+            {loading ? (
+              <>
+                <BrailleSpinner variant="inline" />
+                {loadingLabel ?? confirmLabel}
+              </>
+            ) : (
+              confirmLabel
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

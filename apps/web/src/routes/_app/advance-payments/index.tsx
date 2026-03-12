@@ -64,7 +64,10 @@ function AdvancePaymentsRouteComponent() {
       </p>
 
       <div className="mt-6 grid gap-6">
-        <StatsCards items={computeAdvancePaymentStats(data ?? [])} />
+        <StatsCards
+          isLoading={isLoading}
+          items={computeAdvancePaymentStats(data ?? [])}
+        />
         <AdvancePaymentsTable
           data={data ?? []}
           isLoading={isLoading}

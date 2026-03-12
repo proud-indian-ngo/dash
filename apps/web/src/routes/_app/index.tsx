@@ -66,9 +66,12 @@ function computeDashboardStats(
 function DashboardHome() {
   const { session } = Route.useRouteContext();
 
-  const [reimbursements] = useQuery(queries.reimbursement.all());
-  const [advancePayments] = useQuery(queries.advancePayment.all());
-  const [users] = useQuery(queries.user.all());
+  const [reimbursements, r1] = useQuery(queries.reimbursement.all());
+  const [advancePayments, r2] = useQuery(queries.advancePayment.all());
+  const [users, r3] = useQuery(queries.user.all());
+
+  const isLoading =
+    r1.type === "unknown" || r2.type === "unknown" || r3.type === "unknown";
 
   const stats = computeDashboardStats(
     reimbursements ?? [],
@@ -84,7 +87,7 @@ function DashboardHome() {
       </p>
 
       <div className="mt-6">
-        <StatsCards items={stats} />
+        <StatsCards isLoading={isLoading} items={stats} />
       </div>
     </div>
   );
