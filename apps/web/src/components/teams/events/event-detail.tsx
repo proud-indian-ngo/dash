@@ -14,6 +14,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import type { TeamDetailData } from "@/components/teams/team-detail";
@@ -248,7 +249,7 @@ export function EventDetail({
     | undefined;
 
   return (
-    <>
+    <AppErrorBoundary level="section">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
@@ -380,6 +381,6 @@ export function EventDetail({
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("interest")}
       />
-    </>
+    </AppErrorBoundary>
   );
 }

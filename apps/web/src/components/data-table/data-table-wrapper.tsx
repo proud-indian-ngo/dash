@@ -51,6 +51,7 @@ import {
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
 
@@ -278,94 +279,96 @@ export function DataTableWrapper<TData extends object>({
   }, [onFilteredDataChange, filteredData]);
 
   return (
-    <div aria-busy={isLoading}>
-      <span aria-atomic="true" aria-live="polite" className="sr-only">
-        {isLoading
-          ? "Loading…"
-          : `${table.getFilteredRowModel().rows.length} results`}
-      </span>
-      <DataGrid
-        emptyMessage={emptyMessage}
-        isLoading={isLoading}
-        recordCount={table.getFilteredRowModel().rows.length}
-        table={table}
-        tableLayout={tableLayout}
-      >
-        <Card className="w-full gap-3 py-3.5!">
-          <CardHeader className="px-3.5">
-            <div className="flex flex-wrap items-start gap-2.5">
-              <InputGroup className="w-full sm:w-72">
-                <InputGroupAddon align="inline-start">
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Search01Icon}
-                    strokeWidth={2}
-                  />
-                </InputGroupAddon>
-
-                <InputGroupInput
-                  onChange={(event) => {
-                    table.setGlobalFilter(event.target.value);
-                  }}
-                  placeholder={searchPlaceholder}
-                  value={searchQuery}
-                />
-
-                {searchQuery ? (
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      aria-label="Clear search"
-                      onClick={() => {
-                        table.setGlobalFilter("");
-                      }}
-                      size="icon-xs"
-                      type="button"
-                    >
-                      <HugeiconsIcon
-                        className="size-3.5"
-                        icon={Cancel01Icon}
-                        strokeWidth={2}
-                      />
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                ) : null}
-              </InputGroup>
-            </div>
-
-            <CardAction className="flex items-center gap-1">
-              <DataGridColumnVisibility
-                table={table}
-                trigger={
-                  <Button size="sm" variant="outline">
+    <AppErrorBoundary level="section">
+      <div aria-busy={isLoading}>
+        <span aria-atomic="true" aria-live="polite" className="sr-only">
+          {isLoading
+            ? "Loading…"
+            : `${table.getFilteredRowModel().rows.length} results`}
+        </span>
+        <DataGrid
+          emptyMessage={emptyMessage}
+          isLoading={isLoading}
+          recordCount={table.getFilteredRowModel().rows.length}
+          table={table}
+          tableLayout={tableLayout}
+        >
+          <Card className="w-full gap-3 py-3.5!">
+            <CardHeader className="px-3.5">
+              <div className="flex flex-wrap items-start gap-2.5">
+                <InputGroup className="w-full sm:w-72">
+                  <InputGroupAddon align="inline-start">
                     <HugeiconsIcon
-                      aria-hidden="true"
-                      icon={FilterHorizontalIcon}
+                      className="size-4"
+                      icon={Search01Icon}
                       strokeWidth={2}
                     />
-                    Columns
-                  </Button>
-                }
-              />
-              {toolbarActions}
-            </CardAction>
-          </CardHeader>
+                  </InputGroupAddon>
 
-          <CardContent className="border-y px-0">
-            <ScrollArea>
-              {tableLayout?.columnsDraggable ? (
-                <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
-              ) : (
-                <DataGridTable />
-              )}
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          </CardContent>
+                  <InputGroupInput
+                    onChange={(event) => {
+                      table.setGlobalFilter(event.target.value);
+                    }}
+                    placeholder={searchPlaceholder}
+                    value={searchQuery}
+                  />
 
-          <CardFooter className="border-none bg-transparent! px-3.5 py-0">
-            <DataGridPagination sizes={paginationSizes} />
-          </CardFooter>
-        </Card>
-      </DataGrid>
-    </div>
+                  {searchQuery ? (
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        aria-label="Clear search"
+                        onClick={() => {
+                          table.setGlobalFilter("");
+                        }}
+                        size="icon-xs"
+                        type="button"
+                      >
+                        <HugeiconsIcon
+                          className="size-3.5"
+                          icon={Cancel01Icon}
+                          strokeWidth={2}
+                        />
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  ) : null}
+                </InputGroup>
+              </div>
+
+              <CardAction className="flex items-center gap-1">
+                <DataGridColumnVisibility
+                  table={table}
+                  trigger={
+                    <Button size="sm" variant="outline">
+                      <HugeiconsIcon
+                        aria-hidden="true"
+                        icon={FilterHorizontalIcon}
+                        strokeWidth={2}
+                      />
+                      Columns
+                    </Button>
+                  }
+                />
+                {toolbarActions}
+              </CardAction>
+            </CardHeader>
+
+            <CardContent className="border-y px-0">
+              <ScrollArea>
+                {tableLayout?.columnsDraggable ? (
+                  <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
+                ) : (
+                  <DataGridTable />
+                )}
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </CardContent>
+
+            <CardFooter className="border-none bg-transparent! px-3.5 py-0">
+              <DataGridPagination sizes={paginationSizes} />
+            </CardFooter>
+          </Card>
+        </DataGrid>
+      </div>
+    </AppErrorBoundary>
   );
 }

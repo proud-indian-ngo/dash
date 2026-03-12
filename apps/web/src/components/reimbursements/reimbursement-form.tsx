@@ -12,6 +12,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
 import { DateField } from "@/components/form/date-field";
@@ -131,122 +132,125 @@ export function ReimbursementForm({
   });
 
   return (
-    <FormLayout className="flex flex-col gap-4" form={form}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <InputField isRequired label="Title" name="title" />
-        <SelectField
-          isRequired
-          label="City"
-          name="city"
-          options={cityOptions}
-          placeholder="Select city"
-        />
-        <DateField
-          isRequired
-          label="Expense Date"
-          maxDate={new Date()}
-          name="expenseDate"
-        />
-        {bankAccountOptions.length > 0 ? (
-          <CustomField<string | undefined>
+    <AppErrorBoundary level="section">
+      <FormLayout className="flex flex-col gap-4" form={form}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <InputField isRequired label="Title" name="title" />
+          <SelectField
             isRequired
-            label="Bank Account"
-            name="bankAccountName"
-          >
-            {(field) => {
-              const selectedAccount = bankAccountList.find(
-                (account) => account.accountName === field.state.value
-              );
-
-              return (
-                <Select
-                  disabled={disableBankAccountSelection}
-                  onValueChange={(accountId) => {
-                    const account = bankAccountList.find(
-                      (entry) => entry.id === accountId
-                    );
-
-                    if (account) {
-                      field.handleChange(account.accountName);
-                      form.setFieldValue(
-                        "bankAccountNumber",
-                        account.accountNumber
-                      );
-                      form.setFieldValue(
-                        "bankAccountIfscCode",
-                        account.ifscCode
-                      );
-                    }
-                  }}
-                  value={selectedAccount?.id ?? ""}
-                >
-                  <SelectTrigger
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    className="w-full"
-                  >
-                    <span
-                      className="flex flex-1 items-center text-left"
-                      data-slot="select-value"
-                    >
-                      {bankAccountOptions.find(
-                        (option) => option.value === (selectedAccount?.id ?? "")
-                      )?.label ??
-                        field.state.value ??
-                        "Select bank account"}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccountOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              );
-            }}
-          </CustomField>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            No bank account found. Add one in{" "}
-            <button
-              className="text-foreground underline underline-offset-2"
-              onClick={() => openSettings("banking")}
-              type="button"
-            >
-              Settings &rarr; Banking
-            </button>{" "}
-            to receive payments.
-          </p>
-        )}
-      </div>
-
-      <Separator />
-
-      <LineItemsEditor categories={categoryList} />
-
-      <Separator />
-
-      <form.Field name="attachments">
-        {(field) => (
-          <AttachmentsSection
-            onChange={(attachments) => field.handleChange(attachments)}
-            value={field.state.value}
+            label="City"
+            name="city"
+            options={cityOptions}
+            placeholder="Select city"
           />
-        )}
-      </form.Field>
+          <DateField
+            isRequired
+            label="Expense Date"
+            maxDate={new Date()}
+            name="expenseDate"
+          />
+          {bankAccountOptions.length > 0 ? (
+            <CustomField<string | undefined>
+              isRequired
+              label="Bank Account"
+              name="bankAccountName"
+            >
+              {(field) => {
+                const selectedAccount = bankAccountList.find(
+                  (account) => account.accountName === field.state.value
+                );
 
-      <Separator />
+                return (
+                  <Select
+                    disabled={disableBankAccountSelection}
+                    onValueChange={(accountId) => {
+                      const account = bankAccountList.find(
+                        (entry) => entry.id === accountId
+                      );
 
-      <FormActions
-        cancelLabel="Cancel"
-        disableWhenInvalid={false}
-        onCancel={onCancel}
-        submitLabel="Submit"
-        submittingLabel="Submitting..."
-      />
-    </FormLayout>
+                      if (account) {
+                        field.handleChange(account.accountName);
+                        form.setFieldValue(
+                          "bankAccountNumber",
+                          account.accountNumber
+                        );
+                        form.setFieldValue(
+                          "bankAccountIfscCode",
+                          account.ifscCode
+                        );
+                      }
+                    }}
+                    value={selectedAccount?.id ?? ""}
+                  >
+                    <SelectTrigger
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                      className="w-full"
+                    >
+                      <span
+                        className="flex flex-1 items-center text-left"
+                        data-slot="select-value"
+                      >
+                        {bankAccountOptions.find(
+                          (option) =>
+                            option.value === (selectedAccount?.id ?? "")
+                        )?.label ??
+                          field.state.value ??
+                          "Select bank account"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccountOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              }}
+            </CustomField>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No bank account found. Add one in{" "}
+              <button
+                className="text-foreground underline underline-offset-2"
+                onClick={() => openSettings("banking")}
+                type="button"
+              >
+                Settings &rarr; Banking
+              </button>{" "}
+              to receive payments.
+            </p>
+          )}
+        </div>
+
+        <Separator />
+
+        <LineItemsEditor categories={categoryList} />
+
+        <Separator />
+
+        <form.Field name="attachments">
+          {(field) => (
+            <AttachmentsSection
+              onChange={(attachments) => field.handleChange(attachments)}
+              value={field.state.value}
+            />
+          )}
+        </form.Field>
+
+        <Separator />
+
+        <FormActions
+          cancelLabel="Cancel"
+          disableWhenInvalid={false}
+          onCancel={onCancel}
+          submitLabel="Submit"
+          submittingLabel="Submitting..."
+        />
+      </FormLayout>
+    </AppErrorBoundary>
   );
 }

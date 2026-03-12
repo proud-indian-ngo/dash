@@ -36,6 +36,10 @@ args = ["-y", "@hugeicons/mcp-server"]
 command = "npx"
 args = ["-y", "agentation-mcp", "server"]
 
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
+
 # --- Global .gitignore Configuration ---
 [gitignore]
 # Enable/disable automatic .gitignore updates (default: true)

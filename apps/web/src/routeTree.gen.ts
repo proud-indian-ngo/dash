@@ -29,6 +29,7 @@ import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppAdvancePaymentsIndexRouteImport } from './routes/_app/advance-payments/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
+import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
@@ -136,6 +137,11 @@ const ApiZeroMutateRoute = ApiZeroMutateRouteImport.update({
   path: '/api/zero/mutate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLogIngestRoute = ApiLogIngestRouteImport.update({
+  id: '/api/log/ingest',
+  path: '/api/log/ingest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/teams/$id': typeof AppTeamsIdRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/advance-payments/': typeof AppAdvancePaymentsIndexRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/teams/$id': typeof AppTeamsIdRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/advance-payments': typeof AppAdvancePaymentsIndexRoute
@@ -253,6 +261,7 @@ export interface FileRoutesById {
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/_app/advance-payments/': typeof AppAdvancePaymentsIndexRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/teams/$id'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/advance-payments/'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/teams/$id'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/advance-payments'
@@ -337,6 +348,7 @@ export interface FileRouteTypes {
     | '/_app/teams/$id'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/_app/advance-payments/'
@@ -351,6 +363,7 @@ export interface RootRouteChildren {
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiLogIngestRoute: typeof ApiLogIngestRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
 }
@@ -495,6 +508,13 @@ declare module '@tanstack/react-router' {
       path: '/api/zero/mutate'
       fullPath: '/api/zero/mutate'
       preLoaderRoute: typeof ApiZeroMutateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/log/ingest': {
+      id: '/api/log/ingest'
+      path: '/api/log/ingest'
+      fullPath: '/api/log/ingest'
+      preLoaderRoute: typeof ApiLogIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -664,6 +684,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAvatarRoute: ApiAvatarRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiLogIngestRoute: ApiLogIngestRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
 }

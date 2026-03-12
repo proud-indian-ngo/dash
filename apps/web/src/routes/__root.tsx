@@ -10,7 +10,8 @@ import {
 } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
-import { lazy } from "react";
+import { lazy, useEffect } from "react";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ZeroInit } from "@/components/zero-init";
 import type { RouterContext } from "@/router";
 import appCss from "../index.css?url";
@@ -47,6 +48,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootDocument() {
+  useEffect(() => {
+    import("@/lib/client-logger")
+      .then(({ initClientLogger }) => initClientLogger())
+      .catch(() => {
+        // Logger init is non-critical
+      });
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -70,14 +79,16 @@ function RootDocument() {
             )`}
         </ScriptOnce>
         <ThemeProvider>
-          <TooltipProvider>
-            <NuqsAdapter>
-              <ZeroInit>
-                <Outlet />
-              </ZeroInit>
-            </NuqsAdapter>
-            <Toaster richColors />
-          </TooltipProvider>
+          <AppErrorBoundary level="root">
+            <TooltipProvider>
+              <NuqsAdapter>
+                <ZeroInit>
+                  <Outlet />
+                </ZeroInit>
+              </NuqsAdapter>
+              <Toaster richColors />
+            </TooltipProvider>
+          </AppErrorBoundary>
         </ThemeProvider>
         {import.meta.env.DEV && <LazyDevTools />}
         {process.env.NODE_ENV === "development" &&

@@ -30,6 +30,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@pi-dash/design-system/components/ui/sidebar";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { type Section, useApp } from "@/context/app-context";
 import { AccountSection } from "./sections/account-section";
 import { BankingSection } from "./sections/banking-section";
@@ -150,7 +151,9 @@ export function SettingsDialog() {
               </div>
             </header>
             <div className="flex flex-1 flex-col overflow-y-auto">
-              {SECTION_CONTENT[settingsSection]}
+              <AppErrorBoundary level="section">
+                {SECTION_CONTENT[settingsSection]}
+              </AppErrorBoundary>
             </div>
           </main>
         </SidebarProvider>

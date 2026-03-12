@@ -22,6 +22,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
@@ -189,245 +190,249 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
   const editEventData = dialog.getData("editEvent");
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-semibold text-2xl">{team.name}</h1>
-          {team.description ? (
-            <p className="text-muted-foreground text-sm">{team.description}</p>
-          ) : null}
-          {team.whatsappGroup ? (
-            <p className="text-muted-foreground text-sm">
-              WhatsApp: {team.whatsappGroup.name}
-            </p>
-          ) : null}
-        </div>
-        {isAdmin ? (
-          <div className="flex gap-2">
-            <Button
-              onClick={() => dialog.open({ type: "edit" })}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Edit02Icon}
-                strokeWidth={2}
-              />
-              Edit
-            </Button>
-            <Button
-              onClick={() => deleteTeam.trigger()}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Delete02Icon}
-                strokeWidth={2}
-              />
-              Delete
-            </Button>
+    <AppErrorBoundary level="section">
+      <div className="flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="font-semibold text-2xl">{team.name}</h1>
+            {team.description ? (
+              <p className="text-muted-foreground text-sm">
+                {team.description}
+              </p>
+            ) : null}
+            {team.whatsappGroup ? (
+              <p className="text-muted-foreground text-sm">
+                WhatsApp: {team.whatsappGroup.name}
+              </p>
+            ) : null}
           </div>
-        ) : null}
-      </div>
-
-      <Separator />
-
-      {/* Members */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-sm">
-            Members ({team.members.length})
-          </h2>
-          {canManage ? (
-            <Button
-              onClick={() => dialog.open({ type: "addMember" })}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add Member
-            </Button>
-          ) : null}
-        </div>
-
-        {team.members.length > 0 ? (
-          <div className="overflow-hidden rounded-md border">
-            {team.members.map((member) => (
-              <MemberRow
-                canManage={canManage}
-                canRemove={isAdmin || (canManage && member.role !== "lead")}
-                key={member.id}
-                member={member}
-                onRemove={(id) => removeMember.trigger(id)}
-                onToggleRole={handleToggleRole}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-muted-foreground text-sm">
-            No members yet.
-          </p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Events */}
-      <div className="flex flex-col gap-3">
-        <h2 className="font-medium text-sm">
-          <HugeiconsIcon
-            className="mr-1 inline size-4"
-            icon={Calendar03Icon}
-            strokeWidth={2}
-          />
-          Events
-          {pendingInterestCount > 0 ? (
-            <Badge className="ml-2" variant="outline">
-              {pendingInterestCount} pending interest
-              {pendingInterestCount !== 1 ? "s" : ""}
-            </Badge>
-          ) : null}
-        </h2>
-
-        <EventsTable
-          canManage={canManage}
-          events={(events as EventRow[]) ?? []}
-          onCancelEvent={(event) => cancelEvent.trigger(event)}
-          onEditEvent={(event) => dialog.open({ type: "editEvent", event })}
-          onSelectEvent={handleSelectEvent}
-          toolbarActions={
-            canManage ? (
+          {isAdmin ? (
+            <div className="flex gap-2">
               <Button
-                onClick={() => dialog.open({ type: "createEvent" })}
+                onClick={() => dialog.open({ type: "edit" })}
                 size="sm"
                 type="button"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={Edit02Icon}
+                  strokeWidth={2}
+                />
+                Edit
+              </Button>
+              <Button
+                onClick={() => deleteTeam.trigger()}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={Delete02Icon}
+                  strokeWidth={2}
+                />
+                Delete
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <Separator />
+
+        {/* Members */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium text-sm">
+              Members ({team.members.length})
+            </h2>
+            {canManage ? (
+              <Button
+                onClick={() => dialog.open({ type: "addMember" })}
+                size="sm"
+                type="button"
+                variant="outline"
               >
                 <HugeiconsIcon
                   className="size-4"
                   icon={PlusSignIcon}
                   strokeWidth={2}
                 />
-                Create Event
+                Add Member
               </Button>
-            ) : undefined
-          }
+            ) : null}
+          </div>
+
+          {team.members.length > 0 ? (
+            <div className="overflow-hidden rounded-md border">
+              {team.members.map((member) => (
+                <MemberRow
+                  canManage={canManage}
+                  canRemove={isAdmin || (canManage && member.role !== "lead")}
+                  key={member.id}
+                  member={member}
+                  onRemove={(id) => removeMember.trigger(id)}
+                  onToggleRole={handleToggleRole}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground text-sm">
+              No members yet.
+            </p>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Events */}
+        <div className="flex flex-col gap-3">
+          <h2 className="font-medium text-sm">
+            <HugeiconsIcon
+              className="mr-1 inline size-4"
+              icon={Calendar03Icon}
+              strokeWidth={2}
+            />
+            Events
+            {pendingInterestCount > 0 ? (
+              <Badge className="ml-2" variant="outline">
+                {pendingInterestCount} pending interest
+                {pendingInterestCount !== 1 ? "s" : ""}
+              </Badge>
+            ) : null}
+          </h2>
+
+          <EventsTable
+            canManage={canManage}
+            events={(events as EventRow[]) ?? []}
+            onCancelEvent={(event) => cancelEvent.trigger(event)}
+            onEditEvent={(event) => dialog.open({ type: "editEvent", event })}
+            onSelectEvent={handleSelectEvent}
+            toolbarActions={
+              canManage ? (
+                <Button
+                  onClick={() => dialog.open({ type: "createEvent" })}
+                  size="sm"
+                  type="button"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={PlusSignIcon}
+                    strokeWidth={2}
+                  />
+                  Create Event
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
+
+        {/* Edit Team Dialog */}
+        {isAdmin ? (
+          <TeamFormDialog
+            initialValues={{
+              id: team.id,
+              name: team.name,
+              description: team.description,
+              whatsappGroupId: team.whatsappGroupId,
+            }}
+            onOpenChange={dialog.onOpenChange}
+            open={dialog.isOpen("edit")}
+          />
+        ) : null}
+
+        {/* Add Member Dialog */}
+        {canManage ? (
+          <AddMemberDialog
+            existingMembers={team.members}
+            isAdmin={isAdmin}
+            onOpenChange={dialog.onOpenChange}
+            open={dialog.isOpen("addMember")}
+            teamId={team.id}
+          />
+        ) : null}
+
+        {/* Create Event Dialog */}
+        <EventFormDialog
+          onOpenChange={dialog.onOpenChange}
+          open={dialog.isOpen("createEvent")}
+          teamId={team.id}
+        />
+
+        {/* Edit Event Dialog */}
+        {editEventData ? (
+          <EventFormDialog
+            initialValues={{
+              id: editEventData.event.id,
+              name: editEventData.event.name,
+              description: editEventData.event.description,
+              endTime: editEventData.event.endTime,
+              isPublic: editEventData.event.isPublic ?? false,
+              location: editEventData.event.location,
+              parentEventId: editEventData.event.parentEventId,
+              recurrenceRule: editEventData.event.recurrenceRule as {
+                frequency: "weekly" | "biweekly" | "monthly";
+                endDate?: string;
+              } | null,
+              startTime: editEventData.event.startTime,
+              whatsappGroupId: editEventData.event.whatsappGroupId,
+            }}
+            onOpenChange={dialog.onOpenChange}
+            open
+            teamId={team.id}
+          />
+        ) : null}
+
+        {/* Delete Team Confirmation */}
+        <ConfirmDialog
+          confirmLabel="Delete"
+          description={`This will permanently delete "${team.name}" and remove all members. This action cannot be undone.`}
+          loading={deleteTeam.isLoading}
+          loadingLabel="Deleting..."
+          onConfirm={deleteTeam.confirm}
+          onOpenChange={(open) => {
+            if (!open) {
+              deleteTeam.cancel();
+            }
+          }}
+          open={deleteTeam.isOpen}
+          title="Delete team"
+        />
+
+        {/* Remove Member Confirmation */}
+        <ConfirmDialog
+          confirmLabel="Remove"
+          description={`Are you sure you want to remove this member from the team?${team.whatsappGroup ? " They will also be removed from the linked WhatsApp group." : ""}`}
+          loading={removeMember.isLoading}
+          loadingLabel="Removing..."
+          onConfirm={removeMember.confirm}
+          onOpenChange={(open) => {
+            if (!open) {
+              removeMember.cancel();
+            }
+          }}
+          open={removeMember.isOpen}
+          title="Remove member"
+        />
+
+        {/* Cancel Event Confirmation */}
+        <ConfirmDialog
+          cancelLabel="Keep Event"
+          confirmLabel="Cancel Event"
+          description={`Are you sure you want to cancel "${cancelEvent.payload?.name}"? This action cannot be undone and all members will be notified.`}
+          loading={cancelEvent.isLoading}
+          loadingLabel="Cancelling..."
+          onConfirm={cancelEvent.confirm}
+          onOpenChange={(open) => {
+            if (!open) {
+              cancelEvent.cancel();
+            }
+          }}
+          open={cancelEvent.isOpen}
+          title="Cancel event"
         />
       </div>
-
-      {/* Edit Team Dialog */}
-      {isAdmin ? (
-        <TeamFormDialog
-          initialValues={{
-            id: team.id,
-            name: team.name,
-            description: team.description,
-            whatsappGroupId: team.whatsappGroupId,
-          }}
-          onOpenChange={dialog.onOpenChange}
-          open={dialog.isOpen("edit")}
-        />
-      ) : null}
-
-      {/* Add Member Dialog */}
-      {canManage ? (
-        <AddMemberDialog
-          existingMembers={team.members}
-          isAdmin={isAdmin}
-          onOpenChange={dialog.onOpenChange}
-          open={dialog.isOpen("addMember")}
-          teamId={team.id}
-        />
-      ) : null}
-
-      {/* Create Event Dialog */}
-      <EventFormDialog
-        onOpenChange={dialog.onOpenChange}
-        open={dialog.isOpen("createEvent")}
-        teamId={team.id}
-      />
-
-      {/* Edit Event Dialog */}
-      {editEventData ? (
-        <EventFormDialog
-          initialValues={{
-            id: editEventData.event.id,
-            name: editEventData.event.name,
-            description: editEventData.event.description,
-            endTime: editEventData.event.endTime,
-            isPublic: editEventData.event.isPublic ?? false,
-            location: editEventData.event.location,
-            parentEventId: editEventData.event.parentEventId,
-            recurrenceRule: editEventData.event.recurrenceRule as {
-              frequency: "weekly" | "biweekly" | "monthly";
-              endDate?: string;
-            } | null,
-            startTime: editEventData.event.startTime,
-            whatsappGroupId: editEventData.event.whatsappGroupId,
-          }}
-          onOpenChange={dialog.onOpenChange}
-          open
-          teamId={team.id}
-        />
-      ) : null}
-
-      {/* Delete Team Confirmation */}
-      <ConfirmDialog
-        confirmLabel="Delete"
-        description={`This will permanently delete "${team.name}" and remove all members. This action cannot be undone.`}
-        loading={deleteTeam.isLoading}
-        loadingLabel="Deleting..."
-        onConfirm={deleteTeam.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteTeam.cancel();
-          }
-        }}
-        open={deleteTeam.isOpen}
-        title="Delete team"
-      />
-
-      {/* Remove Member Confirmation */}
-      <ConfirmDialog
-        confirmLabel="Remove"
-        description={`Are you sure you want to remove this member from the team?${team.whatsappGroup ? " They will also be removed from the linked WhatsApp group." : ""}`}
-        loading={removeMember.isLoading}
-        loadingLabel="Removing..."
-        onConfirm={removeMember.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            removeMember.cancel();
-          }
-        }}
-        open={removeMember.isOpen}
-        title="Remove member"
-      />
-
-      {/* Cancel Event Confirmation */}
-      <ConfirmDialog
-        cancelLabel="Keep Event"
-        confirmLabel="Cancel Event"
-        description={`Are you sure you want to cancel "${cancelEvent.payload?.name}"? This action cannot be undone and all members will be notified.`}
-        loading={cancelEvent.isLoading}
-        loadingLabel="Cancelling..."
-        onConfirm={cancelEvent.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            cancelEvent.cancel();
-          }
-        }}
-        open={cancelEvent.isOpen}
-        title="Cancel event"
-      />
-    </div>
+    </AppErrorBoundary>
   );
 }

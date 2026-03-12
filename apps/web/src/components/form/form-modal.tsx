@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
 import type { ReactNode } from "react";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 
 interface FormModalProps {
   children: ReactNode;
@@ -33,7 +34,7 @@ export function FormModal({
             ) : null}
           </DialogHeader>
         </div>
-        {children}
+        <AppErrorBoundary level="section">{children}</AppErrorBoundary>
       </DialogContent>
     </Dialog>
   );
