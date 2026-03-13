@@ -3,6 +3,7 @@ import { advancePaymentMutators } from "./mutators/advance-payment";
 import { appConfigMutators } from "./mutators/app-config";
 import { bankAccountMutators } from "./mutators/bank-account";
 import { eventInterestMutators } from "./mutators/event-interest";
+import { eventPhotoMutators } from "./mutators/event-photo";
 import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
 import { reimbursementMutators } from "./mutators/reimbursement";
@@ -17,6 +18,7 @@ export const mutators = defineMutators({
   advancePayment: advancePaymentMutators,
   appConfig: appConfigMutators,
   eventInterest: eventInterestMutators,
+  eventPhoto: eventPhotoMutators,
   eventUpdate: eventUpdateMutators,
   team: teamMutators,
   teamEvent: teamEventMutators,
