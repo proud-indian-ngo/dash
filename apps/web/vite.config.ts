@@ -1,20 +1,20 @@
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 import "@pi-dash/env";
 
 export default defineConfig({
   plugins: [
     devtools(),
-    tsconfigPaths(),
     tailwindcss(),
     tanstackStart(),
     nitro({
       preset: "bun",
+      serverDir: "server",
       experimental: {
         tasks: true,
         vite: {},
@@ -24,16 +24,21 @@ export default defineConfig({
         "0 0 * * *": ["create-recurring-events"],
       },
     }),
-    viteReact({
-      babel: {
-        plugins: ["babel-plugin-react-compiler"],
-      },
+    react(),
+    babel({
+      presets: [reactCompilerPreset()],
     }),
   ],
   build: {
     rollupOptions: {
       external: ["bun", "bun:sqlite"],
     },
+  },
+  optimizeDeps: {
+    exclude: ["bun"],
+  },
+  resolve: {
+    tsconfigPaths: true,
   },
   server: {
     port: 3001,

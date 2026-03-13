@@ -15,10 +15,10 @@
   "dependencies": {
     "@pi-dash/db": "workspace:*",
     "@pi-dash/env": "workspace:*",
-    "evlog": "catalog:",
     "@pi-dash/whatsapp": "workspace:*",
-    "@trycourier/courier": "^7.7.1",
-    "drizzle-orm": "catalog:"
+    "@trycourier/courier": "^7.8.0",
+    "drizzle-orm": "catalog:",
+    "evlog": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

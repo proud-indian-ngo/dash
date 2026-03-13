@@ -8,7 +8,7 @@
     ],
     "catalog": {
       "zod": "^4.3.6",
-      "vite": "^8.0.0-beta.18",
+      "vite": "^8.0.0",
       "typescript": "^5.9.3",
       "dotenv": "^17.3.1",
       "dotenv-expand": "^12.0.3",
@@ -19,9 +19,9 @@
       "lodash": "^4.17.23",
       "evlog": "^2.5.0",
       "@types/lodash": "^4.17.24",
-      "@rocicorp/zero": "^0.25.13",
+      "@rocicorp/zero": "^0.26.1",
       "@types/bun": "^1.3.10",
-      "@types/node": "^25.4.0",
+      "@types/node": "^25.5.0",
       "@types/react": "^19.2.14",
       "@types/react-dom": "^19.2.3",
       "@hugeicons/core-free-icons": "^4.0.0",
@@ -29,10 +29,10 @@
       "@dnd-kit/core": "^6.3.1",
       "@dnd-kit/sortable": "^10.0.0",
       "@dnd-kit/utilities": "^3.2.2",
-      "@vitejs/plugin-react": "^5.1.4",
+      "@vitejs/plugin-react": "^6.0.1",
       "babel-plugin-react-compiler": "^1.0.0",
       "sonner": "^2.0.7",
-      "better-auth": "^1.5.4",
+      "better-auth": "^1.5.5",
       "uuidv7": "^1.1.0",
       "tailwindcss": "^4.2.1",
       "@tailwindcss/vite": "^4.2.1",
@@ -71,8 +71,8 @@
   "dependencies": {},
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
-    "@commitlint/cli": "^20.4.3",
-    "@commitlint/config-conventional": "^20.4.3",
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
     "@pi-dash/config": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
@@ -81,7 +81,7 @@
     "turbo": "^2.8.16",
     "typescript": "^5.9.3",
     "ultracite": "7.2.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   },
   "packageManager": "bun@1.3.10",
   "trustedDependencies": [

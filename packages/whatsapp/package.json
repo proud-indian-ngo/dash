@@ -16,8 +16,8 @@
   "dependencies": {
     "@pi-dash/db": "workspace:*",
     "@pi-dash/env": "workspace:*",
-    "evlog": "catalog:",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "evlog": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
