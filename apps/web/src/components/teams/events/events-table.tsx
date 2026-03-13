@@ -319,18 +319,28 @@ export function EventsTable({
             visibility={true}
           />
         ),
-        cell: ({ row }) => (
-          <button
-            className="text-left font-medium text-sm hover:underline"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectEvent(row.original);
-            }}
-            type="button"
-          >
-            {row.original.name}
-          </button>
-        ),
+        cell: ({ row }) => {
+          const hasStarted = new Date(row.original.startTime) <= new Date();
+          return (
+            <div className="flex items-center gap-1.5">
+              <button
+                className="text-left font-medium text-sm hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectEvent(row.original);
+                }}
+                type="button"
+              >
+                {row.original.name}
+              </button>
+              {hasStarted ? (
+                <Badge size="sm" variant="outline">
+                  Recap
+                </Badge>
+              ) : null}
+            </div>
+          );
+        },
         meta: {
           headerTitle: "Name",
           skeleton: SKELETON_NAME,
