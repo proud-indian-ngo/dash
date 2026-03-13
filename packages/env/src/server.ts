@@ -42,6 +42,8 @@ export const env = createEnv({
     WHATSAPP_API_URL: z.url().optional(),
     WHATSAPP_AUTH_USER: z.string().min(1).optional(),
     WHATSAPP_AUTH_PASS: z.string().min(1).optional(),
+    IMMICH_SERVER_URL: z.url().optional(),
+    IMMICH_API_KEY: z.string().min(1).optional(),
     APP_URL: z.url().optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
