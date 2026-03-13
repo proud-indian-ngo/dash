@@ -58,15 +58,18 @@ function InterestCell({
   myInterests,
   members,
   onShowInterest,
+  startTime,
   userId,
 }: {
   eventId: string;
   myInterests: readonly EventInterest[];
   members: readonly TeamEventMember[];
   onShowInterest: (eventId: string) => void;
+  startTime: number;
   userId: string;
 }) {
   const zero = useZero();
+  const hasStarted = startTime <= Date.now();
 
   if (members.some((m) => m.userId === userId)) {
     return <Badge variant="default">Joined</Badge>;
@@ -75,6 +78,9 @@ function InterestCell({
   const interest = myInterests.find((i) => i.eventId === eventId);
   if (interest) {
     if (interest.status === "pending") {
+      if (hasStarted) {
+        return <Badge variant="secondary">Interest Pending</Badge>;
+      }
       return (
         <Button
           onClick={async (e) => {
@@ -98,6 +104,10 @@ function InterestCell({
     if (mapped) {
       return <Badge variant={mapped.variant}>{mapped.label}</Badge>;
     }
+  }
+
+  if (hasStarted) {
+    return null;
   }
 
   return (
@@ -219,6 +229,7 @@ export function PublicEventsTable({
             members={row.original.members}
             myInterests={myInterests}
             onShowInterest={onShowInterest}
+            startTime={row.original.startTime}
             userId={userId}
           />
         ),

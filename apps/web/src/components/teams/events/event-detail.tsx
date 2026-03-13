@@ -228,7 +228,8 @@ export function EventDetail({
 
   const eventTime = event.endTime ?? event.startTime;
   const isPastEvent = new Date(eventTime) < new Date();
-  const canCancel = isPastEvent ? isAdmin : canManage;
+  const hasStarted = new Date(event.startTime) <= new Date();
+  const canCancel = hasStarted ? false : canManage;
   const canManageVolunteers = isPastEvent ? isAdmin : canManage;
 
   const handleRemoveMember = useCallback(
@@ -296,14 +297,16 @@ export function EventDetail({
 
         <EventInfoSection event={event} />
 
-        <VolunteerInterestSection
-          canManage={canManage}
-          interests={interests}
-          isMember={isMember}
-          isPublic={!!event.isPublic}
-          myInterest={myInterest}
-          onShowInterest={() => dialog.open({ type: "interest" })}
-        />
+        {hasStarted ? null : (
+          <VolunteerInterestSection
+            canManage={canManage}
+            interests={interests}
+            isMember={isMember}
+            isPublic={!!event.isPublic}
+            myInterest={myInterest}
+            onShowInterest={() => dialog.open({ type: "interest" })}
+          />
+        )}
 
         <Separator />
 
