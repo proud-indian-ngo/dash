@@ -13,6 +13,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
+import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { TeamEventMember, User } from "@pi-dash/zero/schema";
@@ -35,6 +36,8 @@ import type { EventRow } from "./events-table";
 import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
 import { ShowInterestDialog } from "./show-interest-dialog";
+
+const TRAILING_SLASH = /\/$/;
 
 interface EventDetailProps {
   canManage: boolean;
@@ -251,6 +254,14 @@ export function EventDetail({
   const [pendingPhotos] = useQuery(
     queries.eventPhoto.pendingByEvent({ eventId: event.id })
   );
+  const [album] = useQuery(
+    queries.eventImmichAlbum.byEvent({ eventId: event.id })
+  );
+
+  const immichAlbumUrl =
+    album?.immichAlbumId && env.VITE_IMMICH_URL
+      ? `${env.VITE_IMMICH_URL.replace(TRAILING_SLASH, "")}/albums/${album.immichAlbumId}`
+      : null;
 
   const handleRemoveMember = useCallback(
     async (memberId: string) => {
@@ -390,6 +401,7 @@ export function EventDetail({
                   approvedPhotos={approvedPhotos}
                   canManage={canManage}
                   eventId={event.id}
+                  immichAlbumUrl={immichAlbumUrl}
                   isMember={!!isMember}
                   pendingPhotos={pendingPhotos}
                 />

@@ -6,6 +6,7 @@ export const env = createEnv({
   client: {
     VITE_PUBLIC_ZERO_CACHE_URL: z.url(),
     VITE_ASSET_CDN: z.url(),
+    VITE_IMMICH_URL: z.url().optional(),
   },
   // biome-ignore lint/suspicious/noExplicitAny: intentional
   runtimeEnv: (import.meta as any).env ?? process.env,
