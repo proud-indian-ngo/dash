@@ -41,6 +41,7 @@ export function ShowInterestDialog({
         id: crypto.randomUUID(),
         eventId,
         message: message.trim() || undefined,
+        now: Date.now(),
       })
     ).server;
     setIsSubmitting(false);

@@ -227,7 +227,8 @@ export function EventDetail({
 
   const cancelAction = useConfirmAction({
     onConfirm: () =>
-      zero.mutate(mutators.teamEvent.cancel({ id: event.id })).server,
+      zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
+        .server,
     onSuccess: () => {
       toast.success("Event cancelled");
       navigate({ to: "/teams/$id", params: { id: event.teamId } });

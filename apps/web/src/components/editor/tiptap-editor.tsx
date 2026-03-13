@@ -18,6 +18,14 @@ const ALLOWED_IMAGE_TYPES = [
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
+function safeParse(json: string): Record<string, unknown> | undefined {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+}
+
 const TRAILING_SLASH = /\/$/;
 function getCdnUrl(key: string): string {
   return `${env.VITE_ASSET_CDN.replace(TRAILING_SLASH, "")}/${key}`;
@@ -44,7 +52,7 @@ export function TiptapEditor({
       Link.configure({ openOnClick: false }),
       Image.configure({ inline: false }),
     ],
-    content: content ? JSON.parse(content) : undefined,
+    content: content ? safeParse(content) : undefined,
   });
 
   async function handleImageUpload(file: File) {

@@ -8,18 +8,29 @@ interface TiptapRendererProps {
 }
 
 export function TiptapRenderer({ content }: TiptapRendererProps) {
+  let parsed: Record<string, unknown> | undefined;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    // fallback handled below
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Link.configure({ openOnClick: true }),
       Image.configure({ inline: false }),
     ],
-    content: JSON.parse(content),
+    content: parsed,
     editable: false,
   });
 
-  if (!editor) {
-    return null;
+  if (!(editor && parsed)) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Unable to display this update.
+      </p>
+    );
   }
 
   return <EditorContent className="prose prose-sm" editor={editor} />;

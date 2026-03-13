@@ -282,7 +282,7 @@ export const teamEventMutators = {
   ),
 
   cancel: defineMutator(
-    z.object({ id: z.string() }),
+    z.object({ id: z.string(), now: z.number() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const existing = (await tx.run(
@@ -304,11 +304,11 @@ export const teamEventMutators = {
         }
       }
 
-      if (existing.startTime <= Date.now()) {
+      if (existing.startTime <= args.now) {
         throw new Error("Cannot cancel an event that has already started");
       }
 
-      const now = Date.now();
+      const now = args.now;
       await tx.mutate.teamEvent.update({
         id: args.id,
         cancelledAt: now,

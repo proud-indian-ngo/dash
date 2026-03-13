@@ -11,6 +11,7 @@ export const eventInterestMutators = {
       id: z.string(),
       eventId: z.string(),
       message: z.string().optional(),
+      now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -25,7 +26,7 @@ export const eventInterestMutators = {
         throw new Error("Event is not public");
       }
 
-      if (event.startTime <= Date.now()) {
+      if (event.startTime <= args.now) {
         throw new Error(
           "Cannot show interest in an event that has already started"
         );

@@ -149,7 +149,8 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
 
   const cancelEvent = useConfirmAction<EventRow>({
     onConfirm: (event) =>
-      zero.mutate(mutators.teamEvent.cancel({ id: event.id })).server,
+      zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
+        .server,
     onSuccess: () => toast.success("Event cancelled"),
     onError: () => toast.error("Failed to cancel event"),
   });
