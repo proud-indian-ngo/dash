@@ -83,11 +83,15 @@ export function TiptapEditor({
         },
       });
 
-      await fetch(presignedUrl, {
+      const uploadRes = await fetch(presignedUrl, {
         method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
       });
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
 
       editor
         .chain()

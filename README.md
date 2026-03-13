@@ -20,6 +20,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 - **Courier** — multi-channel notifications (email, in-app, push)
 - **WhatsApp** — optional self-hosted WhatsApp gateway via go-whatsapp-web-multidevice
 - **React Email + Nodemailer** — transactional email (verification, password reset)
+- **Tiptap** — rich-text editor for event updates (bold, italic, lists, inline images)
 - **Cloudflare R2** — S3-compatible object storage for file attachments
 - **evlog** — structured wide-event logging (server-side)
 - **GitHub Actions** — CI pipeline (type check, lint, unit tests)
@@ -42,6 +43,8 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
+| Event updates | Leads/admins post rich-text updates (Tiptap editor with inline images) to events after they start |
+| Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
 | File attachments | Upload files to Cloudflare R2; attach URLs to reimbursements |
 | Bank accounts | Users manage bank accounts for reimbursement payouts |
 | Expense categories | Admin-managed categories for reimbursement line items |
@@ -212,6 +215,14 @@ Copy `.env.sample` to `.env`. Required variables:
 |---|---|
 | `VITE_PUBLIC_ZERO_CACHE_URL` | Zero cache server URL (e.g. `http://localhost:4848`) |
 | `VITE_ASSET_CDN` | CDN base URL for serving uploaded images |
+
+### Immich (optional photo management)
+
+| Variable | Description |
+|---|---|
+| `IMMICH_SERVER_URL` | Immich server URL (e.g. `http://localhost:2283`); leave blank to disable |
+| `IMMICH_API_KEY` | Immich API key for album and asset management |
+| `VITE_IMMICH_URL` | Public Immich URL for album links shown in the UI (e.g. `https://photos.example.com`) |
 
 ### Optional
 

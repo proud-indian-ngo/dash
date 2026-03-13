@@ -71,6 +71,7 @@ All paths are relative to project root.
 | `routes/_app/teams/$id.tsx` | Team detail |
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
+| `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
 | `routes/api/cron/create-recurring-events.ts` | Cron endpoint for recurring event creation |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
@@ -94,8 +95,9 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
+| `components/editor/` | tiptap-editor (rich-text with image upload), tiptap-renderer (read-only) |
 | `components/events/` | public-events-table |
-| `components/teams/events/` | events-table, event-form-dialog, event-detail, add-event-member-dialog, show-interest-dialog, interest-requests |
+| `components/teams/events/` | events-table, event-form-dialog, event-detail, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
 | `components/login/` | login-form, forgot-password-form, reset-password-form |
@@ -161,7 +163,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
 | `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission, team-event), `src/topics.ts`, `src/preferences.ts`, `src/whatsapp.ts`, `src/jwt.ts`, `src/helpers.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, advance-payments, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page, advance-payment-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
@@ -188,6 +190,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `teamEvent` | `packages/db/src/schema/team-event.ts` |
 | `teamEventMember` | `packages/db/src/schema/team-event.ts` |
 | `eventInterest` | `packages/db/src/schema/event-interest.ts` |
+| `eventPhoto` | `packages/db/src/schema/event-photo.ts` |
+| `eventImmichAlbum` | `packages/db/src/schema/event-photo.ts` |
+| `eventUpdate` | `packages/db/src/schema/event-update.ts` |
 
 ## Notifications
 

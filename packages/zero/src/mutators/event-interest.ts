@@ -60,7 +60,7 @@ export const eventInterestMutators = {
         message: args.message ?? null,
         reviewedBy: null,
         reviewedAt: null,
-        createdAt: Date.now(),
+        createdAt: args.now,
       });
 
       if (tx.location === "server") {

@@ -56,12 +56,27 @@ function pushImmichUploadTask(
         const albumData = (await albumRes.json()) as { id: string };
         albumId = albumData.id;
 
-        await db.insert(eventImmichAlbum).values({
-          id: crypto.randomUUID(),
-          eventId,
-          immichAlbumId: albumId,
-          createdAt: new Date(),
-        });
+        // Use ON CONFLICT to handle concurrent uploads for the same event
+        const inserted = await db
+          .insert(eventImmichAlbum)
+          .values({
+            id: crypto.randomUUID(),
+            eventId,
+            immichAlbumId: albumId,
+            createdAt: new Date(),
+          })
+          .onConflictDoNothing({ target: eventImmichAlbum.eventId })
+          .returning({ immichAlbumId: eventImmichAlbum.immichAlbumId });
+
+        // If conflict occurred, another task already created the album — use that one
+        if (inserted.length === 0) {
+          const existing = await db.query.eventImmichAlbum.findFirst({
+            where: eqOp(eventImmichAlbum.eventId, eventId),
+          });
+          if (existing) {
+            albumId = existing.immichAlbumId;
+          }
+        }
       }
 
       // Download from R2
@@ -82,8 +97,9 @@ function pushImmichUploadTask(
       formData.append("assetData", blob, filename);
       formData.append("deviceAssetId", `pi-dash-${r2Key}`);
       formData.append("deviceId", "pi-dash");
-      formData.append("fileCreatedAt", new Date().toISOString());
-      formData.append("fileModifiedAt", new Date().toISOString());
+      const nowIso = new Date().toISOString();
+      formData.append("fileCreatedAt", nowIso);
+      formData.append("fileModifiedAt", nowIso);
 
       const uploadRes = await fetch(`${immichUrl}/api/assets`, {
         method: "POST",
