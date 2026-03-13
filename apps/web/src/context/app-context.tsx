@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import { buildNavItems, type NavItem } from "@/lib/nav-items";
 
 export type Section =
   | "profile"
@@ -18,6 +25,8 @@ interface AppUser {
 }
 
 interface AppContextValue {
+  isAdmin: boolean;
+  navItems: NavItem[];
   openSettings: (section?: Section) => void;
   setSettingsOpen: (open: boolean) => void;
   setSettingsSection: (section: Section) => void;
@@ -38,6 +47,9 @@ export function AppProvider({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<Section>("profile");
 
+  const isAdmin = user.role === "admin";
+  const navItems = useMemo(() => buildNavItems(isAdmin), [isAdmin]);
+
   const openSettings = useCallback((section: Section = "banking") => {
     setSettingsSection(section);
     setSettingsOpen(true);
@@ -47,6 +59,8 @@ export function AppProvider({
     <AppContext.Provider
       value={{
         user,
+        isAdmin,
+        navItems,
         openSettings,
         settingsOpen,
         settingsSection,

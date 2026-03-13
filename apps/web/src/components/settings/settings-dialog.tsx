@@ -89,14 +89,12 @@ const SECTION_CONTENT: Record<Section, React.ReactNode> = {
 
 export function SettingsDialog() {
   const {
-    user,
+    isAdmin,
     settingsOpen,
     settingsSection,
     setSettingsOpen,
     setSettingsSection,
   } = useApp();
-
-  const isAdmin = user.role === "admin";
 
   const navItems = NAV_ITEMS_BASE.filter((item) => !item.adminOnly || isAdmin);
 

@@ -8,11 +8,11 @@ import {
 import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
-import { useNavItems } from "@/hooks/use-nav-items";
+import { useApp } from "@/context/app-context";
 import { NavMain } from "./nav-main";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const navItems = useNavItems();
+  const { navItems } = useApp();
 
   return (
     <Sidebar collapsible="icon" {...props}>

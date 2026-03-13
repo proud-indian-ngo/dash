@@ -1,9 +1,9 @@
 import { useLocation } from "@tanstack/react-router";
-import { useNavItems } from "@/hooks/use-nav-items";
+import { useApp } from "@/context/app-context";
 
 export const useActivePath = () => {
   const { pathname } = useLocation();
-  const navItems = useNavItems();
+  const { navItems } = useApp();
   let activePath = "";
 
   if (pathname === "/") {

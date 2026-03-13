@@ -11,7 +11,7 @@ import { useEffect, useRef } from "react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { AppProvider } from "@/context/app-context";
+import { AppProvider, useApp } from "@/context/app-context";
 import { getCourierToken } from "@/functions/courier-token";
 import { getSession } from "@/functions/get-session";
 
@@ -30,7 +30,8 @@ export const Route = createFileRoute("/_app")({
   component: AppLayout,
 });
 
-function CourierAuth({ userId }: { userId: string }) {
+function CourierAuth() {
+  const { user } = useApp();
   const courier = useCourier();
   const signedInRef = useRef(false);
 
@@ -42,10 +43,10 @@ function CourierAuth({ userId }: { userId: string }) {
 
     getCourierToken().then(({ token }) => {
       if (token) {
-        courier.shared.signIn({ userId, jwt: token });
+        courier.shared.signIn({ userId: user.id, jwt: token });
       }
     });
-  }, [userId, courier]);
+  }, [user.id, courier]);
 
   return null;
 }
@@ -57,7 +58,7 @@ function AppLayout() {
   return (
     <AppProvider user={session.user}>
       <SidebarProvider>
-        <CourierAuth userId={session.user.id} />
+        <CourierAuth />
         <AppSidebar />
         <SidebarInset className="overflow-x-auto" id="main" tabIndex={-1}>
           <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">

@@ -7,8 +7,10 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
+
 import type { NavItem } from "@/components/layout/nav-main";
-import { authClient } from "@/lib/auth-client";
+
+export type { NavItem } from "@/components/layout/nav-main";
 
 const homeNavItem: NavItem = {
   title: "Dashboard",
@@ -74,13 +76,7 @@ const eventsNavItem: NavItem = {
   subItems: [{ title: "Event Details", url: "/events/$id", isHidden: true }],
 };
 
-export const useNavItems = () => {
-  const { data: session } = authClient.useSession();
-
-  if (!session?.user) {
-    return [];
-  }
-
+export function buildNavItems(isAdmin: boolean): NavItem[] {
   const items = [
     homeNavItem,
     reimbursementsNavItem,
@@ -89,10 +85,10 @@ export const useNavItems = () => {
     eventsNavItem,
   ];
 
-  if (session.user.role === "admin") {
+  if (isAdmin) {
     items.push(usersNavItem);
     items.push(exportNavItem);
   }
 
   return items;
-};
+}

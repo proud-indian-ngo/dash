@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
 import type { TeamDetailData } from "@/components/teams/team-detail";
+import { useApp } from "@/context/app-context";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/$id")({
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_app/events/$id")({
 function EventDetailRouteComponent() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
-  const isAdmin = session.user.role === "admin";
+  const { isAdmin } = useApp();
 
   const [eventResult, eventStatus] = useQuery(queries.teamEvent.byId({ id }));
   const event = (eventResult ?? null) as EventRow | null;

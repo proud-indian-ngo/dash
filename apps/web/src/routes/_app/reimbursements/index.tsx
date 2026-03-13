@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
+import { useApp } from "@/context/app-context";
 import { deleteUploadedAssets } from "@/functions/attachments";
 
 export const Route = createFileRoute("/_app/reimbursements/")({
@@ -23,8 +24,7 @@ export const Route = createFileRoute("/_app/reimbursements/")({
 });
 
 function ReimbursementsRouteComponent() {
-  const { session } = Route.useRouteContext();
-  const isAdmin = session.user.role === "admin";
+  const { isAdmin } = useApp();
   const navigate = useNavigate();
   const zero = useZero();
 

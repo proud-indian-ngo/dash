@@ -9,6 +9,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
+import { useApp } from "@/context/app-context";
 
 export const Route = createFileRoute("/_app/teams/")({
   head: () => ({
@@ -21,8 +22,7 @@ export const Route = createFileRoute("/_app/teams/")({
 });
 
 function TeamsRouteComponent() {
-  const { session } = Route.useRouteContext();
-  const isAdmin = session.user.role === "admin";
+  const { isAdmin } = useApp();
   const navigate = useNavigate();
   const zero = useZero();
   const [createOpen, setCreateOpen] = useState(false);

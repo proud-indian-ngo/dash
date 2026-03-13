@@ -9,7 +9,7 @@ import {
 import { Link, useLocation } from "@tanstack/react-router";
 import { Fragment } from "react";
 import type { NavItem } from "@/components/layout/nav-main";
-import { useNavItems } from "@/hooks/use-nav-items";
+import { useApp } from "@/context/app-context";
 
 function buildNavItemsMap(items: NavItem[]): Record<string, string> {
   const map: Record<string, string> = {};
@@ -37,7 +37,7 @@ function resolveTitle(
 }
 
 export function Breadcrumbs() {
-  const navItems = useNavItems();
+  const { navItems } = useApp();
   const navItemsMap = buildNavItemsMap(navItems);
   const { pathname } = useLocation();
   const pathnames = pathname.split("/").slice(1);

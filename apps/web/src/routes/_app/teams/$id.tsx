@@ -2,6 +2,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { TeamDetail } from "@/components/teams/team-detail";
+import { useApp } from "@/context/app-context";
 
 export const Route = createFileRoute("/_app/teams/$id")({
   head: () => ({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/_app/teams/$id")({
 function TeamDetailRouteComponent() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
-  const isAdmin = session.user.role === "admin";
+  const { isAdmin } = useApp();
 
   const [team, result] = useQuery(queries.team.byId({ id }));
   const isLoading = result.type === "unknown";
