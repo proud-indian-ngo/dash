@@ -16,16 +16,7 @@
         "src/entry-server.ts",
         "server/**",
         "src/lib/logger.ts",
-        "src/functions/immich.ts",
-        "src/components/editor/tiptap-editor.tsx",
-        "src/components/editor/tiptap-renderer.tsx"
-      ],
-      "ignoreDependencies": [
-        "@tiptap/react",
-        "@tiptap/starter-kit",
-        "@tiptap/extension-link",
-        "@tiptap/extension-image",
-        "@tiptap/pm"
+        "src/functions/immich.ts"
       ]
     },
     "packages/e2e": {
