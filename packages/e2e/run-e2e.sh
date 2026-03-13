@@ -77,6 +77,12 @@ export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
 export VITE_E2E=true
 
+# Disable external notification services during E2E tests
+unset COURIER_API_KEY
+unset WHATSAPP_API_URL
+unset WHATSAPP_AUTH_USER
+unset WHATSAPP_AUTH_PASS
+
 # Clean stale replica
 rm -f /tmp/pi-dash-test.db*
 
