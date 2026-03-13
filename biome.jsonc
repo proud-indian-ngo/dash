@@ -16,7 +16,10 @@
   },
   "overrides": [
     {
-      "includes": ["apps/web/src/routes/api/auth/$.ts"],
+      "includes": [
+        "apps/web/src/routes/api/auth/$.ts",
+        "apps/web/src/routes/api/immich/thumbnail.$id.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

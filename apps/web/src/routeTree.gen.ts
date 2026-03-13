@@ -39,6 +39,7 @@ import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimburse
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppAdvancePaymentsNewRouteImport } from './routes/_app/advance-payments/new'
 import { Route as AppAdvancePaymentsIdRouteImport } from './routes/_app/advance-payments/$id'
+import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -188,6 +189,11 @@ const AppAdvancePaymentsIdRoute = AppAdvancePaymentsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppAdvancePaymentsRouteRoute,
 } as any)
+const ApiImmichThumbnailIdRoute = ApiImmichThumbnailIdRouteImport.update({
+  id: '/api/immich/thumbnail/$id',
+  path: '/api/immich/thumbnail/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -218,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/events/': typeof AppEventsIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
+  '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/events': typeof AppEventsIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
+  '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -277,6 +285,7 @@ export interface FileRoutesById {
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
+  '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -309,6 +318,7 @@ export interface FileRouteTypes {
     | '/events/'
     | '/reimbursements/'
     | '/teams/'
+    | '/api/immich/thumbnail/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/reimbursements'
     | '/teams'
+    | '/api/immich/thumbnail/$id'
   id:
     | '__root__'
     | '/_app'
@@ -367,6 +378,7 @@ export interface FileRouteTypes {
     | '/_app/events/'
     | '/_app/reimbursements/'
     | '/_app/teams/'
+    | '/api/immich/thumbnail/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -379,6 +391,7 @@ export interface RootRouteChildren {
   ApiLogIngestRoute: typeof ApiLogIngestRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
+  ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -593,6 +606,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdvancePaymentsIdRouteImport
       parentRoute: typeof AppAdvancePaymentsRouteRoute
     }
+    '/api/immich/thumbnail/$id': {
+      id: '/api/immich/thumbnail/$id'
+      path: '/api/immich/thumbnail/$id'
+      fullPath: '/api/immich/thumbnail/$id'
+      preLoaderRoute: typeof ApiImmichThumbnailIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -708,6 +728,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLogIngestRoute: ApiLogIngestRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
+  ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

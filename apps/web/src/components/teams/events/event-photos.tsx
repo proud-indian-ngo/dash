@@ -22,6 +22,7 @@ import {
   type AllowedMimeType,
   getPresignedUploadUrl,
 } from "@/functions/attachments";
+import { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
 type PhotoWithUploader = EventPhoto & { uploader: User | undefined };
@@ -39,12 +40,40 @@ const MAX_PHOTO_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 const TRAILING_SLASH = /\/$/;
 const cdnBase = env.VITE_ASSET_CDN.replace(TRAILING_SLASH, "");
 
-function getThumbnailUrl(r2Key: string): string {
-  return `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${cdnBase}/${r2Key}`;
+const immichBase = env.VITE_IMMICH_URL?.replace(TRAILING_SLASH, "");
+
+function getR2ThumbnailUrl(r2Key: string): string {
+  const directUrl = `${cdnBase}/${r2Key}`;
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname === "localhost"
+  ) {
+    return directUrl;
+  }
+  return `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${directUrl}`;
 }
 
-function getFullUrl(r2Key: string): string {
-  return `${cdnBase}/${r2Key}`;
+const EMPTY_PIXEL =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+function getPhotoThumbnailUrl(photo: EventPhoto): string {
+  if (photo.immichAssetId) {
+    return `/api/immich/thumbnail/${photo.immichAssetId}`;
+  }
+  if (photo.r2Key) {
+    return getR2ThumbnailUrl(photo.r2Key);
+  }
+  return EMPTY_PIXEL;
+}
+
+function getPhotoFullUrl(photo: EventPhoto): string {
+  if (photo.immichAssetId && immichBase) {
+    return `${immichBase}/photos/${photo.immichAssetId}`;
+  }
+  if (photo.r2Key) {
+    return `${cdnBase}/${photo.r2Key}`;
+  }
+  return "#";
 }
 
 function isAllowedImageType(
@@ -143,7 +172,7 @@ function PhotoCard({
   return (
     <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
       <a
-        href={getFullUrl(photo.r2Key)}
+        href={getPhotoFullUrl(photo)}
         rel="noopener noreferrer"
         target="_blank"
       >
@@ -152,7 +181,7 @@ function PhotoCard({
           className="size-full object-cover"
           height={320}
           loading="lazy"
-          src={getThumbnailUrl(photo.r2Key)}
+          src={getPhotoThumbnailUrl(photo)}
           width={320}
         />
       </a>
@@ -240,10 +269,12 @@ export function EventPhotos({
 }: EventPhotosProps) {
   const zero = useZero();
   const getUploadUrl = useServerFn(getPresignedUploadUrl);
+  const callImmichUpload = useServerFn(uploadPhotoToImmich);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canUpload = canManage || isMember;
+  const useImmichDirect = canManage && !!immichBase;
 
   const handleUpload = useCallback(
     async (files: FileList | null) => {
@@ -262,15 +293,37 @@ export function EventPhotos({
 
       for (const file of validFiles) {
         try {
-          const key = await uploadFileToR2(file, getUploadUrl);
-          await zero.mutate(
-            mutators.eventPhoto.upload({
-              id: crypto.randomUUID(),
-              eventId,
-              r2Key: key,
-              now: Date.now(),
-            })
-          ).server;
+          if (useImmichDirect) {
+            // Admin/lead: upload directly to Immich via server proxy
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("eventId", eventId);
+            formData.append("mimeType", file.type);
+            formData.append("fileSize", String(file.size));
+            const result = await callImmichUpload({ data: formData });
+            if ("error" in result) {
+              throw new Error(result.error);
+            }
+            await zero.mutate(
+              mutators.eventPhoto.upload({
+                id: crypto.randomUUID(),
+                eventId,
+                immichAssetId: result.immichAssetId,
+                now: Date.now(),
+              })
+            ).server;
+          } else {
+            // Volunteer or no Immich: upload to R2
+            const key = await uploadFileToR2(file, getUploadUrl);
+            await zero.mutate(
+              mutators.eventPhoto.upload({
+                id: crypto.randomUUID(),
+                eventId,
+                r2Key: key,
+                now: Date.now(),
+              })
+            ).server;
+          }
           uploadedCount += 1;
         } catch {
           failedCount += 1;
@@ -283,7 +336,7 @@ export function EventPhotos({
         fileInputRef.current.value = "";
       }
     },
-    [eventId, getUploadUrl, zero]
+    [callImmichUpload, eventId, getUploadUrl, useImmichDirect, zero]
   );
 
   const handleApprove = useCallback(

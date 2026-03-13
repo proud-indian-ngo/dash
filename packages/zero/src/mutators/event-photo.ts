@@ -6,6 +6,24 @@ import { assertIsLoggedIn } from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
+// Opaque module name prevents Vite's import-analysis from resolving at dev time.
+// S3Client only runs inside server-side async tasks, never on the client.
+const _bun = "bun";
+async function getS3Client(
+  accountId: string,
+  keyId: string,
+  secretKey: string,
+  bucket: string
+) {
+  const { S3Client } = await import(/* @vite-ignore */ _bun);
+  return new S3Client({
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    accessKeyId: keyId,
+    secretAccessKey: secretKey,
+    bucket,
+  });
+}
+
 function pushImmichUploadTask(
   ctx: Context,
   meta: { mutator: string; [key: string]: unknown },
@@ -56,7 +74,6 @@ function pushImmichUploadTask(
         const albumData = (await albumRes.json()) as { id: string };
         albumId = albumData.id;
 
-        // Use ON CONFLICT to handle concurrent uploads for the same event
         const inserted = await db
           .insert(eventImmichAlbum)
           .values({
@@ -68,7 +85,6 @@ function pushImmichUploadTask(
           .onConflictDoNothing({ target: eventImmichAlbum.eventId })
           .returning({ immichAlbumId: eventImmichAlbum.immichAlbumId });
 
-        // If conflict occurred, another task already created the album — use that one
         if (inserted.length === 0) {
           const existing = await db.query.eventImmichAlbum.findFirst({
             where: eqOp(eventImmichAlbum.eventId, eventId),
@@ -80,13 +96,12 @@ function pushImmichUploadTask(
       }
 
       // Download from R2
-      const { S3Client } = await import("bun");
-      const s3 = new S3Client({
-        endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        accessKeyId: env.R2_ACCESS_KEY_ID,
-        secretAccessKey: env.R2_SECRET_KEY_ID,
-        bucket: env.R2_BUCKET_NAME,
-      });
+      const s3 = await getS3Client(
+        env.R2_ACCOUNT_ID,
+        env.R2_ACCESS_KEY_ID,
+        env.R2_SECRET_KEY_ID,
+        env.R2_BUCKET_NAME
+      );
       const file = s3.file(r2Key);
       const buffer = await file.arrayBuffer();
       const blob = new Blob([buffer]);
@@ -129,11 +144,18 @@ function pushImmichUploadTask(
         );
       }
 
-      // Update photo record with Immich asset ID
+      // Update photo record: set Immich asset ID and clear R2 key
       await db
         .update(eventPhoto)
-        .set({ immichAssetId: assetId })
+        .set({ immichAssetId: assetId, r2Key: null })
         .where(eqOp(eventPhoto.id, photoId));
+
+      // Clean up R2 object — best-effort, don't throw
+      try {
+        await s3.delete(r2Key);
+      } catch {
+        // R2 object orphaned but photo still works via Immich
+      }
     },
   });
 }
@@ -147,13 +169,12 @@ function pushR2DeleteTask(
     meta,
     fn: async () => {
       const { env } = await import("@pi-dash/env/server");
-      const { S3Client } = await import("bun");
-      const s3 = new S3Client({
-        endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        accessKeyId: env.R2_ACCESS_KEY_ID,
-        secretAccessKey: env.R2_SECRET_KEY_ID,
-        bucket: env.R2_BUCKET_NAME,
-      });
+      const s3 = await getS3Client(
+        env.R2_ACCOUNT_ID,
+        env.R2_ACCESS_KEY_ID,
+        env.R2_SECRET_KEY_ID,
+        env.R2_BUCKET_NAME
+      );
       await s3.delete(r2Key);
     },
   });
@@ -193,13 +214,18 @@ function pushImmichDeleteTask(
 
 export const eventPhotoMutators = {
   upload: defineMutator(
-    z.object({
-      id: z.string(),
-      eventId: z.string(),
-      r2Key: z.string(),
-      caption: z.string().optional(),
-      now: z.number(),
-    }),
+    z
+      .object({
+        id: z.string(),
+        eventId: z.string(),
+        r2Key: z.string().optional(),
+        immichAssetId: z.string().optional(),
+        caption: z.string().optional(),
+        now: z.number(),
+      })
+      .refine((d) => d.r2Key || d.immichAssetId, {
+        message: "Either r2Key or immichAssetId must be provided",
+      }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
@@ -245,8 +271,8 @@ export const eventPhotoMutators = {
       await tx.mutate.eventPhoto.insert({
         id: args.id,
         eventId: args.eventId,
-        r2Key: args.r2Key,
-        immichAssetId: null,
+        r2Key: args.r2Key ?? null,
+        immichAssetId: args.immichAssetId ?? null,
         caption: args.caption ?? null,
         status,
         uploadedBy: ctx.userId,
@@ -255,14 +281,22 @@ export const eventPhotoMutators = {
         createdAt: args.now,
       });
 
-      // Auto-approved photos go to Immich immediately
-      if (status === "approved" && tx.location === "server") {
+      // Only push Immich upload task for R2-backed photos that are auto-approved
+      if (
+        status === "approved" &&
+        args.r2Key &&
+        !args.immichAssetId &&
+        tx.location === "server"
+      ) {
         pushImmichUploadTask(
           ctx,
           {
             mutator: "uploadEventPhoto",
             photoId: args.id,
             eventId: args.eventId,
+            r2Key: args.r2Key,
+            eventName: event.name,
+            status,
           },
           args.id,
           args.eventId,
@@ -315,13 +349,15 @@ export const eventPhotoMutators = {
         reviewedAt: args.now,
       });
 
-      if (tx.location === "server") {
+      if (tx.location === "server" && photo.r2Key) {
         pushImmichUploadTask(
           ctx,
           {
             mutator: "approveEventPhoto",
             photoId: args.id,
             eventId: photo.eventId,
+            r2Key: photo.r2Key,
+            eventName: event.name,
           },
           args.id,
           photo.eventId,
@@ -374,13 +410,14 @@ export const eventPhotoMutators = {
         reviewedAt: args.now,
       });
 
-      if (tx.location === "server") {
+      if (tx.location === "server" && photo.r2Key) {
         pushR2DeleteTask(
           ctx,
           {
             mutator: "rejectEventPhoto",
             photoId: args.id,
             eventId: photo.eventId,
+            r2Key: photo.r2Key,
           },
           photo.r2Key
         );
@@ -427,9 +464,13 @@ export const eventPhotoMutators = {
           mutator: "deleteEventPhoto",
           photoId: args.id,
           eventId: photo.eventId,
+          r2Key: photo.r2Key,
+          immichAssetId: photo.immichAssetId,
         };
 
-        pushR2DeleteTask(ctx, taskMeta, photo.r2Key);
+        if (photo.r2Key) {
+          pushR2DeleteTask(ctx, taskMeta, photo.r2Key);
+        }
 
         if (photo.immichAssetId) {
           pushImmichDeleteTask(ctx, taskMeta, photo.immichAssetId);

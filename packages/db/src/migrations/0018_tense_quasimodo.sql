@@ -1,0 +1,1 @@
+ALTER TABLE "event_photo" ALTER COLUMN "r2_key" DROP NOT NULL;

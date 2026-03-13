@@ -24,7 +24,7 @@ export const eventPhoto = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
-    r2Key: text("r2_key").notNull(),
+    r2Key: text("r2_key"),
     immichAssetId: text("immich_asset_id"),
     caption: text("caption"),
     status: eventPhotoStatusEnum("status").notNull().default("pending"),
