@@ -16,11 +16,13 @@ import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   type AllowedMimeType,
   getPresignedUploadUrl,
 } from "@/functions/attachments";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 
 type PhotoWithUploader = EventPhoto & { uploader: User | undefined };
 
@@ -310,17 +312,11 @@ export function EventPhotos({
     [zero]
   );
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      try {
-        await zero.mutate(mutators.eventPhoto.delete({ id })).server;
-        toast.success("Photo deleted");
-      } catch {
-        toast.error("Failed to delete photo");
-      }
-    },
-    [zero]
-  );
+  const deleteAction = useConfirmAction<string>({
+    onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
+    onSuccess: () => toast.success("Photo deleted"),
+    onError: () => toast.error("Failed to delete photo"),
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -380,7 +376,7 @@ export function EventPhotos({
                 canDelete={canManage}
                 key={photo.id}
                 onApprove={() => handleApprove(photo.id)}
-                onDelete={() => handleDelete(photo.id)}
+                onDelete={() => deleteAction.trigger(photo.id)}
                 onReject={() => handleReject(photo.id)}
                 pending
                 photo={photo}
@@ -397,7 +393,7 @@ export function EventPhotos({
             <PhotoCard
               canDelete={canManage}
               key={photo.id}
-              onDelete={() => handleDelete(photo.id)}
+              onDelete={() => deleteAction.trigger(photo.id)}
               photo={photo}
             />
           ))}
@@ -415,6 +411,22 @@ export function EventPhotos({
           <p className="text-muted-foreground text-sm">No photos yet.</p>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        cancelLabel="Keep"
+        confirmLabel="Delete"
+        description="Are you sure you want to delete this photo? This action cannot be undone."
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAction.cancel();
+          }
+        }}
+        open={deleteAction.isOpen}
+        title="Delete photo"
+      />
     </div>
   );
 }

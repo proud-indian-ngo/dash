@@ -8,8 +8,10 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { TiptapEditor } from "@/components/editor/tiptap-editor";
 import { TiptapRenderer } from "@/components/editor/tiptap-renderer";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 
 type UpdateWithAuthor = EventUpdate & { author: User | undefined };
 
@@ -76,17 +78,11 @@ export function EventUpdates({
     [zero]
   );
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      const res = await zero.mutate(mutators.eventUpdate.delete({ id })).server;
-      if (res.type === "error") {
-        toast.error("Failed to delete update");
-      } else {
-        toast.success("Update deleted");
-      }
-    },
-    [zero]
-  );
+  const deleteAction = useConfirmAction<string>({
+    onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
+    onSuccess: () => toast.success("Update deleted"),
+    onError: () => toast.error("Failed to delete update"),
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -158,7 +154,7 @@ export function EventUpdates({
                       Edit
                     </Button>
                     <Button
-                      onClick={() => handleDelete(update.id)}
+                      onClick={() => deleteAction.trigger(update.id)}
                       size="sm"
                       variant="ghost"
                     >
@@ -174,6 +170,22 @@ export function EventUpdates({
           );
         })
       )}
+
+      <ConfirmDialog
+        cancelLabel="Keep"
+        confirmLabel="Delete"
+        description="Are you sure you want to delete this update? This action cannot be undone."
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAction.cancel();
+          }
+        }}
+        open={deleteAction.isOpen}
+        title="Delete update"
+      />
     </div>
   );
 }
