@@ -7,9 +7,16 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@pi-dash/design-system/components/ui/tabs";
 import { mutators } from "@pi-dash/zero/mutators";
+import { queries } from "@pi-dash/zero/queries";
 import type { TeamEventMember, User } from "@pi-dash/zero/schema";
-import { useZero } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useCallback } from "react";
@@ -22,6 +29,8 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventFormDialog } from "./event-form-dialog";
+import { EventPhotos } from "./event-photos";
+import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
 import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
@@ -232,6 +241,16 @@ export function EventDetail({
   const canCancel = hasStarted ? false : canManage;
   const canManageVolunteers = isPastEvent ? isAdmin : canManage;
 
+  const [updates] = useQuery(
+    queries.eventUpdate.byEvent({ eventId: event.id })
+  );
+  const [approvedPhotos] = useQuery(
+    queries.eventPhoto.approvedByEvent({ eventId: event.id })
+  );
+  const [pendingPhotos] = useQuery(
+    queries.eventPhoto.pendingByEvent({ eventId: event.id })
+  );
+
   const handleRemoveMember = useCallback(
     async (memberId: string) => {
       const res = await zero.mutate(
@@ -341,6 +360,42 @@ export function EventDetail({
             </p>
           ) : null}
         </div>
+
+        {hasStarted ? (
+          <>
+            <Separator />
+            <Tabs defaultValue="updates">
+              <TabsList>
+                <TabsTrigger value="updates">
+                  Updates
+                  {updates.length > 0 ? ` (${updates.length})` : ""}
+                </TabsTrigger>
+                <TabsTrigger value="photos">
+                  Photos
+                  {approvedPhotos.length > 0
+                    ? ` (${approvedPhotos.length})`
+                    : ""}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="updates">
+                <EventUpdates
+                  canManage={canManage}
+                  eventId={event.id}
+                  updates={updates}
+                />
+              </TabsContent>
+              <TabsContent value="photos">
+                <EventPhotos
+                  approvedPhotos={approvedPhotos}
+                  canManage={canManage}
+                  eventId={event.id}
+                  isMember={!!isMember}
+                  pendingPhotos={pendingPhotos}
+                />
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : null}
       </div>
 
       <EventFormDialog

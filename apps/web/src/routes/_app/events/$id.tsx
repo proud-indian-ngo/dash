@@ -14,6 +14,14 @@ export const Route = createFileRoute("/_app/events/$id")({
   loader: ({ context, params }) => {
     context.zero?.run(queries.teamEvent.byId({ id: params.id }));
     context.zero?.run(queries.eventInterest.byEvent({ eventId: params.id }));
+    context.zero?.run(queries.eventUpdate.byEvent({ eventId: params.id }));
+    context.zero?.run(
+      queries.eventPhoto.approvedByEvent({ eventId: params.id })
+    );
+    context.zero?.run(
+      queries.eventPhoto.pendingByEvent({ eventId: params.id })
+    );
+    context.zero?.run(queries.eventImmichAlbum.byEvent({ eventId: params.id }));
   },
   component: EventDetailRouteComponent,
 });
