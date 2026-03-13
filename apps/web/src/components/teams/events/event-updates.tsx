@@ -6,8 +6,8 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { TiptapEditor } from "@/components/editor/tiptap-editor";
-import { TiptapRenderer } from "@/components/editor/tiptap-renderer";
+import { PlateEditor } from "@/components/editor/plate-editor";
+import { PlateRenderer } from "@/components/editor/plate-renderer";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -28,7 +28,6 @@ export function EventUpdates({
 }: EventUpdatesProps) {
   const zero = useZero();
   const { user } = useApp();
-  const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -49,7 +48,6 @@ export function EventUpdates({
           toast.error("Failed to post update");
         } else {
           toast.success("Update posted");
-          setIsCreating(false);
         }
       } finally {
         setSaving(false);
@@ -86,17 +84,8 @@ export function EventUpdates({
 
   return (
     <div className="flex flex-col gap-4">
-      {canManage && isCreating ? (
-        <TiptapEditor
-          onCancel={() => setIsCreating(false)}
-          onSave={handleCreate}
-          saving={saving}
-        />
-      ) : null}
-      {canManage && !isCreating ? (
-        <Button onClick={() => setIsCreating(true)} size="sm" variant="outline">
-          Post Update
-        </Button>
+      {canManage ? (
+        <PlateEditor key="create" onSave={handleCreate} saving={saving} />
       ) : null}
 
       {updates.length === 0 ? (
@@ -134,14 +123,18 @@ export function EventUpdates({
                 </div>
 
                 {editingId === update.id ? (
-                  <TiptapEditor
+                  <PlateEditor
                     content={update.content}
+                    key={editingId}
                     onCancel={() => setEditingId(null)}
                     onSave={(content) => handleUpdate(update.id, content)}
                     saving={saving}
                   />
                 ) : (
-                  <TiptapRenderer content={update.content} />
+                  <PlateRenderer
+                    content={update.content}
+                    key={update.updatedAt}
+                  />
                 )}
 
                 {canEdit && editingId !== update.id ? (

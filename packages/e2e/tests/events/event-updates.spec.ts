@@ -59,13 +59,11 @@ test.describe("Event updates CRUD (admin)", () => {
     await updatesTab.click();
 
     // ---- POST UPDATE ----
-    await page.getByRole("button", { name: "Post Update" }).click();
-
-    // Type in the TiptapEditor
-    const editor = page.locator(".ProseMirror");
+    // Type in the PlateEditor (always visible when canManage)
+    const editor = page.locator("[data-slate-editor]");
     await expect(editor).toBeVisible();
     await editor.click();
-    await editor.fill("This is an E2E test update");
+    await page.keyboard.type("This is an E2E test update");
 
     // Save
     await page.getByRole("button", { name: "Save" }).click();
@@ -86,7 +84,7 @@ test.describe("Event updates CRUD (admin)", () => {
       .click();
 
     // Editor should appear with existing content
-    const editEditor = page.locator(".ProseMirror");
+    const editEditor = page.locator("[data-slate-editor]");
     await expect(editEditor).toBeVisible();
     await editEditor.click();
     // Select all and replace
