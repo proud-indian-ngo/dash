@@ -304,6 +304,10 @@ export const teamEventMutators = {
         }
       }
 
+      if (existing.startTime <= Date.now()) {
+        throw new Error("Cannot cancel an event that has already started");
+      }
+
       const now = Date.now();
       await tx.mutate.teamEvent.update({
         id: args.id,

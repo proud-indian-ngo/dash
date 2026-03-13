@@ -25,6 +25,12 @@ export const eventInterestMutators = {
         throw new Error("Event is not public");
       }
 
+      if (event.startTime <= Date.now()) {
+        throw new Error(
+          "Cannot show interest in an event that has already started"
+        );
+      }
+
       const existingMember = (await tx.run(
         zql.teamEventMember
           .where("eventId", args.eventId)
