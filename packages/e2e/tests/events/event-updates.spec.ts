@@ -1,7 +1,7 @@
 import { expect, test } from "../../fixtures/test";
 
 test.describe("Event updates CRUD (admin)", () => {
-  test.beforeEach((_fixtures, testInfo) => {
+  test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
   });
 

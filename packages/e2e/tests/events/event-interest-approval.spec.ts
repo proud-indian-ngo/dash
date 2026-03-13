@@ -41,7 +41,7 @@ async function navigateToEventWithPendingInterest(
 }
 
 test.describe("Event interest approval (admin)", () => {
-  test.beforeEach((_fixtures, testInfo) => {
+  test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
   });
 
