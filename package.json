@@ -36,7 +36,14 @@
       "uuidv7": "^1.1.0",
       "tailwindcss": "^4.2.1",
       "@tailwindcss/vite": "^4.2.1",
-      "@playwright/test": "^1.58.2"
+      "@playwright/test": "^1.58.2",
+      "platejs": "^52.3.4",
+      "@platejs/basic-nodes": "^52.0.11",
+      "@platejs/caption": "^52.0.11",
+      "@platejs/link": "^52.0.11",
+      "@platejs/list-classic": "^52.0.11",
+      "@platejs/media": "^52.0.11",
+      "@platejs/resizable": "^52.0.11"
     }
   },
   "type": "module",

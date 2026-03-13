@@ -22,6 +22,7 @@
     "hooks": "@pi-dash/design-system/hooks"
   },
   "registries": {
-    "@reui": "https://reui.io/r/{style}/{name}.json"
+    "@reui": "https://reui.io/r/{style}/{name}.json",
+    "@platejs": "https://platejs.org/r/{name}.json"
   }
 }
