@@ -10,5 +10,7 @@ packages/e2e/pages
 packages/e2e/playwright-report
 apps/web/.output
 apps/web/.vinxi
-.env.local
-.env.*.local
+.env
+.env.*
+docker-compose*.yml
+Dockerfile

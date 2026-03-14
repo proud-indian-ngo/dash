@@ -1,5 +1,7 @@
 name: pi-dash
 
+x-db-url: &db-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pi-dash}
+
 services:
   web:
     build:
@@ -8,7 +10,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
+      DATABASE_URL: *db-url
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
       CORS_ORIGIN: ${CORS_ORIGIN}
@@ -30,40 +32,89 @@ services:
       ASSET_FOLDER: ${ASSET_FOLDER:-}
       VITE_ASSET_CDN: ${VITE_ASSET_CDN:-}
       COURIER_API_KEY: ${COURIER_API_KEY:-}
-      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://tailscale-gowa:3000}
       WHATSAPP_AUTH_USER: ${WHATSAPP_AUTH_USER:-}
       WHATSAPP_AUTH_PASS: ${WHATSAPP_AUTH_PASS:-}
       APP_URL: ${APP_URL:-}
+      IMMICH_SERVER_URL: ${IMMICH_SERVER_URL:-}
+      IMMICH_API_KEY: ${IMMICH_API_KEY:-}
+      VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r=>r.json()).then(d=>process.exit(d.status==='ok'?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
+      zero-cache:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gowa:
+    image: aldinokemal2104/go-whatsapp-web-multidevice
+    volumes:
+      - whatsapp_data:/app/storages
+    command:
+      - rest
+      - --basic-auth=${WHATSAPP_AUTH_USER:-admin}:${WHATSAPP_AUTH_PASS:-admin}
+      - --port=3000
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000 || [ $? -eq 8 ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - tailscale-gowa
+    network_mode: service:tailscale-gowa
+    restart: unless-stopped
+
+  tailscale-gowa:
+    image: tailscale/tailscale:v1.94.2
+    hostname: gowa
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_EXTRA_ARGS: --advertise-tags=tag:container,tag:internal-app
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/tailscale/gowa.json
+      TS_USERSPACE: "true"
+    volumes:
+      - tailscale_gowa_data:/var/lib/tailscale
+      - ${TAILSCALE_CONFIG_DIR:-/root/.config}:/config
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
     restart: unless-stopped
 
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: pi-dash
-      POSTGRES_USER: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-pi-dash}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     command: postgres -c wal_level=logical
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
   zero-cache:
-    image: rocicorp/zero:0.25.13
+    image: rocicorp/zero:0.26.1
     ports:
-      - "4848:4848"
+      - "${ZERO_CACHE_PORT:-4848}:4848"
     environment:
-      ZERO_UPSTREAM_DB: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
-      ZERO_CVR_DB: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
-      ZERO_CHANGE_DB: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/pi-dash
+      ZERO_UPSTREAM_DB: *db-url
+      ZERO_CVR_DB: *db-url
+      ZERO_CHANGE_DB: *db-url
       ZERO_REPLICA_FILE: /data/zero.db
       ZERO_ADMIN_PASSWORD: ${ZERO_ADMIN_PASSWORD:-}
       ZERO_MUTATE_FORWARD_COOKIES: "true"
@@ -86,3 +137,5 @@ services:
 volumes:
   postgres_data:
   zero_cache_data:
+  whatsapp_data:
+  tailscale_gowa_data:

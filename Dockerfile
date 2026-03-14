@@ -1,5 +1,5 @@
 # Stage 1: Install dependencies
-FROM oven/bun:1.3.10 AS deps
+FROM oven/bun:1.3.12 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -17,7 +17,7 @@ COPY packages/zero/package.json packages/zero/
 RUN bun install --frozen-lockfile
 
 # Stage 2: Build
-FROM oven/bun:1.3.10 AS build
+FROM oven/bun:1.3.12 AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,7 +25,7 @@ ENV SKIP_VALIDATION=true
 RUN cd apps/web && bunx --bun vite build
 
 # Stage 3: Production
-FROM oven/bun:1.3.10-slim AS production
+FROM oven/bun:1.3.12-slim AS production
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
 EXPOSE 3000
