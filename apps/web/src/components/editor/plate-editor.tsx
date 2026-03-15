@@ -110,6 +110,7 @@ const plugins = [
 
 interface PlateEditorProps {
   content?: string;
+  entityId: string;
   onCancel?: () => void;
   onSave: (content: string) => void;
   saving?: boolean;
@@ -117,6 +118,7 @@ interface PlateEditorProps {
 
 export function PlateEditor({
   content,
+  entityId,
   onCancel,
   onSave,
   saving,
@@ -149,6 +151,8 @@ export function PlateEditor({
           fileName: file.name,
           fileSize: file.size,
           mimeType: file.type as (typeof ALLOWED_IMAGE_TYPES)[number],
+          subfolder: "updates",
+          entityId,
         },
       });
 

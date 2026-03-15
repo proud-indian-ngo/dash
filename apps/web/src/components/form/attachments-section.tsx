@@ -37,6 +37,7 @@ import {
 } from "@/lib/form-schemas";
 
 interface AttachmentsSectionProps {
+  entityId: string;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
 }
@@ -47,6 +48,7 @@ const isFileAttachment = (attachment: Attachment): boolean => {
 
 const uploadSingleFile = async (
   file: File,
+  entityId: string,
   getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
 ): Promise<Attachment> => {
   const { presignedUrl, key } = await getUploadUrl({
@@ -54,6 +56,8 @@ const uploadSingleFile = async (
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type as AllowedMimeType,
+      subfolder: "attachments",
+      entityId,
     },
   });
 
@@ -101,6 +105,7 @@ const showUploadResultToasts = (
 };
 
 export function AttachmentsSection({
+  entityId,
   onChange,
   value,
 }: AttachmentsSectionProps) {
@@ -138,7 +143,11 @@ export function AttachmentsSection({
 
       for (const file of filesToUpload) {
         try {
-          const uploadedAttachment = await uploadSingleFile(file, getUploadUrl);
+          const uploadedAttachment = await uploadSingleFile(
+            file,
+            entityId,
+            getUploadUrl
+          );
           uploadedAttachments.push(uploadedAttachment);
         } catch {
           failedCount += 1;
@@ -155,7 +164,7 @@ export function AttachmentsSection({
 
       setIsUploading(false);
     },
-    [getUploadUrl, onChange, remainingFileSlots, value]
+    [entityId, getUploadUrl, onChange, remainingFileSlots, value]
   );
 
   const [{ isDragging, errors }, uploadActions] = useFileUpload({

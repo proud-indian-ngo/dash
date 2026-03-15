@@ -100,6 +100,7 @@ function validateFiles(files: FileList): File[] {
 
 async function uploadFileToR2(
   file: File,
+  entityId: string,
   getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
 ): Promise<string> {
   const { presignedUrl, key } = await getUploadUrl({
@@ -107,6 +108,8 @@ async function uploadFileToR2(
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type as AllowedMimeType,
+      subfolder: "photos",
+      entityId,
     },
   });
 
@@ -314,7 +317,7 @@ export function EventPhotos({
             ).server;
           } else {
             // Volunteer or no Immich: upload to R2
-            const key = await uploadFileToR2(file, getUploadUrl);
+            const key = await uploadFileToR2(file, eventId, getUploadUrl);
             await zero.mutate(
               mutators.eventPhoto.upload({
                 id: crypto.randomUUID(),

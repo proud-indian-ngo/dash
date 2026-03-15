@@ -22,6 +22,12 @@ export const ALLOWED_MIME_TYPES = [
 
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
+const R2_SUBFOLDERS = {
+  attachments: "attachments",
+  photos: "photos",
+  updates: "updates",
+} as const;
+
 function getS3() {
   return new S3Client({
     endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -38,6 +44,12 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       fileName: z.string().min(1),
       fileSize: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE_BYTES),
       mimeType: z.enum(ALLOWED_MIME_TYPES),
+      subfolder: z.enum([
+        R2_SUBFOLDERS.attachments,
+        R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.updates,
+      ]),
+      entityId: z.string().min(1),
     })
   )
   .handler(({ data }) => {
@@ -48,7 +60,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       .replaceAll(/[\\/]/g, "-")
       .replaceAll(/"/g, "")
       .replaceAll(/\s+/g, "-");
-    const key = `${env.R2_KEY_PREFIX}/${crypto.randomUUID()}-${sanitizedFileName}`;
+    const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${crypto.randomUUID()}-${sanitizedFileName}`;
     // NOTE: Bun's S3.presign() does not support content-length conditions.
     // fileSize is validated by Zod above but cannot be enforced at the storage layer.
     // To enforce upload size, switch to @aws-sdk/s3-request-presigner with

@@ -10,6 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -53,6 +54,7 @@ export function ReimbursementForm({
   );
 
   const existingId = initialValues?.id;
+  const entityId = useMemo(() => existingId ?? uuidv7(), [existingId]);
 
   const categoryList = useStableQueryResult(
     (categories ?? []) as ExpenseCategory[],
@@ -76,7 +78,7 @@ export function ReimbursementForm({
       attachments: initialValues?.attachments ?? [],
     } as ReimbursementFormValues,
     onSubmit: async ({ value }) => {
-      const id = existingId ?? uuidv7();
+      const id = entityId;
       const lineItems = value.lineItems.map((item, index) => ({
         ...item,
         amount: Number(item.amount),
@@ -242,6 +244,7 @@ export function ReimbursementForm({
         <form.Field name="attachments">
           {(field) => (
             <AttachmentsSection
+              entityId={entityId}
               onChange={(attachments) => field.handleChange(attachments)}
               value={field.state.value}
             />

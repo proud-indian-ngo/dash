@@ -85,7 +85,12 @@ export function EventUpdates({
   return (
     <div className="flex flex-col gap-4">
       {canManage ? (
-        <PlateEditor key="create" onSave={handleCreate} saving={saving} />
+        <PlateEditor
+          entityId={eventId}
+          key="create"
+          onSave={handleCreate}
+          saving={saving}
+        />
       ) : null}
 
       {updates.length === 0 ? (
@@ -125,6 +130,7 @@ export function EventUpdates({
                 {editingId === update.id ? (
                   <PlateEditor
                     content={update.content}
+                    entityId={eventId}
                     key={editingId}
                     onCancel={() => setEditingId(null)}
                     onSave={(content) => handleUpdate(update.id, content)}
