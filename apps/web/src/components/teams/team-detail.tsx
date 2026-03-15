@@ -300,7 +300,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
             {pendingInterestCount > 0 ? (
               <Badge className="ml-2" variant="outline">
                 {pendingInterestCount} pending interest
-                {pendingInterestCount !== 1 ? "s" : ""}
+                {pendingInterestCount === 1 ? "" : "s"}
               </Badge>
             ) : null}
           </h2>

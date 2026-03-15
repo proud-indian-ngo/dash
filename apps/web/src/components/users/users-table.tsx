@@ -382,7 +382,7 @@ const searchUser = (user: User, query: string): boolean => {
     return true;
   }
 
-  const dobText = user.dob != null ? format(user.dob, "dd/MM/yyyy") : "";
+  const dobText = user.dob == null ? "" : format(user.dob, "dd/MM/yyyy");
 
   return [
     user.name,

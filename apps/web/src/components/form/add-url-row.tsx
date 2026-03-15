@@ -47,7 +47,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
     <div className="flex flex-col gap-1">
       <div className="flex gap-2">
         <Input
-          aria-describedby={urlError !== null ? "add-url-error" : undefined}
+          aria-describedby={urlError === null ? undefined : "add-url-error"}
           aria-invalid={urlError !== null}
           aria-label="Attachment URL"
           className="flex-1"

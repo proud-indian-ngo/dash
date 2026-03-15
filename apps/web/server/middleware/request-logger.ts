@@ -30,7 +30,7 @@ export default defineMiddleware(async (event, next) => {
     event.res.status ??
     (result instanceof Response ? result.status : undefined);
   log.set({
-    ...(status !== undefined ? { status } : {}),
+    ...(status === undefined ? {} : { status }),
     durationMs: Math.round(performance.now() - start),
   });
   log.emit();

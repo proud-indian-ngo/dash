@@ -84,10 +84,10 @@ export class RequestFormPage {
   }
 
   async removeLineItem(index?: number): Promise<void> {
-    if (index !== undefined) {
-      await this.getRemoveButtons().nth(index).click();
-    } else {
+    if (index === undefined) {
       await this.getRemoveButtons().last().click();
+    } else {
+      await this.getRemoveButtons().nth(index).click();
     }
   }
 

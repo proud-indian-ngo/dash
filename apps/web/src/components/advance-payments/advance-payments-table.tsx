@@ -239,7 +239,7 @@ export function AdvancePaymentsTable({
       {
         id: "submittedAt",
         accessorFn: (row) =>
-          row.submittedAt != null ? format(row.submittedAt, "dd/MM/yyyy") : "—",
+          row.submittedAt == null ? "—" : format(row.submittedAt, "dd/MM/yyyy"),
         header: ({ column }) => (
           <DataGridColumnHeader
             column={column}
@@ -249,9 +249,9 @@ export function AdvancePaymentsTable({
         ),
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
-            {row.original.submittedAt != null
-              ? format(row.original.submittedAt, "dd/MM/yyyy")
-              : "—"}
+            {row.original.submittedAt == null
+              ? "—"
+              : format(row.original.submittedAt, "dd/MM/yyyy")}
           </span>
         ),
         meta: { headerTitle: "Submitted", skeleton: SKELETON_DATE },

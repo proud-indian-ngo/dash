@@ -39,9 +39,9 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
     () =>
-      (typeof window !== "undefined"
-        ? (localStorage.getItem(storageKey) as Theme)
-        : null) || defaultTheme
+      (typeof window === "undefined"
+        ? null
+        : (localStorage.getItem(storageKey) as Theme)) || defaultTheme
   );
 
   const handleMediaQuery = useCallback(
