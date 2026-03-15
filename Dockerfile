@@ -1,5 +1,5 @@
 # Stage 1: Install dependencies
-FROM oven/bun:1.3.12 AS deps
+FROM oven/bun:1.3-slim AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
