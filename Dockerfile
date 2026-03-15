@@ -17,7 +17,7 @@ COPY packages/zero/package.json packages/zero/
 RUN bun install --frozen-lockfile
 
 # Stage 2: Build
-FROM oven/bun:1.3.12 AS build
+FROM oven/bun:1.3-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
