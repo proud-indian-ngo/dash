@@ -9,7 +9,7 @@ export interface AttachmentLike {
 }
 
 const TRAILING_SLASH = /\/$/;
-const getAssetCdnBase = () => env.VITE_ASSET_CDN.replace(TRAILING_SLASH, "");
+const getAssetCdnBase = () => env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
 
 const getDirectAttachmentUrl = (objectKey: string): string =>
   `${getAssetCdnBase()}/${objectKey}`;

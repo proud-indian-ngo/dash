@@ -36,7 +36,7 @@ function pushImmichUploadTask(
     meta,
     fn: async () => {
       const { env } = await import("@pi-dash/env/server");
-      const immichUrl = env.IMMICH_SERVER_URL;
+      const immichUrl = env.VITE_IMMICH_URL;
       const immichKey = env.IMMICH_API_KEY;
       if (!(immichUrl && immichKey)) {
         return;
@@ -98,8 +98,8 @@ function pushImmichUploadTask(
       // Download from R2
       const s3 = await getS3Client(
         env.R2_ACCOUNT_ID,
-        env.R2_ACCESS_KEY_ID,
-        env.R2_SECRET_KEY_ID,
+        env.R2_ACCESS_KEY,
+        env.R2_SECRET_ACCESS_KEY,
         env.R2_BUCKET_NAME
       );
       const file = s3.file(r2Key);
@@ -171,8 +171,8 @@ function pushR2DeleteTask(
       const { env } = await import("@pi-dash/env/server");
       const s3 = await getS3Client(
         env.R2_ACCOUNT_ID,
-        env.R2_ACCESS_KEY_ID,
-        env.R2_SECRET_KEY_ID,
+        env.R2_ACCESS_KEY,
+        env.R2_SECRET_ACCESS_KEY,
         env.R2_BUCKET_NAME
       );
       await s3.delete(r2Key);
@@ -189,7 +189,7 @@ function pushImmichDeleteTask(
     meta,
     fn: async () => {
       const { env } = await import("@pi-dash/env/server");
-      const immichUrl = env.IMMICH_SERVER_URL;
+      const immichUrl = env.VITE_IMMICH_URL;
       const immichKey = env.IMMICH_API_KEY;
       if (!(immichUrl && immichKey)) {
         return;

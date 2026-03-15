@@ -115,7 +115,7 @@ const buildFallbackAvatarUrl = (
   gender?: "female" | "male"
 ): string => {
   const fallbackSeed = hashSha256(
-    `${env.GRAVATAR_DICEBEAR_SEED}:${normalizedEmail}`
+    `${env.AVATAR_FALLBACK_SEED}:${normalizedEmail}`
   );
   const url = new URL("https://api.dicebear.com/9.x/notionists/png");
   url.searchParams.set("seed", fallbackSeed);
@@ -163,7 +163,7 @@ const fetchProfileAvatarUrl = async (
     const response = await fetch(buildProfileEndpointUrl(profileIdentifier), {
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${env.GRAVATAR_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${env.GRAVATAR_API_KEY}`,
       },
       signal: controller.signal,
     });

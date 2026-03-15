@@ -38,7 +38,7 @@ const IMAGE_ACCEPT = IMAGE_MIME_TYPES.join(",");
 const MAX_PHOTO_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const TRAILING_SLASH = /\/$/;
-const cdnBase = env.VITE_ASSET_CDN.replace(TRAILING_SLASH, "");
+const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
 
 const immichBase = env.VITE_IMMICH_URL?.replace(TRAILING_SLASH, "");
 

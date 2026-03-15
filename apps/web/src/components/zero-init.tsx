@@ -45,7 +45,7 @@ export function ZeroInit({ children }: ZeroInitProps) {
 
   return (
     <ZeroProvider
-      cacheURL={env.VITE_PUBLIC_ZERO_CACHE_URL}
+      cacheURL={env.VITE_ZERO_URL}
       context={context}
       init={init}
       mutators={mutators}

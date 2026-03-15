@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@pi-dash/env/web", () => ({
   env: {
-    VITE_ASSET_CDN: "http://localhost",
-    VITE_PUBLIC_ZERO_CACHE_URL: "http://localhost",
+    VITE_CDN_URL: "http://localhost",
+    VITE_ZERO_URL: "http://localhost",
   },
 }));
 

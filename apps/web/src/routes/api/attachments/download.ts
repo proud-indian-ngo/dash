@@ -6,8 +6,8 @@ import { requireSession } from "@/lib/api-auth";
 const getS3 = () =>
   new S3Client({
     endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    accessKeyId: env.R2_ACCESS_KEY_ID,
-    secretAccessKey: env.R2_SECRET_KEY_ID,
+    accessKeyId: env.R2_ACCESS_KEY,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     bucket: env.R2_BUCKET_NAME,
   });
 
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/attachments/download")({
           return Response.json({ error: "Missing key" }, { status: 400 });
         }
 
-        const expectedPrefix = `${env.ASSET_FOLDER}/`;
+        const expectedPrefix = `${env.R2_KEY_PREFIX}/`;
         if (!key.startsWith(expectedPrefix)) {
           return Response.json({ error: "Invalid key" }, { status: 400 });
         }

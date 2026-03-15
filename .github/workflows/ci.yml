@@ -71,8 +71,8 @@ jobs:
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
       ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate
       ZERO_QUERY_URL: http://localhost:3099/api/zero/query
-      VITE_PUBLIC_ZERO_CACHE_URL: http://localhost:4848
-      VITE_ASSET_CDN: http://localhost:3099
+      VITE_ZERO_URL: http://localhost:4848
+      VITE_CDN_URL: http://localhost:3099
     steps:
       - uses: actions/checkout@v4
 

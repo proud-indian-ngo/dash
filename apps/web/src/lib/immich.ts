@@ -7,7 +7,7 @@ interface ImmichConfig {
 
 export async function getImmichConfig(): Promise<ImmichConfig | null> {
   const { env } = await import("@pi-dash/env/server");
-  const url = env.IMMICH_SERVER_URL;
+  const url = env.VITE_IMMICH_URL;
   const key = env.IMMICH_API_KEY;
   if (!(url && key)) {
     return null;

@@ -73,7 +73,7 @@ function safeParse(json: string): Value | undefined {
 
 const TRAILING_SLASH = /\/$/;
 function getCdnUrl(key: string): string {
-  return `${env.VITE_ASSET_CDN.replace(TRAILING_SLASH, "")}/${key}`;
+  return `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
 }
 
 export const ListKit = [

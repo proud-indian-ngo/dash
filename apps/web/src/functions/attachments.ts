@@ -25,8 +25,8 @@ export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 function getS3() {
   return new S3Client({
     endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    accessKeyId: env.R2_ACCESS_KEY_ID,
-    secretAccessKey: env.R2_SECRET_KEY_ID,
+    accessKeyId: env.R2_ACCESS_KEY,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     bucket: env.R2_BUCKET_NAME,
   });
 }
@@ -48,7 +48,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       .replaceAll(/[\\/]/g, "-")
       .replaceAll(/"/g, "")
       .replaceAll(/\s+/g, "-");
-    const key = `${env.ASSET_FOLDER}/${crypto.randomUUID()}-${sanitizedFileName}`;
+    const key = `${env.R2_KEY_PREFIX}/${crypto.randomUUID()}-${sanitizedFileName}`;
     // NOTE: Bun's S3.presign() does not support content-length conditions.
     // fileSize is validated by Zod above but cannot be enforced at the storage layer.
     // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
@@ -65,7 +65,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(
     z.object({
-      key: z.string().startsWith(`${env.ASSET_FOLDER}/`),
+      key: z.string().startsWith(`${env.R2_KEY_PREFIX}/`),
     })
   )
   .handler(async ({ data }) => {
@@ -78,7 +78,7 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(
     z.object({
-      keys: z.array(z.string().startsWith(`${env.ASSET_FOLDER}/`)),
+      keys: z.array(z.string().startsWith(`${env.R2_KEY_PREFIX}/`)),
     })
   )
   .handler(async ({ data }) => {
