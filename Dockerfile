@@ -25,7 +25,7 @@ ENV SKIP_VALIDATION=true
 RUN cd apps/web && bunx --bun vite build
 
 # Stage 3: Production
-FROM oven/bun:1.3.12-slim AS production
+FROM oven/bun:1.3-slim AS production
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
 EXPOSE 3000
