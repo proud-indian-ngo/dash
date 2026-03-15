@@ -1,5 +1,5 @@
-# Stage 1: Install dependencies
-FROM oven/bun:1.3-slim AS deps
+# Stage 1: Install dependencies and build
+FROM oven/bun:1.3-slim AS build
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -15,16 +15,11 @@ COPY packages/whatsapp/package.json packages/whatsapp/
 COPY packages/e2e/package.json packages/e2e/
 COPY packages/zero/package.json packages/zero/
 RUN bun install --frozen-lockfile
-
-# Stage 2: Build
-FROM oven/bun:1.3-slim AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV SKIP_VALIDATION=true
 RUN cd apps/web && bunx --bun vite build
 
-# Stage 3: Production
+# Stage 2: Production
 FROM oven/bun:1.3-slim AS production
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
