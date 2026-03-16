@@ -445,7 +445,11 @@ export const eventPhotoMutators = {
         throw new Error("Event not found");
       }
 
-      if (ctx.role !== "admin") {
+      // Allow uploader to delete their own pending photos
+      const isOwnPending =
+        photo.uploadedBy === ctx.userId && photo.status === "pending";
+
+      if (!isOwnPending && ctx.role !== "admin") {
         const membership = await tx.run(
           zql.teamMember
             .where("teamId", event.teamId)

@@ -149,6 +149,7 @@ function showUploadResultToasts(
 interface EventPhotosProps {
   approvedPhotos: readonly PhotoWithUploader[];
   canManage: boolean;
+  currentUserId: string;
   eventId: string;
   immichAlbumUrl?: string | null;
   isMember: boolean;
@@ -264,6 +265,7 @@ function PhotoCard({
 
 export function EventPhotos({
   canManage,
+  currentUserId,
   eventId,
   isMember,
   approvedPhotos,
@@ -278,6 +280,9 @@ export function EventPhotos({
 
   const canUpload = canManage || isMember;
   const useImmichDirect = canManage && !!immichBase;
+  const myPendingPhotos = canManage
+    ? []
+    : pendingPhotos.filter((p) => p.uploadedBy === currentUserId);
 
   const handleUpload = useCallback(
     async (files: FileList | null) => {
@@ -420,7 +425,7 @@ export function EventPhotos({
         ) : null}
       </div>
 
-      {/* Pending photos section (canManage only) */}
+      {/* Pending photos: admins/leads see all, volunteers see own */}
       {canManage && pendingPhotos.length > 0 ? (
         <div className="flex flex-col gap-3">
           <h3 className="font-medium text-sm">
@@ -429,11 +434,29 @@ export function EventPhotos({
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {pendingPhotos.map((photo) => (
               <PhotoCard
-                canDelete={canManage}
+                canDelete
                 key={photo.id}
                 onApprove={() => handleApprove(photo.id)}
                 onDelete={() => deleteAction.trigger(photo.id)}
                 onReject={() => handleReject(photo.id)}
+                pending
+                photo={photo}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {!canManage && myPendingPhotos.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <h3 className="font-medium text-sm">
+            Your Pending Photos ({myPendingPhotos.length})
+          </h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {myPendingPhotos.map((photo) => (
+              <PhotoCard
+                canDelete
+                key={photo.id}
+                onDelete={() => deleteAction.trigger(photo.id)}
                 pending
                 photo={photo}
               />
@@ -457,7 +480,10 @@ export function EventPhotos({
       ) : null}
 
       {/* Empty state */}
-      {approvedPhotos.length === 0 && pendingPhotos.length === 0 ? (
+      {approvedPhotos.length === 0 &&
+      (canManage
+        ? pendingPhotos.length === 0
+        : myPendingPhotos.length === 0) ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <HugeiconsIcon
             className="size-8 text-muted-foreground"

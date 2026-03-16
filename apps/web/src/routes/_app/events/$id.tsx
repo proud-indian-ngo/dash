@@ -75,6 +75,7 @@ function EventDetailRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
         canManage={canManage}
+        currentUserId={session.user.id}
         event={event}
         interests={
           interests as readonly (EventInterest & {

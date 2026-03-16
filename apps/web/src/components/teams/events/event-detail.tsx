@@ -41,6 +41,7 @@ const TRAILING_SLASH = /\/$/;
 
 interface EventDetailProps {
   canManage: boolean;
+  currentUserId: string;
   event: EventRow;
   interests?: readonly InterestWithUser[];
   isAdmin: boolean;
@@ -216,6 +217,7 @@ function VolunteerInterestSection({
 
 export function EventDetail({
   canManage,
+  currentUserId,
   event,
   interests,
   isAdmin,
@@ -400,6 +402,7 @@ export function EventDetail({
                 <EventPhotos
                   approvedPhotos={approvedPhotos}
                   canManage={canManage}
+                  currentUserId={currentUserId}
                   eventId={event.id}
                   immichAlbumUrl={immichAlbumUrl}
                   isMember={!!isMember}
