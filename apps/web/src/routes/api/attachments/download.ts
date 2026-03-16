@@ -1,15 +1,7 @@
 import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
-import { S3Client } from "bun";
 import { requireSession } from "@/lib/api-auth";
-
-const getS3 = () =>
-  new S3Client({
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    accessKeyId: env.R2_ACCESS_KEY,
-    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-    bucket: env.R2_BUCKET_NAME,
-  });
+import { getS3 } from "@/lib/s3";
 
 const sanitizeFileName = (input: string): string =>
   input
@@ -42,7 +34,7 @@ export const Route = createFileRoute("/api/attachments/download")({
           return Response.json({ error: "Invalid key" }, { status: 400 });
         }
 
-        const s3 = getS3();
+        const s3 = await getS3();
         const downloadUrl = s3.presign(key, {
           method: "GET",
           expiresIn: 120,

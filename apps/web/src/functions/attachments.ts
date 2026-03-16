@@ -1,8 +1,8 @@
 import { env } from "@pi-dash/env/server";
 import { createServerFn } from "@tanstack/react-start";
-import { S3Client } from "bun";
 import z from "zod";
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
+import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
 
 export const ALLOWED_MIME_TYPES = [
@@ -28,15 +28,6 @@ const R2_SUBFOLDERS = {
   updates: "updates",
 } as const;
 
-function getS3() {
-  return new S3Client({
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    accessKeyId: env.R2_ACCESS_KEY,
-    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-    bucket: env.R2_BUCKET_NAME,
-  });
-}
-
 export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(
@@ -52,8 +43,8 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       entityId: z.string().min(1),
     })
   )
-  .handler(({ data }) => {
-    const s3 = getS3();
+  .handler(async ({ data }) => {
+    const s3 = await getS3();
     const sanitizedFileName = data.fileName
       .trim()
       .replaceAll(/[\r\n]/g, "")
@@ -81,7 +72,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
-    const s3 = getS3();
+    const s3 = await getS3();
     await s3.delete(data.key);
     return { success: true };
   });
@@ -94,7 +85,7 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
-    const s3 = getS3();
+    const s3 = await getS3();
     await Promise.all(data.keys.map((key) => s3.delete(key)));
     return { success: true };
   });
