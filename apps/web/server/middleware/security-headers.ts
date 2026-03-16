@@ -19,7 +19,7 @@ function buildCsp(): string {
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: https://api.dicebear.com https://api.gravatar.com https://*.r2.cloudflarestorage.com`,
     "font-src 'self'",
-    `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://inbox.courier.com wss://inbox.courier.com`,
+    `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://inbox.courier.com wss://inbox.courier.com wss://realtime.courier.io https://*.r2.cloudflarestorage.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
