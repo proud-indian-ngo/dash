@@ -47,13 +47,63 @@ interface EventDetailProps {
   isAdmin: boolean;
   isMember?: boolean;
   myInterest?: InterestWithUser | null;
-  team: TeamDetailData;
+  team?: TeamDetailData | null;
 }
 
 type EventDialog =
   | { type: "edit" }
   | { type: "addMember" }
   | { type: "interest" };
+
+function EventHeader({
+  canCancel,
+  canManage,
+  event,
+  onCancel,
+  onEdit,
+  teamName,
+}: {
+  canCancel: boolean;
+  canManage: boolean;
+  event: EventRow;
+  onCancel: () => void;
+  onEdit: () => void;
+  teamName: string | null;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl">{event.name}</h1>
+        <button
+          className="text-left text-muted-foreground text-sm hover:underline"
+          onClick={() =>
+            navigate({ to: "/teams/$id", params: { id: event.teamId } })
+          }
+          type="button"
+        >
+          {teamName ?? "Team"}
+        </button>
+      </div>
+      {canManage || canCancel ? (
+        <div className="flex gap-2">
+          {canManage ? (
+            <Button onClick={onEdit} size="sm" variant="outline">
+              <HugeiconsIcon className="size-4" icon={Edit02Icon} />
+              Edit
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button onClick={onCancel} size="sm" variant="destructive">
+              Cancel Event
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function EventMemberRow({
   canManage,
@@ -290,43 +340,14 @@ export function EventDetail({
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-semibold text-2xl">{event.name}</h1>
-            <button
-              className="text-left text-muted-foreground text-sm hover:underline"
-              onClick={() =>
-                navigate({ to: "/teams/$id", params: { id: event.teamId } })
-              }
-              type="button"
-            >
-              {team.name}
-            </button>
-          </div>
-          {canManage || canCancel ? (
-            <div className="flex gap-2">
-              {canManage ? (
-                <Button
-                  onClick={() => dialog.open({ type: "edit" })}
-                  size="sm"
-                  variant="outline"
-                >
-                  <HugeiconsIcon className="size-4" icon={Edit02Icon} />
-                  Edit
-                </Button>
-              ) : null}
-              {canCancel ? (
-                <Button
-                  onClick={() => cancelAction.trigger()}
-                  size="sm"
-                  variant="destructive"
-                >
-                  Cancel Event
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        <EventHeader
+          canCancel={canCancel}
+          canManage={canManage}
+          event={event}
+          onCancel={() => cancelAction.trigger()}
+          onEdit={() => dialog.open({ type: "edit" })}
+          teamName={team?.name ?? null}
+        />
 
         <EventInfoSection event={event} />
 

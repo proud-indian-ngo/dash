@@ -1,3 +1,4 @@
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
@@ -42,8 +43,8 @@ function EventDetailRouteComponent() {
 
   if (eventStatus.type === "unknown") {
     return (
-      <div className="app-container mx-auto max-w-7xl px-4 py-6">
-        <p className="text-muted-foreground text-sm">Loading...</p>
+      <div className="flex h-full items-center justify-center pt-8">
+        <BrailleSpinner />
       </div>
     );
   }
@@ -56,15 +57,8 @@ function EventDetailRouteComponent() {
     );
   }
 
-  if (!team) {
-    return (
-      <div className="app-container mx-auto max-w-7xl px-4 py-6">
-        <p className="text-muted-foreground text-sm">Loading...</p>
-      </div>
-    );
-  }
-
-  const canManage = isAdmin || isTeamLead(team.members, session.user.id);
+  const canManage =
+    isAdmin || (team ? isTeamLead(team.members, session.user.id) : false);
   const myInterest = interests.find(
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
