@@ -686,6 +686,17 @@ async function migrateUsers(
       createdAt,
       updatedAt: updatedAt || createdAt,
     });
+
+    // Create account row so Better Auth recognises this user.
+    // Password is null — users must use "Forgot Password" on first sign-in.
+    await tx.insert(schema.account).values({
+      id: uuidv7(),
+      accountId: newId,
+      providerId: "credential",
+      userId: newId,
+      createdAt,
+      updatedAt: updatedAt || createdAt,
+    });
     stats.users.migrated++;
 
     if (phone) {
