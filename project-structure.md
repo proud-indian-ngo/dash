@@ -22,6 +22,7 @@ All paths are relative to project root.
 | `bun run test:seed` | Seed E2E test data |
 | `bun run test:e2e` | Run E2E tests via Turborepo |
 | `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
+| `bun run analyze` | Bundle analysis (web app) |
 | `bun run ruler:apply` | Apply Ruler config |
 
 ## Fast Lookup Map
@@ -72,7 +73,7 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
-| `routes/api/cron/create-recurring-events.ts` | Cron endpoint for recurring event creation |
+| `routes/_app/export.tsx` | CSV data export |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
 | `routes/_auth/reset-password.tsx` | Reset password |
@@ -81,6 +82,9 @@ All paths are relative to project root.
 | `routes/api/zero/query.ts` | Zero query endpoint |
 | `routes/api/zero/mutate.ts` | Zero mutate endpoint |
 | `routes/api/avatar.ts` | Avatar generation |
+| `routes/api/health.ts` | Health check endpoint |
+| `routes/api/log/ingest.ts` | Client-side log ingestion |
+| `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/attachments/download.ts` | Attachment download |
 
 All route paths above are prefixed with `apps/web/src/`.
@@ -95,11 +99,12 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
-| `components/editor/` | tiptap-editor (rich-text with image upload), tiptap-renderer (read-only) |
+| `components/shared/` | user-avatar, user-picker, confirm-dialog |
+| `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
 | `components/teams/events/` | events-table, event-form-dialog, event-detail, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
-| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, notifications) |
-| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
+| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
+| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
 | `components/login/` | login-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
 | `components/` (root) | loader, default-catch-boundary, default-not-found, theme-toggle, zero-init, dev-tools |
@@ -111,10 +116,10 @@ All component paths above are prefixed with `apps/web/src/`.
 | File | Purpose |
 |---|---|
 | `hooks/use-active-path.ts` | Current nav view from pathname |
+| `hooks/use-attachment-actions.ts` | Attachment upload/delete actions |
 | `hooks/use-confirm-action.ts` | Confirm→loading→execute→close pattern for destructive actions |
 | `hooks/use-dialog-manager.ts` | Discriminated-union state for managing multiple dialogs |
 | `hooks/use-local-storage.ts` | Generic localStorage with JSON serialization |
-| `hooks/use-nav-items.ts` | Nav items by user role |
 | `hooks/use-table-state.ts` | Table state (pagination, sorting, filters, column persistence) |
 | `hooks/use-stable-query-result.ts` | Stabilize Zero query results across re-renders |
 | `hooks/use-unread-notification-count.ts` | Unread Courier notification count |
@@ -129,6 +134,8 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
 | `functions/attachments.ts` | R2 presigned upload URL, delete asset |
 | `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |
+| `functions/export-csv.ts` | CSV data export server function |
+| `functions/immich-upload.ts` | Immich photo upload server function |
 | `functions/notification-preferences.ts` | Get/update user notification topic preferences |
 
 All function paths above are prefixed with `apps/web/src/`.
@@ -149,6 +156,15 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/stats.ts` | Shared stat computation helpers |
 | `lib/status-badge.ts` | Status → badge variant mapping |
 | `lib/submission-mappers.ts` | Map Zero rows to form/display models |
+| `lib/nav-items.ts` | Nav items by user role |
+| `lib/route-guards.ts` | Route protection utilities |
+| `lib/db-enums.ts` | Database enum type mappings |
+| `lib/team-utils.ts` | Team-related utilities |
+| `lib/immich.ts` | Immich photo service integration |
+| `lib/s3.ts` | S3/R2 client utilities |
+| `lib/rate-limit.ts` | Rate limiting helpers |
+| `lib/csv-export.ts` | CSV export utilities |
+| `lib/client-logger.ts` | Client-side logging |
 
 All lib paths above are prefixed with `apps/web/src/`.
 
@@ -162,8 +178,10 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission, team-event), `src/topics.ts`, `src/preferences.ts`, `src/whatsapp.ts`, `src/jwt.ts`, `src/helpers.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, user, submission, team, team-event, event-interest), `src/send-message.ts` (core send/bulk send), `src/topics.ts`, `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
+| `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
+| `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update, event-interest, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, advance-payments, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page, advance-payment-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
@@ -193,14 +211,17 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `eventPhoto` | `packages/db/src/schema/event-photo.ts` |
 | `eventImmichAlbum` | `packages/db/src/schema/event-photo.ts` |
 | `eventUpdate` | `packages/db/src/schema/event-update.ts` |
+| `appConfig` | `packages/db/src/schema/app-config.ts` |
+| `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
 
 ## Notifications
 
 - **Package**: `packages/notifications/` — Courier-based multi-channel notifications.
 - **Client**: `src/client.ts` initializes CourierClient from `COURIER_API_KEY`.
-- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, user, team-event, event-interest). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
+- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, user, submission, team, team-event, event-interest). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
+- **Core**: `src/send-message.ts` provides `sendMessage()` and `sendBulkMessage()` with inbox, email, and WhatsApp channels + idempotency keys.
 - **Topics**: Defined in `src/topics.ts` (GENERAL, ACCOUNT, EVENTS). User preferences managed via `src/preferences.ts`.
-- **WhatsApp**: Optional integration in `src/whatsapp.ts`; requires `WHATSAPP_API_URL` env var to be set.
+- **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
 - **JWT**: `src/jwt.ts` generates Courier JWTs for client-side inbox.
 - **Helpers**: `src/helpers.ts` provides `getAdminUserIds`, `getUserName`, `syncCourierUser`.
 - DO: Add new notification types in `packages/notifications/src/send/`.

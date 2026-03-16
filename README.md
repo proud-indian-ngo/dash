@@ -20,7 +20,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 - **Courier** — multi-channel notifications (email, in-app, push)
 - **WhatsApp** — optional self-hosted WhatsApp gateway via go-whatsapp-web-multidevice
 - **React Email + Nodemailer** — transactional email (verification, password reset)
-- **Tiptap** — rich-text editor for event updates (bold, italic, lists, inline images)
+- **Plate** — rich-text editor for event updates (bold, italic, lists, inline images)
 - **Cloudflare R2** — S3-compatible object storage for file attachments
 - **evlog** — structured wide-event logging (server-side)
 - **GitHub Actions** — CI pipeline (type check, lint, unit tests)
@@ -43,14 +43,15 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
-| Event updates | Leads/admins post rich-text updates (Tiptap editor with inline images) to events after they start |
+| Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
 | File attachments | Upload files to Cloudflare R2; attach URLs to reimbursements |
 | Bank accounts | Users manage bank accounts for reimbursement payouts |
 | Expense categories | Admin-managed categories for reimbursement line items |
 | Notifications | Multi-channel notifications via Courier; per-user topic preferences |
 | WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
-| Settings dialog | Profile, account, banking, expense categories, and notification preferences |
+| CSV export | Export data tables to CSV files |
+| Settings dialog | Profile, account, banking, expense categories, WhatsApp groups, and notification preferences |
 | Theming | Light/dark mode toggle with system preference detection |
 | Real-time sync | All data tables update live via Zero sync |
 
@@ -74,7 +75,9 @@ pi-dash/
 │   ├── env/                # Zod-validated env contracts (server + web)
 │   ├── config/             # Shared TypeScript & tooling config
 │   ├── design-system/      # shadcn/ui + reui components, theme provider
-│   ├── notifications/      # Courier notifications, WhatsApp integration
+│   ├── notifications/      # Courier notifications
+│   ├── observability/      # Structured logging helpers (withTaskLog, withFireAndForgetLog)
+│   ├── whatsapp/           # WhatsApp gateway client, groups, messaging
 │   ├── zero/               # Rocicorp Zero schema, queries, mutators
 │   └── e2e/                # Playwright E2E tests
 │       ├── fixtures/       # Custom test fixtures (auth emails)
@@ -160,8 +163,8 @@ Copy `.env.sample` to `.env`. Required variables:
 | `BETTER_AUTH_SECRET` | Session encryption secret (min 32 chars) |
 | `BETTER_AUTH_URL` | Auth base URL (e.g. `http://localhost:3001`) |
 | `CORS_ORIGIN` | Allowed CORS origin |
-| `GRAVATAR_ACCESS_TOKEN` | Bearer token for Gravatar REST profile requests |
-| `GRAVATAR_DICEBEAR_SEED` | Static seed namespace used for DiceBear fallback avatars |
+| `GRAVATAR_API_KEY` | Bearer token for Gravatar REST profile requests |
+| `AVATAR_FALLBACK_SEED` | Static seed namespace used for DiceBear fallback avatars |
 | `ZERO_ADMIN_PASSWORD` | Zero admin authentication password |
 | `ZERO_MUTATE_URL` | Zero mutate endpoint URL |
 | `ZERO_QUERY_URL` | Zero query endpoint URL |
@@ -181,10 +184,10 @@ Copy `.env.sample` to `.env`. Required variables:
 | Variable | Description |
 |---|---|
 | `R2_ACCOUNT_ID` | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | R2 access key |
-| `R2_SECRET_KEY_ID` | R2 secret key |
+| `R2_ACCESS_KEY` | R2 access key |
+| `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | R2 bucket name |
-| `ASSET_FOLDER` | Folder prefix for uploaded assets |
+| `R2_KEY_PREFIX` | Key prefix for uploaded assets |
 
 ### Courier (notifications)
 
@@ -204,8 +207,8 @@ Copy `.env.sample` to `.env`. Required variables:
 
 | Variable | Description |
 |---|---|
-| `DEV_PG_ADDRESS` | PostgreSQL host:port for local Docker instance |
-| `DEV_PG_PASSWORD` | Password for the local PostgreSQL instance |
+| `DEV_DB_HOST` | PostgreSQL URL for local Docker instance (e.g. `localhost:5432`) |
+| `DEV_DB_PASSWORD` | Password for the local PostgreSQL instance |
 | `ZERO_LOG_LEVEL` | Zero cache log level (default `debug`) |
 | `ZERO_REPLICA_FILE` | Path for Zero's local SQLite replica |
 
@@ -213,16 +216,15 @@ Copy `.env.sample` to `.env`. Required variables:
 
 | Variable | Description |
 |---|---|
-| `VITE_PUBLIC_ZERO_CACHE_URL` | Zero cache server URL (e.g. `http://localhost:4848`) |
-| `VITE_ASSET_CDN` | CDN base URL for serving uploaded images |
+| `VITE_ZERO_URL` | Zero cache server URL (e.g. `http://localhost:4848`) |
+| `VITE_CDN_URL` | CDN base URL for serving uploaded images |
 
 ### Immich (optional photo management)
 
 | Variable | Description |
 |---|---|
-| `IMMICH_SERVER_URL` | Immich server URL (e.g. `http://localhost:2283`); leave blank to disable |
 | `IMMICH_API_KEY` | Immich API key for album and asset management |
-| `VITE_IMMICH_URL` | Public Immich URL for album links shown in the UI (e.g. `https://photos.example.com`) |
+| `VITE_IMMICH_URL` | Public Immich URL for album links shown in the UI (e.g. `https://photos.example.com`); leave blank to disable |
 
 ### Optional
 
@@ -306,5 +308,6 @@ Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run
 | `bun run check` | Run linter (ultracite/Biome) |
 | `bun run fix` | Auto-fix linter issues (ultracite/Biome) |
 | `bun run check:unused` | Find unused exports (knip) |
+| `bun run analyze` | Bundle analysis (web app) |
 | `bun run check:updates` | Check for package updates |
 | `bun run ruler:apply` | Apply Ruler config |
