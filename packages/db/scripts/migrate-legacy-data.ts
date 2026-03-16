@@ -1151,6 +1151,55 @@ async function migrateHistoryRecords(
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
+async function purgeR2Files(): Promise<void> {
+  if (!R2_ENABLED) {
+    return;
+  }
+
+  log("\n=== Deleting Existing R2 Files ===");
+
+  const newS3 = new S3Client({
+    endpoint: `https://${NEW_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
+    accessKeyId: NEW_R2_ACCESS_KEY as string,
+    secretAccessKey: NEW_R2_SECRET_ACCESS_KEY as string,
+    bucket: NEW_R2_BUCKET_NAME as string,
+  });
+
+  const reimbKeys = await db
+    .select({ objectKey: schema.reimbursementAttachment.objectKey })
+    .from(schema.reimbursementAttachment)
+    .where(eq(schema.reimbursementAttachment.type, "file"));
+
+  const apKeys = await db
+    .select({ objectKey: schema.advancePaymentAttachment.objectKey })
+    .from(schema.advancePaymentAttachment)
+    .where(eq(schema.advancePaymentAttachment.type, "file"));
+
+  const allKeys = [...reimbKeys, ...apKeys]
+    .map((r) => r.objectKey)
+    .filter(
+      (k): k is string => k?.startsWith(NEW_R2_KEY_PREFIX as string) === true
+    );
+
+  if (allKeys.length === 0) {
+    log("  No R2 files to delete");
+    return;
+  }
+
+  let deleted = 0;
+  let failed = 0;
+  for (const key of allKeys) {
+    try {
+      await newS3.delete(key);
+      deleted++;
+    } catch {
+      failed++;
+      warn(`Failed to delete R2 file: ${key}`);
+    }
+  }
+  log(`  R2 files deleted: ${deleted}, failed: ${failed}`);
+}
+
 async function purgeExistingData(tx: typeof db): Promise<void> {
   log("\n=== Purging Existing Migration Data ===");
 
@@ -1200,8 +1249,11 @@ async function main() {
   const sqlContent = fs.readFileSync(dumpPath, "utf-8");
   const parsed = parseMysqlDump(sqlContent);
 
+  // 0. Delete R2 files from previous run (before DB purge removes the keys)
+  await purgeR2Files();
+
   await db.transaction(async (tx) => {
-    // 0. Purge existing data
+    // 0b. Purge existing DB data
     await purgeExistingData(tx as unknown as typeof db);
 
     // 1. Categories
