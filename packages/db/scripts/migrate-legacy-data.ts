@@ -1387,25 +1387,28 @@ async function copyOneFile(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     warn(`Failed to copy "${copy.oldKey}": ${msg}`);
-    await deleteAttachmentRow(copy);
+    // Revert objectKey in DB back to old key so record isn't broken
+    await revertObjectKey(copy);
     return false;
   }
 }
 
-async function deleteAttachmentRow(copy: PendingR2Copy): Promise<void> {
+async function revertObjectKey(copy: PendingR2Copy): Promise<void> {
   try {
     if (copy.table === "reimbursement_attachment") {
       await db
-        .delete(schema.reimbursementAttachment)
+        .update(schema.reimbursementAttachment)
+        .set({ objectKey: copy.oldKey })
         .where(eq(schema.reimbursementAttachment.id, copy.attachmentId));
     } else {
       await db
-        .delete(schema.advancePaymentAttachment)
+        .update(schema.advancePaymentAttachment)
+        .set({ objectKey: copy.oldKey })
         .where(eq(schema.advancePaymentAttachment.id, copy.attachmentId));
     }
-    warn(`  Deleted attachment ${copy.attachmentId} (file not in old R2)`);
+    warn(`  Reverted objectKey for ${copy.attachmentId} to "${copy.oldKey}"`);
   } catch {
-    warn(`  Failed to delete attachment ${copy.attachmentId}`);
+    warn(`  Failed to revert objectKey for ${copy.attachmentId}`);
   }
 }
 
