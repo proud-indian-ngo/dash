@@ -58,27 +58,35 @@ export default defineConfig(({ mode }) => ({
     },
     rolldownOptions: {
       external: ["bun", "bun:sqlite"],
-      output: {
-        codeSplitting: {
-          groups: [
-            { name: "vendor-react", test: RE_REACT, priority: 20 },
-            { name: "vendor-router", test: RE_ROUTER, priority: 20 },
-            { name: "vendor-zero", test: RE_ZERO, priority: 20 },
-            { name: "vendor-slate", test: RE_SLATE, priority: 25 },
-            { name: "vendor-plate", test: RE_PLATE, priority: 20 },
-            { name: "vendor-table", test: RE_TABLE, priority: 20 },
-            { name: "vendor-form", test: RE_FORM, priority: 20 },
-            { name: "vendor-dnd", test: RE_DND, priority: 20 },
-            { name: "vendor-courier", test: RE_COURIER, priority: 20 },
-            { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
-            { name: "vendor-icons", test: RE_ICONS, priority: 20 },
-            { name: "vendor-phone", test: RE_PHONE, priority: 20 },
-            { name: "vendor-date", test: RE_DATE, priority: 15 },
-            { name: "vendor-auth", test: RE_AUTH, priority: 15 },
-            { name: "vendor-drizzle", test: RE_DRIZZLE, priority: 15 },
-            { name: "vendor-zod", test: RE_ZOD, priority: 15 },
-            { name: "vendor", test: RE_VENDOR, priority: 5 },
-          ],
+    },
+  },
+  environments: {
+    client: {
+      build: {
+        rolldownOptions: {
+          output: {
+            codeSplitting: {
+              groups: [
+                { name: "vendor-react", test: RE_REACT, priority: 20 },
+                { name: "vendor-router", test: RE_ROUTER, priority: 20 },
+                { name: "vendor-zero", test: RE_ZERO, priority: 20 },
+                { name: "vendor-slate", test: RE_SLATE, priority: 25 },
+                { name: "vendor-plate", test: RE_PLATE, priority: 20 },
+                { name: "vendor-table", test: RE_TABLE, priority: 20 },
+                { name: "vendor-form", test: RE_FORM, priority: 20 },
+                { name: "vendor-dnd", test: RE_DND, priority: 20 },
+                { name: "vendor-courier", test: RE_COURIER, priority: 20 },
+                { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
+                { name: "vendor-icons", test: RE_ICONS, priority: 20 },
+                { name: "vendor-phone", test: RE_PHONE, priority: 20 },
+                { name: "vendor-date", test: RE_DATE, priority: 15 },
+                { name: "vendor-auth", test: RE_AUTH, priority: 15 },
+                { name: "vendor-drizzle", test: RE_DRIZZLE, priority: 15 },
+                { name: "vendor-zod", test: RE_ZOD, priority: 15 },
+                { name: "vendor", test: RE_VENDOR, priority: 5 },
+              ],
+            },
+          },
         },
       },
     },
