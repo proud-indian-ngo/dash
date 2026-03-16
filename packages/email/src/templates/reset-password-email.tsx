@@ -24,8 +24,10 @@ export default function ResetPasswordEmail({ url }: ResetPasswordEmailProps) {
         <Preview>Reset your password</Preview>
         <Body className="bg-[#f4f4f4] font-sans">
           <Container className="mx-auto my-10 max-w-lg overflow-hidden rounded-[10px] border border-[#e5e7eb] bg-white">
-            <Section className="bg-[#55a048] px-6 py-5">
-              <Text className="m-0 font-bold text-lg text-white">Pi-Dash</Text>
+            <Section className="bg-[#007595] px-6 py-5">
+              <Text className="m-0 font-bold text-lg text-white">
+                Proud Indian Dashboard
+              </Text>
             </Section>
             <Section className="px-8 py-10">
               <Heading className="mt-0 mb-4 font-bold text-2xl text-[#1a1a1a]">
@@ -36,7 +38,7 @@ export default function ResetPasswordEmail({ url }: ResetPasswordEmailProps) {
                 in 1 hour.
               </Text>
               <Button
-                className="block rounded-[8px] bg-[#55a048] px-6 py-3 text-center font-semibold text-base text-white no-underline"
+                className="block rounded-[8px] bg-[#007595] px-6 py-3 text-center font-semibold text-base text-white no-underline"
                 href={url}
               >
                 Reset Password
