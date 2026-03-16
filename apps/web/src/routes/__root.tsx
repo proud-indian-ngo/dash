@@ -99,8 +99,7 @@ function RootDocument() {
           </AppErrorBoundary>
         </ThemeProvider>
         {import.meta.env.DEV && <LazyDevTools />}
-        {process.env.NODE_ENV === "development" &&
-          !import.meta.env.VITE_E2E && <Agentation />}
+        {import.meta.env.DEV && !import.meta.env.VITE_E2E && <Agentation />}
         <Scripts />
       </body>
     </html>

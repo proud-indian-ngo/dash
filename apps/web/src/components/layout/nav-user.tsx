@@ -25,12 +25,18 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useTheme } from "@pi-dash/design-system/lib/theme-provider";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  CourierInbox,
-  type CourierInboxListItemFactoryProps,
-  type CourierInboxTheme,
+import type {
+  CourierInboxListItemFactoryProps,
+  CourierInboxTheme,
 } from "@trycourier/courier-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
+
+const CourierInbox = lazy(() =>
+  import("@trycourier/courier-react").then((m) => ({
+    default: m.CourierInbox,
+  }))
+);
+
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -153,23 +159,25 @@ export function NavUser() {
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-96 p-0">
                   <div className="h-[400px] w-full overflow-hidden">
-                    <CourierInbox
-                      darkTheme={COURIER_DARK_THEME}
-                      height="400px"
-                      lightTheme={COURIER_LIGHT_THEME}
-                      mode={mode}
-                      onMessageClick={({
-                        message,
-                      }: CourierInboxListItemFactoryProps) => {
-                        const clickAction = (
-                          message.data as { clickAction?: string } | undefined
-                        )?.clickAction;
-                        if (clickAction) {
-                          setMenuOpen(false);
-                          navigate({ to: clickAction });
-                        }
-                      }}
-                    />
+                    <Suspense>
+                      <CourierInbox
+                        darkTheme={COURIER_DARK_THEME}
+                        height="400px"
+                        lightTheme={COURIER_LIGHT_THEME}
+                        mode={mode}
+                        onMessageClick={({
+                          message,
+                        }: CourierInboxListItemFactoryProps) => {
+                          const clickAction = (
+                            message.data as { clickAction?: string } | undefined
+                          )?.clickAction;
+                          if (clickAction) {
+                            setMenuOpen(false);
+                            navigate({ to: clickAction });
+                          }
+                        }}
+                      />
+                    </Suspense>
                   </div>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>

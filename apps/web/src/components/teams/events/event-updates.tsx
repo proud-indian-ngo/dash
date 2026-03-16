@@ -4,14 +4,23 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { PlateEditor } from "@/components/editor/plate-editor";
-import { PlateRenderer } from "@/components/editor/plate-renderer";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+
+const PlateEditor = lazy(() =>
+  import("@/components/editor/plate-editor").then((m) => ({
+    default: m.PlateEditor,
+  }))
+);
+const PlateRenderer = lazy(() =>
+  import("@/components/editor/plate-renderer").then((m) => ({
+    default: m.PlateRenderer,
+  }))
+);
 
 type UpdateWithAuthor = EventUpdate & { author: User | undefined };
 
@@ -85,12 +94,14 @@ export function EventUpdates({
   return (
     <div className="flex flex-col gap-4">
       {canManage ? (
-        <PlateEditor
-          entityId={eventId}
-          key="create"
-          onSave={handleCreate}
-          saving={saving}
-        />
+        <Suspense>
+          <PlateEditor
+            entityId={eventId}
+            key="create"
+            onSave={handleCreate}
+            saving={saving}
+          />
+        </Suspense>
       ) : null}
 
       {updates.length === 0 ? (
@@ -127,21 +138,23 @@ export function EventUpdates({
                   ) : null}
                 </div>
 
-                {editingId === update.id ? (
-                  <PlateEditor
-                    content={update.content}
-                    entityId={eventId}
-                    key={editingId}
-                    onCancel={() => setEditingId(null)}
-                    onSave={(content) => handleUpdate(update.id, content)}
-                    saving={saving}
-                  />
-                ) : (
-                  <PlateRenderer
-                    content={update.content}
-                    key={update.updatedAt}
-                  />
-                )}
+                <Suspense>
+                  {editingId === update.id ? (
+                    <PlateEditor
+                      content={update.content}
+                      entityId={eventId}
+                      key={editingId}
+                      onCancel={() => setEditingId(null)}
+                      onSave={(content) => handleUpdate(update.id, content)}
+                      saving={saving}
+                    />
+                  ) : (
+                    <PlateRenderer
+                      content={update.content}
+                      key={update.updatedAt}
+                    />
+                  )}
+                </Suspense>
 
                 {canEdit && editingId !== update.id ? (
                   <div className="flex gap-2">

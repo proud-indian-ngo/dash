@@ -7,7 +7,7 @@ import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
-import { PhoneField } from "@/components/form/phone-field";
+import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
 import { authClient } from "@/lib/auth-client";
 import { optionalDate } from "@/lib/validators";
