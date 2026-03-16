@@ -7,6 +7,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_ZERO_URL: ${VITE_ZERO_URL}
+        VITE_CDN_URL: ${VITE_CDN_URL}
+        VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
     ports:
       - "${PORT:-3000}:3000"
     environment:

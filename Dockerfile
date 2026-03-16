@@ -16,7 +16,13 @@ COPY packages/e2e/package.json packages/e2e/
 COPY packages/zero/package.json packages/zero/
 RUN bun install --frozen-lockfile
 COPY . .
+ARG VITE_ZERO_URL
+ARG VITE_CDN_URL
+ARG VITE_IMMICH_URL
 ENV SKIP_VALIDATION=true
+ENV VITE_ZERO_URL=$VITE_ZERO_URL
+ENV VITE_CDN_URL=$VITE_CDN_URL
+ENV VITE_IMMICH_URL=$VITE_IMMICH_URL
 RUN cd apps/web && bunx --bun vite build
 
 # Stage 2: Production
