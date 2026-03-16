@@ -35,6 +35,12 @@ const R2_ENABLED =
   NEW_R2_BUCKET_NAME &&
   NEW_R2_KEY_PREFIX;
 
+// WhatsApp status check config (optional)
+const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL;
+const WHATSAPP_AUTH_USER = process.env.WHATSAPP_AUTH_USER;
+const WHATSAPP_AUTH_PASS = process.env.WHATSAPP_AUTH_PASS;
+const WHATSAPP_ENABLED = !!WHATSAPP_API_URL;
+
 // biome-ignore lint/performance/noNamespaceImport: intentional
 import * as schema from "../src/schema";
 
@@ -56,6 +62,7 @@ const stats = {
   reimbursementHistory: { migrated: 0, skipped: 0 },
   advancePaymentHistory: { migrated: 0, skipped: 0 },
   r2Files: { copied: 0, skipped: 0, failed: 0 },
+  whatsappChecks: { checked: 0, onWhatsapp: 0, failed: 0, skipped: 0 },
 };
 
 // Pending R2 file copies — collected during transaction, executed after commit
@@ -66,6 +73,13 @@ interface PendingR2Copy {
   table: "reimbursement_attachment" | "advance_payment_attachment";
 }
 const pendingR2Copies: PendingR2Copy[] = [];
+
+// Pending WhatsApp checks — collected during transaction, executed after commit
+interface PendingWhatsAppCheck {
+  phone: string;
+  userId: string;
+}
+const pendingWhatsAppChecks: PendingWhatsAppCheck[] = [];
 
 // ── MySQL Dump Parser ────────────────────────────────────
 
@@ -302,7 +316,7 @@ function parseMysqlDump(sqlContent: string) {
     email: r[3] as string,
     gender: r[4] as string | null,
     dob: r[5] as string | null,
-    phone: r[6] as string,
+    phone: r[7] as string,
     status: r[12] as number,
     is_orientation_attended: r[13] as number,
     created_at: r[14] as string | null,
@@ -425,6 +439,7 @@ function parseMysqlDump(sqlContent: string) {
 
 const SENTINEL_DATE = "1970-01-01";
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const PHONE_REGEX = /^\+?[\d\s\-().]+$/;
 const DB_PASSWORD_REGEX = /:[^:@]+@/;
 
 function parseTimestamp(ts: string | null): Date {
@@ -463,6 +478,21 @@ function cleanPhone(
   let p = phone?.trim() || null;
   if (p === "" || p === "0") {
     p = null;
+  }
+  // Reject values that don't look like phone numbers (e.g. bcrypt hashes)
+  if (p && !PHONE_REGEX.test(p)) {
+    warn(
+      `Nullifying non-phone value for user ${userId} "${userName}": ${p.slice(0, 20)}...`
+    );
+    p = null;
+  }
+  // Strip non-digits and prepend +91 if missing country code
+  if (p) {
+    const digits = p.replace(/\D/g, "");
+    p =
+      digits.startsWith("91") && digits.length > 10
+        ? `+${digits}`
+        : `+91${digits}`;
   }
   if (p && seenPhones.has(p)) {
     warn(`Nullifying duplicate phone for user ${userId} "${userName}": ${p}`);
@@ -657,6 +687,10 @@ async function migrateUsers(
       updatedAt: updatedAt || createdAt,
     });
     stats.users.migrated++;
+
+    if (phone) {
+      pendingWhatsAppChecks.push({ userId: newId, phone });
+    }
   }
 
   log(
@@ -1316,12 +1350,20 @@ async function main() {
   // 9. Copy R2 files (outside transaction — network I/O)
   await copyR2Files();
 
+  // 10. Check WhatsApp statuses (outside transaction — network I/O)
+  await syncWhatsAppStatuses();
+
   log("\n=== Migration Summary ===");
   for (const [table, counts] of Object.entries(stats)) {
     if (table === "r2Files") {
       const r2 = counts as typeof stats.r2Files;
       log(
         `  ${table}: ${r2.copied} copied, ${r2.skipped} skipped, ${r2.failed} failed`
+      );
+    } else if (table === "whatsappChecks") {
+      const wa = counts as typeof stats.whatsappChecks;
+      log(
+        `  ${table}: ${wa.checked} checked, ${wa.onWhatsapp} on WhatsApp, ${wa.failed} failed, ${wa.skipped} skipped`
       );
     } else {
       const c = counts as { migrated: number; skipped: number };
@@ -1330,6 +1372,77 @@ async function main() {
   }
   log("\nMigration complete!");
   process.exit(stats.r2Files.failed > 0 ? 1 : 0);
+}
+
+function formatPhoneForWhatsApp(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
+
+async function checkIsOnWhatsApp(phone: string): Promise<boolean> {
+  const formatted = formatPhoneForWhatsApp(phone);
+  const url = new URL(`${WHATSAPP_API_URL}/user/check`);
+  url.searchParams.set("phone", formatted);
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (WHATSAPP_AUTH_USER && WHATSAPP_AUTH_PASS) {
+    const credentials = btoa(`${WHATSAPP_AUTH_USER}:${WHATSAPP_AUTH_PASS}`);
+    headers.Authorization = `Basic ${credentials}`;
+  }
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`WhatsApp check API error ${response.status}: ${text}`);
+  }
+
+  const data = (await response.json()) as {
+    results?: { is_on_whatsapp?: boolean };
+  };
+  return data.results?.is_on_whatsapp ?? false;
+}
+
+async function syncWhatsAppStatuses(): Promise<void> {
+  if (!WHATSAPP_ENABLED) {
+    if (pendingWhatsAppChecks.length > 0) {
+      log(
+        `\n=== Skipping WhatsApp Checks (${pendingWhatsAppChecks.length} users) ===`
+      );
+      log("Set WHATSAPP_API_URL to enable WhatsApp status checks.");
+      stats.whatsappChecks.skipped = pendingWhatsAppChecks.length;
+    }
+    return;
+  }
+
+  log(
+    `\n=== Checking WhatsApp Status (${pendingWhatsAppChecks.length} users) ===`
+  );
+
+  for (const { userId, phone } of pendingWhatsAppChecks) {
+    try {
+      const isOnWhatsapp = await checkIsOnWhatsApp(phone);
+      await db
+        .update(schema.user)
+        .set({ isOnWhatsapp })
+        .where(eq(schema.user.id, userId));
+      stats.whatsappChecks.checked++;
+      if (isOnWhatsapp) {
+        stats.whatsappChecks.onWhatsapp++;
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      warn(`WhatsApp check failed for ${phone}: ${msg}`);
+      stats.whatsappChecks.failed++;
+    }
+
+    // Small delay to avoid hammering the WhatsApp Web socket
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  log(
+    `WhatsApp: ${stats.whatsappChecks.checked} checked, ${stats.whatsappChecks.onWhatsapp} on WhatsApp, ${stats.whatsappChecks.failed} failed`
+  );
 }
 
 async function copyR2Files(): Promise<void> {
