@@ -157,7 +157,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | Package | Key paths |
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), seed-admin script |
-| `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `docker-compose.yml` (postgres, postgres-test, whatsapp) |
+| `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
@@ -360,3 +360,77 @@ Use `mcp__context7__query-docs` with these library IDs to fetch up-to-date docum
 | nuqs | `/47ng/nuqs` |
 | dnd-kit | `/clauderic/dnd-kit` |
 | t3-env | `/t3-oss/t3-env` |
+
+## Legacy Data Migration
+
+One-time migration from old Proud Indian platform (Laravel/MySQL) to pi-dash (Postgres).
+
+**Script:** `packages/db/scripts/migrate-legacy-data.ts`
+**SQL dump:** `proudindian.sql` (project root, not committed)
+
+### Setup
+
+```bash
+# 1. Start migration DB
+docker compose --env-file .env -f packages/db/docker-compose.yml up -d postgres-migration
+
+# 2. Push schema to migration DB
+cd packages/db && DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" bun x drizzle-kit push
+```
+
+### Run (DB only, no file copy)
+
+```bash
+DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" \
+ADMIN_EMAIL="somu@proudindian.ngo" \
+bun run packages/db/scripts/migrate-legacy-data.ts
+```
+
+### Run (with R2 file copy)
+
+```bash
+DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" \
+ADMIN_EMAIL="somu@proudindian.ngo" \
+OLD_R2_ACCOUNT_ID="..." \
+OLD_R2_ACCESS_KEY="..." \
+OLD_R2_SECRET_ACCESS_KEY="..." \
+OLD_R2_BUCKET_NAME="..." \
+NEW_R2_ACCOUNT_ID="..." \
+NEW_R2_ACCESS_KEY="..." \
+NEW_R2_SECRET_ACCESS_KEY="..." \
+NEW_R2_BUCKET_NAME="..." \
+NEW_R2_KEY_PREFIX="..." \
+bun run packages/db/scripts/migrate-legacy-data.ts
+```
+
+### Verify with web UI
+
+```bash
+# Start Zero cache against migration DB
+cd packages/zero && \
+  PATH="$PWD/node_modules/.bin:$PATH" \
+  ZERO_UPSTREAM_DB="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" \
+  ZERO_REPLICA_FILE="/tmp/pi-dash-migration.db" \
+  zero-cache-dev
+
+# In another terminal — start web app against migration DB
+DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" bun run dev:web
+```
+
+### Cleanup
+
+```bash
+docker compose --env-file .env -f packages/db/docker-compose.yml down postgres-migration
+docker volume rm pi-dash_pi-dash_postgres_migration_data
+```
+
+### Env vars
+
+| Var | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL` | yes | Postgres connection string |
+| `ADMIN_EMAIL` | no | Email to preserve during purge (skips deleting this user) |
+| `OLD_R2_*` | no | Old R2 credentials (account ID, access key, secret, bucket) |
+| `NEW_R2_*` | no | New R2 credentials + `NEW_R2_KEY_PREFIX` |
+
+When R2 vars are omitted, file records are created with old object keys but no files are copied. The script is safe to re-run — it purges existing data first.

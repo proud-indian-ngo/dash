@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "uuidv7": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

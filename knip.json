@@ -19,6 +19,10 @@
         "src/stubs/**"
       ]
     },
+    "packages/db": {
+      "ignoreFiles": ["scripts/**"],
+      "ignoreDependencies": ["uuidv7"]
+    },
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"]
     },
