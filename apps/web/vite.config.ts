@@ -29,8 +29,30 @@ const RE_DRIZZLE = /node_modules[\\/]drizzle-orm\//;
 const RE_ZOD = /node_modules[\\/]zod\//;
 const RE_VENDOR = /node_modules/;
 
+/** Rewrite `import … from "bun"` to an empty stub in client builds. */
+function stubBunForClient(): import("vite").Plugin {
+  return {
+    name: "stub-bun-client",
+    enforce: "pre",
+    transform(code, id) {
+      if (
+        this.environment?.name !== "client" ||
+        !id.includes("node_modules") ||
+        !code.includes('"bun"')
+      ) {
+        return;
+      }
+      return code.replace(
+        /import\s*\{[^}]*\}\s*from\s*"bun"\s*;?/g,
+        "/* bun import stubbed for client */"
+      );
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   plugins: [
+    stubBunForClient(),
     devtools(),
     tailwindcss(),
     tanstackStart(),
