@@ -8,7 +8,8 @@
     "serve": "bunx --bun vite preview",
     "dev": "bunx --bun vite dev",
     "check:types": "tsc --noEmit",
-    "test:unit": "bun run --env-file ../../.env vitest run"
+    "test:unit": "bun run --env-file ../../.env vitest run",
+    "analyze": "bunx analyze"
   },
   "dependencies": {
     "@dnd-kit/core": "catalog:",

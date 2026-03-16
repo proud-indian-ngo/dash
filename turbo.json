@@ -68,6 +68,9 @@
     },
     "whatsapp:stop": {
       "cache": false
+    },
+    "analyze": {
+      "cache": false
     }
   }
 }
