@@ -16,6 +16,7 @@ export type Section =
   | "whatsapp-groups";
 
 interface AppUser {
+  attendedOrientation?: boolean | null;
   email: string;
   gender?: string | null;
   id: string;
@@ -26,6 +27,7 @@ interface AppUser {
 
 interface AppContextValue {
   isAdmin: boolean;
+  isOriented: boolean;
   navItems: NavItem[];
   openSettings: (section?: Section) => void;
   setSettingsOpen: (open: boolean) => void;
@@ -48,7 +50,11 @@ export function AppProvider({
   const [settingsSection, setSettingsSection] = useState<Section>("profile");
 
   const isAdmin = user.role === "admin";
-  const navItems = useMemo(() => buildNavItems(isAdmin), [isAdmin]);
+  const isOriented = isAdmin || Boolean(user.attendedOrientation);
+  const navItems = useMemo(
+    () => buildNavItems(isAdmin, isOriented),
+    [isAdmin, isOriented]
+  );
 
   const openSettings = useCallback((section: Section = "banking") => {
     setSettingsSection(section);
@@ -60,6 +66,7 @@ export function AppProvider({
       value={{
         user,
         isAdmin,
+        isOriented,
         navItems,
         openSettings,
         settingsOpen,

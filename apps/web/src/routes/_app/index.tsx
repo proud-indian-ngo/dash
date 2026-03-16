@@ -6,9 +6,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import type { StatItem } from "@/components/stats/stats-cards";
 import { StatsCards } from "@/components/stats/stats-cards";
+import { useApp } from "@/context/app-context";
 import { formatINR } from "@/lib/form-schemas";
 import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 
@@ -64,6 +65,34 @@ function computeDashboardStats(
 }
 
 function DashboardHome() {
+  const { isOriented } = useApp();
+
+  if (!isOriented) {
+    return <WelcomeDashboard />;
+  }
+
+  return <OrientedDashboard />;
+}
+
+function WelcomeDashboard() {
+  const { session } = Route.useRouteContext();
+
+  return (
+    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+      <h1 className="font-semibold text-2xl">Dashboard</h1>
+      <p className="mt-4 text-muted-foreground">
+        Welcome, {session?.user.name}! To get started, attend an orientation
+        session. Head to the{" "}
+        <Link className="font-medium text-primary underline" to="/events">
+          Events page
+        </Link>{" "}
+        to show your interest.
+      </p>
+    </div>
+  );
+}
+
+function OrientedDashboard() {
   const { session } = Route.useRouteContext();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());

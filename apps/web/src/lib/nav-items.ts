@@ -76,7 +76,14 @@ const eventsNavItem: NavItem = {
   subItems: [{ title: "Event Details", url: "/events/$id", isHidden: true }],
 };
 
-export function buildNavItems(isAdmin: boolean): NavItem[] {
+export function buildNavItems(
+  isAdmin: boolean,
+  isOriented: boolean
+): NavItem[] {
+  if (!isOriented) {
+    return [homeNavItem, eventsNavItem];
+  }
+
   const items = [
     homeNavItem,
     reimbursementsNavItem,
