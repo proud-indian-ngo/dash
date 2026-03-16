@@ -15,11 +15,11 @@ function buildCsp(): string {
   const parentDomain = getParentDomain();
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: https://api.dicebear.com https://api.gravatar.com https://*.r2.cloudflarestorage.com`,
     "font-src 'self'",
-    `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain}`,
+    `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://inbox.courier.com wss://inbox.courier.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
