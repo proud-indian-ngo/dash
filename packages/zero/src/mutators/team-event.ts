@@ -13,11 +13,9 @@ async function addUsersToEventWhatsAppGroup(
     "@pi-dash/whatsapp"
   );
   const { db } = await import("@pi-dash/db");
-  const { whatsappGroup } = await import("@pi-dash/db/schema/whatsapp-group");
-  const { eq } = await import("drizzle-orm");
 
   const group = await db.query.whatsappGroup.findFirst({
-    where: eq(whatsappGroup.id, whatsappGroupId),
+    where: (t, { eq }) => eq(t.id, whatsappGroupId),
   });
   if (!group) {
     return;
@@ -181,13 +179,11 @@ export const teamEventMutators = {
               "@pi-dash/notifications"
             );
             const { db } = await import("@pi-dash/db");
-            const { teamMember } = await import("@pi-dash/db/schema/team");
-            const { eq: eqOp } = await import("drizzle-orm");
 
-            const members = await db
-              .select({ userId: teamMember.userId })
-              .from(teamMember)
-              .where(eqOp(teamMember.teamId, teamId));
+            const members = await db.query.teamMember.findMany({
+              columns: { userId: true },
+              where: (t, { eq }) => eq(t.teamId, teamId),
+            });
             const teamMemberIds = members.map((m) => m.userId);
 
             await notifyEventCreated({
@@ -405,13 +401,9 @@ export const teamEventMutators = {
                 "@pi-dash/whatsapp"
               );
               const { db } = await import("@pi-dash/db");
-              const { whatsappGroup } = await import(
-                "@pi-dash/db/schema/whatsapp-group"
-              );
-              const { eq } = await import("drizzle-orm");
 
               const group = await db.query.whatsappGroup.findFirst({
-                where: eq(whatsappGroup.id, whatsappGroupId),
+                where: (t, { eq }) => eq(t.id, whatsappGroupId),
               });
               if (group) {
                 const phone = await getUserPhone(userId);
@@ -595,13 +587,9 @@ export const teamEventMutators = {
                 "@pi-dash/whatsapp"
               );
               const { db } = await import("@pi-dash/db");
-              const { whatsappGroup } = await import(
-                "@pi-dash/db/schema/whatsapp-group"
-              );
-              const { eq } = await import("drizzle-orm");
 
               const group = await db.query.whatsappGroup.findFirst({
-                where: eq(whatsappGroup.id, whatsappGroupId),
+                where: (t, { eq }) => eq(t.id, whatsappGroupId),
               });
               if (group) {
                 const phone = await getUserPhone(memberUserId);

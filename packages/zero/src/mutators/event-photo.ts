@@ -51,7 +51,7 @@ function pushImmichUploadTask(
 
       // Check/create album for this event
       const existingAlbum = await db.query.eventImmichAlbum.findFirst({
-        where: eqOp(eventImmichAlbum.eventId, eventId),
+        where: (t, { eq }) => eq(t.eventId, eventId),
       });
 
       let albumId: string;
@@ -87,7 +87,7 @@ function pushImmichUploadTask(
 
         if (inserted.length === 0) {
           const existing = await db.query.eventImmichAlbum.findFirst({
-            where: eqOp(eventImmichAlbum.eventId, eventId),
+            where: (t, { eq }) => eq(t.eventId, eventId),
           });
           if (existing) {
             albumId = existing.immichAlbumId;

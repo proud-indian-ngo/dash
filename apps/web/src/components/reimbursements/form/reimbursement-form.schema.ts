@@ -1,6 +1,6 @@
-import { cityValues } from "@pi-dash/db/schema/shared";
 import { isDateOnOrBeforeToday } from "@pi-dash/zero/validation";
 import z from "zod";
+import { cityValues } from "@/lib/db-enums";
 import {
   attachmentSchema,
   lineItemSchema,

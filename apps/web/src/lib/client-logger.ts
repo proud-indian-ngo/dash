@@ -1,4 +1,4 @@
-import { log as evlog, initLogger } from "evlog";
+import { initLogger } from "evlog";
 import { createBrowserLogDrain } from "evlog/browser";
 
 let initialized = false;
@@ -23,5 +23,3 @@ export function initClientLogger() {
     drain,
   });
 }
-
-export const log = evlog;

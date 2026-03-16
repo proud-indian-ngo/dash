@@ -1,9 +1,9 @@
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { log } from "evlog";
 import type { ReactNode } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
-import { log } from "@/lib/client-logger";
 
 type Level = "root" | "section" | "inline";
 

@@ -1,4 +1,3 @@
-import type { UserRole } from "@pi-dash/db/schema/auth";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { schema } from "@pi-dash/zero/schema";
@@ -8,6 +7,7 @@ import { useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 import { authClient } from "@/lib/auth-client";
+import type { UserRole } from "@/lib/db-enums";
 
 interface ZeroInitProps {
   children: ReactNode;

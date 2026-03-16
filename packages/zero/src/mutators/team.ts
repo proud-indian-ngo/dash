@@ -60,6 +60,7 @@ export const teamMutators = {
               updatedAt: timestamp,
             });
 
+            // eq import needed for db.update().where() — no callback form available
             await db
               .update(team)
               .set({ whatsappGroupId: groupId })
@@ -102,13 +103,11 @@ export const teamMutators = {
               "@pi-dash/notifications"
             );
             const { db } = await import("@pi-dash/db");
-            const { teamMember } = await import("@pi-dash/db/schema/team");
-            const { eq } = await import("drizzle-orm");
 
-            const members = await db
-              .select({ userId: teamMember.userId })
-              .from(teamMember)
-              .where(eq(teamMember.teamId, teamId));
+            const members = await db.query.teamMember.findMany({
+              columns: { userId: true },
+              where: (t, { eq }) => eq(t.teamId, teamId),
+            });
 
             await notifyTeamUpdated({
               memberIds: members.map((m) => m.userId),

@@ -1,14 +1,13 @@
 import { auth } from "@pi-dash/auth";
-import type { UserRole } from "@pi-dash/db/schema/auth";
-import { userRoleEnum } from "@pi-dash/db/schema/auth";
 import { createRequestLogger } from "evlog";
+import { type UserRole, userRoleValues } from "@/lib/db-enums";
 
 export interface SessionContext {
   role: UserRole;
   userId: string;
 }
 
-const VALID_ROLES: readonly string[] = userRoleEnum.enumValues;
+const VALID_ROLES: readonly string[] = userRoleValues;
 
 type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
