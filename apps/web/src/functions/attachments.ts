@@ -1,5 +1,6 @@
 import { env } from "@pi-dash/env/server";
 import { createServerFn } from "@tanstack/react-start";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
 import { getS3 } from "@/lib/s3";
@@ -51,7 +52,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       .replaceAll(/[\\/]/g, "-")
       .replaceAll(/"/g, "")
       .replaceAll(/\s+/g, "-");
-    const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${crypto.randomUUID()}-${sanitizedFileName}`;
+    const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizedFileName}`;
     // NOTE: Bun's S3.presign() does not support content-length conditions.
     // fileSize is validated by Zod above but cannot be enforced at the storage layer.
     // To enforce upload size, switch to @aws-sdk/s3-request-presigner with

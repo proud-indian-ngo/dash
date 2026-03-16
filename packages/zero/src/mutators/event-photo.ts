@@ -1,4 +1,5 @@
 import { defineMutator } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import type { Context } from "../context";
 import "../context";
@@ -77,7 +78,7 @@ function pushImmichUploadTask(
         const inserted = await db
           .insert(eventImmichAlbum)
           .values({
-            id: crypto.randomUUID(),
+            id: uuidv7(),
             eventId,
             immichAlbumId: albumId,
             createdAt: new Date(),

@@ -1,3 +1,4 @@
+import { uuidv7 } from "uuidv7";
 import type z from "zod";
 import type {
   mutatorAttachmentSchema,
@@ -57,7 +58,7 @@ export function buildHistoryInsert(
   note?: string
 ) {
   return {
-    id: crypto.randomUUID(),
+    id: uuidv7(),
     actorId,
     action,
     note: note ?? null,

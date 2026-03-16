@@ -12,6 +12,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 
 interface ShowInterestDialogProps {
   eventId: string;
@@ -38,7 +39,7 @@ export function ShowInterestDialog({
     setIsSubmitting(true);
     const res = await zero.mutate(
       mutators.eventInterest.create({
-        id: crypto.randomUUID(),
+        id: uuidv7(),
         eventId,
         message: message.trim() || undefined,
         now: Date.now(),

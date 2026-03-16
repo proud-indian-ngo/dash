@@ -107,6 +107,7 @@
       "dependencies": {
         "@pi-dash/env": "workspace:*",
         "drizzle-orm": "catalog:",
+        "uuidv7": "catalog:",
       },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",
@@ -251,6 +252,7 @@
         "date-fns": "catalog:",
         "drizzle-orm": "catalog:",
         "drizzle-zero": "^0.17.4",
+        "uuidv7": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {

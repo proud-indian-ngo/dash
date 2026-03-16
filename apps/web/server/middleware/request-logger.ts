@@ -1,6 +1,7 @@
 import "@/lib/logger";
 import { createRequestLogger } from "evlog";
 import { defineMiddleware } from "nitro/h3";
+import { uuidv7 } from "uuidv7";
 
 const SKIP_PREFIXES = ["/_build/", "/assets/", "/_server/"];
 const SKIP_EXACT = new Set(["/api/log/ingest", "/api/health"]);
@@ -15,7 +16,7 @@ export default defineMiddleware(async (event, next) => {
     return next();
   }
 
-  const requestId = crypto.randomUUID();
+  const requestId = uuidv7();
   const start = performance.now();
   event.res.headers.set("X-Request-Id", requestId);
 

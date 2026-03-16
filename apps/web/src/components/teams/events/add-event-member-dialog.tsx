@@ -10,6 +10,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -46,7 +47,7 @@ export function AddEventMemberDialog({
     defaultValues: { userIds: [] as string[] },
     onSubmit: async ({ value }) => {
       const members = value.userIds.map((userId) => ({
-        id: crypto.randomUUID(),
+        id: uuidv7(),
         userId,
       }));
 

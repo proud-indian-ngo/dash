@@ -1,4 +1,5 @@
 import { defineMutator } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import "../context";
 import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
@@ -49,7 +50,7 @@ export const teamMutators = {
             const creatorPhone = await getUserPhone(creatorUserId);
             const participants = creatorPhone ? [creatorPhone] : [];
             const { jid } = await createWhatsAppGroup(teamName, participants);
-            const groupId = crypto.randomUUID();
+            const groupId = uuidv7();
             const timestamp = new Date();
 
             await db.insert(whatsappGroup).values({

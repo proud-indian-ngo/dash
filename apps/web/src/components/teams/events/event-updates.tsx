@@ -6,6 +6,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -47,7 +48,7 @@ export function EventUpdates({
         const now = Date.now();
         const res = await zero.mutate(
           mutators.eventUpdate.create({
-            id: crypto.randomUUID(),
+            id: uuidv7(),
             eventId,
             content,
             now,
