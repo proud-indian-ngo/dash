@@ -51,18 +51,23 @@ export default defineConfig({
       testMatch: /auth\//,
     },
   ],
-  webServer: {
-    command: isCI
-      ? `PORT=${webServerPort} bun run .output/server/index.mjs`
-      : `bunx --bun vite dev --port ${webServerPort}`,
-    url: `http://localhost:${webServerPort}`,
-    reuseExistingServer: !(isCI || isTestDB),
-    timeout: isCI ? 30_000 : 120_000,
-    stdout: "pipe",
-    stderr: "pipe",
-    cwd: path.resolve(import.meta.dirname, "../../apps/web"),
-    env: {
-      ...process.env,
-    },
-  },
+  // When BASE_URL is set, run-e2e.sh already started and pre-warmed the server
+  ...(process.env.BASE_URL
+    ? {}
+    : {
+        webServer: {
+          command: isCI
+            ? `PORT=${webServerPort} bun run .output/server/index.mjs`
+            : `bunx --bun vite dev --port ${webServerPort}`,
+          url: `http://localhost:${webServerPort}`,
+          reuseExistingServer: !isCI,
+          timeout: isCI ? 30_000 : 180_000,
+          stdout: "pipe",
+          stderr: "pipe",
+          cwd: path.resolve(import.meta.dirname, "../../apps/web"),
+          env: {
+            ...process.env,
+          },
+        },
+      }),
 });

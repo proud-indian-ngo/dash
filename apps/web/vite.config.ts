@@ -127,9 +127,5 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 3001,
-    hmr: {
-      server: undefined,
-      port: 3002,
-    },
   },
 }));

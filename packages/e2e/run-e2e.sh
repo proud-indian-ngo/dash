@@ -21,13 +21,18 @@ if [ -f packages/e2e/.env.test ]; then
   set +a
 fi
 
-export TEST_DB_URL="postgres://postgres:${DEV_PG_PASSWORD}@localhost:5433/pi-dash-test"
+export TEST_DB_URL="postgres://postgres:${DEV_DB_PASSWORD}@localhost:5433/pi-dash-test"
 TEST_ZERO_PORT=4870
 TEST_ZERO_CS_PORT=4871
 TEST_WEB_PORT=3099
 
 cleanup() {
   echo "Tearing down test environment..."
+  # Kill vite dev server if running
+  if [ -n "$VITE_PID" ]; then
+    kill "$VITE_PID" 2>/dev/null || true
+    wait "$VITE_PID" 2>/dev/null || true
+  fi
   # Kill zero-cache if running
   if [ -n "$ZERO_PID" ]; then
     kill "$ZERO_PID" 2>/dev/null || true
@@ -69,7 +74,7 @@ echo "Seeding test users..."
 export DATABASE_URL="$TEST_DB_URL"
 export ZERO_UPSTREAM_DB="$TEST_DB_URL"
 export ZERO_REPLICA_FILE="/tmp/pi-dash-test.db"
-export VITE_PUBLIC_ZERO_CACHE_URL="http://localhost:$TEST_ZERO_PORT"
+export VITE_ZERO_URL="http://localhost:$TEST_ZERO_PORT"
 export ZERO_MUTATE_URL="http://localhost:$TEST_WEB_PORT/api/zero/mutate"
 export ZERO_QUERY_URL="http://localhost:$TEST_WEB_PORT/api/zero/query"
 export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
@@ -109,32 +114,51 @@ until curl -sf "http://localhost:$TEST_ZERO_PORT" >/dev/null 2>&1; do
     exit 1
   fi
 done
-# Wait for initial replication to complete (replica file in wal2 mode)
+# Wait for initial replication by checking zero-cache logs for watermark
 echo "Waiting for initial replication to complete..."
 WAIT=0
 while true; do
-  if [ -f /tmp/pi-dash-test.db ]; then
-    MODE=$(sqlite3 /tmp/pi-dash-test.db "PRAGMA journal_mode;" 2>/dev/null || echo "")
-    if [ "$MODE" = "wal2" ] || [ "$MODE" = "wal" ]; then
-      break
-    fi
+  if grep -q "replicated up to watermark" /tmp/pi-dash-test-zero.log 2>/dev/null; then
+    echo "Replication complete."
+    break
   fi
   sleep 1
   WAIT=$((WAIT + 1))
-  if [ "$WAIT" -ge 30 ]; then
-    echo "WARNING: Replica not in wal2 mode after 30s, proceeding anyway"
+  if [ "$WAIT" -ge 60 ]; then
+    echo "WARNING: Replication not confirmed after 60s, proceeding anyway"
     break
   fi
 done
 echo "zero-cache ready."
 
-# Verify replica has data
-if [ -f /tmp/pi-dash-test.db ]; then
-  JOURNAL=$(sqlite3 /tmp/pi-dash-test.db "PRAGMA journal_mode;" 2>/dev/null || echo "unknown")
-  TABLES=$(sqlite3 /tmp/pi-dash-test.db ".tables" 2>/dev/null | wc -w || echo "0")
-  BANK_COUNT=$(sqlite3 /tmp/pi-dash-test.db "SELECT count(*) FROM bank_account;" 2>/dev/null || echo "N/A")
-  echo "Replica: journal_mode=$JOURNAL, tables=$TABLES, bank_accounts=$BANK_COUNT"
-fi
+# Start vite dev server and pre-warm it (cold SSR compilation is slow)
+echo "Starting vite dev server on port $TEST_WEB_PORT..."
+lsof -ti :"$TEST_WEB_PORT" | xargs kill 2>/dev/null || true
+sleep 1
+(cd apps/web && bunx --bun vite dev --port "$TEST_WEB_PORT") > /tmp/pi-dash-test-vite.log 2>&1 &
+VITE_PID=$!
+
+# Wait for vite to bind the port
+WAIT=0
+until curl -sf -o /dev/null "http://localhost:$TEST_WEB_PORT" 2>/dev/null; do
+  # Check if vite is still running
+  if ! kill -0 "$VITE_PID" 2>/dev/null; then
+    echo "ERROR: Vite dev server exited unexpectedly"
+    cat /tmp/pi-dash-test-vite.log
+    exit 1
+  fi
+  sleep 2
+  WAIT=$((WAIT + 2))
+  if [ "$WAIT" -ge 180 ]; then
+    echo "ERROR: Vite dev server failed to respond within 180s"
+    cat /tmp/pi-dash-test-vite.log
+    exit 1
+  fi
+done
+echo "Vite dev server ready (pre-warmed in ${WAIT}s)."
+
+# Tell Playwright to reuse our pre-warmed server
+export BASE_URL="http://localhost:$TEST_WEB_PORT"
 
 # Run Playwright
 # Accept optional test file paths relative to packages/e2e/ (e.g., tests/foo.spec.ts)
