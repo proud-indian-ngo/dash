@@ -95,7 +95,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | Directory | Contents |
 |---|---|
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
-| `components/data-table/` | data-table-wrapper (generic DataTableWithFilters) |
+| `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
 | `components/users/` | users-table, user-form, password-form, ban-user-form, delete-user-dialog |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
 | `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
@@ -105,7 +105,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/events/` | public-events-table |
 | `components/teams/events/` | events-table, event-form-dialog, event-detail, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
-| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
+| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
 | `components/` (root) | loader, default-catch-boundary, default-not-found, theme-toggle, zero-init, dev-tools |
@@ -286,6 +286,14 @@ Every feature table follows the same structure. Use existing tables (reimburseme
    Use `defaultColumnPinning` to pin non-reorderable columns (e.g., expand on left, actions/interest on right).
 8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, passes data + callbacks as props.
 9. **Delete confirmation**: Localize in a `RowActions` component inside the table file using `useConfirmAction` + `ConfirmDialog`. No dialog state at the table level.
+
+### Navigation Groups
+
+Sidebar nav uses `buildNavGroups()` from `lib/nav-items.ts` to produce grouped nav items by role. `NavMainGrouped` in `components/layout/nav-main.tsx` renders the groups with collapsible sections.
+
+### Post-Login Redirect
+
+Login page accepts `?redirect=/path` search param. Validated before use: must start with `/` and not `//` (open redirect protection). Auth guard redirects to `/login?redirect=<current>` when session is missing.
 
 ### Form Fields
 

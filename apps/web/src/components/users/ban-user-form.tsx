@@ -15,7 +15,7 @@ interface BanUserFormProps {
 
 const banUserSchema = z.object({
   banExpires: z.string(),
-  banReason: z.string().min(2, "Reason must be at least 2 characters"),
+  banReason: z.string().min(10, "Reason must be at least 10 characters"),
 });
 
 const banUserFieldValidators = {

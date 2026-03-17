@@ -7,6 +7,7 @@ import {
 } from "@pi-dash/design-system/components/ui/collapsible";
 import {
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -16,6 +17,7 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { Link } from "@tanstack/react-router";
 import { useActivePath } from "@/hooks/use-active-path";
+import type { NavGroup } from "@/lib/nav-items";
 
 export interface NavItem {
   icon?: IconSvgElement;
@@ -25,73 +27,89 @@ export interface NavItem {
   url: string;
 }
 
-export function NavMain({ items }: { items: NavItem[] }) {
+function NavMenuItem({
+  item,
+  activePath,
+}: {
+  activePath: string;
+  item: NavItem;
+}) {
+  return (
+    <Collapsible className="group/collapsible" open={activePath === item.url}>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          isActive={activePath === item.url}
+          tooltip={item.title}
+        >
+          <Link
+            aria-current={activePath === item.url ? "page" : undefined}
+            className="flex items-center gap-2"
+            to={item.url}
+          >
+            {item.icon && <HugeiconsIcon icon={item.icon} strokeWidth={2} />}
+            <span>{item.title}</span>
+          </Link>
+        </SidebarMenuButton>
+        {item.subItems?.some((s) => !s.isHidden) && (
+          <>
+            <CollapsibleTrigger
+              aria-label={`Toggle ${item.title} submenu`}
+              render={
+                <button className="ml-auto" type="button">
+                  <HugeiconsIcon
+                    className="transition-transform duration-200 group-data-open/collapsible:rotate-90"
+                    icon={ArrowRight01Icon}
+                    strokeWidth={2}
+                  />
+                </button>
+              }
+            />
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {item.subItems
+                  ?.filter((s) => !s.isHidden)
+                  .map((subItem) => (
+                    <SidebarMenuSubItem key={subItem.title}>
+                      <SidebarMenuSubButton>
+                        <Link
+                          className="flex items-center gap-2"
+                          to={subItem.url}
+                        >
+                          {subItem.title}
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </>
+        )}
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
+
+export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
   const activePath = useActivePath();
 
   return (
-    <SidebarGroup>
-      {/*<SidebarGroupLabel>Platform</SidebarGroupLabel>*/}
-      <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            className="group/collapsible"
-            key={item.title}
-            open={activePath === item.url}
-          >
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={activePath === item.url}
-                tooltip={item.title}
-              >
-                <Link
-                  aria-current={activePath === item.url ? "page" : undefined}
-                  className="flex items-center gap-2"
-                  to={item.url}
-                >
-                  {item.icon && (
-                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  )}
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-              {item.subItems?.some((s) => !s.isHidden) && (
-                <>
-                  <CollapsibleTrigger
-                    aria-label={`Toggle ${item.title} submenu`}
-                    render={
-                      <button className="ml-auto" type="button">
-                        <HugeiconsIcon
-                          className="transition-transform duration-200 group-data-open/collapsible:rotate-90"
-                          icon={ArrowRight01Icon}
-                          strokeWidth={2}
-                        />
-                      </button>
-                    }
-                  />
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {item.subItems
-                        ?.filter((s) => !s.isHidden)
-                        .map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton>
-                              <Link
-                                className="flex items-center gap-2"
-                                to={subItem.url}
-                              >
-                                {subItem.title}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </>
-              )}
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
-      </SidebarMenu>
-    </SidebarGroup>
+    <>
+      {groups.map((group) => (
+        <SidebarGroup key={group.label ?? "default"}>
+          {group.label ? (
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          ) : null}
+          <SidebarMenu>
+            {group.items.map((item) => (
+              <NavMenuItem
+                activePath={activePath}
+                item={item}
+                key={item.title}
+              />
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      ))}
+    </>
   );
 }

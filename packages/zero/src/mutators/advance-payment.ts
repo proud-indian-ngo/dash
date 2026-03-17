@@ -171,7 +171,7 @@ export const advancePaymentMutators = {
   ),
 
   approve: defineMutator(
-    z.object({ id: z.string() }),
+    z.object({ id: z.string(), note: z.string().optional() }),
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
       const userId = ctx.userId;
@@ -196,7 +196,7 @@ export const advancePaymentMutators = {
       });
 
       await tx.mutate.advancePaymentHistory.insert({
-        ...buildHistoryInsert(userId, "approved", now),
+        ...buildHistoryInsert(userId, "approved", now, args.note),
         advancePaymentId: args.id,
       });
 

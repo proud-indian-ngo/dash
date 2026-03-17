@@ -9,6 +9,7 @@ interface FormActionsProps {
   cancelLabel?: string;
   cancelVariant?: ComponentPropsWithoutRef<typeof Button>["variant"];
   className?: string;
+  disabled?: boolean;
   disableWhenInvalid?: boolean;
   form?: FormInstance;
   onCancel?: () => void;
@@ -22,6 +23,7 @@ export function FormActions({
   cancelLabel = "Cancel",
   cancelVariant = "outline",
   className,
+  disabled,
   disableWhenInvalid = true,
   form,
   onCancel,
@@ -40,9 +42,11 @@ export function FormActions({
       })}
     >
       {(state) => {
-        const disableSubmit = disableWhenInvalid
-          ? !state.canSubmit || state.isSubmitting
-          : state.isSubmitting;
+        const disableSubmit =
+          disabled ||
+          (disableWhenInvalid
+            ? !state.canSubmit || state.isSubmitting
+            : state.isSubmitting);
 
         return (
           <div className={cn("flex flex-wrap gap-2", className)}>

@@ -64,7 +64,13 @@ function GroupForm({
     <FormLayout form={form}>
       <div className="flex flex-col gap-3 py-2">
         <InputField isRequired label="Name" name="name" />
-        <InputField isRequired label="JID" name="jid" />
+        <InputField
+          description="The WhatsApp group JID (e.g. 120363012345678901@g.us). Found in the group invite link or WhatsApp API."
+          isRequired
+          label="JID"
+          name="jid"
+          placeholder="120363012345678901@g.us"
+        />
         <TextareaField label="Description" name="description" />
         <FormActions
           onCancel={onCancel}

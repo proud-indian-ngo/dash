@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -14,7 +15,7 @@ import { handleMutationResult } from "@/lib/mutation-result";
 
 export const Route = createFileRoute("/_app/teams/")({
   head: () => ({
-    meta: [{ title: "Teams | Proud Indian Dashboard" }],
+    meta: [{ title: `Teams | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.run(queries.team.all());

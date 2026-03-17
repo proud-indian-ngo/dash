@@ -18,7 +18,7 @@ test.describe("Register page", () => {
     ).toBeVisible();
     await expect(page.getByLabel("Name")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
-    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+    await expect(page.locator("#password")).toBeVisible();
     await expect(page.getByLabel("Confirm password")).toBeVisible();
     await expect(page.getByLabel("Phone")).toBeVisible();
     await expect(page.getByLabel("Date of birth")).toBeVisible();
@@ -35,19 +35,26 @@ test.describe("Register page", () => {
     ).toBeVisible();
     await expect(page.getByText("Invalid email address")).toBeVisible();
     await expect(
-      page.getByText("Password must be at least 8 characters")
+      page.getByText("Password must be at least 8 characters").first()
     ).toBeVisible();
     await expect(page.getByText("Please select a gender")).toBeVisible();
   });
 
   test("shows password confirmation mismatch error", async ({ page }) => {
-    await page.getByLabel("Password", { exact: true }).fill("Password123!");
-    await page.getByLabel("Confirm password").fill("DifferentPassword123!");
     await page.getByLabel("Name").fill("Test User");
     await page.getByLabel("Email").fill("mismatch@example.com");
+    await page.locator("#password").fill("Password123!");
+    await page.getByLabel("Confirm password").fill("DifferentPassword123!");
+    await page.getByLabel("Phone").last().fill("+919876543210");
+    await page.getByRole("button", { name: "Date of birth" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /^Sunday/ })
+      .first()
+      .click();
     // Select gender
     await page.getByLabel("Gender").click();
-    await page.getByRole("option", { name: "Male" }).click();
+    await page.getByRole("option", { name: "Male", exact: true }).click();
     await page.getByRole("button", { name: "Register" }).click();
     await expect(page.getByText("Passwords do not match")).toBeVisible();
   });
@@ -58,11 +65,18 @@ test.describe("Register page", () => {
     const uniqueEmail = `e2e-register-${Date.now()}@example.com`;
     await page.getByLabel("Name").fill("E2E Test User");
     await page.getByLabel("Email").fill(uniqueEmail);
-    await page.getByLabel("Password", { exact: true }).fill("Password123!");
+    await page.locator("#password").fill("Password123!");
     await page.getByLabel("Confirm password").fill("Password123!");
+    await page.getByLabel("Phone").last().fill("+919876543210");
+    await page.getByRole("button", { name: "Date of birth" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /^Sunday/ })
+      .first()
+      .click();
     // Select gender
     await page.getByLabel("Gender").click();
-    await page.getByRole("option", { name: "Male" }).click();
+    await page.getByRole("option", { name: "Male", exact: true }).click();
     await page.getByRole("button", { name: "Register" }).click();
     await page.waitForURL("/login", { timeout: 15_000 });
     await expect(
@@ -73,8 +87,15 @@ test.describe("Register page", () => {
   test("duplicate email shows error toast", async ({ page }) => {
     await page.getByLabel("Name").fill("Duplicate User");
     await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL!);
-    await page.getByLabel("Password", { exact: true }).fill("Password123!");
+    await page.locator("#password").fill("Password123!");
     await page.getByLabel("Confirm password").fill("Password123!");
+    await page.getByLabel("Phone").last().fill("+919876543210");
+    await page.getByRole("button", { name: "Date of birth" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /^Sunday/ })
+      .first()
+      .click();
     // Select gender
     await page.getByLabel("Gender").click();
     await page.getByRole("option", { name: "Female" }).click();

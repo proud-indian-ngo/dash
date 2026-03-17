@@ -35,7 +35,7 @@ export function AddEventMemberDialog({
   open,
 }: AddEventMemberDialogProps) {
   const zero = useZero();
-  const [allUsers] = useQuery(queries.user.all());
+  const [allUsers] = useQuery(queries.user.all(), { enabled: open });
   const prevOpenRef = useRef(false);
 
   const existingUserIds = useMemo(

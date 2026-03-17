@@ -176,7 +176,7 @@ export const reimbursementMutators = {
   ),
 
   approve: defineMutator(
-    z.object({ id: z.string() }),
+    z.object({ id: z.string(), note: z.string().optional() }),
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
       const userId = ctx.userId;
@@ -201,7 +201,7 @@ export const reimbursementMutators = {
       });
 
       await tx.mutate.reimbursementHistory.insert({
-        ...buildHistoryInsert(userId, "approved", now),
+        ...buildHistoryInsert(userId, "approved", now, args.note),
         reimbursementId: args.id,
       });
 

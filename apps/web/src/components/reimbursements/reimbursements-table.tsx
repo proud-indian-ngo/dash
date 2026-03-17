@@ -59,6 +59,7 @@ interface ReimbursementsTableProps {
   onDelete: (id: string) => Promise<void>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 function RowActions({
@@ -124,6 +125,7 @@ export function ReimbursementsTable({
   onDelete,
   onNavigate,
   toolbarActions,
+  toolbarFilters,
 }: ReimbursementsTableProps) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
@@ -323,6 +325,7 @@ export function ReimbursementsTable({
           columnsPinnable: true,
         }}
         toolbarActions={toolbarActions}
+        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete"

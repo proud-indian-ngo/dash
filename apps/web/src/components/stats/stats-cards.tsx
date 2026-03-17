@@ -7,17 +7,19 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { Link } from "@tanstack/react-router";
 
 export interface StatItem {
   accent?: string;
   description?: string;
+  href?: string;
   icon?: IconSvgElement;
   label: string;
   value: string | number;
 }
 
 export function StatCard({ item }: { item: StatItem }) {
-  return (
+  const card = (
     <Card
       className={item.accent ? `border-l-2 ${item.accent}` : undefined}
       size="sm"
@@ -42,6 +44,16 @@ export function StatCard({ item }: { item: StatItem }) {
       </CardContent>
     </Card>
   );
+
+  if (item.href) {
+    return (
+      <Link className="transition-opacity hover:opacity-80" to={item.href}>
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
 }
 
 function StatsCardsSkeleton() {

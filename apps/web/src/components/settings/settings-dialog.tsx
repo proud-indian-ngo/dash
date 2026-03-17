@@ -21,6 +21,13 @@ import {
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@pi-dash/design-system/components/ui/select";
+import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -103,7 +110,7 @@ export function SettingsDialog() {
 
   return (
     <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
-      <DialogContent className="overflow-hidden p-0 md:max-h-140 md:max-w-175 lg:max-w-200">
+      <DialogContent className="max-h-[85vh] overflow-hidden p-0 md:max-w-175 lg:max-w-200">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your profile and account settings.
@@ -133,17 +140,34 @@ export function SettingsDialog() {
               </SidebarGroup>
             </SidebarContent>
           </Sidebar>
-          <main className="flex h-135 flex-1 flex-col overflow-hidden">
-            <header className="flex h-16 shrink-0 items-center gap-2">
-              <div className="flex items-center gap-2 px-4">
+          <main className="flex max-h-[85vh] flex-1 flex-col overflow-hidden">
+            <header className="flex shrink-0 flex-col gap-2 px-4 pt-4">
+              <div className="md:hidden">
+                <Select
+                  onValueChange={(v) => setSettingsSection(v as Section)}
+                  value={settingsSection}
+                >
+                  <SelectTrigger aria-label="Settings section">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {navItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="hidden items-center gap-2 md:flex">
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
+                    <BreadcrumbItem>
                       <span className="text-muted-foreground text-xs">
                         Settings
                       </span>
                     </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
+                    <BreadcrumbSeparator />
                     <BreadcrumbItem>
                       <BreadcrumbPage>{activeLabel}</BreadcrumbPage>
                     </BreadcrumbItem>

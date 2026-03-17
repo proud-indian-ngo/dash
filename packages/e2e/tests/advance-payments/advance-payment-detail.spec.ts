@@ -130,7 +130,7 @@ test.describe("Advance payment detail", () => {
 
     await ap.detail.editSubmission();
     await expect(
-      page.getByRole("heading", { name: "Edit Submission" })
+      page.getByRole("heading", { name: "Edit Advance Payment" })
     ).toBeVisible();
 
     const editedTitle = `Edited ${Date.now()}`;
@@ -154,7 +154,7 @@ test.describe("Advance payment detail", () => {
     await ap.detail.editSubmission();
 
     await expect(
-      page.getByRole("heading", { name: "Edit Submission" })
+      page.getByRole("heading", { name: "Edit Advance Payment" })
     ).toBeVisible();
     await expect(ap.detail.getViewDetailsButton()).toBeVisible();
     await expect(ap.form.getTitleInput()).toBeVisible();

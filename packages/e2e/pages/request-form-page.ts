@@ -16,7 +16,7 @@ export class RequestFormPage {
   }
 
   getSubmitButton(): Locator {
-    return this.page.getByRole("button", { name: "Submit" });
+    return this.page.getByRole("button", { name: /Submit|Save changes/ });
   }
 
   getCancelButton(): Locator {

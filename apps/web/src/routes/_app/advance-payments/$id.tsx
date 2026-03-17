@@ -1,5 +1,6 @@
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -15,7 +16,7 @@ import {
 
 export const Route = createFileRoute("/_app/advance-payments/$id")({
   head: () => ({
-    meta: [{ title: "Advance Payment Details | Proud Indian Dashboard" }],
+    meta: [{ title: `Advance Payment Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.advancePayment.byId({ id: params.id }));
@@ -66,7 +67,7 @@ function AdvancePaymentDetailRouteComponent() {
       {showEditForm ? (
         <>
           <div className="flex items-center justify-between gap-3">
-            <h1 className="font-semibold text-2xl">Edit Submission</h1>
+            <h1 className="font-semibold text-2xl">Edit Advance Payment</h1>
             {showAdminActions ? (
               <Button
                 onClick={() => setAdminEditMode(false)}
@@ -101,7 +102,7 @@ function AdvancePaymentDetailRouteComponent() {
                 navigate({ to: "/advance-payments" });
               }}
               onSaved={() => {
-                navigate({ to: "/advance-payments" });
+                setAdminEditMode(false);
               }}
             />
           </div>

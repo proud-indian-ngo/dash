@@ -43,6 +43,16 @@ const eventFormSchema = z.object({
   createWaGroup: z.boolean(),
 });
 
+function createEventFormSchema(isEdit: boolean) {
+  if (isEdit) {
+    return eventFormSchema;
+  }
+  return eventFormSchema.refine(
+    (data) => !data.startTime || new Date(data.startTime) > new Date(),
+    { message: "Start time must be in the future", path: ["startTime"] }
+  );
+}
+
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface InitialValues {
@@ -189,7 +199,7 @@ function EventFormContent({
     },
     validators: {
       onBlur: eventFormSchema,
-      onSubmit: eventFormSchema,
+      onSubmit: createEventFormSchema(isEdit),
     },
   });
 

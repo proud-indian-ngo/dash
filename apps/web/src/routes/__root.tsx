@@ -1,6 +1,7 @@
 import { Toaster } from "@pi-dash/design-system/components/ui/sonner";
 import { TooltipProvider } from "@pi-dash/design-system/components/ui/tooltip";
 import { ThemeProvider } from "@pi-dash/design-system/lib/theme-provider";
+import { env } from "@pi-dash/env/web";
 import {
   createRootRouteWithContext,
   HeadContent,
@@ -39,11 +40,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Proud Indian Dashboard",
+        title: env.VITE_APP_NAME,
       },
       {
         name: "apple-mobile-web-app-title",
-        content: "Proud Indian Dashboard",
+        content: env.VITE_APP_NAME,
       },
     ],
     links: import.meta.env.DEV

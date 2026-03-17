@@ -28,7 +28,9 @@ const passwordResetSchema = z
   });
 
 const passwordResetFieldValidators = {
-  confirmPassword: { onBlur: passwordResetFields.confirmPassword },
+  confirmPassword: {
+    onBlur: passwordResetFields.confirmPassword,
+  },
   newPassword: { onBlur: passwordResetFields.newPassword },
 };
 

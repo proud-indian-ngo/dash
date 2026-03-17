@@ -1,9 +1,10 @@
+import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AdvancePaymentForm } from "@/components/advance-payments/advance-payment-form";
 
 export const Route = createFileRoute("/_app/advance-payments/new")({
   head: () => ({
-    meta: [{ title: "New Advance Payment | Proud Indian Dashboard" }],
+    meta: [{ title: `New Advance Payment | ${env.VITE_APP_NAME}` }],
   }),
   component: NewAdvancePaymentRouteComponent,
 });

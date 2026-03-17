@@ -59,6 +59,7 @@ interface AdvancePaymentsTableProps {
   onDelete: (id: string) => Promise<void>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 function RowActions({
@@ -124,6 +125,7 @@ export function AdvancePaymentsTable({
   onDelete,
   onNavigate,
   toolbarActions,
+  toolbarFilters,
 }: AdvancePaymentsTableProps) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
@@ -303,6 +305,7 @@ export function AdvancePaymentsTable({
           columnsPinnable: true,
         }}
         toolbarActions={toolbarActions}
+        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete"

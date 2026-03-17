@@ -15,13 +15,17 @@ import { uuidv7 } from "uuidv7";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 interface ShowInterestDialogProps {
+  eventDate?: string;
   eventId: string;
+  eventName?: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
 
 export function ShowInterestDialog({
+  eventDate,
   eventId,
+  eventName,
   onOpenChange,
   open,
 }: ShowInterestDialogProps) {
@@ -63,7 +67,12 @@ export function ShowInterestDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Show Interest</DialogTitle>
+          <DialogTitle>
+            Show Interest{eventName ? `: ${eventName}` : ""}
+          </DialogTitle>
+          {eventDate ? (
+            <p className="text-muted-foreground text-sm">{eventDate}</p>
+          ) : null}
         </DialogHeader>
         <form
           onSubmit={(e) => {

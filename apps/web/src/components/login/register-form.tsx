@@ -127,7 +127,7 @@ export function RegisterForm() {
               isRequired
               label="Email"
               name="email"
-              placeholder="m@example.com"
+              placeholder="you@example.com"
               type="email"
               validators={registerFieldValidators.email}
             />

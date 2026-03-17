@@ -1,12 +1,15 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useState } from "react";
+import { parseAsString, useQueryState } from "nuqs";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormModal } from "@/components/form/form-modal";
 import { StatsCards } from "@/components/stats/stats-cards";
 import {
@@ -28,7 +31,7 @@ import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/users")({
   head: () => ({
-    meta: [{ title: "Users | Proud Indian Dashboard" }],
+    meta: [{ title: `Users | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     if (context.session.user.role !== "admin") {
@@ -41,6 +44,19 @@ export const Route = createFileRoute("/_app/users")({
   component: UsersRouteComponent,
 });
 
+const ROLE_OPTIONS = [
+  { label: "Admin", value: "admin" },
+  { label: "Volunteer", value: "volunteer" },
+];
+const ORIENTATION_OPTIONS = [
+  { label: "Attended", value: "yes" },
+  { label: "Pending", value: "no" },
+];
+const ACTIVE_OPTIONS = [
+  { label: "Active", value: "yes" },
+  { label: "Inactive", value: "no" },
+];
+
 function UsersRouteComponent() {
   const createUser = useServerFn(createUserAdmin);
   const updateUser = useServerFn(updateUserAdmin);
@@ -50,8 +66,41 @@ function UsersRouteComponent() {
   const [usersData, queryResult] = useQuery(queries.user.all());
   const isLoading = queryResult.type === "unknown";
 
-  const users = (usersData ?? []) as User[];
+  const allUsers = (usersData ?? []) as User[];
   const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const [roleFilter, setRoleFilter] = useQueryState(
+    "role",
+    parseAsString.withDefault("")
+  );
+  const [orientationFilter, setOrientationFilter] = useQueryState(
+    "orientation",
+    parseAsString.withDefault("")
+  );
+  const [activeFilter, setActiveFilter] = useQueryState(
+    "active",
+    parseAsString.withDefault("")
+  );
+
+  const users = useMemo(() => {
+    let filtered = allUsers;
+    if (roleFilter) {
+      filtered = filtered.filter((u) => u.role === roleFilter);
+    }
+    if (orientationFilter) {
+      filtered = filtered.filter((u) =>
+        orientationFilter === "yes"
+          ? u.attendedOrientation
+          : !u.attendedOrientation
+      );
+    }
+    if (activeFilter) {
+      filtered = filtered.filter((u) =>
+        activeFilter === "yes" ? u.isActive : !u.isActive
+      );
+    }
+    return filtered;
+  }, [allUsers, roleFilter, orientationFilter, activeFilter]);
 
   const handleCreateUser = async (value: CreateUserFormValues) => {
     try {
@@ -200,6 +249,28 @@ function UsersRouteComponent() {
             >
               Create user
             </Button>
+          }
+          toolbarFilters={
+            <>
+              <TableFilterSelect
+                label="Role"
+                onChange={setRoleFilter}
+                options={ROLE_OPTIONS}
+                value={roleFilter}
+              />
+              <TableFilterSelect
+                label="Orientation"
+                onChange={setOrientationFilter}
+                options={ORIENTATION_OPTIONS}
+                value={orientationFilter}
+              />
+              <TableFilterSelect
+                label="Active"
+                onChange={setActiveFilter}
+                options={ACTIVE_OPTIONS}
+                value={activeFilter}
+              />
+            </>
           }
           users={users}
         />

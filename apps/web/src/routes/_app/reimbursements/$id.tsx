@@ -1,5 +1,6 @@
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -15,7 +16,7 @@ import {
 
 export const Route = createFileRoute("/_app/reimbursements/$id")({
   head: () => ({
-    meta: [{ title: "Reimbursement Details | Proud Indian Dashboard" }],
+    meta: [{ title: `Reimbursement Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.reimbursement.byId({ id: params.id }));
@@ -99,7 +100,7 @@ function ReimbursementDetailRouteComponent() {
                 navigate({ to: "/reimbursements" });
               }}
               onSaved={() => {
-                navigate({ to: "/reimbursements" });
+                setAdminEditMode(false);
               }}
             />
           </div>

@@ -5,7 +5,12 @@ import {
   useMemo,
   useState,
 } from "react";
-import { buildNavItems, type NavItem } from "@/lib/nav-items";
+import {
+  buildNavGroups,
+  buildNavItems,
+  type NavGroup,
+  type NavItem,
+} from "@/lib/nav-items";
 
 export type Section =
   | "profile"
@@ -28,6 +33,7 @@ interface AppUser {
 interface AppContextValue {
   isAdmin: boolean;
   isOriented: boolean;
+  navGroups: NavGroup[];
   navItems: NavItem[];
   openSettings: (section?: Section) => void;
   setSettingsOpen: (open: boolean) => void;
@@ -37,7 +43,7 @@ interface AppContextValue {
   user: AppUser;
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+export const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({
   children,
@@ -55,6 +61,10 @@ export function AppProvider({
     () => buildNavItems(isAdmin, isOriented),
     [isAdmin, isOriented]
   );
+  const navGroups = useMemo(
+    () => buildNavGroups(isAdmin, isOriented),
+    [isAdmin, isOriented]
+  );
 
   const openSettings = useCallback((section: Section = "banking") => {
     setSettingsSection(section);
@@ -68,6 +78,7 @@ export function AppProvider({
         isAdmin,
         isOriented,
         navItems,
+        navGroups,
         openSettings,
         settingsOpen,
         settingsSection,

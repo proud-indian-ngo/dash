@@ -1,4 +1,5 @@
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
@@ -11,7 +12,7 @@ import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/$id")({
   head: () => ({
-    meta: [{ title: "Event Details | Proud Indian Dashboard" }],
+    meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.teamEvent.byId({ id: params.id }));

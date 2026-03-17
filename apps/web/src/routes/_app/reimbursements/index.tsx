@@ -1,22 +1,32 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { parseAsString, useQueryState } from "nuqs";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
+import type { ReimbursementRow } from "@/components/reimbursements/reimbursements-table";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import { deleteUploadedAssets } from "@/functions/attachments";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
+const STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Approved", value: "approved" },
+  { label: "Rejected", value: "rejected" },
+];
+
 export const Route = createFileRoute("/_app/reimbursements/")({
   head: () => ({
-    meta: [{ title: "Reimbursements | Proud Indian Dashboard" }],
+    meta: [{ title: `Reimbursements | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.run(queries.reimbursement.all());
@@ -31,6 +41,20 @@ function ReimbursementsRouteComponent() {
 
   const [data, result] = useQuery(queries.reimbursement.all());
   const isLoading = useZeroQueryStatus(result);
+
+  const [statusFilter, setStatusFilter] = useQueryState(
+    "status",
+    parseAsString.withDefault("")
+  );
+
+  const filteredData = useMemo(() => {
+    if (!statusFilter) {
+      return (data ?? []) as ReimbursementRow[];
+    }
+    return ((data ?? []) as ReimbursementRow[]).filter(
+      (r) => r.status === statusFilter
+    );
+  }, [data, statusFilter]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -69,7 +93,7 @@ function ReimbursementsRouteComponent() {
           items={computeReimbursementStats(data ?? [])}
         />
         <ReimbursementsTable
-          data={data ?? []}
+          data={filteredData}
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={(id) => {
@@ -90,6 +114,14 @@ function ReimbursementsRouteComponent() {
               />
               New request
             </Button>
+          }
+          toolbarFilters={
+            <TableFilterSelect
+              label="Status"
+              onChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+            />
           }
         />
       </div>

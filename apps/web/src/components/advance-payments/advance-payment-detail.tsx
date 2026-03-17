@@ -19,6 +19,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
@@ -77,6 +78,7 @@ export function AdvancePaymentDetail({
   isAdmin,
 }: AdvancePaymentDetailProps) {
   const zero = useZero();
+  const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
   const { label, variant } =
@@ -88,17 +90,25 @@ export function AdvancePaymentDetail({
     0
   );
 
-  const handleApprove = () => {
+  const handleApprove = (message: string) => {
     zero
-      .mutate(mutators.advancePayment.approve({ id: advancePayment.id }))
-      .server.then((res) =>
+      .mutate(
+        mutators.advancePayment.approve({
+          id: advancePayment.id,
+          note: message || undefined,
+        })
+      )
+      .server.then((res) => {
         handleMutationResult(res, {
           mutation: "advancePayment.approve",
           entityId: advancePayment.id,
           successMsg: "Advance payment approved",
           errorMsg: "Failed to approve advance payment",
-        })
-      );
+        });
+        if (res.type !== "error") {
+          setApproveOpen(false);
+        }
+      });
   };
 
   const handleReject = (reason: string) => {
@@ -157,7 +167,11 @@ export function AdvancePaymentDetail({
         {isAdmin && advancePayment.status === "pending" ? (
           <>
             <div className="flex gap-2">
-              <Button onClick={handleApprove} type="button" variant="default">
+              <Button
+                onClick={() => setApproveOpen(true)}
+                type="button"
+                variant="default"
+              >
                 <HugeiconsIcon
                   className="size-4"
                   icon={CheckmarkCircle01Icon}
@@ -301,6 +315,12 @@ export function AdvancePaymentDetail({
           </>
         ) : null}
 
+        <ApproveDialog
+          entityLabel="advance payment"
+          onConfirm={handleApprove}
+          onOpenChange={setApproveOpen}
+          open={approveOpen}
+        />
         <RejectDialog
           entityLabel="advance payment"
           onConfirm={handleReject}

@@ -22,7 +22,9 @@ const genderOptions: SelectOption[] = [
 ];
 
 const userRoleSchema = z.enum(["admin", "volunteer"]);
-const genderValueSchema = z.enum(["male", "female"]);
+const genderValueSchema = z.enum(["male", "female"], {
+  error: "Please select a gender",
+});
 
 export const baseUserFormSchema = z.object({
   attendedOrientation: z.boolean(),
@@ -69,7 +71,7 @@ export const defaultCreateUserFormValues: CreateUserFormValues = {
   dob: "",
   email: "",
   emailVerified: false,
-  gender: "male",
+  gender: "" as unknown as "male" | "female",
   isActive: true,
   name: "",
   password: "",

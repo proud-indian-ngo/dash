@@ -1,22 +1,32 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { parseAsString, useQueryState } from "nuqs";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { computeAdvancePaymentStats } from "@/components/advance-payments/advance-payment-stats";
 import { AdvancePaymentsTable } from "@/components/advance-payments/advance-payments-table";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import { deleteUploadedAssets } from "@/functions/attachments";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
+const STATUS_OPTIONS = [
+  { label: "Draft", value: "draft" },
+  { label: "Pending", value: "pending" },
+  { label: "Approved", value: "approved" },
+  { label: "Rejected", value: "rejected" },
+];
+
 export const Route = createFileRoute("/_app/advance-payments/")({
   head: () => ({
-    meta: [{ title: "Advance Payments | Proud Indian Dashboard" }],
+    meta: [{ title: `Advance Payments | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.run(queries.advancePayment.all());
@@ -31,6 +41,18 @@ function AdvancePaymentsRouteComponent() {
 
   const [data, result] = useQuery(queries.advancePayment.all());
   const isLoading = useZeroQueryStatus(result);
+
+  const [statusFilter, setStatusFilter] = useQueryState(
+    "status",
+    parseAsString.withDefault("")
+  );
+
+  const filteredData = useMemo(() => {
+    if (!statusFilter) {
+      return data ?? [];
+    }
+    return (data ?? []).filter((r) => r.status === statusFilter);
+  }, [data, statusFilter]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -69,7 +91,7 @@ function AdvancePaymentsRouteComponent() {
           items={computeAdvancePaymentStats(data ?? [])}
         />
         <AdvancePaymentsTable
-          data={data ?? []}
+          data={filteredData}
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={(id) => {
@@ -90,6 +112,14 @@ function AdvancePaymentsRouteComponent() {
               />
               New request
             </Button>
+          }
+          toolbarFilters={
+            <TableFilterSelect
+              label="Status"
+              onChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+            />
           }
         />
       </div>

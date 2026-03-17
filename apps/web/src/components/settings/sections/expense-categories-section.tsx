@@ -253,7 +253,7 @@ export function ExpenseCategoriesSection() {
         confirmLabel="Delete"
         description={
           rowAction?.kind === "delete"
-            ? `"${rowAction.category.name}" will be permanently deleted. This cannot be undone.`
+            ? `"${rowAction.category.name}" will be permanently deleted. Existing submissions using this category won't be affected. This cannot be undone.`
             : ""
         }
         onConfirm={handleDelete}

@@ -48,6 +48,7 @@ interface UsersTableProps {
   onUnbanUser: (userId: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
   users: User[];
 }
 
@@ -406,6 +407,7 @@ export function UsersTable({
   onUnbanUser,
   onUpdateUser,
   toolbarActions,
+  toolbarFilters,
   users,
 }: UsersTableProps) {
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
@@ -693,6 +695,7 @@ export function UsersTable({
         columnsPinnable: true,
       }}
       toolbarActions={toolbarActions}
+      toolbarFilters={toolbarFilters}
     />
   );
 }

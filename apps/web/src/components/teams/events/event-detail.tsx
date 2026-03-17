@@ -268,6 +268,24 @@ function VolunteerInterestSection({
   );
 }
 
+function PastInterestBadge({
+  isMember,
+  myInterest,
+}: {
+  isMember?: boolean;
+  myInterest?: InterestWithUser | null;
+}) {
+  if (!myInterest || isMember) {
+    return null;
+  }
+  const status = myInterest.status as keyof typeof interestStatusMap;
+  const { label, variant } = interestStatusMap[status] ?? {
+    label: myInterest.status,
+    variant: "outline" as const,
+  };
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
 export function EventDetail({
   canManage,
   currentUserId,
@@ -326,23 +344,25 @@ export function EventDetail({
       ? `${env.VITE_IMMICH_URL.replace(TRAILING_SLASH, "")}/albums/${album.immichAlbumId}`
       : null;
 
-  const handleRemoveMember = useCallback(
-    async (memberId: string) => {
-      const res = await zero.mutate(
+  const removeMember = useConfirmAction<string>({
+    onConfirm: (memberId) =>
+      zero.mutate(
         mutators.teamEvent.removeMember({
           eventId: event.id,
           memberId,
         })
-      ).server;
-      handleMutationResult(res, {
+      ).server,
+    onSuccess: () => toast.success("Volunteer removed"),
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
         mutation: "teamEvent.removeMember",
-        entityId: memberId,
-        successMsg: "Volunteer removed",
-        errorMsg: "Failed to remove volunteer",
+        entityId: event.id,
+        error: msg ?? "unknown",
       });
+      toast.error("Failed to remove volunteer");
     },
-    [event.id, zero]
-  );
+  });
 
   const recurrence = event.recurrenceRule as
     | { frequency: "weekly" | "biweekly" | "monthly"; endDate?: string }
@@ -363,7 +383,9 @@ export function EventDetail({
 
         <EventInfoSection event={event} />
 
-        {hasStarted ? null : (
+        {hasStarted ? (
+          <PastInterestBadge isMember={isMember} myInterest={myInterest} />
+        ) : (
           <VolunteerInterestSection
             canManage={canManage}
             interests={interests}
@@ -398,7 +420,7 @@ export function EventDetail({
               canManage={canManageVolunteers}
               key={member.id}
               member={member}
-              onRemove={handleRemoveMember}
+              onRemove={(id) => removeMember.trigger(id)}
             />
           ))}
           {event.members.length === 0 ? (
@@ -488,8 +510,25 @@ export function EventDetail({
         title="Cancel event"
       />
 
+      <ConfirmDialog
+        confirmLabel="Remove"
+        description="Are you sure you want to remove this volunteer from the event?"
+        loading={removeMember.isLoading}
+        loadingLabel="Removing..."
+        onConfirm={removeMember.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            removeMember.cancel();
+          }
+        }}
+        open={removeMember.isOpen}
+        title="Remove volunteer"
+      />
+
       <ShowInterestDialog
+        eventDate={format(new Date(event.startTime), "PPP p")}
         eventId={event.id}
+        eventName={event.name}
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("interest")}
       />

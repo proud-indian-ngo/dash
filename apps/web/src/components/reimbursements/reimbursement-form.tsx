@@ -259,10 +259,11 @@ export function ReimbursementForm({
 
         <FormActions
           cancelLabel="Cancel"
+          disabled={bankAccountOptions.length === 0}
           disableWhenInvalid={false}
           onCancel={onCancel}
-          submitLabel="Submit"
-          submittingLabel="Submitting..."
+          submitLabel={isEdit ? "Save changes" : "Submit"}
+          submittingLabel={isEdit ? "Saving..." : "Submitting..."}
         />
       </FormLayout>
     </AppErrorBoundary>

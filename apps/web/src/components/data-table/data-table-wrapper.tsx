@@ -81,6 +81,7 @@ export interface DataTableWrapperProps<TData extends object> {
     dense?: boolean;
   };
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
@@ -107,6 +108,7 @@ export function DataTableWrapper<TData extends object>({
   searchQueryKey = "search",
   tableLayout,
   toolbarActions,
+  toolbarFilters,
 }: DataTableWrapperProps<TData>) {
   const initialColumnOrder = useMemo(
     () =>
@@ -295,7 +297,7 @@ export function DataTableWrapper<TData extends object>({
         >
           <Card className="w-full gap-3 py-3.5!">
             <CardHeader className="px-3.5">
-              <div className="flex flex-wrap items-start gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <InputGroup className="w-full sm:w-72">
                   <InputGroupAddon align="inline-start">
                     <HugeiconsIcon
@@ -333,6 +335,7 @@ export function DataTableWrapper<TData extends object>({
                     </InputGroupAddon>
                   ) : null}
                 </InputGroup>
+                {toolbarFilters}
               </div>
 
               <CardAction className="flex items-center gap-1">

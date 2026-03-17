@@ -40,7 +40,7 @@ export function AddMemberDialog({
   teamId,
 }: AddMemberDialogProps) {
   const zero = useZero();
-  const [allUsers] = useQuery(queries.user.all());
+  const [allUsers] = useQuery(queries.user.all(), { enabled: open });
   const prevOpenRef = useRef(false);
 
   const existingUserIds = useMemo(
@@ -108,12 +108,19 @@ export function AddMemberDialog({
         <FormLayout form={form}>
           <CustomField<string[]> isRequired label="Search users" name="userIds">
             {(field) => (
-              <UserPicker
-                excludeUserIds={existingUserIds}
-                onValueChange={(ids) => field.handleChange(ids)}
-                users={allUsers ?? []}
-                value={field.state.value ?? []}
-              />
+              <>
+                <UserPicker
+                  excludeUserIds={existingUserIds}
+                  onValueChange={(ids) => field.handleChange(ids)}
+                  users={allUsers ?? []}
+                  value={field.state.value ?? []}
+                />
+                {(field.state.value?.length ?? 0) > 1 ? (
+                  <p className="text-muted-foreground text-xs">
+                    All added as Member
+                  </p>
+                ) : null}
+              </>
             )}
           </CustomField>
           <form.Subscribe selector={(state) => state.values.userIds.length}>

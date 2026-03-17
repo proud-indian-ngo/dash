@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
+import { env } from "@pi-dash/env/web";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
@@ -24,7 +25,7 @@ import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/export")({
   head: () => ({
-    meta: [{ title: "Export Data | Proud Indian Dashboard" }],
+    meta: [{ title: `Export Data | ${env.VITE_APP_NAME}` }],
   }),
   beforeLoad: ({ context }) => {
     if (!context.session || context.session.user.role !== "admin") {

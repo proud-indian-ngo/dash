@@ -1,9 +1,21 @@
 import {
   Clock01Icon,
   Invoice01Icon,
+  MoneySendSquareIcon,
+  PlusSignIcon,
   UserMultipleIcon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@pi-dash/design-system/components/ui/card";
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -15,7 +27,7 @@ import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 
 export const Route = createFileRoute("/_app/")({
   head: () => ({
-    meta: [{ title: "Dashboard | Proud Indian Dashboard" }],
+    meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.run(queries.reimbursement.all());
@@ -28,39 +40,47 @@ export const Route = createFileRoute("/_app/")({
 function computeDashboardStats(
   reimbursements: readonly WithStatusAndLineItems[],
   advancePayments: readonly WithStatusAndLineItems[],
-  users: readonly { role: string | null }[]
+  users: readonly { role: string | null }[],
+  isAdmin: boolean
 ): StatItem[] {
   const pendingReimbursements = byStatus(reimbursements, "pending");
   const pendingAdvancePayments = byStatus(advancePayments, "pending");
 
   return [
     {
-      label: "Reimbursements",
+      label: isAdmin ? "All Reimbursements" : "My Reimbursements",
       value: reimbursements.length,
       description: formatINR(sumTotal(reimbursements)),
       icon: Invoice01Icon,
       accent: "border-l-blue-500",
+      href: "/reimbursements",
     },
     {
-      label: "Advance Payments",
+      label: isAdmin ? "All Advance Payments" : "My Advance Payments",
       value: advancePayments.length,
       description: formatINR(sumTotal(advancePayments)),
       icon: Wallet01Icon,
       accent: "border-l-violet-500",
+      href: "/advance-payments",
     },
     {
-      label: "Pending Requests",
+      label: isAdmin ? "Pending Reviews" : "My Pending",
       value: pendingReimbursements.length + pendingAdvancePayments.length,
       description: "Awaiting review",
       icon: Clock01Icon,
       accent: "border-l-amber-500",
     },
-    {
-      label: "Total Users",
-      value: users.length,
-      icon: UserMultipleIcon,
-      accent: "border-l-emerald-500",
-    },
+    ...(isAdmin
+      ? [
+          {
+            label: "Total Users",
+            value: users.length,
+            icon: UserMultipleIcon,
+            accent: "border-l-emerald-500",
+            href: "/users",
+          },
+        ]
+      : []),
   ];
 }
 
@@ -80,20 +100,31 @@ function WelcomeDashboard() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Dashboard</h1>
-      <p className="mt-4 text-muted-foreground">
-        Welcome, {session?.user.name}! To get started, attend an orientation
-        session. Head to the{" "}
-        <Link className="font-medium text-primary underline" to="/events">
-          Events page
-        </Link>{" "}
-        to show your interest.
-      </p>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Welcome, {session?.user.name}!</CardTitle>
+          <CardDescription>
+            Complete your orientation to access all features.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-muted-foreground text-sm">
+            To get started, attend an orientation session. Browse available
+            events and express your interest.
+          </p>
+          <Button nativeButton={false} render={<Link to="/events" />}>
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+            Browse Events
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 function OrientedDashboard() {
   const { session } = Route.useRouteContext();
+  const { isAdmin } = useApp();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -102,11 +133,14 @@ function OrientedDashboard() {
   const isLoading =
     r1.type === "unknown" || r2.type === "unknown" || r3.type === "unknown";
 
-  const stats = computeDashboardStats(
-    reimbursements ?? [],
-    advancePayments ?? [],
-    users ?? []
-  );
+  const stats = isLoading
+    ? []
+    : computeDashboardStats(
+        reimbursements ?? [],
+        advancePayments ?? [],
+        users ?? [],
+        isAdmin
+      );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
@@ -117,6 +151,27 @@ function OrientedDashboard() {
 
       <div className="mt-6">
         <StatsCards isLoading={isLoading} items={stats} />
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button
+          nativeButton={false}
+          render={<Link to="/reimbursements/new" />}
+          size="sm"
+          variant="outline"
+        >
+          <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
+          New Reimbursement
+        </Button>
+        <Button
+          nativeButton={false}
+          render={<Link to="/advance-payments/new" />}
+          size="sm"
+          variant="outline"
+        >
+          <HugeiconsIcon icon={MoneySendSquareIcon} strokeWidth={2} />
+          New Advance Payment
+        </Button>
       </div>
     </div>
   );

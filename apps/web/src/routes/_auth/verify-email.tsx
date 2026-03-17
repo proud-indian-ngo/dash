@@ -1,25 +1,38 @@
 import { auth } from "@pi-dash/auth";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { env } from "@pi-dash/env/web";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const verifyEmailToken = createServerFn({ method: "GET" })
   .inputValidator(z.object({ token: z.string().min(1) }))
   .handler(async ({ data }) => {
-    const result = await auth.api.verifyEmail({
-      query: { token: data.token },
-    });
+    try {
+      const result = await auth.api.verifyEmail({
+        query: { token: data.token },
+      });
 
-    if (!result) {
+      if (!result) {
+        return { error: "Verification failed. The link may have expired." };
+      }
+
+      return { error: null };
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
+      if (
+        message.includes("already verified") ||
+        message.includes("already been verified")
+      ) {
+        return { error: null, alreadyVerified: true };
+      }
       return { error: "Verification failed. The link may have expired." };
     }
-
-    return { error: null };
   });
 
 export const Route = createFileRoute("/_auth/verify-email")({
   head: () => ({
-    meta: [{ title: "Verify Email | Proud Indian Dashboard" }],
+    meta: [{ title: `Verify Email | ${env.VITE_APP_NAME}` }],
   }),
   validateSearch: z.object({
     token: z.string().optional(),
@@ -47,11 +60,17 @@ function VerifyEmailPage() {
   const { verificationError } = Route.useRouteContext();
 
   return (
-    <>
+    <div className="flex flex-col items-center gap-4">
       <h1 className="sr-only">Verify Email</h1>
       <p className="text-center text-destructive text-sm">
         {verificationError}
       </p>
-    </>
+      <Link
+        className="text-muted-foreground text-sm hover:text-foreground"
+        to="/login"
+      >
+        Back to login
+      </Link>
+    </div>
   );
 }

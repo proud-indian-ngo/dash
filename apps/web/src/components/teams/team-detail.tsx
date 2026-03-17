@@ -53,15 +53,27 @@ type TeamDialog =
   | { type: "createEvent" }
   | { type: "editEvent"; event: EventRow };
 
+function getRoleToggleTitle(isSoleLeadSelf: boolean, role: string): string {
+  if (isSoleLeadSelf && role === "lead") {
+    return "You are the only lead — promote another member first";
+  }
+  if (role === "lead") {
+    return "Demote to member";
+  }
+  return "Promote to lead";
+}
+
 function MemberRow({
   canManage,
   canRemove,
+  isSoleLeadSelf,
   member,
   onRemove,
   onToggleRole,
 }: {
   canManage: boolean;
   canRemove: boolean;
+  isSoleLeadSelf: boolean;
   member: TeamMember & { user: User | undefined };
   onRemove: (id: string) => void;
   onToggleRole: (memberId: string, currentRole: string) => void;
@@ -93,11 +105,10 @@ function MemberRow({
         </Badge>
         {canManage ? (
           <Button
+            disabled={isSoleLeadSelf && member.role === "lead"}
             onClick={() => onToggleRole(member.id, member.role ?? "member")}
             size="sm"
-            title={
-              member.role === "lead" ? "Demote to member" : "Promote to lead"
-            }
+            title={getRoleToggleTitle(isSoleLeadSelf, member.role ?? "member")}
             type="button"
             variant="ghost"
           >
@@ -191,9 +202,17 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       )
     : 0;
 
+  const leadCount = team.members.filter((m) => m.role === "lead").length;
+
   const handleToggleRole = useCallback(
     async (memberId: string, currentRole: string) => {
       const newRole = currentRole === "lead" ? "member" : "lead";
+      if (newRole === "member" && leadCount === 1) {
+        toast.warning(
+          "Cannot demote the last lead. Promote another member first."
+        );
+        return;
+      }
       const res = await zero.mutate(
         mutators.team.setMemberRole({ memberId, role: newRole })
       ).server;
@@ -204,7 +223,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         errorMsg: "Failed to update role",
       });
     },
-    [zero]
+    [zero, leadCount]
   );
 
   const handleSelectEvent = useCallback(
@@ -297,6 +316,11 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
                 <MemberRow
                   canManage={canManage}
                   canRemove={isAdmin || (canManage && member.role !== "lead")}
+                  isSoleLeadSelf={
+                    leadCount === 1 &&
+                    member.role === "lead" &&
+                    member.userId === userId
+                  }
                   key={member.id}
                   member={member}
                   onRemove={(id) => removeMember.trigger(id)}
@@ -382,11 +406,13 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         ) : null}
 
         {/* Create Event Dialog */}
-        <EventFormDialog
-          onOpenChange={dialog.onOpenChange}
-          open={dialog.isOpen("createEvent")}
-          teamId={team.id}
-        />
+        {canManage ? (
+          <EventFormDialog
+            onOpenChange={dialog.onOpenChange}
+            open={dialog.isOpen("createEvent")}
+            teamId={team.id}
+          />
+        ) : null}
 
         {/* Edit Event Dialog */}
         {editEventData ? (
@@ -415,7 +441,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         {/* Delete Team Confirmation */}
         <ConfirmDialog
           confirmLabel="Delete"
-          description={`This will permanently delete "${team.name}" and remove all members. This action cannot be undone.`}
+          description={`This will permanently delete "${team.name}", remove all members, and delete associated events. This action cannot be undone.`}
           loading={deleteTeam.isLoading}
           loadingLabel="Deleting..."
           onConfirm={deleteTeam.confirm}

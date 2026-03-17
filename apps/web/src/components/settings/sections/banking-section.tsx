@@ -7,17 +7,24 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
+
+const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 const bankAccountSchema = z.object({
   accountName: z.string().min(1, "Account name is required"),
   accountNumber: z.string().min(1, "Account number is required"),
-  ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code"),
+  ifscCode: z.string().refine((v) => IFSC_PATTERN.test(v.toUpperCase()), {
+    message:
+      "IFSC must be 11 characters: 4 letters, a zero, then 6 alphanumeric (e.g. ABCD0123456)",
+  }),
 });
 
 type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
@@ -25,6 +32,7 @@ type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
 export function BankingSection() {
   const zero = useZero();
   const [accounts] = useQuery(queries.bankAccount.bankAccountsByCurrentUser());
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -39,7 +47,7 @@ export function BankingSection() {
           id,
           accountName: value.accountName,
           accountNumber: value.accountNumber,
-          ifscCode: value.ifscCode,
+          ifscCode: value.ifscCode.toUpperCase(),
         })
       ).server;
       handleMutationResult(res, {
@@ -66,7 +74,12 @@ export function BankingSection() {
         <p className="font-medium text-xs">Add bank account</p>
         <InputField label="Account name" name="accountName" />
         <InputField label="Account number" name="accountNumber" />
-        <InputField label="IFSC code" name="ifscCode" />
+        <InputField
+          className="uppercase"
+          label="IFSC code"
+          name="ifscCode"
+          placeholder="ABCD0123456"
+        />
         <div className="flex justify-end">
           <FormActions submitLabel="Add account" submittingLabel="Adding..." />
         </div>
@@ -119,16 +132,7 @@ export function BankingSection() {
                   )}
                   <Button
                     aria-label="Delete account"
-                    onClick={async () => {
-                      const res = await zero.mutate(
-                        mutators.bankAccount.delete({ id: account.id })
-                      ).server;
-                      handleMutationResult(res, {
-                        mutation: "bankAccount.delete",
-                        entityId: account.id,
-                        errorMsg: "Failed to delete bank account",
-                      });
-                    }}
+                    onClick={() => setDeleteTarget(account.id)}
                     size="icon"
                     type="button"
                     variant="ghost"
@@ -149,6 +153,34 @@ export function BankingSection() {
           No bank accounts added yet.
         </p>
       )}
+
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description="This bank account will be permanently deleted. This cannot be undone."
+        onConfirm={async () => {
+          if (!deleteTarget) {
+            return;
+          }
+          const res = await zero.mutate(
+            mutators.bankAccount.delete({ id: deleteTarget })
+          ).server;
+          handleMutationResult(res, {
+            mutation: "bankAccount.delete",
+            entityId: deleteTarget,
+            errorMsg: "Failed to delete bank account",
+          });
+          if (res.type !== "error") {
+            setDeleteTarget(null);
+          }
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        open={deleteTarget !== null}
+        title="Delete bank account?"
+      />
     </div>
   );
 }

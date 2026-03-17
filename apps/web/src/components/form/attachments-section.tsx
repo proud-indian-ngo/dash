@@ -112,6 +112,10 @@ export function AttachmentsSection({
 }: AttachmentsSectionProps) {
   const getUploadUrl = useServerFn(getPresignedUploadUrl);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({
+    current: 0,
+    total: 0,
+  });
   const uploadActionsRef = useRef<FileUploadActions | null>(null);
   const { deletingIds, removeAttachment } = useAttachmentActions({
     onChange,
@@ -139,10 +143,12 @@ export function AttachmentsSection({
 
       setIsUploading(true);
       const filesToUpload = files.slice(0, remainingFileSlots);
+      setUploadProgress({ current: 0, total: filesToUpload.length });
       const uploadedAttachments: Attachment[] = [];
       let failedCount = 0;
 
       for (const file of filesToUpload) {
+        setUploadProgress((prev) => ({ ...prev, current: prev.current + 1 }));
         try {
           const uploadedAttachment = await uploadSingleFile(
             file,
@@ -292,7 +298,9 @@ export function AttachmentsSection({
             icon={CloudUploadIcon}
             strokeWidth={2}
           />
-          {isUploading ? "Uploading..." : "Add files"}
+          {isUploading
+            ? `Uploading file ${uploadProgress.current} of ${uploadProgress.total}...`
+            : "Add files"}
         </Button>
       </div>
 

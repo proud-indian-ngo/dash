@@ -1,4 +1,5 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
+import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
@@ -15,6 +16,7 @@ const passwordSchema = z
     confirmPassword: z.string(),
     currentPassword: z.string().min(1, "Current password is required"),
     newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    revokeOtherSessions: z.boolean(),
   })
   .superRefine((data, ctx) => {
     if (data.confirmPassword !== data.newPassword) {
@@ -37,12 +39,13 @@ export function AccountSection() {
       confirmPassword: "",
       currentPassword: "",
       newPassword: "",
+      revokeOtherSessions: false as boolean,
     } satisfies PasswordFormValues,
     onSubmit: async ({ value }) => {
       const { error } = await authClient.changePassword({
         currentPassword: value.currentPassword,
         newPassword: value.newPassword,
-        revokeOtherSessions: false,
+        revokeOtherSessions: value.revokeOtherSessions,
       });
       if (error) {
         toast.error(error.message ?? "Failed to change password");
@@ -91,6 +94,25 @@ export function AccountSection() {
           name="confirmPassword"
           type="password"
         />
+        <form.Field name="revokeOtherSessions">
+          {(field) => (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={field.state.value}
+                id="revokeOtherSessions"
+                onCheckedChange={(checked: boolean) =>
+                  field.handleChange(checked)
+                }
+              />
+              <Label
+                className="font-normal text-sm"
+                htmlFor="revokeOtherSessions"
+              >
+                Sign out all other devices
+              </Label>
+            </div>
+          )}
+        </form.Field>
         <div className="flex justify-end">
           <FormActions
             submitLabel="Update password"

@@ -100,9 +100,13 @@ function LineItemRow({
                 </SelectContent>
               </Select>
               {hasError && (
-                <span className="sr-only" id={errorId}>
+                <p
+                  className="text-destructive text-xs"
+                  id={errorId}
+                  role="alert"
+                >
                   {String(field.state.meta.errors[0])}
-                </span>
+                </p>
               )}
             </>
           );
@@ -125,9 +129,13 @@ function LineItemRow({
                 value={field.state.value}
               />
               {hasError && (
-                <span className="sr-only" id={errorId}>
+                <p
+                  className="text-destructive text-xs"
+                  id={errorId}
+                  role="alert"
+                >
                   {String(field.state.meta.errors[0])}
-                </span>
+                </p>
               )}
             </>
           );
@@ -145,15 +153,22 @@ function LineItemRow({
                 aria-invalid={hasError || undefined}
                 aria-label={`Amount for line item ${index + 1}`}
                 inputMode="decimal"
+                min="0"
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
                 placeholder="0.00"
+                step="0.01"
+                type="number"
                 value={field.state.value}
               />
               {hasError && (
-                <span className="sr-only" id={errorId}>
+                <p
+                  className="text-destructive text-xs"
+                  id={errorId}
+                  role="alert"
+                >
                   {String(field.state.meta.errors[0])}
-                </span>
+                </p>
               )}
             </>
           );

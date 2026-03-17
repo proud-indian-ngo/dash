@@ -1,3 +1,4 @@
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -12,7 +13,7 @@ import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/events/")({
   head: () => ({
-    meta: [{ title: "Events | Proud Indian Dashboard" }],
+    meta: [{ title: `Events | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.run(queries.teamEvent.public());

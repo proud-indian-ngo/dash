@@ -1,3 +1,4 @@
+import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -7,7 +8,7 @@ import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/teams/$id")({
   head: () => ({
-    meta: [{ title: "Team Details | Proud Indian Dashboard" }],
+    meta: [{ title: `Team Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
     context.zero?.run(queries.team.byId({ id: params.id }));

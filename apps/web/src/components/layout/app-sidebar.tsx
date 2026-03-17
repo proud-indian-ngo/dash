@@ -9,10 +9,10 @@ import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
-import { NavMain } from "./nav-main";
+import { NavMainGrouped } from "./nav-main";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { navItems } = useApp();
+  const { navGroups } = useApp();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -20,7 +20,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navItems} />
+        <NavMainGrouped groups={navGroups} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

@@ -43,6 +43,7 @@ export function NotificationsSection() {
       await updateNotificationPreference({
         data: { topicId, enabled },
       });
+      toast.success(enabled ? "Notification enabled" : "Notification disabled");
     } catch (error) {
       setPreferences((prev) =>
         prev.map((p) =>
@@ -65,6 +66,11 @@ export function NotificationsSection() {
 
     try {
       await updateWhatsAppNotificationPref({ data: { enabled } });
+      toast.success(
+        enabled
+          ? "WhatsApp notifications enabled"
+          : "WhatsApp notifications disabled"
+      );
     } catch (error) {
       setWhatsappEnabled(!enabled);
       log.error({
@@ -101,7 +107,8 @@ export function NotificationsSection() {
               <p className="text-muted-foreground text-xs">
                 {pref.required
                   ? "This notification is required and cannot be disabled."
-                  : TOPIC_DESCRIPTIONS[pref.topicName]}
+                  : (TOPIC_DESCRIPTIONS[pref.topicName] ??
+                    "Manage this notification preference.")}
               </p>
             </div>
             <Switch

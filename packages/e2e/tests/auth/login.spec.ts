@@ -30,8 +30,8 @@ test.describe("Login page", () => {
     await page.getByLabel("Email").fill("wrong@example.com");
     await page.getByLabel("Password").fill("WrongPassword123!");
     await page.getByRole("button", { name: "Login" }).click();
-    // Auth error toast should appear
-    await expect(page.locator("[data-sonner-toast]")).toBeVisible({
+    // Auth error is shown inline
+    await expect(page.getByRole("alert")).toBeVisible({
       timeout: 10_000,
     });
   });

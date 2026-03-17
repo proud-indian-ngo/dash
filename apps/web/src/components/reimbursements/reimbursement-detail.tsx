@@ -19,6 +19,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
@@ -77,6 +78,7 @@ export function ReimbursementDetail({
   reimbursement,
 }: ReimbursementDetailProps) {
   const zero = useZero();
+  const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
   const { label, variant } =
@@ -87,17 +89,25 @@ export function ReimbursementDetail({
     0
   );
 
-  const handleApprove = () => {
+  const handleApprove = (message: string) => {
     zero
-      .mutate(mutators.reimbursement.approve({ id: reimbursement.id }))
-      .server.then((res) =>
+      .mutate(
+        mutators.reimbursement.approve({
+          id: reimbursement.id,
+          note: message || undefined,
+        })
+      )
+      .server.then((res) => {
         handleMutationResult(res, {
           mutation: "reimbursement.approve",
           entityId: reimbursement.id,
           successMsg: "Reimbursement approved",
           errorMsg: "Failed to approve reimbursement",
-        })
-      );
+        });
+        if (res.type !== "error") {
+          setApproveOpen(false);
+        }
+      });
   };
 
   const handleReject = (reason: string) => {
@@ -159,7 +169,11 @@ export function ReimbursementDetail({
         {isAdmin && reimbursement.status === "pending" ? (
           <>
             <div className="flex gap-2">
-              <Button onClick={handleApprove} type="button" variant="default">
+              <Button
+                onClick={() => setApproveOpen(true)}
+                type="button"
+                variant="default"
+              >
                 <HugeiconsIcon
                   className="size-4"
                   icon={CheckmarkCircle01Icon}
@@ -303,6 +317,12 @@ export function ReimbursementDetail({
           </>
         ) : null}
 
+        <ApproveDialog
+          entityLabel="reimbursement"
+          onConfirm={handleApprove}
+          onOpenChange={setApproveOpen}
+          open={approveOpen}
+        />
         <RejectDialog
           entityLabel="reimbursement"
           onConfirm={handleReject}

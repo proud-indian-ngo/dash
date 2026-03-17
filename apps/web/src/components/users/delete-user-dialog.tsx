@@ -36,8 +36,9 @@ export function DeleteUserDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete user</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete <strong>{userName}</strong> and revoke
-            all related sessions.
+            This will permanently delete <strong>{userName}</strong> and all
+            associated data including reimbursements, advance payments, team
+            memberships, and sessions. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

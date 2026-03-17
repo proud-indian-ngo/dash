@@ -31,8 +31,16 @@ export class ApprovalDetailPage {
     return this.page.locator('[data-slot="badge"]', { hasText: status });
   }
 
-  async approve(): Promise<void> {
+  async approve(message?: string): Promise<void> {
     await this.getApproveButton().click();
+    const dialog = this.getAlertDialog();
+    await expect(dialog).toBeVisible();
+    if (message) {
+      await dialog
+        .getByPlaceholder("Optional message to the submitter...")
+        .fill(message);
+    }
+    await dialog.getByRole("button", { name: "Approve" }).click();
   }
 
   async reject(reason: string): Promise<void> {

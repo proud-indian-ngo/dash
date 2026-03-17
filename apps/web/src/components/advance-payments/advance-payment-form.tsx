@@ -251,10 +251,11 @@ export function AdvancePaymentForm({
 
         <FormActions
           cancelLabel="Cancel"
+          disabled={bankAccountOptions.length === 0}
           disableWhenInvalid={false}
           onCancel={onCancel}
-          submitLabel="Submit"
-          submittingLabel="Submitting..."
+          submitLabel={existingId ? "Save changes" : "Submit"}
+          submittingLabel={existingId ? "Saving..." : "Submitting..."}
         />
       </FormLayout>
     </AppErrorBoundary>

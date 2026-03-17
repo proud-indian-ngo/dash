@@ -16,12 +16,13 @@ import { getCourierToken } from "@/functions/courier-token";
 import { getSession } from "@/functions/get-session";
 
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const session = await getSession();
 
     if (!session) {
       throw redirect({
         to: "/login",
+        search: { redirect: location.pathname },
       });
     }
 

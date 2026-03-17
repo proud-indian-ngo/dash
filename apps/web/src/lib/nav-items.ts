@@ -12,6 +12,11 @@ import type { NavItem } from "@/components/layout/nav-main";
 
 export type { NavItem } from "@/components/layout/nav-main";
 
+export interface NavGroup {
+  items: NavItem[];
+  label?: string;
+}
+
 const homeNavItem: NavItem = {
   title: "Dashboard",
   url: "/",
@@ -98,4 +103,34 @@ export function buildNavItems(
   }
 
   return items;
+}
+
+export function buildNavGroups(
+  isAdmin: boolean,
+  isOriented: boolean
+): NavGroup[] {
+  if (!isOriented) {
+    return [{ items: [homeNavItem, eventsNavItem] }];
+  }
+
+  const groups: NavGroup[] = [
+    { items: [homeNavItem] },
+    {
+      label: "Finance",
+      items: [reimbursementsNavItem, advancePaymentsNavItem],
+    },
+    {
+      label: "Organization",
+      items: [teamsNavItem, eventsNavItem],
+    },
+  ];
+
+  if (isAdmin) {
+    groups.push({
+      label: "Admin",
+      items: [usersNavItem, exportNavItem],
+    });
+  }
+
+  return groups;
 }

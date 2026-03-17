@@ -22,7 +22,7 @@ test.describe("Forgot password page", () => {
     await page.getByLabel("Email").fill("test@example.com");
     await page.getByRole("button", { name: "Send reset link" }).click();
     await expect(
-      page.getByText("Check your email for a reset link")
+      page.getByText("we've sent a password reset link")
     ).toBeVisible({ timeout: 10_000 });
   });
 

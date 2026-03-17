@@ -58,6 +58,20 @@ type ParentEventRow = EventRow & {
   occurrences: EventRow[];
 };
 
+function getEventStatus(event: EventRow): {
+  label: string;
+  variant: "destructive" | "outline" | "secondary" | "success-outline";
+} {
+  if (event.cancelledAt) {
+    return { label: "Cancelled", variant: "destructive" };
+  }
+  const eventEnd = event.endTime ?? event.startTime;
+  if (new Date(eventEnd) < new Date()) {
+    return { label: "Past", variant: "secondary" };
+  }
+  return { label: "Upcoming", variant: "success-outline" };
+}
+
 function getRecurrenceLabel(
   rule: { frequency: string } | null | undefined
 ): string {
@@ -346,6 +360,30 @@ export function EventsTable({
           skeleton: SKELETON_NAME,
         },
         size: 200,
+      },
+      {
+        id: "status",
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Status"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => {
+          const { label, variant } = getEventStatus(row.original);
+          return (
+            <Badge size="sm" variant={variant}>
+              {label}
+            </Badge>
+          );
+        },
+        meta: {
+          headerTitle: "Status",
+          skeleton: SKELETON_BADGE,
+        },
+        size: 90,
+        enableSorting: false,
       },
       {
         id: "startTime",
