@@ -11,7 +11,6 @@ import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useMemo } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { AttachmentsSection } from "@/components/form/attachments-section";
@@ -25,6 +24,7 @@ import { SelectField } from "@/components/form/select-field";
 import { useApp } from "@/context/app-context";
 import { useStableQueryResult } from "@/hooks/use-stable-query-result";
 import { cityOptions, newLineItem } from "@/lib/form-schemas";
+import { handleMutationResult } from "@/lib/mutation-result";
 import {
   DEFAULT_VALUES,
   type ReimbursementFormValues,
@@ -54,6 +54,7 @@ export function ReimbursementForm({
   );
 
   const existingId = initialValues?.id;
+  const isEdit = !!existingId;
   const entityId = useMemo(() => existingId ?? uuidv7(), [existingId]);
 
   const categoryList = useStableQueryResult(
@@ -121,10 +122,13 @@ export function ReimbursementForm({
             })
           );
       const res = await mutation.server;
-      if (res.type === "error") {
-        toast.error("Failed to submit reimbursement");
-      } else {
-        toast.success("Reimbursement submitted");
+      handleMutationResult(res, {
+        mutation: isEdit ? "reimbursement.update" : "reimbursement.create",
+        entityId: id,
+        successMsg: "Reimbursement submitted",
+        errorMsg: "Failed to submit reimbursement",
+      });
+      if (res.type !== "error") {
         onSaved(id);
       }
     },

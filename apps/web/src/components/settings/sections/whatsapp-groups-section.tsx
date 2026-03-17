@@ -20,7 +20,6 @@ import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
@@ -28,6 +27,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 const ORIENTATION_GROUP_ID = "orientation_group_id";
 const ALL_VOLUNTEERS_GROUP_ID = "all_volunteers_group_id";
@@ -104,11 +104,12 @@ function GroupAssignments({ groups }: { groups: readonly WhatsappGroup[] }) {
     zero
       .mutate(mutators.appConfig.upsert({ key, value }))
       .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to update assignment");
-        } else {
-          toast.success("Assignment updated");
-        }
+        handleMutationResult(res, {
+          mutation: "appConfig.upsert",
+          entityId: key,
+          successMsg: "Assignment updated",
+          errorMsg: "Failed to update assignment",
+        });
       });
   };
 
@@ -184,18 +185,22 @@ export function WhatsAppGroupsSection() {
   const groupList = groups ?? [];
 
   const handleCreate = async (values: GroupFormValues) => {
+    const id = uuidv7();
     const res = await zero.mutate(
       mutators.whatsappGroup.create({
-        id: uuidv7(),
+        id,
         name: values.name,
         jid: values.jid,
         description: values.description,
       })
     ).server;
-    if (res.type === "error") {
-      toast.error("Failed to create group");
-    } else {
-      toast.success("Group created");
+    handleMutationResult(res, {
+      mutation: "whatsappGroup.create",
+      entityId: id,
+      successMsg: "Group created",
+      errorMsg: "Failed to create group",
+    });
+    if (res.type !== "error") {
       setInlineMode(null);
     }
   };
@@ -212,10 +217,13 @@ export function WhatsAppGroupsSection() {
         description: values.description,
       })
     ).server;
-    if (res.type === "error") {
-      toast.error("Failed to update group");
-    } else {
-      toast.success("Group updated");
+    handleMutationResult(res, {
+      mutation: "whatsappGroup.update",
+      entityId: inlineMode.group.id,
+      successMsg: "Group updated",
+      errorMsg: "Failed to update group",
+    });
+    if (res.type !== "error") {
       setInlineMode(null);
     }
   };
@@ -227,10 +235,13 @@ export function WhatsAppGroupsSection() {
     const res = await zero.mutate(
       mutators.whatsappGroup.delete({ id: rowAction.group.id })
     ).server;
-    if (res.type === "error") {
-      toast.error("Failed to delete group");
-    } else {
-      toast.success("Group deleted");
+    handleMutationResult(res, {
+      mutation: "whatsappGroup.delete",
+      entityId: rowAction.group.id,
+      successMsg: "Group deleted",
+      errorMsg: "Failed to delete group",
+    });
+    if (res.type !== "error") {
       setRowAction(null);
     }
   };

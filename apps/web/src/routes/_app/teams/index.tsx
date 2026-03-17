@@ -6,10 +6,11 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import { toast } from "sonner";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
+import { useZeroQueryStatus } from "@/hooks/use-zero-query";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 export const Route = createFileRoute("/_app/teams/")({
   head: () => ({
@@ -28,16 +29,17 @@ function TeamsRouteComponent() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const [data, result] = useQuery(queries.team.all());
-  const isLoading = result.type === "unknown";
+  const isLoading = useZeroQueryStatus(result);
 
   const handleDelete = useCallback(
     async (id: string) => {
       const res = await zero.mutate(mutators.team.delete({ id })).server;
-      if (res.type === "error") {
-        toast.error("Failed to delete team");
-      } else {
-        toast.success("Team deleted");
-      }
+      handleMutationResult(res, {
+        mutation: "team.delete",
+        entityId: id,
+        successMsg: "Team deleted",
+        errorMsg: "Failed to delete team",
+      });
     },
     [zero]
   );

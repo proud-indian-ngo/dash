@@ -3,6 +3,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { TeamDetail } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
+import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/teams/$id")({
   head: () => ({
@@ -21,7 +22,7 @@ function TeamDetailRouteComponent() {
   const { isAdmin } = useApp();
 
   const [team, result] = useQuery(queries.team.byId({ id }));
-  const isLoading = result.type === "unknown";
+  const isLoading = useZeroQueryStatus(result);
 
   if (isLoading) {
     return (

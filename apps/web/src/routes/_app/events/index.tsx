@@ -1,12 +1,14 @@
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   type PublicEventRow,
   PublicEventsTable,
 } from "@/components/events/public-events-table";
 import { ShowInterestDialog } from "@/components/teams/events/show-interest-dialog";
+import { useApp } from "@/context/app-context";
+import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/events/")({
   head: () => ({
@@ -15,15 +17,19 @@ export const Route = createFileRoute("/_app/events/")({
   loader: ({ context }) => {
     context.zero?.run(queries.teamEvent.public());
     context.zero?.run(queries.eventInterest.byCurrentUser());
+    context.zero?.run(queries.team.byCurrentUser());
   },
   component: PublicEventsRouteComponent,
 });
 
 function PublicEventsRouteComponent() {
   const { session } = Route.useRouteContext();
+  const { isAdmin } = useApp();
   const [data, result] = useQuery(queries.teamEvent.public());
+  const isLoading = useZeroQueryStatus(result);
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
-  const isLoading = result.type === "unknown";
+  const [myTeams] = useQuery(queries.team.byCurrentUser());
+  const myTeamIds = useMemo(() => new Set(myTeams.map((t) => t.id)), [myTeams]);
 
   const [interestEventId, setInterestEventId] = useState<string | null>(null);
 
@@ -40,8 +46,10 @@ function PublicEventsRouteComponent() {
       <div className="mt-6 grid gap-6">
         <PublicEventsTable
           data={(data as PublicEventRow[]) ?? []}
+          isAdmin={isAdmin}
           isLoading={isLoading}
           myInterests={myInterests}
+          myTeamIds={myTeamIds}
           onShowInterest={handleShowInterest}
           userId={session.user.id}
         />

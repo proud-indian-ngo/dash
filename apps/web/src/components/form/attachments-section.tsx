@@ -14,6 +14,7 @@ import {
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
@@ -149,8 +150,15 @@ export function AttachmentsSection({
             getUploadUrl
           );
           uploadedAttachments.push(uploadedAttachment);
-        } catch {
+        } catch (error) {
           failedCount += 1;
+          log.error({
+            component: "AttachmentsSection",
+            action: "uploadFile",
+            fileName: file.name,
+            failedCount,
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -184,7 +192,7 @@ export function AttachmentsSection({
 
   useEffect(() => {
     uploadActionsRef.current = uploadActions;
-  });
+  }, [uploadActions]);
 
   const handleAddUrl = (url: string): boolean => {
     if (!url.trim()) {

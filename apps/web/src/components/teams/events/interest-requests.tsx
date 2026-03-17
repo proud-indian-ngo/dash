@@ -8,8 +8,8 @@ import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useCallback, useState } from "react";
-import { toast } from "sonner";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 export type InterestWithUser = EventInterest & { user: User | undefined };
 
@@ -24,27 +24,29 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
   const handleApprove = useCallback(async () => {
     setIsSubmitting(true);
     const res = await zero.mutate(
-      mutators.eventInterest.approve({ id: interest.id })
+      mutators.eventInterest.approve({ id: interest.id, now: Date.now() })
     ).server;
     setIsSubmitting(false);
-    if (res.type === "error") {
-      toast.error(res.error.message || "Failed to approve");
-    } else {
-      toast.success("Interest approved");
-    }
+    handleMutationResult(res, {
+      mutation: "eventInterest.approve",
+      entityId: interest.id,
+      successMsg: "Interest approved",
+      errorMsg: "Failed to approve interest",
+    });
   }, [zero, interest.id]);
 
   const handleReject = useCallback(async () => {
     setIsSubmitting(true);
     const res = await zero.mutate(
-      mutators.eventInterest.reject({ id: interest.id })
+      mutators.eventInterest.reject({ id: interest.id, now: Date.now() })
     ).server;
     setIsSubmitting(false);
-    if (res.type === "error") {
-      toast.error(res.error.message || "Failed to reject");
-    } else {
-      toast.success("Interest rejected");
-    }
+    handleMutationResult(res, {
+      mutation: "eventInterest.reject",
+      entityId: interest.id,
+      successMsg: "Interest rejected",
+      errorMsg: "Failed to reject interest",
+    });
   }, [zero, interest.id]);
 
   return (

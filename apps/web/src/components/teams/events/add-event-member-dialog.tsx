@@ -52,7 +52,7 @@ export function AddEventMemberDialog({
       }));
 
       const res = await zero.mutate(
-        mutators.teamEvent.addMembers({ eventId, members })
+        mutators.teamEvent.addMembers({ eventId, members, now: Date.now() })
       ).server;
 
       if (res.type === "error") {

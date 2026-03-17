@@ -28,7 +28,17 @@ import {
   useMemo,
   useState,
 } from "react";
-import { toast } from "sonner";
+import { handleMutationResult } from "@/lib/mutation-result";
+
+function getTeamSuccessMsg(isEdit: boolean, createWaGroup: boolean): string {
+  if (isEdit) {
+    return "Team updated";
+  }
+  if (createWaGroup) {
+    return "Team created. WhatsApp group will be created shortly.";
+  }
+  return "Team created";
+}
 
 function submitButtonLabel(submitting: boolean, isEdit: boolean): string {
   if (submitting) {
@@ -110,18 +120,15 @@ export function TeamFormDialog({
           );
       const res = await mutation.server;
       setSubmitting(false);
-      if (res.type === "error") {
-        toast.error(isEdit ? "Failed to update team" : "Failed to create team");
-        return;
+      handleMutationResult(res, {
+        mutation: isEdit ? "team.update" : "team.create",
+        entityId: isEdit ? initialValues.id : "new",
+        successMsg: getTeamSuccessMsg(isEdit, createWaGroup),
+        errorMsg: isEdit ? "Failed to update team" : "Failed to create team",
+      });
+      if (res.type !== "error") {
+        onOpenChange(false);
       }
-      let successMsg = "Team created";
-      if (isEdit) {
-        successMsg = "Team updated";
-      } else if (createWaGroup) {
-        successMsg = "Team created. WhatsApp group will be created shortly.";
-      }
-      toast.success(successMsg);
-      onOpenChange(false);
     },
     [
       name,

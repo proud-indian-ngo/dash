@@ -43,6 +43,7 @@ export const env = createEnv({
     WHATSAPP_AUTH_PASS: z.string().min(1).optional(),
     VITE_IMMICH_URL: z.url().optional(),
     IMMICH_API_KEY: z.string().min(1).optional(),
+    APP_NAME: z.string().min(1).default("Proud Indian Dashboard"),
     APP_URL: z.url().optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])

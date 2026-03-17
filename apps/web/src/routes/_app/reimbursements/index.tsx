@@ -12,6 +12,7 @@ import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import { deleteUploadedAssets } from "@/functions/attachments";
+import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/reimbursements/")({
   head: () => ({
@@ -29,8 +30,7 @@ function ReimbursementsRouteComponent() {
   const zero = useZero();
 
   const [data, result] = useQuery(queries.reimbursement.all());
-
-  const isLoading = result.type === "unknown";
+  const isLoading = useZeroQueryStatus(result);
 
   const handleDelete = useCallback(
     async (id: string) => {

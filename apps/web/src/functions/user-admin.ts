@@ -158,9 +158,10 @@ export const createUserAdmin = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     ensureAdminContext(context);
 
+    const normalizedEmail = data.email.toLowerCase();
     const created = await auth.api.createUser({
       body: {
-        email: data.email,
+        email: normalizedEmail,
         name: data.name,
         password: data.password,
         role: data.role,
@@ -173,7 +174,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         data: {
           attendedOrientation: data.attendedOrientation,
           dob: toDate(data.dob),
-          email: data.email,
+          email: normalizedEmail,
           emailVerified: data.emailVerified,
           gender: normalizeOptionalString(data.gender),
           isActive: data.isActive,
@@ -199,13 +200,13 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       {
         handler: "createUser",
         userId: created.user.id,
-        email: data.email,
+        email: normalizedEmail,
         name: data.name,
       },
       () =>
         syncCourierUser({
           userId: created.user.id,
-          email: data.email,
+          email: normalizedEmail,
           name: data.name,
         }).then(() =>
           notifyUserWelcome({ userId: created.user.id, name: data.name })
@@ -247,12 +248,13 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       currentUser as { attendedOrientation?: boolean }
     ).attendedOrientation;
 
+    const normalizedEmail = data.email.toLowerCase();
     await auth.api.adminUpdateUser({
       body: {
         data: {
           attendedOrientation: data.attendedOrientation,
           dob: toDate(data.dob),
-          email: data.email,
+          email: normalizedEmail,
           emailVerified: data.emailVerified,
           gender: normalizeOptionalString(data.gender),
           isActive: data.isActive,
@@ -286,13 +288,13 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       {
         handler: "updateUser",
         userId: data.userId,
-        email: data.email,
+        email: normalizedEmail,
         name: data.name,
       },
       () =>
         syncCourierUser({
           userId: data.userId,
-          email: data.email,
+          email: normalizedEmail,
           name: data.name,
         })
     );

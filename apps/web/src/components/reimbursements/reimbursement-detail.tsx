@@ -18,7 +18,6 @@ import type {
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
-import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -28,6 +27,7 @@ import {
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
 export type ReimbursementDetailData = Reimbursement & {
@@ -90,23 +90,27 @@ export function ReimbursementDetail({
   const handleApprove = () => {
     zero
       .mutate(mutators.reimbursement.approve({ id: reimbursement.id }))
-      .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to approve reimbursement");
-        } else {
-          toast.success("Reimbursement approved");
-        }
-      });
+      .server.then((res) =>
+        handleMutationResult(res, {
+          mutation: "reimbursement.approve",
+          entityId: reimbursement.id,
+          successMsg: "Reimbursement approved",
+          errorMsg: "Failed to approve reimbursement",
+        })
+      );
   };
 
   const handleReject = (reason: string) => {
     zero
       .mutate(mutators.reimbursement.reject({ id: reimbursement.id, reason }))
       .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to reject reimbursement");
-        } else {
-          toast.success("Reimbursement rejected");
+        handleMutationResult(res, {
+          mutation: "reimbursement.reject",
+          entityId: reimbursement.id,
+          successMsg: "Reimbursement rejected",
+          errorMsg: "Failed to reject reimbursement",
+        });
+        if (res.type !== "error") {
           setRejectOpen(false);
         }
       });

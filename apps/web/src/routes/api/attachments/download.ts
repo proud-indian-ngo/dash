@@ -1,6 +1,7 @@
 import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "@/lib/api-auth";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getS3 } from "@/lib/s3";
 
 const sanitizeFileName = (input: string): string =>
@@ -14,9 +15,14 @@ export const Route = createFileRoute("/api/attachments/download")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const { error } = await requireSession(request);
-        if (error) {
-          return error;
+        const result = await requireSession(request);
+        if (result.error) {
+          return result.error;
+        }
+
+        const rl = checkRateLimit(`download:${result.session.user.id}`, 30);
+        if (!rl.allowed) {
+          return rateLimitResponse(rl);
         }
 
         const requestUrl = new URL(request.url);

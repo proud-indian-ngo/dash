@@ -33,6 +33,7 @@ interface UpdateArgs {
   isPublic?: boolean;
   location?: string;
   name?: string;
+  now: number;
   startTime?: number;
   whatsappGroupId?: string;
 }
@@ -51,7 +52,7 @@ function buildUpdateFields(args: UpdateArgs) {
     ...(args.whatsappGroupId !== undefined && {
       whatsappGroupId: args.whatsappGroupId || null,
     }),
-    updatedAt: Date.now(),
+    updatedAt: args.now,
   };
 }
 
@@ -77,6 +78,7 @@ export const teamEventMutators = {
       whatsappGroupId: z.string().optional(),
       createWhatsAppGroup: z.boolean().optional(),
       copyAllMembers: z.boolean().optional(),
+      now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -96,7 +98,6 @@ export const teamEventMutators = {
         }
       }
 
-      const now = Date.now();
       await tx.mutate.teamEvent.insert({
         id: args.id,
         teamId: args.teamId,
@@ -112,8 +113,8 @@ export const teamEventMutators = {
         parentEventId: null,
         cancelledAt: null,
         createdBy: ctx.userId,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: args.now,
+        updatedAt: args.now,
       });
 
       if (
@@ -206,6 +207,7 @@ export const teamEventMutators = {
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       location: z.string().optional(),
+      now: z.number(),
       startTime: z.number().optional(),
       endTime: z.number().optional(),
       isPublic: z.boolean().optional(),
@@ -249,7 +251,7 @@ export const teamEventMutators = {
         const startTime = args.startTime ?? existing.startTime;
         const location = args.location ?? existing.location;
         const teamId = existing.teamId;
-        const updatedAt = Date.now();
+        const updatedAt = args.now;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
@@ -345,6 +347,7 @@ export const teamEventMutators = {
     z.object({
       id: z.string(),
       eventId: z.string(),
+      now: z.number(),
       userId: z.string(),
     }),
     async ({ tx, ctx, args }) => {
@@ -382,7 +385,7 @@ export const teamEventMutators = {
         id: args.id,
         eventId: args.eventId,
         userId: args.userId,
-        addedAt: Date.now(),
+        addedAt: args.now,
       });
 
       if (tx.location === "server") {
@@ -450,6 +453,7 @@ export const teamEventMutators = {
     z.object({
       eventId: z.string(),
       members: z.array(z.object({ id: z.string(), userId: z.string() })).min(1),
+      now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -472,7 +476,6 @@ export const teamEventMutators = {
         }
       }
 
-      const now = Date.now();
       for (const member of args.members) {
         const existing = await tx.run(
           zql.teamEventMember
@@ -485,7 +488,7 @@ export const teamEventMutators = {
             id: member.id,
             eventId: args.eventId,
             userId: member.userId,
-            addedAt: now,
+            addedAt: args.now,
           });
         }
       }

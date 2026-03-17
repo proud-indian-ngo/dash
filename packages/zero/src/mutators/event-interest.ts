@@ -32,6 +32,20 @@ export const eventInterestMutators = {
         );
       }
 
+      if (ctx.role === "admin") {
+        throw new Error("Admins cannot submit interest requests");
+      }
+
+      const teamMembership = await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .one()
+      );
+      if (teamMembership) {
+        throw new Error("Team members cannot submit interest requests");
+      }
+
       const existingMember = (await tx.run(
         zql.teamEventMember
           .where("eventId", args.eventId)
@@ -107,7 +121,7 @@ export const eventInterestMutators = {
   ),
 
   approve: defineMutator(
-    z.object({ id: z.string() }),
+    z.object({ id: z.string(), now: z.number() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
@@ -141,12 +155,11 @@ export const eventInterestMutators = {
         }
       }
 
-      const now = Date.now();
       await tx.mutate.eventInterest.update({
         id: args.id,
         status: "approved",
         reviewedBy: ctx.userId,
-        reviewedAt: now,
+        reviewedAt: args.now,
       });
 
       const memberId = crypto.randomUUID();
@@ -154,7 +167,7 @@ export const eventInterestMutators = {
         id: memberId,
         eventId: interest.eventId,
         userId: interest.userId,
-        addedAt: now,
+        addedAt: args.now,
       });
 
       if (tx.location === "server") {
@@ -213,7 +226,7 @@ export const eventInterestMutators = {
   ),
 
   reject: defineMutator(
-    z.object({ id: z.string() }),
+    z.object({ id: z.string(), now: z.number() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
@@ -251,7 +264,7 @@ export const eventInterestMutators = {
         id: args.id,
         status: "rejected",
         reviewedBy: ctx.userId,
-        reviewedAt: Date.now(),
+        reviewedAt: args.now,
       });
 
       if (tx.location === "server") {

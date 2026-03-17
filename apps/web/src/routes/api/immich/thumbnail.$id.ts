@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "@/lib/api-auth";
 import { fetchImmichThumbnail, getImmichConfig } from "@/lib/immich";
 
+const ASSET_ID_RE = /^[a-zA-Z0-9_-]+$/;
+
 export const Route = createFileRoute("/api/immich/thumbnail/$id")({
   server: {
     handlers: {
@@ -12,8 +14,8 @@ export const Route = createFileRoute("/api/immich/thumbnail/$id")({
         }
 
         const { id } = params;
-        if (!id) {
-          return Response.json({ error: "Missing asset ID" }, { status: 400 });
+        if (!(id && ASSET_ID_RE.test(id))) {
+          return Response.json({ error: "Invalid asset ID" }, { status: 400 });
         }
 
         const config = await getImmichConfig();

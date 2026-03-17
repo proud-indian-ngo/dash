@@ -78,9 +78,7 @@ export async function sendMessage({
         clickAction && appUrl
           ? `${body}\n\nView: ${appUrl}${clickAction}`
           : body;
-      const footer = appUrl
-        ? `\n\n_Sent by Proud Indian Dashboard_(${appUrl})`
-        : "";
+      const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
       await sendWhatsAppMessage(
         phone,
         `*${title}*\n\n${whatsappBody}${footer}`
@@ -172,9 +170,7 @@ export async function sendBulkMessage({
         clickAction && appUrl
           ? `${body}\n\nView: ${appUrl}${clickAction}`
           : body;
-      const footer = appUrl
-        ? `\n\n_Sent by Proud Indian Dashboard_(${appUrl})`
-        : "";
+      const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
       const fullMessage = `*${title}*\n\n${whatsappBody}${footer}`;
 
       await Promise.allSettled(

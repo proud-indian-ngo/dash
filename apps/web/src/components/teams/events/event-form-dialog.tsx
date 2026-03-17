@@ -19,6 +19,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 function epochToDatetimeLocal(epoch: number): string {
   return format(new Date(epoch), "yyyy-MM-dd'T'HH:mm");
@@ -93,6 +94,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     name: value.name.trim(),
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
+    now: Date.now(),
     startTime: datetimeLocalToEpoch(value.startTime),
     endTime: value.endTime ? datetimeLocalToEpoch(value.endTime) : undefined,
     isPublic: value.isPublic,
@@ -122,6 +124,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     whatsappGroupId: value.whatsappGroupId || undefined,
     createWhatsAppGroup: value.createWaGroup || undefined,
     copyAllMembers: value.copyAllMembers || undefined,
+    now: Date.now(),
     recurrenceRule,
   };
 }
@@ -163,21 +166,23 @@ function EventFormContent({
           : zero.mutate(
               mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
             );
+      const entityId = isEdit && initialValues ? initialValues.id : "new";
+      let successMsg = "Event created";
+      if (isEdit) {
+        successMsg = "Event updated";
+      } else if (value.createWaGroup) {
+        successMsg = "Event created. WhatsApp group will be created shortly.";
+      }
       mutation.server.then((res) => {
-        if (res.type === "error") {
-          toast.error(
-            isEdit ? "Failed to update event" : "Failed to create event"
-          );
-        } else {
-          if (isEdit) {
-            toast.success("Event updated");
-          } else {
-            toast.success(
-              value.createWaGroup
-                ? "Event created. WhatsApp group will be created shortly."
-                : "Event created"
-            );
-          }
+        handleMutationResult(res, {
+          mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
+          entityId,
+          successMsg,
+          errorMsg: isEdit
+            ? "Failed to update event"
+            : "Failed to create event",
+        });
+        if (res.type !== "error") {
           onOpenChange(false);
         }
       });

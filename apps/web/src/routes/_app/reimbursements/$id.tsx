@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form.tsx";
 import { useApp } from "@/context/app-context";
+import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -29,8 +30,8 @@ function ReimbursementDetailRouteComponent() {
   const [adminEditMode, setAdminEditMode] = useState(false);
 
   const [reimbursement, result] = useQuery(queries.reimbursement.byId({ id }));
+  const isLoading = useZeroQueryStatus(result);
   const { isAdmin } = useApp();
-  const isLoading = result.type === "unknown";
 
   if (isLoading) {
     return (

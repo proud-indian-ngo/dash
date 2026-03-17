@@ -23,8 +23,10 @@ export type PublicEventRow = TeamEvent & {
 
 interface PublicEventsTableProps {
   data: PublicEventRow[];
+  isAdmin: boolean;
   isLoading?: boolean;
   myInterests: readonly EventInterest[];
+  myTeamIds: ReadonlySet<string>;
   onShowInterest: (eventId: string) => void;
   userId: string;
 }
@@ -55,17 +57,23 @@ const statusBadgeMap = {
 
 function InterestCell({
   eventId,
+  isAdmin,
   myInterests,
+  myTeamIds,
   members,
   onShowInterest,
   startTime,
+  teamId,
   userId,
 }: {
   eventId: string;
+  isAdmin: boolean;
   myInterests: readonly EventInterest[];
+  myTeamIds: ReadonlySet<string>;
   members: readonly TeamEventMember[];
   onShowInterest: (eventId: string) => void;
   startTime: number;
+  teamId: string | undefined;
   userId: string;
 }) {
   const zero = useZero();
@@ -106,7 +114,7 @@ function InterestCell({
     }
   }
 
-  if (hasStarted) {
+  if (hasStarted || isAdmin || (teamId && myTeamIds.has(teamId))) {
     return null;
   }
 
@@ -126,8 +134,10 @@ function InterestCell({
 
 export function PublicEventsTable({
   data,
+  isAdmin,
   isLoading,
   myInterests,
+  myTeamIds,
   onShowInterest,
   userId,
 }: PublicEventsTableProps) {
@@ -226,10 +236,13 @@ export function PublicEventsTable({
         cell: ({ row }) => (
           <InterestCell
             eventId={row.original.id}
+            isAdmin={isAdmin}
             members={row.original.members}
             myInterests={myInterests}
+            myTeamIds={myTeamIds}
             onShowInterest={onShowInterest}
             startTime={row.original.startTime}
+            teamId={row.original.team?.id}
             userId={userId}
           />
         ),
@@ -242,7 +255,7 @@ export function PublicEventsTable({
         enableSorting: false,
       },
     ],
-    [navigate, userId, myInterests, onShowInterest]
+    [navigate, userId, isAdmin, myTeamIds, myInterests, onShowInterest]
   );
 
   return (

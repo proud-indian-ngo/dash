@@ -12,7 +12,6 @@ import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
@@ -20,6 +19,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -79,19 +79,23 @@ export function ExpenseCategoriesSection() {
   const categoryList = categories ?? [];
 
   const handleCreate = (values: CategoryFormValues) => {
+    const id = uuidv7();
     zero
       .mutate(
         mutators.expenseCategory.create({
-          id: uuidv7(),
+          id,
           name: values.name,
           description: values.description,
         })
       )
       .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to create category");
-        } else {
-          toast.success("Category created");
+        handleMutationResult(res, {
+          mutation: "expenseCategory.create",
+          entityId: id,
+          successMsg: "Category created",
+          errorMsg: "Failed to create category",
+        });
+        if (res.type !== "error") {
           setInlineMode(null);
         }
       });
@@ -110,10 +114,13 @@ export function ExpenseCategoriesSection() {
         })
       )
       .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to update category");
-        } else {
-          toast.success("Category updated");
+        handleMutationResult(res, {
+          mutation: "expenseCategory.update",
+          entityId: inlineMode.category.id,
+          successMsg: "Category updated",
+          errorMsg: "Failed to update category",
+        });
+        if (res.type !== "error") {
           setInlineMode(null);
         }
       });
@@ -126,10 +133,13 @@ export function ExpenseCategoriesSection() {
     zero
       .mutate(mutators.expenseCategory.delete({ id: rowAction.category.id }))
       .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to delete category");
-        } else {
-          toast.success("Category deleted");
+        handleMutationResult(res, {
+          mutation: "expenseCategory.delete",
+          entityId: rowAction.category.id,
+          successMsg: "Category deleted",
+          errorMsg: "Failed to delete category",
+        });
+        if (res.type !== "error") {
           setRowAction(null);
         }
       });

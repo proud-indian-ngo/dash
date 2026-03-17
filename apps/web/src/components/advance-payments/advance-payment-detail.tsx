@@ -18,7 +18,6 @@ import type {
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
-import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -28,6 +27,7 @@ import {
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
 export type AdvancePaymentDetailData = AdvancePayment & {
@@ -91,23 +91,27 @@ export function AdvancePaymentDetail({
   const handleApprove = () => {
     zero
       .mutate(mutators.advancePayment.approve({ id: advancePayment.id }))
-      .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to approve advance payment");
-        } else {
-          toast.success("Advance payment approved");
-        }
-      });
+      .server.then((res) =>
+        handleMutationResult(res, {
+          mutation: "advancePayment.approve",
+          entityId: advancePayment.id,
+          successMsg: "Advance payment approved",
+          errorMsg: "Failed to approve advance payment",
+        })
+      );
   };
 
   const handleReject = (reason: string) => {
     zero
       .mutate(mutators.advancePayment.reject({ id: advancePayment.id, reason }))
       .server.then((res) => {
-        if (res.type === "error") {
-          toast.error("Failed to reject advance payment");
-        } else {
-          toast.success("Advance payment rejected");
+        handleMutationResult(res, {
+          mutation: "advancePayment.reject",
+          entityId: advancePayment.id,
+          successMsg: "Advance payment rejected",
+          errorMsg: "Failed to reject advance payment",
+        });
+        if (res.type !== "error") {
           setRejectOpen(false);
         }
       });

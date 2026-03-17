@@ -7,6 +7,7 @@ import { useState } from "react";
 import { AdvancePaymentDetail } from "@/components/advance-payments/advance-payment-detail";
 import { AdvancePaymentForm } from "@/components/advance-payments/advance-payment-form";
 import { useApp } from "@/context/app-context";
+import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -31,8 +32,8 @@ function AdvancePaymentDetailRouteComponent() {
   const [advancePayment, result] = useQuery(
     queries.advancePayment.byId({ id })
   );
+  const isLoading = useZeroQueryStatus(result);
   const { isAdmin } = useApp();
-  const isLoading = result.type === "unknown";
 
   if (isLoading) {
     return (
