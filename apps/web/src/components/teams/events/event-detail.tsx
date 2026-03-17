@@ -20,6 +20,7 @@ import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { log } from "evlog";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -28,6 +29,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventFormDialog } from "./event-form-dialog";
 import { EventPhotos } from "./event-photos";
@@ -224,11 +226,12 @@ function VolunteerInterestSection({
     const res = await zero.mutate(
       mutators.eventInterest.cancel({ id: myInterest.id })
     ).server;
-    if (res.type === "error") {
-      toast.error("Failed to cancel interest");
-    } else {
-      toast.success("Interest cancelled");
-    }
+    handleMutationResult(res, {
+      mutation: "eventInterest.cancel",
+      entityId: myInterest.id,
+      successMsg: "Interest cancelled",
+      errorMsg: "Failed to cancel interest",
+    });
   }, [zero, myInterest]);
 
   return (
@@ -288,7 +291,15 @@ export function EventDetail({
       toast.success("Event cancelled");
       navigate({ to: "/teams/$id", params: { id: event.teamId } });
     },
-    onError: () => toast.error("Failed to cancel event"),
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
+        mutation: "teamEvent.cancel",
+        entityId: event.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to cancel event");
+    },
   });
 
   const eventTime = event.endTime ?? event.startTime;
@@ -323,11 +334,12 @@ export function EventDetail({
           memberId,
         })
       ).server;
-      if (res.type === "error") {
-        toast.error("Failed to remove volunteer");
-      } else {
-        toast.success("Volunteer removed");
-      }
+      handleMutationResult(res, {
+        mutation: "teamEvent.removeMember",
+        entityId: memberId,
+        successMsg: "Volunteer removed",
+        errorMsg: "Failed to remove volunteer",
+      });
     },
     [event.id, zero]
   );

@@ -370,6 +370,7 @@ function UserRowActionDialogs({
           }
         }}
         open={isDeleteOpen}
+        userId={user.id}
         userName={user.name}
       />
     </>

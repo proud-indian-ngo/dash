@@ -7,6 +7,8 @@ import {
   useMatch,
   useRouter,
 } from "@tanstack/react-router";
+import { log } from "evlog";
+import { useEffect, useRef } from "react";
 
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
   const router = useRouter();
@@ -15,7 +17,18 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     select: (state) => state.id === rootRouteId,
   });
 
-  console.error(error);
+  const loggedErrorRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    if (loggedErrorRef.current !== error) {
+      loggedErrorRef.current = error;
+      log.error({
+        component: "DefaultCatchBoundary",
+        message: error instanceof Error ? error.message : String(error),
+        route: typeof window === "undefined" ? "" : window.location.pathname,
+      });
+    }
+  }, [error]);
 
   return (
     <div

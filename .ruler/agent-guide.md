@@ -43,6 +43,9 @@
 - DO: Add maximum context to every `log.set()` call — include all available closure variables (IDs, names, counts, flags, timestamps) so logs are self-contained and debuggable without cross-referencing.
 - DO: Use `withTaskLog()` from `@pi-dash/observability` for mutator async tasks — it wraps with retry, evlog, and error handling.
 - DO: Use `withFireAndForgetLog()` from `@pi-dash/observability` for fire-and-forget promises — it logs success/failure without re-throwing.
+- DO: Use `log.error()` from `evlog` in client-side catch blocks — never use `console.error`. Include component name, action, entity IDs, and error message.
+- DO: Use `handleMutationResult()` from `@/lib/mutation-result` for Zero mutation server results instead of inline `if (res.type === "error") { toast.error(...) }`.
+- DO NOT: Use `console.error` on the client — use `log.error()` from `evlog` so errors are shipped to the server log drain.
 
 ## E2E Testing
 

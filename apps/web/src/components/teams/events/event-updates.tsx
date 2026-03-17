@@ -4,6 +4,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
+import { log } from "evlog";
 import { lazy, Suspense, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
@@ -11,6 +12,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 const PlateEditor = lazy(() =>
   import("@/components/editor/plate-editor").then((m) => ({
@@ -46,19 +48,21 @@ export function EventUpdates({
       setSaving(true);
       try {
         const now = Date.now();
+        const id = uuidv7();
         const res = await zero.mutate(
           mutators.eventUpdate.create({
-            id: uuidv7(),
+            id,
             eventId,
             content,
             now,
           })
         ).server;
-        if (res.type === "error") {
-          toast.error("Failed to post update");
-        } else {
-          toast.success("Update posted");
-        }
+        handleMutationResult(res, {
+          mutation: "eventUpdate.create",
+          entityId: id,
+          successMsg: "Update posted",
+          errorMsg: "Failed to post update",
+        });
       } finally {
         setSaving(false);
       }
@@ -73,10 +77,13 @@ export function EventUpdates({
         const res = await zero.mutate(
           mutators.eventUpdate.update({ id, content, now: Date.now() })
         ).server;
-        if (res.type === "error") {
-          toast.error("Failed to update");
-        } else {
-          toast.success("Update saved");
+        handleMutationResult(res, {
+          mutation: "eventUpdate.update",
+          entityId: id,
+          successMsg: "Update saved",
+          errorMsg: "Failed to update",
+        });
+        if (res.type !== "error") {
           setEditingId(null);
         }
       } finally {
@@ -89,7 +96,14 @@ export function EventUpdates({
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
     onSuccess: () => toast.success("Update deleted"),
-    onError: () => toast.error("Failed to delete update"),
+    onError: (msg) => {
+      log.error({
+        component: "EventUpdates",
+        mutation: "eventUpdate.delete",
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to delete update");
+    },
   });
 
   return (

@@ -9,13 +9,13 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { UserPicker } from "@/components/shared/user-picker";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 const addMemberSchema = z.object({
   userIds: z.array(z.string()).min(1, "Select at least one volunteer"),
@@ -55,14 +55,14 @@ export function AddEventMemberDialog({
         mutators.teamEvent.addMembers({ eventId, members, now: Date.now() })
       ).server;
 
-      if (res.type === "error") {
-        toast.error("Failed to add volunteers");
-      } else {
-        const count = members.length;
-        toast.success(
-          count === 1 ? "Volunteer added" : `${count} volunteers added`
-        );
-      }
+      const count = members.length;
+      handleMutationResult(res, {
+        mutation: "teamEvent.addMembers",
+        entityId: eventId,
+        successMsg:
+          count === 1 ? "Volunteer added" : `${count} volunteers added`,
+        errorMsg: "Failed to add volunteers",
+      });
 
       onOpenChange(false);
     },

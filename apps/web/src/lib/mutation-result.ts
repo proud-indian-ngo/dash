@@ -5,7 +5,7 @@ interface MutationResultOptions {
   entityId: string;
   errorMsg: string;
   mutation: string;
-  successMsg: string;
+  successMsg?: string;
 }
 
 /**
@@ -27,7 +27,7 @@ export function handleMutationResult(
       mutation,
     });
     toast.error(errorMsg);
-  } else {
+  } else if (successMsg) {
     toast.success(successMsg);
   }
 }

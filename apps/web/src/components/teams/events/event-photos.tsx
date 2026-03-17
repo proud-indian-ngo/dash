@@ -14,6 +14,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -376,7 +377,14 @@ export function EventPhotos({
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
     onSuccess: () => toast.success("Photo deleted"),
-    onError: () => toast.error("Failed to delete photo"),
+    onError: (msg) => {
+      log.error({
+        component: "EventPhotos",
+        mutation: "eventPhoto.delete",
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to delete photo");
+    },
   });
 
   return (

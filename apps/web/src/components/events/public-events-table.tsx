@@ -13,8 +13,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { useMemo } from "react";
-import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 export type PublicEventRow = TeamEvent & {
   members: readonly TeamEventMember[];
@@ -96,9 +96,11 @@ function InterestCell({
             const res = await zero.mutate(
               mutators.eventInterest.cancel({ id: interest.id })
             ).server;
-            if (res.type === "error") {
-              toast.error("Failed to cancel interest");
-            }
+            handleMutationResult(res, {
+              mutation: "eventInterest.cancel",
+              entityId: interest.id,
+              errorMsg: "Failed to cancel interest",
+            });
           }}
           size="sm"
           variant="outline"

@@ -7,6 +7,7 @@ import {
 } from "@pi-dash/design-system/components/ui/card";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { log } from "evlog";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import z from "zod";
@@ -72,6 +73,12 @@ export function LoginForm() {
             toast.success("Login successful");
           },
           onError: (error) => {
+            log.error({
+              component: "LoginForm",
+              action: "signIn",
+              email: value.email,
+              error: error.error.message || error.error.statusText,
+            });
             toast.error(error.error.message || error.error.statusText);
           },
         }

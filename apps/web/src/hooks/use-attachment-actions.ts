@@ -1,4 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { deleteUploadedAsset } from "@/functions/attachments";
@@ -27,7 +28,14 @@ export const useAttachmentActions = ({
         }
 
         onChange(value.filter((item) => item.id !== attachmentId));
-      } catch {
+      } catch (error) {
+        log.error({
+          component: "useAttachmentActions",
+          action: "deleteAttachment",
+          attachmentId,
+          attachmentType: attachment.type,
+          error: error instanceof Error ? error.message : String(error),
+        });
         toast.error("Failed to delete attachment");
       } finally {
         setDeletingIds((prev) => {

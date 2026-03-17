@@ -4,6 +4,7 @@ import type { User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { FormModal } from "@/components/form/form-modal";
@@ -58,6 +59,11 @@ function UsersRouteComponent() {
       toast.success("User created");
       setCreateModalOpen(false);
     } catch (error) {
+      log.error({
+        component: "UsersRoute",
+        action: "createUser",
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
       throw error;
     }
@@ -68,6 +74,12 @@ function UsersRouteComponent() {
       await updateUser({ data: value });
       toast.success("User updated");
     } catch (error) {
+      log.error({
+        component: "UsersRoute",
+        action: "updateUser",
+        userId: value.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
       throw error;
     }
@@ -83,6 +95,12 @@ function UsersRouteComponent() {
       });
       toast.success("Password updated");
     } catch (error) {
+      log.error({
+        component: "UsersRoute",
+        action: "resetPassword",
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
       throw error;
     }
@@ -97,6 +115,12 @@ function UsersRouteComponent() {
       });
       toast.success("User deleted");
     } catch (error) {
+      log.error({
+        component: "UsersRoute",
+        action: "deleteUser",
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
       throw error;
     }
@@ -118,6 +142,12 @@ function UsersRouteComponent() {
       });
       toast.success("User banned");
     } catch (error) {
+      log.error({
+        component: "UsersRoute",
+        action: "banUser",
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
       throw error;
     }
@@ -133,6 +163,12 @@ function UsersRouteComponent() {
       });
       toast.success("User unbanned");
     } catch (error) {
+      log.error({
+        component: "UsersRoute",
+        action: "unbanUser",
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
       throw error;
     }

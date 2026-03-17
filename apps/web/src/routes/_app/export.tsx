@@ -10,6 +10,7 @@ import {
 } from "@pi-dash/design-system/components/ui/select";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -149,6 +150,18 @@ function ExportRouteComponent() {
       downloadCsv(filename, CSV_HEADERS, result.rows.map(rowToArray));
       toast.success(`Exported ${result.rows.length} records`);
     } catch (error) {
+      log.error({
+        component: "ExportRoute",
+        action: "exportCsv",
+        fyStart,
+        types: [
+          includeReimbursements && "reimbursement",
+          includeAdvancePayments && "advancePayment",
+        ]
+          .filter(Boolean)
+          .join(","),
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error(getErrorMessage(error));
     } finally {
       setIsExporting(false);

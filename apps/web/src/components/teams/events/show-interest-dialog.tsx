@@ -11,8 +11,8 @@ import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 interface ShowInterestDialogProps {
   eventId: string;
@@ -37,19 +37,23 @@ export function ShowInterestDialog({
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
+    const id = uuidv7();
     const res = await zero.mutate(
       mutators.eventInterest.create({
-        id: uuidv7(),
+        id,
         eventId,
         message: message.trim() || undefined,
         now: Date.now(),
       })
     ).server;
     setIsSubmitting(false);
-    if (res.type === "error") {
-      toast.error(res.error.message || "Failed to submit interest");
-    } else {
-      toast.success("Interest submitted!");
+    handleMutationResult(res, {
+      mutation: "eventInterest.create",
+      entityId: id,
+      successMsg: "Interest submitted!",
+      errorMsg: "Failed to submit interest",
+    });
+    if (res.type !== "error") {
       setMessage("");
       onOpenChange(false);
     }

@@ -20,6 +20,7 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { log } from "evlog";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -32,6 +33,7 @@ import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { isTeamLead } from "@/lib/team-utils";
 
 export type TeamDetailData = Team & {
@@ -136,7 +138,15 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       toast.success("Team deleted");
       navigate({ to: "/teams" });
     },
-    onError: () => toast.error("Failed to delete team"),
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "team.delete",
+        entityId: team.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to delete team");
+    },
   });
 
   const removeMember = useConfirmAction<string>({
@@ -144,7 +154,15 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       zero.mutate(mutators.team.removeMember({ teamId: team.id, memberId }))
         .server,
     onSuccess: () => toast.success("Member removed"),
-    onError: (msg) => toast.error(msg || "Failed to remove member"),
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "team.removeMember",
+        entityId: team.id,
+        error: msg ?? "unknown",
+      });
+      toast.error(msg || "Failed to remove member");
+    },
   });
 
   const cancelEvent = useConfirmAction<EventRow>({
@@ -152,7 +170,14 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
         .server,
     onSuccess: () => toast.success("Event cancelled"),
-    onError: () => toast.error("Failed to cancel event"),
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "teamEvent.cancel",
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to cancel event");
+    },
   });
 
   const [events] = useQuery(queries.teamEvent.byTeam({ teamId: team.id }));
@@ -172,11 +197,12 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
       const res = await zero.mutate(
         mutators.team.setMemberRole({ memberId, role: newRole })
       ).server;
-      if (res.type === "error") {
-        toast.error("Failed to update role");
-      } else {
-        toast.success(`Role updated to ${newRole}`);
-      }
+      handleMutationResult(res, {
+        mutation: "team.setMemberRole",
+        entityId: memberId,
+        successMsg: `Role updated to ${newRole}`,
+        errorMsg: "Failed to update role",
+      });
     },
     [zero]
   );

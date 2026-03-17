@@ -351,6 +351,9 @@ try {
 - `createRequestLogger()` only accepts `{ method?, path?, requestId? }`. Use `log.set()` for custom context.
 - All mutator async tasks in `packages/zero/src/mutators/` wrap bodies in try/catch/finally with evlog.
 - Fire-and-forget catches in `apps/web/src/functions/` use inline `createRequestLogger()` → `set()` → `error()` → `emit()`.
+- Client-side logging uses `import { log } from "evlog"` — initialized in `apps/web/src/lib/client-logger.ts` and shipped to `/api/log/ingest`.
+- Client-side catch blocks use `log.error({ component, action, ...context, error })` — never `console.error`.
+- Zero mutation results use `handleMutationResult()` from `apps/web/src/lib/mutation-result.ts` — logs via evlog + shows toast.
 
 ## Documentation References (Context7)
 

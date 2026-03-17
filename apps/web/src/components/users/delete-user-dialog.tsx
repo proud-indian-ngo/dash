@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@pi-dash/design-system/components/ui/alert-dialog";
+import { log } from "evlog";
 import { toast } from "sonner";
 
 interface DeleteUserDialogProps {
@@ -16,6 +17,7 @@ interface DeleteUserDialogProps {
   onConfirm: () => Promise<void>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  userId: string;
   userName: string;
 }
 
@@ -25,6 +27,7 @@ export function DeleteUserDialog({
   onOpenChange,
   onConfirm,
   open,
+  userId,
   userName,
 }: DeleteUserDialogProps) {
   return (
@@ -52,6 +55,16 @@ export function DeleteUserDialog({
                 await onConfirm();
                 onOpenChange(false);
               } catch (error) {
+                log.error({
+                  component: "DeleteUserDialog",
+                  action: "deleteUser",
+                  userId,
+                  userName,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to delete user",
+                });
                 toast.error(
                   error instanceof Error
                     ? error.message

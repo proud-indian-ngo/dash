@@ -7,12 +7,12 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 const bankAccountSchema = z.object({
   accountName: z.string().min(1, "Account name is required"),
@@ -33,19 +33,23 @@ export function BankingSection() {
       ifscCode: "",
     } satisfies BankAccountFormValues,
     onSubmit: async ({ value }) => {
+      const id = uuidv7();
       const res = await zero.mutate(
         mutators.bankAccount.create({
-          id: uuidv7(),
+          id,
           accountName: value.accountName,
           accountNumber: value.accountNumber,
           ifscCode: value.ifscCode,
         })
       ).server;
-      if (res.type === "error") {
-        toast.error("Failed to add bank account");
-      } else {
+      handleMutationResult(res, {
+        mutation: "bankAccount.create",
+        entityId: id,
+        successMsg: "Bank account added",
+        errorMsg: "Failed to add bank account",
+      });
+      if (res.type !== "error") {
         form.reset();
-        toast.success("Bank account added");
       }
     },
     validators: {
@@ -100,9 +104,11 @@ export function BankingSection() {
                         const res = await zero.mutate(
                           mutators.bankAccount.setDefault({ id: account.id })
                         ).server;
-                        if (res.type === "error") {
-                          toast.error("Failed to set default bank account");
-                        }
+                        handleMutationResult(res, {
+                          mutation: "bankAccount.setDefault",
+                          entityId: account.id,
+                          errorMsg: "Failed to set default bank account",
+                        });
                       }}
                       size="sm"
                       type="button"
@@ -117,9 +123,11 @@ export function BankingSection() {
                       const res = await zero.mutate(
                         mutators.bankAccount.delete({ id: account.id })
                       ).server;
-                      if (res.type === "error") {
-                        toast.error("Failed to delete bank account");
-                      }
+                      handleMutationResult(res, {
+                        mutation: "bankAccount.delete",
+                        entityId: account.id,
+                        errorMsg: "Failed to delete bank account",
+                      });
                     }}
                     size="icon"
                     type="button"

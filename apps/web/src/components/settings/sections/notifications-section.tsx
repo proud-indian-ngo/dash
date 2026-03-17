@@ -1,5 +1,6 @@
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { log } from "evlog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { TopicPreference } from "@/functions/notification-preferences";
@@ -42,12 +43,19 @@ export function NotificationsSection() {
       await updateNotificationPreference({
         data: { topicId, enabled },
       });
-    } catch {
+    } catch (error) {
       setPreferences((prev) =>
         prev.map((p) =>
           p.topicId === topicId ? { ...p, enabled: !enabled } : p
         )
       );
+      log.error({
+        component: "NotificationsSection",
+        action: "updatePreference",
+        topicId,
+        enabled,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to update notification preference");
     }
   };
@@ -57,8 +65,14 @@ export function NotificationsSection() {
 
     try {
       await updateWhatsAppNotificationPref({ data: { enabled } });
-    } catch {
+    } catch (error) {
       setWhatsappEnabled(!enabled);
+      log.error({
+        component: "NotificationsSection",
+        action: "updateWhatsAppPref",
+        enabled,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to update WhatsApp preference");
     }
   };
