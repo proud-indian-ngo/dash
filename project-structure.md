@@ -75,6 +75,7 @@ All paths are relative to project root.
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
 | `routes/_app/export.tsx` | CSV data export |
 | `routes/_auth/login.tsx` | Login |
+| `routes/_auth/register.tsx` | Registration |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
 | `routes/_auth/reset-password.tsx` | Reset password |
 | `routes/_auth/verify-email.tsx` | Email verification |
@@ -105,7 +106,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/teams/events/` | events-table, event-form-dialog, event-detail, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog |
-| `components/login/` | login-form, forgot-password-form, reset-password-form |
+| `components/login/` | login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
 | `components/` (root) | loader, default-catch-boundary, default-not-found, theme-toggle, zero-init, dev-tools |
 

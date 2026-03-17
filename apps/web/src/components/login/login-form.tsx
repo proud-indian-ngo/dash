@@ -141,6 +141,12 @@ export function LoginForm() {
           </FormLayout>
         </CardContent>
       </Card>
+      <p className="text-center text-muted-foreground text-sm">
+        Don&apos;t have an account?{" "}
+        <Link className="text-foreground hover:underline" to="/register">
+          Register
+        </Link>
+      </p>
     </div>
   );
 }
