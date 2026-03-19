@@ -85,7 +85,7 @@ function AdvancePaymentsRouteComponent() {
           : "Submit and track your advance payment requests."}
       </p>
 
-      <div className="mt-6 grid gap-6">
+      <div className="mt-6 grid gap-6 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
           items={computeAdvancePaymentStats(data ?? [])}

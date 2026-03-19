@@ -44,7 +44,7 @@ function PublicEventsRouteComponent() {
       <p className="mt-2 text-muted-foreground text-sm">
         Public events across all teams.
       </p>
-      <div className="mt-6 grid gap-6">
+      <div className="mt-6 grid gap-6 *:min-w-0">
         <PublicEventsTable
           data={(data as PublicEventRow[]) ?? []}
           isAdmin={isAdmin}

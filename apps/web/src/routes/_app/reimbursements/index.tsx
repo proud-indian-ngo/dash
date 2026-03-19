@@ -87,7 +87,7 @@ function ReimbursementsRouteComponent() {
           : "Submit and track your reimbursement requests."}
       </p>
 
-      <div className="mt-6 grid gap-6">
+      <div className="mt-6 grid gap-6 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
           items={computeReimbursementStats(data ?? [])}

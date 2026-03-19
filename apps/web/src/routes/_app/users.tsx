@@ -230,7 +230,7 @@ function UsersRouteComponent() {
         Manage users, roles, status flags, and credentials.
       </p>
 
-      <div className="mt-6 grid gap-6">
+      <div className="mt-6 grid gap-6 *:min-w-0">
         <StatsCards items={computeUserStats(users)} />
         <UsersTable
           isLoading={isLoading}

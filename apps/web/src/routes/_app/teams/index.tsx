@@ -54,7 +54,7 @@ function TeamsRouteComponent() {
           : "View the teams you belong to."}
       </p>
 
-      <div className="mt-6 grid gap-6">
+      <div className="mt-6 grid gap-6 *:min-w-0">
         <TeamsTable
           data={data ?? []}
           isLoading={isLoading}
