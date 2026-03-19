@@ -97,6 +97,29 @@ function rowToArray(row: ExportRow): string[] {
   ];
 }
 
+function buildExportFilename(
+  includeReimbursements: boolean,
+  includeAdvancePayments: boolean,
+  selectedStatuses: Set<Status>,
+  fyStartNum: number
+): string {
+  const typeParts: string[] = [];
+  if (includeReimbursements) {
+    typeParts.push("reimbursements");
+  }
+  if (includeAdvancePayments) {
+    typeParts.push("advance-payments");
+  }
+
+  const statusPart =
+    selectedStatuses.size === ALL_STATUSES.length
+      ? "all-statuses"
+      : [...selectedStatuses].sort().join("-");
+
+  const today = new Date().toISOString().slice(0, 10);
+  return `${typeParts.join("_")}_${statusPart}_FY${fyStartNum}-${String(fyStartNum + 1).slice(2)}_${today}.csv`;
+}
+
 function ExportRouteComponent() {
   const runExport = useServerFn(exportCsvData);
   const fyOptions = FY_OPTIONS;
@@ -147,7 +170,12 @@ function ExportRouteComponent() {
       const result = await runExport({
         data: { types, fyStart: fyStartNum, statuses },
       });
-      const filename = `export-FY${fyStartNum}-${String(fyStartNum + 1).slice(2)}.csv`;
+      const filename = buildExportFilename(
+        includeReimbursements,
+        includeAdvancePayments,
+        selectedStatuses,
+        fyStartNum
+      );
       downloadCsv(filename, CSV_HEADERS, result.rows.map(rowToArray));
       toast.success(`Exported ${result.rows.length} records`);
     } catch (error) {
