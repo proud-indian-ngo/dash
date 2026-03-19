@@ -231,7 +231,7 @@ function UsersRouteComponent() {
       </p>
 
       <div className="mt-6 grid gap-6 *:min-w-0">
-        <StatsCards items={computeUserStats(users)} />
+        <StatsCards items={computeUserStats(allUsers)} />
         <UsersTable
           isLoading={isLoading}
           onBanUser={handleBanUser}
