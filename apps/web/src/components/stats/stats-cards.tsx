@@ -21,7 +21,7 @@ export interface StatItem {
 export function StatCard({ item }: { item: StatItem }) {
   const card = (
     <Card
-      className={item.accent ? `border-l-2 ${item.accent}` : undefined}
+      className={item.accent ? `h-full border-l-2 ${item.accent}` : "h-full"}
       size="sm"
     >
       <CardHeader>
