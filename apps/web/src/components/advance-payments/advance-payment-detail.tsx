@@ -270,29 +270,45 @@ export function AdvancePaymentDetail({
                     {getAttachmentLabel(att)}
                   </span>
                   <div className="flex items-center gap-3">
-                    <a
-                      className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                      href={getAttachmentPreviewHref(att)}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      Preview
-                      <span className="sr-only">
-                        {getAttachmentLabel(att)} (opens in new tab)
-                      </span>
-                    </a>
-                    <a
-                      className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                      download={att.type === "file"}
-                      href={getAttachmentDownloadHref(att)}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      Download
-                      <span className="sr-only">
-                        {getAttachmentLabel(att)} (opens in new tab)
-                      </span>
-                    </a>
+                    {att.type === "url" ? (
+                      <a
+                        className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                        href={getAttachmentPreviewHref(att)}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        View link
+                        <span className="sr-only">
+                          {getAttachmentLabel(att)} (opens in new tab)
+                        </span>
+                      </a>
+                    ) : (
+                      <>
+                        <a
+                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                          href={getAttachmentPreviewHref(att)}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          Preview
+                          <span className="sr-only">
+                            {getAttachmentLabel(att)} (opens in new tab)
+                          </span>
+                        </a>
+                        <a
+                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                          download
+                          href={getAttachmentDownloadHref(att)}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          Download
+                          <span className="sr-only">
+                            {getAttachmentLabel(att)} (opens in new tab)
+                          </span>
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

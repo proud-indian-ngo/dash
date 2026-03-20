@@ -315,23 +315,39 @@ export function AttachmentsSection({
                 {getAttachmentLabel(attachment)}
               </span>
               <div className="flex items-center gap-2">
-                <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                  href={getAttachmentPreviewHref(attachment)}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Preview
-                </a>
-                <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                  download={attachment.type === "file"}
-                  href={getAttachmentDownloadHref(attachment)}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Download
-                </a>
+                {attachment.type === "url" ? (
+                  <a
+                    className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                    href={getAttachmentPreviewHref(attachment)}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    View link
+                    <span className="sr-only">
+                      {getAttachmentLabel(attachment)} (opens in new tab)
+                    </span>
+                  </a>
+                ) : (
+                  <>
+                    <a
+                      className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                      href={getAttachmentPreviewHref(attachment)}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Preview
+                    </a>
+                    <a
+                      className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                      download
+                      href={getAttachmentDownloadHref(attachment)}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Download
+                    </a>
+                  </>
+                )}
                 <Button
                   aria-label="Remove attachment"
                   disabled={deletingIds.has(attachment.id)}
