@@ -1,3 +1,9 @@
 @import "@pi-dash/design-system/styles.css";
 
 @source "./";
+
+/* Alert dialogs must render above YARL lightbox (z-index: 9999) */
+body:has(.yarl__root) [data-slot="alert-dialog-overlay"],
+body:has(.yarl__root) [data-slot="alert-dialog-content"] {
+  z-index: 10000;
+}

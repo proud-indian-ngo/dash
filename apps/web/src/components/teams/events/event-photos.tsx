@@ -631,28 +631,21 @@ export function EventPhotos({
         zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
       />
 
-      {/* Wrap in high z-index when lightbox is open so dialog renders above YARL (z-index: 9999) */}
-      <div
-        style={
-          lightboxOpen ? { position: "relative", zIndex: 10_000 } : undefined
-        }
-      >
-        <ConfirmDialog
-          cancelLabel="Keep"
-          confirmLabel="Delete"
-          description="Are you sure you want to delete this photo? This action cannot be undone."
-          loading={deleteAction.isLoading}
-          loadingLabel="Deleting..."
-          onConfirm={deleteAction.confirm}
-          onOpenChange={(open) => {
-            if (!open) {
-              deleteAction.cancel();
-            }
-          }}
-          open={deleteAction.isOpen}
-          title="Delete photo"
-        />
-      </div>
+      <ConfirmDialog
+        cancelLabel="Keep"
+        confirmLabel="Delete"
+        description="Are you sure you want to delete this photo? This action cannot be undone."
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAction.cancel();
+          }
+        }}
+        open={deleteAction.isOpen}
+        title="Delete photo"
+      />
     </div>
   );
 }
