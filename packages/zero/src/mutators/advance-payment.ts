@@ -81,7 +81,7 @@ export const advancePaymentMutators = {
             const { getUserName, notifyAdvancePaymentSubmitted } = await import(
               "@pi-dash/notifications"
             );
-            const submitterName = await getUserName(userId);
+            const submitterName = (await getUserName(userId)) ?? "Unknown";
             await notifyAdvancePaymentSubmitted({
               advancePaymentId,
               title,
