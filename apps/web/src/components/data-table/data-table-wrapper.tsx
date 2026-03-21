@@ -296,7 +296,7 @@ export function DataTableWrapper<TData extends object>({
           tableLayout={tableLayout}
         >
           <Card className="w-full gap-3 py-3.5!">
-            <CardHeader className="px-3.5">
+            <CardHeader className="@lg/card-header:grid-cols-[1fr_auto]! grid-cols-1! gap-2.5! px-3.5">
               <div className="flex flex-wrap items-center gap-2.5">
                 <InputGroup className="w-full sm:w-72">
                   <InputGroupAddon align="inline-start">
@@ -338,7 +338,7 @@ export function DataTableWrapper<TData extends object>({
                 {toolbarFilters}
               </div>
 
-              <CardAction className="flex items-center gap-1">
+              <CardAction className="justify-self-start! @lg/card-header:justify-self-end! col-auto! @lg/card-header:col-start-2! @lg/card-header:row-span-2! row-auto! @lg/card-header:row-start-1! flex flex-wrap items-center gap-1">
                 <DataGridColumnVisibility
                   table={table}
                   trigger={
