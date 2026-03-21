@@ -15,7 +15,12 @@ import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Lightbox, { type Slide } from "yet-another-react-lightbox";
+import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
+import "yet-another-react-lightbox/plugins/thumbnails.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/styles.css";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -25,8 +30,13 @@ import {
 } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
 
 type PhotoWithUploader = EventPhoto & { uploader: User | undefined };
+
+function isPhotoSlide(s: Slide): s is PhotoSlide {
+  return "photoId" in s;
+}
 
 const IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -67,14 +77,14 @@ function getPhotoThumbnailUrl(photo: EventPhoto): string {
   return EMPTY_PIXEL;
 }
 
-function getPhotoFullUrl(photo: EventPhoto): string {
-  if (photo.immichAssetId && immichBase) {
-    return `${immichBase}/photos/${photo.immichAssetId}`;
+function getPhotoLightboxUrl(photo: EventPhoto): string {
+  if (photo.immichAssetId) {
+    return `/api/immich/original/${photo.immichAssetId}`;
   }
   if (photo.r2Key) {
     return `${cdnBase}/${photo.r2Key}`;
   }
-  return "#";
+  return EMPTY_PIXEL;
 }
 
 function isAllowedImageType(
@@ -147,6 +157,22 @@ function showUploadResultToasts(
   }
 }
 
+function toPhotoSlide(
+  photo: PhotoWithUploader,
+  permissions: { canApprove: boolean; canReject: boolean; canDelete: boolean }
+): PhotoSlide {
+  return {
+    src: getPhotoLightboxUrl(photo),
+    thumbnailSrc: getPhotoThumbnailUrl(photo),
+    photoId: photo.id,
+    caption: photo.caption ?? null,
+    uploader: photo.uploader,
+    canApprove: permissions.canApprove,
+    canReject: permissions.canReject,
+    canDelete: permissions.canDelete,
+  };
+}
+
 interface EventPhotosProps {
   approvedPhotos: readonly PhotoWithUploader[];
   canManage: boolean;
@@ -160,6 +186,7 @@ interface EventPhotosProps {
 interface PhotoCardProps {
   canDelete: boolean;
   onApprove?: () => void;
+  onClick: () => void;
   onDelete: () => void;
   onReject?: () => void;
   pending?: boolean;
@@ -169,6 +196,7 @@ interface PhotoCardProps {
 function PhotoCard({
   canDelete,
   onApprove,
+  onClick,
   onDelete,
   onReject,
   photo,
@@ -176,10 +204,10 @@ function PhotoCard({
 }: PhotoCardProps) {
   return (
     <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
-      <a
-        href={getPhotoFullUrl(photo)}
-        rel="noopener noreferrer"
-        target="_blank"
+      <button
+        className="size-full cursor-pointer"
+        onClick={onClick}
+        type="button"
       >
         <img
           alt={photo.caption ?? "Event photo"}
@@ -189,7 +217,7 @@ function PhotoCard({
           src={getPhotoThumbnailUrl(photo)}
           width={320}
         />
-      </a>
+      </button>
 
       {/* Bottom gradient overlay with uploader info */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
@@ -278,12 +306,76 @@ export function EventPhotos({
   const callImmichUpload = useServerFn(uploadPhotoToImmich);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const canUpload = canManage || isMember;
   const useImmichDirect = canManage && !!immichBase;
-  const myPendingPhotos = canManage
-    ? []
-    : pendingPhotos.filter((p) => p.uploadedBy === currentUserId);
+  const myPendingPhotos = useMemo(
+    () =>
+      canManage
+        ? []
+        : pendingPhotos.filter((p) => p.uploadedBy === currentUserId),
+    [canManage, pendingPhotos, currentUserId]
+  );
+
+  // Build unified slides array: pending → userPending → approved
+  const slides = useMemo(() => {
+    const result: PhotoSlide[] = [];
+    if (canManage) {
+      for (const photo of pendingPhotos) {
+        result.push(
+          toPhotoSlide(photo, {
+            canApprove: true,
+            canReject: true,
+            canDelete: true,
+          })
+        );
+      }
+    } else {
+      for (const photo of myPendingPhotos) {
+        result.push(
+          toPhotoSlide(photo, {
+            canApprove: false,
+            canReject: false,
+            canDelete: true,
+          })
+        );
+      }
+    }
+    for (const photo of approvedPhotos) {
+      result.push(
+        toPhotoSlide(photo, {
+          canApprove: false,
+          canReject: false,
+          canDelete: canManage,
+        })
+      );
+    }
+    return result;
+  }, [approvedPhotos, canManage, myPendingPhotos, pendingPhotos]);
+
+  // Compute section offset for approved photos (pending sections start at 0)
+  const approvedSectionOffset = canManage
+    ? pendingPhotos.length
+    : myPendingPhotos.length;
+
+  // Close lightbox when slides become empty; clamp index when slides shrink
+  useEffect(() => {
+    if (!lightboxOpen) {
+      return;
+    }
+    if (slides.length === 0) {
+      setLightboxOpen(false);
+    } else {
+      setLightboxIndex((i) => Math.min(i, slides.length - 1));
+    }
+  }, [lightboxOpen, slides.length]);
+
+  const openLightbox = useCallback((index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  }, []);
 
   const handleUpload = useCallback(
     async (files: FileList | null) => {
@@ -440,11 +532,12 @@ export function EventPhotos({
             Pending Approval ({pendingPhotos.length})
           </h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {pendingPhotos.map((photo) => (
+            {pendingPhotos.map((photo, i) => (
               <PhotoCard
                 canDelete
                 key={photo.id}
                 onApprove={() => handleApprove(photo.id)}
+                onClick={() => openLightbox(i)}
                 onDelete={() => deleteAction.trigger(photo.id)}
                 onReject={() => handleReject(photo.id)}
                 pending
@@ -460,10 +553,11 @@ export function EventPhotos({
             Your Pending Photos ({myPendingPhotos.length})
           </h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {myPendingPhotos.map((photo) => (
+            {myPendingPhotos.map((photo, i) => (
               <PhotoCard
                 canDelete
                 key={photo.id}
+                onClick={() => openLightbox(i)}
                 onDelete={() => deleteAction.trigger(photo.id)}
                 pending
                 photo={photo}
@@ -476,10 +570,11 @@ export function EventPhotos({
       {/* Approved photos grid */}
       {approvedPhotos.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {approvedPhotos.map((photo) => (
+          {approvedPhotos.map((photo, i) => (
             <PhotoCard
               canDelete={canManage}
               key={photo.id}
+              onClick={() => openLightbox(approvedSectionOffset + i)}
               onDelete={() => deleteAction.trigger(photo.id)}
               photo={photo}
             />
@@ -502,21 +597,62 @@ export function EventPhotos({
         </div>
       ) : null}
 
-      <ConfirmDialog
-        cancelLabel="Keep"
-        confirmLabel="Delete"
-        description="Are you sure you want to delete this photo? This action cannot be undone."
-        loading={deleteAction.isLoading}
-        loadingLabel="Deleting..."
-        onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
+      <Lightbox
+        close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
+        on={{ view: ({ index }) => setLightboxIndex(index) }}
+        open={lightboxOpen}
+        plugins={[Zoom, Thumbnails]}
+        render={{
+          slideFooter: ({ slide }) =>
+            isPhotoSlide(slide) ? (
+              <LightboxFooter
+                onApprove={handleApprove}
+                onDelete={(id) => deleteAction.trigger(id)}
+                onReject={handleReject}
+                slide={slide}
+              />
+            ) : null,
+          thumbnail: ({ slide }) => (
+            <img
+              alt=""
+              className="size-full object-cover"
+              height={64}
+              src={isPhotoSlide(slide) ? slide.thumbnailSrc : (slide.src ?? "")}
+              width={64}
+            />
+          ),
         }}
-        open={deleteAction.isOpen}
-        title="Delete photo"
+        slides={slides}
+        styles={{
+          container: { backgroundColor: "rgba(0, 0, 0, 0.92)" },
+        }}
+        thumbnails={{ width: 64, height: 64 }}
+        zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
       />
+
+      {/* Wrap in high z-index when lightbox is open so dialog renders above YARL (z-index: 9999) */}
+      <div
+        style={
+          lightboxOpen ? { position: "relative", zIndex: 10_000 } : undefined
+        }
+      >
+        <ConfirmDialog
+          cancelLabel="Keep"
+          confirmLabel="Delete"
+          description="Are you sure you want to delete this photo? This action cannot be undone."
+          loading={deleteAction.isLoading}
+          loadingLabel="Deleting..."
+          onConfirm={deleteAction.confirm}
+          onOpenChange={(open) => {
+            if (!open) {
+              deleteAction.cancel();
+            }
+          }}
+          open={deleteAction.isOpen}
+          title="Delete photo"
+        />
+      </div>
     </div>
   );
 }

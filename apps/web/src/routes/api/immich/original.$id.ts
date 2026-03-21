@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "@/lib/api-auth";
-import { fetchImmichThumbnail, getImmichConfig } from "@/lib/immich";
+import { fetchImmichOriginal, getImmichConfig } from "@/lib/immich";
 
 const ASSET_ID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-export const Route = createFileRoute("/api/immich/thumbnail/$id")({
+export const Route = createFileRoute("/api/immich/original/$id")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
@@ -28,20 +28,22 @@ export const Route = createFileRoute("/api/immich/thumbnail/$id")({
         }
 
         try {
-          const upstream = await fetchImmichThumbnail(config, id);
+          const upstream = await fetchImmichOriginal(config, id);
           const contentType =
             upstream.headers.get("content-type") ?? "image/jpeg";
+          const headers: HeadersInit = {
+            "Cache-Control": "private, max-age=86400",
+            "Content-Type": contentType,
+          };
+          const contentLength = upstream.headers.get("content-length");
+          if (contentLength) {
+            headers["Content-Length"] = contentLength;
+          }
 
-          return new Response(upstream.body, {
-            status: 200,
-            headers: {
-              "Cache-Control": "private, max-age=86400",
-              "Content-Type": contentType,
-            },
-          });
+          return new Response(upstream.body, { status: 200, headers });
         } catch {
           return Response.json(
-            { error: "Failed to fetch thumbnail" },
+            { error: "Failed to fetch original image" },
             { status: 502 }
           );
         }

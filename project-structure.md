@@ -82,6 +82,7 @@ All paths are relative to project root.
 | `routes/api/health.ts` | Health check endpoint |
 | `routes/api/log/ingest.ts` | Client-side log ingestion |
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
+| `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
 | `routes/api/attachments/download.ts` | Attachment download |
 
 All route paths above are prefixed with `apps/web/src/`.

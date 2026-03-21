@@ -130,6 +130,34 @@ export async function addAssetToAlbum(
 }
 
 /**
+ * Fetches the original (full-size) image for an Immich asset.
+ */
+export async function fetchImmichOriginal(
+  config: ImmichConfig,
+  assetId: string
+): Promise<Response> {
+  const log = createRequestLogger({
+    method: "GET",
+    path: `/api/immich/original/${assetId}`,
+  });
+  log.set({ assetId });
+
+  const res = await fetch(`${config.url}/api/assets/${assetId}/original`, {
+    headers: { "x-api-key": config.key },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (res.ok) {
+    return res;
+  }
+
+  log.error(`Immich original fetch failed: ${res.status}`, {
+    status: res.status,
+  });
+  log.emit();
+  throw new Error(`Immich original failed: ${res.status}`);
+}
+
+/**
  * Fetches a thumbnail for an Immich asset. Returns the response to stream back.
  * Falls back to the original asset file if thumbnail is not yet generated (404).
  */

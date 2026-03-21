@@ -18,7 +18,8 @@
     {
       "includes": [
         "apps/web/src/routes/api/auth/$.ts",
-        "apps/web/src/routes/api/immich/thumbnail.$id.ts"
+        "apps/web/src/routes/api/immich/thumbnail.$id.ts",
+        "apps/web/src/routes/api/immich/original.$id.ts"
       ],
       "linter": {
         "rules": {
