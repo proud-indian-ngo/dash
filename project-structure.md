@@ -128,7 +128,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 |---|---|
 | `functions/get-session.ts` | Authenticated user session |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
-| `functions/attachments.ts` | R2 presigned upload URL, delete asset |
+| `functions/attachments.ts` | R2 presigned upload URL, delete asset, avatar upload/delete |
 | `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
@@ -320,10 +320,14 @@ Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. 
 
 ### File Upload Flow
 
+R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+
 1. Client calls `getPresignedUploadUrl` server function → gets signed S3 PUT URL
 2. Client uploads directly to R2 via presigned URL
 3. Object key stored in attachment record
 4. Download via `routes/api/attachments/download.ts` endpoint
+
+Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (ownership-scoped to `avatars/{userId}/`).
 
 ### Notification Flow
 

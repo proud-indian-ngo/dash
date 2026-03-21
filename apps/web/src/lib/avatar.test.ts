@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAvatarUrl } from "./avatar";
+import { buildAvatarUrl, resolveAvatarSrc } from "./avatar";
 
 describe("buildAvatarUrl", () => {
   it("builds URL with email", () => {
@@ -28,5 +28,52 @@ describe("buildAvatarUrl", () => {
 
   it("returns undefined for whitespace email", () => {
     expect(buildAvatarUrl("   ")).toBeUndefined();
+  });
+});
+
+describe("resolveAvatarSrc", () => {
+  it("returns user.image when set", () => {
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+      image: "https://cdn.example.com/avatar.jpg",
+    });
+    expect(src).toBe("https://cdn.example.com/avatar.jpg");
+  });
+
+  it("falls back to buildAvatarUrl when image is null", () => {
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+      image: null,
+    });
+    expect(src).toBe("/api/avatar?email=a%40b.com");
+  });
+
+  it("falls back to buildAvatarUrl when image is empty string", () => {
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+      image: "",
+    });
+    expect(src).toBe("/api/avatar?email=a%40b.com");
+  });
+
+  it("falls back to buildAvatarUrl when image is undefined", () => {
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+    });
+    expect(src).toBe("/api/avatar?email=a%40b.com");
+  });
+
+  it("returns undefined when both image and email are absent", () => {
+    const src = resolveAvatarSrc({});
+    expect(src).toBeUndefined();
+  });
+
+  it("passes gender through to buildAvatarUrl", () => {
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+      gender: "female",
+      image: null,
+    });
+    expect(src).toBe("/api/avatar?email=a%40b.com&gender=female");
   });
 });

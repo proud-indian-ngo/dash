@@ -25,9 +25,27 @@ export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
 const R2_SUBFOLDERS = {
   attachments: "attachments",
+  avatars: "avatars",
   photos: "photos",
   updates: "updates",
 } as const;
+
+const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+export const MAX_AVATAR_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+const sanitizeFileName = (fileName: string): string =>
+  fileName
+    .trim()
+    .replaceAll(/[\r\n]/g, "")
+    .replaceAll(/[\\/]/g, "-")
+    .replaceAll(/"/g, "")
+    .replaceAll(/\s+/g, "-");
 
 export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -46,13 +64,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const s3 = await getS3();
-    const sanitizedFileName = data.fileName
-      .trim()
-      .replaceAll(/[\r\n]/g, "")
-      .replaceAll(/[\\/]/g, "-")
-      .replaceAll(/"/g, "")
-      .replaceAll(/\s+/g, "-");
-    const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizedFileName}`;
+    const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
     // NOTE: Bun's S3.presign() does not support content-length conditions.
     // fileSize is validated by Zod above but cannot be enforced at the storage layer.
     // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
@@ -73,6 +85,49 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
+    const s3 = await getS3();
+    await s3.delete(data.key);
+    return { success: true };
+  });
+
+export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .inputValidator(
+    z.object({
+      fileName: z.string().min(1),
+      fileSize: z.number().int().positive().max(MAX_AVATAR_FILE_SIZE_BYTES),
+      mimeType: z.enum(ALLOWED_IMAGE_MIME_TYPES),
+    })
+  )
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const s3 = await getS3();
+    const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+    const presignedUrl = s3.presign(key, {
+      method: "PUT",
+      expiresIn: 300,
+      type: data.mimeType,
+    });
+    return { presignedUrl, key };
+  });
+
+export const deleteProfilePicture = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .inputValidator(
+    z.object({
+      key: z.string().min(1),
+    })
+  )
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const expectedPrefix = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/`;
+    if (!data.key.startsWith(expectedPrefix)) {
+      throw new Error("Forbidden");
+    }
     const s3 = await getS3();
     await s3.delete(data.key);
     return { success: true };

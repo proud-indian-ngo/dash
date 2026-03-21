@@ -15,6 +15,12 @@ const normalizeGender = (
   return undefined;
 };
 
+export const resolveAvatarSrc = (user: {
+  email?: null | string;
+  gender?: AvatarGender;
+  image?: null | string;
+}): string | undefined => user.image || buildAvatarUrl(user.email, user.gender);
+
 export const buildAvatarUrl = (
   email?: null | string,
   gender?: AvatarGender
