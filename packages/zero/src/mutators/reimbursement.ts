@@ -84,7 +84,7 @@ export const reimbursementMutators = {
             const { getUserName, notifyReimbursementSubmitted } = await import(
               "@pi-dash/notifications"
             );
-            const submitterName = await getUserName(userId);
+            const submitterName = (await getUserName(userId)) ?? "Unknown";
             await notifyReimbursementSubmitted({
               reimbursementId,
               title,

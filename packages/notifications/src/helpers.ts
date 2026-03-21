@@ -20,13 +20,13 @@ export async function getAdminUserIds(): Promise<string[]> {
   return admins.map((a) => a.id);
 }
 
-export async function getUserName(userId: string): Promise<string> {
+export async function getUserName(userId: string): Promise<string | null> {
   const rows = await db
     .select({ name: user.name })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
-  return rows[0]?.name ?? "Unknown";
+  return rows[0]?.name ?? null;
 }
 
 export async function syncCourierUser({
