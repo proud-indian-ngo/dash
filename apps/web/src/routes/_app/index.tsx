@@ -1,10 +1,8 @@
 import {
   Clock01Icon,
   Invoice01Icon,
-  MoneySendSquareIcon,
   PlusSignIcon,
   UserMultipleIcon,
-  Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -43,32 +41,27 @@ function computeDashboardStats(
   users: readonly { role: string | null }[],
   isAdmin: boolean
 ): StatItem[] {
-  const pendingReimbursements = byStatus(reimbursements, "pending");
-  const pendingAdvancePayments = byStatus(advancePayments, "pending");
+  const allRequests = [...reimbursements, ...advancePayments];
+  const pendingCount =
+    byStatus(reimbursements, "pending").length +
+    byStatus(advancePayments, "pending").length;
 
   return [
     {
-      label: isAdmin ? "All Reimbursements" : "My Reimbursements",
-      value: reimbursements.length,
-      description: formatINR(sumTotal(reimbursements)),
+      label: isAdmin ? "All Requests" : "My Requests",
+      value: allRequests.length,
+      description: formatINR(sumTotal(allRequests)),
       icon: Invoice01Icon,
       accent: "border-l-blue-500",
-      href: "/reimbursements",
-    },
-    {
-      label: isAdmin ? "All Advance Payments" : "My Advance Payments",
-      value: advancePayments.length,
-      description: formatINR(sumTotal(advancePayments)),
-      icon: Wallet01Icon,
-      accent: "border-l-violet-500",
-      href: "/advance-payments",
+      href: "/requests",
     },
     {
       label: isAdmin ? "Pending Reviews" : "My Pending",
-      value: pendingReimbursements.length + pendingAdvancePayments.length,
+      value: pendingCount,
       description: "Awaiting review",
       icon: Clock01Icon,
       accent: "border-l-amber-500",
+      href: "/requests?status=pending",
     },
     ...(isAdmin
       ? [
@@ -156,21 +149,12 @@ function OrientedDashboard() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Button
           nativeButton={false}
-          render={<Link to="/reimbursements/new" />}
+          render={<Link to="/requests/new" />}
           size="sm"
           variant="outline"
         >
-          <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
-          New Reimbursement
-        </Button>
-        <Button
-          nativeButton={false}
-          render={<Link to="/advance-payments/new" />}
-          size="sm"
-          variant="outline"
-        >
-          <HugeiconsIcon icon={MoneySendSquareIcon} strokeWidth={2} />
-          New Advance Payment
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+          New Request
         </Button>
       </div>
     </div>

@@ -59,14 +59,10 @@ All paths are relative to project root.
 |---|---|
 | `routes/_app/index.tsx` | Dashboard |
 | `routes/_app/users.tsx` | User management |
-| `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
-| `routes/_app/reimbursements/index.tsx` | Reimbursements list |
-| `routes/_app/reimbursements/new.tsx` | Create reimbursement |
-| `routes/_app/reimbursements/$id.tsx` | View/edit reimbursement |
-| `routes/_app/advance-payments/route.tsx` | Advance payments layout |
-| `routes/_app/advance-payments/index.tsx` | Advance payments list |
-| `routes/_app/advance-payments/new.tsx` | Create advance payment |
-| `routes/_app/advance-payments/$id.tsx` | View/edit advance payment |
+| `routes/_app/requests/route.tsx` | Requests layout |
+| `routes/_app/requests/index.tsx` | Requests list (combined reimbursements + advance payments) |
+| `routes/_app/requests/new.tsx` | Create request (type picker) |
+| `routes/_app/requests/$id.tsx` | View/edit request (resolves type from ID) |
 | `routes/_app/teams/route.tsx` | Teams layout |
 | `routes/_app/teams/index.tsx` | Teams list |
 | `routes/_app/teams/$id.tsx` | Team detail |
@@ -97,8 +93,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
 | `components/users/` | users-table, user-form, password-form, ban-user-form, delete-user-dialog |
-| `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats |
-| `components/advance-payments/` | advance-payments-table, advance-payment-form, advance-payment-detail, advance-payment-stats |
+| `components/requests/` | requests-table, request-form, request-detail, request-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
@@ -153,7 +148,8 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/table-utils.ts` | Table state utilities |
 | `lib/errors.ts` | Error handling utilities |
 | `lib/logger.ts` | evlog init (imported at server startup) |
-| `lib/attachment-links.ts` | Generic attachment URL helpers (shared by reimbursements & advance payments) |
+| `lib/attachment-links.ts` | Generic attachment URL helpers |
+| `lib/request-types.ts` | Union types, type guards, and normalizer for unified requests module |
 | `lib/stats.ts` | Shared stat computation helpers |
 | `lib/status-badge.ts` | Status → badge variant mapping |
 | `lib/submission-mappers.ts` | Map Zero rows to form/display models |
@@ -183,7 +179,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
 | `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update, event-interest, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, advance-payments, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page, advance-payment-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
+| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, requests, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, request-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
 
@@ -240,13 +236,13 @@ All lib paths above are prefixed with `apps/web/src/`.
 ## E2E Testing
 
 - **When to write E2E tests**: Write E2E tests when adding a major feature (new route/page, new CRUD workflow, new role-gated capability). Minor UI tweaks and refactors do not require E2E tests.
-- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `reimbursements/`, `advance-payments/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
+- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `requests/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
 - **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up. Pass test file paths as args for targeted runs (e.g., `bash run-e2e.sh tests/reimbursements/reimbursement-delete.spec.ts`).
 - **Timeout**: Global timeout is 45s. Use `test.slow()` (triples to 135s) for multi-step CRUD tests.
 - **Projects**: Three Playwright projects — `admin` (authenticated as admin), `volunteer` (authenticated as volunteer), `unauthenticated` (no auth, for login/forgot-password tests).
 - **Auth state**: Global setup (`packages/e2e/global-setup.ts`) logs in both test users and saves storage state to `packages/e2e/.auth/`. Feature tests reuse these sessions.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`, `consoleErrors`). The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
-- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `ReimbursementPage` and `AdvancePaymentPage` for feature tests — they compose `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`. New feature test suites should follow this pattern.
+- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `RequestPage` for request feature tests — it composes `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`, parameterized by type (`"reimbursement"` or `"advance_payment"`). New feature test suites should follow this pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via direct API calls to `/api/zero/mutate`.
 - **Seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts. Extend this file when new seed data is needed.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
@@ -262,11 +258,11 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 ### DataTableWrapper
 
-Generic `DataTableWithFilters<TData>` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, reimbursements-table) are thin wrappers that pass columns, data, and filter config.
+Generic `DataTableWithFilters<TData>` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, requests-table) are thin wrappers that pass columns, data, and filter config.
 
 ### Adding a New Table
 
-Every feature table follows the same structure. Use existing tables (reimbursements-table, advance-payments-table, events/public-events-table) as reference.
+Every feature table follows the same structure. Use existing tables (requests-table, events/public-events-table) as reference.
 
 1. **Row type**: Define `export type FooRow = ZeroModel & { ...relations }` at the top of the table component file.
 2. **Search function**: Module-level `function searchFoo(row: FooRow, query: string): boolean` — check relevant text fields against `query.trim().toLowerCase()`.

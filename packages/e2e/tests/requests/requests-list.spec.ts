@@ -1,17 +1,18 @@
 import { expect, test } from "../../fixtures/test";
-import { AdvancePaymentPage } from "../../pages/advance-payment-page";
+import { RequestPage } from "../../pages/request-page";
 
-test.describe("Advance payments list", () => {
-  let ap: AdvancePaymentPage;
+test.describe("Requests list", () => {
+  let requests: RequestPage;
 
   test.beforeEach(async ({ page }) => {
-    ap = new AdvancePaymentPage(page);
-    await ap.navigateToList();
+    requests = new RequestPage(page, "reimbursement");
+    await requests.navigateToList();
   });
 
   test("renders table with expected columns", async () => {
-    const headers = ap.list.getColumnHeaders();
+    const headers = requests.list.getColumnHeaders();
     await expect(headers.filter({ hasText: /Title/ })).toBeVisible();
+    await expect(headers.filter({ hasText: /Type/ })).toBeVisible();
     await expect(headers.filter({ hasText: /Status/ })).toBeVisible();
     await expect(headers.filter({ hasText: /Total/ })).toBeVisible();
     await expect(headers.filter({ hasText: /Submitted/ })).toBeVisible();
@@ -19,22 +20,20 @@ test.describe("Advance payments list", () => {
 
   test("search box is present", async () => {
     await expect(
-      ap.list.getSearchInput("Search advance payments...")
+      requests.list.getSearchInput("Search requests...")
     ).toBeVisible();
   });
 
-  test("New request button navigates to /advance-payments/new", async ({
-    page,
-  }) => {
-    await ap.list.getNewRequestButton().click();
-    await page.waitForURL(/\/advance-payments\/new/);
+  test("New request button navigates to /requests/new", async ({ page }) => {
+    await requests.list.getNewRequestButton().click();
+    await page.waitForURL(/\/requests\/new/);
     await expect(
-      page.getByRole("heading", { name: "New Advance Payment" })
+      page.getByRole("heading", { name: "New Request" })
     ).toBeVisible();
   });
 
   test("columns dropdown toggles column visibility", async ({ page }) => {
-    await ap.list.getColumnsButton().click();
+    await requests.list.getColumnsButton().click();
     await expect(
       page.getByRole("menuitemcheckbox", { name: "Title" })
     ).toBeVisible();
@@ -46,7 +45,7 @@ test.describe("Advance payments list", () => {
   });
 
   test("shows stats cards", async () => {
-    const cards = ap.list.getStatsCards();
+    const cards = requests.list.getStatsCards();
     await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
     await expect(cards.getByText("Pending")).toBeVisible();
     await expect(cards.getByText("Approved")).toBeVisible();

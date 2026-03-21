@@ -22,24 +22,20 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-pa
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
-import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
+import { Route as AppRequestsRouteRouteImport } from './routes/_app/requests/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
-import { Route as AppAdvancePaymentsRouteRouteImport } from './routes/_app/advance-payments/route'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
-import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbursements/index'
+import { Route as AppRequestsIndexRouteImport } from './routes/_app/requests/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
-import { Route as AppAdvancePaymentsIndexRouteImport } from './routes/_app/advance-payments/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
-import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
-import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimbursements/$id'
+import { Route as AppRequestsNewRouteImport } from './routes/_app/requests/new'
+import { Route as AppRequestsIdRouteImport } from './routes/_app/requests/$id'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
-import { Route as AppAdvancePaymentsNewRouteImport } from './routes/_app/advance-payments/new'
-import { Route as AppAdvancePaymentsIdRouteImport } from './routes/_app/advance-payments/$id'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -105,9 +101,9 @@ const AppTeamsRouteRoute = AppTeamsRouteRouteImport.update({
   path: '/teams',
   getParentRoute: () => AppRoute,
 } as any)
-const AppReimbursementsRouteRoute = AppReimbursementsRouteRouteImport.update({
-  id: '/reimbursements',
-  path: '/reimbursements',
+const AppRequestsRouteRoute = AppRequestsRouteRouteImport.update({
+  id: '/requests',
+  path: '/requests',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
@@ -115,30 +111,20 @@ const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
   path: '/events',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAdvancePaymentsRouteRoute = AppAdvancePaymentsRouteRouteImport.update({
-  id: '/advance-payments',
-  path: '/advance-payments',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppTeamsIndexRoute = AppTeamsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppTeamsRouteRoute,
 } as any)
-const AppReimbursementsIndexRoute = AppReimbursementsIndexRouteImport.update({
+const AppRequestsIndexRoute = AppRequestsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppReimbursementsRouteRoute,
+  getParentRoute: () => AppRequestsRouteRoute,
 } as any)
 const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppEventsRouteRoute,
-} as any)
-const AppAdvancePaymentsIndexRoute = AppAdvancePaymentsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppAdvancePaymentsRouteRoute,
 } as any)
 const ApiZeroQueryRoute = ApiZeroQueryRouteImport.update({
   id: '/api/zero/query',
@@ -170,30 +156,20 @@ const AppTeamsIdRoute = AppTeamsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppTeamsRouteRoute,
 } as any)
-const AppReimbursementsNewRoute = AppReimbursementsNewRouteImport.update({
+const AppRequestsNewRoute = AppRequestsNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => AppReimbursementsRouteRoute,
+  getParentRoute: () => AppRequestsRouteRoute,
 } as any)
-const AppReimbursementsIdRoute = AppReimbursementsIdRouteImport.update({
+const AppRequestsIdRoute = AppRequestsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => AppReimbursementsRouteRoute,
+  getParentRoute: () => AppRequestsRouteRoute,
 } as any)
 const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AppEventsRouteRoute,
-} as any)
-const AppAdvancePaymentsNewRoute = AppAdvancePaymentsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AppAdvancePaymentsRouteRoute,
-} as any)
-const AppAdvancePaymentsIdRoute = AppAdvancePaymentsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AppAdvancePaymentsRouteRoute,
 } as any)
 const ApiImmichThumbnailIdRoute = ApiImmichThumbnailIdRouteImport.update({
   id: '/api/immich/thumbnail/$id',
@@ -203,9 +179,8 @@ const ApiImmichThumbnailIdRoute = ApiImmichThumbnailIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/advance-payments': typeof AppAdvancePaymentsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
-  '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
+  '/requests': typeof AppRequestsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/export': typeof AppExportRoute
   '/users': typeof AppUsersRoute
@@ -216,20 +191,17 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
-  '/advance-payments/$id': typeof AppAdvancePaymentsIdRoute
-  '/advance-payments/new': typeof AppAdvancePaymentsNewRoute
   '/events/$id': typeof AppEventsIdRoute
-  '/reimbursements/$id': typeof AppReimbursementsIdRoute
-  '/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/requests/$id': typeof AppRequestsIdRoute
+  '/requests/new': typeof AppRequestsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
-  '/advance-payments/': typeof AppAdvancePaymentsIndexRoute
   '/events/': typeof AppEventsIndexRoute
-  '/reimbursements/': typeof AppReimbursementsIndexRoute
+  '/requests/': typeof AppRequestsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
@@ -244,20 +216,17 @@ export interface FileRoutesByTo {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
-  '/advance-payments/$id': typeof AppAdvancePaymentsIdRoute
-  '/advance-payments/new': typeof AppAdvancePaymentsNewRoute
   '/events/$id': typeof AppEventsIdRoute
-  '/reimbursements/$id': typeof AppReimbursementsIdRoute
-  '/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/requests/$id': typeof AppRequestsIdRoute
+  '/requests/new': typeof AppRequestsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
-  '/advance-payments': typeof AppAdvancePaymentsIndexRoute
   '/events': typeof AppEventsIndexRoute
-  '/reimbursements': typeof AppReimbursementsIndexRoute
+  '/requests': typeof AppRequestsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
@@ -265,9 +234,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
-  '/_app/advance-payments': typeof AppAdvancePaymentsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
-  '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
+  '/_app/requests': typeof AppRequestsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/export': typeof AppExportRoute
   '/_app/users': typeof AppUsersRoute
@@ -279,20 +247,17 @@ export interface FileRoutesById {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/advance-payments/$id': typeof AppAdvancePaymentsIdRoute
-  '/_app/advance-payments/new': typeof AppAdvancePaymentsNewRoute
   '/_app/events/$id': typeof AppEventsIdRoute
-  '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
-  '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/_app/requests/$id': typeof AppRequestsIdRoute
+  '/_app/requests/new': typeof AppRequestsNewRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
-  '/_app/advance-payments/': typeof AppAdvancePaymentsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
-  '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
+  '/_app/requests/': typeof AppRequestsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
@@ -300,9 +265,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/advance-payments'
     | '/events'
-    | '/reimbursements'
+    | '/requests'
     | '/teams'
     | '/export'
     | '/users'
@@ -313,20 +277,17 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/avatar'
     | '/api/health'
-    | '/advance-payments/$id'
-    | '/advance-payments/new'
     | '/events/$id'
-    | '/reimbursements/$id'
-    | '/reimbursements/new'
+    | '/requests/$id'
+    | '/requests/new'
     | '/teams/$id'
     | '/api/attachments/download'
     | '/api/auth/$'
     | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
-    | '/advance-payments/'
     | '/events/'
-    | '/reimbursements/'
+    | '/requests/'
     | '/teams/'
     | '/api/immich/thumbnail/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -341,29 +302,25 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/avatar'
     | '/api/health'
-    | '/advance-payments/$id'
-    | '/advance-payments/new'
     | '/events/$id'
-    | '/reimbursements/$id'
-    | '/reimbursements/new'
+    | '/requests/$id'
+    | '/requests/new'
     | '/teams/$id'
     | '/api/attachments/download'
     | '/api/auth/$'
     | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
-    | '/advance-payments'
     | '/events'
-    | '/reimbursements'
+    | '/requests'
     | '/teams'
     | '/api/immich/thumbnail/$id'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
-    | '/_app/advance-payments'
     | '/_app/events'
-    | '/_app/reimbursements'
+    | '/_app/requests'
     | '/_app/teams'
     | '/_app/export'
     | '/_app/users'
@@ -375,20 +332,17 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/_app/'
-    | '/_app/advance-payments/$id'
-    | '/_app/advance-payments/new'
     | '/_app/events/$id'
-    | '/_app/reimbursements/$id'
-    | '/_app/reimbursements/new'
+    | '/_app/requests/$id'
+    | '/_app/requests/new'
     | '/_app/teams/$id'
     | '/api/attachments/download'
     | '/api/auth/$'
     | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
-    | '/_app/advance-payments/'
     | '/_app/events/'
-    | '/_app/reimbursements/'
+    | '/_app/requests/'
     | '/_app/teams/'
     | '/api/immich/thumbnail/$id'
   fileRoutesById: FileRoutesById
@@ -499,11 +453,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsRouteRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/reimbursements': {
-      id: '/_app/reimbursements'
-      path: '/reimbursements'
-      fullPath: '/reimbursements'
-      preLoaderRoute: typeof AppReimbursementsRouteRouteImport
+    '/_app/requests': {
+      id: '/_app/requests'
+      path: '/requests'
+      fullPath: '/requests'
+      preLoaderRoute: typeof AppRequestsRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/events': {
@@ -513,13 +467,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsRouteRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/advance-payments': {
-      id: '/_app/advance-payments'
-      path: '/advance-payments'
-      fullPath: '/advance-payments'
-      preLoaderRoute: typeof AppAdvancePaymentsRouteRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/teams/': {
       id: '/_app/teams/'
       path: '/'
@@ -527,12 +474,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsIndexRouteImport
       parentRoute: typeof AppTeamsRouteRoute
     }
-    '/_app/reimbursements/': {
-      id: '/_app/reimbursements/'
+    '/_app/requests/': {
+      id: '/_app/requests/'
       path: '/'
-      fullPath: '/reimbursements/'
-      preLoaderRoute: typeof AppReimbursementsIndexRouteImport
-      parentRoute: typeof AppReimbursementsRouteRoute
+      fullPath: '/requests/'
+      preLoaderRoute: typeof AppRequestsIndexRouteImport
+      parentRoute: typeof AppRequestsRouteRoute
     }
     '/_app/events/': {
       id: '/_app/events/'
@@ -540,13 +487,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/'
       preLoaderRoute: typeof AppEventsIndexRouteImport
       parentRoute: typeof AppEventsRouteRoute
-    }
-    '/_app/advance-payments/': {
-      id: '/_app/advance-payments/'
-      path: '/'
-      fullPath: '/advance-payments/'
-      preLoaderRoute: typeof AppAdvancePaymentsIndexRouteImport
-      parentRoute: typeof AppAdvancePaymentsRouteRoute
     }
     '/api/zero/query': {
       id: '/api/zero/query'
@@ -590,19 +530,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsIdRouteImport
       parentRoute: typeof AppTeamsRouteRoute
     }
-    '/_app/reimbursements/new': {
-      id: '/_app/reimbursements/new'
+    '/_app/requests/new': {
+      id: '/_app/requests/new'
       path: '/new'
-      fullPath: '/reimbursements/new'
-      preLoaderRoute: typeof AppReimbursementsNewRouteImport
-      parentRoute: typeof AppReimbursementsRouteRoute
+      fullPath: '/requests/new'
+      preLoaderRoute: typeof AppRequestsNewRouteImport
+      parentRoute: typeof AppRequestsRouteRoute
     }
-    '/_app/reimbursements/$id': {
-      id: '/_app/reimbursements/$id'
+    '/_app/requests/$id': {
+      id: '/_app/requests/$id'
       path: '/$id'
-      fullPath: '/reimbursements/$id'
-      preLoaderRoute: typeof AppReimbursementsIdRouteImport
-      parentRoute: typeof AppReimbursementsRouteRoute
+      fullPath: '/requests/$id'
+      preLoaderRoute: typeof AppRequestsIdRouteImport
+      parentRoute: typeof AppRequestsRouteRoute
     }
     '/_app/events/$id': {
       id: '/_app/events/$id'
@@ -610,20 +550,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$id'
       preLoaderRoute: typeof AppEventsIdRouteImport
       parentRoute: typeof AppEventsRouteRoute
-    }
-    '/_app/advance-payments/new': {
-      id: '/_app/advance-payments/new'
-      path: '/new'
-      fullPath: '/advance-payments/new'
-      preLoaderRoute: typeof AppAdvancePaymentsNewRouteImport
-      parentRoute: typeof AppAdvancePaymentsRouteRoute
-    }
-    '/_app/advance-payments/$id': {
-      id: '/_app/advance-payments/$id'
-      path: '/$id'
-      fullPath: '/advance-payments/$id'
-      preLoaderRoute: typeof AppAdvancePaymentsIdRouteImport
-      parentRoute: typeof AppAdvancePaymentsRouteRoute
     }
     '/api/immich/thumbnail/$id': {
       id: '/api/immich/thumbnail/$id'
@@ -634,24 +560,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface AppAdvancePaymentsRouteRouteChildren {
-  AppAdvancePaymentsIdRoute: typeof AppAdvancePaymentsIdRoute
-  AppAdvancePaymentsNewRoute: typeof AppAdvancePaymentsNewRoute
-  AppAdvancePaymentsIndexRoute: typeof AppAdvancePaymentsIndexRoute
-}
-
-const AppAdvancePaymentsRouteRouteChildren: AppAdvancePaymentsRouteRouteChildren =
-  {
-    AppAdvancePaymentsIdRoute: AppAdvancePaymentsIdRoute,
-    AppAdvancePaymentsNewRoute: AppAdvancePaymentsNewRoute,
-    AppAdvancePaymentsIndexRoute: AppAdvancePaymentsIndexRoute,
-  }
-
-const AppAdvancePaymentsRouteRouteWithChildren =
-  AppAdvancePaymentsRouteRoute._addFileChildren(
-    AppAdvancePaymentsRouteRouteChildren,
-  )
 
 interface AppEventsRouteRouteChildren {
   AppEventsIdRoute: typeof AppEventsIdRoute
@@ -667,23 +575,20 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
 
-interface AppReimbursementsRouteRouteChildren {
-  AppReimbursementsIdRoute: typeof AppReimbursementsIdRoute
-  AppReimbursementsNewRoute: typeof AppReimbursementsNewRoute
-  AppReimbursementsIndexRoute: typeof AppReimbursementsIndexRoute
+interface AppRequestsRouteRouteChildren {
+  AppRequestsIdRoute: typeof AppRequestsIdRoute
+  AppRequestsNewRoute: typeof AppRequestsNewRoute
+  AppRequestsIndexRoute: typeof AppRequestsIndexRoute
 }
 
-const AppReimbursementsRouteRouteChildren: AppReimbursementsRouteRouteChildren =
-  {
-    AppReimbursementsIdRoute: AppReimbursementsIdRoute,
-    AppReimbursementsNewRoute: AppReimbursementsNewRoute,
-    AppReimbursementsIndexRoute: AppReimbursementsIndexRoute,
-  }
+const AppRequestsRouteRouteChildren: AppRequestsRouteRouteChildren = {
+  AppRequestsIdRoute: AppRequestsIdRoute,
+  AppRequestsNewRoute: AppRequestsNewRoute,
+  AppRequestsIndexRoute: AppRequestsIndexRoute,
+}
 
-const AppReimbursementsRouteRouteWithChildren =
-  AppReimbursementsRouteRoute._addFileChildren(
-    AppReimbursementsRouteRouteChildren,
-  )
+const AppRequestsRouteRouteWithChildren =
+  AppRequestsRouteRoute._addFileChildren(AppRequestsRouteRouteChildren)
 
 interface AppTeamsRouteRouteChildren {
   AppTeamsIdRoute: typeof AppTeamsIdRoute
@@ -700,9 +605,8 @@ const AppTeamsRouteRouteWithChildren = AppTeamsRouteRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
-  AppAdvancePaymentsRouteRoute: typeof AppAdvancePaymentsRouteRouteWithChildren
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
-  AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
+  AppRequestsRouteRoute: typeof AppRequestsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
   AppExportRoute: typeof AppExportRoute
   AppUsersRoute: typeof AppUsersRoute
@@ -710,9 +614,8 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdvancePaymentsRouteRoute: AppAdvancePaymentsRouteRouteWithChildren,
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
-  AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
+  AppRequestsRouteRoute: AppRequestsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
   AppExportRoute: AppExportRoute,
   AppUsersRoute: AppUsersRoute,

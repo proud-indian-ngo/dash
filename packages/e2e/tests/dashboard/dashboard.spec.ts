@@ -15,13 +15,15 @@ test.describe("Dashboard", () => {
     await expect(page.getByText(/Welcome\s/)).toBeVisible();
   });
 
-  test("shows stats cards", async ({ page }) => {
+  test("shows stats cards", async ({ page }, testInfo) => {
     const main = page.getByRole("main");
-    await expect(main.getByText("Reimbursements")).toBeVisible({
+    await expect(main.getByText("Requests")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(main.getByText("Advance Payments")).toBeVisible();
-    await expect(main.getByText("Pending Requests")).toBeVisible();
-    await expect(main.getByText("Total Users")).toBeVisible();
+    await expect(main.getByText("Pending")).toBeVisible();
+
+    if (testInfo.project.name === "admin") {
+      await expect(main.getByText("Total Users")).toBeVisible();
+    }
   });
 });

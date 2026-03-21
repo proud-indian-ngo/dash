@@ -55,6 +55,16 @@ function subFieldErrorProps(field: SubFieldApi) {
   return { hasError, errorId };
 }
 
+function formatFieldError(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return "";
+}
+
 function LineItemRow({
   categoryOptions,
   form,
@@ -63,13 +73,13 @@ function LineItemRow({
   onRemove,
 }: LineItemRowProps) {
   return (
-    <div className="grid grid-cols-[1fr_1fr_100px_32px] items-start gap-2">
+    <div className="grid grid-cols-[1fr_100px_32px] items-start gap-2 sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
         {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
           const { hasError, errorId } = subFieldErrorProps(field);
           return (
-            <>
+            <div className="col-span-3 min-w-0 sm:col-span-1">
               <Select
                 onValueChange={(selectedValue) =>
                   field.handleChange(selectedValue ?? "")
@@ -101,14 +111,14 @@ function LineItemRow({
               </Select>
               {hasError && (
                 <p
-                  className="text-destructive text-xs"
+                  className="mt-1 text-destructive text-xs"
                   id={errorId}
                   role="alert"
                 >
-                  {String(field.state.meta.errors[0])}
+                  {formatFieldError(field.state.meta.errors[0])}
                 </p>
               )}
-            </>
+            </div>
           );
         }}
       </form.Field>
@@ -118,7 +128,7 @@ function LineItemRow({
           const field = rawField as SubFieldApi;
           const { hasError, errorId } = subFieldErrorProps(field);
           return (
-            <>
+            <div className="min-w-0">
               <Input
                 aria-describedby={hasError ? errorId : undefined}
                 aria-invalid={hasError || undefined}
@@ -130,14 +140,14 @@ function LineItemRow({
               />
               {hasError && (
                 <p
-                  className="text-destructive text-xs"
+                  className="mt-1 text-destructive text-xs"
                   id={errorId}
                   role="alert"
                 >
-                  {String(field.state.meta.errors[0])}
+                  {formatFieldError(field.state.meta.errors[0])}
                 </p>
               )}
-            </>
+            </div>
           );
         }}
       </form.Field>
@@ -147,7 +157,7 @@ function LineItemRow({
           const field = rawField as SubFieldApi;
           const { hasError, errorId } = subFieldErrorProps(field);
           return (
-            <>
+            <div className="min-w-0">
               <Input
                 aria-describedby={hasError ? errorId : undefined}
                 aria-invalid={hasError || undefined}
@@ -163,14 +173,14 @@ function LineItemRow({
               />
               {hasError && (
                 <p
-                  className="text-destructive text-xs"
+                  className="mt-1 text-destructive text-xs"
                   id={errorId}
                   role="alert"
                 >
-                  {String(field.state.meta.errors[0])}
+                  {formatFieldError(field.state.meta.errors[0])}
                 </p>
               )}
-            </>
+            </div>
           );
         }}
       </form.Field>

@@ -13,34 +13,17 @@ test.describe("Volunteer role restrictions", () => {
     ).toBeVisible();
   });
 
-  test("volunteer sees empty reimbursements list (data isolation)", async ({
+  test("volunteer sees requests list (data isolation)", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-    await page.goto("/reimbursements");
-    await expect(
-      page.getByRole("heading", { name: "Reimbursements" })
-    ).toBeVisible();
+    await page.goto("/requests");
+    await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
 
     // Volunteer should see own-data description
     await expect(
-      page.getByText("Submit and track your reimbursement requests.")
-    ).toBeVisible();
-
-    // Wait for table to load — volunteer may have no reimbursements
-    const table = page.getByRole("table");
-    await expect(table).toBeVisible({ timeout: 15_000 });
-  });
-
-  test("volunteer sees empty advance payments list (data isolation)", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/advance-payments");
-    await expect(
-      page.getByRole("heading", { name: "Advance Payments" })
+      page.getByText("Submit and track your requests.")
     ).toBeVisible();
 
     // Wait for table to load
@@ -48,12 +31,12 @@ test.describe("Volunteer role restrictions", () => {
     await expect(table).toBeVisible({ timeout: 15_000 });
   });
 
-  test("admin sees management description for reimbursements", async ({
+  test("admin sees management description for requests", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    await page.goto("/reimbursements");
+    await page.goto("/requests");
     await expect(page.getByText("Review and manage all")).toBeVisible();
   });
 });

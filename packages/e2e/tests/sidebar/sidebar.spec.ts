@@ -19,12 +19,7 @@ test.describe("Sidebar navigation", () => {
   test("nav links are present", async ({ page }, testInfo) => {
     const nav = page.locator("[data-sidebar='content']");
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Reimbursements" })
-    ).toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Advance Payments" })
-    ).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Requests" })).toBeVisible();
 
     if (testInfo.project.name === "admin") {
       await expect(nav.getByRole("link", { name: "Users" })).toBeVisible();
@@ -33,22 +28,11 @@ test.describe("Sidebar navigation", () => {
     }
   });
 
-  test("clicking Reimbursements navigates correctly", async ({ page }) => {
+  test("clicking Requests navigates correctly", async ({ page }) => {
     const nav = page.locator("[data-sidebar='content']");
-    await nav.getByRole("link", { name: "Reimbursements" }).click();
-    await page.waitForURL(/\/reimbursements/);
-    await expect(
-      page.getByRole("heading", { name: "Reimbursements" })
-    ).toBeVisible();
-  });
-
-  test("clicking Advance Payments navigates correctly", async ({ page }) => {
-    const nav = page.locator("[data-sidebar='content']");
-    await nav.getByRole("link", { name: "Advance Payments" }).click();
-    await page.waitForURL(/\/advance-payments/);
-    await expect(
-      page.getByRole("heading", { name: "Advance Payments" })
-    ).toBeVisible();
+    await nav.getByRole("link", { name: "Requests" }).click();
+    await page.waitForURL(/\/requests/);
+    await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
   });
 
   test("user menu opens dropdown with Settings, Notifications, Log out", async ({

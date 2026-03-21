@@ -11,31 +11,22 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import type {
-  ExpenseCategory,
-  Reimbursement,
-  ReimbursementLineItem,
-  User,
-} from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
+import {
+  isReimbursement,
+  REQUEST_TYPE_LABELS,
+  type RequestRow,
+} from "@/lib/request-types";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
-export type ReimbursementRow = Reimbursement & {
-  lineItems: ReadonlyArray<
-    ReimbursementLineItem & { category: ExpenseCategory | undefined }
-  >;
-  user: User | undefined;
-};
-
-function computeTotal(lineItems: ReimbursementRow["lineItems"]): number {
+function computeTotal(lineItems: RequestRow["lineItems"]): number {
   return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
 }
 
@@ -52,11 +43,12 @@ const SKELETON_CREATED_BY = (
 const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
 const SKELETON_TOTAL = <Skeleton className="h-5 w-20" />;
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
+const SKELETON_TYPE = <Skeleton className="h-6 w-24" />;
 
-interface ReimbursementsTableProps {
-  data: ReimbursementRow[];
+interface RequestsTableProps {
+  data: RequestRow[];
   isLoading?: boolean;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (row: RequestRow) => Promise<void>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
@@ -108,37 +100,57 @@ function RowActions({
   );
 }
 
-function searchReimbursement(row: ReimbursementRow, query: string): boolean {
+function searchRequest(row: RequestRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;
   }
-  return [row.title, row.city ?? "", row.status, row.user?.name ?? ""]
+  return [
+    row.title,
+    row.city ?? "",
+    row.status,
+    row.user?.name ?? "",
+    REQUEST_TYPE_LABELS[row.type],
+  ]
     .join(" ")
     .toLowerCase()
     .includes(q);
 }
 
-export function ReimbursementsTable({
+export function RequestsTable({
   data,
   isLoading,
   onDelete,
   onNavigate,
   toolbarActions,
   toolbarFilters,
-}: ReimbursementsTableProps) {
+}: RequestsTableProps) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
   const isAdmin = session?.user?.role === "admin";
 
-  const deleteAction = useConfirmAction<string>({
-    onConfirm: async (id) => {
-      await onDelete(id);
-      return { type: "ok" };
-    },
-  });
+  const [deleteTarget, setDeleteTarget] = useState<{
+    row: RequestRow;
+    type: "reimbursement" | "advance_payment";
+  } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
 
-  const columns = useMemo<ColumnDef<ReimbursementRow>[]>(
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await onDeleteRef.current(deleteTarget.row);
+    } finally {
+      setDeleteLoading(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget]);
+
+  const columns = useMemo<ColumnDef<RequestRow>[]>(
     () => [
       {
         id: "title",
@@ -162,6 +174,24 @@ export function ReimbursementsTable({
         ),
         meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
         size: 240,
+      },
+      {
+        id: "type",
+        accessorFn: (row) => REQUEST_TYPE_LABELS[row.type],
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Type"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            {REQUEST_TYPE_LABELS[row.original.type]}
+          </Badge>
+        ),
+        meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
+        size: 150,
       },
       {
         id: "createdBy",
@@ -240,7 +270,7 @@ export function ReimbursementsTable({
       },
       {
         id: "expenseDate",
-        accessorFn: (row) => row.expenseDate,
+        accessorFn: (row) => (isReimbursement(row) ? row.expenseDate : null),
         header: ({ column }) => (
           <DataGridColumnHeader
             column={column}
@@ -248,13 +278,17 @@ export function ReimbursementsTable({
             visibility={true}
           />
         ),
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {row.original.expenseDate
-              ? format(new Date(row.original.expenseDate), "dd/MM/yyyy")
-              : "—"}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          if (!(isReimbursement(r) && r.expenseDate)) {
+            return <span className="text-muted-foreground text-sm">—</span>;
+          }
+          return (
+            <span className="text-sm">
+              {format(new Date(r.expenseDate), "dd/MM/yyyy")}
+            </span>
+          );
+        },
         meta: { headerTitle: "Expense Date", skeleton: SKELETON_DATE },
         size: 130,
       },
@@ -285,13 +319,15 @@ export function ReimbursementsTable({
         cell: ({ row }) => {
           const r = row.original;
           const isOwner = r.userId === currentUserId;
-          const canDelete = isAdmin || (isOwner && r.status === "pending");
+          const canDelete =
+            isAdmin ||
+            (isOwner && (r.status === "pending" || r.status === "draft"));
           return (
             <RowActions
               canDelete={canDelete}
               id={r.id}
               onNavigate={onNavigate}
-              onRequestDelete={() => deleteAction.trigger(r.id)}
+              onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
             />
           );
         },
@@ -304,20 +340,24 @@ export function ReimbursementsTable({
         minSize: 52,
       },
     ],
-    [currentUserId, isAdmin, onNavigate, deleteAction.trigger]
+    [currentUserId, isAdmin, onNavigate]
   );
+
+  const deleteType = deleteTarget
+    ? REQUEST_TYPE_LABELS[deleteTarget.type].toLowerCase()
+    : "request";
 
   return (
     <>
-      <DataTableWrapper<ReimbursementRow>
+      <DataTableWrapper<RequestRow>
         columns={columns}
         data={data}
-        emptyMessage="No reimbursements found."
+        emptyMessage="No requests found."
         getRowId={(row) => row.id}
         isLoading={isLoading}
-        searchFn={searchReimbursement}
-        searchPlaceholder="Search reimbursements..."
-        storageKey="reimbursements_table_state_v1"
+        searchFn={searchRequest}
+        searchPlaceholder="Search requests..."
+        storageKey="requests_table_state_v1"
         tableLayout={{
           columnsResizable: true,
           columnsDraggable: true,
@@ -329,17 +369,17 @@ export function ReimbursementsTable({
       />
       <ConfirmDialog
         confirmLabel="Delete"
-        description="This will permanently delete this reimbursement including all line items and attachments. This action cannot be undone."
-        loading={deleteAction.isLoading}
+        description={`This will permanently delete this ${deleteType} including all line items and attachments. This action cannot be undone.`}
+        loading={deleteLoading}
         loadingLabel="Deleting..."
-        onConfirm={deleteAction.confirm}
+        onConfirm={confirmDelete}
         onOpenChange={(open) => {
           if (!open) {
-            deleteAction.cancel();
+            setDeleteTarget(null);
           }
         }}
-        open={deleteAction.isOpen}
-        title="Delete reimbursement"
+        open={deleteTarget !== null}
+        title={`Delete ${deleteType}`}
       />
     </>
   );

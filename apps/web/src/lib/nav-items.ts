@@ -3,7 +3,6 @@ import {
   FileExportIcon,
   HomeIcon,
   Invoice01Icon,
-  MoneySendSquareIcon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -35,33 +34,15 @@ const exportNavItem: NavItem = {
   icon: FileExportIcon,
 };
 
-const reimbursementsNavItem: NavItem = {
-  title: "Reimbursements",
-  url: "/reimbursements",
+const requestsNavItem: NavItem = {
+  title: "Requests",
+  url: "/requests",
   icon: Invoice01Icon,
   subItems: [
-    { title: "New Reimbursement", url: "/reimbursements/new", isHidden: true },
+    { title: "New Request", url: "/requests/new", isHidden: true },
     {
-      title: "Reimbursement Details",
-      url: "/reimbursements/$id",
-      isHidden: true,
-    },
-  ],
-};
-
-const advancePaymentsNavItem: NavItem = {
-  title: "Advance Payments",
-  url: "/advance-payments",
-  icon: MoneySendSquareIcon,
-  subItems: [
-    {
-      title: "New Advance Payment",
-      url: "/advance-payments/new",
-      isHidden: true,
-    },
-    {
-      title: "Advance Payment Details",
-      url: "/advance-payments/$id",
+      title: "Request Details",
+      url: "/requests/$id",
       isHidden: true,
     },
   ],
@@ -89,13 +70,7 @@ export function buildNavItems(
     return [homeNavItem, eventsNavItem];
   }
 
-  const items = [
-    homeNavItem,
-    reimbursementsNavItem,
-    advancePaymentsNavItem,
-    teamsNavItem,
-    eventsNavItem,
-  ];
+  const items = [homeNavItem, requestsNavItem, teamsNavItem, eventsNavItem];
 
   if (isAdmin) {
     items.push(usersNavItem);
@@ -117,7 +92,7 @@ export function buildNavGroups(
     { items: [homeNavItem] },
     {
       label: "Finance",
-      items: [reimbursementsNavItem, advancePaymentsNavItem],
+      items: [requestsNavItem],
     },
     {
       label: "Organization",

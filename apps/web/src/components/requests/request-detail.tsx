@@ -7,14 +7,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
-import type {
-  ExpenseCategory,
-  Reimbursement,
-  ReimbursementAttachment,
-  ReimbursementHistory,
-  ReimbursementLineItem,
-  User,
-} from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -29,26 +21,22 @@ import {
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  isReimbursement,
+  REQUEST_TYPE_LABELS,
+  type RequestDetailData,
+} from "@/lib/request-types";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
-export type ReimbursementDetailData = Reimbursement & {
-  lineItems: ReadonlyArray<
-    ReimbursementLineItem & { category: ExpenseCategory | undefined }
-  >;
-  attachments: readonly ReimbursementAttachment[];
-  history: ReadonlyArray<ReimbursementHistory & { actor?: User | undefined }>;
-  user: User | undefined;
-};
-
-interface ReimbursementDetailProps {
+interface RequestDetailProps {
   isAdmin: boolean;
-  reimbursement: ReimbursementDetailData;
+  request: RequestDetailData;
 }
 
 function HistoryEntry({
   entry,
 }: {
-  entry: ReimbursementDetailData["history"][number];
+  entry: RequestDetailData["history"][number];
 }) {
   return (
     <div className="flex gap-3">
@@ -73,18 +61,21 @@ function HistoryEntry({
   );
 }
 
-export function ReimbursementDetail({
-  isAdmin,
-  reimbursement,
-}: ReimbursementDetailProps) {
+export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
   const zero = useZero();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
-  const { label, variant } =
-    STATUS_BADGE_MAP[reimbursement.status ?? "draft"] ?? STATUS_BADGE_MAP.draft;
+  const typeLabel = REQUEST_TYPE_LABELS[request.type];
+  const mutatorNs =
+    request.type === "reimbursement"
+      ? mutators.reimbursement
+      : mutators.advancePayment;
 
-  const total = reimbursement.lineItems.reduce(
+  const { label, variant } =
+    STATUS_BADGE_MAP[request.status ?? "draft"] ?? STATUS_BADGE_MAP.draft;
+
+  const total = request.lineItems.reduce(
     (sum, item) => sum + Number(item.amount),
     0
   );
@@ -92,17 +83,17 @@ export function ReimbursementDetail({
   const handleApprove = (message: string) => {
     zero
       .mutate(
-        mutators.reimbursement.approve({
-          id: reimbursement.id,
+        mutatorNs.approve({
+          id: request.id,
           note: message || undefined,
         })
       )
       .server.then((res) => {
         handleMutationResult(res, {
-          mutation: "reimbursement.approve",
-          entityId: reimbursement.id,
-          successMsg: "Reimbursement approved",
-          errorMsg: "Failed to approve reimbursement",
+          mutation: `${request.type === "reimbursement" ? "reimbursement" : "advancePayment"}.approve`,
+          entityId: request.id,
+          successMsg: `${typeLabel} approved`,
+          errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
         });
         if (res.type !== "error") {
           setApproveOpen(false);
@@ -112,13 +103,13 @@ export function ReimbursementDetail({
 
   const handleReject = (reason: string) => {
     zero
-      .mutate(mutators.reimbursement.reject({ id: reimbursement.id, reason }))
+      .mutate(mutatorNs.reject({ id: request.id, reason }))
       .server.then((res) => {
         handleMutationResult(res, {
-          mutation: "reimbursement.reject",
-          entityId: reimbursement.id,
-          successMsg: "Reimbursement rejected",
-          errorMsg: "Failed to reject reimbursement",
+          mutation: `${request.type === "reimbursement" ? "reimbursement" : "advancePayment"}.reject`,
+          entityId: request.id,
+          successMsg: `${typeLabel} rejected`,
+          errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,
         });
         if (res.type !== "error") {
           setRejectOpen(false);
@@ -132,21 +123,23 @@ export function ReimbursementDetail({
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="font-semibold text-2xl">{reimbursement.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-semibold text-2xl">{request.title}</h1>
+              <Badge variant="outline">{typeLabel}</Badge>
+            </div>
             <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-              {reimbursement.city ? <span>{reimbursement.city}</span> : null}
-              <span>
-                {format(new Date(reimbursement.expenseDate), "MMMM d, yyyy")}
-              </span>
-              {reimbursement.bankAccountName &&
-              reimbursement.bankAccountNumber ? (
+              {request.city ? <span>{request.city}</span> : null}
+              {isReimbursement(request) ? (
+                <span>{format(request.expenseDate, "MMMM d, yyyy")}</span>
+              ) : null}
+              {request.bankAccountName && request.bankAccountNumber ? (
                 <span>
-                  {reimbursement.bankAccountName} ( ••••
-                  {reimbursement.bankAccountNumber.slice(-4)})
+                  {request.bankAccountName} ( ••••
+                  {request.bankAccountNumber.slice(-4)})
                 </span>
               ) : null}
             </div>
-            {reimbursement.user ? (
+            {request.user ? (
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-muted-foreground text-sm">
                   Requested by
@@ -154,11 +147,9 @@ export function ReimbursementDetail({
                 <UserAvatar
                   className="size-6"
                   fallbackClassName="text-xs"
-                  user={reimbursement.user}
+                  user={request.user}
                 />
-                <span className="font-medium text-sm">
-                  {reimbursement.user.name}
-                </span>
+                <span className="font-medium text-sm">{request.user.name}</span>
               </div>
             ) : null}
           </div>
@@ -166,7 +157,7 @@ export function ReimbursementDetail({
         </div>
 
         {/* Admin actions */}
-        {isAdmin && reimbursement.status === "pending" ? (
+        {isAdmin && request.status === "pending" ? (
           <>
             <div className="flex gap-2">
               <Button
@@ -199,18 +190,17 @@ export function ReimbursementDetail({
         ) : null}
 
         {/* Rejection reason */}
-        {reimbursement.status === "rejected" &&
-        reimbursement.rejectionReason ? (
+        {request.status === "rejected" && request.rejectionReason ? (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm">
             <span className="font-medium">Rejection reason: </span>
-            {reimbursement.rejectionReason}
+            {request.rejectionReason}
           </div>
         ) : null}
 
         {/* Line items */}
         <div className="flex flex-col gap-3">
           <h2 className="font-medium text-sm">Line items</h2>
-          {reimbursement.lineItems.length > 0 ? (
+          {request.lineItems.length > 0 ? (
             <div className="overflow-hidden rounded-md border">
               <table className="w-full text-sm">
                 <thead>
@@ -225,7 +215,7 @@ export function ReimbursementDetail({
                   </tr>
                 </thead>
                 <tbody>
-                  {reimbursement.lineItems.map((item) => (
+                  {request.lineItems.map((item) => (
                     <tr className="border-b last:border-0" key={item.id}>
                       <td className="px-3 py-2">
                         {item.category?.name ?? "—"}
@@ -259,11 +249,11 @@ export function ReimbursementDetail({
         </div>
 
         {/* Attachments */}
-        {reimbursement.attachments.length > 0 ? (
+        {request.attachments.length > 0 ? (
           <div className="flex flex-col gap-3">
             <h2 className="font-medium text-sm">Attachments</h2>
             <div className="flex flex-col gap-1.5">
-              {reimbursement.attachments.map((att) => (
+              {request.attachments.map((att) => (
                 <div
                   className="flex items-center justify-between gap-2 rounded-md border px-3 py-2"
                   key={att.id}
@@ -319,13 +309,13 @@ export function ReimbursementDetail({
         ) : null}
 
         {/* History */}
-        {reimbursement.history.length > 0 ? (
+        {request.history.length > 0 ? (
           <>
             <Separator />
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {reimbursement.history.map((entry) => (
+                {request.history.map((entry) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>
@@ -334,13 +324,13 @@ export function ReimbursementDetail({
         ) : null}
 
         <ApproveDialog
-          entityLabel="reimbursement"
+          entityLabel={typeLabel.toLowerCase()}
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
         />
         <RejectDialog
-          entityLabel="reimbursement"
+          entityLabel={typeLabel.toLowerCase()}
           onConfirm={handleReject}
           onOpenChange={setRejectOpen}
           open={rejectOpen}

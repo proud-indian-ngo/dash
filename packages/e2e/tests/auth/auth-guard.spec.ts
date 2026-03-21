@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Auth guard", () => {
-  for (const route of ["/", "/users", "/reimbursements", "/advance-payments"]) {
+  for (const route of ["/", "/users", "/requests"]) {
     test(`${route} redirects to /login when unauthenticated`, async ({
       page,
     }) => {

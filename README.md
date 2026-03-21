@@ -1,6 +1,6 @@
 # pi-dash
 
-A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process reimbursement and advance payment workflows — with real-time data sync powered by Rocicorp Zero and multi-channel notifications via Courier.
+A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process financial request workflows (reimbursements and advance payments) — with real-time data sync powered by Rocicorp Zero and multi-channel notifications via Courier.
 
 > Sign-up is disabled by design. Only admins can create new accounts.
 
@@ -38,16 +38,15 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Password reset | Admin can reset any user's password |
 | Email verification | Verification email sent on account creation |
 | Orientation tracking | Track whether a volunteer attended orientation |
-| Reimbursements | Submit, review, approve/reject reimbursement requests with line items |
-| Advance payments | Request, review, approve/reject advance payment requests with line items |
+| Requests | Unified view for reimbursement and advance payment requests — submit, review, approve/reject with line items and type filter |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
-| File attachments | Upload files to Cloudflare R2; attach URLs to reimbursements |
-| Bank accounts | Users manage bank accounts for reimbursement payouts |
-| Expense categories | Admin-managed categories for reimbursement line items |
+| File attachments | Upload files to Cloudflare R2; attach URLs to requests |
+| Bank accounts | Users manage bank accounts for request payouts |
+| Expense categories | Admin-managed categories for request line items |
 | Notifications | Multi-channel notifications via Courier; per-user topic preferences |
 | WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
 | CSV export | Export data tables to CSV files |

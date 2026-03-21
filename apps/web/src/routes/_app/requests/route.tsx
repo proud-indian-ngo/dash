@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { assertOriented } from "@/lib/route-guards";
 
-export const Route = createFileRoute("/_app/reimbursements")({
+export const Route = createFileRoute("/_app/requests")({
   beforeLoad: ({ context }) => assertOriented(context),
   component: () => <Outlet />,
 });
