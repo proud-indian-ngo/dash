@@ -16,9 +16,7 @@
         "src/entry-server.ts",
         "server/**",
         "src/lib/logger.ts",
-        "src/stubs/**",
-        "src/components/vendors/**",
-        "src/routes/_app/vendors/**"
+        "src/stubs/**"
       ]
     },
     "packages/db": {
@@ -29,13 +27,8 @@
       "ignoreFiles": ["global-setup.ts"]
     },
     "packages/design-system": {
-      "ignoreFiles": ["components/**", "hooks/**", "styles.css"],
-      "ignoreDependencies": [
-        "@tailwindcss/.*",
-        "tailwindcss",
-        "tw-animate-css",
-        "@fontsource-variable/inter"
-      ]
+      "ignoreFiles": ["components/**", "hooks/**"],
+      "ignoreDependencies": ["@tailwindcss/.*"]
     }
   }
 }

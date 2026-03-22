@@ -18,7 +18,6 @@ import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { useApp } from "@/context/app-context";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
-// @ts-expect-error Route tree will be regenerated on dev server start
 export const Route = createFileRoute("/_app/vendors/")({
   head: () => ({
     meta: [{ title: `Vendors | ${env.VITE_APP_NAME}` }],
