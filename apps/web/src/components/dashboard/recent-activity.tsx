@@ -34,7 +34,7 @@ interface ActivityItem {
   type: "reimbursement" | "advance_payment";
 }
 
-const MAX_ITEMS = 8;
+const MAX_ITEMS = 5;
 
 function toActivityItems(
   items: readonly RequestItem[],
@@ -74,15 +74,35 @@ function RecentActivityEmpty() {
 }
 
 function RecentActivityContent({
-  activities,
+  advancePayments,
   isLoading,
+  reimbursements,
 }: {
-  activities: ActivityItem[];
+  advancePayments: readonly RequestItem[];
   isLoading?: boolean;
+  reimbursements: readonly RequestItem[];
 }) {
   if (isLoading) {
     return <RecentActivitySkeleton />;
   }
+
+  const activities = [
+    ...toActivityItems(
+      reimbursements,
+      "reimbursement",
+      Invoice01Icon,
+      "Reimbursement"
+    ),
+    ...toActivityItems(
+      advancePayments,
+      "advance_payment",
+      MoneyReceiveSquareIcon,
+      "Advance Payment"
+    ),
+  ]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, MAX_ITEMS);
+
   if (activities.length === 0) {
     return <RecentActivityEmpty />;
   }
@@ -142,23 +162,6 @@ export function RecentActivity({
   isLoading?: boolean;
   reimbursements: readonly RequestItem[];
 }) {
-  const activities = [
-    ...toActivityItems(
-      reimbursements,
-      "reimbursement",
-      Invoice01Icon,
-      "Reimbursement"
-    ),
-    ...toActivityItems(
-      advancePayments,
-      "advance_payment",
-      MoneyReceiveSquareIcon,
-      "Advance Payment"
-    ),
-  ]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, MAX_ITEMS);
-
   return (
     <Card>
       <CardHeader>
@@ -172,7 +175,11 @@ export function RecentActivity({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <RecentActivityContent activities={activities} isLoading={isLoading} />
+        <RecentActivityContent
+          advancePayments={advancePayments}
+          isLoading={isLoading}
+          reimbursements={reimbursements}
+        />
       </CardContent>
     </Card>
   );

@@ -12,7 +12,7 @@ import { Link } from "@tanstack/react-router";
 interface Team {
   description: string | null;
   id: string;
-  members: readonly { id: string }[];
+  members: readonly unknown[];
   name: string;
 }
 
