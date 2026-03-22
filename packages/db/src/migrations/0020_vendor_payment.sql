@@ -23,7 +23,7 @@ CREATE TABLE "vendor_payment" (
 	"vendor_id" uuid NOT NULL,
 	"title" text NOT NULL,
 	"invoice_number" text,
-	"invoice_date" text NOT NULL,
+	"invoice_date" date NOT NULL,
 	"status" "vendor_payment_status" DEFAULT 'draft' NOT NULL,
 	"rejection_reason" text,
 	"approval_screenshot_key" text,

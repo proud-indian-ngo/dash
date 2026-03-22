@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -76,7 +77,7 @@ export const vendorPayment = pgTable(
       .references(() => vendor.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     invoiceNumber: text("invoice_number"),
-    invoiceDate: text("invoice_date").notNull(),
+    invoiceDate: date("invoice_date", { mode: "string" }).notNull(),
     status: vendorPaymentStatusEnum("status").default("draft").notNull(),
     rejectionReason: text("rejection_reason"),
     approvalScreenshotKey: text("approval_screenshot_key"),
