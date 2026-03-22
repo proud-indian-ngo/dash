@@ -95,7 +95,9 @@ function RequestsRouteComponent() {
             .map((a) => a.objectKey as string) ?? [];
 
         if (r2Keys.length > 0) {
-          await deleteUploadedAssets({ data: { keys: r2Keys } });
+          await deleteUploadedAssets({
+            data: { keys: r2Keys, subfolder: "attachments" },
+          });
         }
 
         const mutatorNs =

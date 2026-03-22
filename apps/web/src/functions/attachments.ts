@@ -25,6 +25,7 @@ export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
 const R2_SUBFOLDERS = {
   attachments: "attachments",
+  approvalScreenshots: "approval-screenshots",
   avatars: "avatars",
   photos: "photos",
   updates: "updates",
@@ -58,6 +59,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.photos,
         R2_SUBFOLDERS.updates,
+        R2_SUBFOLDERS.approvalScreenshots,
       ]),
       entityId: z.string().min(1),
     })
@@ -82,9 +84,19 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       key: z.string().startsWith(`${env.R2_KEY_PREFIX}/`),
+      subfolder: z.enum([
+        R2_SUBFOLDERS.attachments,
+        R2_SUBFOLDERS.approvalScreenshots,
+        R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.updates,
+      ]),
     })
   )
   .handler(async ({ data }) => {
+    const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
+    if (!data.key.startsWith(expectedPrefix)) {
+      throw new Error("Forbidden");
+    }
     const s3 = await getS3();
     await s3.delete(data.key);
     return { success: true };
@@ -138,9 +150,21 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       keys: z.array(z.string().startsWith(`${env.R2_KEY_PREFIX}/`)),
+      subfolder: z.enum([
+        R2_SUBFOLDERS.attachments,
+        R2_SUBFOLDERS.approvalScreenshots,
+        R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.updates,
+      ]),
     })
   )
   .handler(async ({ data }) => {
+    const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
+    for (const key of data.keys) {
+      if (!key.startsWith(expectedPrefix)) {
+        throw new Error("Forbidden");
+      }
+    }
     const s3 = await getS3();
     await Promise.all(data.keys.map((key) => s3.delete(key)));
     return { success: true };

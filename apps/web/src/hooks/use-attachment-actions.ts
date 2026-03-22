@@ -24,7 +24,9 @@ export const useAttachmentActions = ({
 
       try {
         if (attachment.type === "file") {
-          await deleteAsset({ data: { key: attachment.objectKey } });
+          await deleteAsset({
+            data: { key: attachment.objectKey, subfolder: "attachments" },
+          });
         }
 
         onChange(value.filter((item) => item.id !== attachmentId));

@@ -9,6 +9,7 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
+import { log } from "evlog";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
@@ -18,6 +19,7 @@ import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
+  getDirectAttachmentUrl,
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -80,21 +82,37 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
     0
   );
 
-  const handleApprove = (message: string) => {
+  const handleApprove = (message: string, screenshotKey?: string) => {
     zero
       .mutate(
         mutatorNs.approve({
           id: request.id,
           note: message || undefined,
+          approvalScreenshotKey: screenshotKey,
         })
       )
-      .server.then((res) => {
+      .server.then(async (res) => {
         handleMutationResult(res, {
           mutation: `${request.type === "reimbursement" ? "reimbursement" : "advancePayment"}.approve`,
           entityId: request.id,
           successMsg: `${typeLabel} approved`,
           errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
         });
+        if (res.type === "error" && screenshotKey) {
+          const { deleteUploadedAsset } = await import(
+            "@/functions/attachments"
+          );
+          deleteUploadedAsset({
+            data: { key: screenshotKey, subfolder: "approval-screenshots" },
+          }).catch((error) => {
+            log.error({
+              component: "RequestDetail",
+              action: "cleanupScreenshot",
+              screenshotKey,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        }
         if (res.type !== "error") {
           setApproveOpen(false);
         }
@@ -194,6 +212,43 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm">
             <span className="font-medium">Rejection reason: </span>
             {request.rejectionReason}
+          </div>
+        ) : null}
+
+        {/* Payment proof */}
+        {request.status === "approved" && request.approvalScreenshotKey ? (
+          <div className="flex flex-col gap-2">
+            <h2 className="font-medium text-sm">Payment proof</h2>
+            <div className="flex flex-col items-start gap-1.5">
+              <a
+                href={getDirectAttachmentUrl(request.approvalScreenshotKey)}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <img
+                  alt="Payment proof"
+                  className="h-24 w-24 rounded-md border object-cover"
+                  height={96}
+                  src={getDirectAttachmentUrl(request.approvalScreenshotKey)}
+                  width={96}
+                />
+              </a>
+              <a
+                className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                download
+                href={getAttachmentDownloadHref({
+                  type: "file",
+                  objectKey: request.approvalScreenshotKey,
+                  filename: "payment-proof",
+                  mimeType: "image/jpeg",
+                  url: null,
+                })}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Download
+              </a>
+            </div>
           </div>
         ) : null}
 
@@ -324,6 +379,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
         ) : null}
 
         <ApproveDialog
+          entityId={request.id}
           entityLabel={typeLabel.toLowerCase()}
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}

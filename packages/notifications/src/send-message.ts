@@ -14,6 +14,7 @@ interface SendMessageOptions {
   clickAction?: string;
   emailBody?: string;
   idempotencyKey: string;
+  imageUrl?: string;
   title: string;
   to: string;
   topic?: Topic;
@@ -26,6 +27,7 @@ export async function sendMessage({
   emailBody,
   idempotencyKey,
   clickAction,
+  imageUrl,
   topic = TOPICS.GENERAL,
 }: SendMessageOptions): Promise<void> {
   const inboxPromise = courier
@@ -79,10 +81,9 @@ export async function sendMessage({
           ? `${body}\n\nView: ${appUrl}${clickAction}`
           : body;
       const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
-      await sendWhatsAppMessage(
-        phone,
-        `*${title}*\n\n${whatsappBody}${footer}`
-      );
+      const imageSuffix = imageUrl ? `\n\nPayment proof: ${imageUrl}` : "";
+      const fullMessage = `*${title}*\n\n${whatsappBody}${imageSuffix}${footer}`;
+      await sendWhatsAppMessage(phone, fullMessage);
     } catch (error) {
       const log = createRequestLogger();
       log.set({ handler: "sendMessage", channel: "whatsapp", userId: to });

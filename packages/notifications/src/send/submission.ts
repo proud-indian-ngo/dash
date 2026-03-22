@@ -55,12 +55,17 @@ interface StatusChangeOptions {
   title: string;
 }
 
+interface ApprovedOptions extends StatusChangeOptions {
+  note?: string;
+  screenshotUrl?: string;
+}
+
 interface RejectedOptions extends StatusChangeOptions {
   reason: string;
 }
 
 export interface SubmissionNotifier {
-  notifyApproved: (options: StatusChangeOptions) => Promise<void>;
+  notifyApproved: (options: ApprovedOptions) => Promise<void>;
   notifyRejected: (options: RejectedOptions) => Promise<void>;
   notifySubmitted: (options: SubmittedOptions) => Promise<void>;
 }
@@ -90,18 +95,29 @@ export function createSubmissionNotifier({
       });
     },
 
-    async notifyApproved({ entityId, title, submitterId }) {
+    async notifyApproved({
+      entityId,
+      title,
+      submitterId,
+      note,
+      screenshotUrl,
+    }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved.`;
+      const noteSuffix = note ? `\n\nMessage: ${note}` : "";
+      const screenshotSuffix = screenshotUrl
+        ? `\n\nPayment proof: ${screenshotUrl}`
+        : "";
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       await sendMessage({
         to: submitterId,
         title: `${entityLabel} Approved`,
-        body: `${baseMessage}${totalSuffix}`,
-        emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
+        body: `${baseMessage}${totalSuffix}${noteSuffix}`,
+        emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}${noteSuffix}${screenshotSuffix}\n\nView: ${fullUrl}`,
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
+        imageUrl: screenshotUrl,
       });
     },
 

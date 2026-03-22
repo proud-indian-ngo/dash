@@ -41,6 +41,7 @@ export const reimbursementMutators = {
         expenseDate: args.expenseDate,
         status: "pending",
         rejectionReason: null,
+        approvalScreenshotKey: null,
         bankAccountName: args.bankAccountName ?? null,
         bankAccountNumber: args.bankAccountNumber ?? null,
         bankAccountIfscCode: args.bankAccountIfscCode ?? null,
@@ -176,7 +177,11 @@ export const reimbursementMutators = {
   ),
 
   approve: defineMutator(
-    z.object({ id: z.string(), note: z.string().optional() }),
+    z.object({
+      id: z.string(),
+      note: z.string().optional(),
+      approvalScreenshotKey: z.string().optional(),
+    }),
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
       const userId = ctx.userId;
@@ -195,6 +200,7 @@ export const reimbursementMutators = {
       await tx.mutate.reimbursement.update({
         id: args.id,
         status: "approved",
+        approvalScreenshotKey: args.approvalScreenshotKey ?? null,
         reviewedBy: userId,
         reviewedAt: now,
         updatedAt: now,
@@ -208,6 +214,8 @@ export const reimbursementMutators = {
       if (tx.location === "server") {
         const { title, userId: ownerId } = reimbursement;
         const id = args.id;
+        const note = args.note;
+        const approvalScreenshotKey = args.approvalScreenshotKey;
         ctx.asyncTasks?.push({
           meta: {
             mutator: "approveReimbursement",
@@ -223,6 +231,8 @@ export const reimbursementMutators = {
               reimbursementId: id,
               title,
               submitterId: ownerId,
+              note,
+              approvalScreenshotKey,
             });
           },
         });

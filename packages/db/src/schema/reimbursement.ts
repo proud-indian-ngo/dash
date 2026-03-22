@@ -46,6 +46,7 @@ export const reimbursement = pgTable(
     bankAccountName: text("bank_account_name"),
     bankAccountNumber: text("bank_account_number"),
     bankAccountIfscCode: text("bank_account_ifsc_code"),
+    approvalScreenshotKey: text("approval_screenshot_key"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
       onDelete: "set null",
     }),

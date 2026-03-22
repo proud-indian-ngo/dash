@@ -38,6 +38,7 @@ export const advancePaymentMutators = {
         city: args.city ?? null,
         status: "pending",
         rejectionReason: null,
+        approvalScreenshotKey: null,
         bankAccountName: args.bankAccountName ?? null,
         bankAccountNumber: args.bankAccountNumber ?? null,
         bankAccountIfscCode: args.bankAccountIfscCode ?? null,
@@ -171,7 +172,11 @@ export const advancePaymentMutators = {
   ),
 
   approve: defineMutator(
-    z.object({ id: z.string(), note: z.string().optional() }),
+    z.object({
+      id: z.string(),
+      note: z.string().optional(),
+      approvalScreenshotKey: z.string().optional(),
+    }),
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
       const userId = ctx.userId;
@@ -190,6 +195,7 @@ export const advancePaymentMutators = {
       await tx.mutate.advancePayment.update({
         id: args.id,
         status: "approved",
+        approvalScreenshotKey: args.approvalScreenshotKey ?? null,
         reviewedBy: userId,
         reviewedAt: now,
         updatedAt: now,
@@ -203,6 +209,8 @@ export const advancePaymentMutators = {
       if (tx.location === "server") {
         const { title, userId: ownerId } = advancePayment;
         const id = args.id;
+        const note = args.note;
+        const approvalScreenshotKey = args.approvalScreenshotKey;
         ctx.asyncTasks?.push({
           meta: {
             mutator: "approveAdvancePayment",
@@ -218,6 +226,8 @@ export const advancePaymentMutators = {
               advancePaymentId: id,
               title,
               submitterId: ownerId,
+              note,
+              approvalScreenshotKey,
             });
           },
         });
