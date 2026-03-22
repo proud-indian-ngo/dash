@@ -1,3 +1,4 @@
+import { env } from "@pi-dash/env/server";
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -26,7 +27,7 @@ export async function notifyUserWelcome({
 }: WelcomeOptions): Promise<void> {
   await sendMessage({
     to: userId,
-    title: "Welcome to Pi Dash!",
+    title: `Welcome to ${env.APP_NAME}!`,
     body: `Hi ${name}, your account has been created. Get started by exploring the dashboard.`,
     clickAction: "/",
     idempotencyKey: `user-welcome-${userId}`,
