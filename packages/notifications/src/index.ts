@@ -45,5 +45,10 @@ export {
   notifyUserUnbanned,
   notifyUserWelcome,
 } from "./send/user";
+export {
+  notifyVendorPaymentApproved,
+  notifyVendorPaymentRejected,
+  notifyVendorPaymentSubmitted,
+} from "./send/vendor-payment";
 export type { Topic } from "./topics";
 export { TOPICS } from "./topics";

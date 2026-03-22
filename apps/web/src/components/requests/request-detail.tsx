@@ -25,6 +25,7 @@ import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
+  isVendorPayment,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/request-types";
@@ -63,16 +64,107 @@ function HistoryEntry({
   );
 }
 
+function RequestHeaderMeta({ request }: { request: RequestDetailData }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+      {!isVendorPayment(request) && request.city ? (
+        <span>{request.city}</span>
+      ) : null}
+      {isReimbursement(request) ? (
+        <span>{format(request.expenseDate, "MMMM d, yyyy")}</span>
+      ) : null}
+      {isVendorPayment(request) && request.vendor ? (
+        <span>Vendor: {request.vendor.name}</span>
+      ) : null}
+      {isVendorPayment(request) && request.invoiceNumber ? (
+        <span>Invoice: {request.invoiceNumber}</span>
+      ) : null}
+      {isVendorPayment(request) ? (
+        <span>{format(request.invoiceDate, "MMMM d, yyyy")}</span>
+      ) : null}
+      {!isVendorPayment(request) &&
+      request.bankAccountName &&
+      request.bankAccountNumber ? (
+        <span>
+          {request.bankAccountName} ( ••••
+          {request.bankAccountNumber.slice(-4)})
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function VendorDetailsCard({ request }: { request: RequestDetailData }) {
+  if (!(isVendorPayment(request) && request.vendor)) {
+    return null;
+  }
+  return (
+    <div className="rounded-md border p-3">
+      <h2 className="mb-2 font-medium text-sm">Vendor Details</h2>
+      <div className="grid gap-1 text-sm sm:grid-cols-2">
+        <div>
+          <span className="text-muted-foreground">Name: </span>
+          {request.vendor.name}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Phone: </span>
+          {request.vendor.contactPhone}
+        </div>
+        {request.vendor.contactEmail ? (
+          <div>
+            <span className="text-muted-foreground">Email: </span>
+            {request.vendor.contactEmail}
+          </div>
+        ) : null}
+        <div>
+          <span className="text-muted-foreground">Bank: </span>
+          {request.vendor.bankAccountName} (••••
+          {request.vendor.bankAccountNumber.slice(-4)})
+        </div>
+        {request.vendor.gstNumber ? (
+          <div>
+            <span className="text-muted-foreground">GST: </span>
+            {request.vendor.gstNumber}
+          </div>
+        ) : null}
+        {request.vendor.panNumber ? (
+          <div>
+            <span className="text-muted-foreground">PAN: </span>
+            {request.vendor.panNumber}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
   const zero = useZero();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
   const typeLabel = REQUEST_TYPE_LABELS[request.type];
-  const mutatorNs =
-    request.type === "reimbursement"
-      ? mutators.reimbursement
-      : mutators.advancePayment;
+
+  const getMutatorNs = () => {
+    if (request.type === "reimbursement") {
+      return mutators.reimbursement;
+    }
+    if (request.type === "vendor_payment") {
+      return mutators.vendorPayment;
+    }
+    return mutators.advancePayment;
+  };
+  const mutatorNs = getMutatorNs();
+
+  const getMutatorName = () => {
+    if (request.type === "reimbursement") {
+      return "reimbursement";
+    }
+    if (request.type === "vendor_payment") {
+      return "vendorPayment";
+    }
+    return "advancePayment";
+  };
 
   const { label, variant } =
     STATUS_BADGE_MAP[request.status ?? "draft"] ?? STATUS_BADGE_MAP.draft;
@@ -93,7 +185,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
       )
       .server.then(async (res) => {
         handleMutationResult(res, {
-          mutation: `${request.type === "reimbursement" ? "reimbursement" : "advancePayment"}.approve`,
+          mutation: `${getMutatorName()}.approve`,
           entityId: request.id,
           successMsg: `${typeLabel} approved`,
           errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
@@ -124,7 +216,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
       .mutate(mutatorNs.reject({ id: request.id, reason }))
       .server.then((res) => {
         handleMutationResult(res, {
-          mutation: `${request.type === "reimbursement" ? "reimbursement" : "advancePayment"}.reject`,
+          mutation: `${getMutatorName()}.reject`,
           entityId: request.id,
           successMsg: `${typeLabel} rejected`,
           errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,
@@ -145,18 +237,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
               <h1 className="font-semibold text-2xl">{request.title}</h1>
               <Badge variant="outline">{typeLabel}</Badge>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-              {request.city ? <span>{request.city}</span> : null}
-              {isReimbursement(request) ? (
-                <span>{format(request.expenseDate, "MMMM d, yyyy")}</span>
-              ) : null}
-              {request.bankAccountName && request.bankAccountNumber ? (
-                <span>
-                  {request.bankAccountName} ( ••••
-                  {request.bankAccountNumber.slice(-4)})
-                </span>
-              ) : null}
-            </div>
+            <RequestHeaderMeta request={request} />
             {request.user ? (
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-muted-foreground text-sm">
@@ -173,6 +254,9 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
           </div>
           <Badge variant={variant}>{label}</Badge>
         </div>
+
+        {/* Vendor details */}
+        <VendorDetailsCard request={request} />
 
         {/* Admin actions */}
         {isAdmin && request.status === "pending" ? (

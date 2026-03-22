@@ -9,9 +9,17 @@ import type {
   ReimbursementHistory,
   ReimbursementLineItem,
   User,
+  Vendor,
+  VendorPayment,
+  VendorPaymentAttachment,
+  VendorPaymentHistory,
+  VendorPaymentLineItem,
 } from "@pi-dash/zero/schema";
 
-export type RequestType = "reimbursement" | "advance_payment";
+export type RequestType =
+  | "reimbursement"
+  | "advance_payment"
+  | "vendor_payment";
 
 export type ReimbursementRequestRow = Reimbursement & {
   type: "reimbursement";
@@ -29,7 +37,19 @@ export type AdvancePaymentRequestRow = AdvancePayment & {
   user: User | undefined;
 };
 
-export type RequestRow = ReimbursementRequestRow | AdvancePaymentRequestRow;
+export type VendorPaymentRequestRow = VendorPayment & {
+  type: "vendor_payment";
+  lineItems: ReadonlyArray<
+    VendorPaymentLineItem & { category: ExpenseCategory | undefined }
+  >;
+  user: User | undefined;
+  vendor: Vendor | undefined;
+};
+
+export type RequestRow =
+  | ReimbursementRequestRow
+  | AdvancePaymentRequestRow
+  | VendorPaymentRequestRow;
 
 export type ReimbursementDetailData = Reimbursement & {
   type: "reimbursement";
@@ -51,9 +71,21 @@ export type AdvancePaymentDetailData = AdvancePayment & {
   user: User | undefined;
 };
 
+export type VendorPaymentDetailData = VendorPayment & {
+  type: "vendor_payment";
+  lineItems: ReadonlyArray<
+    VendorPaymentLineItem & { category: ExpenseCategory | undefined }
+  >;
+  attachments: readonly VendorPaymentAttachment[];
+  history: ReadonlyArray<VendorPaymentHistory & { actor?: User | undefined }>;
+  user: User | undefined;
+  vendor: Vendor | undefined;
+};
+
 export type RequestDetailData =
   | ReimbursementDetailData
-  | AdvancePaymentDetailData;
+  | AdvancePaymentDetailData
+  | VendorPaymentDetailData;
 
 export function isReimbursement(
   row: RequestRow
@@ -65,14 +97,26 @@ export function isReimbursement(row: RequestRow | RequestDetailData): boolean {
   return row.type === "reimbursement";
 }
 
+export function isVendorPayment(
+  row: RequestRow
+): row is VendorPaymentRequestRow;
+export function isVendorPayment(
+  row: RequestDetailData
+): row is VendorPaymentDetailData;
+export function isVendorPayment(row: RequestRow | RequestDetailData): boolean {
+  return row.type === "vendor_payment";
+}
+
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   reimbursement: "Reimbursement",
   advance_payment: "Advance Payment",
+  vendor_payment: "Vendor Payment",
 };
 
 export function normalizeToRequestRows(
   reimbursements: readonly Omit<ReimbursementRequestRow, "type">[],
-  advancePayments: readonly Omit<AdvancePaymentRequestRow, "type">[]
+  advancePayments: readonly Omit<AdvancePaymentRequestRow, "type">[],
+  vendorPayments: readonly Omit<VendorPaymentRequestRow, "type">[] = []
 ): RequestRow[] {
   const reimbursementRows: RequestRow[] = reimbursements.map((r) => ({
     ...r,
@@ -82,8 +126,16 @@ export function normalizeToRequestRows(
     ...ap,
     type: "advance_payment" as const,
   }));
+  const vendorPaymentRows: RequestRow[] = vendorPayments.map((vp) => ({
+    ...vp,
+    type: "vendor_payment" as const,
+  }));
 
-  return [...reimbursementRows, ...advancePaymentRows].sort(
+  return [
+    ...reimbursementRows,
+    ...advancePaymentRows,
+    ...vendorPaymentRows,
+  ].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }

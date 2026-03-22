@@ -32,6 +32,7 @@ const STATUS_OPTIONS = [
 const TYPE_OPTIONS = [
   { label: "Reimbursement", value: "reimbursement" },
   { label: "Advance Payment", value: "advance_payment" },
+  { label: "Vendor Payment", value: "vendor_payment" },
 ];
 
 export const Route = createFileRoute("/_app/requests/")({
@@ -41,9 +42,30 @@ export const Route = createFileRoute("/_app/requests/")({
   loader: ({ context }) => {
     context.zero?.run(queries.reimbursement.all());
     context.zero?.run(queries.advancePayment.all());
+    context.zero?.run(queries.vendorPayment.all());
   },
   component: RequestsRouteComponent,
 });
+
+function fetchRequestItem(zero: ReturnType<typeof useZero>, row: RequestRow) {
+  if (row.type === "reimbursement") {
+    return zero.run(queries.reimbursement.byId({ id: row.id }));
+  }
+  if (row.type === "advance_payment") {
+    return zero.run(queries.advancePayment.byId({ id: row.id }));
+  }
+  return zero.run(queries.vendorPayment.byId({ id: row.id }));
+}
+
+function getMutatorNs(type: RequestRow["type"]) {
+  if (type === "reimbursement") {
+    return mutators.reimbursement;
+  }
+  if (type === "advance_payment") {
+    return mutators.advancePayment;
+  }
+  return mutators.vendorPayment;
+}
 
 function RequestsRouteComponent() {
   const { isAdmin } = useApp();
@@ -52,9 +74,11 @@ function RequestsRouteComponent() {
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
+  const [vendorPayments, r3] = useQuery(queries.vendorPayment.all());
   const isLoading1 = useZeroQueryStatus(r1);
   const isLoading2 = useZeroQueryStatus(r2);
-  const isLoading = isLoading1 || isLoading2;
+  const isLoading3 = useZeroQueryStatus(r3);
+  const isLoading = isLoading1 || isLoading2 || isLoading3;
 
   const [statusFilter, setStatusFilter] = useQueryState(
     "status",
@@ -66,8 +90,13 @@ function RequestsRouteComponent() {
   );
 
   const allData = useMemo(
-    () => normalizeToRequestRows(reimbursements ?? [], advancePayments ?? []),
-    [reimbursements, advancePayments]
+    () =>
+      normalizeToRequestRows(
+        reimbursements ?? [],
+        advancePayments ?? [],
+        vendorPayments ?? []
+      ),
+    [reimbursements, advancePayments, vendorPayments]
   );
 
   const filteredData = useMemo(() => {
@@ -85,10 +114,7 @@ function RequestsRouteComponent() {
     async (row: RequestRow) => {
       const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
       try {
-        const item =
-          row.type === "reimbursement"
-            ? await zero.run(queries.reimbursement.byId({ id: row.id }))
-            : await zero.run(queries.advancePayment.byId({ id: row.id }));
+        const item = await fetchRequestItem(zero, row);
         const r2Keys =
           item?.attachments
             ?.filter((a) => a.type === "file" && a.objectKey)
@@ -100,10 +126,7 @@ function RequestsRouteComponent() {
           });
         }
 
-        const mutatorNs =
-          row.type === "reimbursement"
-            ? mutators.reimbursement
-            : mutators.advancePayment;
+        const mutatorNs = getMutatorNs(row.type);
         await zero.mutate(mutatorNs.delete({ id: row.id }));
         toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
       } catch {

@@ -3,6 +3,7 @@ import {
   FileExportIcon,
   HomeIcon,
   Invoice01Icon,
+  Store01Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -48,6 +49,12 @@ const requestsNavItem: NavItem = {
   ],
 };
 
+const vendorsNavItem: NavItem = {
+  title: "Vendors",
+  url: "/vendors",
+  icon: Store01Icon,
+};
+
 const teamsNavItem: NavItem = {
   title: "Teams",
   url: "/teams",
@@ -70,7 +77,13 @@ export function buildNavItems(
     return [homeNavItem, eventsNavItem];
   }
 
-  const items = [homeNavItem, requestsNavItem, teamsNavItem, eventsNavItem];
+  const items = [
+    homeNavItem,
+    requestsNavItem,
+    vendorsNavItem,
+    teamsNavItem,
+    eventsNavItem,
+  ];
 
   if (isAdmin) {
     items.push(usersNavItem);
@@ -92,7 +105,7 @@ export function buildNavGroups(
     { items: [homeNavItem] },
     {
       label: "Finance",
-      items: [requestsNavItem],
+      items: [requestsNavItem, vendorsNavItem],
     },
     {
       label: "Organization",

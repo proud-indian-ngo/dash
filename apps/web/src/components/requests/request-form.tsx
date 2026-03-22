@@ -7,7 +7,11 @@ import {
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
+import type {
+  BankAccount,
+  ExpenseCategory,
+  Vendor,
+} from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useMemo, useState } from "react";
@@ -86,7 +90,11 @@ function TypeSelector({
       </label>
       <Select
         onValueChange={(val) => {
-          if (val === "reimbursement" || val === "advance_payment") {
+          if (
+            val === "reimbursement" ||
+            val === "advance_payment" ||
+            val === "vendor_payment"
+          ) {
             onChange(val);
           }
         }}
@@ -103,10 +111,69 @@ function TypeSelector({
         <SelectContent>
           <SelectItem value="reimbursement">Reimbursement</SelectItem>
           <SelectItem value="advance_payment">Advance Payment</SelectItem>
+          <SelectItem value="vendor_payment">Vendor Payment</SelectItem>
         </SelectContent>
       </Select>
     </div>
   );
+}
+
+function buildMutation(
+  zero: ReturnType<typeof useZero>,
+  value: RequestFormValues,
+  entityId: string,
+  existingId: string | undefined,
+  bankAccountList: BankAccount[]
+) {
+  const lineItems = value.lineItems.map((item, index) => ({
+    ...item,
+    amount: Number(item.amount),
+    sortOrder: index,
+  }));
+  const attachments = value.attachments;
+  const id = existingId ?? entityId;
+
+  if (value.type === "vendor_payment") {
+    const payload = {
+      id,
+      vendorId: value.vendorId,
+      title: value.title,
+      invoiceNumber: value.invoiceNumber,
+      invoiceDate: value.invoiceDate,
+      lineItems,
+      attachments,
+    };
+    return existingId
+      ? zero.mutate(mutators.vendorPayment.update(payload))
+      : zero.mutate(mutators.vendorPayment.create(payload));
+  }
+
+  const selectedAccount = bankAccountList.find(
+    (account) => account.accountName === value.bankAccountName
+  );
+  const basePayload = {
+    id,
+    title: value.title,
+    city: value.city,
+    bankAccountName: value.bankAccountName,
+    bankAccountNumber:
+      selectedAccount?.accountNumber ?? value.bankAccountNumber ?? "",
+    bankAccountIfscCode:
+      selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "",
+    lineItems,
+    attachments,
+  };
+
+  if (value.type === "reimbursement") {
+    const reimbPayload = { ...basePayload, expenseDate: value.expenseDate };
+    return existingId
+      ? zero.mutate(mutators.reimbursement.update(reimbPayload))
+      : zero.mutate(mutators.reimbursement.create(reimbPayload));
+  }
+
+  return existingId
+    ? zero.mutate(mutators.advancePayment.update(basePayload))
+    : zero.mutate(mutators.advancePayment.create(basePayload));
 }
 
 interface RequestFormInnerProps {
@@ -132,6 +199,7 @@ function RequestFormInner({
   const [bankAccounts, bankAccountsResult] = useQuery(
     queries.bankAccount.bankAccountsByCurrentUser()
   );
+  const [vendors, vendorsResult] = useQuery(queries.vendor.all());
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
@@ -145,11 +213,22 @@ function RequestFormInner({
     (bankAccounts ?? []) as BankAccount[],
     bankAccountsResult
   );
+  const vendorList = useStableQueryResult(
+    (vendors ?? []) as Vendor[],
+    vendorsResult
+  );
 
   const bankAccountOptions = bankAccountList.map((account) => ({
     label: `${account.accountName} (••••${account.accountNumber.slice(-4)})`,
     value: account.id,
   }));
+
+  const vendorOptions = vendorList.map((v) => ({
+    label: v.name,
+    value: v.id,
+  }));
+
+  const isVendorPayment = requestType === "vendor_payment";
 
   const strippedInitialValues = useMemo(() => {
     if (!initialValues || requestType === "reimbursement") {
@@ -171,51 +250,28 @@ function RequestFormInner({
       lineItems: initialValues?.lineItems ?? [newLineItem()],
       attachments: initialValues?.attachments ?? [],
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value: rawValue }) => {
+      const value = rawValue as RequestFormValues;
       const id = entityId;
-      const lineItems = value.lineItems.map((item, index) => ({
-        ...item,
-        amount: Number(item.amount),
-        sortOrder: index,
-      }));
-      const attachments = value.attachments;
-      const selectedAccount = bankAccountList.find(
-        (account) => account.accountName === value.bankAccountName
-      );
-      const bankAccountNumber =
-        selectedAccount?.accountNumber ?? value.bankAccountNumber ?? "";
-      const bankAccountIfscCode =
-        selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "";
-
       const typeLabel = REQUEST_TYPE_LABELS[value.type];
+      const mutation = buildMutation(
+        zero,
+        value,
+        id,
+        existingId,
+        bankAccountList
+      );
 
-      const basePayload = {
-        id: existingId ?? id,
-        title: value.title,
-        city: value.city,
-        bankAccountName: value.bankAccountName,
-        bankAccountNumber,
-        bankAccountIfscCode,
-        lineItems,
-        attachments,
-      };
-
-      let mutation: ReturnType<typeof zero.mutate>;
-      if (value.type === "reimbursement") {
-        const expenseDate = (value as { expenseDate: string }).expenseDate;
-        const reimbPayload = { ...basePayload, expenseDate };
-        mutation = existingId
-          ? zero.mutate(mutators.reimbursement.update(reimbPayload))
-          : zero.mutate(mutators.reimbursement.create(reimbPayload));
-      } else {
-        mutation = existingId
-          ? zero.mutate(mutators.advancePayment.update(basePayload))
-          : zero.mutate(mutators.advancePayment.create(basePayload));
-      }
+      const mutatorNameMap = {
+        vendor_payment: "vendorPayment",
+        reimbursement: "reimbursement",
+        advance_payment: "advancePayment",
+      } as const;
+      const mutatorName = mutatorNameMap[value.type];
 
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: `${value.type === "reimbursement" ? "reimbursement" : "advancePayment"}.${existingId ? "update" : "create"}`,
+        mutation: `${mutatorName}.${existingId ? "update" : "create"}`,
         entityId: id,
         successMsg: `${typeLabel} submitted`,
         errorMsg: `Failed to submit ${typeLabel.toLowerCase()}`,
@@ -228,6 +284,84 @@ function RequestFormInner({
       onSubmit: getFormSchema(requestType),
     },
   });
+
+  if (isVendorPayment) {
+    return (
+      <FormLayout className="flex flex-col gap-4" form={form}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <InputField isRequired label="Title" name="title" />
+          <CustomField<string | undefined>
+            isRequired
+            label="Vendor"
+            name="vendorId"
+          >
+            {(field) => (
+              <Select
+                onValueChange={(val) => field.handleChange(val)}
+                value={field.state.value ?? ""}
+              >
+                <SelectTrigger
+                  aria-describedby={
+                    field.state.meta.errors.length > 0
+                      ? `${field.name}-error`
+                      : undefined
+                  }
+                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  className="w-full"
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                >
+                  <span
+                    className="flex flex-1 items-center text-left"
+                    data-slot="select-value"
+                  >
+                    {vendorOptions.find((o) => o.value === field.state.value)
+                      ?.label ?? "Select vendor"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {vendorOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </CustomField>
+          <InputField label="Invoice Number" name="invoiceNumber" />
+          <DateField isRequired label="Invoice Date" name="invoiceDate" />
+        </div>
+
+        <Separator />
+
+        <LineItemsEditor categories={categoryList} />
+
+        <Separator />
+
+        <form.Field name="attachments">
+          {(field) => (
+            <AttachmentsSection
+              entityId={entityId}
+              onChange={(attachments) => field.handleChange(attachments)}
+              value={field.state.value}
+            />
+          )}
+        </form.Field>
+
+        <Separator />
+
+        <FormActions
+          cancelLabel="Cancel"
+          disabled={vendorOptions.length === 0}
+          disableWhenInvalid={false}
+          onCancel={onCancel}
+          submitLabel={isEdit ? "Save changes" : "Submit"}
+          submittingLabel={isEdit ? "Saving..." : "Submitting..."}
+        />
+      </FormLayout>
+    );
+  }
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
