@@ -28,9 +28,10 @@ import {
   toEditUserFormValues,
   UserForm,
 } from "@/components/users/user-form";
+import { UserNotificationsForm } from "@/components/users/user-notifications-form";
 import { authClient } from "@/lib/auth-client";
 
-type RowFormKind = "ban" | "delete" | "edit" | "password";
+type RowFormKind = "ban" | "delete" | "edit" | "notifications" | "password";
 type RowFormAction = {
   kind: RowFormKind;
   userId: string;
@@ -158,6 +159,13 @@ function UserActionsMenu({
         >
           Reset password
         </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            onOpenForm("notifications");
+          }}
+        >
+          Notifications
+        </DropdownMenuItem>
         {isBanned ? (
           <DropdownMenuItem
             disabled={isSelf || isBanning}
@@ -213,6 +221,7 @@ function UserRowActions({
       onCloseForm("delete");
       onCloseForm("edit");
       onCloseForm("password");
+      onCloseForm("notifications");
       onCloseForm("ban");
     } finally {
       setIsDeleting(false);
@@ -284,6 +293,8 @@ function UserRowActionDialogs({
     activeRowForm?.userId === user.id && activeRowForm.kind === "password";
   const isBanOpen =
     activeRowForm?.userId === user.id && activeRowForm.kind === "ban";
+  const isNotificationsOpen =
+    activeRowForm?.userId === user.id && activeRowForm.kind === "notifications";
 
   return (
     <>
@@ -357,6 +368,24 @@ function UserRowActionDialogs({
               onCloseForm("ban");
             }}
             user={user}
+          />
+        ) : null}
+      </FormModal>
+
+      <FormModal
+        description="View and update notification preferences for this user."
+        onOpenChange={(open) => {
+          if (!open) {
+            onCloseForm("notifications");
+          }
+        }}
+        open={isNotificationsOpen}
+        title={`Notifications: ${user.name}`}
+      >
+        {isNotificationsOpen ? (
+          <UserNotificationsForm
+            key={`notifications-${user.id}`}
+            userId={user.id}
           />
         ) : null}
       </FormModal>
