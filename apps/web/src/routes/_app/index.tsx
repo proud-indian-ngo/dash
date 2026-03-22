@@ -132,8 +132,7 @@ function OrientedDashboard() {
 
   const isLoading =
     r1.type === "unknown" || r2.type === "unknown" || r3.type === "unknown";
-  const isWidgetsLoading =
-    r4.type === "unknown" || r5.type === "unknown";
+  const isWidgetsLoading = r4.type === "unknown" || r5.type === "unknown";
 
   const stats = isLoading
     ? []
@@ -177,10 +176,7 @@ function OrientedDashboard() {
           />
         </div>
         <div>
-          <UpcomingEvents
-            events={events ?? []}
-            isLoading={isWidgetsLoading}
-          />
+          <UpcomingEvents events={events ?? []} isLoading={isWidgetsLoading} />
         </div>
       </div>
     </div>
