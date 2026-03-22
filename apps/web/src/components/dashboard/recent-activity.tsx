@@ -14,27 +14,24 @@ import {
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
-import {
-  STATUS_BADGE_MAP,
-  type StatusBadgeVariant,
-} from "@/lib/status-badge";
 import { formatINR } from "@/lib/form-schemas";
+import { STATUS_BADGE_MAP, type StatusBadgeVariant } from "@/lib/status-badge";
 
 interface RequestItem {
-  id: string;
-  status: string | null;
   createdAt: number;
+  id: string;
   lineItems: readonly { amount: number }[];
+  status: string | null;
 }
 
 interface ActivityItem {
-  id: string;
-  type: "reimbursement" | "advance_payment";
-  icon: IconSvgElement;
-  label: string;
-  status: string | null;
   amount: number;
   createdAt: number;
+  icon: IconSvgElement;
+  id: string;
+  label: string;
+  status: string | null;
+  type: "reimbursement" | "advance_payment";
 }
 
 const MAX_ITEMS = 8;
@@ -46,24 +43,104 @@ function toActivityItems(
   label: string
 ): ActivityItem[] {
   return items.map((item) => ({
-    id: item.id,
-    type,
-    icon,
-    label,
-    status: item.status,
     amount: item.lineItems.reduce((sum, li) => sum + li.amount, 0),
     createdAt: item.createdAt,
+    icon,
+    id: item.id,
+    label,
+    status: item.status,
+    type,
   }));
 }
 
-export function RecentActivity({
-  reimbursements,
-  advancePayments,
+function RecentActivitySkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4].map((i) => (
+        <div className="flex items-center gap-3" key={i}>
+          <Skeleton className="size-4 shrink-0 rounded-full" />
+          <div className="flex-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RecentActivityEmpty() {
+  return <p className="text-muted-foreground text-sm">No recent activity.</p>;
+}
+
+function RecentActivityContent({
+  activities,
   isLoading,
 }: {
-  reimbursements: readonly RequestItem[];
+  activities: ActivityItem[];
+  isLoading?: boolean;
+}) {
+  if (isLoading) {
+    return <RecentActivitySkeleton />;
+  }
+  if (activities.length === 0) {
+    return <RecentActivityEmpty />;
+  }
+  return <RecentActivityList activities={activities} />;
+}
+
+function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
+  return (
+    <div className="space-y-3">
+      {activities.map((activity) => {
+        const statusInfo =
+          activity.status &&
+          STATUS_BADGE_MAP[activity.status as keyof typeof STATUS_BADGE_MAP];
+        return (
+          <div className="flex items-start gap-3" key={activity.id}>
+            <HugeiconsIcon
+              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              icon={activity.icon}
+              strokeWidth={2}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm">
+                  {activity.label}
+                  <span className="ml-1 text-muted-foreground">
+                    {formatINR(activity.amount)}
+                  </span>
+                </p>
+                {statusInfo && (
+                  <Badge
+                    size="xs"
+                    variant={statusInfo.variant as StatusBadgeVariant}
+                  >
+                    {statusInfo.label}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {formatDistanceToNow(activity.createdAt, {
+                  addSuffix: true,
+                })}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function RecentActivity({
+  advancePayments,
+  isLoading,
+  reimbursements,
+}: {
   advancePayments: readonly RequestItem[];
   isLoading?: boolean;
+  reimbursements: readonly RequestItem[];
 }) {
   const activities = [
     ...toActivityItems(
@@ -95,65 +172,7 @@ export function RecentActivity({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div className="flex items-center gap-3" key={i}>
-                <Skeleton className="size-4 shrink-0 rounded-full" />
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="mt-1 h-3 w-20" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : activities.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No recent activity.</p>
-        ) : (
-          <div className="space-y-3">
-            {activities.map((activity) => {
-              const statusInfo =
-                activity.status &&
-                STATUS_BADGE_MAP[
-                  activity.status as keyof typeof STATUS_BADGE_MAP
-                ];
-              return (
-                <div className="flex items-start gap-3" key={activity.id}>
-                  <HugeiconsIcon
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                    icon={activity.icon}
-                    strokeWidth={2}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm">
-                        {activity.label}
-                        <span className="ml-1 text-muted-foreground">
-                          {formatINR(activity.amount)}
-                        </span>
-                      </p>
-                      {statusInfo && (
-                        <Badge
-                          size="xs"
-                          variant={
-                            statusInfo.variant as StatusBadgeVariant
-                          }
-                        >
-                          {statusInfo.label}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      {formatDistanceToNow(activity.createdAt, {
-                        addSuffix: true,
-                      })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <RecentActivityContent activities={activities} isLoading={isLoading} />
       </CardContent>
     </Card>
   );
