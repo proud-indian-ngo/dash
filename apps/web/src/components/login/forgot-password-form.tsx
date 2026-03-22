@@ -1,11 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -122,60 +115,56 @@ export function ForgotPasswordForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Forgot your password?</CardTitle>
-          <CardDescription>
-            Enter your email and we'll send you a reset link.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sent ? (
-            <div className="space-y-3">
-              <p className="text-muted-foreground text-sm">
-                If an account exists for <strong>{sentEmail}</strong>, we've
-                sent a password reset link. Check your email.
-              </p>
-              <Button
-                disabled={cooldown > 0 || resending}
-                onClick={handleResend}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                {resendButtonLabel(cooldown, resending)}
-              </Button>
-            </div>
-          ) : (
-            <FormLayout className="space-y-4" form={form}>
-              <InputField
-                autoComplete="email"
-                isRequired
-                label="Email"
-                name="email"
-                placeholder="you@example.com"
-                type="email"
-                validators={forgotPasswordFieldValidators.email}
-              />
-              <FormActions
-                className="w-full"
-                form={form}
-                submitClassName="w-full"
-                submitLabel="Send reset link"
-                submittingLabel="Sending..."
-              />
-            </FormLayout>
-          )}
-          <div className="mt-4 text-center">
-            <Link
-              className="text-muted-foreground text-sm hover:text-foreground"
-              to="/login"
-            >
-              Back to login
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <h2 className="font-bold text-2xl">Forgot your password?</h2>
+        <p className="text-muted-foreground text-sm">
+          Enter your email and we'll send you a reset link.
+        </p>
+      </div>
+      {sent ? (
+        <div className="space-y-3">
+          <p className="text-muted-foreground text-sm">
+            If an account exists for <strong>{sentEmail}</strong>, we've sent a
+            password reset link. Check your email.
+          </p>
+          <Button
+            disabled={cooldown > 0 || resending}
+            onClick={handleResend}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {resendButtonLabel(cooldown, resending)}
+          </Button>
+        </div>
+      ) : (
+        <FormLayout className="space-y-4" form={form}>
+          <InputField
+            autoComplete="email"
+            isRequired
+            label="Email"
+            name="email"
+            placeholder="you@example.com"
+            type="email"
+            validators={forgotPasswordFieldValidators.email}
+          />
+          <FormActions
+            className="w-full"
+            form={form}
+            submitClassName="w-full"
+            submitLabel="Send reset link"
+            submittingLabel="Sending..."
+          />
+        </FormLayout>
+      )}
+      <div className="text-center">
+        <Link
+          className="text-muted-foreground text-sm hover:text-foreground"
+          to="/login"
+        >
+          Back to login
+        </Link>
+      </div>
     </div>
   );
 }

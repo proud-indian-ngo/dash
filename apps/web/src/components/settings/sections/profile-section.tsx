@@ -198,7 +198,7 @@ export function ProfileSection() {
 
   const form = useForm({
     defaultValues: {
-      dob: user?.dob ? new Date(user.dob).toISOString().substring(0, 10) : "",
+      dob: user?.dob ? new Date(user.dob).toISOString().slice(0, 10) : "",
       gender: (user?.gender ?? "") as "" | "male" | "female" | "unspecified",
       name: user?.name ?? "",
       phone: user?.phone ?? "",

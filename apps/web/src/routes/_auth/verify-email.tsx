@@ -4,6 +4,9 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { LoginInfoPanel } from "@/components/login/auth-info-panel";
+import { AuthLayout } from "@/components/login/auth-layout";
+
 const verifyEmailToken = createServerFn({ method: "GET" })
   .inputValidator(z.object({ token: z.string().min(1) }))
   .handler(async ({ data }) => {
@@ -60,17 +63,19 @@ function VerifyEmailPage() {
   const { verificationError } = Route.useRouteContext();
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <h1 className="sr-only">Verify Email</h1>
-      <p className="text-center text-destructive text-sm">
-        {verificationError}
-      </p>
-      <Link
-        className="text-muted-foreground text-sm hover:text-foreground"
-        to="/login"
-      >
-        Back to login
-      </Link>
-    </div>
+    <AuthLayout panel={<LoginInfoPanel />}>
+      <div className="flex flex-col items-center gap-4">
+        <h1 className="sr-only">Verify Email</h1>
+        <p className="text-center text-destructive text-sm">
+          {verificationError}
+        </p>
+        <Link
+          className="text-muted-foreground text-sm hover:text-foreground"
+          to="/login"
+        >
+          Back to login
+        </Link>
+      </div>
+    </AuthLayout>
   );
 }

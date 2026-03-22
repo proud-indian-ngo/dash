@@ -47,7 +47,7 @@ All paths are relative to project root.
 | `apps/web/src/router.tsx` | App entry / router config |
 | `apps/web/src/routes/__root.tsx` | Root layout |
 | `apps/web/src/routes/_app.tsx` | Authenticated layout (sidebar, breadcrumbs, Courier inbox) |
-| `apps/web/src/routes/_auth.tsx` | Unauthenticated layout |
+| `apps/web/src/routes/_auth.tsx` | Unauthenticated guard (pass-through outlet) |
 | `apps/web/src/middleware/auth.ts` | Auth middleware |
 | `apps/web/src/context/app-context.tsx` | App context provider (authenticated user) |
 | `apps/web/src/components/zero-init.tsx` | Zero client initialization |
@@ -102,7 +102,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/teams/events/` | events-table, event-form-dialog, event-detail, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
-| `components/login/` | login-form, register-form, forgot-password-form, reset-password-form |
+| `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
 | `components/` (root) | loader, default-catch-boundary, default-not-found, theme-toggle, zero-init, dev-tools |
 

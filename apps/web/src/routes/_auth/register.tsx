@@ -1,6 +1,8 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { SignupInfoPanel } from "@/components/login/auth-info-panel";
+import { AuthLayout } from "@/components/login/auth-layout";
 import { RegisterForm } from "@/components/login/register-form";
 
 export const Route = createFileRoute("/_auth/register")({
@@ -12,9 +14,9 @@ export const Route = createFileRoute("/_auth/register")({
 
 function RouteComponent() {
   return (
-    <>
+    <AuthLayout panel={<SignupInfoPanel />}>
       <h1 className="sr-only">Register</h1>
       <RegisterForm />
-    </>
+    </AuthLayout>
   );
 }

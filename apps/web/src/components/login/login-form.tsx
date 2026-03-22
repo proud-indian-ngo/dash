@@ -1,10 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -134,70 +127,67 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormLayout className="space-y-4" form={form}>
-            {formError ? (
-              <div
-                className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm"
-                role="alert"
+      <div className="space-y-2">
+        <h2 className="font-bold text-2xl">Login to your account</h2>
+        <p className="text-muted-foreground text-sm">
+          Enter your email below to login to your account
+        </p>
+      </div>
+      <FormLayout className="space-y-4" form={form}>
+        {formError ? (
+          <div
+            className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm"
+            role="alert"
+          >
+            <p>{formError}</p>
+            {unverifiedEmail ? (
+              <button
+                className="mt-1 font-medium underline underline-offset-4 hover:no-underline"
+                disabled={resending}
+                onClick={handleResendVerification}
+                type="button"
               >
-                <p>{formError}</p>
-                {unverifiedEmail ? (
-                  <button
-                    className="mt-1 font-medium underline underline-offset-4 hover:no-underline"
-                    disabled={resending}
-                    onClick={handleResendVerification}
-                    type="button"
-                  >
-                    {resending ? "Sending..." : "Resend verification email"}
-                  </button>
-                ) : null}
-              </div>
+                {resending ? "Sending..." : "Resend verification email"}
+              </button>
             ) : null}
-            <InputField
-              autoComplete="email"
-              isRequired
-              label="Email"
-              name="email"
-              placeholder="you@example.com"
-              type="email"
-              validators={loginFieldValidators.email}
-            />
-            <div className="space-y-1">
-              <InputField
-                autoComplete="current-password"
-                isRequired
-                label="Password"
-                name="password"
-                type="password"
-                validators={loginFieldValidators.password}
-              />
-              <div className="text-right">
-                <Link
-                  className="text-muted-foreground text-sm hover:text-foreground"
-                  to="/forgot-password"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            </div>
-            <FormActions
-              className="w-full"
-              form={form}
-              submitClassName="w-full"
-              submitLabel="Login"
-              submittingLabel="Logging in..."
-            />
-          </FormLayout>
-        </CardContent>
-      </Card>
+          </div>
+        ) : null}
+        <InputField
+          autoComplete="email"
+          isRequired
+          label="Email"
+          name="email"
+          placeholder="you@example.com"
+          type="email"
+          validators={loginFieldValidators.email}
+        />
+        <div className="space-y-1">
+          <InputField
+            autoComplete="current-password"
+            isRequired
+            label="Password"
+            name="password"
+            placeholder="Enter your password"
+            type="password"
+            validators={loginFieldValidators.password}
+          />
+          <div className="text-right">
+            <Link
+              className="text-muted-foreground text-sm hover:text-foreground"
+              to="/forgot-password"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        </div>
+        <FormActions
+          className="w-full"
+          form={form}
+          submitClassName="w-full"
+          submitLabel="Login"
+          submittingLabel="Logging in..."
+        />
+      </FormLayout>
       <p className="text-center text-muted-foreground text-sm">
         Don&apos;t have an account?{" "}
         <Link className="text-foreground hover:underline" to="/register">

@@ -297,7 +297,7 @@ function extractTableInserts(
     if (endIdx === -1) {
       endIdx = sqlContent.length;
     }
-    const valuesStr = sqlContent.substring(startIdx, endIdx);
+    const valuesStr = sqlContent.slice(startIdx, endIdx);
     const rows = parseInsertValues(valuesStr);
     allRows = allRows.concat(rows);
   }

@@ -115,6 +115,7 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     exclude: ["bun"],
+    include: ["use-sync-external-store/shim/with-selector"],
   },
   resolve: {
     alias: {

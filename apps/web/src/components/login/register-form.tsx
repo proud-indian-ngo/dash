@@ -1,10 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -105,79 +98,78 @@ export function RegisterForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>
-            Enter your details below to create your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormLayout className="space-y-4" form={form}>
-            <InputField
-              autoComplete="name"
-              isRequired
-              label="Name"
-              name="name"
-              placeholder="Your full name"
-              validators={registerFieldValidators.name}
-            />
-            <InputField
-              autoComplete="email"
-              isRequired
-              label="Email"
-              name="email"
-              placeholder="you@example.com"
-              type="email"
-              validators={registerFieldValidators.email}
-            />
-            <InputField
-              autoComplete="new-password"
-              isRequired
-              label="Password"
-              name="password"
-              type="password"
-              validators={registerFieldValidators.password}
-            />
-            <InputField
-              autoComplete="new-password"
-              isRequired
-              label="Confirm password"
-              name="confirmPassword"
-              type="password"
-              validators={registerFieldValidators.confirmPassword}
-            />
-            <PhoneField
-              defaultCountry="IN"
-              isRequired
-              label="Phone"
-              name="phone"
-              validators={registerFieldValidators.phone}
-            />
-            <DateField
-              isRequired
-              label="Date of birth"
-              name="dob"
-              validators={registerFieldValidators.dob}
-            />
-            <SelectField
-              isRequired
-              label="Gender"
-              name="gender"
-              options={genderOptions}
-              placeholder="Select gender"
-              validators={registerFieldValidators.gender}
-            />
-            <FormActions
-              className="w-full"
-              form={form}
-              submitClassName="w-full"
-              submitLabel="Register"
-              submittingLabel="Registering..."
-            />
-          </FormLayout>
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <h2 className="font-bold text-2xl">Create your account</h2>
+        <p className="text-muted-foreground text-sm">
+          Enter your details below to create your account
+        </p>
+      </div>
+      <FormLayout className="space-y-4" form={form}>
+        <InputField
+          autoComplete="name"
+          isRequired
+          label="Name"
+          name="name"
+          placeholder="Your full name"
+          validators={registerFieldValidators.name}
+        />
+        <InputField
+          autoComplete="email"
+          isRequired
+          label="Email"
+          name="email"
+          placeholder="you@example.com"
+          type="email"
+          validators={registerFieldValidators.email}
+        />
+        <InputField
+          autoComplete="new-password"
+          isRequired
+          label="Password"
+          name="password"
+          placeholder="Create a password"
+          type="password"
+          validators={registerFieldValidators.password}
+        />
+        <InputField
+          autoComplete="new-password"
+          isRequired
+          label="Confirm password"
+          name="confirmPassword"
+          placeholder="Confirm your password"
+          type="password"
+          validators={registerFieldValidators.confirmPassword}
+        />
+        <PhoneField
+          defaultCountry="IN"
+          isRequired
+          label="Phone"
+          name="phone"
+          placeholder="Your phone number"
+          validators={registerFieldValidators.phone}
+        />
+        <DateField
+          isRequired
+          label="Date of birth"
+          name="dob"
+          validators={registerFieldValidators.dob}
+        />
+        <SelectField
+          isRequired
+          label="Gender"
+          name="gender"
+          options={genderOptions}
+          placeholder="Select gender"
+          validators={registerFieldValidators.gender}
+        />
+        <FormActions
+          className="w-full"
+          form={form}
+          submitClassName="w-full"
+          submitLabel="Register"
+          submittingLabel="Registering..."
+        />
+      </FormLayout>
       <p className="text-center text-muted-foreground text-sm">
         Already have an account?{" "}
         <Link className="text-foreground hover:underline" to="/login">

@@ -1,10 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -61,39 +54,39 @@ export function ResetPasswordForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset your password</CardTitle>
-          <CardDescription>Enter your new password below.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormLayout className="space-y-4" form={form}>
-            <InputField
-              autoComplete="new-password"
-              isRequired
-              label="New password"
-              name="newPassword"
-              type="password"
-              validators={passwordResetFieldValidators.newPassword}
-            />
-            <InputField
-              autoComplete="new-password"
-              isRequired
-              label="Confirm password"
-              name="confirmPassword"
-              type="password"
-              validators={passwordResetFieldValidators.confirmPassword}
-            />
-            <FormActions
-              className="w-full"
-              form={form}
-              submitClassName="w-full"
-              submitLabel="Reset password"
-              submittingLabel="Resetting..."
-            />
-          </FormLayout>
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <h2 className="font-bold text-2xl">Reset your password</h2>
+        <p className="text-muted-foreground text-sm">
+          Enter your new password below.
+        </p>
+      </div>
+      <FormLayout className="space-y-4" form={form}>
+        <InputField
+          autoComplete="new-password"
+          isRequired
+          label="New password"
+          name="newPassword"
+          placeholder="Enter new password"
+          type="password"
+          validators={passwordResetFieldValidators.newPassword}
+        />
+        <InputField
+          autoComplete="new-password"
+          isRequired
+          label="Confirm password"
+          name="confirmPassword"
+          placeholder="Confirm new password"
+          type="password"
+          validators={passwordResetFieldValidators.confirmPassword}
+        />
+        <FormActions
+          className="w-full"
+          form={form}
+          submitClassName="w-full"
+          submitLabel="Reset password"
+          submittingLabel="Resetting..."
+        />
+      </FormLayout>
     </div>
   );
 }

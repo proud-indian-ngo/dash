@@ -14,7 +14,8 @@ export function useUnreadNotificationCount() {
     let cancelled = false;
 
     const fetchCount = () => {
-      client.inbox.getUnreadMessageCount().then((n) => {
+      // Courier's runtime returns number but their bundled types resolve to any
+      client.inbox.getUnreadMessageCount().then((n: number) => {
         if (!cancelled) {
           setCount(n);
         }
