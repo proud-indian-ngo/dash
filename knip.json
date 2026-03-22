@@ -16,9 +16,7 @@
         "src/entry-server.ts",
         "server/**",
         "src/lib/logger.ts",
-        "src/stubs/**",
-        "src/routes/_app/vendors/**",
-        "src/components/vendors/**"
+        "src/stubs/**"
       ]
     },
     "packages/db": {
