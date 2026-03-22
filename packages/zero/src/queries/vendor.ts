@@ -11,7 +11,9 @@ export const vendorQueries = {
   approved: defineQuery(() =>
     zql.vendor.where("status", "approved").orderBy("name", "asc")
   ),
-  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id } }) =>
-    zql.vendor.where("id", id).one()
+  byId: defineQuery(z.object({ id: z.string() }), ({ ctx, args: { id } }) =>
+    ctx?.role === "admin"
+      ? zql.vendor.where("id", id).one()
+      : zql.vendor.where("id", id).where("status", "approved").one()
   ),
 };

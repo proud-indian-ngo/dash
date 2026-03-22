@@ -119,7 +119,10 @@ function VendorDetailsCard({ request }: { request: RequestDetailData }) {
         <div>
           <span className="text-muted-foreground">Bank: </span>
           {request.vendor.bankAccountName} (••••
-          {request.vendor.bankAccountNumber.slice(-4)})
+          {request.vendor.bankAccountNumber
+            ? request.vendor.bankAccountNumber.slice(-4)
+            : "N/A"}
+          )
         </div>
         {request.vendor.gstNumber ? (
           <div>
@@ -145,26 +148,12 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
 
   const typeLabel = REQUEST_TYPE_LABELS[request.type];
 
-  const getMutatorNs = () => {
-    if (request.type === "reimbursement") {
-      return mutators.reimbursement;
-    }
-    if (request.type === "vendor_payment") {
-      return mutators.vendorPayment;
-    }
-    return mutators.advancePayment;
-  };
-  const mutatorNs = getMutatorNs();
-
-  const getMutatorName = () => {
-    if (request.type === "reimbursement") {
-      return "reimbursement";
-    }
-    if (request.type === "vendor_payment") {
-      return "vendorPayment";
-    }
-    return "advancePayment";
-  };
+  const mutatorMap = {
+    reimbursement: { ns: mutators.reimbursement, name: "reimbursement" },
+    vendor_payment: { ns: mutators.vendorPayment, name: "vendorPayment" },
+    advance_payment: { ns: mutators.advancePayment, name: "advancePayment" },
+  } as const;
+  const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
   const { label, variant } =
     STATUS_BADGE_MAP[request.status ?? "draft"] ?? STATUS_BADGE_MAP.draft;
@@ -185,7 +174,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
       )
       .server.then(async (res) => {
         handleMutationResult(res, {
-          mutation: `${getMutatorName()}.approve`,
+          mutation: `${mutatorName}.approve`,
           entityId: request.id,
           successMsg: `${typeLabel} approved`,
           errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
@@ -216,7 +205,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
       .mutate(mutatorNs.reject({ id: request.id, reason }))
       .server.then((res) => {
         handleMutationResult(res, {
-          mutation: `${getMutatorName()}.reject`,
+          mutation: `${mutatorName}.reject`,
           entityId: request.id,
           successMsg: `${typeLabel} rejected`,
           errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,

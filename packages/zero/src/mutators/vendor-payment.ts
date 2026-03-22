@@ -122,6 +122,11 @@ export const vendorPaymentMutators = {
         throw new Error("Only pending vendor payments can be updated");
       }
 
+      const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+
       const now = Date.now();
 
       await tx.mutate.vendorPayment.update({

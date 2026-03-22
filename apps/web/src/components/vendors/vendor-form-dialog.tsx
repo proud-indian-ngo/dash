@@ -61,17 +61,16 @@ export function VendorFormDialog({
     }
   }, [open, vendor]);
 
+  const isValid =
+    !!name.trim() &&
+    !!contactPhone.trim() &&
+    !!bankAccountName.trim() &&
+    !!bankAccountNumber.trim() &&
+    !!bankAccountIfscCode.trim();
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (
-      !(
-        name.trim() &&
-        contactPhone.trim() &&
-        bankAccountName.trim() &&
-        bankAccountNumber.trim() &&
-        bankAccountIfscCode.trim()
-      )
-    ) {
+    if (!isValid) {
       return;
     }
 
@@ -110,13 +109,6 @@ export function VendorFormDialog({
       setSubmitting(false);
     }
   };
-
-  const isValid =
-    name.trim() &&
-    contactPhone.trim() &&
-    bankAccountName.trim() &&
-    bankAccountNumber.trim() &&
-    bankAccountIfscCode.trim();
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

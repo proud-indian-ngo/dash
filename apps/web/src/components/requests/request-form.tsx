@@ -351,6 +351,13 @@ function RequestFormInner({
 
         <Separator />
 
+        {vendorOptions.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No vendors available. Please ask an admin to add a vendor before
+            submitting.
+          </p>
+        ) : null}
+
         <FormActions
           cancelLabel="Cancel"
           disabled={vendorOptions.length === 0}

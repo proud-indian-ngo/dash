@@ -1,7 +1,8 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
+import { assertIsAdmin } from "../permissions";
+// Vendor CRUD is admin-only. Non-admin users select from approved vendors in the payment form.
 import { zql } from "../schema";
 
 export const vendorMutators = {
@@ -20,9 +21,8 @@ export const vendorMutators = {
       status: z.enum(["pending", "approved"]).optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
+      assertIsAdmin(ctx);
       const userId = ctx.userId;
-      const isAdmin = ctx.role === "admin";
       const now = Date.now();
 
       await tx.mutate.vendor.insert({
@@ -36,7 +36,7 @@ export const vendorMutators = {
         address: args.address ?? null,
         gstNumber: args.gstNumber ?? null,
         panNumber: args.panNumber ?? null,
-        status: isAdmin ? (args.status ?? "approved") : "pending",
+        status: args.status ?? "approved",
         createdBy: userId,
         createdAt: now,
         updatedAt: now,
