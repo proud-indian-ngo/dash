@@ -1,0 +1,186 @@
+import {
+  Clock01Icon,
+  Invoice01Icon,
+  MoneyReceiveSquareIcon,
+} from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Badge } from "@pi-dash/design-system/components/reui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@pi-dash/design-system/components/ui/card";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatDistanceToNow } from "date-fns";
+import { formatINR } from "@/lib/form-schemas";
+import { STATUS_BADGE_MAP, type StatusBadgeVariant } from "@/lib/status-badge";
+
+interface RequestItem {
+  createdAt: number;
+  id: string;
+  lineItems: readonly { amount: number }[];
+  status: string | null;
+}
+
+interface ActivityItem {
+  amount: number;
+  createdAt: number;
+  icon: IconSvgElement;
+  id: string;
+  label: string;
+  status: string | null;
+  type: "reimbursement" | "advance_payment";
+}
+
+const MAX_ITEMS = 5;
+
+function toActivityItems(
+  items: readonly RequestItem[],
+  type: ActivityItem["type"],
+  icon: IconSvgElement,
+  label: string
+): ActivityItem[] {
+  return items.map((item) => ({
+    amount: item.lineItems.reduce((sum, li) => sum + li.amount, 0),
+    createdAt: item.createdAt,
+    icon,
+    id: item.id,
+    label,
+    status: item.status,
+    type,
+  }));
+}
+
+function RecentActivitySkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4].map((i) => (
+        <div className="flex items-center gap-3" key={i}>
+          <Skeleton className="size-4 shrink-0 rounded-full" />
+          <div className="flex-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RecentActivityEmpty() {
+  return <p className="text-muted-foreground text-sm">No recent activity.</p>;
+}
+
+function RecentActivityContent({
+  advancePayments,
+  isLoading,
+  reimbursements,
+}: {
+  advancePayments: readonly RequestItem[];
+  isLoading?: boolean;
+  reimbursements: readonly RequestItem[];
+}) {
+  if (isLoading) {
+    return <RecentActivitySkeleton />;
+  }
+
+  const activities = [
+    ...toActivityItems(
+      reimbursements,
+      "reimbursement",
+      Invoice01Icon,
+      "Reimbursement"
+    ),
+    ...toActivityItems(
+      advancePayments,
+      "advance_payment",
+      MoneyReceiveSquareIcon,
+      "Advance Payment"
+    ),
+  ]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, MAX_ITEMS);
+
+  if (activities.length === 0) {
+    return <RecentActivityEmpty />;
+  }
+  return <RecentActivityList activities={activities} />;
+}
+
+function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
+  return (
+    <div className="space-y-3">
+      {activities.map((activity) => {
+        const statusInfo =
+          activity.status &&
+          STATUS_BADGE_MAP[activity.status as keyof typeof STATUS_BADGE_MAP];
+        return (
+          <div className="flex items-start gap-3" key={activity.id}>
+            <HugeiconsIcon
+              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              icon={activity.icon}
+              strokeWidth={2}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm">
+                  {activity.label}
+                  <span className="ml-1 text-muted-foreground">
+                    {formatINR(activity.amount)}
+                  </span>
+                </p>
+                {statusInfo && (
+                  <Badge
+                    size="xs"
+                    variant={statusInfo.variant as StatusBadgeVariant}
+                  >
+                    {statusInfo.label}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {formatDistanceToNow(activity.createdAt, {
+                  addSuffix: true,
+                })}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function RecentActivity({
+  advancePayments,
+  isLoading,
+  reimbursements,
+}: {
+  advancePayments: readonly RequestItem[];
+  isLoading?: boolean;
+  reimbursements: readonly RequestItem[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-1.5 text-sm">
+          <HugeiconsIcon
+            className="size-4"
+            icon={Clock01Icon}
+            strokeWidth={2}
+          />
+          Recent Activity
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <RecentActivityContent
+          advancePayments={advancePayments}
+          isLoading={isLoading}
+          reimbursements={reimbursements}
+        />
+      </CardContent>
+    </Card>
+  );
+}

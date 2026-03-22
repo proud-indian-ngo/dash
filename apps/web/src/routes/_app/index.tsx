@@ -17,6 +17,9 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { MyTeams } from "@/components/dashboard/my-teams";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
 import type { StatItem } from "@/components/stats/stats-cards";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
@@ -31,6 +34,8 @@ export const Route = createFileRoute("/_app/")({
     context.zero?.run(queries.reimbursement.all());
     context.zero?.run(queries.advancePayment.all());
     context.zero?.run(queries.user.all());
+    context.zero?.run(queries.team.byCurrentUser());
+    context.zero?.run(queries.teamEvent.byCurrentUser());
   },
   component: DashboardHome,
 });
@@ -122,9 +127,12 @@ function OrientedDashboard() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
   const [users, r3] = useQuery(queries.user.all());
+  const [teams, r4] = useQuery(queries.team.byCurrentUser());
+  const [events, r5] = useQuery(queries.teamEvent.byCurrentUser());
 
   const isLoading =
     r1.type === "unknown" || r2.type === "unknown" || r3.type === "unknown";
+  const isWidgetsLoading = r4.type === "unknown" || r5.type === "unknown";
 
   const stats = isLoading
     ? []
@@ -156,6 +164,20 @@ function OrientedDashboard() {
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
           New Request
         </Button>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <MyTeams isLoading={isWidgetsLoading} teams={teams ?? []} />
+          <RecentActivity
+            advancePayments={advancePayments ?? []}
+            isLoading={isLoading}
+            reimbursements={reimbursements ?? []}
+          />
+        </div>
+        <div>
+          <UpcomingEvents events={events ?? []} isLoading={isWidgetsLoading} />
+        </div>
       </div>
     </div>
   );
