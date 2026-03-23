@@ -107,7 +107,7 @@ function searchRequest(row: RequestRow, query: string): boolean {
   }
   return [
     row.title,
-    "city" in row ? (row.city ?? "") : "",
+    row.type === "vendor_payment" ? "" : (row.city ?? ""),
     row.status,
     row.user?.name ?? "",
     REQUEST_TYPE_LABELS[row.type],

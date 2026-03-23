@@ -27,6 +27,15 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const userId = ctx.userId;
+
+      const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+      if (vendor.status !== "approved") {
+        throw new Error("Vendor is not approved");
+      }
+
       const now = Date.now();
 
       await tx.mutate.vendorPayment.insert({
@@ -125,6 +134,9 @@ export const vendorPaymentMutators = {
       const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
       if (!vendor) {
         throw new Error("Vendor not found");
+      }
+      if (vendor.status !== "approved") {
+        throw new Error("Vendor is not approved");
       }
 
       const now = Date.now();

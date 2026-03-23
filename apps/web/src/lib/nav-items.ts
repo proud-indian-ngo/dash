@@ -77,15 +77,10 @@ export function buildNavItems(
     return [homeNavItem, eventsNavItem];
   }
 
-  const items = [
-    homeNavItem,
-    requestsNavItem,
-    vendorsNavItem,
-    teamsNavItem,
-    eventsNavItem,
-  ];
+  const items = [homeNavItem, requestsNavItem, teamsNavItem, eventsNavItem];
 
   if (isAdmin) {
+    items.push(vendorsNavItem);
     items.push(usersNavItem);
     items.push(exportNavItem);
   }
@@ -105,7 +100,7 @@ export function buildNavGroups(
     { items: [homeNavItem] },
     {
       label: "Finance",
-      items: [requestsNavItem, vendorsNavItem],
+      items: [requestsNavItem],
     },
     {
       label: "Organization",
@@ -116,7 +111,7 @@ export function buildNavGroups(
   if (isAdmin) {
     groups.push({
       label: "Admin",
-      items: [usersNavItem, exportNavItem],
+      items: [vendorsNavItem, usersNavItem, exportNavItem],
     });
   }
 

@@ -91,6 +91,13 @@ export const vendorMutators = {
         throw new Error("Vendor not found");
       }
 
+      const payments = await tx.run(
+        zql.vendorPayment.where("vendorId", args.id)
+      );
+      if (payments.length > 0) {
+        throw new Error("Cannot delete vendor with existing payment requests");
+      }
+
       await tx.mutate.vendor.delete({ id: args.id });
     }
   ),

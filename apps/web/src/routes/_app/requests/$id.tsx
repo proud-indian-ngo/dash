@@ -10,7 +10,7 @@ import { RequestForm } from "@/components/requests/request-form";
 import { useApp } from "@/context/app-context";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import type { RequestDetailData, RequestType } from "@/lib/request-types";
-import { REQUEST_TYPE_LABELS } from "@/lib/request-types";
+import { isVendorPayment, REQUEST_TYPE_LABELS } from "@/lib/request-types";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -117,15 +117,13 @@ function RequestDetailRouteComponent() {
 function buildInitialValues(resolved: ResolvedRequest) {
   const { data: request, type: requestType, expenseDate } = resolved;
 
-  const vendorInitialValues =
-    requestType === "vendor_payment"
-      ? {
-          vendorId: (request as { vendorId: string }).vendorId,
-          invoiceNumber:
-            (request as { invoiceNumber?: string }).invoiceNumber ?? "",
-          invoiceDate: (request as { invoiceDate: string }).invoiceDate,
-        }
-      : {};
+  const vendorInitialValues = isVendorPayment(request)
+    ? {
+        vendorId: request.vendorId,
+        invoiceNumber: request.invoiceNumber ?? "",
+        invoiceDate: request.invoiceDate,
+      }
+    : {};
 
   return {
     id: request.id,

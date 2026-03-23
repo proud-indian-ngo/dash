@@ -1,7 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
   check,
-  date,
   index,
   integer,
   jsonb,
@@ -23,12 +22,7 @@ export type VendorStatus = (typeof vendorStatusValues)[number];
 
 export const vendorStatusEnum = pgEnum("vendor_status", vendorStatusValues);
 
-const vendorPaymentStatusValues = [
-  "draft",
-  "pending",
-  "approved",
-  "rejected",
-] as const;
+const vendorPaymentStatusValues = ["pending", "approved", "rejected"] as const;
 
 export type VendorPaymentStatus = (typeof vendorPaymentStatusValues)[number];
 
@@ -77,8 +71,8 @@ export const vendorPayment = pgTable(
       .references(() => vendor.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     invoiceNumber: text("invoice_number"),
-    invoiceDate: date("invoice_date", { mode: "string" }).notNull(),
-    status: vendorPaymentStatusEnum("status").default("draft").notNull(),
+    invoiceDate: text("invoice_date").notNull(),
+    status: vendorPaymentStatusEnum("status").default("pending").notNull(),
     rejectionReason: text("rejection_reason"),
     approvalScreenshotKey: text("approval_screenshot_key"),
     reviewedBy: text("reviewed_by").references(() => user.id, {

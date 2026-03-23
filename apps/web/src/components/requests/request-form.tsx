@@ -35,6 +35,7 @@ import {
   getDefaultValues,
   getFormSchema,
   type RequestFormValues,
+  requestFormSchema,
 } from "./form/request-form.schema";
 
 export interface RequestFormProps {
@@ -199,7 +200,7 @@ function RequestFormInner({
   const [bankAccounts, bankAccountsResult] = useQuery(
     queries.bankAccount.bankAccountsByCurrentUser()
   );
-  const [vendors, vendorsResult] = useQuery(queries.vendor.all());
+  const [vendors, vendorsResult] = useQuery(queries.vendor.approved());
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
@@ -219,7 +220,7 @@ function RequestFormInner({
   );
 
   const bankAccountOptions = bankAccountList.map((account) => ({
-    label: `${account.accountName} (••••${account.accountNumber.slice(-4)})`,
+    label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
     value: account.id,
   }));
 
@@ -251,7 +252,7 @@ function RequestFormInner({
       attachments: initialValues?.attachments ?? [],
     },
     onSubmit: async ({ value: rawValue }) => {
-      const value = rawValue as RequestFormValues;
+      const value = requestFormSchema.parse(rawValue);
       const id = entityId;
       const typeLabel = REQUEST_TYPE_LABELS[value.type];
       const mutation = buildMutation(

@@ -86,8 +86,11 @@ function RequestHeaderMeta({ request }: { request: RequestDetailData }) {
       request.bankAccountName &&
       request.bankAccountNumber ? (
         <span>
-          {request.bankAccountName} ( ••••
-          {request.bankAccountNumber.slice(-4)})
+          {request.bankAccountName} (••••
+          {request.bankAccountNumber.length >= 4
+            ? request.bankAccountNumber.slice(-4)
+            : request.bankAccountNumber}
+          )
         </span>
       ) : null}
     </div>
@@ -119,9 +122,10 @@ function VendorDetailsCard({ request }: { request: RequestDetailData }) {
         <div>
           <span className="text-muted-foreground">Bank: </span>
           {request.vendor.bankAccountName} (••••
-          {request.vendor.bankAccountNumber
+          {request.vendor.bankAccountNumber &&
+          request.vendor.bankAccountNumber.length >= 4
             ? request.vendor.bankAccountNumber.slice(-4)
-            : "N/A"}
+            : request.vendor.bankAccountNumber || "N/A"}
           )
         </div>
         {request.vendor.gstNumber ? (

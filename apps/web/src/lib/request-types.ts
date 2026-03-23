@@ -135,7 +135,5 @@ export function normalizeToRequestRows(
     ...reimbursementRows,
     ...advancePaymentRows,
     ...vendorPaymentRows,
-  ].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  ].sort((a, b) => b.createdAt - a.createdAt);
 }
