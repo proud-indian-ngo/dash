@@ -152,12 +152,12 @@ export function NavUser() {
                   <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
                   Notifications
                   {unreadCount > 0 && (
-                    <span className="![color:white] ml-auto inline-flex size-5 items-center justify-center rounded-full bg-destructive font-medium text-[10px]">
+                    <span className="!text-white ml-auto inline-flex size-5 items-center justify-center rounded-full bg-destructive font-medium text-[10px]">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
+                <DropdownMenuSubContent className="w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
                   <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-[400px]">
                     <Suspense>
                       <CourierInbox

@@ -39,7 +39,13 @@ function UpcomingEventsSkeleton() {
 function UpcomingEventsEmpty() {
   return (
     <p className="text-muted-foreground text-sm">
-      No upcoming events scheduled.
+      No upcoming events scheduled.{" "}
+      <Link
+        className="text-foreground underline underline-offset-4"
+        to="/events"
+      >
+        View all events
+      </Link>
     </p>
   );
 }

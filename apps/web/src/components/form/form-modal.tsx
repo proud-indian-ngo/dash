@@ -25,7 +25,7 @@ export function FormModal({
 }: FormModalProps) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[90vh] w-[min(96vw,56rem)]! max-w-4xl! overflow-y-auto sm:max-w-4xl!">
+      <DialogContent className="max-h-[90vh] w-[min(96vw,56rem)] overflow-y-auto sm:max-w-4xl">
         <div className="flex items-start justify-between gap-3">
           <DialogHeader className="flex-1 place-items-start text-left">
             <DialogTitle>{title}</DialogTitle>

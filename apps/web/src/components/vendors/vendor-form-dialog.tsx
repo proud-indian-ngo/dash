@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
@@ -205,6 +206,9 @@ export function VendorFormDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Vendor" : "Add New Vendor"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit ? "Edit vendor details" : "Create a new vendor"}
+          </DialogDescription>
         </DialogHeader>
         {mode === "inline" && (
           <p className="text-muted-foreground text-sm">

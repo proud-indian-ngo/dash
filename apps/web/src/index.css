@@ -2,8 +2,19 @@
 
 @source "./";
 
-/* Alert dialogs must render above YARL lightbox (z-index: 9999) */
+/* z-index scale: use these tokens instead of raw numbers.
+   Design-system components (dialog, sheet, popover, tooltip) own z-50.
+   App-level layers only need overrides for third-party stacking. */
+:root {
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-overlay: 50;
+  --z-lightbox: 9999;
+  --z-alert-over-lightbox: 10000;
+}
+
+/* Alert dialogs must render above YARL lightbox (z-index: var(--z-lightbox)) */
 body:has(.yarl__root) [data-slot="alert-dialog-overlay"],
 body:has(.yarl__root) [data-slot="alert-dialog-content"] {
-  z-index: 10000;
+  z-index: var(--z-alert-over-lightbox);
 }

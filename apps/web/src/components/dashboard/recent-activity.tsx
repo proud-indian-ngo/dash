@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { formatINR } from "@/lib/form-schemas";
 import { STATUS_BADGE_MAP, type StatusBadgeVariant } from "@/lib/status-badge";
@@ -70,7 +71,18 @@ function RecentActivitySkeleton() {
 }
 
 function RecentActivityEmpty() {
-  return <p className="text-muted-foreground text-sm">No recent activity.</p>;
+  return (
+    <p className="text-muted-foreground text-sm">
+      No recent activity.{" "}
+      <Link
+        className="text-foreground underline underline-offset-4"
+        to="/requests"
+      >
+        Submit a request
+      </Link>{" "}
+      to get started.
+    </p>
+  );
 }
 
 function RecentActivityContent({

@@ -20,10 +20,10 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
           icon={Alert01Icon}
           strokeWidth={2}
         />
-        <h2 className="font-semibold text-lg">Something went wrong</h2>
+        <h2 className="font-semibold text-lg">We hit an unexpected error</h2>
         <p className="max-w-md text-muted-foreground text-sm">
-          An unexpected error occurred. Please try again or return to the home
-          page.
+          This page couldn't load properly. Try again, or head back to the home
+          page if the problem persists.
         </p>
         {isAdmin ? (
           <p className="mt-2 max-w-md rounded-md bg-muted p-2 font-mono text-muted-foreground text-xs">

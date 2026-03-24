@@ -32,7 +32,13 @@ function MyTeamsSkeleton() {
 function MyTeamsEmpty() {
   return (
     <p className="text-muted-foreground text-sm">
-      You haven't joined any teams yet.
+      You haven't joined any teams yet.{" "}
+      <Link
+        className="text-foreground underline underline-offset-4"
+        to="/teams"
+      >
+        Browse teams
+      </Link>
     </p>
   );
 }

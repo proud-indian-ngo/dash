@@ -110,7 +110,7 @@ export function SettingsDialog() {
 
   return (
     <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
-      <DialogContent className="max-h-[85vh] overflow-hidden p-0 md:max-w-175 lg:max-w-200">
+      <DialogContent className="max-h-[85vh] overflow-hidden p-0 md:max-w-[700px] lg:max-w-[800px]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your profile and account settings.

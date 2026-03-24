@@ -144,6 +144,7 @@ export function EventPhotos({
 
     for (const file of validFiles) {
       try {
+        const now = Date.now();
         if (useImmichDirect) {
           // Admin/lead: upload directly to Immich via server proxy
           const formData = new FormData();
@@ -160,7 +161,7 @@ export function EventPhotos({
               id: crypto.randomUUID(),
               eventId,
               immichAssetId: result.immichAssetId,
-              now: Date.now(),
+              now,
             })
           ).server;
         } else {
@@ -171,7 +172,7 @@ export function EventPhotos({
               id: crypto.randomUUID(),
               eventId,
               r2Key: key,
-              now: Date.now(),
+              now,
             })
           ).server;
         }
@@ -189,9 +190,9 @@ export function EventPhotos({
   };
 
   const handleApprove = async (id: string) => {
+    const now = Date.now();
     try {
-      await zero.mutate(mutators.eventPhoto.approve({ id, now: Date.now() }))
-        .server;
+      await zero.mutate(mutators.eventPhoto.approve({ id, now })).server;
       toast.success("Photo approved");
     } catch (error) {
       log.error({
@@ -205,9 +206,9 @@ export function EventPhotos({
   };
 
   const handleReject = async (id: string) => {
+    const now = Date.now();
     try {
-      await zero.mutate(mutators.eventPhoto.reject({ id, now: Date.now() }))
-        .server;
+      await zero.mutate(mutators.eventPhoto.reject({ id, now })).server;
       toast.success("Photo rejected");
     } catch (error) {
       log.error({
@@ -279,9 +280,9 @@ export function EventPhotos({
       {/* Pending photos: admins/leads see all, volunteers see own */}
       {canManage && pendingPhotos.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <h3 className="font-medium text-sm">
+          <p className="font-medium text-sm">
             Pending Approval ({pendingPhotos.length})
-          </h3>
+          </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {pendingPhotos.map((photo, i) => (
               <PhotoCard
@@ -300,9 +301,9 @@ export function EventPhotos({
       ) : null}
       {!canManage && myPendingPhotos.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <h3 className="font-medium text-sm">
+          <p className="font-medium text-sm">
             Your Pending Photos ({myPendingPhotos.length})
-          </h3>
+          </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {myPendingPhotos.map((photo, i) => (
               <PhotoCard

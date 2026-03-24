@@ -262,9 +262,8 @@ export function PlateEditor({
           </FixedToolbar>
 
           <PlateContent
-            className="prose prose-sm p-3 outline-none"
+            className="prose prose-sm min-h-32 p-3 outline-none"
             placeholder="Write something..."
-            style={{ minHeight: 128 }}
           />
         </div>
       </Plate>
