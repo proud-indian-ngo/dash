@@ -1,8 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin } from "../permissions";
-// Vendor CRUD is admin-only. Non-admin users select from approved vendors in the payment form.
+import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
 
 export const vendorMutators = {
@@ -21,8 +20,10 @@ export const vendorMutators = {
       status: z.enum(["pending", "approved"]).optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertIsLoggedIn(ctx);
       const userId = ctx.userId;
+      const isAdmin = ctx.role === "admin";
+      const status = isAdmin ? (args.status ?? "approved") : "pending";
       const now = Date.now();
 
       await tx.mutate.vendor.insert({
@@ -36,7 +37,7 @@ export const vendorMutators = {
         address: args.address ?? null,
         gstNumber: args.gstNumber ?? null,
         panNumber: args.panNumber ?? null,
-        status: args.status ?? "approved",
+        status,
         createdBy: userId,
         createdAt: now,
         updatedAt: now,
@@ -78,6 +79,55 @@ export const vendorMutators = {
         gstNumber: args.gstNumber ?? null,
         panNumber: args.panNumber ?? null,
         updatedAt: now,
+      });
+    }
+  ),
+
+  approve: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsAdmin(ctx);
+      const vendor = await tx.run(zql.vendor.where("id", args.id).one());
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+      if (vendor.status !== "pending") {
+        throw new Error("Only pending vendors can be approved");
+      }
+
+      await tx.mutate.vendor.update({
+        id: args.id,
+        status: "approved",
+        updatedAt: Date.now(),
+      });
+    }
+  ),
+
+  unapprove: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsAdmin(ctx);
+      const vendor = await tx.run(zql.vendor.where("id", args.id).one());
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+      if (vendor.status !== "approved") {
+        throw new Error("Only approved vendors can be unapproved");
+      }
+
+      const payments = await tx.run(
+        zql.vendorPayment.where("vendorId", args.id)
+      );
+      if (payments.length > 0) {
+        throw new Error(
+          "Cannot unapprove vendor with existing payment requests"
+        );
+      }
+
+      await tx.mutate.vendor.update({
+        id: args.id,
+        status: "pending",
+        updatedAt: Date.now(),
       });
     }
   ),

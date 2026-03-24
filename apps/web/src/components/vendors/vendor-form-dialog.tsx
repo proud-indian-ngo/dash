@@ -22,13 +22,44 @@ function submitButtonLabel(submitting: boolean, isEdit: boolean): string {
   return isEdit ? "Save" : "Create";
 }
 
+interface VendorFormFields {
+  address: string;
+  bankAccountIfscCode: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  contactEmail: string;
+  contactPhone: string;
+  gstNumber: string;
+  name: string;
+  panNumber: string;
+}
+
+function buildVendorPayload(fields: VendorFormFields, existingId?: string) {
+  return {
+    id: existingId ?? uuidv7(),
+    name: fields.name.trim(),
+    contactPhone: fields.contactPhone.trim(),
+    contactEmail: fields.contactEmail.trim() || undefined,
+    bankAccountName: fields.bankAccountName.trim(),
+    bankAccountNumber: fields.bankAccountNumber.trim(),
+    bankAccountIfscCode: fields.bankAccountIfscCode.trim(),
+    address: fields.address.trim() || undefined,
+    gstNumber: fields.gstNumber.trim() || undefined,
+    panNumber: fields.panNumber.trim() || undefined,
+  };
+}
+
 interface VendorFormDialogProps {
+  mode?: "admin" | "inline";
+  onCreated?: (id: string) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   vendor: Vendor | null;
 }
 
 export function VendorFormDialog({
+  mode = "admin",
+  onCreated,
   onOpenChange,
   open,
   vendor,
@@ -76,22 +107,29 @@ export function VendorFormDialog({
 
     setSubmitting(true);
     try {
-      const payload = {
-        id: vendor?.id ?? uuidv7(),
-        name: name.trim(),
-        contactPhone: contactPhone.trim(),
-        contactEmail: contactEmail.trim() || undefined,
-        bankAccountName: bankAccountName.trim(),
-        bankAccountNumber: bankAccountNumber.trim(),
-        bankAccountIfscCode: bankAccountIfscCode.trim(),
-        address: address.trim() || undefined,
-        gstNumber: gstNumber.trim() || undefined,
-        panNumber: panNumber.trim() || undefined,
-      };
+      const payload = buildVendorPayload(
+        {
+          name,
+          contactPhone,
+          contactEmail,
+          bankAccountName,
+          bankAccountNumber,
+          bankAccountIfscCode,
+          address,
+          gstNumber,
+          panNumber,
+        },
+        vendor?.id
+      );
+
+      const createPayload =
+        mode === "inline"
+          ? { ...payload, status: "pending" as const }
+          : payload;
 
       const mutation = isEdit
         ? zero.mutate(mutators.vendor.update(payload))
-        : zero.mutate(mutators.vendor.create(payload));
+        : zero.mutate(mutators.vendor.create(createPayload));
 
       const res = await mutation.server;
       handleMutationResult(res, {
@@ -103,6 +141,9 @@ export function VendorFormDialog({
           : "Failed to create vendor",
       });
       if (res.type !== "error") {
+        if (!isEdit) {
+          onCreated?.(payload.id);
+        }
         onOpenChange(false);
       }
     } finally {
@@ -114,8 +155,14 @@ export function VendorFormDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Vendor" : "Add Vendor"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Vendor" : "Add New Vendor"}</DialogTitle>
         </DialogHeader>
+        {mode === "inline" && (
+          <p className="text-muted-foreground text-sm">
+            This vendor will be created with pending status and approved when
+            your payment request is approved.
+          </p>
+        )}
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">

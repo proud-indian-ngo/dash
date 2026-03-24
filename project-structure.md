@@ -314,7 +314,7 @@ Split by domain in `packages/zero/src/mutators/`. Each file exports a mutators o
 
 ### Vendor Payment Workflow
 
-Vendors have a two-stage lifecycle: `pending` → `approved`. Payments can only be created against approved vendors. Vendor payments (title, invoice number/date, line items, attachments) follow the same approval workflow as reimbursements and advance payments (submit → approve/reject with history tracking). The `/vendors` route is admin-only via `assertAdmin` route guard.
+Vendors have a two-stage lifecycle: `pending` → `approved`. Any authenticated user can create a vendor (non-admins are server-forced to `pending` status). Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. Vendor payments (title, invoice number/date, line items, attachments) follow the same approval workflow as reimbursements and advance payments (submit → approve/reject with history tracking). The `/vendors` admin route is admin-only via `assertAdmin` route guard.
 
 ### Auth Guard
 

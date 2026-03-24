@@ -8,6 +8,7 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import {
+  assertVendorUsable,
   buildAttachmentInsert,
   buildHistoryInsert,
   buildLineItemInsert,
@@ -32,9 +33,7 @@ export const vendorPaymentMutators = {
       if (!vendor) {
         throw new Error("Vendor not found");
       }
-      if (vendor.status !== "approved") {
-        throw new Error("Vendor is not approved");
-      }
+      assertVendorUsable(vendor, userId);
 
       const now = Date.now();
 
@@ -135,9 +134,7 @@ export const vendorPaymentMutators = {
       if (!vendor) {
         throw new Error("Vendor not found");
       }
-      if (vendor.status !== "approved") {
-        throw new Error("Vendor is not approved");
-      }
+      assertVendorUsable(vendor, userId);
 
       const now = Date.now();
 

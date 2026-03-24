@@ -135,10 +135,51 @@ describe("vendor mutator schemas", () => {
 });
 
 describe("vendor authorization", () => {
-  it("all vendor CRUD operations require admin role", () => {
+  it("update and delete require admin role", () => {
     const isAuthorized = (role: string) => role === "admin";
     expect(isAuthorized("admin")).toBe(true);
     expect(isAuthorized("volunteer")).toBe(false);
+  });
+
+  it("create is open to any logged-in user", () => {
+    const canCreate = (role: string) =>
+      role === "admin" || role === "volunteer";
+    expect(canCreate("admin")).toBe(true);
+    expect(canCreate("volunteer")).toBe(true);
+  });
+
+  it("non-admin create forces pending status", () => {
+    const resolveStatus = (
+      role: string,
+      requestedStatus?: "pending" | "approved"
+    ) => (role === "admin" ? (requestedStatus ?? "approved") : "pending");
+
+    expect(resolveStatus("volunteer")).toBe("pending");
+    expect(resolveStatus("volunteer", "approved")).toBe("pending");
+    expect(resolveStatus("admin")).toBe("approved");
+    expect(resolveStatus("admin", "pending")).toBe("pending");
+  });
+});
+
+describe("vendor approve/unapprove state transitions", () => {
+  it("only pending vendors can be approved", () => {
+    const canApprove = (status: string) => status === "pending";
+    expect(canApprove("pending")).toBe(true);
+    expect(canApprove("approved")).toBe(false);
+  });
+
+  it("only approved vendors can be unapproved", () => {
+    const canUnapprove = (status: string) => status === "approved";
+    expect(canUnapprove("approved")).toBe(true);
+    expect(canUnapprove("pending")).toBe(false);
+  });
+
+  it("blocks unapproval when vendor has existing payments", () => {
+    const canUnapprove = (status: string, paymentCount: number) =>
+      status === "approved" && paymentCount === 0;
+    expect(canUnapprove("approved", 0)).toBe(true);
+    expect(canUnapprove("approved", 1)).toBe(false);
+    expect(canUnapprove("approved", 5)).toBe(false);
   });
 });
 

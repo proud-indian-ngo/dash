@@ -35,11 +35,19 @@ const SKELETON_BANK = <Skeleton className="h-5 w-44" />;
 const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
 
 function RowActions({
+  onApprove,
   onEdit,
   onRequestDelete,
+  onUnapprove,
+  onView,
+  status,
 }: {
+  onApprove?: () => void;
   onEdit: () => void;
   onRequestDelete: () => void;
+  onUnapprove?: () => void;
+  onView: () => void;
+  status: string;
 }) {
   return (
     <DropdownMenu>
@@ -62,7 +70,14 @@ function RowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
+        <DropdownMenuItem onClick={onView}>View</DropdownMenuItem>
         <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+        {onApprove && status === "pending" && (
+          <DropdownMenuItem onClick={onApprove}>Approve</DropdownMenuItem>
+        )}
+        {onUnapprove && status === "approved" && (
+          <DropdownMenuItem onClick={onUnapprove}>Unapprove</DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
           Delete
@@ -86,16 +101,22 @@ function searchVendor(row: Vendor, query: string): boolean {
 interface VendorsTableProps {
   data: Vendor[];
   isLoading?: boolean;
+  onApprove?: (vendor: Vendor) => void;
   onDelete: (id: string) => Promise<{ type: string }>;
   onEdit: (vendor: Vendor) => void;
+  onUnapprove?: (vendor: Vendor) => void;
+  onView: (vendor: Vendor) => void;
   toolbarActions?: ReactNode;
 }
 
 export function VendorsTable({
   data,
   isLoading,
+  onApprove,
   onDelete,
   onEdit,
+  onUnapprove,
+  onView,
   toolbarActions,
 }: VendorsTableProps) {
   const deleteAction = useConfirmAction<string>({
@@ -205,10 +226,21 @@ export function VendorsTable({
         id: "actions",
         header: "",
         cell: ({ row }) => (
-          <RowActions
-            onEdit={() => onEdit(row.original)}
-            onRequestDelete={() => deleteAction.trigger(row.original.id)}
-          />
+          // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper prevents row click when interacting with actions
+          // biome-ignore lint/a11y/noStaticElementInteractions: same as above
+          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: same as above
+          <div onClick={(e) => e.stopPropagation()}>
+            <RowActions
+              onApprove={onApprove ? () => onApprove(row.original) : undefined}
+              onEdit={() => onEdit(row.original)}
+              onRequestDelete={() => deleteAction.trigger(row.original.id)}
+              onUnapprove={
+                onUnapprove ? () => onUnapprove(row.original) : undefined
+              }
+              onView={() => onView(row.original)}
+              status={row.original.status ?? "pending"}
+            />
+          </div>
         ),
         enableHiding: false,
         enableResizing: false,
@@ -219,7 +251,7 @@ export function VendorsTable({
         minSize: 52,
       },
     ],
-    [onEdit, deleteAction.trigger]
+    [onApprove, onEdit, onUnapprove, onView, deleteAction.trigger]
   );
 
   return (
@@ -230,6 +262,7 @@ export function VendorsTable({
         emptyMessage="No vendors found."
         getRowId={(row) => row.id}
         isLoading={isLoading}
+        onRowClick={onView}
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
         storageKey="vendors_table_state_v1"

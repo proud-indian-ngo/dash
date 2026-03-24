@@ -8,6 +8,7 @@ import type { Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
+import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { VendorsTable } from "@/components/vendors/vendors-table";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
@@ -30,6 +31,7 @@ function VendorsRouteComponent() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -45,9 +47,44 @@ function VendorsRouteComponent() {
     [zero]
   );
 
+  const handleApprove = useCallback(
+    async (vendor: Vendor) => {
+      const res = await zero.mutate(mutators.vendor.approve({ id: vendor.id }))
+        .server;
+      handleMutationResult(res, {
+        mutation: "vendor.approve",
+        entityId: vendor.id,
+        successMsg: "Vendor approved",
+        errorMsg: "Failed to approve vendor",
+      });
+      return res;
+    },
+    [zero]
+  );
+
+  const handleUnapprove = useCallback(
+    async (vendor: Vendor) => {
+      const res = await zero.mutate(
+        mutators.vendor.unapprove({ id: vendor.id })
+      ).server;
+      handleMutationResult(res, {
+        mutation: "vendor.unapprove",
+        entityId: vendor.id,
+        successMsg: "Vendor unapproved",
+        errorMsg: "Failed to unapprove vendor",
+      });
+      return res;
+    },
+    [zero]
+  );
+
   const handleEdit = useCallback((vendor: Vendor) => {
     setEditingVendor(vendor);
     setFormOpen(true);
+  }, []);
+
+  const handleView = useCallback((vendor: Vendor) => {
+    setViewingVendor(vendor);
   }, []);
 
   return (
@@ -61,8 +98,11 @@ function VendorsRouteComponent() {
         <VendorsTable
           data={(vendors ?? []) as Vendor[]}
           isLoading={isLoading}
+          onApprove={handleApprove}
           onDelete={handleDelete}
           onEdit={handleEdit}
+          onUnapprove={handleUnapprove}
+          onView={handleView}
           toolbarActions={
             <Button
               onClick={() => {
@@ -92,6 +132,16 @@ function VendorsRouteComponent() {
         }}
         open={formOpen}
         vendor={editingVendor}
+      />
+
+      <VendorDetailSheet
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingVendor(null);
+          }
+        }}
+        open={!!viewingVendor}
+        vendor={viewingVendor}
       />
     </div>
   );

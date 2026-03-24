@@ -1,3 +1,6 @@
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -25,6 +28,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import { SelectField } from "@/components/form/select-field";
+import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { useApp } from "@/context/app-context";
 import { useStableQueryResult } from "@/hooks/use-stable-query-result";
 import { cityOptions, newLineItem } from "@/lib/form-schemas";
@@ -201,6 +205,9 @@ function RequestFormInner({
     queries.bankAccount.bankAccountsByCurrentUser()
   );
   const [vendors, vendorsResult] = useQuery(queries.vendor.approved());
+  const [pendingVendors, pendingVendorsResult] = useQuery(
+    queries.vendor.pendingByCurrentUser()
+  );
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
@@ -214,9 +221,21 @@ function RequestFormInner({
     (bankAccounts ?? []) as BankAccount[],
     bankAccountsResult
   );
-  const vendorList = useStableQueryResult(
+  const approvedVendorList = useStableQueryResult(
     (vendors ?? []) as Vendor[],
     vendorsResult
+  );
+  const pendingVendorList = useStableQueryResult(
+    (pendingVendors ?? []) as Vendor[],
+    pendingVendorsResult
+  );
+
+  const vendorList = useMemo(
+    () =>
+      [...approvedVendorList, ...pendingVendorList].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      ),
+    [approvedVendorList, pendingVendorList]
   );
 
   const bankAccountOptions = bankAccountList.map((account) => ({
@@ -225,9 +244,11 @@ function RequestFormInner({
   }));
 
   const vendorOptions = vendorList.map((v) => ({
-    label: v.name,
+    label: v.status === "pending" ? `${v.name} (pending approval)` : v.name,
     value: v.id,
   }));
+
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
   const isVendorPayment = requestType === "vendor_payment";
 
@@ -297,37 +318,50 @@ function RequestFormInner({
             name="vendorId"
           >
             {(field) => (
-              <Select
-                onValueChange={(val) => field.handleChange(val)}
-                value={field.state.value ?? ""}
-              >
-                <SelectTrigger
-                  aria-describedby={
-                    field.state.meta.errors.length > 0
-                      ? `${field.name}-error`
-                      : undefined
-                  }
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                  className="w-full"
-                  id={field.name}
-                  onBlur={field.handleBlur}
+              <div className="flex gap-2">
+                <Select
+                  onValueChange={(val) => field.handleChange(val)}
+                  value={field.state.value ?? ""}
                 >
-                  <span
-                    className="flex flex-1 items-center text-left"
-                    data-slot="select-value"
+                  <SelectTrigger
+                    aria-describedby={
+                      field.state.meta.errors.length > 0
+                        ? `${field.name}-error`
+                        : undefined
+                    }
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    className="w-full"
+                    id={field.name}
+                    onBlur={field.handleBlur}
                   >
-                    {vendorOptions.find((o) => o.value === field.state.value)
-                      ?.label ?? "Select vendor"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {vendorOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    <span
+                      className="flex flex-1 items-center text-left"
+                      data-slot="select-value"
+                    >
+                      {vendorOptions.find((o) => o.value === field.state.value)
+                        ?.label ?? "Select vendor"}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendorOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  aria-label="Add new vendor"
+                  onClick={() => setVendorDialogOpen(true)}
+                  size="icon"
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+                </Button>
+              </div>
             )}
           </CustomField>
           <InputField label="Invoice Number" name="invoiceNumber" />
@@ -352,20 +386,20 @@ function RequestFormInner({
 
         <Separator />
 
-        {vendorOptions.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No vendors available. Please ask an admin to add a vendor before
-            submitting.
-          </p>
-        ) : null}
-
         <FormActions
           cancelLabel="Cancel"
-          disabled={vendorOptions.length === 0}
           disableWhenInvalid={false}
           onCancel={onCancel}
           submitLabel={isEdit ? "Save changes" : "Submit"}
           submittingLabel={isEdit ? "Saving..." : "Submitting..."}
+        />
+
+        <VendorFormDialog
+          mode="inline"
+          onCreated={(id) => form.setFieldValue("vendorId", id)}
+          onOpenChange={setVendorDialogOpen}
+          open={vendorDialogOpen}
+          vendor={null}
         />
       </FormLayout>
     );

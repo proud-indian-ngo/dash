@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import z from "zod";
+import { assertVendorUsable } from "../submission-helpers";
 
 const lineItemSchema = z.object({
   id: z.string(),
@@ -228,16 +229,37 @@ describe("vendor payment authorization", () => {
   });
 });
 
-describe("vendor validation for payments", () => {
-  const canUseVendor = (vendorStatus: string) => vendorStatus === "approved";
-
-  it("requires vendor to be approved for creation", () => {
-    expect(canUseVendor("approved")).toBe(true);
-    expect(canUseVendor("pending")).toBe(false);
+describe("vendor validation for payments (assertVendorUsable)", () => {
+  it("allows approved vendor for any user", () => {
+    expect(() =>
+      assertVendorUsable(
+        { status: "approved", createdBy: "other-user" },
+        "user-1"
+      )
+    ).not.toThrow();
   });
 
-  it("requires vendor to be approved for update", () => {
-    expect(canUseVendor("approved")).toBe(true);
-    expect(canUseVendor("pending")).toBe(false);
+  it("allows pending vendor created by the same user", () => {
+    expect(() =>
+      assertVendorUsable({ status: "pending", createdBy: "user-1" }, "user-1")
+    ).not.toThrow();
+  });
+
+  it("blocks rejected vendor even if created by the same user", () => {
+    expect(() =>
+      assertVendorUsable(
+        { status: "rejected" as "approved", createdBy: "user-1" },
+        "user-1"
+      )
+    ).toThrow("Vendor is not available");
+  });
+
+  it("blocks pending vendor created by another user", () => {
+    expect(() =>
+      assertVendorUsable(
+        { status: "pending", createdBy: "other-user" },
+        "user-1"
+      )
+    ).toThrow("Vendor is not available");
   });
 });

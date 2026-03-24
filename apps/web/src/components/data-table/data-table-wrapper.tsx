@@ -67,6 +67,7 @@ export interface DataTableWrapperProps<TData extends object> {
   getRowId: (row: TData) => string;
   isLoading?: boolean;
   onFilteredDataChange?: (filteredData: TData[]) => void;
+  onRowClick?: (row: TData) => void;
   paginationSizes?: number[];
   searchFn: (row: TData, searchQuery: string) => boolean;
   searchPlaceholder?: string;
@@ -102,6 +103,7 @@ export function DataTableWrapper<TData extends object>({
   getRowId,
   isLoading,
   onFilteredDataChange,
+  onRowClick,
   paginationSizes = [10, 20, 50],
   searchFn,
   searchPlaceholder = "Search...",
@@ -291,6 +293,7 @@ export function DataTableWrapper<TData extends object>({
         <DataGrid
           emptyMessage={emptyMessage}
           isLoading={isLoading}
+          onRowClick={onRowClick}
           recordCount={table.getFilteredRowModel().rows.length}
           table={table}
           tableLayout={tableLayout}

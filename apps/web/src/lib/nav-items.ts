@@ -96,11 +96,16 @@ export function buildNavGroups(
     return [{ items: [homeNavItem, eventsNavItem] }];
   }
 
+  const financeItems = [requestsNavItem];
+  if (isAdmin) {
+    financeItems.push(vendorsNavItem);
+  }
+
   const groups: NavGroup[] = [
     { items: [homeNavItem] },
     {
       label: "Finance",
-      items: [requestsNavItem],
+      items: financeItems,
     },
     {
       label: "Organization",
@@ -111,7 +116,7 @@ export function buildNavGroups(
   if (isAdmin) {
     groups.push({
       label: "Admin",
-      items: [vendorsNavItem, usersNavItem, exportNavItem],
+      items: [usersNavItem, exportNavItem],
     });
   }
 
