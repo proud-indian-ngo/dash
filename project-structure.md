@@ -95,7 +95,7 @@ All route paths above are prefixed with `apps/web/src/`.
 |---|---|
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
-| `components/users/` | users-table, user-form, password-form, ban-user-form, delete-user-dialog |
+| `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/requests/` | requests-table, request-form, request-detail, request-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
