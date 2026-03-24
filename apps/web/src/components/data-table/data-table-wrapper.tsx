@@ -213,6 +213,7 @@ export function DataTableWrapper<TData extends object>({
     onColumnVisibilityChange: setColumnVisibility,
     onColumnPinningChange: setColumnPinning,
     onExpandedChange: setExpanded,
+    autoResetPageIndex: false,
     onPaginationChange,
     onRowSelectionChange: setRowSelection,
     onSortingChange,
