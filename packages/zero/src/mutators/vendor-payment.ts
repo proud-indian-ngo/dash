@@ -8,177 +8,146 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import {
+  assertCanDelete,
+  assertCanModify,
+  assertEntityExists,
+  assertPending,
   assertVendorUsable,
-  buildAttachmentInsert,
   buildHistoryInsert,
-  buildLineItemInsert,
+  deleteAllRelations,
+  insertRelations,
+  replaceRelations,
 } from "./submission-helpers";
 
+const createSchema = z.object({
+  id: z.string(),
+  vendorId: z.string(),
+  title: z.string().min(1),
+  invoiceNumber: z.string().optional(),
+  invoiceDate: z.string().min(1),
+  lineItems: z.array(lineItemSchema),
+  attachments: z.array(attachmentSchema),
+});
+
+const fk = (id: string) => ({ vendorPaymentId: id });
+
+const entityFields = (args: z.infer<typeof createSchema>) => ({
+  vendorId: args.vendorId,
+  invoiceNumber: args.invoiceNumber ?? null,
+  invoiceDate: args.invoiceDate,
+});
+
 export const vendorPaymentMutators = {
-  create: defineMutator(
-    z.object({
-      id: z.string(),
-      vendorId: z.string(),
-      title: z.string().min(1),
-      invoiceNumber: z.string().optional(),
-      invoiceDate: z.string().min(1),
-      lineItems: z.array(lineItemSchema),
-      attachments: z.array(attachmentSchema),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const userId = ctx.userId;
+  create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+    assertIsLoggedIn(ctx);
+    const userId = ctx.userId;
 
-      const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
-      if (!vendor) {
-        throw new Error("Vendor not found");
+    const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
+    if (!vendor) {
+      throw new Error("Vendor not found");
+    }
+    assertVendorUsable(vendor, userId);
+
+    const now = Date.now();
+
+    await tx.mutate.vendorPayment.insert({
+      id: args.id,
+      userId,
+      title: args.title,
+      status: "pending",
+      rejectionReason: null,
+      approvalScreenshotKey: null,
+      reviewedBy: null,
+      reviewedAt: null,
+      submittedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      ...entityFields(args),
+    });
+
+    await insertRelations(
+      fk(args.id),
+      args.lineItems,
+      args.attachments,
+      userId,
+      "created",
+      now,
+      {
+        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        insertAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.insert(data),
+        insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
       }
-      assertVendorUsable(vendor, userId);
+    );
 
-      const now = Date.now();
-
-      await tx.mutate.vendorPayment.insert({
-        id: args.id,
-        userId,
-        vendorId: args.vendorId,
-        title: args.title,
-        invoiceNumber: args.invoiceNumber ?? null,
-        invoiceDate: args.invoiceDate,
-        status: "pending",
-        rejectionReason: null,
-        approvalScreenshotKey: null,
-        reviewedBy: null,
-        reviewedAt: null,
-        submittedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      for (const item of args.lineItems) {
-        await tx.mutate.vendorPaymentLineItem.insert({
-          ...buildLineItemInsert(item, now),
-          vendorPaymentId: args.id,
-        });
-      }
-
-      for (const att of args.attachments) {
-        await tx.mutate.vendorPaymentAttachment.insert({
-          ...buildAttachmentInsert(att, now),
-          vendorPaymentId: args.id,
-        });
-      }
-
-      await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "created", now),
-        vendorPaymentId: args.id,
-      });
-
-      if (tx.location === "server") {
-        const vendorPaymentId = args.id;
-        const title = args.title;
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "createVendorPayment",
-            userId,
+    if (tx.location === "server") {
+      const vendorPaymentId = args.id;
+      const title = args.title;
+      ctx.asyncTasks?.push({
+        meta: {
+          mutator: "createVendorPayment",
+          userId,
+          vendorPaymentId,
+          title,
+        },
+        fn: async () => {
+          const { getUserName, notifyVendorPaymentSubmitted } = await import(
+            "@pi-dash/notifications"
+          );
+          const submitterName = (await getUserName(userId)) ?? "Unknown";
+          await notifyVendorPaymentSubmitted({
             vendorPaymentId,
             title,
-          },
-          fn: async () => {
-            const { getUserName, notifyVendorPaymentSubmitted } = await import(
-              "@pi-dash/notifications"
-            );
-            const submitterName = (await getUserName(userId)) ?? "Unknown";
-            await notifyVendorPaymentSubmitted({
-              vendorPaymentId,
-              title,
-              submitterName,
-            });
-          },
-        });
-      }
-    }
-  ),
-
-  update: defineMutator(
-    z.object({
-      id: z.string(),
-      vendorId: z.string(),
-      title: z.string().min(1),
-      invoiceNumber: z.string().optional(),
-      invoiceDate: z.string().min(1),
-      lineItems: z.array(lineItemSchema),
-      attachments: z.array(attachmentSchema),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const userId = ctx.userId;
-      const vendorPayment = await tx.run(
-        zql.vendorPayment.where("id", args.id).one()
-      );
-
-      if (!vendorPayment) {
-        throw new Error("Vendor payment not found");
-      }
-
-      const isAdmin = ctx.role === "admin";
-      const isOwner = vendorPayment.userId === userId;
-      if (!(isAdmin || isOwner)) {
-        throw new Error("Unauthorized");
-      }
-
-      if (vendorPayment.status !== "pending") {
-        throw new Error("Only pending vendor payments can be updated");
-      }
-
-      const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
-      if (!vendor) {
-        throw new Error("Vendor not found");
-      }
-      assertVendorUsable(vendor, userId);
-
-      const now = Date.now();
-
-      await tx.mutate.vendorPayment.update({
-        id: args.id,
-        vendorId: args.vendorId,
-        title: args.title,
-        invoiceNumber: args.invoiceNumber ?? null,
-        invoiceDate: args.invoiceDate,
-        updatedAt: now,
-      });
-
-      const existingItems = await tx.run(
-        zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
-      );
-      for (const item of existingItems) {
-        await tx.mutate.vendorPaymentLineItem.delete({ id: item.id });
-      }
-      for (const item of args.lineItems) {
-        await tx.mutate.vendorPaymentLineItem.insert({
-          ...buildLineItemInsert(item, now),
-          vendorPaymentId: args.id,
-        });
-      }
-
-      const existingAtts = await tx.run(
-        zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)
-      );
-      for (const att of existingAtts) {
-        await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
-      }
-      for (const att of args.attachments) {
-        await tx.mutate.vendorPaymentAttachment.insert({
-          ...buildAttachmentInsert(att, now),
-          vendorPaymentId: args.id,
-        });
-      }
-
-      await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "updated", now),
-        vendorPaymentId: args.id,
+            submitterName,
+          });
+        },
       });
     }
-  ),
+  }),
+
+  update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+    assertIsLoggedIn(ctx);
+    const userId = ctx.userId;
+    const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+    assertEntityExists(entity, "Vendor payment");
+    assertCanModify(entity, userId, ctx.role === "admin", "vendor payment");
+
+    const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
+    if (!vendor) {
+      throw new Error("Vendor not found");
+    }
+    assertVendorUsable(vendor, userId);
+
+    const now = Date.now();
+
+    await tx.mutate.vendorPayment.update({
+      id: args.id,
+      title: args.title,
+      updatedAt: now,
+      ...entityFields(args),
+    });
+
+    await replaceRelations(
+      fk(args.id),
+      args.lineItems,
+      args.attachments,
+      userId,
+      now,
+      {
+        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        insertAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.insert(data),
+        insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
+        queryLineItems: () =>
+          tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
+        queryAttachments: () =>
+          tx.run(zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)),
+        deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
+        deleteAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.delete(data),
+      }
+    );
+  }),
 
   approve: defineMutator(
     z.object({
@@ -189,15 +158,9 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
       const userId = ctx.userId;
-      const vendorPayment = await tx.run(
-        zql.vendorPayment.where("id", args.id).one()
-      );
-      if (!vendorPayment) {
-        throw new Error("Vendor payment not found");
-      }
-      if (vendorPayment.status !== "pending") {
-        throw new Error("Only pending vendor payments can be approved");
-      }
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+      assertPending(entity, "vendor payment", "approved");
 
       const now = Date.now();
 
@@ -212,7 +175,7 @@ export const vendorPaymentMutators = {
 
       // Auto-approve the linked vendor if it's still pending
       const vendor = await tx.run(
-        zql.vendor.where("id", vendorPayment.vendorId).one()
+        zql.vendor.where("id", entity.vendorId).one()
       );
       if (vendor && vendor.status === "pending") {
         await tx.mutate.vendor.update({
@@ -228,7 +191,7 @@ export const vendorPaymentMutators = {
       });
 
       if (tx.location === "server") {
-        const { title, userId: ownerId } = vendorPayment;
+        const { title, userId: ownerId } = entity;
         const id = args.id;
         const note = args.note;
         const approvalScreenshotKey = args.approvalScreenshotKey;
@@ -261,39 +224,22 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const userId = ctx.userId;
-      const vendorPayment = await tx.run(
-        zql.vendorPayment.where("id", args.id).one()
-      );
-      if (!vendorPayment) {
-        throw new Error("Vendor payment not found");
-      }
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+      assertCanDelete(entity, userId, ctx.role === "admin");
 
-      const isAdmin = ctx.role === "admin";
-      const isOwner = vendorPayment.userId === userId;
-      if (!(isAdmin || (isOwner && vendorPayment.status === "pending"))) {
-        throw new Error("Unauthorized");
-      }
-
-      const lineItems = await tx.run(
-        zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
-      );
-      for (const item of lineItems) {
-        await tx.mutate.vendorPaymentLineItem.delete({ id: item.id });
-      }
-
-      const attachments = await tx.run(
-        zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)
-      );
-      for (const att of attachments) {
-        await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
-      }
-
-      const history = await tx.run(
-        zql.vendorPaymentHistory.where("vendorPaymentId", args.id)
-      );
-      for (const h of history) {
-        await tx.mutate.vendorPaymentHistory.delete({ id: h.id });
-      }
+      await deleteAllRelations({
+        queryLineItems: () =>
+          tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
+        queryAttachments: () =>
+          tx.run(zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)),
+        queryHistory: () =>
+          tx.run(zql.vendorPaymentHistory.where("vendorPaymentId", args.id)),
+        deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
+        deleteAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.delete(data),
+        deleteHistory: (data) => tx.mutate.vendorPaymentHistory.delete(data),
+      });
 
       await tx.mutate.vendorPayment.delete({ id: args.id });
     }
@@ -304,15 +250,9 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
       const userId = ctx.userId;
-      const vendorPayment = await tx.run(
-        zql.vendorPayment.where("id", args.id).one()
-      );
-      if (!vendorPayment) {
-        throw new Error("Vendor payment not found");
-      }
-      if (vendorPayment.status !== "pending") {
-        throw new Error("Only pending vendor payments can be rejected");
-      }
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+      assertPending(entity, "vendor payment", "rejected");
 
       const now = Date.now();
 
@@ -331,7 +271,7 @@ export const vendorPaymentMutators = {
       });
 
       if (tx.location === "server") {
-        const { title, userId: ownerId } = vendorPayment;
+        const { title, userId: ownerId } = entity;
         const id = args.id;
         const reason = args.reason;
         ctx.asyncTasks?.push({
