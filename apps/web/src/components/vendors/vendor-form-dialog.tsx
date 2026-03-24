@@ -1,28 +1,23 @@
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { Vendor } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
-import { type FormEvent, useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { FormActions } from "@/components/form/form-actions";
+import { FormLayout } from "@/components/form/form-layout";
+import { InputField } from "@/components/form/input-field";
+import { PhoneField } from "@/components/form/phone-field-lazy";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { vendorFormSchema } from "@/lib/validators";
 
-function submitButtonLabel(submitting: boolean, isEdit: boolean): string {
-  if (submitting) {
-    return isEdit ? "Saving..." : "Creating...";
-  }
-  return isEdit ? "Save" : "Create";
-}
-
-interface VendorFormFields {
+interface VendorFormValues {
   address: string;
   bankAccountIfscCode: string;
   bankAccountName: string;
@@ -34,7 +29,21 @@ interface VendorFormFields {
   panNumber: string;
 }
 
-function buildVendorPayload(fields: VendorFormFields, existingId?: string) {
+function getDefaultValues(vendor: Vendor | null): VendorFormValues {
+  return {
+    name: vendor?.name ?? "",
+    contactPhone: vendor?.contactPhone ?? "",
+    contactEmail: vendor?.contactEmail ?? "",
+    bankAccountName: vendor?.bankAccountName ?? "",
+    bankAccountNumber: vendor?.bankAccountNumber ?? "",
+    bankAccountIfscCode: vendor?.bankAccountIfscCode ?? "",
+    address: vendor?.address ?? "",
+    gstNumber: vendor?.gstNumber ?? "",
+    panNumber: vendor?.panNumber ?? "",
+  };
+}
+
+function buildVendorPayload(fields: VendorFormValues, existingId?: string) {
   return {
     id: existingId ?? uuidv7(),
     name: fields.name.trim(),
@@ -42,85 +51,32 @@ function buildVendorPayload(fields: VendorFormFields, existingId?: string) {
     contactEmail: fields.contactEmail.trim() || undefined,
     bankAccountName: fields.bankAccountName.trim(),
     bankAccountNumber: fields.bankAccountNumber.trim(),
-    bankAccountIfscCode: fields.bankAccountIfscCode.trim(),
+    bankAccountIfscCode: fields.bankAccountIfscCode.trim().toUpperCase(),
     address: fields.address.trim() || undefined,
-    gstNumber: fields.gstNumber.trim() || undefined,
-    panNumber: fields.panNumber.trim() || undefined,
+    gstNumber: fields.gstNumber.trim().toUpperCase() || undefined,
+    panNumber: fields.panNumber.trim().toUpperCase() || undefined,
   };
 }
 
-interface VendorFormDialogProps {
-  mode?: "admin" | "inline";
-  onCreated?: (id: string) => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  vendor: Vendor | null;
-}
-
-export function VendorFormDialog({
-  mode = "admin",
+function VendorFormContent({
+  isEdit,
+  mode,
   onCreated,
   onOpenChange,
-  open,
   vendor,
-}: VendorFormDialogProps) {
+}: {
+  isEdit: boolean;
+  mode: "admin" | "inline";
+  onCreated?: (id: string) => void;
+  onOpenChange: (open: boolean) => void;
+  vendor: Vendor | null;
+}) {
   const zero = useZero();
-  const isEdit = !!vendor;
 
-  const [name, setName] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [bankAccountName, setBankAccountName] = useState("");
-  const [bankAccountNumber, setBankAccountNumber] = useState("");
-  const [bankAccountIfscCode, setBankAccountIfscCode] = useState("");
-  const [address, setAddress] = useState("");
-  const [gstNumber, setGstNumber] = useState("");
-  const [panNumber, setPanNumber] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setName(vendor?.name ?? "");
-      setContactPhone(vendor?.contactPhone ?? "");
-      setContactEmail(vendor?.contactEmail ?? "");
-      setBankAccountName(vendor?.bankAccountName ?? "");
-      setBankAccountNumber(vendor?.bankAccountNumber ?? "");
-      setBankAccountIfscCode(vendor?.bankAccountIfscCode ?? "");
-      setAddress(vendor?.address ?? "");
-      setGstNumber(vendor?.gstNumber ?? "");
-      setPanNumber(vendor?.panNumber ?? "");
-    }
-  }, [open, vendor]);
-
-  const isValid =
-    !!name.trim() &&
-    !!contactPhone.trim() &&
-    !!bankAccountName.trim() &&
-    !!bankAccountNumber.trim() &&
-    !!bankAccountIfscCode.trim();
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!isValid) {
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const payload = buildVendorPayload(
-        {
-          name,
-          contactPhone,
-          contactEmail,
-          bankAccountName,
-          bankAccountNumber,
-          bankAccountIfscCode,
-          address,
-          gstNumber,
-          panNumber,
-        },
-        vendor?.id
-      );
+  const form = useForm({
+    defaultValues: getDefaultValues(vendor),
+    onSubmit: async ({ value }) => {
+      const payload = buildVendorPayload(value, vendor?.id);
 
       const createPayload =
         mode === "inline"
@@ -146,13 +102,105 @@ export function VendorFormDialog({
         }
         onOpenChange(false);
       }
-    } finally {
-      setSubmitting(false);
+    },
+    validators: {
+      onSubmit: vendorFormSchema,
+    },
+  });
+
+  return (
+    <FormLayout form={form}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <InputField
+          isRequired
+          label="Name"
+          name="name"
+          placeholder="Vendor name"
+        />
+        <PhoneField
+          defaultCountry="IN"
+          isRequired
+          label="Phone"
+          name="contactPhone"
+        />
+        <InputField
+          label="Email"
+          name="contactEmail"
+          placeholder="vendor@example.com"
+          type="email"
+        />
+        <InputField label="Address" name="address" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <InputField
+          isRequired
+          label="Bank Account Name"
+          name="bankAccountName"
+        />
+        <InputField
+          isRequired
+          label="Account Number"
+          name="bankAccountNumber"
+        />
+        <InputField
+          isRequired
+          label="IFSC Code"
+          name="bankAccountIfscCode"
+          placeholder="SBIN0001234"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <InputField
+          label="GST Number"
+          name="gstNumber"
+          placeholder="22AAAAA0000A1Z5"
+        />
+        <InputField
+          label="PAN Number"
+          name="panNumber"
+          placeholder="ABCDE1234F"
+        />
+      </div>
+
+      <FormActions
+        disableWhenInvalid={false}
+        onCancel={() => onOpenChange(false)}
+        submitLabel={isEdit ? "Save" : "Create"}
+        submittingLabel={isEdit ? "Saving..." : "Creating..."}
+      />
+    </FormLayout>
+  );
+}
+
+interface VendorFormDialogProps {
+  mode?: "admin" | "inline";
+  onCreated?: (id: string) => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  vendor: Vendor | null;
+}
+
+export function VendorFormDialog({
+  mode = "admin",
+  onCreated,
+  onOpenChange,
+  open,
+  vendor,
+}: VendorFormDialogProps) {
+  const isEdit = !!vendor;
+  const [formKey, setFormKey] = useState(0);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setFormKey((k) => k + 1);
     }
+    onOpenChange(nextOpen);
   };
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Vendor" : "Add New Vendor"}</DialogTitle>
@@ -163,137 +211,14 @@ export function VendorFormDialog({
             your payment request is approved.
           </p>
         )}
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-name">
-                Name
-                <span aria-hidden="true" className="text-destructive">
-                  {" "}
-                  *
-                </span>
-              </Label>
-              <Input
-                id="vendor-name"
-                onChange={(e) => setName(e.target.value)}
-                required
-                value={name}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-phone">
-                Phone
-                <span aria-hidden="true" className="text-destructive">
-                  {" "}
-                  *
-                </span>
-              </Label>
-              <Input
-                id="vendor-phone"
-                onChange={(e) => setContactPhone(e.target.value)}
-                required
-                value={contactPhone}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-email">Email</Label>
-              <Input
-                id="vendor-email"
-                onChange={(e) => setContactEmail(e.target.value)}
-                type="email"
-                value={contactEmail}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-address">Address</Label>
-              <Input
-                id="vendor-address"
-                onChange={(e) => setAddress(e.target.value)}
-                value={address}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-bank-name">
-                Bank Account Name
-                <span aria-hidden="true" className="text-destructive">
-                  {" "}
-                  *
-                </span>
-              </Label>
-              <Input
-                id="vendor-bank-name"
-                onChange={(e) => setBankAccountName(e.target.value)}
-                required
-                value={bankAccountName}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-bank-number">
-                Account Number
-                <span aria-hidden="true" className="text-destructive">
-                  {" "}
-                  *
-                </span>
-              </Label>
-              <Input
-                id="vendor-bank-number"
-                onChange={(e) => setBankAccountNumber(e.target.value)}
-                required
-                value={bankAccountNumber}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-ifsc">
-                IFSC Code
-                <span aria-hidden="true" className="text-destructive">
-                  {" "}
-                  *
-                </span>
-              </Label>
-              <Input
-                id="vendor-ifsc"
-                onChange={(e) => setBankAccountIfscCode(e.target.value)}
-                required
-                value={bankAccountIfscCode}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-gst">GST Number</Label>
-              <Input
-                id="vendor-gst"
-                onChange={(e) => setGstNumber(e.target.value)}
-                value={gstNumber}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vendor-pan">PAN Number</Label>
-              <Input
-                id="vendor-pan"
-                onChange={(e) => setPanNumber(e.target.value)}
-                value={panNumber}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button disabled={!isValid || submitting} type="submit">
-              {submitButtonLabel(submitting, isEdit)}
-            </Button>
-          </DialogFooter>
-        </form>
+        <VendorFormContent
+          isEdit={isEdit}
+          key={formKey}
+          mode={mode}
+          onCreated={onCreated}
+          onOpenChange={onOpenChange}
+          vendor={vendor}
+        />
       </DialogContent>
     </Dialog>
   );

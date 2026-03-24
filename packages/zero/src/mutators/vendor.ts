@@ -3,6 +3,7 @@ import z from "zod";
 import "../context";
 import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
+import { GST_REGEX, IFSC_REGEX, PAN_REGEX } from "../vendor-patterns";
 
 export const vendorMutators = {
   create: defineMutator(
@@ -10,13 +11,17 @@ export const vendorMutators = {
       id: z.string(),
       name: z.string().min(1),
       contactPhone: z.string().min(1),
-      contactEmail: z.string().optional(),
+      contactEmail: z.email().optional(),
       bankAccountName: z.string().min(1),
       bankAccountNumber: z.string().min(1),
-      bankAccountIfscCode: z.string().min(1),
+      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
       address: z.string().optional(),
-      gstNumber: z.string().optional(),
-      panNumber: z.string().optional(),
+      gstNumber: z
+        .union([z.literal(""), z.string().regex(GST_REGEX)])
+        .optional(),
+      panNumber: z
+        .union([z.literal(""), z.string().regex(PAN_REGEX)])
+        .optional(),
       status: z.enum(["pending", "approved"]).optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -29,14 +34,14 @@ export const vendorMutators = {
       await tx.mutate.vendor.insert({
         id: args.id,
         name: args.name,
-        contactEmail: args.contactEmail ?? null,
+        contactEmail: args.contactEmail || null,
         contactPhone: args.contactPhone,
         bankAccountName: args.bankAccountName,
         bankAccountNumber: args.bankAccountNumber,
         bankAccountIfscCode: args.bankAccountIfscCode,
         address: args.address ?? null,
-        gstNumber: args.gstNumber ?? null,
-        panNumber: args.panNumber ?? null,
+        gstNumber: args.gstNumber || null,
+        panNumber: args.panNumber || null,
         status,
         createdBy: userId,
         createdAt: now,
@@ -50,13 +55,17 @@ export const vendorMutators = {
       id: z.string(),
       name: z.string().min(1),
       contactPhone: z.string().min(1),
-      contactEmail: z.string().optional(),
+      contactEmail: z.email().optional(),
       bankAccountName: z.string().min(1),
       bankAccountNumber: z.string().min(1),
-      bankAccountIfscCode: z.string().min(1),
+      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
       address: z.string().optional(),
-      gstNumber: z.string().optional(),
-      panNumber: z.string().optional(),
+      gstNumber: z
+        .union([z.literal(""), z.string().regex(GST_REGEX)])
+        .optional(),
+      panNumber: z
+        .union([z.literal(""), z.string().regex(PAN_REGEX)])
+        .optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsAdmin(ctx);
@@ -70,14 +79,14 @@ export const vendorMutators = {
       await tx.mutate.vendor.update({
         id: args.id,
         name: args.name,
-        contactEmail: args.contactEmail ?? null,
+        contactEmail: args.contactEmail || null,
         contactPhone: args.contactPhone,
         bankAccountName: args.bankAccountName,
         bankAccountNumber: args.bankAccountNumber,
         bankAccountIfscCode: args.bankAccountIfscCode,
         address: args.address ?? null,
-        gstNumber: args.gstNumber ?? null,
-        panNumber: args.panNumber ?? null,
+        gstNumber: args.gstNumber || null,
+        panNumber: args.panNumber || null,
         updatedAt: now,
       });
     }
