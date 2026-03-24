@@ -9,6 +9,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useCallback, useState } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { LOCALE_DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export type InterestWithUser = EventInterest & { user: User | undefined };
@@ -63,7 +64,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           {interest.user?.name ?? "Unknown"}
         </div>
         <div className="text-muted-foreground text-xs">
-          {format(new Date(interest.createdAt), "PP")}
+          {format(new Date(interest.createdAt), LOCALE_DATE)}
         </div>
         {interest.message ? (
           <div className="mt-1 text-muted-foreground text-xs italic">

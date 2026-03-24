@@ -10,6 +10,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { LONG_DATE_TIME } from "@/lib/date-formats";
 
 interface TeamEvent {
   id: string;
@@ -62,7 +63,7 @@ function UpcomingEventsList({ events }: { events: TeamEvent[] }) {
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
-            <span>{format(event.startTime, "PPP p")}</span>
+            <span>{format(event.startTime, LONG_DATE_TIME)}</span>
             {event.team && (
               <>
                 <span>&middot;</span>

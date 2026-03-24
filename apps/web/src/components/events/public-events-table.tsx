@@ -14,6 +14,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export type PublicEventRow = TeamEvent & {
@@ -151,11 +152,7 @@ export function PublicEventsTable({
         id: "name",
         accessorFn: (row) => row.name,
         header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Event"
-            visibility={true}
-          />
+          <DataGridColumnHeader column={column} title="Event" visibility />
         ),
         cell: ({ row }) => (
           <Link
@@ -176,12 +173,12 @@ export function PublicEventsTable({
           <DataGridColumnHeader
             column={column}
             title="Date & Time"
-            visibility={true}
+            visibility
           />
         ),
         cell: ({ row }) => (
           <span className="text-sm">
-            {format(row.original.startTime, "MMM d, yyyy h:mm a")}
+            {format(row.original.startTime, SHORT_MONTH_DATE_TIME)}
           </span>
         ),
         meta: { headerTitle: "Date & Time", skeleton: SKELETON_DATE },
@@ -191,11 +188,7 @@ export function PublicEventsTable({
         id: "location",
         accessorFn: (row) => row.location,
         header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Location"
-            visibility={true}
-          />
+          <DataGridColumnHeader column={column} title="Location" visibility />
         ),
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
@@ -209,11 +202,7 @@ export function PublicEventsTable({
         id: "team",
         accessorFn: (row) => row.team?.name,
         header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Team"
-            visibility={true}
-          />
+          <DataGridColumnHeader column={column} title="Team" visibility />
         ),
         cell: ({ row }) => (
           <button
@@ -236,11 +225,7 @@ export function PublicEventsTable({
         id: "members",
         accessorFn: (row) => row.members.length,
         header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Volunteers"
-            visibility={true}
-          />
+          <DataGridColumnHeader column={column} title="Volunteers" visibility />
         ),
         cell: ({ row }) => (
           <Badge variant="secondary">{row.original.members.length}</Badge>
@@ -286,7 +271,7 @@ export function PublicEventsTable({
       isLoading={isLoading}
       searchFn={searchEvent}
       searchPlaceholder="Search events..."
-      storageKey="public_events_table_state_v1"
+      storageKey="public_events_table_v1"
       tableLayout={{
         columnsResizable: true,
         columnsDraggable: true,

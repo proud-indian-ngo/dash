@@ -11,6 +11,7 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { ISO_DATE, LONG_DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
@@ -43,7 +44,7 @@ const parseDateInputValue = (value: string): Date | undefined => {
 };
 
 const formatDateInputValue = (date: Date): string => {
-  return format(date, "yyyy-MM-dd");
+  return format(date, ISO_DATE);
 };
 
 const formatDateLabel = (value: string, fallback: string): string => {
@@ -52,7 +53,7 @@ const formatDateLabel = (value: string, fallback: string): string => {
     return fallback;
   }
 
-  return format(date, "MMMM d, yyyy");
+  return format(date, LONG_DATE);
 };
 
 interface DateFieldProps {
