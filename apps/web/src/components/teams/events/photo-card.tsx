@@ -73,7 +73,7 @@ export function PhotoCard({
       ) : null}
 
       {/* Hover action buttons */}
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         {onApprove ? (
           <Button
             aria-label="Approve photo"

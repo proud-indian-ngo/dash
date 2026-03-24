@@ -439,7 +439,7 @@ function DataGridTableLoader() {
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" role="status" aria-live="polite">
       <div className="text-muted-foreground bg-card rounded-none text-xs flex items-center gap-2 border px-4 py-2 leading-none font-medium">
         <BrailleSpinner variant="inline" />
-        {props.loadingMessage || "Loading..."}
+        {props.loadingMessage || "Loading…"}
       </div>
     </div>
   )
@@ -546,7 +546,7 @@ function DataGridTable<TData>() {
             <td colSpan={table.getVisibleFlatColumns().length} className="p-8">
               <div className="flex items-center justify-center gap-2" role="status" aria-live="polite">
                 <BrailleSpinner variant="inline" />
-                {props.loadingMessage || "Loading..."}
+                {props.loadingMessage || "Loading…"}
               </div>
             </td>
           </tr>

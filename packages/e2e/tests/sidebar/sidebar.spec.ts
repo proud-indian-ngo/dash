@@ -20,6 +20,8 @@ test.describe("Sidebar navigation", () => {
     const nav = page.locator("[data-sidebar='content']");
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Requests" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Dashboard" })).toHaveCount(0);
+    await expect(nav.getByRole("button", { name: "Requests" })).toHaveCount(0);
 
     if (testInfo.project.name === "admin") {
       await expect(nav.getByRole("link", { name: "Users" })).toBeVisible();
@@ -57,6 +59,19 @@ test.describe("Sidebar navigation", () => {
       .getByRole("main")
       .getByRole("button", { name: "Toggle Sidebar" })
       .click();
+    await expect(page.locator("[data-state='expanded']")).toBeVisible();
+  });
+
+  test("sidebar rail is keyboard reachable and toggles the sidebar", async ({
+    page,
+  }) => {
+    const rail = page.locator("[data-slot='sidebar-rail']");
+    await expect(rail).toBeVisible();
+
+    await rail.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-state='collapsed']")).toBeVisible();
+    await page.keyboard.press("Enter");
     await expect(page.locator("[data-state='expanded']")).toBeVisible();
   });
 });

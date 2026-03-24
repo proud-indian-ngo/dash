@@ -278,10 +278,10 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
             <div className="flex flex-col gap-1.5">
               {request.attachments.map((att) => (
                 <div
-                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
                   key={att.id}
                 >
-                  <span className="truncate text-sm">
+                  <span className="min-w-0 truncate text-sm">
                     {getAttachmentLabel(att)}
                   </span>
                   <div className="flex items-center gap-3">

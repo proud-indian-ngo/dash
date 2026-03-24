@@ -38,17 +38,13 @@ function NavMenuItem({
     <Collapsible className="group/collapsible" open={activePath === item.url}>
       <SidebarMenuItem>
         <SidebarMenuButton
+          aria-current={activePath === item.url ? "page" : undefined}
           isActive={activePath === item.url}
+          render={<Link to={item.url} />}
           tooltip={item.title}
         >
-          <Link
-            aria-current={activePath === item.url ? "page" : undefined}
-            className="flex items-center gap-2"
-            to={item.url}
-          >
-            {item.icon && <HugeiconsIcon icon={item.icon} strokeWidth={2} />}
-            <span>{item.title}</span>
-          </Link>
+          {item.icon && <HugeiconsIcon icon={item.icon} strokeWidth={2} />}
+          <span>{item.title}</span>
         </SidebarMenuButton>
         {item.subItems?.some((s) => !s.isHidden) && (
           <>
@@ -70,13 +66,8 @@ function NavMenuItem({
                   ?.filter((s) => !s.isHidden)
                   .map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton>
-                        <Link
-                          className="flex items-center gap-2"
-                          to={subItem.url}
-                        >
-                          {subItem.title}
-                        </Link>
+                      <SidebarMenuSubButton render={<Link to={subItem.url} />}>
+                        {subItem.title}
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   ))}
