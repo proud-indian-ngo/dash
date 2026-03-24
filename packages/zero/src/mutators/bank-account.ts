@@ -69,10 +69,21 @@ export const bankAccountMutators = {
       if (!target) {
         throw new Error("Bank account not found");
       }
+      // Unset old default(s) first to avoid unique constraint violation
       for (const acct of accounts) {
+        if (acct.isDefault && acct.id !== args.id) {
+          await tx.mutate.bankAccount.update({
+            id: acct.id,
+            isDefault: false,
+            updatedAt: Date.now(),
+          });
+        }
+      }
+      // Then set the new default
+      if (!target.isDefault) {
         await tx.mutate.bankAccount.update({
-          id: acct.id,
-          isDefault: acct.id === args.id,
+          id: args.id,
+          isDefault: true,
           updatedAt: Date.now(),
         });
       }
