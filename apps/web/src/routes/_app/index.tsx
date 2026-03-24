@@ -1,7 +1,9 @@
 import {
+  Calendar03Icon,
   Clock01Icon,
   Invoice01Icon,
   PlusSignIcon,
+  Store01Icon,
   UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -36,16 +38,30 @@ export const Route = createFileRoute("/_app/")({
     context.zero?.run(queries.user.all());
     context.zero?.run(queries.team.byCurrentUser());
     context.zero?.run(queries.teamEvent.byCurrentUser());
+    context.zero?.run(queries.vendorPayment.all());
   },
   component: DashboardHome,
 });
 
-function computeDashboardStats(
-  reimbursements: readonly WithStatusAndLineItems[],
-  advancePayments: readonly WithStatusAndLineItems[],
-  users: readonly { role: string | null }[],
-  isAdmin: boolean
-): StatItem[] {
+interface DashboardStatsInput {
+  advancePayments: readonly WithStatusAndLineItems[];
+  events: readonly { startTime: number | null }[];
+  isAdmin: boolean;
+  reimbursements: readonly WithStatusAndLineItems[];
+  teams: readonly { id: string }[];
+  users: readonly { role: string | null }[];
+  vendorPayments: readonly WithStatusAndLineItems[];
+}
+
+function computeDashboardStats({
+  reimbursements,
+  advancePayments,
+  users,
+  teams,
+  events,
+  vendorPayments,
+  isAdmin,
+}: DashboardStatsInput): StatItem[] {
   const allRequests = [...reimbursements, ...advancePayments];
   const pendingCount =
     byStatus(reimbursements, "pending").length +
@@ -77,8 +93,33 @@ function computeDashboardStats(
             accent: "border-l-emerald-500",
             href: "/users",
           },
+          {
+            label: "Vendor Payments",
+            value: vendorPayments.length,
+            description: formatINR(sumTotal(vendorPayments)),
+            icon: Store01Icon,
+            accent: "border-l-violet-500",
+            href: "/vendors",
+          },
         ]
-      : []),
+      : [
+          {
+            label: "My Teams",
+            value: teams.length,
+            icon: UserMultipleIcon,
+            accent: "border-l-teal-500",
+            href: "/teams",
+          },
+          {
+            label: "Upcoming Events",
+            value: events.filter(
+              (e) => e.startTime != null && e.startTime > Date.now()
+            ).length,
+            icon: Calendar03Icon,
+            accent: "border-l-purple-500",
+            href: "/events",
+          },
+        ]),
   ];
 }
 
@@ -129,19 +170,27 @@ function OrientedDashboard() {
   const [users, r3] = useQuery(queries.user.all());
   const [teams, r4] = useQuery(queries.team.byCurrentUser());
   const [events, r5] = useQuery(queries.teamEvent.byCurrentUser());
+  const [vendorPayments, r6] = useQuery(queries.vendorPayment.all());
 
   const isLoading =
-    r1.type === "unknown" || r2.type === "unknown" || r3.type === "unknown";
-  const isWidgetsLoading = r4.type === "unknown" || r5.type === "unknown";
+    r1.type === "unknown" ||
+    r2.type === "unknown" ||
+    r3.type === "unknown" ||
+    r4.type === "unknown" ||
+    r5.type === "unknown" ||
+    r6.type === "unknown";
 
   const stats = isLoading
     ? []
-    : computeDashboardStats(
-        reimbursements ?? [],
-        advancePayments ?? [],
-        users ?? [],
-        isAdmin
-      );
+    : computeDashboardStats({
+        reimbursements: reimbursements ?? [],
+        advancePayments: advancePayments ?? [],
+        users: users ?? [],
+        teams: teams ?? [],
+        events: events ?? [],
+        vendorPayments: vendorPayments ?? [],
+        isAdmin,
+      });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
@@ -168,7 +217,7 @@ function OrientedDashboard() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
-          <MyTeams isLoading={isWidgetsLoading} teams={teams ?? []} />
+          <MyTeams isLoading={isLoading} teams={teams ?? []} />
           <RecentActivity
             advancePayments={advancePayments ?? []}
             isLoading={isLoading}
@@ -176,7 +225,7 @@ function OrientedDashboard() {
           />
         </div>
         <div>
-          <UpcomingEvents events={events ?? []} isLoading={isWidgetsLoading} />
+          <UpcomingEvents events={events ?? []} isLoading={isLoading} />
         </div>
       </div>
     </div>
