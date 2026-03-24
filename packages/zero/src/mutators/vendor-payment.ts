@@ -1,3 +1,4 @@
+import { withTaskLog } from "@pi-dash/observability";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -83,17 +84,25 @@ export const vendorPaymentMutators = {
             vendorPaymentId,
             title,
           },
-          fn: async () => {
-            const { getUserName, notifyVendorPaymentSubmitted } = await import(
-              "@pi-dash/notifications"
-            );
-            const submitterName = (await getUserName(userId)) ?? "Unknown";
-            await notifyVendorPaymentSubmitted({
-              vendorPaymentId,
-              title,
-              submitterName,
-            });
-          },
+          fn: () =>
+            withTaskLog(
+              {
+                handler: "createVendorPayment",
+                userId,
+                vendorPaymentId,
+                title,
+              },
+              async () => {
+                const { getUserName, notifyVendorPaymentSubmitted } =
+                  await import("@pi-dash/notifications");
+                const submitterName = (await getUserName(userId)) ?? "Unknown";
+                await notifyVendorPaymentSubmitted({
+                  vendorPaymentId,
+                  title,
+                  submitterName,
+                });
+              }
+            ),
         });
       }
     }
@@ -239,18 +248,27 @@ export const vendorPaymentMutators = {
             title,
             submitterId: ownerId,
           },
-          fn: async () => {
-            const { notifyVendorPaymentApproved } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyVendorPaymentApproved({
-              vendorPaymentId: id,
-              title,
-              submitterId: ownerId,
-              note,
-              approvalScreenshotKey,
-            });
-          },
+          fn: () =>
+            withTaskLog(
+              {
+                handler: "approveVendorPayment",
+                vendorPaymentId: id,
+                title,
+                submitterId: ownerId,
+              },
+              async () => {
+                const { notifyVendorPaymentApproved } = await import(
+                  "@pi-dash/notifications"
+                );
+                await notifyVendorPaymentApproved({
+                  vendorPaymentId: id,
+                  title,
+                  submitterId: ownerId,
+                  note,
+                  approvalScreenshotKey,
+                });
+              }
+            ),
         });
       }
     }
@@ -342,17 +360,27 @@ export const vendorPaymentMutators = {
             submitterId: ownerId,
             reason,
           },
-          fn: async () => {
-            const { notifyVendorPaymentRejected } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyVendorPaymentRejected({
-              vendorPaymentId: id,
-              title,
-              submitterId: ownerId,
-              reason,
-            });
-          },
+          fn: () =>
+            withTaskLog(
+              {
+                handler: "rejectVendorPayment",
+                vendorPaymentId: id,
+                title,
+                submitterId: ownerId,
+                reason,
+              },
+              async () => {
+                const { notifyVendorPaymentRejected } = await import(
+                  "@pi-dash/notifications"
+                );
+                await notifyVendorPaymentRejected({
+                  vendorPaymentId: id,
+                  title,
+                  submitterId: ownerId,
+                  reason,
+                });
+              }
+            ),
         });
       }
     }

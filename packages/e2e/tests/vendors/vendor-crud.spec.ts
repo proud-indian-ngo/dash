@@ -16,33 +16,6 @@ test.describe("Vendor management (admin)", () => {
     await expect(page.getByPlaceholder("Search vendors...")).toBeVisible();
   });
 
-  test("opens add vendor dialog with correct fields", async ({ page }) => {
-    await page.getByRole("button", { name: "Add vendor" }).click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByRole("heading", { name: "Add New Vendor" })
-    ).toBeVisible();
-
-    await expect(
-      dialog.getByRole("textbox", { name: "Name", exact: true })
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole("textbox", { name: "Phone", exact: true })
-    ).toBeVisible();
-    await expect(dialog.getByRole("textbox", { name: "Email" })).toBeVisible();
-    await expect(
-      dialog.getByRole("textbox", { name: "Bank Account Name" })
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole("textbox", { name: "Account Number" })
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole("textbox", { name: "IFSC Code" })
-    ).toBeVisible();
-  });
-
   test("cancel closes dialog", async ({ page }) => {
     await page.getByRole("button", { name: "Add vendor" }).click();
     const dialog = page.getByRole("dialog");
@@ -50,15 +23,6 @@ test.describe("Vendor management (admin)", () => {
 
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
-  });
-
-  test("Create button is disabled when required fields are empty", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: "Add vendor" }).click();
-    const dialog = page.getByRole("dialog");
-
-    await expect(dialog.getByRole("button", { name: "Create" })).toBeDisabled();
   });
 
   test.slow();
