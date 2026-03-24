@@ -15,13 +15,13 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
+import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import {
   isReimbursement,
@@ -133,24 +133,34 @@ export function RequestsTable({
   const currentUserId = session?.user?.id ?? "";
   const isAdmin = session?.user?.role === "admin";
 
-  const deleteAction = useConfirmAction<{ row: RequestRow }>({
-    onConfirm: async ({ row }) => {
-      try {
-        await onDelete(row);
-        return { type: "success" };
-      } catch (error) {
-        log.error({
-          component: "RequestsTable",
-          action: "delete",
-          requestId: row.id,
-          type: row.type,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return { type: "error" };
-      }
-    },
-    onError: () => toast.error("Failed to delete request"),
-  });
+  const [deleteTarget, setDeleteTarget] = useState<{
+    row: RequestRow;
+    type: "reimbursement" | "advance_payment" | "vendor_payment";
+  } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await onDeleteRef.current(deleteTarget.row);
+    } catch (e) {
+      log.error({
+        component: "RequestsTable",
+        action: "delete",
+        entityId: deleteTarget.row.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      toast.error("Failed to delete request");
+    } finally {
+      setDeleteLoading(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget]);
 
   const columns = useMemo<ColumnDef<RequestRow>[]>(
     () => [
@@ -280,7 +290,7 @@ export function RequestsTable({
           }
           return (
             <span className="text-sm">
-              {format(new Date(r.expenseDate), "dd/MM/yyyy")}
+              {format(new Date(r.expenseDate), SHORT_DATE)}
             </span>
           );
         },
@@ -290,7 +300,7 @@ export function RequestsTable({
       {
         id: "submittedAt",
         accessorFn: (row) =>
-          row.submittedAt == null ? "—" : format(row.submittedAt, "dd/MM/yyyy"),
+          row.submittedAt == null ? "—" : format(row.submittedAt, SHORT_DATE),
         header: ({ column }) => (
           <DataGridColumnHeader
             column={column}
@@ -302,7 +312,7 @@ export function RequestsTable({
           <span className="text-muted-foreground text-sm">
             {row.original.submittedAt == null
               ? "—"
-              : format(row.original.submittedAt, "dd/MM/yyyy")}
+              : format(row.original.submittedAt, SHORT_DATE)}
           </span>
         ),
         meta: { headerTitle: "Submitted", skeleton: SKELETON_DATE },
@@ -322,7 +332,7 @@ export function RequestsTable({
               canDelete={canDelete}
               id={r.id}
               onNavigate={onNavigate}
-              onRequestDelete={() => deleteAction.trigger({ row: r })}
+              onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
             />
           );
         },
@@ -335,11 +345,11 @@ export function RequestsTable({
         minSize: 52,
       },
     ],
-    [currentUserId, isAdmin, onNavigate, deleteAction.trigger]
+    [currentUserId, isAdmin, onNavigate]
   );
 
-  const deleteType = deleteAction.payload
-    ? REQUEST_TYPE_LABELS[deleteAction.payload.row.type].toLowerCase()
+  const deleteType = deleteTarget
+    ? REQUEST_TYPE_LABELS[deleteTarget.type].toLowerCase()
     : "request";
 
   return (
@@ -365,15 +375,15 @@ export function RequestsTable({
       <ConfirmDialog
         confirmLabel="Delete"
         description={`This will permanently delete this ${deleteType} including all line items and attachments. This action cannot be undone.`}
-        loading={deleteAction.isLoading}
+        loading={deleteLoading}
         loadingLabel="Deleting..."
-        onConfirm={deleteAction.confirm}
+        onConfirm={confirmDelete}
         onOpenChange={(open) => {
           if (!open) {
-            deleteAction.cancel();
+            setDeleteTarget(null);
           }
         }}
-        open={deleteAction.isOpen}
+        open={deleteTarget !== null}
         title={`Delete ${deleteType}`}
       />
     </>

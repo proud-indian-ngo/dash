@@ -1,14 +1,4 @@
-import { PlusSignIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@pi-dash/design-system/components/ui/select";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
-import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
   BankAccount,
@@ -20,18 +10,9 @@ import { useForm } from "@tanstack/react-form";
 import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
-import { AttachmentsSection } from "@/components/form/attachments-section";
-import { CustomField } from "@/components/form/custom-field";
-import { DateField } from "@/components/form/date-field";
-import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
-import { InputField } from "@/components/form/input-field";
-import { LineItemsEditor } from "@/components/form/line-items-editor";
-import { SelectField } from "@/components/form/select-field";
-import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
-import { useApp } from "@/context/app-context";
 import { useStableQueryResult } from "@/hooks/use-stable-query-result";
-import { cityOptions, newLineItem } from "@/lib/form-schemas";
+import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { RequestType } from "@/lib/request-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/request-types";
@@ -41,6 +22,10 @@ import {
   type RequestFormValues,
   requestFormSchema,
 } from "./form/request-form.schema";
+import { buildMutation } from "./request-form-mutations";
+import { TypeSelector } from "./request-type-selector";
+import { StandardRequestFields } from "./standard-request-fields";
+import { VendorRequestFields } from "./vendor-request-fields";
 
 export interface RequestFormProps {
   disableBankAccountSelection?: boolean;
@@ -81,106 +66,6 @@ export function RequestForm({
   );
 }
 
-function TypeSelector({
-  value,
-  onChange,
-}: {
-  onChange: (type: RequestType) => void;
-  value: RequestType;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="font-medium text-sm" htmlFor="request-type">
-        Type <span className="text-destructive">*</span>
-      </label>
-      <Select
-        onValueChange={(val) => {
-          if (
-            val === "reimbursement" ||
-            val === "advance_payment" ||
-            val === "vendor_payment"
-          ) {
-            onChange(val);
-          }
-        }}
-        value={value}
-      >
-        <SelectTrigger className="w-full" id="request-type">
-          <span
-            className="flex flex-1 items-center text-left"
-            data-slot="select-value"
-          >
-            {REQUEST_TYPE_LABELS[value] ?? "Select type"}
-          </span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="reimbursement">Reimbursement</SelectItem>
-          <SelectItem value="advance_payment">Advance Payment</SelectItem>
-          <SelectItem value="vendor_payment">Vendor Payment</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function buildMutation(
-  zero: ReturnType<typeof useZero>,
-  value: RequestFormValues,
-  entityId: string,
-  existingId: string | undefined,
-  bankAccountList: BankAccount[]
-) {
-  const lineItems = value.lineItems.map((item, index) => ({
-    ...item,
-    amount: Number(item.amount),
-    sortOrder: index,
-  }));
-  const attachments = value.attachments;
-  const id = existingId ?? entityId;
-
-  if (value.type === "vendor_payment") {
-    const payload = {
-      id,
-      vendorId: value.vendorId,
-      title: value.title,
-      invoiceNumber: value.invoiceNumber,
-      invoiceDate: value.invoiceDate,
-      lineItems,
-      attachments,
-    };
-    return existingId
-      ? zero.mutate(mutators.vendorPayment.update(payload))
-      : zero.mutate(mutators.vendorPayment.create(payload));
-  }
-
-  const selectedAccount = bankAccountList.find(
-    (account) => account.accountName === value.bankAccountName
-  );
-  const basePayload = {
-    id,
-    title: value.title,
-    city: value.city,
-    bankAccountName: value.bankAccountName,
-    bankAccountNumber:
-      selectedAccount?.accountNumber ?? value.bankAccountNumber ?? "",
-    bankAccountIfscCode:
-      selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "",
-    lineItems,
-    attachments,
-  };
-
-  if (value.type === "reimbursement") {
-    const reimbPayload = { ...basePayload, expenseDate: value.expenseDate };
-    return existingId
-      ? zero.mutate(mutators.reimbursement.update(reimbPayload))
-      : zero.mutate(mutators.reimbursement.create(reimbPayload));
-  }
-
-  return existingId
-    ? zero.mutate(mutators.advancePayment.update(basePayload))
-    : zero.mutate(mutators.advancePayment.create(basePayload));
-}
-
 interface RequestFormInnerProps {
   disableBankAccountSelection: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
@@ -197,7 +82,6 @@ function RequestFormInner({
   requestType,
 }: RequestFormInnerProps) {
   const zero = useZero();
-  const { openSettings } = useApp();
   const [categories, categoriesResult] = useQuery(
     queries.expenseCategory.all()
   );
@@ -311,96 +195,16 @@ function RequestFormInner({
   if (isVendorPayment) {
     return (
       <FormLayout className="flex flex-col gap-4" form={form}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <InputField isRequired label="Title" name="title" />
-          <CustomField<string | undefined>
-            isRequired
-            label="Vendor"
-            name="vendorId"
-          >
-            {(field) => (
-              <div className="flex gap-2">
-                <Select
-                  onValueChange={(val) => field.handleChange(val)}
-                  value={field.state.value ?? ""}
-                >
-                  <SelectTrigger
-                    aria-describedby={
-                      field.state.meta.errors.length > 0
-                        ? `${field.name}-error`
-                        : undefined
-                    }
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    className="w-full"
-                    id={field.name}
-                    onBlur={field.handleBlur}
-                  >
-                    <span
-                      className="flex flex-1 items-center text-left"
-                      data-slot="select-value"
-                    >
-                      {vendorOptions.find((o) => o.value === field.state.value)
-                        ?.label ?? "Select vendor"}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendorOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  aria-label="Add new vendor"
-                  onClick={() => setVendorDialogOpen(true)}
-                  size="icon"
-                  type="button"
-                  variant="outline"
-                >
-                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-                </Button>
-              </div>
-            )}
-          </CustomField>
-          <InputField label="Invoice Number" name="invoiceNumber" />
-          <DateField isRequired label="Invoice Date" name="invoiceDate" />
-        </div>
-
-        <Separator />
-
-        <LineItemsEditor categories={categoryList} />
-
-        <Separator />
-
-        <form.Field name="attachments">
-          {(field) => (
-            <AttachmentsSection
-              entityId={entityId}
-              onChange={(attachments) => field.handleChange(attachments)}
-              value={field.state.value}
-            />
-          )}
-        </form.Field>
-
-        <Separator />
-
-        <FormActions
-          cancelLabel="Cancel"
-          disableWhenInvalid={false}
+        <VendorRequestFields
+          categoryList={categoryList}
+          entityId={entityId}
+          form={form}
+          isEdit={isEdit}
           onCancel={onCancel}
-          submitLabel={isEdit ? "Save changes" : "Submit"}
-          submittingLabel={isEdit ? "Saving..." : "Submitting..."}
-        />
-
-        <VendorFormDialog
-          mode="inline"
-          onCreated={(id) => form.setFieldValue("vendorId", id)}
-          onOpenChange={setVendorDialogOpen}
-          open={vendorDialogOpen}
-          vendor={null}
+          onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
+          onVendorDialogOpenChange={setVendorDialogOpen}
+          vendorDialogOpen={vendorDialogOpen}
+          vendorOptions={vendorOptions}
         />
       </FormLayout>
     );
@@ -408,131 +212,20 @@ function RequestFormInner({
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <InputField isRequired label="Title" name="title" />
-        <SelectField
-          isRequired
-          label="City"
-          name="city"
-          options={cityOptions}
-          placeholder="Select city"
-        />
-        {requestType === "reimbursement" ? (
-          <DateField
-            isRequired
-            label="Expense Date"
-            maxDate={new Date()}
-            name="expenseDate"
-          />
-        ) : null}
-        {bankAccountOptions.length > 0 ? (
-          <CustomField<string | undefined>
-            isRequired
-            label="Bank Account"
-            name="bankAccountName"
-          >
-            {(field) => {
-              const selectedAccount = bankAccountList.find(
-                (account) => account.accountName === field.state.value
-              );
-
-              return (
-                <Select
-                  disabled={disableBankAccountSelection}
-                  onValueChange={(accountId) => {
-                    const account = bankAccountList.find(
-                      (entry) => entry.id === accountId
-                    );
-
-                    if (account) {
-                      field.handleChange(account.accountName);
-                      form.setFieldValue(
-                        "bankAccountNumber",
-                        account.accountNumber
-                      );
-                      form.setFieldValue(
-                        "bankAccountIfscCode",
-                        account.ifscCode
-                      );
-                    }
-                  }}
-                  value={selectedAccount?.id ?? ""}
-                >
-                  <SelectTrigger
-                    aria-describedby={
-                      field.state.meta.errors.length > 0
-                        ? `${field.name}-error`
-                        : undefined
-                    }
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    className="w-full"
-                    id={field.name}
-                    onBlur={field.handleBlur}
-                  >
-                    <span
-                      className="flex flex-1 items-center text-left"
-                      data-slot="select-value"
-                    >
-                      {bankAccountOptions.find(
-                        (option) => option.value === (selectedAccount?.id ?? "")
-                      )?.label ??
-                        field.state.value ??
-                        "Select bank account"}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccountOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              );
-            }}
-          </CustomField>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            No bank account found. Add one in{" "}
-            <button
-              className="text-foreground underline underline-offset-2"
-              onClick={() => openSettings("banking")}
-              type="button"
-            >
-              Settings &rarr; Banking
-            </button>{" "}
-            to receive payments.
-          </p>
-        )}
-      </div>
-
-      <Separator />
-
-      <LineItemsEditor categories={categoryList} />
-
-      <Separator />
-
-      <form.Field name="attachments">
-        {(field) => (
-          <AttachmentsSection
-            entityId={entityId}
-            onChange={(attachments) => field.handleChange(attachments)}
-            value={field.state.value}
-          />
-        )}
-      </form.Field>
-
-      <Separator />
-
-      <FormActions
-        cancelLabel="Cancel"
-        disabled={bankAccountOptions.length === 0}
-        disableWhenInvalid={false}
+      <StandardRequestFields
+        bankAccountList={bankAccountList}
+        bankAccountOptions={bankAccountOptions}
+        categoryList={categoryList}
+        disableBankAccountSelection={disableBankAccountSelection}
+        entityId={entityId}
+        form={form}
+        isEdit={isEdit}
+        onBankAccountSelected={(account) => {
+          form.setFieldValue("bankAccountNumber", account.accountNumber);
+          form.setFieldValue("bankAccountIfscCode", account.ifscCode);
+        }}
         onCancel={onCancel}
-        submitLabel={isEdit ? "Save changes" : "Submit"}
-        submittingLabel={isEdit ? "Saving..." : "Submitting..."}
+        requestType={requestType}
       />
     </FormLayout>
   );

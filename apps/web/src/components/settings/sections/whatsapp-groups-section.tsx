@@ -5,82 +5,17 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@pi-dash/design-system/components/ui/select";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useForm } from "@tanstack/react-form";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
-import z from "zod";
-import { FormActions } from "@/components/form/form-actions";
-import { FormLayout } from "@/components/form/form-layout";
-import { InputField } from "@/components/form/input-field";
-import { TextareaField } from "@/components/form/textarea-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
-
-const ORIENTATION_GROUP_ID = "orientation_group_id";
-const ALL_VOLUNTEERS_GROUP_ID = "all_volunteers_group_id";
-
-const groupSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  jid: z.string().min(1, "JID is required"),
-  description: z.string().optional(),
-});
-
-type GroupFormValues = z.infer<typeof groupSchema>;
-
-function GroupForm({
-  initialValues,
-  onCancel,
-  onSubmit,
-}: {
-  initialValues: GroupFormValues;
-  onCancel: () => void;
-  onSubmit: (values: GroupFormValues) => void | Promise<void>;
-}) {
-  const form = useForm({
-    defaultValues: initialValues,
-    onSubmit: async ({ value }) => {
-      await onSubmit(value);
-    },
-    validators: {
-      onChange: groupSchema,
-      onSubmit: groupSchema,
-    },
-  });
-
-  return (
-    <FormLayout form={form}>
-      <div className="flex flex-col gap-3 py-2">
-        <InputField isRequired label="Name" name="name" />
-        <InputField
-          description="The WhatsApp group JID (e.g. 120363012345678901@g.us). Found in the group invite link or WhatsApp API."
-          isRequired
-          label="JID"
-          name="jid"
-          placeholder="120363012345678901@g.us"
-        />
-        <TextareaField label="Description" name="description" />
-        <FormActions
-          onCancel={onCancel}
-          submitLabel="Save"
-          submittingLabel="Saving..."
-        />
-      </div>
-    </FormLayout>
-  );
-}
+import { GroupAssignments } from "./whatsapp-group-assignments";
+import { GroupForm, type GroupFormValues } from "./whatsapp-group-form";
 
 type RowAction = { kind: "delete"; group: WhatsappGroup } | null;
 
@@ -88,99 +23,6 @@ type InlineMode =
   | { kind: "create" }
   | { kind: "edit"; group: WhatsappGroup }
   | null;
-
-function GroupAssignments({ groups }: { groups: readonly WhatsappGroup[] }) {
-  const zero = useZero();
-  const [configRows] = useQuery(queries.appConfig.all());
-
-  const configMap = useMemo(
-    () => new Map((configRows ?? []).map((row) => [row.key, row.value])),
-    [configRows]
-  );
-
-  const orientationGroupId = configMap.get(ORIENTATION_GROUP_ID) ?? "";
-  const allVolunteersGroupId = configMap.get(ALL_VOLUNTEERS_GROUP_ID) ?? "";
-
-  const groupNameMap = useMemo(
-    () => new Map(groups.map((g) => [g.id, g.name])),
-    [groups]
-  );
-
-  const handleChange = (key: string, value: string) => {
-    zero
-      .mutate(mutators.appConfig.upsert({ key, value }))
-      .server.then((res) => {
-        handleMutationResult(res, {
-          mutation: "appConfig.upsert",
-          entityId: key,
-          successMsg: "Assignment updated",
-          errorMsg: "Failed to update assignment",
-        });
-      });
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="font-medium text-xs">Group Assignments</p>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">New volunteer group</Label>
-          <Select
-            onValueChange={(v) => {
-              if (v) {
-                handleChange(ORIENTATION_GROUP_ID, v);
-              }
-            }}
-            value={orientationGroupId}
-          >
-            <SelectTrigger aria-label="New volunteer group">
-              <SelectValue placeholder="Select a group">
-                {groupNameMap.get(orientationGroupId) ?? "Select a group"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-muted-foreground text-xs">
-            New volunteers are added to this group when created.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Orientation completed group</Label>
-          <Select
-            onValueChange={(v) => {
-              if (v) {
-                handleChange(ALL_VOLUNTEERS_GROUP_ID, v);
-              }
-            }}
-            value={allVolunteersGroupId}
-          >
-            <SelectTrigger aria-label="Orientation completed group">
-              <SelectValue placeholder="Select a group">
-                {groupNameMap.get(allVolunteersGroupId) ?? "Select a group"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-muted-foreground text-xs">
-            Volunteers are moved here after completing orientation.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function WhatsAppGroupsSection() {
   const zero = useZero();

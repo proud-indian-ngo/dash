@@ -1,10 +1,5 @@
-import {
-  Edit02Icon,
-  PlusSignIcon,
-  UserRemoveIcon,
-} from "@hugeicons/core-free-icons";
+import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import {
@@ -16,25 +11,29 @@ import {
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useCallback } from "react";
+import { log } from "evlog";
+import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
-import { handleMutationResult } from "@/lib/mutation-result";
+import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventFormDialog } from "./event-form-dialog";
+import { EventInfoSection } from "./event-info-section";
+import {
+  PastInterestBadge,
+  VolunteerInterestSection,
+} from "./event-interest-section";
+import { EventMembersSection } from "./event-members-section";
 import { EventPhotos } from "./event-photos";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
 import type { InterestWithUser } from "./interest-requests";
-import { InterestRequests } from "./interest-requests";
 import { ShowInterestDialog } from "./show-interest-dialog";
 
 const TRAILING_SLASH = /\/$/;
@@ -90,11 +89,7 @@ function EventHeader({
         <div className="flex gap-2">
           {canManage ? (
             <Button onClick={onEdit} size="sm" variant="outline">
-              <HugeiconsIcon
-                className="size-4"
-                icon={Edit02Icon}
-                strokeWidth={2}
-              />
+              <HugeiconsIcon className="size-4" icon={Edit02Icon} />
               Edit
             </Button>
           ) : null}
@@ -107,189 +102,6 @@ function EventHeader({
       ) : null}
     </div>
   );
-}
-
-function EventMemberRow({
-  canManage,
-  member,
-  onRemove,
-}: {
-  canManage: boolean;
-  member: TeamEventMember & { user: User | undefined };
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-md border p-2">
-      {member.user ? (
-        <UserAvatar
-          className="size-8"
-          fallbackClassName="text-xs"
-          user={member.user}
-        />
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-sm">
-          {member.user?.name ?? "Unknown"}
-        </div>
-        <div className="text-muted-foreground text-xs">
-          Added {format(new Date(member.addedAt), "PP")}
-        </div>
-      </div>
-      {canManage ? (
-        <Button
-          aria-label={`Remove ${member.user?.name ?? "volunteer"}`}
-          onClick={() => onRemove(member.id)}
-          size="icon"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={UserRemoveIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function EventInfoSection({ event }: { event: EventRow }) {
-  const recurrence = event.recurrenceRule as
-    | { frequency: string; endDate?: string }
-    | null
-    | undefined;
-
-  return (
-    <>
-      {event.description ? (
-        <p className="text-muted-foreground text-sm">{event.description}</p>
-      ) : null}
-
-      <div className="text-sm">
-        {format(new Date(event.startTime), "PPP p")}
-        {event.endTime
-          ? ` - ${format(new Date(event.endTime), "PPP p")}`
-          : null}
-      </div>
-
-      {event.location ? (
-        <div className="text-muted-foreground text-sm">{event.location}</div>
-      ) : null}
-
-      <Badge size="xs" variant={event.isPublic ? "info-light" : "secondary"}>
-        {event.isPublic ? "Public" : "Private"}
-      </Badge>
-
-      {recurrence?.frequency ? (
-        <div className="text-muted-foreground text-sm">
-          Recurring {recurrence.frequency}
-        </div>
-      ) : null}
-
-      {event.parentEventId ? (
-        <div className="text-muted-foreground text-sm">
-          Part of recurring event
-        </div>
-      ) : null}
-
-      {event.whatsappGroup ? (
-        <div className="text-muted-foreground text-sm">
-          WhatsApp: {event.whatsappGroup.name}
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-const interestStatusMap = {
-  pending: { label: "Interest Pending", variant: "outline" as const },
-  approved: { label: "Interest Approved", variant: "default" as const },
-  rejected: { label: "Interest Declined", variant: "secondary" as const },
-};
-
-function VolunteerInterestSection({
-  canManage,
-  interests,
-  isMember,
-  isPublic,
-  myInterest,
-  onShowInterest,
-}: {
-  canManage: boolean;
-  interests?: readonly InterestWithUser[];
-  isMember?: boolean;
-  isPublic: boolean;
-  myInterest?: InterestWithUser | null;
-  onShowInterest: () => void;
-}) {
-  const zero = useZero();
-  const showButton = !(canManage || isMember || myInterest) && isPublic;
-
-  const handleCancel = useCallback(async () => {
-    if (!myInterest) {
-      return;
-    }
-    const res = await zero.mutate(
-      mutators.eventInterest.cancel({ id: myInterest.id })
-    ).server;
-    handleMutationResult(res, {
-      mutation: "eventInterest.cancel",
-      entityId: myInterest.id,
-      successMsg: "Interest cancelled",
-      errorMsg: "Failed to cancel interest",
-    });
-  }, [zero, myInterest]);
-
-  return (
-    <>
-      {showButton ? (
-        <Button onClick={onShowInterest} size="sm" variant="outline">
-          Show Interest
-        </Button>
-      ) : null}
-      {myInterest && !isMember ? (
-        <div className="flex items-center gap-2">
-          <Badge
-            variant={
-              interestStatusMap[
-                myInterest.status as keyof typeof interestStatusMap
-              ]?.variant ?? "outline"
-            }
-          >
-            {interestStatusMap[
-              myInterest.status as keyof typeof interestStatusMap
-            ]?.label ?? myInterest.status}
-          </Badge>
-          {myInterest.status === "pending" ? (
-            <Button onClick={handleCancel} size="sm" variant="ghost">
-              Cancel Interest
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-      {canManage && interests ? (
-        <InterestRequests interests={interests} />
-      ) : null}
-    </>
-  );
-}
-
-function PastInterestBadge({
-  isMember,
-  myInterest,
-}: {
-  isMember?: boolean;
-  myInterest?: InterestWithUser | null;
-}) {
-  if (!myInterest || isMember) {
-    return null;
-  }
-  const status = myInterest.status as keyof typeof interestStatusMap;
-  const { label, variant } = interestStatusMap[status] ?? {
-    label: myInterest.status,
-    variant: "outline" as const,
-  };
-  return <Badge variant={variant}>{label}</Badge>;
 }
 
 export function EventDetail({
@@ -311,14 +123,18 @@ export function EventDetail({
     onConfirm: () =>
       zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
         .server,
-    mutationMeta: {
-      mutation: "teamEvent.cancel",
-      entityId: event.id,
-      successMsg: "Event cancelled",
-      errorMsg: "Failed to cancel event",
-    },
     onSuccess: () => {
+      toast.success("Event cancelled");
       navigate({ to: "/teams/$id", params: { id: event.teamId } });
+    },
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
+        mutation: "teamEvent.cancel",
+        entityId: event.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to cancel event");
     },
   });
 
@@ -354,11 +170,15 @@ export function EventDetail({
           memberId,
         })
       ).server,
-    mutationMeta: {
-      mutation: "teamEvent.removeMember",
-      entityId: event.id,
-      successMsg: "Volunteer removed",
-      errorMsg: "Failed to remove volunteer",
+    onSuccess: () => toast.success("Volunteer removed"),
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
+        mutation: "teamEvent.removeMember",
+        entityId: event.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to remove volunteer");
     },
   });
 
@@ -369,7 +189,7 @@ export function EventDetail({
 
   return (
     <AppErrorBoundary level="section">
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <EventHeader
           canCancel={canCancel}
           canManage={canManage}
@@ -396,41 +216,12 @@ export function EventDetail({
 
         <Separator />
 
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-sm">
-            Volunteers ({event.members.length})
-          </h2>
-          {canManageVolunteers ? (
-            <Button
-              onClick={() => dialog.open({ type: "addMember" })}
-              size="sm"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add Volunteer
-            </Button>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {event.members.map((member) => (
-            <EventMemberRow
-              canManage={canManageVolunteers}
-              key={member.id}
-              member={member}
-              onRemove={(id) => removeMember.trigger(id)}
-            />
-          ))}
-          {event.members.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm">
-              No volunteers yet.
-            </p>
-          ) : null}
-        </div>
+        <EventMembersSection
+          canManage={canManageVolunteers}
+          members={event.members}
+          onAddMember={() => dialog.open({ type: "addMember" })}
+          onRemoveMember={(id) => removeMember.trigger(id)}
+        />
 
         {hasStarted ? (
           <>
@@ -528,7 +319,7 @@ export function EventDetail({
       />
 
       <ShowInterestDialog
-        eventDate={format(new Date(event.startTime), "PPP p")}
+        eventDate={format(new Date(event.startTime), LONG_DATE_TIME)}
         eventId={event.id}
         eventName={event.name}
         onOpenChange={dialog.onOpenChange}

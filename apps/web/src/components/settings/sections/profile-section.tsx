@@ -6,7 +6,6 @@ import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
 import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -20,7 +19,7 @@ import {
   MAX_AVATAR_FILE_SIZE_BYTES,
 } from "@/functions/attachments";
 import { authClient } from "@/lib/auth-client";
-import { optionalDate } from "@/lib/validators";
+import { type ProfileFormValues, profileSchema } from "./profile-schema";
 
 const TRAILING_SLASH = /\/$/;
 const ALLOWED_AVATAR_MIME_TYPES = new Set([
@@ -35,19 +34,6 @@ const genderOptions: SelectOption[] = [
   { label: "Female", value: "female" },
   { label: "Prefer not to say", value: "unspecified" },
 ];
-
-const genderSchema = z
-  .enum(["male", "female", "unspecified"])
-  .or(z.literal(""));
-
-const profileSchema = z.object({
-  dob: optionalDate,
-  gender: genderSchema,
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  phone: z.string(),
-});
-
-type ProfileFormValues = z.infer<typeof profileSchema>;
 
 function AvatarUpload() {
   const { data: session } = authClient.useSession();

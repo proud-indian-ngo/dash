@@ -1,15 +1,10 @@
 import {
-  Cancel01Icon,
-  CheckmarkCircle02Icon,
-  Delete02Icon,
   Image02Icon,
   ImageUpload01Icon,
   LinkSquare02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -23,154 +18,23 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { UserAvatar } from "@/components/shared/user-avatar";
-import {
-  type AllowedMimeType,
-  getPresignedUploadUrl,
-} from "@/functions/attachments";
+import { getPresignedUploadUrl } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
+import { PhotoCard } from "./photo-card";
+import {
+  IMAGE_ACCEPT,
+  showUploadResultToasts,
+  uploadFileToR2,
+  validateFiles,
+} from "./photo-upload";
+import { immichBase, toPhotoSlide } from "./photo-utils";
 
 type PhotoWithUploader = EventPhoto & { uploader: User | undefined };
 
 function isPhotoSlide(s: Slide): s is PhotoSlide {
   return "photoId" in s;
-}
-
-const IMAGE_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
-
-const IMAGE_ACCEPT = IMAGE_MIME_TYPES.join(",");
-const MAX_PHOTO_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
-
-const TRAILING_SLASH = /\/$/;
-const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
-
-const immichBase = env.VITE_IMMICH_URL?.replace(TRAILING_SLASH, "");
-
-function getR2ThumbnailUrl(r2Key: string): string {
-  const directUrl = `${cdnBase}/${r2Key}`;
-  if (
-    typeof window !== "undefined" &&
-    window.location.hostname === "localhost"
-  ) {
-    return directUrl;
-  }
-  return `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${directUrl}`;
-}
-
-const EMPTY_PIXEL =
-  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-
-function getPhotoThumbnailUrl(photo: EventPhoto): string {
-  if (photo.immichAssetId) {
-    return `/api/immich/thumbnail/${photo.immichAssetId}`;
-  }
-  if (photo.r2Key) {
-    return getR2ThumbnailUrl(photo.r2Key);
-  }
-  return EMPTY_PIXEL;
-}
-
-function getPhotoLightboxUrl(photo: EventPhoto): string {
-  if (photo.immichAssetId) {
-    return `/api/immich/original/${photo.immichAssetId}`;
-  }
-  if (photo.r2Key) {
-    return `${cdnBase}/${photo.r2Key}`;
-  }
-  return EMPTY_PIXEL;
-}
-
-function isAllowedImageType(
-  mime: string
-): mime is (typeof IMAGE_MIME_TYPES)[number] {
-  return (IMAGE_MIME_TYPES as readonly string[]).includes(mime);
-}
-
-function validateFiles(files: FileList): File[] {
-  const valid: File[] = [];
-  for (const file of Array.from(files)) {
-    if (!isAllowedImageType(file.type)) {
-      toast.error(`${file.name}: unsupported file type`);
-      continue;
-    }
-    if (file.size > MAX_PHOTO_SIZE_BYTES) {
-      toast.error(`${file.name}: exceeds 20 MB limit`);
-      continue;
-    }
-    valid.push(file);
-  }
-  return valid;
-}
-
-async function uploadFileToR2(
-  file: File,
-  entityId: string,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
-): Promise<string> {
-  const { presignedUrl, key } = await getUploadUrl({
-    data: {
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type as AllowedMimeType,
-      subfolder: "photos",
-      entityId,
-    },
-  });
-
-  const response = await fetch(presignedUrl, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
-
-  if (!response.ok) {
-    throw new Error("Upload failed");
-  }
-
-  return key;
-}
-
-function showUploadResultToasts(
-  uploadedCount: number,
-  failedCount: number
-): void {
-  if (uploadedCount > 0) {
-    toast.success(
-      uploadedCount === 1
-        ? "Photo uploaded"
-        : `${uploadedCount} photos uploaded`
-    );
-  }
-  if (failedCount > 0) {
-    toast.error(
-      failedCount === 1
-        ? "1 photo failed to upload"
-        : `${failedCount} photos failed to upload`
-    );
-  }
-}
-
-function toPhotoSlide(
-  photo: PhotoWithUploader,
-  permissions: { canApprove: boolean; canReject: boolean; canDelete: boolean }
-): PhotoSlide {
-  return {
-    src: getPhotoLightboxUrl(photo),
-    thumbnailSrc: getPhotoThumbnailUrl(photo),
-    photoId: photo.id,
-    caption: photo.caption ?? null,
-    uploader: photo.uploader,
-    canApprove: permissions.canApprove,
-    canReject: permissions.canReject,
-    canDelete: permissions.canDelete,
-  };
 }
 
 interface EventPhotosProps {
@@ -181,115 +45,6 @@ interface EventPhotosProps {
   immichAlbumUrl?: string | null;
   isMember: boolean;
   pendingPhotos: readonly PhotoWithUploader[];
-}
-
-interface PhotoCardProps {
-  canDelete: boolean;
-  onApprove?: () => void;
-  onClick: () => void;
-  onDelete: () => void;
-  onReject?: () => void;
-  pending?: boolean;
-  photo: PhotoWithUploader;
-}
-
-function PhotoCard({
-  canDelete,
-  onApprove,
-  onClick,
-  onDelete,
-  onReject,
-  photo,
-  pending,
-}: PhotoCardProps) {
-  return (
-    <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
-      <button
-        className="size-full cursor-pointer"
-        onClick={onClick}
-        type="button"
-      >
-        <img
-          alt={photo.caption ?? "Event photo"}
-          className="size-full object-cover"
-          height={320}
-          loading="lazy"
-          src={getPhotoThumbnailUrl(photo)}
-          width={320}
-        />
-      </button>
-
-      {/* Bottom gradient overlay with uploader info */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-        <div className="flex items-center gap-1.5">
-          {photo.uploader ? (
-            <>
-              <UserAvatar
-                className="size-5"
-                fallbackClassName="text-[10px]"
-                user={photo.uploader}
-              />
-              <span className="truncate text-white text-xs">
-                {photo.uploader.name}
-              </span>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {pending ? (
-        <Badge className="absolute top-2 left-2" size="sm" variant="warning">
-          Pending
-        </Badge>
-      ) : null}
-
-      {/* Hover action buttons */}
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        {onApprove ? (
-          <Button
-            aria-label="Approve photo"
-            onClick={onApprove}
-            size="icon-sm"
-            variant="secondary"
-          >
-            <HugeiconsIcon
-              className="size-3.5 text-green-600"
-              icon={CheckmarkCircle02Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null}
-        {onReject ? (
-          <Button
-            aria-label="Reject photo"
-            onClick={onReject}
-            size="icon-sm"
-            variant="secondary"
-          >
-            <HugeiconsIcon
-              className="size-3.5 text-red-600"
-              icon={Cancel01Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null}
-        {canDelete ? (
-          <Button
-            aria-label="Delete photo"
-            onClick={onDelete}
-            size="icon-sm"
-            variant="secondary"
-          >
-            <HugeiconsIcon
-              className="size-3.5 text-red-600"
-              icon={Delete02Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 export function EventPhotos({

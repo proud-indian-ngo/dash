@@ -8,12 +8,14 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { format } from "date-fns";
 import { log } from "evlog";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { RequestHeaderMeta } from "@/components/requests/request-header-meta";
+import { HistoryEntry } from "@/components/requests/request-history-entry";
+import { VendorDetailsCard } from "@/components/requests/request-vendor-details";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getAttachmentDownloadHref,
@@ -24,8 +26,6 @@ import {
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
-  isReimbursement,
-  isVendorPayment,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/request-types";
@@ -34,115 +34,6 @@ import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 interface RequestDetailProps {
   isAdmin: boolean;
   request: RequestDetailData;
-}
-
-function HistoryEntry({
-  entry,
-}: {
-  entry: RequestDetailData["history"][number];
-}) {
-  return (
-    <div className="flex gap-3">
-      <div aria-hidden="true" className="mt-1 flex flex-col items-center">
-        <div className="size-2 rounded-full bg-border" />
-        <div className="w-px flex-1 bg-border" />
-      </div>
-      <div className="flex flex-col gap-0.5 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm capitalize">{entry.action}</span>
-          <span className="text-muted-foreground text-xs">
-            {format(entry.createdAt, "dd/MM/yyyy, HH:mm")}
-          </span>
-        </div>
-        {entry.note ? (
-          <span className="text-muted-foreground text-sm italic">
-            {entry.note}
-          </span>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function RequestHeaderMeta({ request }: { request: RequestDetailData }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-      {!isVendorPayment(request) && request.city ? (
-        <span>{request.city}</span>
-      ) : null}
-      {isReimbursement(request) ? (
-        <span>{format(request.expenseDate, "MMMM d, yyyy")}</span>
-      ) : null}
-      {isVendorPayment(request) && request.vendor ? (
-        <span>Vendor: {request.vendor.name}</span>
-      ) : null}
-      {isVendorPayment(request) && request.invoiceNumber ? (
-        <span>Invoice: {request.invoiceNumber}</span>
-      ) : null}
-      {isVendorPayment(request) ? (
-        <span>{format(request.invoiceDate, "MMMM d, yyyy")}</span>
-      ) : null}
-      {!isVendorPayment(request) &&
-      request.bankAccountName &&
-      request.bankAccountNumber ? (
-        <span>
-          {request.bankAccountName} (••••
-          {request.bankAccountNumber.length >= 4
-            ? request.bankAccountNumber.slice(-4)
-            : request.bankAccountNumber}
-          )
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function VendorDetailsCard({ request }: { request: RequestDetailData }) {
-  if (!(isVendorPayment(request) && request.vendor)) {
-    return null;
-  }
-  return (
-    <div className="rounded-md border p-3">
-      <h2 className="mb-2 font-medium text-sm">Vendor Details</h2>
-      <div className="grid gap-1 text-sm sm:grid-cols-2">
-        <div>
-          <span className="text-muted-foreground">Name: </span>
-          {request.vendor.name}
-        </div>
-        <div>
-          <span className="text-muted-foreground">Phone: </span>
-          {request.vendor.contactPhone}
-        </div>
-        {request.vendor.contactEmail ? (
-          <div>
-            <span className="text-muted-foreground">Email: </span>
-            {request.vendor.contactEmail}
-          </div>
-        ) : null}
-        <div>
-          <span className="text-muted-foreground">Bank: </span>
-          {request.vendor.bankAccountName} (••••
-          {request.vendor.bankAccountNumber &&
-          request.vendor.bankAccountNumber.length >= 4
-            ? request.vendor.bankAccountNumber.slice(-4)
-            : request.vendor.bankAccountNumber || "N/A"}
-          )
-        </div>
-        {request.vendor.gstNumber ? (
-          <div>
-            <span className="text-muted-foreground">GST: </span>
-            {request.vendor.gstNumber}
-          </div>
-        ) : null}
-        {request.vendor.panNumber ? (
-          <div>
-            <span className="text-muted-foreground">PAN: </span>
-            {request.vendor.panNumber}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 export function RequestDetail({ isAdmin, request }: RequestDetailProps) {

@@ -1,7 +1,5 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
-import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -10,17 +8,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { User } from "@pi-dash/zero/schema";
-import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { format } from "date-fns";
-import capitalize from "lodash/capitalize";
+import type { VisibilityState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import { BanUserForm } from "@/components/users/ban-user-form";
 import { PasswordForm } from "@/components/users/password-form";
 import {
@@ -29,10 +23,11 @@ import {
   UserForm,
 } from "@/components/users/user-form";
 import { UserNotificationsForm } from "@/components/users/user-notifications-form";
-import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { searchUser } from "@/components/users/user-search";
+import { createUserColumns } from "@/components/users/user-table-columns";
 import { authClient } from "@/lib/auth-client";
 
-type RowFormKind = "ban" | "edit" | "notifications" | "password";
+type RowFormKind = "ban" | "delete" | "edit" | "notifications" | "password";
 type RowFormAction = {
   kind: RowFormKind;
   userId: string;
@@ -58,19 +53,20 @@ interface UserActionsMenuProps {
   isBanning: boolean;
   isDeleting: boolean;
   onOpenForm: (kind: RowFormKind) => void;
-  onRequestDelete: () => void;
   onUnbanUser: () => Promise<void>;
   user: User;
 }
 
 interface UserRowActionDialogsProps {
   activeRowForm: RowFormAction;
+  isDeleting: boolean;
   onBanUser: (
     userId: string,
     banReason: string,
     banExpires?: string
   ) => Promise<void>;
   onCloseForm: (kind: RowFormKind) => void;
+  onDelete: () => Promise<void>;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
   user: User;
@@ -84,29 +80,6 @@ interface UserRowActionsProps
   user: User;
 }
 
-const SKELETON_NAME = (
-  <div className="flex h-10.25 items-center gap-3">
-    <Skeleton className="size-8 rounded-full" />
-    <div className="space-y-1">
-      <Skeleton className="h-5 w-28" />
-      <Skeleton className="h-3 w-20" />
-    </div>
-  </div>
-);
-const SKELETON_ROLE = <Skeleton className="h-6 w-16" />;
-const SKELETON_GENDER = <Skeleton className="h-5 w-14" />;
-const SKELETON_DOB = <Skeleton className="h-5 w-20" />;
-const SKELETON_ACTIVE = <Skeleton className="h-6 w-14" />;
-const SKELETON_ORIENTATION = <Skeleton className="h-6 w-20" />;
-const SKELETON_BANNED = (
-  <div className="flex items-center gap-1.5">
-    <Skeleton className="size-2 rounded-full" />
-    <Skeleton className="h-4 w-10" />
-  </div>
-);
-const SKELETON_CREATED_AT = <Skeleton className="h-5 w-32" />;
-const SKELETON_WHATSAPP = <Skeleton className="h-6 w-14" />;
-
 const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   dob: false,
   gender: false,
@@ -117,7 +90,6 @@ function UserActionsMenu({
   isBanning,
   isDeleting,
   onOpenForm,
-  onRequestDelete,
   onUnbanUser,
   user,
 }: UserActionsMenuProps) {
@@ -189,7 +161,9 @@ function UserActionsMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={isSelf || isDeleting}
-          onClick={onRequestDelete}
+          onClick={() => {
+            onOpenForm("delete");
+          }}
           variant="destructive"
         >
           Delete
@@ -211,21 +185,21 @@ function UserRowActions({
   user,
 }: UserRowActionsProps) {
   const [isBanning, setIsBanning] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const deleteAction = useConfirmAction({
-    onConfirm: async () => {
-      try {
-        await onDelete(user.id);
-        onCloseForm("edit");
-        onCloseForm("password");
-        onCloseForm("notifications");
-        onCloseForm("ban");
-        return { type: "success" };
-      } catch {
-        return { type: "error" };
-      }
-    },
-  });
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await onDelete(user.id);
+      onCloseForm("delete");
+      onCloseForm("edit");
+      onCloseForm("password");
+      onCloseForm("notifications");
+      onCloseForm("ban");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleUnban = async () => {
     try {
@@ -253,39 +227,20 @@ function UserRowActions({
     <>
       <UserActionsMenu
         isBanning={isBanning}
-        isDeleting={deleteAction.isLoading}
+        isDeleting={isDeleting}
         onOpenForm={onOpenForm}
-        onRequestDelete={deleteAction.trigger}
         onUnbanUser={handleUnban}
         user={user}
       />
       <UserRowActionDialogs
         activeRowForm={activeRowForm}
+        isDeleting={isDeleting}
         onBanUser={handleBan}
         onCloseForm={onCloseForm}
+        onDelete={handleDelete}
         onSetPassword={onSetPassword}
         onUpdateUser={onUpdateUser}
         user={user}
-      />
-      <ConfirmDialog
-        confirmLabel="Delete user"
-        description={
-          <>
-            This will permanently delete <strong>{user.name}</strong> and all
-            associated data including reimbursements, advance payments, team
-            memberships, and sessions. This action cannot be undone.
-          </>
-        }
-        loading={deleteAction.isLoading}
-        loadingLabel="Deleting..."
-        onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
-        open={deleteAction.isOpen}
-        title="Delete user"
       />
     </>
   );
@@ -293,12 +248,18 @@ function UserRowActions({
 
 function UserRowActionDialogs({
   activeRowForm,
+  isDeleting,
   onBanUser,
   onCloseForm,
+  onDelete,
   onSetPassword,
   onUpdateUser,
   user,
 }: UserRowActionDialogsProps) {
+  const { data: session } = authClient.useSession();
+  const isSelf = user.id === (session?.user?.id ?? "");
+  const isDeleteOpen =
+    activeRowForm?.userId === user.id && activeRowForm.kind === "delete";
   const isEditOpen =
     activeRowForm?.userId === user.id && activeRowForm.kind === "edit";
   const isPasswordOpen =
@@ -401,30 +362,24 @@ function UserRowActionDialogs({
           />
         ) : null}
       </FormModal>
+
+      <ConfirmDialog
+        confirmLabel="Delete user"
+        description={`Are you sure you want to delete ${user.name}? This action cannot be undone.`}
+        loading={isDeleting}
+        loadingLabel="Deleting..."
+        onConfirm={onDelete}
+        onOpenChange={(open: boolean) => {
+          if (!open) {
+            onCloseForm("delete");
+          }
+        }}
+        open={isDeleteOpen && !isSelf}
+        title="Delete user"
+      />
     </>
   );
 }
-
-const searchUser = (user: User, query: string): boolean => {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return true;
-  }
-
-  const dobText = user.dob == null ? "" : format(user.dob, "dd/MM/yyyy");
-
-  return [
-    user.name,
-    user.email,
-    user.phone ?? "",
-    user.gender ?? "",
-    dobText,
-    user.banReason ?? "",
-  ]
-    .join(" ")
-    .toLowerCase()
-    .includes(q);
-};
 
 export function UsersTable({
   isLoading,
@@ -451,246 +406,32 @@ export function UsersTable({
     [activeRowForm]
   );
 
-  const columns = useMemo<ColumnDef<User>[]>(
-    () => [
-      {
-        id: "name",
-        accessorFn: (row) => row.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="User"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <UserAvatar className="size-8" user={row.original} />
-            <div className="space-y-px">
-              <div className="font-medium text-foreground">
-                {row.original.name}
-              </div>
-              <div className="truncate text-muted-foreground text-xs">
-                {row.original.email}
-              </div>
-            </div>
-          </div>
-        ),
-        meta: {
-          headerTitle: "User",
-          skeleton: SKELETON_NAME,
-        },
-        size: 240,
-      },
-      {
-        id: "role",
-        accessorFn: (row) => (row.role === "admin" ? "admin" : "volunteer"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Role"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) =>
-          row.original.role === "admin" ? (
-            <Badge variant="info-outline">Admin</Badge>
-          ) : (
-            <Badge variant="secondary">Volunteer</Badge>
-          ),
-        meta: {
-          headerTitle: "Role",
-          skeleton: SKELETON_ROLE,
-        },
-        size: 120,
-      },
-      {
-        id: "gender",
-        accessorFn: (row) => (row.gender ? capitalize(row.gender) : "—"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Gender"
-            visibility={true}
-          />
-        ),
-        meta: {
-          headerTitle: "Gender",
-          skeleton: SKELETON_GENDER,
-        },
-        size: 110,
-      },
-      {
-        id: "dob",
-        accessorFn: (row) => {
-          if (row.dob == null) {
-            return "—";
-          }
-          return format(row.dob, "dd/MM/yyyy");
-        },
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="DOB" visibility={true} />
-        ),
-        meta: {
-          headerTitle: "DOB",
-          skeleton: SKELETON_DOB,
-        },
-        size: 120,
-      },
-      {
-        id: "active",
-        accessorFn: (row) => (row.isActive ? "yes" : "no"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Active"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) =>
-          row.original.isActive ? (
-            <Badge variant="success-outline">Active</Badge>
-          ) : (
-            <Badge variant="destructive-outline">Inactive</Badge>
-          ),
-        meta: {
-          headerTitle: "Active",
-          skeleton: SKELETON_ACTIVE,
-        },
-        size: 110,
-      },
-      {
-        id: "attendedOrientation",
-        accessorFn: (row) => (row.attendedOrientation ? "yes" : "no"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Orientation"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) =>
-          row.original.attendedOrientation ? (
-            <Badge variant="success-outline">Attended</Badge>
-          ) : (
-            <Badge variant="warning-outline">Pending</Badge>
-          ),
-        meta: {
-          headerTitle: "Orientation",
-          skeleton: SKELETON_ORIENTATION,
-        },
-        size: 140,
-      },
-      {
-        id: "isOnWhatsapp",
-        accessorFn: (row) => (row.isOnWhatsapp ? "yes" : "no"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="WhatsApp"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) =>
-          row.original.isOnWhatsapp ? (
-            <Badge variant="success-outline">Yes</Badge>
-          ) : (
-            <Badge variant="secondary">No</Badge>
-          ),
-        meta: {
-          headerTitle: "WhatsApp",
-          skeleton: SKELETON_WHATSAPP,
-        },
-        size: 110,
-      },
-      {
-        id: "banned",
-        accessorFn: (row) => (row.banned ? "yes" : "no"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Banned"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => {
-          const isBanned = Boolean(row.original.banned);
-          return (
-            <div className="flex items-center gap-1.5">
-              <div
-                className={`size-2 rounded-full ${isBanned ? "bg-destructive" : "bg-green-500"}`}
-              />
-              <span className="text-muted-foreground text-sm">
-                {isBanned ? "Banned" : "Active"}
-              </span>
-            </div>
-          );
-        },
-        meta: {
-          headerTitle: "Banned",
-          skeleton: SKELETON_BANNED,
-        },
-        size: 110,
-      },
-      {
-        id: "createdAt",
-        accessorFn: (row) => {
-          if (row.createdAt == null) {
-            return "—";
-          }
-          return format(row.createdAt, "dd/MM/yyyy, HH:mm:ss");
-        },
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Created"
-            visibility={true}
-          />
-        ),
-        meta: {
-          headerTitle: "Created",
-          skeleton: SKELETON_CREATED_AT,
-        },
-        size: 180,
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <UserRowActions
-            activeRowForm={activeRowForm}
-            onBanUser={onBanUser}
-            onCloseForm={(kind) => {
-              setActiveRowForm((current) =>
-                current?.kind === kind && current.userId === row.original.id
-                  ? null
-                  : current
-              );
-            }}
-            onDelete={onDelete}
-            onOpenForm={(kind) => {
-              setActiveRowForm({
-                kind,
-                userId: row.original.id,
-              });
-            }}
-            onSetPassword={onSetPassword}
-            onUnbanUser={onUnbanUser}
-            onUpdateUser={onUpdateUser}
-            user={row.original}
-          />
-        ),
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        enableColumnOrdering: false,
-        meta: {
-          cellClassName: "text-center",
-        },
-        size: 52,
-        minSize: 52,
-      },
-    ],
+  const columns = useMemo(
+    () =>
+      createUserColumns((user) => (
+        <UserRowActions
+          activeRowForm={activeRowForm}
+          onBanUser={onBanUser}
+          onCloseForm={(kind) => {
+            setActiveRowForm((current) =>
+              current?.kind === kind && current.userId === user.id
+                ? null
+                : current
+            );
+          }}
+          onDelete={onDelete}
+          onOpenForm={(kind) => {
+            setActiveRowForm({
+              kind,
+              userId: user.id,
+            });
+          }}
+          onSetPassword={onSetPassword}
+          onUnbanUser={onUnbanUser}
+          onUpdateUser={onUpdateUser}
+          user={user}
+        />
+      )),
     [
       activeRowForm,
       onBanUser,
@@ -715,6 +456,7 @@ export function UsersTable({
       searchPlaceholder="Search users..."
       storageKey="users_table_state_v1"
       tableLayout={{
+        columnsMovable: true,
         columnsResizable: true,
         columnsDraggable: true,
         columnsVisibility: true,

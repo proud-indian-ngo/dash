@@ -10,25 +10,16 @@ import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
-import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { datetimeLocalToEpoch, epochToDatetimeLocal } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
-
-function epochToDatetimeLocal(epoch: number): string {
-  return format(new Date(epoch), "yyyy-MM-dd'T'HH:mm");
-}
-
-function datetimeLocalToEpoch(value: string): number {
-  return new Date(value).getTime();
-}
 
 const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -44,30 +35,21 @@ const eventFormSchema = z.object({
   createWaGroup: z.boolean(),
 });
 
-const endTimeAfterStartTime = {
-  check: (data: EventFormValues) =>
-    !(data.endTime && data.startTime) ||
-    datetimeLocalToEpoch(data.endTime) > datetimeLocalToEpoch(data.startTime),
-  message: "End time must be after start time",
-  path: ["endTime"] as string[],
-};
+const endTimeAfterStartTime = (data: EventFormValues) =>
+  !data.endTime || new Date(data.endTime) > new Date(data.startTime);
 
 function createEventFormSchema(isEdit: boolean) {
+  const withEndTimeCheck = eventFormSchema.refine(endTimeAfterStartTime, {
+    message: "End time must be after start time",
+    path: ["endTime"],
+  });
   if (isEdit) {
-    return eventFormSchema.refine(endTimeAfterStartTime.check, {
-      message: endTimeAfterStartTime.message,
-      path: endTimeAfterStartTime.path,
-    });
+    return withEndTimeCheck;
   }
-  return eventFormSchema
-    .refine(
-      (data) => !data.startTime || new Date(data.startTime) > new Date(),
-      { message: "Start time must be in the future", path: ["startTime"] }
-    )
-    .refine(endTimeAfterStartTime.check, {
-      message: endTimeAfterStartTime.message,
-      path: endTimeAfterStartTime.path,
-    });
+  return withEndTimeCheck.refine(
+    (data) => !data.startTime || new Date(data.startTime) > new Date(),
+    { message: "Start time must be in the future", path: ["startTime"] }
+  );
 }
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -173,7 +155,7 @@ function EventFormContent({
 
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const mutation =
         isEdit && initialValues
           ? zero.mutate(
@@ -191,19 +173,22 @@ function EventFormContent({
       } else if (value.createWaGroup) {
         successMsg = "Event created. WhatsApp group will be created shortly.";
       }
-      const res = await mutation.server;
-      handleMutationResult(res, {
-        mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
-        entityId,
-        successMsg,
-        errorMsg: isEdit ? "Failed to update event" : "Failed to create event",
+      mutation.server.then((res) => {
+        handleMutationResult(res, {
+          mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
+          entityId,
+          successMsg,
+          errorMsg: isEdit
+            ? "Failed to update event"
+            : "Failed to create event",
+        });
+        if (res.type !== "error") {
+          onOpenChange(false);
+        }
       });
-      if (res.type !== "error") {
-        onOpenChange(false);
-      }
     },
     validators: {
-      onChange: createEventFormSchema(isEdit),
+      onBlur: eventFormSchema,
       onSubmit: createEventFormSchema(isEdit),
     },
   });
@@ -253,9 +238,10 @@ function EventFormContent({
             {(frequency) =>
               frequency ? (
                 <>
-                  <DateField
+                  <InputField
                     label="Recurrence End Date"
                     name="recurrenceEndDate"
+                    type="date"
                   />
                   <CheckboxField
                     label="Copy all members to recurring events"

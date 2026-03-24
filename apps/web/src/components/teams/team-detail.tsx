@@ -3,7 +3,6 @@ import {
   Delete02Icon,
   Edit02Icon,
   PlusSignIcon,
-  UserRemoveIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
@@ -19,17 +18,17 @@ import type {
 } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
-import { format } from "date-fns";
+import { log } from "evlog";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
 import type { EventRow } from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
+import { TeamMembersSection } from "@/components/teams/team-members-section";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -52,89 +51,6 @@ type TeamDialog =
   | { type: "createEvent" }
   | { type: "editEvent"; event: EventRow };
 
-function getRoleToggleTitle(isSoleLeadSelf: boolean, role: string): string {
-  if (isSoleLeadSelf && role === "lead") {
-    return "You are the only lead — promote another member first";
-  }
-  if (role === "lead") {
-    return "Demote to member";
-  }
-  return "Promote to lead";
-}
-
-function MemberRow({
-  canManage,
-  canRemove,
-  isSoleLeadSelf,
-  member,
-  onRemove,
-  onToggleRole,
-}: {
-  canManage: boolean;
-  canRemove: boolean;
-  isSoleLeadSelf: boolean;
-  member: TeamMember & { user: User | undefined };
-  onRemove: (id: string) => void;
-  onToggleRole: (memberId: string, currentRole: string) => void;
-}) {
-  const user = member.user;
-  return (
-    <div className="flex items-center justify-between border-b px-3 py-2.5 last:border-0">
-      <div className="flex items-center gap-3">
-        <UserAvatar
-          className="size-8"
-          user={{
-            name: user?.name ?? "?",
-            email: user?.email,
-            gender: user?.gender,
-          }}
-        />
-        <div>
-          <div className="font-medium text-sm">
-            {user?.name ?? "Unknown user"}
-          </div>
-          <div className="text-muted-foreground text-xs">
-            Joined {format(member.joinedAt, "dd/MM/yyyy")}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge variant={member.role === "lead" ? "default" : "secondary"}>
-          {member.role === "lead" ? "Lead" : "Member"}
-        </Badge>
-        {canManage ? (
-          <Button
-            disabled={isSoleLeadSelf && member.role === "lead"}
-            onClick={() => onToggleRole(member.id, member.role ?? "member")}
-            size="sm"
-            title={getRoleToggleTitle(isSoleLeadSelf, member.role ?? "member")}
-            type="button"
-            variant="ghost"
-          >
-            {member.role === "lead" ? "Demote" : "Promote"}
-          </Button>
-        ) : null}
-        {canRemove ? (
-          <Button
-            aria-label={`Remove ${user?.name ?? "member"}`}
-            className="size-7"
-            onClick={() => onRemove(member.id)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4 text-destructive"
-              icon={UserRemoveIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
   const zero = useZero();
   const navigate = useNavigate();
@@ -144,14 +60,18 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
 
   const deleteTeam = useConfirmAction({
     onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
-    mutationMeta: {
-      mutation: "team.delete",
-      entityId: team.id,
-      successMsg: "Team deleted",
-      errorMsg: "Failed to delete team",
-    },
     onSuccess: () => {
+      toast.success("Team deleted");
       navigate({ to: "/teams" });
+    },
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "team.delete",
+        entityId: team.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to delete team");
     },
   });
 
@@ -159,11 +79,15 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
     onConfirm: (memberId) =>
       zero.mutate(mutators.team.removeMember({ teamId: team.id, memberId }))
         .server,
-    mutationMeta: {
-      mutation: "team.removeMember",
-      entityId: team.id,
-      successMsg: "Member removed",
-      errorMsg: "Failed to remove member",
+    onSuccess: () => toast.success("Member removed"),
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "team.removeMember",
+        entityId: team.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to remove member");
     },
   });
 
@@ -171,11 +95,14 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
     onConfirm: (event) =>
       zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
         .server,
-    mutationMeta: {
-      mutation: "teamEvent.cancel",
-      entityId: (event) => event.id,
-      successMsg: "Event cancelled",
-      errorMsg: "Failed to cancel event",
+    onSuccess: () => toast.success("Event cancelled"),
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "teamEvent.cancel",
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to cancel event");
     },
   });
 
@@ -196,7 +123,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
     async (memberId: string, currentRole: string) => {
       const newRole = currentRole === "lead" ? "member" : "lead";
       if (newRole === "member" && leadCount === 1) {
-        toast.error(
+        toast.warning(
           "Cannot demote the last lead. Promote another member first."
         );
         return;
@@ -276,52 +203,16 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         <Separator />
 
         {/* Members */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-medium text-sm">
-              Members ({team.members.length})
-            </h2>
-            {canManage ? (
-              <Button
-                onClick={() => dialog.open({ type: "addMember" })}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                />
-                Add Member
-              </Button>
-            ) : null}
-          </div>
-
-          {team.members.length > 0 ? (
-            <div className="overflow-hidden rounded-md border">
-              {team.members.map((member) => (
-                <MemberRow
-                  canManage={canManage}
-                  canRemove={isAdmin || (canManage && member.role !== "lead")}
-                  isSoleLeadSelf={
-                    leadCount === 1 &&
-                    member.role === "lead" &&
-                    member.userId === userId
-                  }
-                  key={member.id}
-                  member={member}
-                  onRemove={(id) => removeMember.trigger(id)}
-                  onToggleRole={handleToggleRole}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground text-sm">
-              No members yet.
-            </p>
-          )}
-        </div>
+        <TeamMembersSection
+          canManage={canManage}
+          isAdmin={isAdmin}
+          leadCount={leadCount}
+          members={team.members}
+          onAddMember={() => dialog.open({ type: "addMember" })}
+          onRemoveMember={(id) => removeMember.trigger(id)}
+          onToggleRole={handleToggleRole}
+          userId={userId}
+        />
 
         <Separator />
 
@@ -361,7 +252,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
                     icon={PlusSignIcon}
                     strokeWidth={2}
                   />
-                  Add event
+                  Create Event
                 </Button>
               ) : undefined
             }

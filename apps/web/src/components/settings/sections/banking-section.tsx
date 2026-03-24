@@ -9,25 +9,15 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
-import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
-
-const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-
-const bankAccountSchema = z.object({
-  accountName: z.string().min(1, "Account name is required"),
-  accountNumber: z.string().min(1, "Account number is required"),
-  ifscCode: z.string().refine((v) => IFSC_PATTERN.test(v.toUpperCase()), {
-    message:
-      "IFSC must be 11 characters: 4 letters, a zero, then 6 alphanumeric (e.g. ABCD0123456)",
-  }),
-});
-
-type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
+import {
+  type BankAccountFormValues,
+  bankAccountSchema,
+} from "./banking-schema";
 
 export function BankingSection() {
   const zero = useZero();
