@@ -27,13 +27,8 @@
       "ignoreFiles": ["global-setup.ts"]
     },
     "packages/design-system": {
-      "ignoreFiles": ["components/**", "hooks/**", "styles.css"],
-      "ignoreDependencies": [
-        "@tailwindcss/.*",
-        "tailwindcss",
-        "tw-animate-css",
-        "@fontsource-variable/inter"
-      ]
+      "ignoreFiles": ["components/**", "hooks/**"],
+      "ignoreDependencies": ["@tailwindcss/.*"]
     }
   }
 }

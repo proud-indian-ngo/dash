@@ -21,9 +21,11 @@ import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppRequestsRouteRouteImport } from './routes/_app/requests/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
+import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
 import { Route as AppRequestsIndexRouteImport } from './routes/_app/requests/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
@@ -97,6 +99,11 @@ const AppExportRoute = AppExportRouteImport.update({
   path: '/export',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVendorsRouteRoute = AppVendorsRouteRouteImport.update({
+  id: '/vendors',
+  path: '/vendors',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTeamsRouteRoute = AppTeamsRouteRouteImport.update({
   id: '/teams',
   path: '/teams',
@@ -111,6 +118,11 @@ const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
   id: '/events',
   path: '/events',
   getParentRoute: () => AppRoute,
+} as any)
+const AppVendorsIndexRoute = AppVendorsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppVendorsRouteRoute,
 } as any)
 const AppTeamsIndexRoute = AppTeamsIndexRouteImport.update({
   id: '/',
@@ -188,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRouteRouteWithChildren
   '/requests': typeof AppRequestsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
+  '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/export': typeof AppExportRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
@@ -209,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/events/': typeof AppEventsIndexRoute
   '/requests/': typeof AppRequestsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
+  '/vendors/': typeof AppVendorsIndexRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
@@ -235,6 +249,7 @@ export interface FileRoutesByTo {
   '/events': typeof AppEventsIndexRoute
   '/requests': typeof AppRequestsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
+  '/vendors': typeof AppVendorsIndexRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
@@ -245,6 +260,7 @@ export interface FileRoutesById {
   '/_app/events': typeof AppEventsRouteRouteWithChildren
   '/_app/requests': typeof AppRequestsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
+  '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/_app/export': typeof AppExportRoute
   '/_app/users': typeof AppUsersRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -267,6 +283,7 @@ export interface FileRoutesById {
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/requests/': typeof AppRequestsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
+  '/_app/vendors/': typeof AppVendorsIndexRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
 }
@@ -277,6 +294,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/requests'
     | '/teams'
+    | '/vendors'
     | '/export'
     | '/users'
     | '/forgot-password'
@@ -298,6 +316,7 @@ export interface FileRouteTypes {
     | '/events/'
     | '/requests/'
     | '/teams/'
+    | '/vendors/'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -324,6 +343,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/requests'
     | '/teams'
+    | '/vendors'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
   id:
@@ -333,6 +353,7 @@ export interface FileRouteTypes {
     | '/_app/events'
     | '/_app/requests'
     | '/_app/teams'
+    | '/_app/vendors'
     | '/_app/export'
     | '/_app/users'
     | '/_auth/forgot-password'
@@ -355,6 +376,7 @@ export interface FileRouteTypes {
     | '/_app/events/'
     | '/_app/requests/'
     | '/_app/teams/'
+    | '/_app/vendors/'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
   fileRoutesById: FileRoutesById
@@ -459,6 +481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/vendors': {
+      id: '/_app/vendors'
+      path: '/vendors'
+      fullPath: '/vendors'
+      preLoaderRoute: typeof AppVendorsRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/teams': {
       id: '/_app/teams'
       path: '/teams'
@@ -479,6 +508,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events'
       preLoaderRoute: typeof AppEventsRouteRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/vendors/': {
+      id: '/_app/vendors/'
+      path: '/'
+      fullPath: '/vendors/'
+      preLoaderRoute: typeof AppVendorsIndexRouteImport
+      parentRoute: typeof AppVendorsRouteRoute
     }
     '/_app/teams/': {
       id: '/_app/teams/'
@@ -624,10 +660,23 @@ const AppTeamsRouteRouteWithChildren = AppTeamsRouteRoute._addFileChildren(
   AppTeamsRouteRouteChildren,
 )
 
+interface AppVendorsRouteRouteChildren {
+  AppVendorsIndexRoute: typeof AppVendorsIndexRoute
+}
+
+const AppVendorsRouteRouteChildren: AppVendorsRouteRouteChildren = {
+  AppVendorsIndexRoute: AppVendorsIndexRoute,
+}
+
+const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
+  AppVendorsRouteRouteChildren,
+)
+
 interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
   AppRequestsRouteRoute: typeof AppRequestsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
+  AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
   AppExportRoute: typeof AppExportRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -637,6 +686,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
   AppRequestsRouteRoute: AppRequestsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
+  AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
   AppExportRoute: AppExportRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,

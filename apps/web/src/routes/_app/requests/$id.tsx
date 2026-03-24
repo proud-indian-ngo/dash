@@ -10,7 +10,7 @@ import { RequestForm } from "@/components/requests/request-form";
 import { useApp } from "@/context/app-context";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import type { RequestDetailData, RequestType } from "@/lib/request-types";
-import { REQUEST_TYPE_LABELS } from "@/lib/request-types";
+import { isVendorPayment, REQUEST_TYPE_LABELS } from "@/lib/request-types";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_app/requests/$id")({
   loader: ({ context, params }) => {
     context.zero?.run(queries.reimbursement.byId({ id: params.id }));
     context.zero?.run(queries.advancePayment.byId({ id: params.id }));
+    context.zero?.run(queries.vendorPayment.byId({ id: params.id }));
   },
   component: RequestDetailRouteComponent,
 });
@@ -39,10 +40,12 @@ function useResolvedRequest(id: string): {
 } {
   const [reimbursement, r1] = useQuery(queries.reimbursement.byId({ id }));
   const [advancePayment, r2] = useQuery(queries.advancePayment.byId({ id }));
+  const [vendorPayment, r3] = useQuery(queries.vendorPayment.byId({ id }));
   const isLoading1 = useZeroQueryStatus(r1);
   const isLoading2 = useZeroQueryStatus(r2);
+  const isLoading3 = useZeroQueryStatus(r3);
 
-  if (isLoading1 || isLoading2) {
+  if (isLoading1 || isLoading2 || isLoading3) {
     return { isLoading: true, resolved: null };
   }
 
@@ -66,6 +69,20 @@ function useResolvedRequest(id: string): {
           type: "advance_payment",
         } as RequestDetailData,
         type: "advance_payment",
+        expenseDate: undefined,
+      },
+    };
+  }
+
+  if (vendorPayment) {
+    return {
+      isLoading: false,
+      resolved: {
+        data: {
+          ...vendorPayment,
+          type: "vendor_payment",
+        } as RequestDetailData,
+        type: "vendor_payment",
         expenseDate: undefined,
       },
     };
@@ -97,13 +114,43 @@ function RequestDetailRouteComponent() {
   return <ResolvedRequestView resolved={resolved} />;
 }
 
+function buildInitialValues(resolved: ResolvedRequest) {
+  const { data: request, type: requestType, expenseDate } = resolved;
+
+  const vendorInitialValues = isVendorPayment(request)
+    ? {
+        vendorId: request.vendorId,
+        invoiceNumber: request.invoiceNumber ?? "",
+        invoiceDate: request.invoiceDate,
+      }
+    : {};
+
+  return {
+    id: request.id,
+    type: requestType,
+    title: request.title,
+    ...("city" in request ? { city: request.city ?? undefined } : {}),
+    ...("bankAccountName" in request
+      ? {
+          bankAccountName: request.bankAccountName ?? undefined,
+          bankAccountNumber: request.bankAccountNumber ?? undefined,
+          bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
+        }
+      : {}),
+    lineItems: mapLineItemsToFormValues(request.lineItems),
+    attachments: mapAttachmentsToFormValues(request.attachments),
+    ...(expenseDate ? { expenseDate } : {}),
+    ...vendorInitialValues,
+  };
+}
+
 function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const { session } = Route.useRouteContext();
   const navigate = useNavigate();
   const [adminEditMode, setAdminEditMode] = useState(false);
   const { isAdmin } = useApp();
 
-  const { data: request, type: requestType, expenseDate } = resolved;
+  const { data: request, type: requestType } = resolved;
 
   const isPending = request.status === "pending";
   const isOwner = request.userId === session.user.id;
@@ -137,18 +184,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
           <RequestForm
             disableBankAccountSelection={isAdminEditingAnotherUser}
             disableTypeSelection
-            initialValues={{
-              id: request.id,
-              type: requestType,
-              title: request.title,
-              city: request.city ?? undefined,
-              bankAccountName: request.bankAccountName ?? undefined,
-              bankAccountNumber: request.bankAccountNumber ?? undefined,
-              bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
-              lineItems: mapLineItemsToFormValues(request.lineItems),
-              attachments: mapAttachmentsToFormValues(request.attachments),
-              ...(expenseDate ? { expenseDate } : {}),
-            }}
+            initialValues={buildInitialValues(resolved)}
             onCancel={() => {
               navigate({ to: "/requests" });
             }}

@@ -10,3 +10,14 @@ export function assertOriented(context: {
     throw redirect({ to: "/" });
   }
 }
+
+export function assertAdmin(context: {
+  session: {
+    user: { role?: string | null };
+  };
+}) {
+  const { user } = context.session;
+  if (user.role !== "admin") {
+    throw redirect({ to: "/" });
+  }
+}

@@ -141,6 +141,13 @@
       "when": 1774111391344,
       "tag": "0019_brief_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1774289538994,
+      "tag": "0020_lonely_bill_hollister",
+      "breakpoints": true
     }
   ]
 }

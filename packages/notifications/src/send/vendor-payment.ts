@@ -1,40 +1,40 @@
 import { env } from "@pi-dash/env/server";
-import { getReimbursementLineItems } from "../helpers";
+import { getVendorPaymentLineItems } from "../helpers";
 import { createSubmissionNotifier } from "./submission";
 
 const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
-  entityLabel: "Reimbursement",
+  entityLabel: "Vendor Payment",
   routePrefix: "requests",
-  idempotencyPrefix: "reimbursement",
-  getLineItems: getReimbursementLineItems,
+  idempotencyPrefix: "vendor-payment",
+  getLineItems: getVendorPaymentLineItems,
 });
 
-export async function notifyReimbursementSubmitted(options: {
-  reimbursementId: string;
+export async function notifyVendorPaymentSubmitted(options: {
   submitterName: string;
   title: string;
+  vendorPaymentId: string;
 }): Promise<void> {
   await notifier.notifySubmitted({
-    entityId: options.reimbursementId,
+    entityId: options.vendorPaymentId,
     submitterName: options.submitterName,
     title: options.title,
   });
 }
 
-export async function notifyReimbursementApproved(options: {
+export async function notifyVendorPaymentApproved(options: {
   approvalScreenshotKey?: string;
   note?: string;
-  reimbursementId: string;
   submitterId: string;
   title: string;
+  vendorPaymentId: string;
 }): Promise<void> {
   const screenshotUrl = options.approvalScreenshotKey
     ? `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${options.approvalScreenshotKey}`
     : undefined;
   await notifier.notifyApproved({
-    entityId: options.reimbursementId,
+    entityId: options.vendorPaymentId,
     submitterId: options.submitterId,
     title: options.title,
     note: options.note,
@@ -42,14 +42,14 @@ export async function notifyReimbursementApproved(options: {
   });
 }
 
-export async function notifyReimbursementRejected(options: {
-  reimbursementId: string;
+export async function notifyVendorPaymentRejected(options: {
   reason: string;
   submitterId: string;
   title: string;
+  vendorPaymentId: string;
 }): Promise<void> {
   await notifier.notifyRejected({
-    entityId: options.reimbursementId,
+    entityId: options.vendorPaymentId,
     submitterId: options.submitterId,
     title: options.title,
     reason: options.reason,

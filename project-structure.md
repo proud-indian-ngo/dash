@@ -69,6 +69,8 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
+| `routes/_app/vendors/route.tsx` | Vendors layout (admin-only, `assertAdmin` guard) |
+| `routes/_app/vendors/index.tsx` | Vendors list + vendor payments |
 | `routes/_app/export.tsx` | CSV data export |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
@@ -209,6 +211,11 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `eventPhoto` | `packages/db/src/schema/event-photo.ts` |
 | `eventImmichAlbum` | `packages/db/src/schema/event-photo.ts` |
 | `eventUpdate` | `packages/db/src/schema/event-update.ts` |
+| `vendor` | `packages/db/src/schema/vendor.ts` |
+| `vendorPayment` | `packages/db/src/schema/vendor.ts` |
+| `vendorPaymentLineItem` | `packages/db/src/schema/vendor.ts` |
+| `vendorPaymentAttachment` | `packages/db/src/schema/vendor.ts` |
+| `vendorPaymentHistory` | `packages/db/src/schema/vendor.ts` |
 | `appConfig` | `packages/db/src/schema/app-config.ts` |
 | `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
 
@@ -304,6 +311,10 @@ Split by domain in `packages/zero/src/queries/`. Each file exports a queries obj
 ### Zero Mutators
 
 Split by domain in `packages/zero/src/mutators/`. Each file exports a mutators object. Aggregated in `packages/zero/src/mutators.ts`. Mutators handle auth checks, cascade operations (line items, attachments), audit history, and trigger notifications via `ctx.asyncTasks`.
+
+### Vendor Payment Workflow
+
+Vendors have a two-stage lifecycle: `pending` → `approved`. Any authenticated user can create a vendor (non-admins are server-forced to `pending` status). Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. Vendor payments (title, invoice number/date, line items, attachments) follow the same approval workflow as reimbursements and advance payments (submit → approve/reject with history tracking). The `/vendors` admin route is admin-only via `assertAdmin` route guard.
 
 ### Auth Guard
 

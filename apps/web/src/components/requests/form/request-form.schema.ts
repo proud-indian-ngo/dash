@@ -50,17 +50,38 @@ export const advancePaymentRequestFormSchema = z.object({
   type: z.literal("advance_payment"),
 });
 
+const vendorPaymentBaseFields = {
+  title: z.string().min(1, "Title is required"),
+  lineItems: z
+    .array(lineItemSchema)
+    .min(1, "At least one line item is required"),
+  attachments: z.array(attachmentSchema),
+};
+
+export const vendorPaymentRequestFormSchema = z.object({
+  ...vendorPaymentBaseFields,
+  type: z.literal("vendor_payment"),
+  vendorId: z.string().min(1, "Vendor is required"),
+  invoiceNumber: z.string().optional(),
+  invoiceDate: z.string().min(1, "Invoice date is required"),
+});
+
 export const requestFormSchema = z.discriminatedUnion("type", [
   reimbursementRequestFormSchema,
   advancePaymentRequestFormSchema,
+  vendorPaymentRequestFormSchema,
 ]);
 
 export type RequestFormValues = z.infer<typeof requestFormSchema>;
 
 export function getFormSchema(type: RequestType) {
-  return type === "reimbursement"
-    ? reimbursementRequestFormSchema
-    : advancePaymentRequestFormSchema;
+  if (type === "reimbursement") {
+    return reimbursementRequestFormSchema;
+  }
+  if (type === "vendor_payment") {
+    return vendorPaymentRequestFormSchema;
+  }
+  return advancePaymentRequestFormSchema;
 }
 
 export function getDefaultValues(type: RequestType): RequestFormValues {
@@ -76,6 +97,17 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
 
   if (type === "reimbursement") {
     return { ...base, type: "reimbursement", expenseDate: "" };
+  }
+  if (type === "vendor_payment") {
+    return {
+      title: "",
+      lineItems: [newLineItem()],
+      attachments: [] as RequestFormValues["attachments"],
+      type: "vendor_payment",
+      vendorId: "",
+      invoiceNumber: "",
+      invoiceDate: "",
+    };
   }
   return { ...base, type: "advance_payment" };
 }

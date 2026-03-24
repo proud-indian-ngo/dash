@@ -1,5 +1,6 @@
 import { uuidv7 } from "uuidv7";
 import type z from "zod";
+import type { Vendor } from "../schema";
 import type {
   mutatorAttachmentSchema,
   mutatorLineItemSchema,
@@ -7,6 +8,22 @@ import type {
 
 type AttachmentInput = z.infer<typeof mutatorAttachmentSchema>;
 type LineItemInput = z.infer<typeof mutatorLineItemSchema>;
+
+/**
+ * Asserts the vendor is usable for a payment: either approved,
+ * or pending and created by the same user.
+ */
+export function assertVendorUsable(
+  vendor: Pick<Vendor, "status" | "createdBy">,
+  userId: string
+): void {
+  if (
+    vendor.status !== "approved" &&
+    !(vendor.status === "pending" && vendor.createdBy === userId)
+  ) {
+    throw new Error("Vendor is not available");
+  }
+}
 
 /**
  * Builds the common (non-FK) fields for an attachment insert.

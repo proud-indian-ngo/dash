@@ -107,7 +107,7 @@ function searchRequest(row: RequestRow, query: string): boolean {
   }
   return [
     row.title,
-    row.city ?? "",
+    row.type === "vendor_payment" ? "" : (row.city ?? ""),
     row.status,
     row.user?.name ?? "",
     REQUEST_TYPE_LABELS[row.type],
@@ -131,7 +131,7 @@ export function RequestsTable({
 
   const [deleteTarget, setDeleteTarget] = useState<{
     row: RequestRow;
-    type: "reimbursement" | "advance_payment";
+    type: "reimbursement" | "advance_payment" | "vendor_payment";
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const onDeleteRef = useRef(onDelete);

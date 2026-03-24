@@ -13,6 +13,8 @@ import { reimbursementQueries } from "./queries/reimbursement";
 import { teamQueries } from "./queries/team";
 import { teamEventQueries } from "./queries/team-event";
 import { userQueries } from "./queries/user";
+import { vendorQueries } from "./queries/vendor";
+import { vendorPaymentQueries } from "./queries/vendor-payment";
 import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
 export const queries = defineQueries({
@@ -28,5 +30,7 @@ export const queries = defineQueries({
   eventImmichAlbum: eventImmichAlbumQueries,
   team: teamQueries,
   teamEvent: teamEventQueries,
+  vendor: vendorQueries,
+  vendorPayment: vendorPaymentQueries,
   whatsappGroup: whatsappGroupQueries,
 });

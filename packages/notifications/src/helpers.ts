@@ -3,6 +3,7 @@ import { advancePaymentLineItem } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import { reimbursementLineItem } from "@pi-dash/db/schema/reimbursement";
+import { vendorPaymentLineItem } from "@pi-dash/db/schema/vendor";
 import { asc, eq } from "drizzle-orm";
 import { courier } from "./client";
 
@@ -80,4 +81,22 @@ export async function getAdvancePaymentLineItems(
     )
     .where(eq(advancePaymentLineItem.advancePaymentId, advancePaymentId))
     .orderBy(asc(advancePaymentLineItem.sortOrder));
+}
+
+export async function getVendorPaymentLineItems(
+  vendorPaymentId: string
+): Promise<LineItemDetail[]> {
+  return await db
+    .select({
+      description: vendorPaymentLineItem.description,
+      categoryName: expenseCategory.name,
+      amount: vendorPaymentLineItem.amount,
+    })
+    .from(vendorPaymentLineItem)
+    .innerJoin(
+      expenseCategory,
+      eq(vendorPaymentLineItem.categoryId, expenseCategory.id)
+    )
+    .where(eq(vendorPaymentLineItem.vendorPaymentId, vendorPaymentId))
+    .orderBy(asc(vendorPaymentLineItem.sortOrder));
 }

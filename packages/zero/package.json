@@ -7,7 +7,8 @@
     "./queries": "./src/queries.ts",
     "./mutators": "./src/mutators.ts",
     "./validation": "./src/validation.ts",
-    "./lib/recurrence": "./src/lib/recurrence.ts"
+    "./lib/recurrence": "./src/lib/recurrence.ts",
+    "./vendor-patterns": "./src/vendor-patterns.ts"
   },
   "scripts": {
     "dev": "bun run --env-file=../../.env zero-cache-dev",
@@ -19,6 +20,7 @@
     "@pi-dash/db": "workspace:*",
     "@pi-dash/env": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
+    "@pi-dash/observability": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "date-fns": "catalog:",

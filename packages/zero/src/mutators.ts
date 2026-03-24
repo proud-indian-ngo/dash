@@ -9,6 +9,8 @@ import { expenseCategoryMutators } from "./mutators/expense-category";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { teamMutators } from "./mutators/team";
 import { teamEventMutators } from "./mutators/team-event";
+import { vendorMutators } from "./mutators/vendor";
+import { vendorPaymentMutators } from "./mutators/vendor-payment";
 import { whatsappGroupMutators } from "./mutators/whatsapp-group";
 
 export const mutators = defineMutators({
@@ -22,5 +24,7 @@ export const mutators = defineMutators({
   eventUpdate: eventUpdateMutators,
   team: teamMutators,
   teamEvent: teamEventMutators,
+  vendor: vendorMutators,
+  vendorPayment: vendorPaymentMutators,
   whatsappGroup: whatsappGroupMutators,
 });
