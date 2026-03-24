@@ -15,7 +15,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -162,176 +162,191 @@ export function RequestsTable({
     }
   };
 
-  const columns: ColumnDef<RequestRow>[] = [
-    {
-      id: "title",
-      accessorFn: (row) => row.title,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Title" visibility={true} />
-      ),
-      cell: ({ row }) => (
-        <button
-          className="text-left font-medium text-sm hover:underline"
-          data-testid="row-title"
-          onClick={() => onNavigate(row.original.id)}
-          type="button"
-        >
-          {row.original.title}
-        </button>
-      ),
-      meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
-      size: 240,
-    },
-    {
-      id: "type",
-      accessorFn: (row) => REQUEST_TYPE_LABELS[row.type],
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Type" visibility={true} />
-      ),
-      cell: ({ row }) => (
-        <Badge variant="outline">
-          {REQUEST_TYPE_LABELS[row.original.type]}
-        </Badge>
-      ),
-      meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
-      size: 150,
-    },
-    {
-      id: "createdBy",
-      accessorFn: (row) => row.user?.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Created By"
-          visibility={true}
-        />
-      ),
-      cell: ({ row }) => {
-        const user = row.original.user;
-        if (!user) {
-          return <span className="text-muted-foreground text-sm">—</span>;
-        }
-        return (
-          <div className="flex items-center gap-3">
-            <UserAvatar className="size-8" user={user} />
-            <div className="space-y-px">
-              <div className="font-medium text-foreground text-sm">
-                {user.name}
-              </div>
-              <div className="truncate text-muted-foreground text-xs">
-                {user.email}
+  const columns = useMemo<ColumnDef<RequestRow>[]>(
+    () => [
+      {
+        id: "title",
+        accessorFn: (row) => row.title,
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Title"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => (
+          <button
+            className="text-left font-medium text-sm hover:underline"
+            data-testid="row-title"
+            onClick={() => onNavigate(row.original.id)}
+            type="button"
+          >
+            {row.original.title}
+          </button>
+        ),
+        meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
+        size: 240,
+      },
+      {
+        id: "type",
+        accessorFn: (row) => REQUEST_TYPE_LABELS[row.type],
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Type"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            {REQUEST_TYPE_LABELS[row.original.type]}
+          </Badge>
+        ),
+        meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
+        size: 150,
+      },
+      {
+        id: "createdBy",
+        accessorFn: (row) => row.user?.name,
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Created By"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => {
+          const user = row.original.user;
+          if (!user) {
+            return <span className="text-muted-foreground text-sm">—</span>;
+          }
+          return (
+            <div className="flex items-center gap-3">
+              <UserAvatar className="size-8" user={user} />
+              <div className="space-y-px">
+                <div className="font-medium text-foreground text-sm">
+                  {user.name}
+                </div>
+                <div className="truncate text-muted-foreground text-xs">
+                  {user.email}
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        },
+        meta: { headerTitle: "Created By", skeleton: SKELETON_CREATED_BY },
+        size: 220,
       },
-      meta: { headerTitle: "Created By", skeleton: SKELETON_CREATED_BY },
-      size: 220,
-    },
-    {
-      id: "status",
-      accessorFn: (row) => row.status,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Status"
-          visibility={true}
-        />
-      ),
-      cell: ({ row }) => {
-        const { label, variant } =
-          STATUS_BADGE_MAP[row.original.status ?? "draft"] ??
-          STATUS_BADGE_MAP.draft;
-        return <Badge variant={variant}>{label}</Badge>;
-      },
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
-      size: 120,
-    },
-    {
-      id: "total",
-      accessorFn: (row) => computeTotal(row.lineItems),
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Total" visibility={true} />
-      ),
-      cell: ({ row }) => {
-        const total = computeTotal(row.original.lineItems);
-        return <span className="text-sm">{formatINR(total)}</span>;
-      },
-      meta: { headerTitle: "Total", skeleton: SKELETON_TOTAL },
-      size: 120,
-    },
-    {
-      id: "expenseDate",
-      accessorFn: (row) => (isReimbursement(row) ? row.expenseDate : null),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Expense Date"
-          visibility={true}
-        />
-      ),
-      cell: ({ row }) => {
-        const r = row.original;
-        if (!(isReimbursement(r) && r.expenseDate)) {
-          return <span className="text-muted-foreground text-sm">—</span>;
-        }
-        return (
-          <span className="text-sm">
-            {format(new Date(r.expenseDate), SHORT_DATE)}
-          </span>
-        );
-      },
-      meta: { headerTitle: "Expense Date", skeleton: SKELETON_DATE },
-      size: 130,
-    },
-    {
-      id: "submittedAt",
-      accessorFn: (row) =>
-        row.submittedAt == null ? "—" : format(row.submittedAt, SHORT_DATE),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Submitted"
-          visibility={true}
-        />
-      ),
-      cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
-          {row.original.submittedAt == null
-            ? "—"
-            : format(row.original.submittedAt, SHORT_DATE)}
-        </span>
-      ),
-      meta: { headerTitle: "Submitted", skeleton: SKELETON_DATE },
-      size: 130,
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => {
-        const r = row.original;
-        const isOwner = r.userId === currentUserId;
-        const canDelete =
-          isAdmin ||
-          (isOwner && (r.status === "pending" || r.status === "draft"));
-        return (
-          <RowActions
-            canDelete={canDelete}
-            id={r.id}
-            onNavigate={onNavigate}
-            onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
+      {
+        id: "status",
+        accessorFn: (row) => row.status,
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Status"
+            visibility={true}
           />
-        );
+        ),
+        cell: ({ row }) => {
+          const { label, variant } =
+            STATUS_BADGE_MAP[row.original.status ?? "draft"] ??
+            STATUS_BADGE_MAP.draft;
+          return <Badge variant={variant}>{label}</Badge>;
+        },
+        meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+        size: 120,
       },
-      enableHiding: false,
-      enableResizing: false,
-      enableSorting: false,
-      enableColumnOrdering: false,
-      meta: { cellClassName: "text-center" },
-      size: 52,
-      minSize: 52,
-    },
-  ];
+      {
+        id: "total",
+        accessorFn: (row) => computeTotal(row.lineItems),
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Total"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => {
+          const total = computeTotal(row.original.lineItems);
+          return <span className="text-sm">{formatINR(total)}</span>;
+        },
+        meta: { headerTitle: "Total", skeleton: SKELETON_TOTAL },
+        size: 120,
+      },
+      {
+        id: "expenseDate",
+        accessorFn: (row) => (isReimbursement(row) ? row.expenseDate : null),
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Expense Date"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          if (!(isReimbursement(r) && r.expenseDate)) {
+            return <span className="text-muted-foreground text-sm">—</span>;
+          }
+          return (
+            <span className="text-sm">
+              {format(new Date(r.expenseDate), SHORT_DATE)}
+            </span>
+          );
+        },
+        meta: { headerTitle: "Expense Date", skeleton: SKELETON_DATE },
+        size: 130,
+      },
+      {
+        id: "submittedAt",
+        accessorFn: (row) =>
+          row.submittedAt == null ? "—" : format(row.submittedAt, SHORT_DATE),
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Submitted"
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className="text-muted-foreground text-sm">
+            {row.original.submittedAt == null
+              ? "—"
+              : format(row.original.submittedAt, SHORT_DATE)}
+          </span>
+        ),
+        meta: { headerTitle: "Submitted", skeleton: SKELETON_DATE },
+        size: 130,
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const r = row.original;
+          const isOwner = r.userId === currentUserId;
+          const canDelete =
+            isAdmin ||
+            (isOwner && (r.status === "pending" || r.status === "draft"));
+          return (
+            <RowActions
+              canDelete={canDelete}
+              id={r.id}
+              onNavigate={onNavigate}
+              onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
+            />
+          );
+        },
+        enableHiding: false,
+        enableResizing: false,
+        enableSorting: false,
+        enableColumnOrdering: false,
+        meta: { cellClassName: "text-center" },
+        size: 52,
+        minSize: 52,
+      },
+    ],
+    [currentUserId, isAdmin, onNavigate]
+  );
 
   const deleteType = deleteTarget
     ? REQUEST_TYPE_LABELS[deleteTarget.type].toLowerCase()
