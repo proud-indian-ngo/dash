@@ -15,7 +15,7 @@ import { ISO_DATE, LONG_DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
-import { getFieldErrorState } from "./form-context";
+import { getFieldErrorState, useResolvedForm } from "./form-context";
 
 const parseDateInputValue = (value: string): Date | undefined => {
   if (!value) {
@@ -169,6 +169,7 @@ export function DateField({
   startMonth = new Date(1900, 0, 1),
   validators,
 }: DateFieldProps) {
+  const resolvedForm = useResolvedForm(form, "DateField");
   return (
     <CustomField<string>
       description={description}
@@ -180,7 +181,11 @@ export function DateField({
       validators={validators}
     >
       {(field) => {
-        const { hasError, errorMessageId } = getFieldErrorState(field);
+        const submitted = resolvedForm.state.submissionAttempts > 0;
+        const { hasError, errorMessageId } = getFieldErrorState(
+          field,
+          submitted
+        );
 
         return (
           <DateInputPicker

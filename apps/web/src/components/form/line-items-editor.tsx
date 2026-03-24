@@ -30,7 +30,7 @@ interface SubFieldApi {
   handleChange: (value: string) => void;
   name: string;
   state: {
-    meta: { errors: unknown[] };
+    meta: { errors: unknown[]; isBlurred: boolean };
     value: string;
   };
 }
@@ -47,10 +47,12 @@ interface LineItemRowProps {
   index: number;
   name: string;
   onRemove: () => void;
+  submitted: boolean;
 }
 
-function subFieldErrorProps(field: SubFieldApi) {
-  const hasError = field.state.meta.errors.length > 0;
+function subFieldErrorProps(field: SubFieldApi, submitted: boolean) {
+  const showErrors = field.state.meta.isBlurred || submitted;
+  const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorId = `${field.name}-error`;
   return { hasError, errorId };
 }
@@ -71,13 +73,14 @@ function LineItemRow({
   index,
   name,
   onRemove,
+  submitted,
 }: LineItemRowProps) {
   return (
     <div className="grid grid-cols-[1fr_100px_32px] items-start gap-2 sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
         {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
-          const { hasError, errorId } = subFieldErrorProps(field);
+          const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
             <div className="col-span-3 min-w-0 sm:col-span-1">
               <Select
@@ -91,6 +94,7 @@ function LineItemRow({
                   aria-invalid={hasError || undefined}
                   aria-label={`Category for line item ${index + 1}`}
                   className="w-full"
+                  onBlur={field.handleBlur}
                 >
                   <span
                     className="flex flex-1 items-center text-left"
@@ -126,7 +130,7 @@ function LineItemRow({
       <form.Field name={`${name}[${index}].description`}>
         {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
-          const { hasError, errorId } = subFieldErrorProps(field);
+          const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
             <div className="min-w-0">
               <Input
@@ -155,7 +159,7 @@ function LineItemRow({
       <form.Field name={`${name}[${index}].amount`}>
         {(rawField: unknown) => {
           const field = rawField as SubFieldApi;
-          const { hasError, errorId } = subFieldErrorProps(field);
+          const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
             <div className="min-w-0">
               <Input
@@ -238,6 +242,7 @@ export function LineItemsEditor({
                     key={item.id}
                     name={name}
                     onRemove={() => arrayField.removeValue(index)}
+                    submitted={form.state.submissionAttempts > 0}
                   />
                 ))}
               </div>

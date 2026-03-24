@@ -14,6 +14,10 @@ import type {
   FormFieldApi,
   FormWithField,
 } from "@/components/form/form-context";
+import {
+  fieldErrorProps,
+  useResolvedForm,
+} from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import { SelectField } from "@/components/form/select-field";
@@ -25,6 +29,7 @@ import type { RequestType } from "@/lib/request-types";
 interface StandardRequestFieldsProps {
   bankAccountList: BankAccount[];
   bankAccountOptions: { label: string; value: string }[];
+  bankAccountsStatus: "loading" | "complete" | "error";
   categoryList: ExpenseCategory[];
   disableBankAccountSelection: boolean;
   entityId: string;
@@ -38,6 +43,7 @@ interface StandardRequestFieldsProps {
 export function StandardRequestFields({
   bankAccountList,
   bankAccountOptions,
+  bankAccountsStatus,
   categoryList,
   disableBankAccountSelection,
   entityId,
@@ -48,6 +54,94 @@ export function StandardRequestFields({
   requestType,
 }: StandardRequestFieldsProps) {
   const { openSettings } = useApp();
+  const resolvedForm = useResolvedForm(undefined, "StandardRequestFields");
+
+  function renderBankAccountField() {
+    if (bankAccountOptions.length > 0) {
+      return (
+        <CustomField<string | undefined>
+          isRequired
+          label="Bank Account"
+          name="bankAccountName"
+        >
+          {(field) => {
+            const selectedAccount = bankAccountList.find(
+              (account) => account.accountName === field.state.value
+            );
+            const submitted = resolvedForm.state.submissionAttempts > 0;
+
+            return (
+              <Select
+                disabled={disableBankAccountSelection}
+                onValueChange={(accountId) => {
+                  const account = bankAccountList.find(
+                    (entry) => entry.id === accountId
+                  );
+
+                  if (account) {
+                    field.handleChange(account.accountName);
+                    onBankAccountSelected(account);
+                  }
+                }}
+                value={selectedAccount?.id ?? ""}
+              >
+                <SelectTrigger
+                  {...fieldErrorProps(field, submitted)}
+                  className="w-full"
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                >
+                  <span
+                    className="flex flex-1 items-center text-left"
+                    data-slot="select-value"
+                  >
+                    {bankAccountOptions.find(
+                      (option) => option.value === (selectedAccount?.id ?? "")
+                    )?.label ??
+                      field.state.value ??
+                      "Select bank account"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccountOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          }}
+        </CustomField>
+      );
+    }
+
+    if (bankAccountsStatus === "loading") {
+      return null;
+    }
+
+    if (bankAccountsStatus === "error") {
+      return (
+        <p className="text-destructive text-sm">
+          Failed to load bank accounts. Check your connection and try again.
+        </p>
+      );
+    }
+
+    return (
+      <p className="text-muted-foreground text-sm">
+        No bank account found. Add one in{" "}
+        <button
+          className="text-foreground underline underline-offset-2"
+          onClick={() => openSettings("banking")}
+          type="button"
+        >
+          Settings &rarr; Banking
+        </button>{" "}
+        to receive payments.
+      </p>
+    );
+  }
 
   return (
     <>
@@ -68,80 +162,7 @@ export function StandardRequestFields({
             name="expenseDate"
           />
         ) : null}
-        {bankAccountOptions.length > 0 ? (
-          <CustomField<string | undefined>
-            isRequired
-            label="Bank Account"
-            name="bankAccountName"
-          >
-            {(field) => {
-              const selectedAccount = bankAccountList.find(
-                (account) => account.accountName === field.state.value
-              );
-
-              return (
-                <Select
-                  disabled={disableBankAccountSelection}
-                  onValueChange={(accountId) => {
-                    const account = bankAccountList.find(
-                      (entry) => entry.id === accountId
-                    );
-
-                    if (account) {
-                      field.handleChange(account.accountName);
-                      onBankAccountSelected(account);
-                    }
-                  }}
-                  value={selectedAccount?.id ?? ""}
-                >
-                  <SelectTrigger
-                    aria-describedby={
-                      field.state.meta.errors.length > 0
-                        ? `${field.name}-error`
-                        : undefined
-                    }
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    className="w-full"
-                    id={field.name}
-                    onBlur={field.handleBlur}
-                  >
-                    <span
-                      className="flex flex-1 items-center text-left"
-                      data-slot="select-value"
-                    >
-                      {bankAccountOptions.find(
-                        (option) => option.value === (selectedAccount?.id ?? "")
-                      )?.label ??
-                        field.state.value ??
-                        "Select bank account"}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccountOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              );
-            }}
-          </CustomField>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            No bank account found. Add one in{" "}
-            <button
-              className="text-foreground underline underline-offset-2"
-              onClick={() => openSettings("banking")}
-              type="button"
-            >
-              Settings &rarr; Banking
-            </button>{" "}
-            to receive payments.
-          </p>
-        )}
+        {renderBankAccountField()}
       </div>
 
       <Separator />

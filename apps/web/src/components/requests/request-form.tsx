@@ -7,7 +7,7 @@ import type {
 } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
@@ -130,6 +130,9 @@ function RequestFormInner({
 
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
+  const defaultBankAccount =
+    bankAccountList.find((a) => a.isDefault) ?? bankAccountList[0];
+
   const isVendorPayment = requestType === "vendor_payment";
 
   const strippedInitialValues = (() => {
@@ -147,6 +150,13 @@ function RequestFormInner({
   const form = useForm({
     defaultValues: {
       ...getDefaultValues(requestType),
+      ...(defaultBankAccount && !("bankAccountName" in (initialValues ?? {}))
+        ? {
+            bankAccountName: defaultBankAccount.accountName,
+            bankAccountNumber: defaultBankAccount.accountNumber,
+            bankAccountIfscCode: defaultBankAccount.ifscCode,
+          }
+        : {}),
       ...strippedInitialValues,
       type: requestType,
       lineItems: initialValues?.lineItems ?? [newLineItem()],
@@ -188,6 +198,25 @@ function RequestFormInner({
     },
   });
 
+  const hasInitialBankAccount = "bankAccountName" in (initialValues ?? {});
+  const bankAccountApplied = useRef(false);
+  useEffect(() => {
+    if (
+      bankAccountApplied.current ||
+      !defaultBankAccount ||
+      isEdit ||
+      hasInitialBankAccount
+    ) {
+      return;
+    }
+    if (!form.getFieldValue("bankAccountName")) {
+      form.setFieldValue("bankAccountName", defaultBankAccount.accountName);
+      form.setFieldValue("bankAccountNumber", defaultBankAccount.accountNumber);
+      form.setFieldValue("bankAccountIfscCode", defaultBankAccount.ifscCode);
+      bankAccountApplied.current = true;
+    }
+  }, [defaultBankAccount, form, isEdit, hasInitialBankAccount]);
+
   if (isVendorPayment) {
     return (
       <FormLayout className="flex flex-col gap-4" form={form}>
@@ -211,6 +240,11 @@ function RequestFormInner({
       <StandardRequestFields
         bankAccountList={bankAccountList}
         bankAccountOptions={bankAccountOptions}
+        bankAccountsStatus={
+          bankAccountsResult.type === "unknown"
+            ? "loading"
+            : bankAccountsResult.type
+        }
         categoryList={categoryList}
         disableBankAccountSelection={disableBankAccountSelection}
         entityId={entityId}
