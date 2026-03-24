@@ -1,6 +1,15 @@
 import { useCallback, useRef, useState } from "react";
+import { handleMutationResult } from "@/lib/mutation-result";
+
+interface MutationMeta<TPayload> {
+  entityId: string | ((payload: TPayload) => string);
+  errorMsg: string;
+  mutation: string;
+  successMsg: string;
+}
 
 interface UseConfirmActionOptions<TPayload = void> {
+  mutationMeta?: MutationMeta<TPayload>;
   onConfirm: (
     payload: TPayload
   ) => Promise<{ type: string; error?: { message?: string } }>;
@@ -45,8 +54,25 @@ export function useConfirmAction<TPayload = void>(
     setIsLoading(true);
     const res = await optionsRef.current.onConfirm(payload as TPayload);
     setIsLoading(false);
+
+    const { mutationMeta } = optionsRef.current;
+    if (mutationMeta) {
+      const entityId =
+        typeof mutationMeta.entityId === "function"
+          ? mutationMeta.entityId(payload as TPayload)
+          : mutationMeta.entityId;
+      handleMutationResult(res, {
+        mutation: mutationMeta.mutation,
+        entityId,
+        successMsg: mutationMeta.successMsg,
+        errorMsg: mutationMeta.errorMsg,
+      });
+    }
+
     if (res.type === "error") {
-      optionsRef.current.onError?.(res.error?.message);
+      if (!mutationMeta) {
+        optionsRef.current.onError?.(res.error?.message);
+      }
     } else {
       optionsRef.current.onSuccess?.();
       setIsOpen(false);

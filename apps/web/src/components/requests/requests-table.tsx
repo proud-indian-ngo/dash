@@ -13,12 +13,16 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { log } from "evlog";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
+import { formatINR } from "@/lib/form-schemas";
 import {
   isReimbursement,
   REQUEST_TYPE_LABELS,
@@ -129,26 +133,24 @@ export function RequestsTable({
   const currentUserId = session?.user?.id ?? "";
   const isAdmin = session?.user?.role === "admin";
 
-  const [deleteTarget, setDeleteTarget] = useState<{
-    row: RequestRow;
-    type: "reimbursement" | "advance_payment" | "vendor_payment";
-  } | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const onDeleteRef = useRef(onDelete);
-  onDeleteRef.current = onDelete;
-
-  const confirmDelete = useCallback(async () => {
-    if (!deleteTarget) {
-      return;
-    }
-    setDeleteLoading(true);
-    try {
-      await onDeleteRef.current(deleteTarget.row);
-    } finally {
-      setDeleteLoading(false);
-      setDeleteTarget(null);
-    }
-  }, [deleteTarget]);
+  const deleteAction = useConfirmAction<{ row: RequestRow }>({
+    onConfirm: async ({ row }) => {
+      try {
+        await onDelete(row);
+        return { type: "success" };
+      } catch (error) {
+        log.error({
+          component: "RequestsTable",
+          action: "delete",
+          requestId: row.id,
+          type: row.type,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return { type: "error" };
+      }
+    },
+    onError: () => toast.error("Failed to delete request"),
+  });
 
   const columns = useMemo<ColumnDef<RequestRow>[]>(
     () => [
@@ -256,14 +258,7 @@ export function RequestsTable({
         ),
         cell: ({ row }) => {
           const total = computeTotal(row.original.lineItems);
-          return (
-            <span className="text-sm">
-              {new Intl.NumberFormat("en-IN", {
-                style: "currency",
-                currency: "INR",
-              }).format(total)}
-            </span>
-          );
+          return <span className="text-sm">{formatINR(total)}</span>;
         },
         meta: { headerTitle: "Total", skeleton: SKELETON_TOTAL },
         size: 120,
@@ -327,7 +322,7 @@ export function RequestsTable({
               canDelete={canDelete}
               id={r.id}
               onNavigate={onNavigate}
-              onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
+              onRequestDelete={() => deleteAction.trigger({ row: r })}
             />
           );
         },
@@ -340,11 +335,11 @@ export function RequestsTable({
         minSize: 52,
       },
     ],
-    [currentUserId, isAdmin, onNavigate]
+    [currentUserId, isAdmin, onNavigate, deleteAction.trigger]
   );
 
-  const deleteType = deleteTarget
-    ? REQUEST_TYPE_LABELS[deleteTarget.type].toLowerCase()
+  const deleteType = deleteAction.payload
+    ? REQUEST_TYPE_LABELS[deleteAction.payload.row.type].toLowerCase()
     : "request";
 
   return (
@@ -370,15 +365,15 @@ export function RequestsTable({
       <ConfirmDialog
         confirmLabel="Delete"
         description={`This will permanently delete this ${deleteType} including all line items and attachments. This action cannot be undone.`}
-        loading={deleteLoading}
+        loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
-        onConfirm={confirmDelete}
+        onConfirm={deleteAction.confirm}
         onOpenChange={(open) => {
           if (!open) {
-            setDeleteTarget(null);
+            deleteAction.cancel();
           }
         }}
-        open={deleteTarget !== null}
+        open={deleteAction.isOpen}
         title={`Delete ${deleteType}`}
       />
     </>

@@ -1,3 +1,5 @@
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
@@ -231,7 +233,7 @@ function UsersRouteComponent() {
       </p>
 
       <div className="mt-6 grid gap-6 *:min-w-0">
-        <StatsCards items={computeUserStats(allUsers)} />
+        <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
         <UsersTable
           isLoading={isLoading}
           onBanUser={handleBanUser}
@@ -247,7 +249,12 @@ function UsersRouteComponent() {
               size="sm"
               type="button"
             >
-              Create user
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add user
             </Button>
           }
           toolbarFilters={

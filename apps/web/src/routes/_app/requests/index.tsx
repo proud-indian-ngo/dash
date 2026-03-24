@@ -6,6 +6,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { log } from "evlog";
 import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
@@ -129,7 +130,14 @@ function RequestsRouteComponent() {
         const mutatorNs = getMutatorNs(row.type);
         await zero.mutate(mutatorNs.delete({ id: row.id }));
         toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
-      } catch {
+      } catch (error) {
+        log.error({
+          component: "RequestsIndex",
+          action: "delete",
+          requestId: row.id,
+          type: row.type,
+          error: error instanceof Error ? error.message : String(error),
+        });
         toast.error(`Failed to delete ${typeLabel}`);
       }
     },
@@ -170,7 +178,7 @@ function RequestsRouteComponent() {
                 icon={PlusSignIcon}
                 strokeWidth={2}
               />
-              New request
+              Add request
             </Button>
           }
           toolbarFilters={

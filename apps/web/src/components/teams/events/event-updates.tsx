@@ -4,9 +4,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { log } from "evlog";
 import { lazy, Suspense, useCallback, useState } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -95,14 +93,11 @@ export function EventUpdates({
 
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
-    onSuccess: () => toast.success("Update deleted"),
-    onError: (msg) => {
-      log.error({
-        component: "EventUpdates",
-        mutation: "eventUpdate.delete",
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to delete update");
+    mutationMeta: {
+      mutation: "eventUpdate.delete",
+      entityId: (id) => id,
+      successMsg: "Update deleted",
+      errorMsg: "Failed to delete update",
     },
   });
 

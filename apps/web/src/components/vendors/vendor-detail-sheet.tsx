@@ -6,6 +6,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import type { Vendor } from "@pi-dash/zero/schema";
+import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
 interface VendorDetailSheetProps {
   onOpenChange: (open: boolean) => void;
@@ -22,10 +23,6 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-const STATUS_VARIANT: Record<string, "default" | "secondary"> = {
-  approved: "default",
-};
-
 export function VendorDetailSheet({
   onOpenChange,
   open,
@@ -41,15 +38,20 @@ export function VendorDetailSheet({
             </SheetHeader>
 
             <div className="flex flex-col gap-6 px-6 pb-6">
-              <Badge
-                className="w-fit"
-                variant={STATUS_VARIANT[vendor.status ?? ""] ?? "secondary"}
-              >
-                {vendor.status
-                  ? vendor.status.charAt(0).toUpperCase() +
-                    vendor.status.slice(1)
-                  : "Unknown"}
-              </Badge>
+              {(() => {
+                const statusKey = vendor.status as
+                  | keyof typeof STATUS_BADGE_MAP
+                  | null;
+                const badge = statusKey ? STATUS_BADGE_MAP[statusKey] : null;
+                return (
+                  <Badge
+                    className="w-fit"
+                    variant={badge?.variant ?? "secondary"}
+                  >
+                    {badge?.label ?? "Unknown"}
+                  </Badge>
+                );
+              })()}
 
               <div className="grid gap-4">
                 <h3 className="font-medium text-sm">Contact</h3>

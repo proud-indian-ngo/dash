@@ -74,7 +74,7 @@ function TeamsRouteComponent() {
                   icon={PlusSignIcon}
                   strokeWidth={2}
                 />
-                Create Team
+                Add team
               </Button>
             ) : undefined
           }

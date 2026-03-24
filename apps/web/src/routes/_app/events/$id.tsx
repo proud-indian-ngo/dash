@@ -1,9 +1,9 @@
-import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Loader } from "@/components/loader";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
 import type { TeamDetailData } from "@/components/teams/team-detail";
@@ -45,7 +45,7 @@ function EventDetailRouteComponent() {
   if (eventStatus.type === "unknown") {
     return (
       <div className="flex h-full items-center justify-center pt-8">
-        <BrailleSpinner />
+        <Loader />
       </div>
     );
   }

@@ -20,9 +20,7 @@ import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { log } from "evlog";
 import { useCallback } from "react";
-import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -92,7 +90,11 @@ function EventHeader({
         <div className="flex gap-2">
           {canManage ? (
             <Button onClick={onEdit} size="sm" variant="outline">
-              <HugeiconsIcon className="size-4" icon={Edit02Icon} />
+              <HugeiconsIcon
+                className="size-4"
+                icon={Edit02Icon}
+                strokeWidth={2}
+              />
               Edit
             </Button>
           ) : null}
@@ -140,7 +142,11 @@ function EventMemberRow({
           size="icon"
           variant="ghost"
         >
-          <HugeiconsIcon className="size-4" icon={UserRemoveIcon} />
+          <HugeiconsIcon
+            className="size-4"
+            icon={UserRemoveIcon}
+            strokeWidth={2}
+          />
         </Button>
       ) : null}
     </div>
@@ -170,7 +176,7 @@ function EventInfoSection({ event }: { event: EventRow }) {
         <div className="text-muted-foreground text-sm">{event.location}</div>
       ) : null}
 
-      <Badge variant={event.isPublic ? "default" : "secondary"}>
+      <Badge size="xs" variant={event.isPublic ? "info-light" : "secondary"}>
         {event.isPublic ? "Public" : "Private"}
       </Badge>
 
@@ -305,18 +311,14 @@ export function EventDetail({
     onConfirm: () =>
       zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
         .server,
-    onSuccess: () => {
-      toast.success("Event cancelled");
-      navigate({ to: "/teams/$id", params: { id: event.teamId } });
+    mutationMeta: {
+      mutation: "teamEvent.cancel",
+      entityId: event.id,
+      successMsg: "Event cancelled",
+      errorMsg: "Failed to cancel event",
     },
-    onError: (msg) => {
-      log.error({
-        component: "EventDetail",
-        mutation: "teamEvent.cancel",
-        entityId: event.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to cancel event");
+    onSuccess: () => {
+      navigate({ to: "/teams/$id", params: { id: event.teamId } });
     },
   });
 
@@ -352,15 +354,11 @@ export function EventDetail({
           memberId,
         })
       ).server,
-    onSuccess: () => toast.success("Volunteer removed"),
-    onError: (msg) => {
-      log.error({
-        component: "EventDetail",
-        mutation: "teamEvent.removeMember",
-        entityId: event.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to remove volunteer");
+    mutationMeta: {
+      mutation: "teamEvent.removeMember",
+      entityId: event.id,
+      successMsg: "Volunteer removed",
+      errorMsg: "Failed to remove volunteer",
     },
   });
 
@@ -371,7 +369,7 @@ export function EventDetail({
 
   return (
     <AppErrorBoundary level="section">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <EventHeader
           canCancel={canCancel}
           canManage={canManage}
@@ -408,7 +406,11 @@ export function EventDetail({
               size="sm"
               variant="outline"
             >
-              <HugeiconsIcon className="size-4" icon={PlusSignIcon} />
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
               Add Volunteer
             </Button>
           ) : null}

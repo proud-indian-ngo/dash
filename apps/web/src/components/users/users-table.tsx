@@ -19,9 +19,9 @@ import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { FormModal } from "@/components/form/form-modal";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { BanUserForm } from "@/components/users/ban-user-form";
-import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
 import { PasswordForm } from "@/components/users/password-form";
 import {
   type EditUserFormValues,
@@ -29,9 +29,10 @@ import {
   UserForm,
 } from "@/components/users/user-form";
 import { UserNotificationsForm } from "@/components/users/user-notifications-form";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
 
-type RowFormKind = "ban" | "delete" | "edit" | "notifications" | "password";
+type RowFormKind = "ban" | "edit" | "notifications" | "password";
 type RowFormAction = {
   kind: RowFormKind;
   userId: string;
@@ -57,20 +58,19 @@ interface UserActionsMenuProps {
   isBanning: boolean;
   isDeleting: boolean;
   onOpenForm: (kind: RowFormKind) => void;
+  onRequestDelete: () => void;
   onUnbanUser: () => Promise<void>;
   user: User;
 }
 
 interface UserRowActionDialogsProps {
   activeRowForm: RowFormAction;
-  isDeleting: boolean;
   onBanUser: (
     userId: string,
     banReason: string,
     banExpires?: string
   ) => Promise<void>;
   onCloseForm: (kind: RowFormKind) => void;
-  onDelete: () => Promise<void>;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
   user: User;
@@ -117,6 +117,7 @@ function UserActionsMenu({
   isBanning,
   isDeleting,
   onOpenForm,
+  onRequestDelete,
   onUnbanUser,
   user,
 }: UserActionsMenuProps) {
@@ -188,9 +189,7 @@ function UserActionsMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={isSelf || isDeleting}
-          onClick={() => {
-            onOpenForm("delete");
-          }}
+          onClick={onRequestDelete}
           variant="destructive"
         >
           Delete
@@ -212,21 +211,21 @@ function UserRowActions({
   user,
 }: UserRowActionsProps) {
   const [isBanning, setIsBanning] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true);
-      await onDelete(user.id);
-      onCloseForm("delete");
-      onCloseForm("edit");
-      onCloseForm("password");
-      onCloseForm("notifications");
-      onCloseForm("ban");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  const deleteAction = useConfirmAction({
+    onConfirm: async () => {
+      try {
+        await onDelete(user.id);
+        onCloseForm("edit");
+        onCloseForm("password");
+        onCloseForm("notifications");
+        onCloseForm("ban");
+        return { type: "success" };
+      } catch {
+        return { type: "error" };
+      }
+    },
+  });
 
   const handleUnban = async () => {
     try {
@@ -254,20 +253,39 @@ function UserRowActions({
     <>
       <UserActionsMenu
         isBanning={isBanning}
-        isDeleting={isDeleting}
+        isDeleting={deleteAction.isLoading}
         onOpenForm={onOpenForm}
+        onRequestDelete={deleteAction.trigger}
         onUnbanUser={handleUnban}
         user={user}
       />
       <UserRowActionDialogs
         activeRowForm={activeRowForm}
-        isDeleting={isDeleting}
         onBanUser={handleBan}
         onCloseForm={onCloseForm}
-        onDelete={handleDelete}
         onSetPassword={onSetPassword}
         onUpdateUser={onUpdateUser}
         user={user}
+      />
+      <ConfirmDialog
+        confirmLabel="Delete user"
+        description={
+          <>
+            This will permanently delete <strong>{user.name}</strong> and all
+            associated data including reimbursements, advance payments, team
+            memberships, and sessions. This action cannot be undone.
+          </>
+        }
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAction.cancel();
+          }
+        }}
+        open={deleteAction.isOpen}
+        title="Delete user"
       />
     </>
   );
@@ -275,18 +293,12 @@ function UserRowActions({
 
 function UserRowActionDialogs({
   activeRowForm,
-  isDeleting,
   onBanUser,
   onCloseForm,
-  onDelete,
   onSetPassword,
   onUpdateUser,
   user,
 }: UserRowActionDialogsProps) {
-  const { data: session } = authClient.useSession();
-  const isSelf = user.id === (session?.user?.id ?? "");
-  const isDeleteOpen =
-    activeRowForm?.userId === user.id && activeRowForm.kind === "delete";
   const isEditOpen =
     activeRowForm?.userId === user.id && activeRowForm.kind === "edit";
   const isPasswordOpen =
@@ -389,20 +401,6 @@ function UserRowActionDialogs({
           />
         ) : null}
       </FormModal>
-
-      <DeleteUserDialog
-        disabled={isSelf}
-        isDeleting={isDeleting}
-        onConfirm={onDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            onCloseForm("delete");
-          }
-        }}
-        open={isDeleteOpen}
-        userId={user.id}
-        userName={user.name}
-      />
     </>
   );
 }
@@ -717,7 +715,6 @@ export function UsersTable({
       searchPlaceholder="Search users..."
       storageKey="users_table_state_v1"
       tableLayout={{
-        columnsMovable: true,
         columnsResizable: true,
         columnsDraggable: true,
         columnsVisibility: true,

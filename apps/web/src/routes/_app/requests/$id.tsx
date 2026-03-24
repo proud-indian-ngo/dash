@@ -1,10 +1,10 @@
-import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { Loader } from "@/components/loader";
 import { RequestDetail } from "@/components/requests/request-detail";
 import { RequestForm } from "@/components/requests/request-form";
 import { useApp } from "@/context/app-context";
@@ -98,7 +98,7 @@ function RequestDetailRouteComponent() {
   if (isLoading) {
     return (
       <div className="app-container mx-auto max-w-3xl px-4 py-6">
-        <BrailleSpinner />
+        <Loader />
       </div>
     );
   }
@@ -171,7 +171,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             <Button
               onClick={() => setAdminEditMode(false)}
               type="button"
-              variant="secondary"
+              variant="outline"
             >
               View details
             </Button>
@@ -205,7 +205,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
           <Button
             onClick={() => setAdminEditMode(true)}
             type="button"
-            variant="secondary"
+            variant="outline"
           >
             Edit submission
           </Button>
