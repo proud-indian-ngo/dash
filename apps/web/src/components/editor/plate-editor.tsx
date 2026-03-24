@@ -46,6 +46,7 @@ import {
   NumberedListPlugin,
 } from "@platejs/list-classic/react";
 import { ImagePlugin } from "@platejs/media/react";
+import { log } from "evlog";
 import type { TImageElement, Value } from "platejs";
 import { KEYS } from "platejs";
 import { Plate, PlateContent, usePlateEditor } from "platejs/react";
@@ -174,7 +175,13 @@ export function PlateEditor({
         children: [{ text: "" }],
       };
       editor.tf.insertNodes(imageNode);
-    } catch {
+    } catch (error) {
+      log.error({
+        component: "PlateEditor",
+        action: "imageUpload",
+        entityId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to upload image. Please try again.");
     }
   }

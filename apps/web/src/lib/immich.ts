@@ -147,6 +147,7 @@ export async function fetchImmichOriginal(
     signal: AbortSignal.timeout(30_000),
   });
   if (res.ok) {
+    log.emit();
     return res;
   }
 
@@ -178,6 +179,7 @@ export async function fetchImmichThumbnail(
     { headers }
   );
   if (res.ok) {
+    log.emit();
     return res;
   }
 
@@ -189,6 +191,7 @@ export async function fetchImmichThumbnail(
       { headers }
     );
     if (original.ok) {
+      log.emit();
       return original;
     }
     log.error(`Immich original fetch also failed: ${original.status}`, {

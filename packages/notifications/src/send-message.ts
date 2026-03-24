@@ -86,7 +86,14 @@ export async function sendMessage({
       await sendWhatsAppMessage(phone, fullMessage);
     } catch (error) {
       const log = createRequestLogger();
-      log.set({ handler: "sendMessage", channel: "whatsapp", userId: to });
+      log.set({
+        handler: "sendMessage",
+        channel: "whatsapp",
+        userId: to,
+        title,
+        idempotencyKey,
+        topic,
+      });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
     }
@@ -185,6 +192,9 @@ export async function sendBulkMessage({
         handler: "sendBulkMessage",
         channel: "whatsapp",
         userCount: userIds.length,
+        title,
+        idempotencyKey,
+        topic,
       });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
