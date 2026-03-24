@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
 import type {
@@ -48,16 +48,12 @@ export function EventsTable({
     }));
   })();
 
-  const columns = useMemo(
-    () =>
-      createEventsTableColumns({
-        canManage,
-        onCancelEvent,
-        onEditEvent,
-        onSelectEvent,
-      }),
-    [canManage, onCancelEvent, onEditEvent, onSelectEvent]
-  );
+  const columns = createEventsTableColumns({
+    canManage,
+    onCancelEvent,
+    onEditEvent,
+    onSelectEvent,
+  });
 
   return (
     <DataTableWrapper<ParentEventRow>

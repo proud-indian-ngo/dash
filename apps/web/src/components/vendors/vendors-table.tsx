@@ -14,7 +14,6 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { Vendor } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -55,7 +54,7 @@ function RowActions({
         render={
           <Button
             aria-label="Row actions"
-            className="size-7"
+            className="size-8"
             data-testid="row-actions"
             onClick={(e) => e.stopPropagation()}
             size="icon"
@@ -128,132 +127,117 @@ export function VendorsTable({
     onError: () => toast.error("Failed to delete vendor"),
   });
 
-  const columns = useMemo<ColumnDef<Vendor>[]>(
-    () => [
-      {
-        id: "name",
-        accessorFn: (row) => row.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Name"
-            visibility={true}
+  const columns: ColumnDef<Vendor>[] = [
+    {
+      id: "name",
+      accessorFn: (row) => row.name,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="font-medium text-sm">{row.original.name}</span>
+      ),
+      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      size: 200,
+    },
+    {
+      id: "contactPhone",
+      accessorFn: (row) => row.contactPhone,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Phone" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.contactPhone}</span>
+      ),
+      meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
+      size: 150,
+    },
+    {
+      id: "contactEmail",
+      accessorFn: (row) => row.contactEmail,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Email" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {row.original.contactEmail ?? "—"}
+        </span>
+      ),
+      meta: { headerTitle: "Email", skeleton: SKELETON_EMAIL },
+      size: 200,
+    },
+    {
+      id: "bankAccount",
+      accessorFn: (row) => row.bankAccountName,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Bank Account"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.bankAccountName} (••••
+          {row.original.bankAccountNumber.length >= 4
+            ? row.original.bankAccountNumber.slice(-4)
+            : row.original.bankAccountNumber}
+          )
+        </span>
+      ),
+      meta: { headerTitle: "Bank Account", skeleton: SKELETON_BANK },
+      size: 220,
+    },
+    {
+      id: "status",
+      accessorFn: (row) => row.status,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Status"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => {
+        const status = row.original.status ?? "pending";
+        const badge = STATUS_BADGE_MAP[status] ?? {
+          label: status,
+          variant: "secondary" as const,
+        };
+        return <Badge variant={badge.variant}>{badge.label}</Badge>;
+      },
+      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      size: 120,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper prevents row click when interacting with actions
+        // biome-ignore lint/a11y/noStaticElementInteractions: same as above
+        // biome-ignore lint/a11y/noNoninteractiveElementInteractions: same as above
+        <div onClick={(e) => e.stopPropagation()}>
+          <RowActions
+            onApprove={onApprove ? () => onApprove(row.original) : undefined}
+            onEdit={() => onEdit(row.original)}
+            onRequestDelete={() => deleteAction.trigger(row.original.id)}
+            onUnapprove={
+              onUnapprove ? () => onUnapprove(row.original) : undefined
+            }
+            onView={() => onView(row.original)}
+            status={row.original.status ?? "pending"}
           />
-        ),
-        cell: ({ row }) => (
-          <span className="font-medium text-sm">{row.original.name}</span>
-        ),
-        meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
-        size: 200,
-      },
-      {
-        id: "contactPhone",
-        accessorFn: (row) => row.contactPhone,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Phone"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm">{row.original.contactPhone}</span>
-        ),
-        meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
-        size: 150,
-      },
-      {
-        id: "contactEmail",
-        accessorFn: (row) => row.contactEmail,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Email"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.contactEmail ?? "—"}
-          </span>
-        ),
-        meta: { headerTitle: "Email", skeleton: SKELETON_EMAIL },
-        size: 200,
-      },
-      {
-        id: "bankAccount",
-        accessorFn: (row) => row.bankAccountName,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Bank Account"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {row.original.bankAccountName} (••••
-            {row.original.bankAccountNumber.length >= 4
-              ? row.original.bankAccountNumber.slice(-4)
-              : row.original.bankAccountNumber}
-            )
-          </span>
-        ),
-        meta: { headerTitle: "Bank Account", skeleton: SKELETON_BANK },
-        size: 220,
-      },
-      {
-        id: "status",
-        accessorFn: (row) => row.status,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Status"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => {
-          const status = row.original.status ?? "pending";
-          const badge = STATUS_BADGE_MAP[status] ?? {
-            label: status,
-            variant: "secondary" as const,
-          };
-          return <Badge variant={badge.variant}>{badge.label}</Badge>;
-        },
-        meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
-        size: 120,
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper prevents row click when interacting with actions
-          // biome-ignore lint/a11y/noStaticElementInteractions: same as above
-          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: same as above
-          <div onClick={(e) => e.stopPropagation()}>
-            <RowActions
-              onApprove={onApprove ? () => onApprove(row.original) : undefined}
-              onEdit={() => onEdit(row.original)}
-              onRequestDelete={() => deleteAction.trigger(row.original.id)}
-              onUnapprove={
-                onUnapprove ? () => onUnapprove(row.original) : undefined
-              }
-              onView={() => onView(row.original)}
-              status={row.original.status ?? "pending"}
-            />
-          </div>
-        ),
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        enableColumnOrdering: false,
-        meta: { cellClassName: "text-center" },
-        size: 52,
-        minSize: 52,
-      },
-    ],
-    [onApprove, onEdit, onUnapprove, onView, deleteAction]
-  );
+        </div>
+      ),
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      enableColumnOrdering: false,
+      meta: { cellClassName: "text-center" },
+      size: 52,
+      minSize: 52,
+    },
+  ];
 
   return (
     <>
