@@ -347,11 +347,7 @@ export function EventsTable({
               >
                 {row.original.name}
               </button>
-              {hasStarted ? (
-                <Badge size="sm" variant="outline">
-                  Recap
-                </Badge>
-              ) : null}
+              {hasStarted ? <Badge variant="outline">Recap</Badge> : null}
             </div>
           );
         },
@@ -372,11 +368,7 @@ export function EventsTable({
         ),
         cell: ({ row }) => {
           const { label, variant } = getEventStatus(row.original);
-          return (
-            <Badge size="sm" variant={variant}>
-              {label}
-            </Badge>
-          );
+          return <Badge variant={variant}>{label}</Badge>;
         },
         meta: {
           headerTitle: "Status",
@@ -436,13 +428,9 @@ export function EventsTable({
         ),
         cell: ({ row }) =>
           row.original.isPublic ? (
-            <Badge size="sm" variant="default">
-              Public
-            </Badge>
+            <Badge variant="default">Public</Badge>
           ) : (
-            <Badge size="sm" variant="secondary">
-              Private
-            </Badge>
+            <Badge variant="secondary">Private</Badge>
           ),
         meta: {
           headerTitle: "Public",
@@ -467,10 +455,7 @@ export function EventsTable({
             | undefined;
           const label = getRecurrenceLabel(rule);
           return (
-            <Badge
-              size="sm"
-              variant={label === "One-time" ? "secondary" : "default"}
-            >
+            <Badge variant={label === "One-time" ? "secondary" : "default"}>
               {label}
             </Badge>
           );
