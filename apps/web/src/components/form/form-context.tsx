@@ -44,6 +44,8 @@ export interface FormWithHandleSubmit {
 export interface FormWithField {
   // biome-ignore lint/suspicious/noExplicitAny: uses `any` so concrete ReactFormExtendedApi<T> types remain assignable to FormInstance — TanStack Form's deep generics (validators, field API, form listeners) create contravariance chains that prevent structural compatibility with narrower types
   Field: (...args: any[]) => any;
+  // biome-ignore lint/suspicious/noExplicitAny: same rationale — concrete form types have narrower signatures
+  getFieldValue: (...args: any[]) => any;
 }
 
 export interface FormWithState {

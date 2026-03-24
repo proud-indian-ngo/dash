@@ -17,7 +17,7 @@ const baseFields = {
       message: "City is required",
     }),
   bankAccountName: z.string().min(1, "Bank account is required"),
-  bankAccountNumber: z.string().optional(),
+  bankAccountNumber: z.string().min(1, "Bank account number is required"),
   bankAccountIfscCode: z.string().optional(),
   lineItems: z
     .array(lineItemSchema)

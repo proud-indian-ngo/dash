@@ -34,15 +34,14 @@ export function buildMutation(
   }
 
   const selectedAccount = bankAccountList.find(
-    (account) => account.accountName === value.bankAccountName
+    (account) => account.accountNumber === value.bankAccountNumber
   );
   const basePayload = {
     id,
     title: value.title,
     city: value.city,
     bankAccountName: value.bankAccountName,
-    bankAccountNumber:
-      selectedAccount?.accountNumber ?? value.bankAccountNumber ?? "",
+    bankAccountNumber: value.bankAccountNumber ?? "",
     bankAccountIfscCode:
       selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "",
     lineItems,

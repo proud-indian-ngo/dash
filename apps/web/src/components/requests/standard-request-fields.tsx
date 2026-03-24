@@ -66,7 +66,9 @@ export function StandardRequestFields({
         >
           {(field) => {
             const selectedAccount = bankAccountList.find(
-              (account) => account.accountName === field.state.value
+              (account) =>
+                account.accountNumber ===
+                form.getFieldValue("bankAccountNumber")
             );
             const submitted = resolvedForm.state.submissionAttempts > 0;
 
