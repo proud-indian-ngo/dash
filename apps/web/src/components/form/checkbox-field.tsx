@@ -5,6 +5,7 @@ import {
   type FieldValidatorConfig,
   type FormInstance,
   fieldErrorProps,
+  useResolvedForm,
 } from "./form-context";
 
 interface CheckboxFieldProps {
@@ -28,6 +29,7 @@ export function CheckboxField({
   readonly = false,
   validators,
 }: CheckboxFieldProps) {
+  const resolvedForm = useResolvedForm(form, "CheckboxField");
   return (
     <CustomField<boolean>
       className={className}
@@ -42,7 +44,10 @@ export function CheckboxField({
       {(field) => {
         return (
           <Switch
-            {...fieldErrorProps(field)}
+            {...fieldErrorProps(
+              field,
+              resolvedForm.state.submissionAttempts > 0
+            )}
             aria-required={isRequired}
             checked={Boolean(field.state.value)}
             disabled={readonly}

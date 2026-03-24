@@ -30,6 +30,8 @@ export interface FormFieldApi<TValue = unknown> {
   state: {
     meta: {
       errors: FormFieldError[];
+      isBlurred: boolean;
+      isTouched: boolean;
     };
     value: TValue;
   };
@@ -82,14 +84,15 @@ export function FormContextProvider({
   return <FormContext.Provider value={form}>{children}</FormContext.Provider>;
 }
 
-export function getFieldErrorState(field: FormFieldApi) {
-  const hasError = field.state.meta.errors.length > 0;
+export function getFieldErrorState(field: FormFieldApi, submitted = false) {
+  const showErrors = field.state.meta.isBlurred || submitted;
+  const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorMessageId = `${field.name}-error`;
   return { hasError, errorMessageId };
 }
 
-export function fieldErrorProps(field: FormFieldApi) {
-  const { hasError, errorMessageId } = getFieldErrorState(field);
+export function fieldErrorProps(field: FormFieldApi, submitted = false) {
+  const { hasError, errorMessageId } = getFieldErrorState(field, submitted);
   return {
     "aria-describedby": hasError ? errorMessageId : undefined,
     "aria-invalid": hasError,

@@ -6,6 +6,7 @@ import {
   type FieldValidatorConfig,
   type FormInstance,
   fieldErrorProps,
+  useResolvedForm,
 } from "./form-context";
 
 type BaseInputProps = Omit<
@@ -35,6 +36,7 @@ export function InputField({
   validators,
   ...props
 }: InputFieldProps) {
+  const resolvedForm = useResolvedForm(form, "InputField");
   return (
     <CustomField
       description={description}
@@ -49,7 +51,10 @@ export function InputField({
         return (
           <Input
             {...props}
-            {...fieldErrorProps(field)}
+            {...fieldErrorProps(
+              field,
+              resolvedForm.state.submissionAttempts > 0
+            )}
             aria-required={isRequired}
             id={field.name}
             name={field.name}

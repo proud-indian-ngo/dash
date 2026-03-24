@@ -79,16 +79,6 @@ export const defaultCreateUserFormValues: CreateUserFormValues = {
   role: "volunteer",
 };
 
-const userFieldValidators = {
-  dob: { onBlur: baseUserFormSchema.shape.dob },
-  email: { onBlur: baseUserFormSchema.shape.email },
-  gender: { onBlur: baseUserFormSchema.shape.gender },
-  name: { onBlur: baseUserFormSchema.shape.name },
-  password: { onBlur: createUserFormSchema.shape.password },
-  phone: { onBlur: baseUserFormSchema.shape.phone },
-  role: { onBlur: baseUserFormSchema.shape.role },
-};
-
 type UserFormProps =
   | {
       initialValues: CreateUserFormValues;
@@ -120,6 +110,7 @@ export function UserForm(props: UserFormProps) {
       await props.onSubmit(value as EditUserFormValues);
     },
     validators: {
+      onChange: userFormSchema,
       onSubmit: userFormSchema,
     },
   });
@@ -129,19 +120,9 @@ export function UserForm(props: UserFormProps) {
   return (
     <FormLayout className="grid gap-3" form={form}>
       <div className="grid gap-3 md:grid-cols-2">
-        <InputField
-          isRequired
-          label="Name"
-          name="name"
-          validators={userFieldValidators.name}
-        />
+        <InputField isRequired label="Name" name="name" />
 
-        <InputField
-          isRequired
-          label="Email"
-          name="email"
-          validators={userFieldValidators.email}
-        />
+        <InputField isRequired label="Email" name="email" />
 
         {props.mode === "create" ? (
           <InputField
@@ -149,7 +130,6 @@ export function UserForm(props: UserFormProps) {
             label="Password"
             name="password"
             type="password"
-            validators={userFieldValidators.password}
           />
         ) : null}
 
@@ -158,21 +138,11 @@ export function UserForm(props: UserFormProps) {
           label="Role"
           name="role"
           options={roleOptions}
-          validators={userFieldValidators.role}
         />
 
-        <PhoneField
-          defaultCountry="IN"
-          label="Phone"
-          name="phone"
-          validators={userFieldValidators.phone}
-        />
+        <PhoneField defaultCountry="IN" label="Phone" name="phone" />
 
-        <DateField
-          label="Date of birth"
-          name="dob"
-          validators={userFieldValidators.dob}
-        />
+        <DateField label="Date of birth" name="dob" />
 
         <SelectField
           isRequired
@@ -180,7 +150,6 @@ export function UserForm(props: UserFormProps) {
           name="gender"
           options={genderOptions}
           placeholder="Select gender"
-          validators={userFieldValidators.gender}
         />
       </div>
 

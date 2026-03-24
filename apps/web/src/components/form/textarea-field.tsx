@@ -6,6 +6,7 @@ import {
   type FieldValidatorConfig,
   type FormInstance,
   fieldErrorProps,
+  useResolvedForm,
 } from "./form-context";
 
 type BaseTextareaProps = Omit<
@@ -33,6 +34,7 @@ export function TextareaField({
   validators,
   ...props
 }: TextareaFieldProps) {
+  const resolvedForm = useResolvedForm(form, "TextareaField");
   return (
     <CustomField
       description={description}
@@ -47,7 +49,10 @@ export function TextareaField({
         return (
           <Textarea
             {...props}
-            {...fieldErrorProps(field)}
+            {...fieldErrorProps(
+              field,
+              resolvedForm.state.submissionAttempts > 0
+            )}
             aria-required={isRequired}
             id={field.name}
             name={field.name}

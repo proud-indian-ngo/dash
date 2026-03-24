@@ -2,11 +2,19 @@ import { describe, expect, it } from "vitest";
 import type { FormFieldApi } from "./form-context";
 import { fieldErrorProps, getFieldErrorState } from "./form-context";
 
-function makeField(errors: unknown[], name = "email"): FormFieldApi {
+function makeField(
+  errors: unknown[],
+  name = "email",
+  isBlurred = true
+): FormFieldApi {
   return {
     name,
     state: {
-      meta: { errors: errors as FormFieldApi["state"]["meta"]["errors"] },
+      meta: {
+        errors: errors as FormFieldApi["state"]["meta"]["errors"],
+        isBlurred,
+        isTouched: isBlurred,
+      },
       value: "",
     },
     handleBlur: () => undefined,
@@ -21,9 +29,24 @@ describe("getFieldErrorState", () => {
     expect(errorMessageId).toBe("email-error");
   });
 
-  it("returns hasError true when errors exist", () => {
+  it("returns hasError true when errors exist and field was blurred", () => {
     const { hasError } = getFieldErrorState(
       makeField([{ message: "Required" }])
+    );
+    expect(hasError).toBe(true);
+  });
+
+  it("returns hasError false when errors exist but field was never blurred", () => {
+    const { hasError } = getFieldErrorState(
+      makeField([{ message: "Required" }], "email", false)
+    );
+    expect(hasError).toBe(false);
+  });
+
+  it("returns hasError true when submitted even if not blurred", () => {
+    const { hasError } = getFieldErrorState(
+      makeField([{ message: "Required" }], "email", false),
+      true
     );
     expect(hasError).toBe(true);
   });

@@ -3,6 +3,7 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { env } from "@pi-dash/env/web";
 import { useForm } from "@tanstack/react-form";
+import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
@@ -101,13 +102,23 @@ function AvatarUpload() {
       const { error } = await authClient.updateUser({ image: cdnUrl });
       if (error) {
         toast.error(error.message ?? "Failed to update profile picture");
-        deleteProfilePicture({ data: { key } }).catch(() => {
-          // Best-effort cleanup of orphaned R2 object
+        deleteProfilePicture({ data: { key } }).catch((error) => {
+          log.error({
+            component: "ProfileSection",
+            action: "cleanupOrphanedR2",
+            key,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
       } else {
         toast.success("Profile picture updated");
       }
-    } catch {
+    } catch (error) {
+      log.error({
+        component: "ProfileSection",
+        action: "uploadProfilePicture",
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to upload profile picture");
     } finally {
       setUploading(false);
@@ -134,13 +145,23 @@ function AvatarUpload() {
       const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
       if (imageUrl.startsWith(cdnBase)) {
         const key = imageUrl.slice(cdnBase.length + 1);
-        deleteProfilePicture({ data: { key } }).catch(() => {
-          // Best-effort: ignore R2 deletion failures
+        deleteProfilePicture({ data: { key } }).catch((error) => {
+          log.error({
+            component: "ProfileSection",
+            action: "cleanupR2AfterRemove",
+            key,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
       }
 
       toast.success("Profile picture removed");
-    } catch {
+    } catch (error) {
+      log.error({
+        component: "ProfileSection",
+        action: "removeProfilePicture",
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to remove profile picture");
     } finally {
       setUploading(false);
@@ -217,7 +238,7 @@ export function ProfileSection() {
       }
     },
     validators: {
-      onBlur: profileSchema,
+      onChange: profileSchema,
       onSubmit: profileSchema,
     },
   });

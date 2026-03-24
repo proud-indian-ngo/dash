@@ -8,18 +8,13 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { Loader } from "@/components/loader";
 import { authClient } from "@/lib/auth-client";
-import { Loader } from "../loader";
 
 const loginSchema = z.object({
   email: z.email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
-
-const loginFieldValidators = {
-  email: { onBlur: loginSchema.shape.email },
-  password: { onBlur: loginSchema.shape.password },
-};
 
 const STATUS_MESSAGES: Record<string, string> = {
   "email-verified": "Email verified successfully",
@@ -99,6 +94,7 @@ export function LoginForm() {
       );
     },
     validators: {
+      onChange: loginSchema,
       onSubmit: loginSchema,
     },
   });
@@ -114,7 +110,13 @@ export function LoginForm() {
         callbackURL: "/login",
       });
       toast.success("Verification email sent");
-    } catch {
+    } catch (error) {
+      log.error({
+        component: "LoginForm",
+        action: "resendVerification",
+        email: unverifiedEmail,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to resend verification email");
     } finally {
       setResending(false);
@@ -159,7 +161,6 @@ export function LoginForm() {
           name="email"
           placeholder="you@example.com"
           type="email"
-          validators={loginFieldValidators.email}
         />
         <div className="space-y-1">
           <InputField
@@ -169,7 +170,6 @@ export function LoginForm() {
             name="password"
             placeholder="Enter your password"
             type="password"
-            validators={loginFieldValidators.password}
           />
           <div className="text-right">
             <Link

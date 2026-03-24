@@ -45,7 +45,11 @@ export function CustomField<TValue = unknown>({
     <resolvedForm.Field name={name} validators={validators}>
       {(field: unknown) => {
         const typedField = field as FormFieldApi<TValue>;
-        const { hasError, errorMessageId } = getFieldErrorState(typedField);
+        const submitted = resolvedForm.state.submissionAttempts > 0;
+        const { hasError, errorMessageId } = getFieldErrorState(
+          typedField,
+          submitted
+        );
 
         return (
           <Field
@@ -69,10 +73,12 @@ export function CustomField<TValue = unknown>({
             {description ? (
               <FieldDescription>{description}</FieldDescription>
             ) : null}
-            <FieldError
-              errors={typedField.state.meta.errors}
-              id={hasError ? errorMessageId : undefined}
-            />
+            {hasError ? (
+              <FieldError
+                errors={typedField.state.meta.errors}
+                id={errorMessageId}
+              />
+            ) : null}
           </Field>
         );
       }}

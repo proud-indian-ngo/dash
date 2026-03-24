@@ -24,11 +24,6 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-const passwordFieldValidators = {
-  confirmPassword: { onBlur: passwordFields.confirmPassword },
-  newPassword: { onBlur: passwordFields.newPassword },
-};
-
 export function PasswordForm({ onCancel, onSubmit, user }: PasswordFormProps) {
   const form = useForm({
     defaultValues: {
@@ -43,6 +38,7 @@ export function PasswordForm({ onCancel, onSubmit, user }: PasswordFormProps) {
       form.reset();
     },
     validators: {
+      onChange: passwordSchema,
       onSubmit: passwordSchema,
     },
   });
@@ -54,7 +50,6 @@ export function PasswordForm({ onCancel, onSubmit, user }: PasswordFormProps) {
         label="New password"
         name="newPassword"
         type="password"
-        validators={passwordFieldValidators.newPassword}
       />
 
       <InputField
@@ -62,7 +57,6 @@ export function PasswordForm({ onCancel, onSubmit, user }: PasswordFormProps) {
         label="Confirm new password"
         name="confirmPassword"
         type="password"
-        validators={passwordFieldValidators.confirmPassword}
       />
 
       <FormActions

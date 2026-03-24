@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
@@ -9,7 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { TeamMember } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -32,7 +33,7 @@ interface AddMemberDialogProps {
   teamId: string;
 }
 
-export function AddMemberDialog({
+function AddMemberFormContent({
   existingMembers,
   isAdmin,
   onOpenChange,
@@ -41,7 +42,6 @@ export function AddMemberDialog({
 }: AddMemberDialogProps) {
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all(), { enabled: open });
-  const prevOpenRef = useRef(false);
 
   const existingUserIds = useMemo(
     () => new Set(existingMembers.map((m) => m.userId)),
@@ -78,75 +78,88 @@ export function AddMemberDialog({
       onOpenChange(false);
     },
     validators: {
+      onChange: addTeamMemberSchema,
       onSubmit: addTeamMemberSchema,
     },
   });
 
-  useEffect(() => {
-    if (open && !prevOpenRef.current) {
-      form.reset();
-    }
-    prevOpenRef.current = open;
-  }, [open, form]);
-
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen) {
-        form.reset();
-      }
-      onOpenChange(nextOpen);
-    },
-    [onOpenChange, form]
+  return (
+    <FormLayout form={form}>
+      <CustomField<string[]> isRequired label="Search users" name="userIds">
+        {(field) => (
+          <>
+            <UserPicker
+              excludeUserIds={existingUserIds}
+              onValueChange={(ids) => field.handleChange(ids)}
+              users={allUsers ?? []}
+              value={field.state.value ?? []}
+            />
+            {(field.state.value?.length ?? 0) > 1 ? (
+              <p className="text-muted-foreground text-xs">
+                All added as Member
+              </p>
+            ) : null}
+          </>
+        )}
+      </CustomField>
+      <form.Subscribe selector={(state) => state.values.userIds.length}>
+        {(count) => (
+          <>
+            {isAdmin && count === 1 ? (
+              <SelectField
+                label="Role"
+                name="role"
+                options={[
+                  { label: "Member", value: "member" },
+                  { label: "Lead", value: "lead" },
+                ]}
+              />
+            ) : null}
+            <FormActions
+              onCancel={() => onOpenChange(false)}
+              submitLabel={count > 1 ? `Add ${count} Members` : "Add Member"}
+              submittingLabel="Adding..."
+            />
+          </>
+        )}
+      </form.Subscribe>
+    </FormLayout>
   );
+}
+
+export function AddMemberDialog({
+  existingMembers,
+  isAdmin,
+  onOpenChange,
+  open,
+  teamId,
+}: AddMemberDialogProps) {
+  const [formKey, setFormKey] = useState(0);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setFormKey((k) => k + 1);
+    }
+    onOpenChange(nextOpen);
+  };
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Member</DialogTitle>
+          <DialogDescription className="sr-only">
+            Add a member to this team
+          </DialogDescription>
         </DialogHeader>
-        <FormLayout form={form}>
-          <CustomField<string[]> isRequired label="Search users" name="userIds">
-            {(field) => (
-              <>
-                <UserPicker
-                  excludeUserIds={existingUserIds}
-                  onValueChange={(ids) => field.handleChange(ids)}
-                  users={allUsers ?? []}
-                  value={field.state.value ?? []}
-                />
-                {(field.state.value?.length ?? 0) > 1 ? (
-                  <p className="text-muted-foreground text-xs">
-                    All added as Member
-                  </p>
-                ) : null}
-              </>
-            )}
-          </CustomField>
-          <form.Subscribe selector={(state) => state.values.userIds.length}>
-            {(count) => (
-              <>
-                {isAdmin && count === 1 ? (
-                  <SelectField
-                    label="Role"
-                    name="role"
-                    options={[
-                      { label: "Member", value: "member" },
-                      { label: "Lead", value: "lead" },
-                    ]}
-                  />
-                ) : null}
-                <FormActions
-                  onCancel={() => handleOpenChange(false)}
-                  submitLabel={
-                    count > 1 ? `Add ${count} Members` : "Add Member"
-                  }
-                  submittingLabel="Adding..."
-                />
-              </>
-            )}
-          </form.Subscribe>
-        </FormLayout>
+        <AddMemberFormContent
+          existingMembers={existingMembers}
+          isAdmin={isAdmin}
+          key={formKey}
+          onOpenChange={onOpenChange}
+          open={open}
+          teamId={teamId}
+        />
       </DialogContent>
     </Dialog>
   );

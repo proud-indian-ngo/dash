@@ -14,10 +14,6 @@ const forgotPasswordSchema = z.object({
   email: z.email("Invalid email address"),
 });
 
-const forgotPasswordFieldValidators = {
-  email: { onBlur: forgotPasswordSchema.shape.email },
-};
-
 const COOLDOWN_SECONDS = 60;
 
 function isNotFoundError(message: string): boolean {
@@ -85,6 +81,7 @@ export function ForgotPasswordForm() {
       startCooldown();
     },
     validators: {
+      onChange: forgotPasswordSchema,
       onSubmit: forgotPasswordSchema,
     },
   });
@@ -146,7 +143,6 @@ export function ForgotPasswordForm() {
             name="email"
             placeholder="you@example.com"
             type="email"
-            validators={forgotPasswordFieldValidators.email}
           />
           <FormActions
             className="w-full"

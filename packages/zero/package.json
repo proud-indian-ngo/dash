@@ -20,7 +20,6 @@
     "@pi-dash/db": "workspace:*",
     "@pi-dash/env": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
-    "@pi-dash/observability": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "date-fns": "catalog:",

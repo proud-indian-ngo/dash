@@ -39,16 +39,6 @@ const registerSchema = z
     path: ["confirmPassword"],
   });
 
-const registerFieldValidators = {
-  confirmPassword: { onBlur: registerFields.confirmPassword },
-  dob: { onChange: registerFields.dob },
-  email: { onBlur: registerFields.email },
-  gender: { onChange: registerFields.gender },
-  name: { onBlur: registerFields.name },
-  password: { onBlur: registerFields.password },
-  phone: { onBlur: registerFields.phone },
-};
-
 export function RegisterForm() {
   const navigate = useNavigate({ from: "/register" });
   const { isPending } = authClient.useSession();
@@ -88,6 +78,7 @@ export function RegisterForm() {
       navigate({ to: "/login" });
     },
     validators: {
+      onChange: registerSchema,
       onSubmit: registerSchema,
     },
   });
@@ -111,7 +102,6 @@ export function RegisterForm() {
           label="Name"
           name="name"
           placeholder="Your full name"
-          validators={registerFieldValidators.name}
         />
         <InputField
           autoComplete="email"
@@ -120,7 +110,6 @@ export function RegisterForm() {
           name="email"
           placeholder="you@example.com"
           type="email"
-          validators={registerFieldValidators.email}
         />
         <InputField
           autoComplete="new-password"
@@ -129,7 +118,6 @@ export function RegisterForm() {
           name="password"
           placeholder="Create a password"
           type="password"
-          validators={registerFieldValidators.password}
         />
         <InputField
           autoComplete="new-password"
@@ -138,7 +126,6 @@ export function RegisterForm() {
           name="confirmPassword"
           placeholder="Confirm your password"
           type="password"
-          validators={registerFieldValidators.confirmPassword}
         />
         <PhoneField
           defaultCountry="IN"
@@ -146,21 +133,14 @@ export function RegisterForm() {
           label="Phone"
           name="phone"
           placeholder="Your phone number"
-          validators={registerFieldValidators.phone}
         />
-        <DateField
-          isRequired
-          label="Date of birth"
-          name="dob"
-          validators={registerFieldValidators.dob}
-        />
+        <DateField isRequired label="Date of birth" name="dob" />
         <SelectField
           isRequired
           label="Gender"
           name="gender"
           options={genderOptions}
           placeholder="Select gender"
-          validators={registerFieldValidators.gender}
         />
         <FormActions
           className="w-full"

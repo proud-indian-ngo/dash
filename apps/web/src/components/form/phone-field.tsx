@@ -6,6 +6,7 @@ import {
   type FieldValidatorConfig,
   type FormInstance,
   fieldErrorProps,
+  useResolvedForm,
 } from "./form-context";
 
 type BasePhoneProps = Omit<
@@ -33,6 +34,7 @@ export function PhoneField({
   validators,
   ...props
 }: PhoneFieldProps) {
+  const resolvedForm = useResolvedForm(form, "PhoneField");
   return (
     <CustomField
       description={description}
@@ -47,7 +49,10 @@ export function PhoneField({
         return (
           <PhoneInput
             {...props}
-            {...fieldErrorProps(field)}
+            {...fieldErrorProps(
+              field,
+              resolvedForm.state.submissionAttempts > 0
+            )}
             aria-required={isRequired}
             id={field.name}
             onBlur={field.handleBlur}

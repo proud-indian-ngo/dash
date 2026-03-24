@@ -2,6 +2,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -147,6 +148,9 @@ export function TeamFormDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Team" : "Create Team"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit ? "Edit team details" : "Create a new team"}
+          </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">

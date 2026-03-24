@@ -303,6 +303,7 @@ function RequestFormInner({
       }
     },
     validators: {
+      onChange: getFormSchema(requestType),
       onSubmit: getFormSchema(requestType),
     },
   });

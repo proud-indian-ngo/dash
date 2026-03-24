@@ -18,11 +18,6 @@ const banUserSchema = z.object({
   banReason: z.string().min(10, "Reason must be at least 10 characters"),
 });
 
-const banUserFieldValidators = {
-  banExpires: { onBlur: banUserSchema.shape.banExpires },
-  banReason: { onBlur: banUserSchema.shape.banReason },
-};
-
 export function BanUserForm({ onCancel, onSubmit, user }: BanUserFormProps) {
   const form = useForm({
     defaultValues: {
@@ -39,25 +34,20 @@ export function BanUserForm({ onCancel, onSubmit, user }: BanUserFormProps) {
       form.reset();
     },
     validators: {
+      onChange: banUserSchema,
       onSubmit: banUserSchema,
     },
   });
 
   return (
     <FormLayout className="grid gap-3" form={form}>
-      <TextareaField
-        isRequired
-        label="Ban reason"
-        name="banReason"
-        validators={banUserFieldValidators.banReason}
-      />
+      <TextareaField isRequired label="Ban reason" name="banReason" />
 
       <InputField
         description="Optional. Leave empty for an indefinite ban."
         label="Ban expires"
         name="banExpires"
         type="datetime-local"
-        validators={banUserFieldValidators.banExpires}
       />
 
       <FormActions

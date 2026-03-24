@@ -1,11 +1,11 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
-import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
+import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -55,7 +55,7 @@ export function AccountSection() {
       }
     },
     validators: {
-      onBlur: passwordSchema,
+      onChange: passwordSchema,
       onSubmit: passwordSchema,
     },
   });
@@ -94,25 +94,10 @@ export function AccountSection() {
           name="confirmPassword"
           type="password"
         />
-        <form.Field name="revokeOtherSessions">
-          {(field) => (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={field.state.value}
-                id="revokeOtherSessions"
-                onCheckedChange={(checked: boolean) =>
-                  field.handleChange(checked)
-                }
-              />
-              <Label
-                className="font-normal text-sm"
-                htmlFor="revokeOtherSessions"
-              >
-                Sign out all other devices
-              </Label>
-            </div>
-          )}
-        </form.Field>
+        <CheckboxField
+          label="Sign out all other devices"
+          name="revokeOtherSessions"
+        />
         <div className="flex justify-end">
           <FormActions
             submitLabel="Update password"

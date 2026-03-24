@@ -115,6 +115,38 @@ For project structure, file paths, command map, and architectural patterns, read
 - Use parallel search and read variants when multiple sources are needed for speed and coverage.
 - For library documentation, use Context7 MCP with library IDs listed in `project-structure.md` § Documentation References.
 
+## Consistency Standards (see skills for detailed guidance)
+
+### Forms
+- Always use TanStack Form + Zod schema. Never raw `useState` for form state.
+- Use form field components (`InputField`, `SelectField`, etc.) — never raw `<Label>` + `<Input>`.
+- Use `FormLayout` + `FormActions`. Use `formKey` remount for dialog reset.
+- Use `validators: { onChange: schema, onSubmit: schema }` at the form level. Error display is gated on `isBlurred || submitted` in `getFieldErrorState`, so errors only appear after a field loses focus but clear instantly as the user types a valid value.
+- Use `await mutation.server` + `handleMutationResult()` — never `.then()` chains.
+- Use `DateField` for date-only inputs, native `<InputField type="datetime-local">` for datetime.
+- Invoke the `create-form` skill when creating or modifying forms.
+
+### Data Tables
+- Use `DataTableWrapper`. Use `useConfirmAction` for delete confirmations.
+- Include `data-testid="row-actions"`, `meta.skeleton`, `visibility={true}`.
+- Name storage keys as `{entity}_table_state_v1`.
+- Use `formatINR` from `@/lib/form-schemas` for currency formatting.
+- Invoke the `create-data-table` skill when creating or modifying tables.
+
+### UI/UX
+- Every dialog needs `DialogDescription` (even `sr-only`).
+- Use `Loader` component for detail loading. Use `STATUS_BADGE_MAP` for badges.
+- Toolbar buttons: "Add {entity}" sentence case + `PlusSignIcon`.
+- HugeIcons: always `strokeWidth={2}`. Imports: always `@/` alias. Exports: always named.
+- Use `variant="outline"` for secondary/toggle action buttons. Use `gap-6` for detail sections.
+- Invoke the `create-dialog` skill when creating dialogs.
+
+### Logging
+- Every client `catch` must call `log.error()` — never silent swallow.
+- Don't double-wrap with `withTaskLog` in mutators — `mutate.ts` already wraps.
+- `log.emit()` on both success and error paths. Maximize `log.set()` context.
+- Invoke the `add-logging` skill when adding error handling or server tasks.
+
 ## Skills Policy
 
 - Trigger by explicit request or strong task match.

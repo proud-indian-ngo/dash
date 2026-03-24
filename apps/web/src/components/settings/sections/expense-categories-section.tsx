@@ -43,7 +43,7 @@ function CategoryForm({
       await onSubmit(value);
     },
     validators: {
-      onBlur: categorySchema,
+      onChange: categorySchema,
       onSubmit: categorySchema,
     },
   });
@@ -78,71 +78,64 @@ export function ExpenseCategoriesSection() {
 
   const categoryList = categories ?? [];
 
-  const handleCreate = (values: CategoryFormValues) => {
+  const handleCreate = async (values: CategoryFormValues) => {
     const id = uuidv7();
-    zero
-      .mutate(
-        mutators.expenseCategory.create({
-          id,
-          name: values.name,
-          description: values.description,
-        })
-      )
-      .server.then((res) => {
-        handleMutationResult(res, {
-          mutation: "expenseCategory.create",
-          entityId: id,
-          successMsg: "Category created",
-          errorMsg: "Failed to create category",
-        });
-        if (res.type !== "error") {
-          setInlineMode(null);
-        }
-      });
+    const res = await zero.mutate(
+      mutators.expenseCategory.create({
+        id,
+        name: values.name,
+        description: values.description,
+      })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "expenseCategory.create",
+      entityId: id,
+      successMsg: "Category created",
+      errorMsg: "Failed to create category",
+    });
+    if (res.type !== "error") {
+      setInlineMode(null);
+    }
   };
 
-  const handleUpdate = (values: CategoryFormValues) => {
+  const handleUpdate = async (values: CategoryFormValues) => {
     if (inlineMode?.kind !== "edit") {
       return;
     }
-    zero
-      .mutate(
-        mutators.expenseCategory.update({
-          id: inlineMode.category.id,
-          name: values.name,
-          description: values.description,
-        })
-      )
-      .server.then((res) => {
-        handleMutationResult(res, {
-          mutation: "expenseCategory.update",
-          entityId: inlineMode.category.id,
-          successMsg: "Category updated",
-          errorMsg: "Failed to update category",
-        });
-        if (res.type !== "error") {
-          setInlineMode(null);
-        }
-      });
+    const res = await zero.mutate(
+      mutators.expenseCategory.update({
+        id: inlineMode.category.id,
+        name: values.name,
+        description: values.description,
+      })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "expenseCategory.update",
+      entityId: inlineMode.category.id,
+      successMsg: "Category updated",
+      errorMsg: "Failed to update category",
+    });
+    if (res.type !== "error") {
+      setInlineMode(null);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (rowAction?.kind !== "delete") {
       return;
     }
-    zero
-      .mutate(mutators.expenseCategory.delete({ id: rowAction.category.id }))
-      .server.then((res) => {
-        handleMutationResult(res, {
-          mutation: "expenseCategory.delete",
-          entityId: rowAction.category.id,
-          successMsg: "Category deleted",
-          errorMsg: "Failed to delete category",
-        });
-        if (res.type !== "error") {
-          setRowAction(null);
-        }
-      });
+    const res = await zero.mutate(
+      mutators.expenseCategory.delete({ id: rowAction.category.id })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "expenseCategory.delete",
+      entityId: rowAction.category.id,
+      successMsg: "Category deleted",
+      errorMsg: "Failed to delete category",
+    });
+    if (res.type !== "error") {
+      setRowAction(null);
+    }
   };
 
   return (

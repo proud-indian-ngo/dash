@@ -104,6 +104,7 @@ function VendorFormContent({
       }
     },
     validators: {
+      onChange: vendorFormSchema,
       onSubmit: vendorFormSchema,
     },
   });

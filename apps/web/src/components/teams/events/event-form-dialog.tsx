@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
@@ -11,9 +12,9 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
+import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -43,14 +44,30 @@ const eventFormSchema = z.object({
   createWaGroup: z.boolean(),
 });
 
+const endTimeAfterStartTime = {
+  check: (data: EventFormValues) =>
+    !(data.endTime && data.startTime) ||
+    datetimeLocalToEpoch(data.endTime) > datetimeLocalToEpoch(data.startTime),
+  message: "End time must be after start time",
+  path: ["endTime"] as string[],
+};
+
 function createEventFormSchema(isEdit: boolean) {
   if (isEdit) {
-    return eventFormSchema;
+    return eventFormSchema.refine(endTimeAfterStartTime.check, {
+      message: endTimeAfterStartTime.message,
+      path: endTimeAfterStartTime.path,
+    });
   }
-  return eventFormSchema.refine(
-    (data) => !data.startTime || new Date(data.startTime) > new Date(),
-    { message: "Start time must be in the future", path: ["startTime"] }
-  );
+  return eventFormSchema
+    .refine(
+      (data) => !data.startTime || new Date(data.startTime) > new Date(),
+      { message: "Start time must be in the future", path: ["startTime"] }
+    )
+    .refine(endTimeAfterStartTime.check, {
+      message: endTimeAfterStartTime.message,
+      path: endTimeAfterStartTime.path,
+    });
 }
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -156,16 +173,7 @@ function EventFormContent({
 
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
-    onSubmit: ({ value }) => {
-      if (
-        value.endTime &&
-        datetimeLocalToEpoch(value.endTime) <=
-          datetimeLocalToEpoch(value.startTime)
-      ) {
-        toast.error("End time must be after start time");
-        return;
-      }
-
+    onSubmit: async ({ value }) => {
       const mutation =
         isEdit && initialValues
           ? zero.mutate(
@@ -183,22 +191,19 @@ function EventFormContent({
       } else if (value.createWaGroup) {
         successMsg = "Event created. WhatsApp group will be created shortly.";
       }
-      mutation.server.then((res) => {
-        handleMutationResult(res, {
-          mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
-          entityId,
-          successMsg,
-          errorMsg: isEdit
-            ? "Failed to update event"
-            : "Failed to create event",
-        });
-        if (res.type !== "error") {
-          onOpenChange(false);
-        }
+      const res = await mutation.server;
+      handleMutationResult(res, {
+        mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
+        entityId,
+        successMsg,
+        errorMsg: isEdit ? "Failed to update event" : "Failed to create event",
       });
+      if (res.type !== "error") {
+        onOpenChange(false);
+      }
     },
     validators: {
-      onBlur: eventFormSchema,
+      onChange: createEventFormSchema(isEdit),
       onSubmit: createEventFormSchema(isEdit),
     },
   });
@@ -248,10 +253,9 @@ function EventFormContent({
             {(frequency) =>
               frequency ? (
                 <>
-                  <InputField
+                  <DateField
                     label="Recurrence End Date"
                     name="recurrenceEndDate"
-                    type="date"
                   />
                   <CheckboxField
                     label="Copy all members to recurring events"
@@ -323,6 +327,9 @@ export function EventFormDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Event" : "Create Event"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit ? "Edit event details" : "Create a new event"}
+          </DialogDescription>
         </DialogHeader>
         <EventFormContent
           initialValues={initialValues}

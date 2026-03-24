@@ -11,6 +11,7 @@ import {
   type FieldValidatorConfig,
   type FormInstance,
   fieldErrorProps,
+  useResolvedForm,
 } from "./form-context";
 
 export interface SelectOption {
@@ -45,6 +46,7 @@ export function SelectField({
   triggerClassName = "w-full",
   validators,
 }: SelectFieldProps) {
+  const resolvedForm = useResolvedForm(form, "SelectField");
   return (
     <CustomField<string | undefined>
       description={description}
@@ -68,7 +70,10 @@ export function SelectField({
             value={selectedValue ?? ""}
           >
             <SelectTrigger
-              {...fieldErrorProps(field)}
+              {...fieldErrorProps(
+                field,
+                resolvedForm.state.submissionAttempts > 0
+              )}
               aria-required={isRequired}
               className={triggerClassName}
               id={field.name}

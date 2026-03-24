@@ -20,13 +20,6 @@ const passwordResetSchema = z
     path: ["confirmPassword"],
   });
 
-const passwordResetFieldValidators = {
-  confirmPassword: {
-    onBlur: passwordResetFields.confirmPassword,
-  },
-  newPassword: { onBlur: passwordResetFields.newPassword },
-};
-
 export function ResetPasswordForm() {
   const navigate = useNavigate({ from: "/reset-password" });
   const { token } = useSearch({ from: "/_auth/reset-password" });
@@ -48,6 +41,7 @@ export function ResetPasswordForm() {
       navigate({ to: "/login", search: { status: "password-reset" } });
     },
     validators: {
+      onChange: passwordResetSchema,
       onSubmit: passwordResetSchema,
     },
   });
@@ -68,7 +62,6 @@ export function ResetPasswordForm() {
           name="newPassword"
           placeholder="Enter new password"
           type="password"
-          validators={passwordResetFieldValidators.newPassword}
         />
         <InputField
           autoComplete="new-password"
@@ -77,7 +70,6 @@ export function ResetPasswordForm() {
           name="confirmPassword"
           placeholder="Confirm new password"
           type="password"
-          validators={passwordResetFieldValidators.confirmPassword}
         />
         <FormActions
           className="w-full"

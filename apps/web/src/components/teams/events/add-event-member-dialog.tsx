@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
@@ -8,7 +9,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
@@ -28,7 +29,7 @@ interface AddEventMemberDialogProps {
   open: boolean;
 }
 
-export function AddEventMemberDialog({
+function AddEventMemberFormContent({
   eventId,
   existingMembers,
   onOpenChange,
@@ -36,7 +37,6 @@ export function AddEventMemberDialog({
 }: AddEventMemberDialogProps) {
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all(), { enabled: open });
-  const prevOpenRef = useRef(false);
 
   const existingUserIds = useMemo(
     () => new Set(existingMembers.map((m) => m.userId)),
@@ -67,61 +67,74 @@ export function AddEventMemberDialog({
       onOpenChange(false);
     },
     validators: {
+      onChange: addMemberSchema,
       onSubmit: addMemberSchema,
     },
   });
 
-  useEffect(() => {
-    if (open && !prevOpenRef.current) {
-      form.reset();
-    }
-    prevOpenRef.current = open;
-  }, [open, form]);
-
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen) {
-        form.reset();
-      }
-      onOpenChange(nextOpen);
-    },
-    [onOpenChange, form]
+  return (
+    <FormLayout form={form}>
+      <CustomField<string[]>
+        isRequired
+        label="Search volunteers"
+        name="userIds"
+      >
+        {(field) => (
+          <UserPicker
+            emptyMessage="No matching volunteers found."
+            excludeUserIds={existingUserIds}
+            onValueChange={(ids) => field.handleChange(ids)}
+            users={allUsers ?? []}
+            value={field.state.value ?? []}
+          />
+        )}
+      </CustomField>
+      <form.Subscribe selector={(state) => state.values.userIds.length}>
+        {(count) => (
+          <FormActions
+            onCancel={() => onOpenChange(false)}
+            submitLabel={
+              count > 1 ? `Add ${count} Volunteers` : "Add Volunteer"
+            }
+            submittingLabel="Adding..."
+          />
+        )}
+      </form.Subscribe>
+    </FormLayout>
   );
+}
+
+export function AddEventMemberDialog({
+  eventId,
+  existingMembers,
+  onOpenChange,
+  open,
+}: AddEventMemberDialogProps) {
+  const [formKey, setFormKey] = useState(0);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setFormKey((k) => k + 1);
+    }
+    onOpenChange(nextOpen);
+  };
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Volunteer</DialogTitle>
+          <DialogDescription className="sr-only">
+            Add a volunteer to this event
+          </DialogDescription>
         </DialogHeader>
-        <FormLayout form={form}>
-          <CustomField<string[]>
-            isRequired
-            label="Search volunteers"
-            name="userIds"
-          >
-            {(field) => (
-              <UserPicker
-                emptyMessage="No matching volunteers found."
-                excludeUserIds={existingUserIds}
-                onValueChange={(ids) => field.handleChange(ids)}
-                users={allUsers ?? []}
-                value={field.state.value ?? []}
-              />
-            )}
-          </CustomField>
-          <form.Subscribe selector={(state) => state.values.userIds.length}>
-            {(count) => (
-              <FormActions
-                onCancel={() => handleOpenChange(false)}
-                submitLabel={
-                  count > 1 ? `Add ${count} Volunteers` : "Add Volunteer"
-                }
-                submittingLabel="Adding..."
-              />
-            )}
-          </form.Subscribe>
-        </FormLayout>
+        <AddEventMemberFormContent
+          eventId={eventId}
+          existingMembers={existingMembers}
+          key={formKey}
+          onOpenChange={onOpenChange}
+          open={open}
+        />
       </DialogContent>
     </Dialog>
   );

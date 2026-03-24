@@ -55,7 +55,7 @@ function GroupForm({
       await onSubmit(value);
     },
     validators: {
-      onBlur: groupSchema,
+      onChange: groupSchema,
       onSubmit: groupSchema,
     },
   });

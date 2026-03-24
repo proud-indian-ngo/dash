@@ -61,7 +61,7 @@ export function BankingSection() {
       }
     },
     validators: {
-      onBlur: bankAccountSchema,
+      onChange: bankAccountSchema,
       onSubmit: bankAccountSchema,
     },
   });
