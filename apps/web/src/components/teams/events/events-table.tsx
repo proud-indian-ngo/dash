@@ -116,6 +116,7 @@ function EventActionsMenu({
           <Button
             aria-label="Row actions"
             className="size-7"
+            data-testid="row-actions"
             size="icon"
             type="button"
             variant="ghost"
@@ -173,6 +174,10 @@ function OccurrencesSubTable({
         ),
         cell: ({ row }) =>
           format(new Date(row.original.startTime), "MMM d, yyyy h:mm a"),
+        meta: {
+          headerTitle: "Date/Time",
+          skeleton: SKELETON_DATETIME,
+        },
         size: 180,
       },
       {
@@ -181,6 +186,10 @@ function OccurrencesSubTable({
           <DataGridColumnHeader column={column} title="Location" />
         ),
         cell: ({ row }) => row.original.location || "\u2014",
+        meta: {
+          headerTitle: "Location",
+          skeleton: SKELETON_LOCATION,
+        },
         size: 140,
       },
       {
@@ -189,6 +198,10 @@ function OccurrencesSubTable({
           <DataGridColumnHeader column={column} title="Volunteers" />
         ),
         cell: ({ row }) => row.original.members.length,
+        meta: {
+          headerTitle: "Volunteers",
+          skeleton: SKELETON_COUNT,
+        },
         size: 80,
         enableSorting: false,
       },

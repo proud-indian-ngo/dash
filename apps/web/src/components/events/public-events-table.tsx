@@ -151,7 +151,11 @@ export function PublicEventsTable({
         id: "name",
         accessorFn: (row) => row.name,
         header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Event" visibility />
+          <DataGridColumnHeader
+            column={column}
+            title="Event"
+            visibility={true}
+          />
         ),
         cell: ({ row }) => (
           <Link
@@ -172,7 +176,7 @@ export function PublicEventsTable({
           <DataGridColumnHeader
             column={column}
             title="Date & Time"
-            visibility
+            visibility={true}
           />
         ),
         cell: ({ row }) => (
@@ -187,7 +191,11 @@ export function PublicEventsTable({
         id: "location",
         accessorFn: (row) => row.location,
         header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Location" visibility />
+          <DataGridColumnHeader
+            column={column}
+            title="Location"
+            visibility={true}
+          />
         ),
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
@@ -201,7 +209,11 @@ export function PublicEventsTable({
         id: "team",
         accessorFn: (row) => row.team?.name,
         header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Team" visibility />
+          <DataGridColumnHeader
+            column={column}
+            title="Team"
+            visibility={true}
+          />
         ),
         cell: ({ row }) => (
           <button
@@ -224,7 +236,11 @@ export function PublicEventsTable({
         id: "members",
         accessorFn: (row) => row.members.length,
         header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Volunteers" visibility />
+          <DataGridColumnHeader
+            column={column}
+            title="Volunteers"
+            visibility={true}
+          />
         ),
         cell: ({ row }) => (
           <Badge variant="secondary">{row.original.members.length}</Badge>
@@ -270,7 +286,7 @@ export function PublicEventsTable({
       isLoading={isLoading}
       searchFn={searchEvent}
       searchPlaceholder="Search events..."
-      storageKey="public_events_table_v1"
+      storageKey="public_events_table_state_v1"
       tableLayout={{
         columnsResizable: true,
         columnsDraggable: true,

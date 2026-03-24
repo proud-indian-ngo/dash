@@ -446,7 +446,13 @@ export function EventPhotos({
         await zero.mutate(mutators.eventPhoto.approve({ id, now: Date.now() }))
           .server;
         toast.success("Photo approved");
-      } catch {
+      } catch (error) {
+        log.error({
+          component: "EventPhotos",
+          action: "approve",
+          photoId: id,
+          error: error instanceof Error ? error.message : String(error),
+        });
         toast.error("Failed to approve photo");
       }
     },
@@ -459,7 +465,13 @@ export function EventPhotos({
         await zero.mutate(mutators.eventPhoto.reject({ id, now: Date.now() }))
           .server;
         toast.success("Photo rejected");
-      } catch {
+      } catch (error) {
+        log.error({
+          component: "EventPhotos",
+          action: "reject",
+          photoId: id,
+          error: error instanceof Error ? error.message : String(error),
+        });
         toast.error("Failed to reject photo");
       }
     },
@@ -468,14 +480,11 @@ export function EventPhotos({
 
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
-    onSuccess: () => toast.success("Photo deleted"),
-    onError: (msg) => {
-      log.error({
-        component: "EventPhotos",
-        mutation: "eventPhoto.delete",
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to delete photo");
+    mutationMeta: {
+      mutation: "eventPhoto.delete",
+      entityId: (id) => id,
+      successMsg: "Photo deleted",
+      errorMsg: "Failed to delete photo",
     },
   });
 

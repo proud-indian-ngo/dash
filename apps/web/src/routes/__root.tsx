@@ -24,7 +24,9 @@ if (import.meta.env.DEV) {
 }
 
 const LazyDevTools = import.meta.env.DEV
-  ? lazy(() => import("@/components/dev-tools"))
+  ? lazy(() =>
+      import("@/components/dev-tools").then((m) => ({ default: m.DevTools }))
+    )
   : () => null;
 
 export const Route = createRootRouteWithContext<RouterContext>()({
