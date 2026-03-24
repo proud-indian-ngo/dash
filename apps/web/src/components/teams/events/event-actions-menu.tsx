@@ -32,7 +32,7 @@ export function EventActionsMenu({
         render={
           <Button
             aria-label="Row actions"
-            className="size-7"
+            className="size-8"
             data-testid="row-actions"
             size="icon"
             type="button"

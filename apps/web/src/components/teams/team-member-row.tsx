@@ -74,7 +74,7 @@ export function MemberRow({
         {canRemove ? (
           <Button
             aria-label={`Remove ${user?.name ?? "member"}`}
-            className="size-7"
+            className="size-8"
             onClick={() => onRemove(member.id)}
             size="icon"
             type="button"

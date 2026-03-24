@@ -2,6 +2,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -70,9 +71,9 @@ export function ShowInterestDialog({
           <DialogTitle>
             Show Interest{eventName ? `: ${eventName}` : ""}
           </DialogTitle>
-          {eventDate ? (
-            <p className="text-muted-foreground text-sm">{eventDate}</p>
-          ) : null}
+          <DialogDescription className={eventDate ? "text-sm" : "sr-only"}>
+            {eventDate ?? "Express your interest in this event"}
+          </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {

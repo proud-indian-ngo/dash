@@ -115,7 +115,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <h1 className="font-semibold text-2xl">{request.title}</h1>

@@ -29,9 +29,9 @@ export function FormModal({
         <div className="flex items-start justify-between gap-3">
           <DialogHeader className="flex-1 place-items-start text-left">
             <DialogTitle>{title}</DialogTitle>
-            {description ? (
-              <DialogDescription>{description}</DialogDescription>
-            ) : null}
+            <DialogDescription className={description ? undefined : "sr-only"}>
+              {description ?? "Complete the form below"}
+            </DialogDescription>
           </DialogHeader>
         </div>
         <AppErrorBoundary level="section">{children}</AppErrorBoundary>
