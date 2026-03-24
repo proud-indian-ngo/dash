@@ -12,6 +12,8 @@ export {
 export { sendWhatsAppMessage } from "./messaging";
 export { formatPhoneForWhatsApp } from "./phone";
 export {
+  getEnabledUserPhones,
+  getUserPhoneIfEnabled,
   getWhatsAppNotifications,
   setWhatsAppNotifications,
 } from "./preferences";

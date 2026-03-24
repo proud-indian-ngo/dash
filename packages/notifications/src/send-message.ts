@@ -1,7 +1,7 @@
 import { env } from "@pi-dash/env/server";
 import {
-  getUserPhone,
-  getUserPhones,
+  getEnabledUserPhones,
+  getUserPhoneIfEnabled,
   sendWhatsAppMessage,
 } from "@pi-dash/whatsapp";
 import { createRequestLogger } from "evlog";
@@ -71,7 +71,7 @@ export async function sendMessage({
 
   const whatsappPromise = (async () => {
     try {
-      const phone = await getUserPhone(to);
+      const phone = await getUserPhoneIfEnabled(to);
       if (!phone) {
         return;
       }
@@ -161,7 +161,7 @@ export async function sendBulkMessage({
 
   const whatsappPromise = (async () => {
     try {
-      const phoneMap = await getUserPhones(userIds);
+      const phoneMap = await getEnabledUserPhones(userIds);
       if (phoneMap.size === 0) {
         return;
       }
