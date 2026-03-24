@@ -1,0 +1,161 @@
+# Architecture
+
+## Monorepo Overview
+
+Turborepo monorepo with Bun as package manager.
+
+| Package | Purpose |
+|---|---|
+| `apps/web` | Full-stack app — React + TanStack Start (SSR, file-based routing) |
+| `packages/auth` | Better Auth config, admin seed script |
+| `packages/db` | Drizzle ORM schema, migrations, Docker Compose (Postgres, WhatsApp) |
+| `packages/email` | React Email templates + Nodemailer transport |
+| `packages/env` | Zod-validated env contracts (`server.ts`, `web.ts`) via t3-env |
+| `packages/config` | Shared TypeScript & tooling config |
+| `packages/design-system` | shadcn/ui + reui components, theme provider |
+| `packages/notifications` | Courier multi-channel notifications (inbox, email, WhatsApp) |
+| `packages/observability` | `withTaskLog`, `withFireAndForgetLog` helpers |
+| `packages/whatsapp` | Self-hosted WhatsApp gateway client (go-whatsapp-web-multidevice) |
+| `packages/zero` | Rocicorp Zero — schema, queries, mutators, permissions |
+| `packages/e2e` | Playwright E2E tests |
+
+## Data Layer (Zero + Drizzle)
+
+### Schema Generation
+
+Drizzle is the source of truth for the database schema. Zero's client-side schema is **generated** from Drizzle:
+
+```
+packages/db/src/schema/*.ts  →  drizzle-zero generate  →  packages/zero/src/schema.ts (auto-generated)
+```
+
+Command: `bun run zero:generate` (runs `drizzle-zero generate -f -s ../db/src/schema/index.ts -o src/schema.ts`).
+
+### Mutators (Client + Server)
+
+Mutators are defined once in `packages/zero/src/mutators/` using `defineMutator()` from `@rocicorp/zero`. Each mutator receives `{ tx, ctx, args }`:
+
+- **`tx`** — transaction handle for reads (`tx.run(zql...)`) and writes (`tx.mutate.<table>.insert/update/delete`)
+- **`ctx`** — typed context (`Context` from `packages/zero/src/context.ts`) containing `userId`, `role`, and optional `asyncTasks[]`
+- **`args`** — Zod-validated input
+
+The same mutator code runs in two places:
+
+| Environment | Behavior |
+|---|---|
+| **Client** (browser) | Optimistic — applies changes to local SQLite replica immediately. `ctx.asyncTasks` is undefined. |
+| **Server** (`/api/zero/mutate`) | Authoritative — runs against Postgres via `zeroDrizzle` adapter. `ctx.asyncTasks` is populated by the route handler; mutators push notification/WhatsApp tasks onto it. After commit, the handler runs all async tasks via `withTaskLog`. |
+
+Mutators are split by domain (e.g., `bank-account.ts`, `reimbursement.ts`, `team.ts`) and aggregated in `packages/zero/src/mutators.ts`.
+
+### Queries
+
+Queries are defined in `packages/zero/src/queries/` using `defineQueries()`. On the client, queries run against the local SQLite replica for instant reads. On the server, the `/api/zero/query` endpoint resolves them against Postgres.
+
+### Permissions
+
+`packages/zero/src/permissions.ts` exports assertion functions (`assertIsLoggedIn`, `assertIsAdmin`) that throw on failure. These are called at the top of server-side mutator execution. On the client, they are no-ops (optimistic path trusts the UI).
+
+### Data Sync
+
+Zero handles real-time sync via PostgreSQL logical replication:
+
+1. PostgreSQL runs with `wal_level=logical` (configured in Docker Compose)
+2. `zero-cache` process connects to Postgres via `ZERO_UPSTREAM_DB` and tails the WAL
+3. Client connects to `zero-cache` via WebSocket (`VITE_ZERO_URL`)
+4. Client maintains a local SQLite replica — reads are instant, writes are optimistic
+5. Server-side mutations flow: client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients
+
+The Zero client is initialized in `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`, which receives the schema, mutators, and user context (userId + role).
+
+## Auth Flow
+
+### Setup
+
+Better Auth (`packages/auth/src/index.ts`) with:
+
+- **Drizzle adapter** — sessions, accounts, verification tokens stored in Postgres
+- **Admin plugin** — roles (`admin`, `volunteer`), ban/unban, impersonate
+- **Email/password** — sign-up disabled by design (admin creates accounts); email verification required
+- **Rate limiting** — per-endpoint limits (sign-in: 10/min, sign-up: 5/min)
+- **Session** — 7-day expiry, daily refresh
+
+### Session Lifecycle
+
+1. Admin creates user → verification email sent → user sets password
+2. User signs in → session cookie set (cross-subdomain via `COOKIE_DOMAIN` if configured)
+3. `_app` layout requires authentication — middleware at `apps/web/src/middleware/auth.ts`
+4. Server functions and API routes call `requireSession(request)` to validate
+5. Zero mutate/query endpoints extract session → build `{ userId, role }` context
+
+### Zero Auth Integration
+
+Zero cache forwards cookies to the app's mutate/query endpoints (`ZERO_MUTATE_FORWARD_COOKIES=true`). The app validates the session cookie and builds the Zero context — no separate JWT for Zero auth.
+
+## Notifications
+
+### Architecture
+
+```
+Zero mutator (server) → ctx.asyncTasks.push({ fn, meta })
+    → /api/zero/mutate handler awaits tasks after commit
+        → withTaskLog (retry + evlog)
+            → packages/notifications/src/send/*.ts
+                → sendMessage / sendBulkMessage
+                    → Courier (inbox + email) + WhatsApp (optional)
+```
+
+### Channels
+
+| Channel | Provider | Config |
+|---|---|---|
+| In-app inbox | Courier | `COURIER_API_KEY`; client-side JWT from `functions/courier-token.ts` |
+| Email | Courier | Routed through Courier's email channel |
+| WhatsApp | Self-hosted gateway | `WHATSAPP_API_URL`; per-user opt-in via phone number + preference check |
+
+### Topics & Preferences
+
+Notification topics defined in `packages/notifications/src/topics.ts` (GENERAL, ACCOUNT, EVENTS). Users manage per-topic preferences via settings dialog. `sendMessage` respects topic subscription preferences.
+
+## File Uploads
+
+### Cloudflare R2 (Attachments)
+
+1. Client requests presigned URL via `getPresignedUploadUrl` server function
+2. Client uploads directly to R2 via presigned PUT
+3. Object key stored in DB (attachment record)
+4. Download proxied through `/api/attachments/download`
+
+R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+
+### Immich (Event Photos)
+
+Optional integration for photo album management (`IMMICH_API_KEY` + `VITE_IMMICH_URL`).
+
+1. Member uploads photo → stored as event photo record
+2. Lead/admin approves → server uploads to Immich, creates/reuses album per event
+3. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`
+
+Implementation: `apps/web/src/lib/immich.ts`, `apps/web/src/functions/immich-upload.ts`.
+
+## Observability
+
+### Server-Side Logging (evlog)
+
+All server-side logging uses evlog wide events — never `console.error`.
+
+| Helper | Location | Purpose |
+|---|---|---|
+| `createRequestLogger()` | `evlog` | Creates a wide-event logger; use `log.set()` for context, `log.error()` for errors, `log.emit()` to flush |
+| `withTaskLog()` | `packages/observability` | Wraps async tasks with retry (p-retry, 3 attempts) + evlog |
+| `withFireAndForgetLog()` | `packages/observability` | Fire-and-forget with evlog (no retry, no re-throw) |
+
+Logger initialized at `apps/web/src/lib/logger.ts`, imported by `entry-server.ts`.
+
+### Client-Side Logging
+
+Client logger initialized in `apps/web/src/lib/client-logger.ts`. Errors shipped to `/api/log/ingest`. Client catch blocks use `log.error()` from `evlog` — never `console.error`.
+
+### Mutation Results
+
+`handleMutationResult()` from `apps/web/src/lib/mutation-result.ts` handles Zero mutation server results — logs via evlog + shows toast on error.

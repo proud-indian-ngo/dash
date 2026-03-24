@@ -93,8 +93,12 @@ For E2E structure details (projects, auth state, seeding, env), see `project-str
 
 - When completing a major feature, update `README.md` and `.ruler/agent-guide.md` to reflect new instructions.
 - When completing a structural change (new routes, env vars, file paths, patterns), update `project-structure.md`.
+- When completing an architectural change (data layer, auth, sync, notifications), update `ARCHITECTURE.md`.
+- When changing deployment requirements (env vars, services, build steps), update `DEPLOYMENT.md`.
 
 For project structure, file paths, command map, and architectural patterns, read `project-structure.md`.
+For system architecture (Zero integration, auth flow, notifications, file uploads), read `ARCHITECTURE.md`.
+For deployment and production setup, read `DEPLOYMENT.md`.
 
 ## GrepAI Usage Policy
 

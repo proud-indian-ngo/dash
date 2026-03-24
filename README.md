@@ -85,6 +85,8 @@ pi-dash/
 │       ├── global-setup.ts # Authenticates admin & volunteer sessions
 │       ├── playwright.config.ts
 │       └── run-e2e.sh      # Full-stack test orchestration script
+├── ARCHITECTURE.md         # System architecture (Zero, auth, sync, notifications)
+├── DEPLOYMENT.md           # Production deployment guide
 ├── biome.jsonc             # Biome linter config (via ultracite)
 ├── .env.sample             # Environment variable template
 └── turbo.json              # Task orchestration
