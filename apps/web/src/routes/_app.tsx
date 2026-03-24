@@ -7,6 +7,7 @@ import {
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useCourier } from "@trycourier/courier-react";
+import { log } from "evlog";
 import { useEffect, useRef } from "react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -42,11 +43,20 @@ function CourierAuth() {
     }
     signedInRef.current = true;
 
-    getCourierToken().then(({ token }) => {
-      if (token) {
-        courier.shared.signIn({ userId: user.id, jwt: token });
-      }
-    });
+    getCourierToken()
+      .then(({ token }) => {
+        if (token) {
+          courier.shared.signIn({ userId: user.id, jwt: token });
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          component: "CourierAuth",
+          action: "signIn",
+          userId: user.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
   }, [user.id, courier]);
 
   return null;
