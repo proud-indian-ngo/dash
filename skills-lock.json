@@ -176,6 +176,11 @@
       "sourceType": "github",
       "computedHash": "efa8db174b3c60e27b34d76842e3a9a7c0e5e602fd4d66eec897372d0ce3f30b"
     },
+    "react-typescript": {
+      "source": "tenequm/claude-plugins",
+      "sourceType": "github",
+      "computedHash": "8133a33602445a37435720ecb13838495f995ca5854e0b917cf81cf26551fab3"
+    },
     "review-logging-patterns": {
       "source": "hugorcd/evlog",
       "sourceType": "github",
