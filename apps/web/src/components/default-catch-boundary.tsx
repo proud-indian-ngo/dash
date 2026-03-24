@@ -10,7 +10,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { log } from "evlog";
-import { useContext, useEffect, useRef } from "react";
+import { use, useEffect, useRef } from "react";
 import { AppContext } from "@/context/app-context";
 
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
@@ -20,7 +20,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     select: (state) => state.id === rootRouteId,
   });
 
-  const appCtx = useContext(AppContext);
+  const appCtx = use(AppContext);
   const isAdmin = appCtx?.isAdmin ?? false;
 
   const canGoBack = useCanGoBack();

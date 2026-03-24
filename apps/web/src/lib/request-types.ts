@@ -107,11 +107,11 @@ export function isVendorPayment(row: RequestRow | RequestDetailData): boolean {
   return row.type === "vendor_payment";
 }
 
-export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
+export const REQUEST_TYPE_LABELS = {
   reimbursement: "Reimbursement",
   advance_payment: "Advance Payment",
   vendor_payment: "Vendor Payment",
-};
+} satisfies Record<RequestType, string>;
 
 export function normalizeToRequestRows(
   reimbursements: readonly Omit<ReimbursementRequestRow, "type">[],

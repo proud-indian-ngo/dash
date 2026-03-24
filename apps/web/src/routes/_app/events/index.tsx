@@ -2,7 +2,7 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import {
   type PublicEventRow,
   PublicEventsTable,
@@ -30,13 +30,13 @@ function PublicEventsRouteComponent() {
   const isLoading = useZeroQueryStatus(result);
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());
-  const myTeamIds = useMemo(() => new Set(myTeams.map((t) => t.id)), [myTeams]);
+  const myTeamIds = new Set(myTeams.map((t) => t.id));
 
   const [interestEventId, setInterestEventId] = useState<string | null>(null);
 
-  const handleShowInterest = useCallback((eventId: string) => {
+  const handleShowInterest = (eventId: string) => {
     setInterestEventId(eventId);
-  }, []);
+  };
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">

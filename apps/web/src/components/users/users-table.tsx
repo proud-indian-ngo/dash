@@ -11,7 +11,7 @@ import {
 import type { User } from "@pi-dash/zero/schema";
 import type { VisibilityState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -394,53 +394,34 @@ export function UsersTable({
 }: UsersTableProps) {
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
 
-  const handleFilteredDataChange = useCallback(
-    (filtered: User[]) => {
-      if (
-        activeRowForm &&
-        !filtered.some((u) => u.id === activeRowForm.userId)
-      ) {
-        setActiveRowForm(null);
-      }
-    },
-    [activeRowForm]
-  );
+  const handleFilteredDataChange = (filtered: User[]) => {
+    if (activeRowForm && !filtered.some((u) => u.id === activeRowForm.userId)) {
+      setActiveRowForm(null);
+    }
+  };
 
-  const columns = useMemo(
-    () =>
-      createUserColumns((user) => (
-        <UserRowActions
-          activeRowForm={activeRowForm}
-          onBanUser={onBanUser}
-          onCloseForm={(kind) => {
-            setActiveRowForm((current) =>
-              current?.kind === kind && current.userId === user.id
-                ? null
-                : current
-            );
-          }}
-          onDelete={onDelete}
-          onOpenForm={(kind) => {
-            setActiveRowForm({
-              kind,
-              userId: user.id,
-            });
-          }}
-          onSetPassword={onSetPassword}
-          onUnbanUser={onUnbanUser}
-          onUpdateUser={onUpdateUser}
-          user={user}
-        />
-      )),
-    [
-      activeRowForm,
-      onBanUser,
-      onDelete,
-      onSetPassword,
-      onUnbanUser,
-      onUpdateUser,
-    ]
-  );
+  const columns = createUserColumns((user) => (
+    <UserRowActions
+      activeRowForm={activeRowForm}
+      onBanUser={onBanUser}
+      onCloseForm={(kind) => {
+        setActiveRowForm((current) =>
+          current?.kind === kind && current.userId === user.id ? null : current
+        );
+      }}
+      onDelete={onDelete}
+      onOpenForm={(kind) => {
+        setActiveRowForm({
+          kind,
+          userId: user.id,
+        });
+      }}
+      onSetPassword={onSetPassword}
+      onUnbanUser={onUnbanUser}
+      onUpdateUser={onUpdateUser}
+      user={user}
+    />
+  ));
 
   return (
     <DataTableWrapper<User>

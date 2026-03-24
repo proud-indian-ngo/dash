@@ -9,7 +9,7 @@ import {
   useComboboxAnchor,
 } from "@pi-dash/design-system/components/ui/combobox";
 import type { User } from "@pi-dash/zero/schema";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 interface UserPickerProps {
@@ -32,7 +32,7 @@ export function UserPicker({
   const [searchQuery, setSearchQuery] = useState("");
   const anchorRef = useComboboxAnchor();
 
-  const filteredUsers = useMemo(() => {
+  const filteredUsers = (() => {
     let list = excludeUserIds
       ? users.filter((u) => !excludeUserIds.has(u.id))
       : users;
@@ -45,9 +45,9 @@ export function UserPicker({
       );
     }
     return list;
-  }, [users, excludeUserIds, searchQuery]);
+  })();
 
-  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const userMap = new Map(users.map((u) => [u.id, u]));
 
   return (
     <Combobox

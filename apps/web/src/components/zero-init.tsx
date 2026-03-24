@@ -4,8 +4,7 @@ import { schema } from "@pi-dash/zero/schema";
 import type { Zero } from "@rocicorp/zero";
 import { ZeroProvider } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { authClient } from "@/lib/auth-client";
 import type { UserRole } from "@/lib/db-enums";
 
@@ -18,18 +17,11 @@ export function ZeroInit({ children }: ZeroInitProps) {
   const { data: session } = authClient.useSession();
   const role = (session?.user.role ?? "volunteer") as UserRole;
   const userID = session?.user.id ?? "anon";
-  const context = useMemo(() => {
-    if (!session) {
-      return {
-        userId: "anon",
-      };
-    }
+  const context = useMemo(
+    () => (session ? { role, userId: session.user.id } : { userId: "anon" }),
+    [role, session]
+  );
 
-    return {
-      role,
-      userId: session.user.id,
-    };
-  }, [role, session]);
   const init = useCallback(
     (zero: Zero) => {
       router.update({

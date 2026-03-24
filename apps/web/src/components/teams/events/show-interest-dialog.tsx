@@ -10,7 +10,7 @@ import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -39,7 +39,7 @@ export function ShowInterestDialog({
     }
   }, [open]);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     const id = uuidv7();
     const res = await zero.mutate(
@@ -61,7 +61,7 @@ export function ShowInterestDialog({
       setMessage("");
       onOpenChange(false);
     }
-  }, [zero, eventId, message, onOpenChange]);
+  };
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

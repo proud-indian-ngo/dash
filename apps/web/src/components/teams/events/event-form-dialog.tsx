@@ -10,7 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -290,16 +290,13 @@ export function EventFormDialog({
   const [formKey, setFormKey] = useState(0);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
-  const waGroupOptions = useMemo(
-    () => [
-      { label: "None", value: "" },
-      ...(whatsappGroups ?? []).map((g: WhatsappGroup) => ({
-        label: g.name,
-        value: g.id,
-      })),
-    ],
-    [whatsappGroups]
-  );
+  const waGroupOptions = [
+    { label: "None", value: "" },
+    ...(whatsappGroups ?? []).map((g: WhatsappGroup) => ({
+      label: g.name,
+      value: g.id,
+    })),
+  ];
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {

@@ -6,7 +6,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
@@ -32,18 +32,15 @@ function TeamsRouteComponent() {
   const [data, result] = useQuery(queries.team.all());
   const isLoading = useZeroQueryStatus(result);
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      const res = await zero.mutate(mutators.team.delete({ id })).server;
-      handleMutationResult(res, {
-        mutation: "team.delete",
-        entityId: id,
-        successMsg: "Team deleted",
-        errorMsg: "Failed to delete team",
-      });
-    },
-    [zero]
-  );
+  const handleDelete = async (id: string) => {
+    const res = await zero.mutate(mutators.team.delete({ id })).server;
+    handleMutationResult(res, {
+      mutation: "team.delete",
+      entityId: id,
+      successMsg: "Team deleted",
+      errorMsg: "Failed to delete team",
+    });
+  };
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">

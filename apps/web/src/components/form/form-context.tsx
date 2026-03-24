@@ -4,7 +4,7 @@ import type {
   FieldValidators,
 } from "@tanstack/react-form";
 import type { ReactNode } from "react";
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 export type FormFieldError = { message?: string } | undefined;
 
@@ -81,7 +81,7 @@ export function FormContextProvider({
   children,
   form,
 }: FormContextProviderProps) {
-  return <FormContext.Provider value={form}>{children}</FormContext.Provider>;
+  return <FormContext value={form}>{children}</FormContext>;
 }
 
 export function getFieldErrorState(field: FormFieldApi, submitted = false) {
@@ -103,7 +103,7 @@ export function useResolvedForm(
   form: FormInstance | undefined,
   componentName: string
 ): FormInstance {
-  const contextForm = useContext(FormContext);
+  const contextForm = use(FormContext);
   const resolvedForm = form ?? contextForm;
 
   if (!resolvedForm) {

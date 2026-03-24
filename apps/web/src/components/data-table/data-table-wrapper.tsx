@@ -50,7 +50,7 @@ import {
 } from "@tanstack/react-table";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
@@ -112,13 +112,9 @@ export function DataTableWrapper<TData extends object>({
   toolbarActions,
   toolbarFilters,
 }: DataTableWrapperProps<TData>) {
-  const initialColumnOrder = useMemo(
-    () =>
-      columns
-        .map((column) => column.id)
-        .filter((id): id is string => typeof id === "string"),
-    [columns]
-  );
+  const initialColumnOrder = columns
+    .map((column) => column.id)
+    .filter((id): id is string => typeof id === "string");
 
   const {
     state: {
@@ -168,45 +164,32 @@ export function DataTableWrapper<TData extends object>({
 
   const [expanded, setExpanded] = useState<ExpandedState>({});
 
-  const resetPage = useCallback(() => {
+  const resetPage = () => {
     setPagination((current) => ({
       ...current,
       pageIndex: 0,
     }));
-  }, [setPagination]);
+  };
 
-  const globalFilterFn = useCallback<FilterFn<TData>>(
-    (row, _columnId, value) => searchFn(row.original, String(value ?? "")),
-    [searchFn]
-  );
+  const globalFilterFn: FilterFn<TData> = (row, _columnId, value) =>
+    searchFn(row.original, String(value ?? ""));
 
-  const onGlobalFilterChange = useCallback(
-    (updater: Updater<unknown>) => {
-      const nextGlobalFilter = String(
-        resolveUpdater(updater, searchQuery) ?? ""
-      );
-      resetPage();
-      setSearchQuery(nextGlobalFilter);
-    },
-    [resetPage, searchQuery, setSearchQuery]
-  );
+  const onGlobalFilterChange = (updater: Updater<unknown>) => {
+    const nextGlobalFilter = String(resolveUpdater(updater, searchQuery) ?? "");
+    resetPage();
+    setSearchQuery(nextGlobalFilter);
+  };
 
-  const onPaginationChange = useCallback(
-    (updater: Updater<PaginationState>) => {
-      const nextPagination = resolveUpdater(updater, pagination);
-      setPagination(nextPagination);
-    },
-    [pagination, setPagination]
-  );
+  const onPaginationChange = (updater: Updater<PaginationState>) => {
+    const nextPagination = resolveUpdater(updater, pagination);
+    setPagination(nextPagination);
+  };
 
-  const onSortingChange = useCallback(
-    (updater: Updater<SortingState>) => {
-      const nextSorting = resolveUpdater(updater, sorting);
-      resetPage();
-      setSorting(nextSorting);
-    },
-    [resetPage, setSorting, sorting]
-  );
+  const onSortingChange = (updater: Updater<SortingState>) => {
+    const nextSorting = resolveUpdater(updater, sorting);
+    resetPage();
+    setSorting(nextSorting);
+  };
 
   const table = useReactTable({
     columns,
@@ -243,40 +226,34 @@ export function DataTableWrapper<TData extends object>({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const handleColumnDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
 
-      if (!over || active.id === over.id) {
-        return;
-      }
+    if (!over || active.id === over.id) {
+      return;
+    }
 
-      const activeColumnId = String(active.id);
-      const overColumnId = String(over.id);
-      const activeColumn = table.getColumn(activeColumnId);
-      const overColumn = table.getColumn(overColumnId);
+    const activeColumnId = String(active.id);
+    const overColumnId = String(over.id);
+    const activeColumn = table.getColumn(activeColumnId);
+    const overColumn = table.getColumn(overColumnId);
 
-      if (activeColumn?.getIsPinned() || overColumn?.getIsPinned()) {
-        return;
-      }
+    if (activeColumn?.getIsPinned() || overColumn?.getIsPinned()) {
+      return;
+    }
 
-      const oldIndex = columnOrder.indexOf(activeColumnId);
-      const newIndex = columnOrder.indexOf(overColumnId);
+    const oldIndex = columnOrder.indexOf(activeColumnId);
+    const newIndex = columnOrder.indexOf(overColumnId);
 
-      if (oldIndex < 0 || newIndex < 0) {
-        return;
-      }
+    if (oldIndex < 0 || newIndex < 0) {
+      return;
+    }
 
-      setColumnOrder(arrayMove(columnOrder, oldIndex, newIndex));
-    },
-    [columnOrder, setColumnOrder, table]
-  );
+    setColumnOrder(arrayMove(columnOrder, oldIndex, newIndex));
+  };
 
   const filteredRows = table.getFilteredRowModel().rows;
-  const filteredData = useMemo(
-    () => filteredRows.map((row) => row.original),
-    [filteredRows]
-  );
+  const filteredData = filteredRows.map((row) => row.original);
 
   useEffect(() => {
     onFilteredDataChange?.(filteredData);

@@ -7,7 +7,7 @@ import type {
 } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
@@ -95,7 +95,7 @@ function RequestFormInner({
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
-  const entityId = useMemo(() => existingId ?? uuidv7(), [existingId]);
+  const entityId = existingId ?? uuidv7();
 
   const categoryList = useStableQueryResult(
     (categories ?? []) as ExpenseCategory[],
@@ -114,12 +114,8 @@ function RequestFormInner({
     pendingVendorsResult
   );
 
-  const vendorList = useMemo(
-    () =>
-      [...approvedVendorList, ...pendingVendorList].sort((a, b) =>
-        a.name.localeCompare(b.name)
-      ),
-    [approvedVendorList, pendingVendorList]
+  const vendorList = [...approvedVendorList, ...pendingVendorList].sort(
+    (a, b) => a.name.localeCompare(b.name)
   );
 
   const bankAccountOptions = bankAccountList.map((account) => ({
@@ -136,7 +132,7 @@ function RequestFormInner({
 
   const isVendorPayment = requestType === "vendor_payment";
 
-  const strippedInitialValues = useMemo(() => {
+  const strippedInitialValues = (() => {
     if (!initialValues || requestType === "reimbursement") {
       return initialValues;
     }
@@ -146,7 +142,7 @@ function RequestFormInner({
         expenseDate?: string;
       };
     return rest;
-  }, [initialValues, requestType]);
+  })();
 
   const form = useForm({
     defaultValues: {

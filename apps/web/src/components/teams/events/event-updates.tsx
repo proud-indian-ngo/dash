@@ -5,7 +5,7 @@ import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { log } from "evlog";
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -44,55 +44,49 @@ export function EventUpdates({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const handleCreate = useCallback(
-    async (content: string) => {
-      setSaving(true);
-      try {
-        const now = Date.now();
-        const id = uuidv7();
-        const res = await zero.mutate(
-          mutators.eventUpdate.create({
-            id,
-            eventId,
-            content,
-            now,
-          })
-        ).server;
-        handleMutationResult(res, {
-          mutation: "eventUpdate.create",
-          entityId: id,
-          successMsg: "Update posted",
-          errorMsg: "Failed to post update",
-        });
-      } finally {
-        setSaving(false);
-      }
-    },
-    [zero, eventId]
-  );
+  const handleCreate = async (content: string) => {
+    setSaving(true);
+    try {
+      const now = Date.now();
+      const id = uuidv7();
+      const res = await zero.mutate(
+        mutators.eventUpdate.create({
+          id,
+          eventId,
+          content,
+          now,
+        })
+      ).server;
+      handleMutationResult(res, {
+        mutation: "eventUpdate.create",
+        entityId: id,
+        successMsg: "Update posted",
+        errorMsg: "Failed to post update",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const handleUpdate = useCallback(
-    async (id: string, content: string) => {
-      setSaving(true);
-      try {
-        const res = await zero.mutate(
-          mutators.eventUpdate.update({ id, content, now: Date.now() })
-        ).server;
-        handleMutationResult(res, {
-          mutation: "eventUpdate.update",
-          entityId: id,
-          successMsg: "Update saved",
-          errorMsg: "Failed to update",
-        });
-        if (res.type !== "error") {
-          setEditingId(null);
-        }
-      } finally {
-        setSaving(false);
+  const handleUpdate = async (id: string, content: string) => {
+    setSaving(true);
+    try {
+      const res = await zero.mutate(
+        mutators.eventUpdate.update({ id, content, now: Date.now() })
+      ).server;
+      handleMutationResult(res, {
+        mutation: "eventUpdate.update",
+        entityId: id,
+        successMsg: "Update saved",
+        errorMsg: "Failed to update",
+      });
+      if (res.type !== "error") {
+        setEditingId(null);
       }
-    },
-    [zero]
-  );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,

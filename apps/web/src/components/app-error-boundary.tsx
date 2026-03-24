@@ -2,14 +2,14 @@ import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { log } from "evlog";
-import { type ReactNode, useContext } from "react";
+import { type ReactNode, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { AppContext } from "@/context/app-context";
 
 type Level = "root" | "section" | "inline";
 
 function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
-  const appCtx = useContext(AppContext);
+  const appCtx = use(AppContext);
   const isAdmin = appCtx?.isAdmin ?? false;
 
   return (
@@ -50,7 +50,7 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
 }
 
 function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
-  const appCtx = useContext(AppContext);
+  const appCtx = use(AppContext);
   const isAdmin = appCtx?.isAdmin ?? false;
 
   return (
@@ -79,7 +79,7 @@ function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
 }
 
 function InlineFallback({ error, resetErrorBoundary }: FallbackProps) {
-  const appCtx = useContext(AppContext);
+  const appCtx = use(AppContext);
   const isAdmin = appCtx?.isAdmin ?? false;
 
   return (

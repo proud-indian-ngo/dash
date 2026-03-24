@@ -8,7 +8,6 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { parseAsString, useQueryState } from "nuqs";
-import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeRequestStats } from "@/components/requests/request-stats";
@@ -90,17 +89,13 @@ function RequestsRouteComponent() {
     parseAsString.withDefault("")
   );
 
-  const allData = useMemo(
-    () =>
-      normalizeToRequestRows(
-        reimbursements ?? [],
-        advancePayments ?? [],
-        vendorPayments ?? []
-      ),
-    [reimbursements, advancePayments, vendorPayments]
+  const allData = normalizeToRequestRows(
+    reimbursements ?? [],
+    advancePayments ?? [],
+    vendorPayments ?? []
   );
 
-  const filteredData = useMemo(() => {
+  const filteredData = (() => {
     let result = allData;
     if (statusFilter) {
       result = result.filter((r) => r.status === statusFilter);
@@ -109,40 +104,37 @@ function RequestsRouteComponent() {
       result = result.filter((r) => r.type === typeFilter);
     }
     return result;
-  }, [allData, statusFilter, typeFilter]);
+  })();
 
-  const handleDelete = useCallback(
-    async (row: RequestRow) => {
-      const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
-      try {
-        const item = await fetchRequestItem(zero, row);
-        const r2Keys =
-          item?.attachments
-            ?.filter((a) => a.type === "file" && a.objectKey)
-            .map((a) => a.objectKey as string) ?? [];
+  const handleDelete = async (row: RequestRow) => {
+    const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
+    try {
+      const item = await fetchRequestItem(zero, row);
+      const r2Keys =
+        item?.attachments
+          ?.filter((a) => a.type === "file" && a.objectKey)
+          .map((a) => a.objectKey as string) ?? [];
 
-        if (r2Keys.length > 0) {
-          await deleteUploadedAssets({
-            data: { keys: r2Keys, subfolder: "attachments" },
-          });
-        }
-
-        const mutatorNs = getMutatorNs(row.type);
-        await zero.mutate(mutatorNs.delete({ id: row.id }));
-        toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
-      } catch (error) {
-        log.error({
-          component: "RequestsIndex",
-          action: "delete",
-          requestId: row.id,
-          type: row.type,
-          error: error instanceof Error ? error.message : String(error),
+      if (r2Keys.length > 0) {
+        await deleteUploadedAssets({
+          data: { keys: r2Keys, subfolder: "attachments" },
         });
-        toast.error(`Failed to delete ${typeLabel}`);
       }
-    },
-    [zero]
-  );
+
+      const mutatorNs = getMutatorNs(row.type);
+      await zero.mutate(mutatorNs.delete({ id: row.id }));
+      toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
+    } catch (error) {
+      log.error({
+        component: "RequestsIndex",
+        action: "delete",
+        requestId: row.id,
+        type: row.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error(`Failed to delete ${typeLabel}`);
+    }
+  };
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">

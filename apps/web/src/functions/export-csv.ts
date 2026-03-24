@@ -12,6 +12,7 @@ import {
 } from "@pi-dash/db/schema/reimbursement";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import z from "zod";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -78,17 +79,36 @@ function groupAttachments<T extends ExportAttachment & { parentId: string }>(
   return map;
 }
 
+type MainTable = typeof reimbursement | typeof advancePayment;
+type LineItemTable =
+  | typeof reimbursementLineItem
+  | typeof advancePaymentLineItem;
+type AttachmentTable =
+  | typeof reimbursementAttachment
+  | typeof advancePaymentAttachment;
+
 interface QueryConfig {
-  attachmentJoinColumn: string;
-  // biome-ignore lint: Drizzle table generics are impractical to spell out
-  attachmentTable: any;
+  attachmentJoinCol: AnyPgColumn;
+  attachmentTable: AttachmentTable;
   hasExpenseDate: boolean;
-  lineItemJoinColumn: string;
-  // biome-ignore lint: Drizzle table generics are impractical to spell out
-  lineItemTable: any;
-  // biome-ignore lint: Drizzle table generics are impractical to spell out
-  mainTable: any;
+  lineItemAmountCol: AnyPgColumn;
+  lineItemJoinCol: AnyPgColumn;
+  lineItemTable: LineItemTable;
+  mainTable: MainTable;
   typeLabel: string;
+}
+
+interface RawResultRow {
+  city: string | null;
+  createdAt: Date;
+  createdBy: string | null;
+  email: string;
+  expenseDate?: string | null;
+  id: string;
+  status: string;
+  submittedAt: Date | null;
+  title: string;
+  total: string | null;
 }
 
 async function queryExportRows(
@@ -105,19 +125,18 @@ async function queryExportRows(
     statusFilter ? inArray(mainTable.status, statusFilter) : undefined
   );
 
-  // biome-ignore lint: dynamic field construction requires any cast for Drizzle
-  const selectFields: any = {
+  const selectFields: Record<string, AnyPgColumn | ReturnType<typeof sum>> = {
     id: mainTable.id,
     title: mainTable.title,
     createdBy: user.name,
     email: user.email,
     status: mainTable.status,
-    total: sum(lineItemTable.amount),
+    total: sum(config.lineItemAmountCol),
     city: mainTable.city,
     submittedAt: mainTable.submittedAt,
     createdAt: mainTable.createdAt,
   };
-  const groupByFields = [
+  const groupByFields: AnyPgColumn[] = [
     mainTable.id,
     mainTable.title,
     user.name,
@@ -129,27 +148,25 @@ async function queryExportRows(
   ];
 
   if (config.hasExpenseDate) {
-    selectFields.expenseDate = mainTable.expenseDate;
-    groupByFields.push(mainTable.expenseDate);
+    const expenseDateCol = (mainTable as typeof reimbursement).expenseDate;
+    selectFields.expenseDate = expenseDateCol;
+    groupByFields.push(expenseDateCol);
   }
 
-  const results = await db
+  const results = (await db
     .select(selectFields)
     .from(mainTable)
     .innerJoin(user, eq(mainTable.userId, user.id))
-    .leftJoin(
-      lineItemTable,
-      eq(lineItemTable[config.lineItemJoinColumn], mainTable.id)
-    )
+    .leftJoin(lineItemTable, eq(config.lineItemJoinCol, mainTable.id))
     .where(whereClause)
-    .groupBy(...groupByFields);
+    .groupBy(...groupByFields)) as unknown as RawResultRow[];
 
   const ids: string[] = results.map((r) => r.id);
   const rawAttachments =
     ids.length > 0
       ? await db
           .select({
-            parentId: attachmentTable[config.attachmentJoinColumn],
+            parentId: config.attachmentJoinCol,
             type: attachmentTable.type,
             filename: attachmentTable.filename,
             objectKey: attachmentTable.objectKey,
@@ -157,36 +174,34 @@ async function queryExportRows(
             mimeType: attachmentTable.mimeType,
           })
           .from(attachmentTable)
-          .where(inArray(attachmentTable[config.attachmentJoinColumn], ids))
+          .where(inArray(config.attachmentJoinCol, ids))
       : [];
 
   const attachmentsByRecord = groupAttachments(rawAttachments);
 
-  return results.map(
-    // biome-ignore lint: result shape is dynamic due to optional expenseDate
-    (r: any) => ({
-      type: typeLabel,
-      title: r.title,
-      createdBy: r.createdBy,
-      email: r.email,
-      status: r.status,
-      total: r.total ?? "0",
-      city: r.city ?? "",
-      expenseDate: r.expenseDate ?? "",
-      submittedAt: r.submittedAt?.toISOString() ?? "",
-      createdAt: r.createdAt.toISOString(),
-      attachments: attachmentsByRecord.get(r.id) ?? [],
-    })
-  );
+  return results.map((r) => ({
+    type: typeLabel,
+    title: r.title,
+    createdBy: r.createdBy ?? "",
+    email: r.email,
+    status: r.status,
+    total: r.total ?? "0",
+    city: r.city ?? "",
+    expenseDate: r.expenseDate ?? "",
+    submittedAt: r.submittedAt?.toISOString() ?? "",
+    createdAt: r.createdAt.toISOString(),
+    attachments: attachmentsByRecord.get(r.id) ?? [],
+  }));
 }
 
 const reimbursementConfig: QueryConfig = {
   typeLabel: "Reimbursement",
   mainTable: reimbursement,
   lineItemTable: reimbursementLineItem,
-  lineItemJoinColumn: "reimbursementId",
+  lineItemJoinCol: reimbursementLineItem.reimbursementId,
+  lineItemAmountCol: reimbursementLineItem.amount,
   attachmentTable: reimbursementAttachment,
-  attachmentJoinColumn: "reimbursementId",
+  attachmentJoinCol: reimbursementAttachment.reimbursementId,
   hasExpenseDate: true,
 };
 
@@ -194,9 +209,10 @@ const advancePaymentConfig: QueryConfig = {
   typeLabel: "Advance Payment",
   mainTable: advancePayment,
   lineItemTable: advancePaymentLineItem,
-  lineItemJoinColumn: "advancePaymentId",
+  lineItemJoinCol: advancePaymentLineItem.advancePaymentId,
+  lineItemAmountCol: advancePaymentLineItem.amount,
   attachmentTable: advancePaymentAttachment,
-  attachmentJoinColumn: "advancePaymentId",
+  attachmentJoinCol: advancePaymentAttachment.advancePaymentId,
   hasExpenseDate: false,
 };
 

@@ -18,7 +18,6 @@ import type {
 } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -115,105 +114,98 @@ export function TeamsTable({
     onError: () => toast.error("Failed to delete team"),
   });
 
-  const columns = useMemo<ColumnDef<TeamRow>[]>(
-    () => [
-      {
-        id: "name",
-        accessorFn: (row) => row.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Name"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <button
-            className="text-left font-medium text-sm hover:underline"
-            data-testid="row-title"
-            onClick={() => onNavigate(row.original.id)}
-            type="button"
-          >
-            {row.original.name}
-          </button>
-        ),
-        meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
-        size: 200,
-      },
-      {
-        id: "description",
-        accessorFn: (row) => row.description,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Description"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.description || "—"}
-          </span>
-        ),
-        meta: { headerTitle: "Description", skeleton: SKELETON_DESC },
-        size: 280,
-      },
-      {
-        id: "members",
-        accessorFn: (row) => row.members.length,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Members"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm">{row.original.members.length}</span>
-        ),
-        meta: { headerTitle: "Members", skeleton: SKELETON_COUNT },
-        size: 100,
-      },
-      {
-        id: "whatsappGroup",
-        accessorFn: (row) => row.whatsappGroup?.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="WhatsApp Group"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.whatsappGroup?.name || "—"}
-          </span>
-        ),
-        meta: { headerTitle: "WhatsApp Group", skeleton: SKELETON_WA },
-        size: 180,
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <RowActions
-            id={row.original.id}
-            isAdmin={isAdmin}
-            onNavigate={onNavigate}
-            onRequestDelete={() => deleteAction.trigger(row.original.id)}
-          />
-        ),
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        enableColumnOrdering: false,
-        meta: { cellClassName: "text-center" },
-        size: 52,
-        minSize: 52,
-      },
-    ],
-    [isAdmin, onNavigate, deleteAction.trigger]
-  );
+  const columns: ColumnDef<TeamRow>[] = [
+    {
+      id: "name",
+      accessorFn: (row) => row.name,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <button
+          className="text-left font-medium text-sm hover:underline"
+          data-testid="row-title"
+          onClick={() => onNavigate(row.original.id)}
+          type="button"
+        >
+          {row.original.name}
+        </button>
+      ),
+      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      size: 200,
+    },
+    {
+      id: "description",
+      accessorFn: (row) => row.description,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Description"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {row.original.description || "—"}
+        </span>
+      ),
+      meta: { headerTitle: "Description", skeleton: SKELETON_DESC },
+      size: 280,
+    },
+    {
+      id: "members",
+      accessorFn: (row) => row.members.length,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Members"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.members.length}</span>
+      ),
+      meta: { headerTitle: "Members", skeleton: SKELETON_COUNT },
+      size: 100,
+    },
+    {
+      id: "whatsappGroup",
+      accessorFn: (row) => row.whatsappGroup?.name,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="WhatsApp Group"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {row.original.whatsappGroup?.name || "—"}
+        </span>
+      ),
+      meta: { headerTitle: "WhatsApp Group", skeleton: SKELETON_WA },
+      size: 180,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <RowActions
+          id={row.original.id}
+          isAdmin={isAdmin}
+          onNavigate={onNavigate}
+          onRequestDelete={() => deleteAction.trigger(row.original.id)}
+        />
+      ),
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      enableColumnOrdering: false,
+      meta: { cellClassName: "text-center" },
+      size: 52,
+      minSize: 52,
+    },
+  ];
 
   return (
     <>

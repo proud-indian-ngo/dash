@@ -24,7 +24,7 @@ export function AuthLayout({ children, panel }: AuthLayoutProps) {
           <div className="w-full max-w-sm">{children}</div>
         </div>
       </div>
-      <div className="hidden bg-gradient-to-b from-[#008aad] to-[#005f7a] lg:flex lg:items-center lg:justify-center lg:p-10">
+      <div className="hidden bg-gradient-to-b from-sidebar to-sidebar-accent text-sidebar-foreground lg:flex lg:items-center lg:justify-center lg:p-10">
         {panel}
       </div>
     </main>

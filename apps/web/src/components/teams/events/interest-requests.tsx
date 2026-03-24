@@ -7,7 +7,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { LOCALE_DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -22,7 +22,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
   const zero = useZero();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleApprove = useCallback(async () => {
+  const handleApprove = async () => {
     setIsSubmitting(true);
     const res = await zero.mutate(
       mutators.eventInterest.approve({ id: interest.id, now: Date.now() })
@@ -34,9 +34,9 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
       successMsg: "Interest approved",
       errorMsg: "Failed to approve interest",
     });
-  }, [zero, interest.id]);
+  };
 
-  const handleReject = useCallback(async () => {
+  const handleReject = async () => {
     setIsSubmitting(true);
     const res = await zero.mutate(
       mutators.eventInterest.reject({ id: interest.id, now: Date.now() })
@@ -48,7 +48,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
       successMsg: "Interest rejected",
       errorMsg: "Failed to reject interest",
     });
-  }, [zero, interest.id]);
+  };
 
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">

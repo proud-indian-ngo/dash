@@ -1,6 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { deleteUploadedAsset } from "@/functions/attachments";
 import type { Attachment } from "@/lib/form-schemas";
@@ -17,38 +17,35 @@ export const useAttachmentActions = ({
   const deleteAsset = useServerFn(deleteUploadedAsset);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
-  const removeAttachment = useCallback(
-    async (attachment: Attachment) => {
-      const attachmentId = attachment.id;
-      setDeletingIds((prev) => new Set(prev).add(attachmentId));
+  const removeAttachment = async (attachment: Attachment) => {
+    const attachmentId = attachment.id;
+    setDeletingIds((prev) => new Set(prev).add(attachmentId));
 
-      try {
-        if (attachment.type === "file") {
-          await deleteAsset({
-            data: { key: attachment.objectKey, subfolder: "attachments" },
-          });
-        }
-
-        onChange(value.filter((item) => item.id !== attachmentId));
-      } catch (error) {
-        log.error({
-          component: "useAttachmentActions",
-          action: "deleteAttachment",
-          attachmentId,
-          attachmentType: attachment.type,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Failed to delete attachment");
-      } finally {
-        setDeletingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(attachmentId);
-          return next;
+    try {
+      if (attachment.type === "file") {
+        await deleteAsset({
+          data: { key: attachment.objectKey, subfolder: "attachments" },
         });
       }
-    },
-    [deleteAsset, onChange, value]
-  );
+
+      onChange(value.filter((item) => item.id !== attachmentId));
+    } catch (error) {
+      log.error({
+        component: "useAttachmentActions",
+        action: "deleteAttachment",
+        attachmentId,
+        attachmentType: attachment.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error("Failed to delete attachment");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(attachmentId);
+        return next;
+      });
+    }
+  };
 
   return {
     deletingIds,

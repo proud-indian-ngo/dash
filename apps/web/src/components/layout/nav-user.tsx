@@ -157,12 +157,12 @@ export function NavUser() {
                     </span>
                   )}
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-96 p-0">
-                  <div className="h-[400px] w-full overflow-hidden">
+                <DropdownMenuSubContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
+                  <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-[400px]">
                     <Suspense>
                       <CourierInbox
                         darkTheme={COURIER_DARK_THEME}
-                        height="400px"
+                        height="100%"
                         lightTheme={COURIER_LIGHT_THEME}
                         mode={mode}
                         onMessageClick={({

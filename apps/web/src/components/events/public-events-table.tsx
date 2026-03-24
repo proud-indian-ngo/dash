@@ -12,7 +12,6 @@ import { useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -51,10 +50,10 @@ const SKELETON_COUNT = <Skeleton className="h-5 w-12" />;
 const SKELETON_INTEREST = <Skeleton className="h-8 w-24" />;
 
 const statusBadgeMap = {
-  member: { label: "Joined", variant: "default" as const },
-  approved: { label: "Interest Approved", variant: "default" as const },
-  rejected: { label: "Interest Declined", variant: "secondary" as const },
-};
+  member: { label: "Joined", variant: "default" },
+  approved: { label: "Interest Approved", variant: "default" },
+  rejected: { label: "Interest Declined", variant: "secondary" },
+} as const satisfies Record<string, { label: string; variant: string }>;
 
 function InterestCell({
   eventId,
@@ -146,120 +145,113 @@ export function PublicEventsTable({
 }: PublicEventsTableProps) {
   const navigate = useNavigate();
 
-  const columns = useMemo<ColumnDef<PublicEventRow>[]>(
-    () => [
-      {
-        id: "name",
-        accessorFn: (row) => row.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Event" visibility />
-        ),
-        cell: ({ row }) => (
-          <Link
-            className="font-medium text-sm hover:underline"
-            params={{ id: row.original.id }}
-            to="/events/$id"
-          >
-            {row.original.name}
-          </Link>
-        ),
-        meta: { headerTitle: "Event", skeleton: SKELETON_NAME },
-        size: 220,
-      },
-      {
-        id: "dateTime",
-        accessorFn: (row) => row.startTime,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Date & Time"
-            visibility
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {format(row.original.startTime, SHORT_MONTH_DATE_TIME)}
-          </span>
-        ),
-        meta: { headerTitle: "Date & Time", skeleton: SKELETON_DATE },
-        size: 180,
-      },
-      {
-        id: "location",
-        accessorFn: (row) => row.location,
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Location" visibility />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.location || "\u2014"}
-          </span>
-        ),
-        meta: { headerTitle: "Location", skeleton: SKELETON_LOCATION },
-        size: 160,
-      },
-      {
-        id: "team",
-        accessorFn: (row) => row.team?.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Team" visibility />
-        ),
-        cell: ({ row }) => (
-          <button
-            className="text-left text-sm hover:underline"
-            onClick={() => {
-              const teamId = row.original.teamId;
-              if (teamId) {
-                navigate({ to: "/teams/$id", params: { id: teamId } });
-              }
-            }}
-            type="button"
-          >
-            {row.original.team?.name || "\u2014"}
-          </button>
-        ),
-        meta: { headerTitle: "Team", skeleton: SKELETON_TEAM },
-        size: 160,
-      },
-      {
-        id: "members",
-        accessorFn: (row) => row.members.length,
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Volunteers" visibility />
-        ),
-        cell: ({ row }) => (
-          <Badge variant="secondary">{row.original.members.length}</Badge>
-        ),
-        meta: { headerTitle: "Volunteers", skeleton: SKELETON_COUNT },
-        size: 120,
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <InterestCell
-            eventId={row.original.id}
-            isAdmin={isAdmin}
-            members={row.original.members}
-            myInterests={myInterests}
-            myTeamIds={myTeamIds}
-            onShowInterest={onShowInterest}
-            startTime={row.original.startTime}
-            teamId={row.original.team?.id}
-            userId={userId}
-          />
-        ),
-        meta: { skeleton: SKELETON_INTEREST },
-        size: 150,
-        minSize: 150,
-        enableHiding: false,
-        enableColumnOrdering: false,
-        enableResizing: false,
-        enableSorting: false,
-      },
-    ],
-    [navigate, userId, isAdmin, myTeamIds, myInterests, onShowInterest]
-  );
+  const columns: ColumnDef<PublicEventRow>[] = [
+    {
+      id: "name",
+      accessorFn: (row) => row.name,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Event" visibility />
+      ),
+      cell: ({ row }) => (
+        <Link
+          className="font-medium text-sm hover:underline"
+          params={{ id: row.original.id }}
+          to="/events/$id"
+        >
+          {row.original.name}
+        </Link>
+      ),
+      meta: { headerTitle: "Event", skeleton: SKELETON_NAME },
+      size: 220,
+    },
+    {
+      id: "dateTime",
+      accessorFn: (row) => row.startTime,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Date & Time" visibility />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {format(row.original.startTime, SHORT_MONTH_DATE_TIME)}
+        </span>
+      ),
+      meta: { headerTitle: "Date & Time", skeleton: SKELETON_DATE },
+      size: 180,
+    },
+    {
+      id: "location",
+      accessorFn: (row) => row.location,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Location" visibility />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {row.original.location || "\u2014"}
+        </span>
+      ),
+      meta: { headerTitle: "Location", skeleton: SKELETON_LOCATION },
+      size: 160,
+    },
+    {
+      id: "team",
+      accessorFn: (row) => row.team?.name,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Team" visibility />
+      ),
+      cell: ({ row }) => (
+        <button
+          className="text-left text-sm hover:underline"
+          onClick={() => {
+            const teamId = row.original.teamId;
+            if (teamId) {
+              navigate({ to: "/teams/$id", params: { id: teamId } });
+            }
+          }}
+          type="button"
+        >
+          {row.original.team?.name || "\u2014"}
+        </button>
+      ),
+      meta: { headerTitle: "Team", skeleton: SKELETON_TEAM },
+      size: 160,
+    },
+    {
+      id: "members",
+      accessorFn: (row) => row.members.length,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Volunteers" visibility />
+      ),
+      cell: ({ row }) => (
+        <Badge variant="secondary">{row.original.members.length}</Badge>
+      ),
+      meta: { headerTitle: "Volunteers", skeleton: SKELETON_COUNT },
+      size: 120,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <InterestCell
+          eventId={row.original.id}
+          isAdmin={isAdmin}
+          members={row.original.members}
+          myInterests={myInterests}
+          myTeamIds={myTeamIds}
+          onShowInterest={onShowInterest}
+          startTime={row.original.startTime}
+          teamId={row.original.team?.id}
+          userId={userId}
+        />
+      ),
+      meta: { skeleton: SKELETON_INTEREST },
+      size: 150,
+      minSize: 150,
+      enableHiding: false,
+      enableColumnOrdering: false,
+      enableResizing: false,
+      enableSorting: false,
+    },
+  ];
 
   return (
     <DataTableWrapper<PublicEventRow>

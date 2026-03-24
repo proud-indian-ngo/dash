@@ -13,7 +13,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { useMemo } from "react";
 
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
 import type { EventRow } from "@/components/teams/events/events-table-helpers";
@@ -34,55 +33,52 @@ export function OccurrencesSubTable({
   onEditEvent,
   onCancelEvent,
 }: OccurrencesSubTableProps) {
-  const columns = useMemo<ColumnDef<EventRow>[]>(
-    () => [
-      {
-        accessorKey: "startTime",
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Date/Time" />
-        ),
-        cell: ({ row }) =>
-          format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME),
-        size: 180,
-      },
-      {
-        accessorKey: "location",
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Location" />
-        ),
-        cell: ({ row }) => row.original.location || "\u2014",
-        size: 140,
-      },
-      {
-        id: "members",
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Volunteers" />
-        ),
-        cell: ({ row }) => row.original.members.length,
-        size: 80,
-        enableSorting: false,
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <EventActionsMenu
-            canManage={canManage}
-            event={row.original}
-            onCancelEvent={onCancelEvent}
-            onEditEvent={onEditEvent}
-            onSelectEvent={onSelectEvent}
-          />
-        ),
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        size: 52,
-        minSize: 52,
-      },
-    ],
-    [canManage, onSelectEvent, onEditEvent, onCancelEvent]
-  );
+  const columns: ColumnDef<EventRow>[] = [
+    {
+      accessorKey: "startTime",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Date/Time" />
+      ),
+      cell: ({ row }) =>
+        format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME),
+      size: 180,
+    },
+    {
+      accessorKey: "location",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Location" />
+      ),
+      cell: ({ row }) => row.original.location || "\u2014",
+      size: 140,
+    },
+    {
+      id: "members",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Volunteers" />
+      ),
+      cell: ({ row }) => row.original.members.length,
+      size: 80,
+      enableSorting: false,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <EventActionsMenu
+          canManage={canManage}
+          event={row.original}
+          onCancelEvent={onCancelEvent}
+          onEditEvent={onEditEvent}
+          onSelectEvent={onSelectEvent}
+        />
+      ),
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      size: 52,
+      minSize: 52,
+    },
+  ];
 
   const table = useReactTable({
     data: occurrences,

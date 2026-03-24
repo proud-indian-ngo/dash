@@ -2,7 +2,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { log } from "evlog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
@@ -38,7 +38,7 @@ export function ForgotPasswordForm() {
   const [resending, setResending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  const startCooldown = useCallback(() => {
+  const startCooldown = () => {
     setCooldown(COOLDOWN_SECONDS);
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -50,7 +50,7 @@ export function ForgotPasswordForm() {
         return prev - 1;
       });
     }, 1000);
-  }, []);
+  };
 
   useEffect(() => {
     return () => clearInterval(timerRef.current);

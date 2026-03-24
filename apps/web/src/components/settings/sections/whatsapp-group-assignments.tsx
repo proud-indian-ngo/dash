@@ -10,7 +10,6 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useMemo } from "react";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const ORIENTATION_GROUP_ID = "orientation_group_id";
@@ -24,18 +23,14 @@ export function GroupAssignments({
   const zero = useZero();
   const [configRows] = useQuery(queries.appConfig.all());
 
-  const configMap = useMemo(
-    () => new Map((configRows ?? []).map((row) => [row.key, row.value])),
-    [configRows]
+  const configMap = new Map(
+    (configRows ?? []).map((row) => [row.key, row.value])
   );
 
   const orientationGroupId = configMap.get(ORIENTATION_GROUP_ID) ?? "";
   const allVolunteersGroupId = configMap.get(ALL_VOLUNTEERS_GROUP_ID) ?? "";
 
-  const groupNameMap = useMemo(
-    () => new Map(groups.map((g) => [g.id, g.name])),
-    [groups]
-  );
+  const groupNameMap = new Map(groups.map((g) => [g.id, g.name]));
 
   const handleChange = (key: string, value: string) => {
     zero

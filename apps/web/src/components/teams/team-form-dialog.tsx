@@ -22,13 +22,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import {
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 function getTeamSuccessMsg(isEdit: boolean, createWaGroup: boolean): string {
@@ -78,9 +72,8 @@ export function TeamFormDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
-  const groupNameMap = useMemo(
-    () => new Map((whatsappGroups ?? []).map((g) => [g.id, g.name])),
-    [whatsappGroups]
+  const groupNameMap = new Map(
+    (whatsappGroups ?? []).map((g) => [g.id, g.name])
   );
 
   useEffect(() => {
@@ -92,56 +85,44 @@ export function TeamFormDialog({
     }
   }, [open, initialValues]);
 
-  const handleSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      const trimmedName = name.trim();
-      if (!trimmedName) {
-        return;
-      }
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return;
+    }
 
-      setSubmitting(true);
-      const mutation = isEdit
-        ? zero.mutate(
-            mutators.team.update({
-              id: initialValues.id,
-              name: trimmedName,
-              description: description.trim() || undefined,
-              whatsappGroupId: whatsappGroupId || undefined,
-            })
-          )
-        : zero.mutate(
-            mutators.team.create({
-              id: crypto.randomUUID(),
-              name: trimmedName,
-              description: description.trim() || undefined,
-              whatsappGroupId: whatsappGroupId || undefined,
-              createWhatsAppGroup: createWaGroup || undefined,
-            })
-          );
-      const res = await mutation.server;
-      setSubmitting(false);
-      handleMutationResult(res, {
-        mutation: isEdit ? "team.update" : "team.create",
-        entityId: isEdit ? initialValues.id : "new",
-        successMsg: getTeamSuccessMsg(isEdit, createWaGroup),
-        errorMsg: isEdit ? "Failed to update team" : "Failed to create team",
-      });
-      if (res.type !== "error") {
-        onOpenChange(false);
-      }
-    },
-    [
-      name,
-      description,
-      whatsappGroupId,
-      createWaGroup,
-      isEdit,
-      initialValues,
-      zero,
-      onOpenChange,
-    ]
-  );
+    setSubmitting(true);
+    const mutation = isEdit
+      ? zero.mutate(
+          mutators.team.update({
+            id: initialValues.id,
+            name: trimmedName,
+            description: description.trim() || undefined,
+            whatsappGroupId: whatsappGroupId || undefined,
+          })
+        )
+      : zero.mutate(
+          mutators.team.create({
+            id: crypto.randomUUID(),
+            name: trimmedName,
+            description: description.trim() || undefined,
+            whatsappGroupId: whatsappGroupId || undefined,
+            createWhatsAppGroup: createWaGroup || undefined,
+          })
+        );
+    const res = await mutation.server;
+    setSubmitting(false);
+    handleMutationResult(res, {
+      mutation: isEdit ? "team.update" : "team.create",
+      entityId: isEdit ? initialValues.id : "new",
+      successMsg: getTeamSuccessMsg(isEdit, createWaGroup),
+      errorMsg: isEdit ? "Failed to update team" : "Failed to create team",
+    });
+    if (res.type !== "error") {
+      onOpenChange(false);
+    }
+  };
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

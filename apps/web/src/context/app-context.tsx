@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, use, useState } from "react";
 import {
   buildNavGroups,
   buildNavItems,
@@ -57,22 +51,16 @@ export function AppProvider({
 
   const isAdmin = user.role === "admin";
   const isOriented = isAdmin || Boolean(user.attendedOrientation);
-  const navItems = useMemo(
-    () => buildNavItems(isAdmin, isOriented),
-    [isAdmin, isOriented]
-  );
-  const navGroups = useMemo(
-    () => buildNavGroups(isAdmin, isOriented),
-    [isAdmin, isOriented]
-  );
+  const navItems = buildNavItems(isAdmin, isOriented);
+  const navGroups = buildNavGroups(isAdmin, isOriented);
 
-  const openSettings = useCallback((section: Section = "banking") => {
+  const openSettings = (section: Section = "banking") => {
     setSettingsSection(section);
     setSettingsOpen(true);
-  }, []);
+  };
 
   return (
-    <AppContext.Provider
+    <AppContext
       value={{
         user,
         isAdmin,
@@ -87,12 +75,12 @@ export function AppProvider({
       }}
     >
       {children}
-    </AppContext.Provider>
+    </AppContext>
   );
 }
 
 export function useApp() {
-  const context = useContext(AppContext);
+  const context = use(AppContext);
   if (!context) {
     throw new Error("useApp must be used within AppProvider");
   }

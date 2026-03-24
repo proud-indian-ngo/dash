@@ -2,16 +2,15 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { useCallback } from "react";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
 
 const interestStatusMap = {
-  pending: { label: "Interest Pending", variant: "outline" as const },
-  approved: { label: "Interest Approved", variant: "default" as const },
-  rejected: { label: "Interest Declined", variant: "secondary" as const },
-};
+  pending: { label: "Interest Pending", variant: "outline" },
+  approved: { label: "Interest Approved", variant: "default" },
+  rejected: { label: "Interest Declined", variant: "secondary" },
+} as const satisfies Record<string, { label: string; variant: string }>;
 
 export function VolunteerInterestSection({
   canManage,
@@ -31,7 +30,7 @@ export function VolunteerInterestSection({
   const zero = useZero();
   const showButton = !(canManage || isMember || myInterest) && isPublic;
 
-  const handleCancel = useCallback(async () => {
+  const handleCancel = async () => {
     if (!myInterest) {
       return;
     }
@@ -44,7 +43,7 @@ export function VolunteerInterestSection({
       successMsg: "Interest cancelled",
       errorMsg: "Failed to cancel interest",
     });
-  }, [zero, myInterest]);
+  };
 
   return (
     <>

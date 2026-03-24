@@ -15,7 +15,7 @@ import {
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -128,58 +128,53 @@ export function AttachmentsSection({
     0
   );
 
-  const uploadFiles = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) {
-        return;
-      }
+  const uploadFiles = async (files: File[]) => {
+    if (files.length === 0) {
+      return;
+    }
 
-      if (remainingFileSlots <= 0) {
-        toast.error(
-          `You can upload a maximum of ${MAX_ATTACHMENT_FILES} files`
+    if (remainingFileSlots <= 0) {
+      toast.error(`You can upload a maximum of ${MAX_ATTACHMENT_FILES} files`);
+      return;
+    }
+
+    setIsUploading(true);
+    const filesToUpload = files.slice(0, remainingFileSlots);
+    setUploadProgress({ current: 0, total: filesToUpload.length });
+    const uploadedAttachments: Attachment[] = [];
+    let failedCount = 0;
+
+    for (const file of filesToUpload) {
+      setUploadProgress((prev) => ({ ...prev, current: prev.current + 1 }));
+      try {
+        const uploadedAttachment = await uploadSingleFile(
+          file,
+          entityId,
+          getUploadUrl
         );
-        return;
+        uploadedAttachments.push(uploadedAttachment);
+      } catch (error) {
+        failedCount += 1;
+        log.error({
+          component: "AttachmentsSection",
+          action: "uploadFile",
+          fileName: file.name,
+          failedCount,
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
+    }
 
-      setIsUploading(true);
-      const filesToUpload = files.slice(0, remainingFileSlots);
-      setUploadProgress({ current: 0, total: filesToUpload.length });
-      const uploadedAttachments: Attachment[] = [];
-      let failedCount = 0;
+    const uploadedCount = uploadedAttachments.length;
+    if (uploadedCount > 0) {
+      onChange([...value, ...uploadedAttachments]);
+    }
 
-      for (const file of filesToUpload) {
-        setUploadProgress((prev) => ({ ...prev, current: prev.current + 1 }));
-        try {
-          const uploadedAttachment = await uploadSingleFile(
-            file,
-            entityId,
-            getUploadUrl
-          );
-          uploadedAttachments.push(uploadedAttachment);
-        } catch (error) {
-          failedCount += 1;
-          log.error({
-            component: "AttachmentsSection",
-            action: "uploadFile",
-            fileName: file.name,
-            failedCount,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
+    const skippedCount = files.length - filesToUpload.length;
+    showUploadResultToasts(uploadedCount, failedCount, skippedCount);
 
-      const uploadedCount = uploadedAttachments.length;
-      if (uploadedCount > 0) {
-        onChange([...value, ...uploadedAttachments]);
-      }
-
-      const skippedCount = files.length - filesToUpload.length;
-      showUploadResultToasts(uploadedCount, failedCount, skippedCount);
-
-      setIsUploading(false);
-    },
-    [entityId, getUploadUrl, onChange, remainingFileSlots, value]
-  );
+    setIsUploading(false);
+  };
 
   const [{ isDragging, errors }, uploadActions] = useFileUpload({
     accept: ATTACHMENT_ACCEPT,

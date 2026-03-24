@@ -9,7 +9,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { parseAsString, useQueryState } from "nuqs";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormModal } from "@/components/form/form-modal";
@@ -84,7 +84,7 @@ function UsersRouteComponent() {
     parseAsString.withDefault("")
   );
 
-  const users = useMemo(() => {
+  const users = (() => {
     let filtered = allUsers;
     if (roleFilter) {
       filtered = filtered.filter((u) => u.role === roleFilter);
@@ -102,7 +102,7 @@ function UsersRouteComponent() {
       );
     }
     return filtered;
-  }, [allUsers, roleFilter, orientationFilter, activeFilter]);
+  })();
 
   const handleCreateUser = async (value: CreateUserFormValues) => {
     try {

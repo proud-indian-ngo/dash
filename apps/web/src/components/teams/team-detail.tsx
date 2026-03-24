@@ -19,7 +19,6 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
-import { useCallback } from "react";
 import { toast } from "sonner";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -119,34 +118,28 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
 
   const leadCount = team.members.filter((m) => m.role === "lead").length;
 
-  const handleToggleRole = useCallback(
-    async (memberId: string, currentRole: string) => {
-      const newRole = currentRole === "lead" ? "member" : "lead";
-      if (newRole === "member" && leadCount === 1) {
-        toast.warning(
-          "Cannot demote the last lead. Promote another member first."
-        );
-        return;
-      }
-      const res = await zero.mutate(
-        mutators.team.setMemberRole({ memberId, role: newRole })
-      ).server;
-      handleMutationResult(res, {
-        mutation: "team.setMemberRole",
-        entityId: memberId,
-        successMsg: `Role updated to ${newRole}`,
-        errorMsg: "Failed to update role",
-      });
-    },
-    [zero, leadCount]
-  );
+  const handleToggleRole = async (memberId: string, currentRole: string) => {
+    const newRole = currentRole === "lead" ? "member" : "lead";
+    if (newRole === "member" && leadCount === 1) {
+      toast.warning(
+        "Cannot demote the last lead. Promote another member first."
+      );
+      return;
+    }
+    const res = await zero.mutate(
+      mutators.team.setMemberRole({ memberId, role: newRole })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "team.setMemberRole",
+      entityId: memberId,
+      successMsg: `Role updated to ${newRole}`,
+      errorMsg: "Failed to update role",
+    });
+  };
 
-  const handleSelectEvent = useCallback(
-    (event: EventRow) => {
-      navigate({ to: "/events/$id", params: { id: event.id } });
-    },
-    [navigate]
-  );
+  const handleSelectEvent = (event: EventRow) => {
+    navigate({ to: "/events/$id", params: { id: event.id } });
+  };
 
   const editEventData = dialog.getData("editEvent");
 

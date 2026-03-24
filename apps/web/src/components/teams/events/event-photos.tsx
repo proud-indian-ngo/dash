@@ -10,7 +10,7 @@ import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Lightbox, { type Slide } from "yet-another-react-lightbox";
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
 import "yet-another-react-lightbox/plugins/thumbnails.css";
@@ -66,16 +66,12 @@ export function EventPhotos({
 
   const canUpload = canManage || isMember;
   const useImmichDirect = canManage && !!immichBase;
-  const myPendingPhotos = useMemo(
-    () =>
-      canManage
-        ? []
-        : pendingPhotos.filter((p) => p.uploadedBy === currentUserId),
-    [canManage, pendingPhotos, currentUserId]
-  );
+  const myPendingPhotos = canManage
+    ? []
+    : pendingPhotos.filter((p) => p.uploadedBy === currentUserId);
 
   // Build unified slides array: pending → userPending → approved
-  const slides = useMemo(() => {
+  const slides = (() => {
     const result: PhotoSlide[] = [];
     if (canManage) {
       for (const photo of pendingPhotos) {
@@ -108,7 +104,7 @@ export function EventPhotos({
       );
     }
     return result;
-  }, [approvedPhotos, canManage, myPendingPhotos, pendingPhotos]);
+  })();
 
   // Compute section offset for approved photos (pending sections start at 0)
   const approvedSectionOffset = canManage
@@ -127,111 +123,102 @@ export function EventPhotos({
     }
   }, [lightboxOpen, slides.length]);
 
-  const openLightbox = useCallback((index: number) => {
+  const openLightbox = (index: number) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
-  }, []);
+  };
 
-  const handleUpload = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) {
-        return;
-      }
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      return;
+    }
 
-      const validFiles = validateFiles(files);
-      if (validFiles.length === 0) {
-        return;
-      }
+    const validFiles = validateFiles(files);
+    if (validFiles.length === 0) {
+      return;
+    }
 
-      setIsUploading(true);
-      let uploadedCount = 0;
-      let failedCount = 0;
+    setIsUploading(true);
+    let uploadedCount = 0;
+    let failedCount = 0;
 
-      for (const file of validFiles) {
-        try {
-          if (useImmichDirect) {
-            // Admin/lead: upload directly to Immich via server proxy
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("eventId", eventId);
-            formData.append("mimeType", file.type);
-            formData.append("fileSize", String(file.size));
-            const result = await callImmichUpload({ data: formData });
-            if ("error" in result) {
-              throw new Error(result.error);
-            }
-            await zero.mutate(
-              mutators.eventPhoto.upload({
-                id: crypto.randomUUID(),
-                eventId,
-                immichAssetId: result.immichAssetId,
-                now: Date.now(),
-              })
-            ).server;
-          } else {
-            // Volunteer or no Immich: upload to R2
-            const key = await uploadFileToR2(file, eventId, getUploadUrl);
-            await zero.mutate(
-              mutators.eventPhoto.upload({
-                id: crypto.randomUUID(),
-                eventId,
-                r2Key: key,
-                now: Date.now(),
-              })
-            ).server;
+    for (const file of validFiles) {
+      try {
+        if (useImmichDirect) {
+          // Admin/lead: upload directly to Immich via server proxy
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("eventId", eventId);
+          formData.append("mimeType", file.type);
+          formData.append("fileSize", String(file.size));
+          const result = await callImmichUpload({ data: formData });
+          if ("error" in result) {
+            throw new Error(result.error);
           }
-          uploadedCount += 1;
-        } catch {
-          failedCount += 1;
+          await zero.mutate(
+            mutators.eventPhoto.upload({
+              id: crypto.randomUUID(),
+              eventId,
+              immichAssetId: result.immichAssetId,
+              now: Date.now(),
+            })
+          ).server;
+        } else {
+          // Volunteer or no Immich: upload to R2
+          const key = await uploadFileToR2(file, eventId, getUploadUrl);
+          await zero.mutate(
+            mutators.eventPhoto.upload({
+              id: crypto.randomUUID(),
+              eventId,
+              r2Key: key,
+              now: Date.now(),
+            })
+          ).server;
         }
+        uploadedCount += 1;
+      } catch {
+        failedCount += 1;
       }
+    }
 
-      showUploadResultToasts(uploadedCount, failedCount);
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    },
-    [callImmichUpload, eventId, getUploadUrl, useImmichDirect, zero]
-  );
+    showUploadResultToasts(uploadedCount, failedCount);
+    setIsUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
-  const handleApprove = useCallback(
-    async (id: string) => {
-      try {
-        await zero.mutate(mutators.eventPhoto.approve({ id, now: Date.now() }))
-          .server;
-        toast.success("Photo approved");
-      } catch (error) {
-        log.error({
-          component: "EventPhotos",
-          action: "approve",
-          photoId: id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Failed to approve photo");
-      }
-    },
-    [zero]
-  );
+  const handleApprove = async (id: string) => {
+    try {
+      await zero.mutate(mutators.eventPhoto.approve({ id, now: Date.now() }))
+        .server;
+      toast.success("Photo approved");
+    } catch (error) {
+      log.error({
+        component: "EventPhotos",
+        action: "approve",
+        photoId: id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error("Failed to approve photo");
+    }
+  };
 
-  const handleReject = useCallback(
-    async (id: string) => {
-      try {
-        await zero.mutate(mutators.eventPhoto.reject({ id, now: Date.now() }))
-          .server;
-        toast.success("Photo rejected");
-      } catch (error) {
-        log.error({
-          component: "EventPhotos",
-          action: "reject",
-          photoId: id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Failed to reject photo");
-      }
-    },
-    [zero]
-  );
+  const handleReject = async (id: string) => {
+    try {
+      await zero.mutate(mutators.eventPhoto.reject({ id, now: Date.now() }))
+        .server;
+      toast.success("Photo rejected");
+    } catch (error) {
+      log.error({
+        component: "EventPhotos",
+        action: "reject",
+        photoId: id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error("Failed to reject photo");
+    }
+  };
 
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,

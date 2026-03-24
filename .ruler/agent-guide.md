@@ -34,6 +34,9 @@
 - DO NOT: Perform broad refactors during focused tasks.
 - DO NOT: Add backwards-compatibility shims (re-exports, type aliases, renamed `_vars`, `// removed` comments). This is a new app with no external consumers — delete old code outright.
 - DO NOT: Use `Date.now()` in notification idempotency keys — it defeats deduplication. Pass a deterministic timestamp from the mutator instead.
+- DO: Keep `useMemo`/`useCallback` for values passed as props to third-party components that use them as internal effect deps (e.g., `ZeroProvider` context/init). React Compiler cannot optimize inside third-party code.
+- DO: Keep `useCallback` on shared hook return values (`useConfirmAction`, `useDialogManager`, etc.) to guarantee stable references for consumers.
+- DO NOT: Remove `useMemo`/`useCallback` from shared hooks or third-party component prop boundaries during React Compiler cleanup.
 - INSTEAD: For router tree changes, edit route source files and regenerate through app workflow.
 - INSTEAD: For Zero schema changes, edit Drizzle schema then run `bun run zero:generate`.
 - INSTEAD: For DB schema changes, run `bun run db:generate` then required migrate/push step.

@@ -13,7 +13,7 @@ import {
   useQueryState,
   useQueryStates,
 } from "nuqs";
-import { type SetStateAction, useCallback, useMemo, useState } from "react";
+import { type SetStateAction, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { resolveUpdater } from "@/lib/table-utils";
 
@@ -42,7 +42,7 @@ export function useTableState(
   queryKeys: UseTableStateQueryKeys = {},
   options: UseTableStateOptions = {}
 ) {
-  const parseSortingParam = useCallback((value: string): SortingState => {
+  const parseSortingParam = (value: string): SortingState => {
     if (!value) {
       return [];
     }
@@ -80,9 +80,9 @@ export function useTableState(
     }
 
     return parsedSorting;
-  }, []);
+  };
 
-  const serializeSortingState = useCallback((value: SortingState): string => {
+  const serializeSortingState = (value: SortingState): string => {
     if (!value.length) {
       return "";
     }
@@ -93,7 +93,7 @@ export function useTableState(
       )
       .map((sortValue) => `${sortValue.id}.${sortValue.desc ? "desc" : "asc"}`)
       .join(",");
-  }, []);
+  };
 
   const [persistedState, setPersistedState] = useLocalStorage(
     options.storageKey,
@@ -104,7 +104,7 @@ export function useTableState(
       columnVisibility: defaultState.columnVisibility ?? {},
     }
   );
-  const columnOrder = useMemo(() => {
+  const columnOrder = (() => {
     const persisted = persistedState.columnOrder;
     const defaults = defaultState.columnOrder ?? [];
     if (!persisted.length) {
@@ -117,7 +117,7 @@ export function useTableState(
     }
     // Insert new columns before the last persisted column (usually "actions")
     return [...persisted.slice(0, -1), ...missing, ...persisted.slice(-1)];
-  }, [persistedState.columnOrder, defaultState.columnOrder]);
+  })();
   const { columnPinning, columnSizing, columnVisibility } = persistedState;
   const [rowSelection, setRowSelection] = useState(
     defaultState.rowSelection ?? {}
@@ -142,60 +142,42 @@ export function useTableState(
     queryKeys.sorting ?? "sort",
     parseAsString.withDefault(serializeSortingState(defaultState.sorting ?? []))
   );
-  const sorting = useMemo(
-    () => parseSortingParam(sortingParam),
-    [parseSortingParam, sortingParam]
-  );
+  const sorting = parseSortingParam(sortingParam);
 
-  const setColumnOrder = useCallback(
-    (updater: SetStateAction<ColumnOrderState>) => {
-      setPersistedState((previous) => ({
-        ...previous,
-        columnOrder: resolveUpdater(updater, previous.columnOrder),
-      }));
-    },
-    [setPersistedState]
-  );
+  const setColumnOrder = (updater: SetStateAction<ColumnOrderState>) => {
+    setPersistedState((previous) => ({
+      ...previous,
+      columnOrder: resolveUpdater(updater, previous.columnOrder),
+    }));
+  };
 
-  const setColumnPinning = useCallback(
-    (updater: SetStateAction<ColumnPinningState>) => {
-      setPersistedState((previous) => ({
-        ...previous,
-        columnPinning: resolveUpdater(updater, previous.columnPinning),
-      }));
-    },
-    [setPersistedState]
-  );
+  const setColumnPinning = (updater: SetStateAction<ColumnPinningState>) => {
+    setPersistedState((previous) => ({
+      ...previous,
+      columnPinning: resolveUpdater(updater, previous.columnPinning),
+    }));
+  };
 
-  const setColumnSizing = useCallback(
-    (updater: SetStateAction<ColumnSizingState>) => {
-      setPersistedState((previous) => ({
-        ...previous,
-        columnSizing: resolveUpdater(updater, previous.columnSizing),
-      }));
-    },
-    [setPersistedState]
-  );
+  const setColumnSizing = (updater: SetStateAction<ColumnSizingState>) => {
+    setPersistedState((previous) => ({
+      ...previous,
+      columnSizing: resolveUpdater(updater, previous.columnSizing),
+    }));
+  };
 
-  const setColumnVisibility = useCallback(
-    (updater: SetStateAction<VisibilityState>) => {
-      setPersistedState((previous) => ({
-        ...previous,
-        columnVisibility: resolveUpdater(updater, previous.columnVisibility),
-      }));
-    },
-    [setPersistedState]
-  );
+  const setColumnVisibility = (updater: SetStateAction<VisibilityState>) => {
+    setPersistedState((previous) => ({
+      ...previous,
+      columnVisibility: resolveUpdater(updater, previous.columnVisibility),
+    }));
+  };
 
-  const setSorting = useCallback(
-    (updater: SetStateAction<SortingState>) => {
-      const nextSorting = resolveUpdater(updater, sorting);
-      const nextSortingParam = serializeSortingState(nextSorting);
+  const setSorting = (updater: SetStateAction<SortingState>) => {
+    const nextSorting = resolveUpdater(updater, sorting);
+    const nextSortingParam = serializeSortingState(nextSorting);
 
-      setSortingParam(nextSortingParam || null);
-    },
-    [serializeSortingState, setSortingParam, sorting]
-  );
+    setSortingParam(nextSortingParam || null);
+  };
 
   return {
     state: {

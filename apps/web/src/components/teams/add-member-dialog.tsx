@@ -10,7 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { TeamMember } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -43,10 +43,7 @@ function AddMemberFormContent({
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all(), { enabled: open });
 
-  const existingUserIds = useMemo(
-    () => new Set(existingMembers.map((m) => m.userId)),
-    [existingMembers]
-  );
+  const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 
   const form = useForm({
     defaultValues: {

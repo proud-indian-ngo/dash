@@ -9,7 +9,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
@@ -38,10 +38,7 @@ function AddEventMemberFormContent({
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all(), { enabled: open });
 
-  const existingUserIds = useMemo(
-    () => new Set(existingMembers.map((m) => m.userId)),
-    [existingMembers]
-  );
+  const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 
   const form = useForm({
     defaultValues: { userIds: [] as string[] },

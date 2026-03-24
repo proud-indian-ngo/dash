@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
 import type {
@@ -29,7 +28,7 @@ export function EventsTable({
   onCancelEvent,
   toolbarActions,
 }: EventsTableProps) {
-  const parentRows = useMemo(() => {
+  const parentRows = (() => {
     const parents: EventRow[] = [];
     const ocMap = new Map<string, EventRow[]>();
 
@@ -47,18 +46,14 @@ export function EventsTable({
       ...p,
       occurrences: ocMap.get(p.id) ?? [],
     }));
-  }, [events]);
+  })();
 
-  const columns = useMemo(
-    () =>
-      createEventsTableColumns({
-        canManage,
-        onCancelEvent,
-        onEditEvent,
-        onSelectEvent,
-      }),
-    [canManage, onSelectEvent, onEditEvent, onCancelEvent]
-  );
+  const columns = createEventsTableColumns({
+    canManage,
+    onCancelEvent,
+    onEditEvent,
+    onSelectEvent,
+  });
 
   return (
     <DataTableWrapper<ParentEventRow>
