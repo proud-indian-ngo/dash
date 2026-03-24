@@ -31,9 +31,7 @@ test.describe("Teams list (admin)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    await expect(
-      page.getByRole("button", { name: "Create Team" })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add team" })).toBeVisible();
   });
 
   test("admin sees management description", async ({ page }, testInfo) => {
@@ -55,9 +53,7 @@ test.describe("Teams list (admin)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-    await expect(
-      page.getByRole("button", { name: "Create Team" })
-    ).toBeHidden();
+    await expect(page.getByRole("button", { name: "Add team" })).toBeHidden();
   });
 
   test("columns dropdown toggles column visibility", async ({ page }) => {

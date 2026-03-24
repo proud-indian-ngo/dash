@@ -55,8 +55,9 @@ test.describe("Register page", () => {
     // Select gender
     await page.getByLabel("Gender").click();
     await page.getByRole("option", { name: "Male", exact: true }).click();
-    await page.getByRole("button", { name: "Register" }).click();
+    // onChange validation catches mismatch — error appears and submit is disabled
     await expect(page.getByText("Passwords do not match")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Register" })).toBeDisabled();
   });
 
   test("successful registration redirects to login with success toast", async ({

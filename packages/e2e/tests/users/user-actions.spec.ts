@@ -144,7 +144,7 @@ test.describe("User destructive actions (admin)", () => {
     await page.goto("/users");
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Create user" }).click();
+    await page.getByRole("button", { name: "Add user" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 

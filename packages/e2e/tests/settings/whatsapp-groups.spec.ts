@@ -51,8 +51,13 @@ test.describe("WhatsApp Groups (admin)", () => {
     const dialog = await openWhatsAppGroups(page);
     await dialog.getByRole("button", { name: "Add group" }).click();
 
-    // Try to submit with empty fields
-    await dialog.getByRole("button", { name: "Save" }).click();
+    // Type and clear to trigger onChange validation, then blur to display errors
+    await dialog.getByLabel("Name").fill("x");
+    await dialog.getByLabel("Name").fill("");
+    await dialog.getByLabel("Name").blur();
+    await dialog.getByLabel("JID").fill("x");
+    await dialog.getByLabel("JID").fill("");
+    await dialog.getByLabel("JID").blur();
 
     // Validation errors should appear
     await expect(dialog.getByText("Name is required")).toBeVisible();

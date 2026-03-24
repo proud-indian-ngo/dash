@@ -11,7 +11,7 @@ async function createTeam(
   await page.goto("/teams");
   await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Create Team" }).click();
+  await page.getByRole("button", { name: "Add team" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
 

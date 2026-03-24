@@ -30,7 +30,7 @@ export class ListPage {
   }
 
   getNewRequestButton(): Locator {
-    return this.page.getByRole("button", { name: "New request" });
+    return this.page.getByRole("button", { name: "Add request" });
   }
 
   getSearchInput(placeholder: string): Locator {

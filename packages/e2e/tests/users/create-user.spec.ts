@@ -7,7 +7,7 @@ test.describe("Create user dialog (admin)", () => {
   });
 
   test("opens create user dialog with correct fields", async ({ page }) => {
-    await page.getByRole("button", { name: "Create user" }).click();
+    await page.getByRole("button", { name: "Add user" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -35,7 +35,7 @@ test.describe("Create user dialog (admin)", () => {
   });
 
   test("cancel closes dialog", async ({ page }) => {
-    await page.getByRole("button", { name: "Create user" }).click();
+    await page.getByRole("button", { name: "Add user" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -46,15 +46,18 @@ test.describe("Create user dialog (admin)", () => {
   test("submit button is disabled when required fields are empty", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Create user" }).click();
+    await page.getByRole("button", { name: "Add user" }).click();
     const dialog = page.getByRole("dialog");
 
-    // Clear pre-filled values
+    // Type and clear fields to trigger onChange validation
+    await dialog.getByLabel("Name").fill("x");
     await dialog.getByLabel("Name").fill("");
+    await dialog.getByRole("textbox", { name: /^Email/ }).fill("x");
     await dialog.getByRole("textbox", { name: /^Email/ }).fill("");
+    await dialog.getByLabel("Password").fill("x");
     await dialog.getByLabel("Password").fill("");
 
-    // Submit button should be disabled
+    // Submit button should be disabled after validation
     await expect(
       dialog.getByRole("button", { name: "Create user" })
     ).toBeDisabled();
@@ -63,7 +66,7 @@ test.describe("Create user dialog (admin)", () => {
   test("creates a new user successfully", async ({ page }) => {
     const uniqueEmail = `e2e-${Date.now()}@pi-dash.test`;
 
-    await page.getByRole("button", { name: "Create user" }).click();
+    await page.getByRole("button", { name: "Add user" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 

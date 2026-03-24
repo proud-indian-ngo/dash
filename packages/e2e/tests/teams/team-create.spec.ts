@@ -9,7 +9,7 @@ test.describe("Create team dialog (admin)", () => {
   });
 
   test("opens create team dialog with correct fields", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Team" }).click();
+    await page.getByRole("button", { name: "Add team" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -25,7 +25,7 @@ test.describe("Create team dialog (admin)", () => {
   });
 
   test("cancel closes dialog", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Team" }).click();
+    await page.getByRole("button", { name: "Add team" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -34,7 +34,7 @@ test.describe("Create team dialog (admin)", () => {
   });
 
   test("Create button is disabled when name is empty", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Team" }).click();
+    await page.getByRole("button", { name: "Add team" }).click();
     const dialog = page.getByRole("dialog");
 
     // Name should be empty by default
@@ -46,7 +46,7 @@ test.describe("Create team dialog (admin)", () => {
   });
 
   test("WhatsApp toggle hides when a group is selected", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Team" }).click();
+    await page.getByRole("button", { name: "Add team" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -73,7 +73,7 @@ test.describe("Create team dialog (admin)", () => {
   test("creates a new team successfully", async ({ page }) => {
     const teamName = `E2E Team ${Date.now()}`;
 
-    await page.getByRole("button", { name: "Create Team" }).click();
+    await page.getByRole("button", { name: "Add team" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 

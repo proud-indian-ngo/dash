@@ -40,9 +40,7 @@ test.describe("Users list (admin)", () => {
   });
 
   test("Create user button is visible", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Create user" })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add user" })).toBeVisible();
   });
 
   test("columns dropdown toggles column visibility", async ({ page }) => {
