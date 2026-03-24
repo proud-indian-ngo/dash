@@ -57,6 +57,7 @@ function RowActions({
             aria-label="Row actions"
             className="size-7"
             data-testid="row-actions"
+            onClick={(e) => e.stopPropagation()}
             size="icon"
             type="button"
             variant="ghost"

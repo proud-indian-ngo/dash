@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Vendor management (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
@@ -21,15 +22,25 @@ test.describe("Vendor management (admin)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
-      dialog.getByRole("heading", { name: "Add Vendor" })
+      dialog.getByRole("heading", { name: "Add New Vendor" })
     ).toBeVisible();
 
-    await expect(dialog.getByLabel("Name", { exact: true })).toBeVisible();
-    await expect(dialog.getByLabel("Phone", { exact: true })).toBeVisible();
-    await expect(dialog.getByLabel("Email")).toBeVisible();
-    await expect(dialog.getByLabel("Bank Account Name")).toBeVisible();
-    await expect(dialog.getByLabel("Account Number")).toBeVisible();
-    await expect(dialog.getByLabel("IFSC Code")).toBeVisible();
+    await expect(
+      dialog.getByRole("textbox", { name: "Name", exact: true })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("textbox", { name: "Phone", exact: true })
+    ).toBeVisible();
+    await expect(dialog.getByRole("textbox", { name: "Email" })).toBeVisible();
+    await expect(
+      dialog.getByRole("textbox", { name: "Bank Account Name" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("textbox", { name: "Account Number" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("textbox", { name: "IFSC Code" })
+    ).toBeVisible();
   });
 
   test("cancel closes dialog", async ({ page }) => {
@@ -60,20 +71,31 @@ test.describe("Vendor management (admin)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
-    await dialog.getByLabel("Name", { exact: true }).fill(vendorName);
-    await dialog.getByLabel("Phone", { exact: true }).fill("+91-9876543210");
-    await dialog.getByLabel("Bank Account Name").fill("Test Bank Account");
-    await dialog.getByLabel("Account Number").fill("1234567890");
-    await dialog.getByLabel("IFSC Code").fill("SBIN0001234");
+    await dialog
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill(vendorName);
+    await dialog
+      .getByRole("textbox", { name: "Phone", exact: true })
+      .fill("+91-9876543210");
+    await dialog
+      .getByRole("textbox", { name: "Bank Account Name" })
+      .fill("Test Bank Account");
+    await dialog
+      .getByRole("textbox", { name: "Account Number" })
+      .fill("1234567890");
+    await dialog
+      .getByRole("textbox", { name: "IFSC Code" })
+      .fill("SBIN0001234");
 
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Vendor created")).toBeVisible();
     await expect(page.getByText(vendorName)).toBeVisible({ timeout: 10_000 });
 
-    // Edit
+    // Edit — use dropdown menu (row actions)
+    const list = new ListPage(page);
     const row = page.getByRole("row").filter({ hasText: vendorName });
-    await row.getByRole("button", { name: "Edit" }).click();
+    await list.openRowActionAndClick(row, "Edit");
 
     const editDialog = page.getByRole("dialog");
     await expect(editDialog).toBeVisible();
@@ -81,18 +103,20 @@ test.describe("Vendor management (admin)", () => {
       editDialog.getByRole("heading", { name: "Edit Vendor" })
     ).toBeVisible();
 
-    await expect(editDialog.getByLabel("Name", { exact: true })).toHaveValue(
-      vendorName
-    );
-    await editDialog.getByLabel("Name", { exact: true }).fill(editedName);
+    await expect(
+      editDialog.getByRole("textbox", { name: "Name", exact: true })
+    ).toHaveValue(vendorName);
+    await editDialog
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill(editedName);
     await editDialog.getByRole("button", { name: "Save" }).click();
     await expect(editDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Vendor updated")).toBeVisible();
     await expect(page.getByText(editedName)).toBeVisible({ timeout: 10_000 });
 
-    // Delete
+    // Delete — use dropdown menu (row actions)
     const editedRow = page.getByRole("row").filter({ hasText: editedName });
-    await editedRow.getByRole("button", { name: "Delete" }).click();
+    await list.openRowActionAndClick(editedRow, "Delete");
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();

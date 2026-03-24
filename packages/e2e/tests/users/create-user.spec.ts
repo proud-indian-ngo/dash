@@ -24,10 +24,14 @@ test.describe("Create user dialog (admin)", () => {
     await expect(dialog.getByLabel("Date of birth")).toBeVisible();
     await expect(dialog.getByLabel("Gender")).toBeVisible();
 
-    // Checkboxes
-    await expect(dialog.getByLabel("Active")).toBeVisible();
-    await expect(dialog.getByLabel("Attended orientation")).toBeVisible();
-    await expect(dialog.getByLabel("Email verified")).toBeVisible();
+    // Switches (getByRole avoids strict mode violation from hidden backing checkbox)
+    await expect(dialog.getByRole("switch", { name: "Active" })).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Attended orientation" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Email verified" })
+    ).toBeVisible();
   });
 
   test("cancel closes dialog", async ({ page }) => {
@@ -67,8 +71,13 @@ test.describe("Create user dialog (admin)", () => {
     await dialog.getByLabel("Name").fill("E2E Test User");
     await dialog.getByRole("textbox", { name: /^Email/ }).fill(uniqueEmail);
     await dialog.getByLabel("Password").fill("TestPassword123!");
-
-    // Defaults: role=volunteer, gender=male, isActive=true — leave as-is
+    await dialog.getByLabel("Gender").click();
+    await page.getByRole("option", { name: "Male", exact: true }).click();
+    // Move focus away from Gender to trigger onBlur validation with the new value
+    await dialog.getByLabel("Name").click();
+    await expect(
+      dialog.getByRole("button", { name: "Create user" })
+    ).toBeEnabled({ timeout: 5000 });
 
     // Submit
     await dialog.getByRole("button", { name: "Create user" }).click();

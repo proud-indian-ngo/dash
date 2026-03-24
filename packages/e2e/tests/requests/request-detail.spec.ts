@@ -174,7 +174,9 @@ test.describe("Request detail (advance_payment)", () => {
 
     await requests.createRequest("AP Detail NoDate");
 
-    await expect(page.getByText("Advance Payment")).toBeVisible();
+    await expect(
+      page.getByText("Advance Payment", { exact: true }).first()
+    ).toBeVisible();
     await expect(page.getByText("Expense Date")).toBeHidden();
   });
 

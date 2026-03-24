@@ -151,6 +151,13 @@ test.describe("User destructive actions (admin)", () => {
     await dialog.getByLabel("Name").fill(`Throwaway ${suffix}`);
     await dialog.getByRole("textbox", { name: /^Email/ }).fill(uniqueEmail);
     await dialog.getByLabel("Password").fill("ThrowAway123!");
+    await dialog.getByLabel("Gender").click();
+    await page.getByRole("option", { name: "Male", exact: true }).click();
+    // Move focus away from Gender to trigger onBlur validation with the new value
+    await dialog.getByLabel("Name").click();
+    await expect(
+      dialog.getByRole("button", { name: "Create user" })
+    ).toBeEnabled({ timeout: 5000 });
 
     await dialog.getByRole("button", { name: "Create user" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });

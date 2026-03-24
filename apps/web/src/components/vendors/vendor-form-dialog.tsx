@@ -167,7 +167,11 @@ export function VendorFormDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vendor-name">
-                Name <span className="text-destructive">*</span>
+                Name
+                <span aria-hidden="true" className="text-destructive">
+                  {" "}
+                  *
+                </span>
               </Label>
               <Input
                 id="vendor-name"
@@ -178,7 +182,11 @@ export function VendorFormDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vendor-phone">
-                Phone <span className="text-destructive">*</span>
+                Phone
+                <span aria-hidden="true" className="text-destructive">
+                  {" "}
+                  *
+                </span>
               </Label>
               <Input
                 id="vendor-phone"
@@ -209,7 +217,11 @@ export function VendorFormDialog({
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vendor-bank-name">
-                Bank Account Name <span className="text-destructive">*</span>
+                Bank Account Name
+                <span aria-hidden="true" className="text-destructive">
+                  {" "}
+                  *
+                </span>
               </Label>
               <Input
                 id="vendor-bank-name"
@@ -220,7 +232,11 @@ export function VendorFormDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vendor-bank-number">
-                Account Number <span className="text-destructive">*</span>
+                Account Number
+                <span aria-hidden="true" className="text-destructive">
+                  {" "}
+                  *
+                </span>
               </Label>
               <Input
                 id="vendor-bank-number"
@@ -231,7 +247,11 @@ export function VendorFormDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vendor-ifsc">
-                IFSC Code <span className="text-destructive">*</span>
+                IFSC Code
+                <span aria-hidden="true" className="text-destructive">
+                  {" "}
+                  *
+                </span>
               </Label>
               <Input
                 id="vendor-ifsc"
