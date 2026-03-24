@@ -26,6 +26,7 @@ import {
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
+  isVendorPayment,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/request-types";
@@ -141,6 +142,9 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
 
         {/* Vendor details */}
         <VendorDetailsCard request={request} />
+
+        {/* Bank account details */}
+        <BankAccountCard request={request} />
 
         {/* Admin actions */}
         {isAdmin && request.status === "pending" ? (
@@ -361,5 +365,57 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
         />
       </div>
     </AppErrorBoundary>
+  );
+}
+
+function getBankDetails(request: RequestDetailData) {
+  if (isVendorPayment(request)) {
+    if (!request.vendor) {
+      return null;
+    }
+    return {
+      name: request.vendor.bankAccountName?.trim() || null,
+      number: request.vendor.bankAccountNumber?.trim() || null,
+      ifsc: request.vendor.bankAccountIfscCode?.trim() || null,
+    };
+  }
+  return {
+    name: request.bankAccountName?.trim() || null,
+    number: request.bankAccountNumber?.trim() || null,
+    ifsc: request.bankAccountIfscCode?.trim() || null,
+  };
+}
+
+function BankAccountCard({ request }: { request: RequestDetailData }) {
+  const bank = getBankDetails(request);
+
+  if (!(bank && (bank.name || bank.number || bank.ifsc))) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border p-3">
+      <h2 className="font-medium text-sm">Bank account details</h2>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
+        {bank.name ? (
+          <div>
+            <p className="text-muted-foreground text-xs">Account name</p>
+            <p className="text-sm">{bank.name}</p>
+          </div>
+        ) : null}
+        {bank.number ? (
+          <div>
+            <p className="text-muted-foreground text-xs">Account number</p>
+            <p className="font-mono text-sm">{bank.number}</p>
+          </div>
+        ) : null}
+        {bank.ifsc ? (
+          <div>
+            <p className="text-muted-foreground text-xs">IFSC code</p>
+            <p className="font-mono text-sm">{bank.ifsc}</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

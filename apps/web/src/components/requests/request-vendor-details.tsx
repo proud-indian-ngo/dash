@@ -6,7 +6,7 @@ export function VendorDetailsCard({ request }: { request: RequestDetailData }) {
   }
   return (
     <div className="rounded-md border p-3">
-      <h2 className="mb-2 font-medium text-sm">Vendor Details</h2>
+      <h2 className="mb-2 font-medium text-sm">Vendor details</h2>
       <div className="grid gap-1 text-sm sm:grid-cols-2">
         <div>
           <span className="text-muted-foreground">Name: </span>
@@ -22,15 +22,6 @@ export function VendorDetailsCard({ request }: { request: RequestDetailData }) {
             {request.vendor.contactEmail}
           </div>
         ) : null}
-        <div>
-          <span className="text-muted-foreground">Bank: </span>
-          {request.vendor.bankAccountName} (••••
-          {request.vendor.bankAccountNumber &&
-          request.vendor.bankAccountNumber.length >= 4
-            ? request.vendor.bankAccountNumber.slice(-4)
-            : request.vendor.bankAccountNumber || "N/A"}
-          )
-        </div>
         {request.vendor.gstNumber ? (
           <div>
             <span className="text-muted-foreground">GST: </span>
