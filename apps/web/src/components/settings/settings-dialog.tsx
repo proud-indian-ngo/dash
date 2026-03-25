@@ -7,6 +7,7 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import type { PermissionId } from "@pi-dash/db/permissions";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -51,37 +52,33 @@ const NAV_ITEMS_BASE = [
     id: "profile" as Section,
     label: "Profile",
     icon: UserIcon,
-    adminOnly: false,
   },
   {
     id: "account" as Section,
     label: "Account",
     icon: ShieldIcon,
-    adminOnly: false,
   },
   {
     id: "notifications" as Section,
     label: "Notifications",
     icon: NotificationIcon,
-    adminOnly: false,
   },
   {
     id: "banking" as Section,
     label: "Banking",
     icon: BankIcon,
-    adminOnly: false,
   },
   {
     id: "expense-categories" as Section,
     label: "Expense Categories",
     icon: Tag01Icon,
-    adminOnly: true,
+    permission: "settings.expense_categories" as PermissionId,
   },
   {
     id: "whatsapp-groups" as Section,
     label: "WhatsApp Groups",
     icon: SmartPhone01Icon,
-    adminOnly: true,
+    permission: "settings.whatsapp_groups" as PermissionId,
   },
 ];
 
@@ -96,14 +93,16 @@ const SECTION_CONTENT: Record<Section, React.ReactNode> = {
 
 export function SettingsDialog() {
   const {
-    isAdmin,
+    hasPermission,
     settingsOpen,
     settingsSection,
     setSettingsOpen,
     setSettingsSection,
   } = useApp();
 
-  const navItems = NAV_ITEMS_BASE.filter((item) => !item.adminOnly || isAdmin);
+  const navItems = NAV_ITEMS_BASE.filter(
+    (item) => !item.permission || hasPermission(item.permission)
+  );
 
   const activeLabel =
     navItems.find((item) => item.id === settingsSection)?.label ?? "";

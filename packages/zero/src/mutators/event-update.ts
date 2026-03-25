@@ -1,7 +1,11 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsLoggedIn } from "../permissions";
+import {
+  assertHasPermissionOrTeamLead,
+  assertIsLoggedIn,
+  can,
+} from "../permissions";
 import type { EventUpdate, TeamEvent } from "../schema";
 import { zql } from "../schema";
 
@@ -28,18 +32,14 @@ export const eventUpdateMutators = {
       }
 
       // Permission: admin or team lead
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "event_updates.create", isTeamLead);
 
       await tx.mutate.eventUpdate.insert({
         id: args.id,
@@ -68,8 +68,14 @@ export const eventUpdateMutators = {
         throw new Error("Update not found");
       }
 
-      // Permission: admin or original author
-      if (ctx.role !== "admin" && existing.createdBy !== ctx.userId) {
+      // Permission: edit_all or own author + edit_own
+      const isAuthor = existing.createdBy === ctx.userId;
+      if (
+        !(
+          can(ctx, "event_updates.edit_all") ||
+          (isAuthor && can(ctx, "event_updates.edit_own"))
+        )
+      ) {
         throw new Error("Unauthorized");
       }
 
@@ -93,7 +99,14 @@ export const eventUpdateMutators = {
         throw new Error("Update not found");
       }
 
-      if (ctx.role !== "admin" && existing.createdBy !== ctx.userId) {
+      // Permission: delete_all or own author + delete_own
+      const isAuthor = existing.createdBy === ctx.userId;
+      if (
+        !(
+          can(ctx, "event_updates.delete_all") ||
+          (isAuthor && can(ctx, "event_updates.delete_own"))
+        )
+      ) {
         throw new Error("Unauthorized");
       }
 

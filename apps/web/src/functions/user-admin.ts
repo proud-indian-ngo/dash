@@ -1,4 +1,11 @@
 import { auth } from "@pi-dash/auth";
+import { db } from "@pi-dash/db";
+import type { PermissionId } from "@pi-dash/db/permissions";
+import {
+  invalidatePermissionCache,
+  resolvePermissions,
+} from "@pi-dash/db/queries/resolve-permissions";
+import { user } from "@pi-dash/db/schema/auth";
 import {
   notifyRoleChanged,
   notifyUserBanned,
@@ -9,13 +16,25 @@ import {
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { manageOrientationGroupMembership } from "@pi-dash/whatsapp";
 import { createServerFn } from "@tanstack/react-start";
+import { eq } from "drizzle-orm";
 import z from "zod";
 import { optionalDate } from "@/lib/validators";
 import { authMiddleware } from "@/middleware/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-const roleSchema = z.enum(["admin", "volunteer"]);
+const BETTER_AUTH_ROLES = ["admin", "volunteer"] as const;
+type BetterAuthRole = (typeof BETTER_AUTH_ROLES)[number];
+
+/** Better Auth only understands "admin" | "volunteer". Custom roles map to "volunteer". */
+function toBetterAuthRole(role: string): BetterAuthRole {
+  if (BETTER_AUTH_ROLES.includes(role as BetterAuthRole)) {
+    return role as BetterAuthRole;
+  }
+  return "volunteer";
+}
+
+const roleSchema = z.string().min(1, "Role is required");
 const genderSchema = z.enum(["male", "female"]);
 
 const createUserSchema = z.object({
@@ -72,6 +91,21 @@ interface AdminContextWithSession extends AdminContext {
   session: NonNullable<AdminContext["session"]>;
 }
 
+async function ensurePermission(
+  context: AdminContext,
+  permissionId: PermissionId
+): Promise<AdminContextWithSession> {
+  if (!context.session) {
+    throw new Error("Unauthorized");
+  }
+  const role = context.session.user.role ?? "unoriented_volunteer";
+  const perms = await resolvePermissions(role);
+  if (!perms.includes(permissionId)) {
+    throw new Error("Forbidden");
+  }
+  return context as AdminContextWithSession;
+}
+
 const normalizeOptionalString = (value?: string): string | undefined => {
   if (!value) {
     return undefined;
@@ -109,18 +143,6 @@ const toBanExpiresInSeconds = (value?: string): number | undefined => {
   return Math.ceil(deltaMs / 1000);
 };
 
-function ensureAdminContext(
-  context: AdminContext
-): asserts context is AdminContextWithSession {
-  if (!context.session) {
-    throw new Error("Unauthorized");
-  }
-
-  if (context.session.user.role !== "admin") {
-    throw new Error("Forbidden");
-  }
-}
-
 const setBanState = async ({
   context,
   userId,
@@ -156,7 +178,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(createUserSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    await ensurePermission(context, "users.create");
 
     const normalizedEmail = data.email.toLowerCase();
     const created = await auth.api.createUser({
@@ -164,7 +186,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         email: normalizedEmail,
         name: data.name,
         password: data.password,
-        role: data.role,
+        role: toBetterAuthRole(data.role),
       },
       headers: context.headers,
     });
@@ -188,11 +210,17 @@ export const createUserAdmin = createServerFn({ method: "POST" })
 
     await auth.api.setRole({
       body: {
-        role: data.role,
+        role: toBetterAuthRole(data.role),
         userId: created.user.id,
       },
       headers: context.headers,
     });
+
+    // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
+    await db
+      .update(user)
+      .set({ role: data.role })
+      .where(eq(user.id, created.user.id));
 
     // Fire-and-forget: sync user to Courier, then send welcome notification
     // (welcome must wait for sync so the email channel is registered)
@@ -213,8 +241,8 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         )
     );
 
-    // Fire-and-forget: add new volunteer to orientation WhatsApp group
-    if (data.role === "volunteer" && !data.attendedOrientation) {
+    // Fire-and-forget: add new user to orientation WhatsApp group if not yet oriented
+    if (!data.attendedOrientation) {
       withFireAndForgetLog(
         { handler: "createUser", userId: created.user.id, role: data.role },
         () => manageOrientationGroupMembership(created.user.id, false)
@@ -228,7 +256,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(updateUserSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    await ensurePermission(context, "users.edit");
 
     // Fetch current user to detect actual changes
     const currentUsers = await auth.api.listUsers({
@@ -270,9 +298,23 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       const newRole = data.role;
       await auth.api.setRole({
         body: {
-          role: newRole,
+          role: toBetterAuthRole(newRole),
           userId: data.userId,
         },
+        headers: context.headers,
+      });
+
+      // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
+      await db
+        .update(user)
+        .set({ role: newRole })
+        .where(eq(user.id, data.userId));
+
+      // Invalidate permission cache + user sessions so the new role takes effect
+      invalidatePermissionCache(newRole);
+      invalidatePermissionCache(previousRole ?? undefined);
+      await auth.api.revokeUserSessions({
+        body: { userId: data.userId },
         headers: context.headers,
       });
 
@@ -300,10 +342,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
     );
 
     // Fire-and-forget: manage WhatsApp group membership on orientation change
-    // Only applies to volunteers, not admins
-    const effectiveRole = data.role ?? previousRole;
     if (
-      effectiveRole === "volunteer" &&
       data.attendedOrientation !== undefined &&
       data.attendedOrientation !== previousAttendedOrientation
     ) {
@@ -328,7 +367,7 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(setUserPasswordSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    await ensurePermission(context, "users.set_password");
 
     await auth.api.setUserPassword({
       body: {
@@ -345,9 +384,9 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(deleteUserSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    const authed = await ensurePermission(context, "users.delete");
 
-    if (context.session.user.id === data.userId) {
+    if (authed.session.user.id === data.userId) {
       throw new Error("You cannot delete your own account");
     }
 
@@ -365,9 +404,9 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(setUserBanSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    const authed = await ensurePermission(context, "users.ban");
 
-    if (context.session.user.id === data.userId && data.banned) {
+    if (authed.session.user.id === data.userId && data.banned) {
       throw new Error("You cannot ban your own account");
     }
 

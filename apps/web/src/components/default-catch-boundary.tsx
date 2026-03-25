@@ -21,7 +21,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
   });
 
   const appCtx = use(AppContext);
-  const isAdmin = appCtx?.isAdmin ?? false;
+  const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
   const canGoBack = useCanGoBack();
 
@@ -54,7 +54,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
           We hit an unexpected error. Try again, or head back to the home page
           if the problem persists.
         </p>
-        {isAdmin ? (
+        {canSeeErrors ? (
           <p className="mt-2 max-w-md rounded-md bg-muted p-2 font-mono text-muted-foreground text-xs">
             {error instanceof Error ? error.message : String(error)}
           </p>

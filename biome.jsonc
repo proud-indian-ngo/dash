@@ -5,6 +5,7 @@
     "includes": [
       "**/*",
       "!.agents/**/*",
+      "!.claude/worktrees/**/*",
       "!packages/design-system/components",
       "!packages/design-system/lib/utils.ts",
       "!packages/design-system/hooks/use-mobile.ts",
@@ -19,7 +20,8 @@
       "includes": [
         "apps/web/src/routes/api/auth/$.ts",
         "apps/web/src/routes/api/immich/thumbnail.$id.ts",
-        "apps/web/src/routes/api/immich/original.$id.ts"
+        "apps/web/src/routes/api/immich/original.$id.ts",
+        "apps/web/src/routes/_app/settings/roles/$roleId.tsx"
       ],
       "linter": {
         "rules": {

@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
+import { assertHasPermission, can } from "../permissions";
 import { zql } from "../schema";
 import { GST_REGEX, IFSC_REGEX, PAN_REGEX } from "../vendor-patterns";
 
@@ -25,10 +25,10 @@ export const vendorMutators = {
       status: z.enum(["pending", "approved"]).optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
+      assertHasPermission(ctx, "vendors.create");
       const userId = ctx.userId;
-      const isAdmin = ctx.role === "admin";
-      const status = isAdmin ? (args.status ?? "approved") : "pending";
+      const canAutoApprove = can(ctx, "vendors.approve");
+      const status = canAutoApprove ? (args.status ?? "approved") : "pending";
       const now = Date.now();
 
       await tx.mutate.vendor.insert({
@@ -68,7 +68,7 @@ export const vendorMutators = {
         .optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "vendors.edit");
       const vendor = await tx.run(zql.vendor.where("id", args.id).one());
       if (!vendor) {
         throw new Error("Vendor not found");
@@ -95,7 +95,7 @@ export const vendorMutators = {
   approve: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "vendors.approve");
       const vendor = await tx.run(zql.vendor.where("id", args.id).one());
       if (!vendor) {
         throw new Error("Vendor not found");
@@ -115,7 +115,7 @@ export const vendorMutators = {
   unapprove: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "vendors.approve");
       const vendor = await tx.run(zql.vendor.where("id", args.id).one());
       if (!vendor) {
         throw new Error("Vendor not found");
@@ -144,7 +144,7 @@ export const vendorMutators = {
   delete: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "vendors.delete");
       const vendor = await tx.run(zql.vendor.where("id", args.id).one());
       if (!vendor) {
         throw new Error("Vendor not found");

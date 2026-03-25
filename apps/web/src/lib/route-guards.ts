@@ -1,23 +1,19 @@
 import { redirect } from "@tanstack/react-router";
 
-export function assertOriented(context: {
-  session: {
-    user: { role?: string | null; attendedOrientation?: boolean | null };
-  };
-}) {
-  const { user } = context.session;
-  if (user.role !== "admin" && !user.attendedOrientation) {
+export function assertPermission(
+  context: { permissions?: string[] },
+  permission: string
+) {
+  if (!context.permissions?.includes(permission)) {
     throw redirect({ to: "/" });
   }
 }
 
-export function assertAdmin(context: {
-  session: {
-    user: { role?: string | null };
-  };
-}) {
-  const { user } = context.session;
-  if (user.role !== "admin") {
+export function assertAnyPermission(
+  context: { permissions?: string[] },
+  ...permissions: string[]
+) {
+  if (!permissions.some((p) => context.permissions?.includes(p))) {
     throw redirect({ to: "/" });
   }
 }

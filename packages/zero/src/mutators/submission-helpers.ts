@@ -108,10 +108,10 @@ export function assertPending(
 export function assertCanModify(
   entity: { userId: string | null; status: string | null },
   userId: string,
-  isAdmin: boolean,
+  hasEditAll: boolean,
   entityName: string
 ) {
-  if (!(isAdmin || entity.userId === userId)) {
+  if (!(hasEditAll || entity.userId === userId)) {
     throw new Error("Unauthorized");
   }
   if (entity.status !== "pending") {
@@ -122,9 +122,11 @@ export function assertCanModify(
 export function assertCanDelete(
   entity: { userId: string | null; status: string | null },
   userId: string,
-  isAdmin: boolean
+  hasDeleteAll: boolean
 ) {
-  if (!(isAdmin || (entity.userId === userId && entity.status === "pending"))) {
+  if (
+    !(hasDeleteAll || (entity.userId === userId && entity.status === "pending"))
+  ) {
     throw new Error("Unauthorized");
   }
 }

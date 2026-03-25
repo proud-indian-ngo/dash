@@ -23,7 +23,6 @@ export type PublicEventRow = TeamEvent & {
 
 interface PublicEventsTableProps {
   data: PublicEventRow[];
-  isAdmin: boolean;
   isLoading?: boolean;
   myInterests: readonly EventInterest[];
   myTeamIds: ReadonlySet<string>;
@@ -57,7 +56,6 @@ const statusBadgeMap = {
 
 function InterestCell({
   eventId,
-  isAdmin,
   myInterests,
   myTeamIds,
   members,
@@ -67,7 +65,6 @@ function InterestCell({
   userId,
 }: {
   eventId: string;
-  isAdmin: boolean;
   myInterests: readonly EventInterest[];
   myTeamIds: ReadonlySet<string>;
   members: readonly TeamEventMember[];
@@ -116,7 +113,7 @@ function InterestCell({
     }
   }
 
-  if (hasStarted || isAdmin || (teamId && myTeamIds.has(teamId))) {
+  if (hasStarted || (teamId && myTeamIds.has(teamId))) {
     return null;
   }
 
@@ -136,7 +133,6 @@ function InterestCell({
 
 export function PublicEventsTable({
   data,
-  isAdmin,
   isLoading,
   myInterests,
   myTeamIds,
@@ -233,7 +229,6 @@ export function PublicEventsTable({
       cell: ({ row }) => (
         <InterestCell
           eventId={row.original.id}
-          isAdmin={isAdmin}
           members={row.original.members}
           myInterests={myInterests}
           myTeamIds={myTeamIds}

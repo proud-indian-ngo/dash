@@ -3,6 +3,7 @@ import {
   FileExportIcon,
   HomeIcon,
   Invoice01Icon,
+  SecurityLockIcon,
   Store01Icon,
   UserGroupIcon,
   UserIcon,
@@ -33,6 +34,15 @@ const exportNavItem: NavItem = {
   title: "Export",
   url: "/export",
   icon: FileExportIcon,
+};
+
+const rolesNavItem: NavItem = {
+  title: "Roles",
+  url: "/settings/roles",
+  icon: SecurityLockIcon,
+  subItems: [
+    { title: "Edit Role", url: "/settings/roles/$roleId", isHidden: true },
+  ],
 };
 
 const requestsNavItem: NavItem = {
@@ -69,55 +79,98 @@ const eventsNavItem: NavItem = {
   subItems: [{ title: "Event Details", url: "/events/$id", isHidden: true }],
 };
 
-export function buildNavItems(
-  isAdmin: boolean,
-  isOriented: boolean
-): NavItem[] {
-  if (!isOriented) {
-    return [homeNavItem, eventsNavItem];
+function has(permissions: string[], id: string): boolean {
+  return permissions.includes(id);
+}
+
+function hasAny(permissions: string[], ...ids: string[]): boolean {
+  return ids.some((id) => permissions.includes(id));
+}
+
+/** Build flat nav item list based purely on user permissions. */
+export function buildNavItems(permissions: string[] = []): NavItem[] {
+  const items: NavItem[] = [homeNavItem];
+
+  if (hasAny(permissions, "events.view_own", "events.view_all")) {
+    items.push(eventsNavItem);
   }
-
-  const items = [homeNavItem, requestsNavItem, teamsNavItem, eventsNavItem];
-
-  if (isAdmin) {
+  if (hasAny(permissions, "requests.view_own", "requests.view_all")) {
+    items.push(requestsNavItem);
+  }
+  if (hasAny(permissions, "teams.view_own", "teams.view_all")) {
+    items.push(teamsNavItem);
+  }
+  if (hasAny(permissions, "vendors.view_all", "vendors.view_approved")) {
     items.push(vendorsNavItem);
+  }
+  if (has(permissions, "users.view")) {
     items.push(usersNavItem);
+  }
+  if (has(permissions, "requests.export")) {
     items.push(exportNavItem);
+  }
+  if (has(permissions, "settings.roles")) {
+    items.push(rolesNavItem);
   }
 
   return items;
 }
 
-export function buildNavGroups(
-  isAdmin: boolean,
-  isOriented: boolean
-): NavGroup[] {
-  if (!isOriented) {
-    return [{ items: [homeNavItem, eventsNavItem] }];
-  }
+/** Build grouped nav based purely on user permissions. */
+export function buildNavGroups(permissions: string[] = []): NavGroup[] {
+  const groups: NavGroup[] = [{ items: [homeNavItem] }];
 
-  const financeItems = [requestsNavItem];
-  if (isAdmin) {
+  // Events — visible to everyone with events.view_own (including unoriented)
+  const hasEvents = hasAny(permissions, "events.view_own", "events.view_all");
+
+  // Finance group
+  const hasRequests = hasAny(
+    permissions,
+    "requests.view_own",
+    "requests.view_all"
+  );
+  const hasVendors = hasAny(
+    permissions,
+    "vendors.view_all",
+    "vendors.view_approved"
+  );
+  const financeItems: NavItem[] = [];
+  if (hasRequests) {
+    financeItems.push(requestsNavItem);
+  }
+  if (hasVendors) {
     financeItems.push(vendorsNavItem);
   }
+  if (financeItems.length > 0) {
+    groups.push({ label: "Finance", items: financeItems });
+  }
 
-  const groups: NavGroup[] = [
-    { items: [homeNavItem] },
-    {
-      label: "Finance",
-      items: financeItems,
-    },
-    {
-      label: "Organization",
-      items: [teamsNavItem, eventsNavItem],
-    },
-  ];
+  // Organization group
+  const hasTeams = hasAny(permissions, "teams.view_own", "teams.view_all");
+  const orgItems: NavItem[] = [];
+  if (hasTeams) {
+    orgItems.push(teamsNavItem);
+  }
+  if (hasEvents) {
+    orgItems.push(eventsNavItem);
+  }
+  if (orgItems.length > 0) {
+    groups.push({ label: "Organization", items: orgItems });
+  }
 
-  if (isAdmin) {
-    groups.push({
-      label: "Admin",
-      items: [usersNavItem, exportNavItem],
-    });
+  // Admin group
+  const adminItems: NavItem[] = [];
+  if (has(permissions, "users.view")) {
+    adminItems.push(usersNavItem);
+  }
+  if (has(permissions, "requests.export")) {
+    adminItems.push(exportNavItem);
+  }
+  if (has(permissions, "settings.roles")) {
+    adminItems.push(rolesNavItem);
+  }
+  if (adminItems.length > 0) {
+    groups.push({ label: "Admin", items: adminItems });
   }
 
   return groups;

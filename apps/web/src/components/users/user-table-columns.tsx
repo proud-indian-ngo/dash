@@ -50,16 +50,20 @@ export function createUserColumns(
     },
     {
       id: "role",
-      accessorFn: (row) => (row.role === "admin" ? "admin" : "volunteer"),
+      accessorFn: (row) => row.role ?? "volunteer",
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Role" visibility={true} />
       ),
-      cell: ({ row }) =>
-        row.original.role === "admin" ? (
+      cell: ({ row }) => {
+        const roleName = row.original.role ?? "volunteer";
+        return roleName === "admin" ? (
           <Badge variant="info-outline">Admin</Badge>
         ) : (
-          <Badge variant="secondary">Volunteer</Badge>
-        ),
+          <Badge className="capitalize" variant="secondary">
+            {roleName.replace(/_/g, " ")}
+          </Badge>
+        );
+      },
       meta: {
         headerTitle: "Role",
         skeleton: SKELETON_ROLE,

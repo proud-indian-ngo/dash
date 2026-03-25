@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
@@ -78,9 +79,11 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
 
     log.set({ teamId: event.teamId, eventName: event.name });
 
-    // Verify admin or team lead
-    let isAdminOrLead = session.user.role === "admin";
-    if (!isAdminOrLead) {
+    // Verify user has manage_photos permission or is team lead
+    const role = session.user.role ?? "unoriented_volunteer";
+    const permissions = await resolvePermissions(role);
+    let canUpload = permissions.includes("events.manage_photos");
+    if (!canUpload) {
       const membership = await db.query.teamMember.findFirst({
         where: (t, { and, eq: e }) =>
           and(
@@ -89,12 +92,13 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
             e(t.role, "lead")
           ),
       });
-      isAdminOrLead = !!membership;
+      canUpload = !!membership;
     }
 
-    if (!isAdminOrLead) {
+    if (!canUpload) {
       return {
-        error: "Only admins and team leads can upload directly to Immich",
+        error:
+          "Only users with photo management permission or team leads can upload directly to Immich",
       } as const;
     }
 

@@ -48,8 +48,11 @@ const SECTION_DELAY_MS = 150;
 
 interface DashboardStatsInput {
   advancePayments: readonly WithStatusAndLineItems[];
+  canApprove: boolean;
+  canViewAllRequests: boolean;
+  canViewUsers: boolean;
+  canViewVendors: boolean;
   events: readonly { startTime: number | null }[];
-  isAdmin: boolean;
   pendingCount: number;
   reimbursements: readonly WithStatusAndLineItems[];
   teams: readonly { id: string }[];
@@ -64,14 +67,17 @@ function computeDashboardStats({
   teams,
   events,
   vendorPayments,
-  isAdmin,
+  canViewAllRequests,
+  canApprove,
+  canViewUsers,
+  canViewVendors,
   pendingCount,
 }: DashboardStatsInput): StatItem[] {
   const allRequests = [...reimbursements, ...advancePayments];
 
   return [
     {
-      label: isAdmin ? "All Requests" : "My Requests",
+      label: canViewAllRequests ? "All Requests" : "My Requests",
       value: allRequests.length,
       description: formatINR(sumTotal(allRequests)),
       icon: Invoice01Icon,
@@ -80,7 +86,7 @@ function computeDashboardStats({
       href: "/requests",
     },
     {
-      label: isAdmin ? "Pending Reviews" : "My Pending",
+      label: canApprove ? "Pending Reviews" : "My Pending",
       value: pendingCount,
       description: "Awaiting review",
       icon: Clock01Icon,
@@ -88,7 +94,7 @@ function computeDashboardStats({
       bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
       href: "/requests?status=pending",
     },
-    ...(isAdmin
+    ...(canViewUsers
       ? [
           {
             label: "Total Users",
@@ -97,15 +103,6 @@ function computeDashboardStats({
             accent: "border-l-emerald-500",
             bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
             href: "/users",
-          },
-          {
-            label: "Vendor Payments",
-            value: vendorPayments.length,
-            description: formatINR(sumTotal(vendorPayments)),
-            icon: Store01Icon,
-            accent: "border-l-violet-500",
-            bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
-            href: "/vendors",
           },
         ]
       : [
@@ -117,6 +114,20 @@ function computeDashboardStats({
             bgAccent: "bg-teal-500/5 dark:bg-teal-500/10",
             href: "/teams",
           },
+        ]),
+    ...(canViewVendors
+      ? [
+          {
+            label: "Vendor Payments",
+            value: vendorPayments.length,
+            description: formatINR(sumTotal(vendorPayments)),
+            icon: Store01Icon,
+            accent: "border-l-violet-500",
+            bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
+            href: "/vendors",
+          },
+        ]
+      : [
           {
             label: "Upcoming Events",
             value: events.filter(
@@ -132,9 +143,10 @@ function computeDashboardStats({
 }
 
 function DashboardHome() {
-  const { isOriented } = useApp();
+  const { hasPermission } = useApp();
 
-  if (!isOriented) {
+  // Unoriented volunteers only have events.view_own — show welcome dashboard
+  if (!hasPermission("requests.view_own")) {
     return <WelcomeDashboard />;
   }
 
@@ -199,7 +211,11 @@ function PendingCallout({ count }: { count: number }) {
 }
 
 function OrientedDashboard() {
-  const { isAdmin } = useApp();
+  const { hasPermission } = useApp();
+  const canViewAllRequests = hasPermission("requests.view_all");
+  const canApprove = hasPermission("requests.approve");
+  const canViewUsers = hasPermission("users.view");
+  const canViewVendors = hasPermission("vendors.view_all");
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -231,7 +247,10 @@ function OrientedDashboard() {
         teams: teams ?? [],
         events: events ?? [],
         vendorPayments: vendorPayments ?? [],
-        isAdmin,
+        canViewAllRequests,
+        canApprove,
+        canViewUsers,
+        canViewVendors,
         pendingCount,
       });
 
@@ -250,7 +269,7 @@ function OrientedDashboard() {
         </Button>
       </div>
 
-      {isAdmin && <PendingCallout count={pendingCount} />}
+      {canApprove && <PendingCallout count={pendingCount} />}
 
       <div className="mt-3">
         <StatsCards isLoading={isLoading} items={stats} />

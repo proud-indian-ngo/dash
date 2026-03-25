@@ -1,5 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.teamEvent) {
@@ -13,7 +14,7 @@ export const teamEventQueries = {
   byTeam: defineQuery(
     z.object({ teamId: z.string() }),
     ({ args: { teamId }, ctx }) =>
-      ctx?.role === "admin"
+      ctx != null && can(ctx, "events.view_all")
         ? withRelated(zql.teamEvent)
             .where("teamId", teamId)
             .where("cancelledAt", "IS", null)
@@ -30,7 +31,7 @@ export const teamEventQueries = {
             .orderBy("startTime", "desc")
   ),
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
-    ctx?.role === "admin"
+    ctx != null && can(ctx, "events.view_all")
       ? withRelated(zql.teamEvent).where("id", id).one()
       : withRelated(zql.teamEvent)
           .where("id", id)

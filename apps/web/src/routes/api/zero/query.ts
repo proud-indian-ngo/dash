@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/zero/query")({
           return rateLimitResponse(rl);
         }
 
-        const ctx = buildSessionContext(session);
+        const ctx = await buildSessionContext(session);
 
         return Response.json(
           await handleQueryRequest(

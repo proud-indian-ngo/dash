@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_app/teams/")({
 });
 
 function TeamsRouteComponent() {
-  const { isAdmin } = useApp();
+  const { hasPermission } = useApp();
   const navigate = useNavigate();
   const zero = useZero();
   const [createOpen, setCreateOpen] = useState(false);
@@ -55,7 +55,7 @@ function TeamsRouteComponent() {
             navigate({ to: "/teams/$id", params: { id } });
           }}
           toolbarActions={
-            isAdmin ? (
+            hasPermission("teams.create") ? (
               <Button
                 onClick={() => setCreateOpen(true)}
                 size="sm"
@@ -73,7 +73,7 @@ function TeamsRouteComponent() {
         />
       </div>
 
-      {isAdmin ? (
+      {hasPermission("teams.create") ? (
         <TeamFormDialog onOpenChange={setCreateOpen} open={createOpen} />
       ) : null}
     </div>

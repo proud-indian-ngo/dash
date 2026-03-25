@@ -12,7 +12,7 @@ import { SelectField, type SelectOption } from "@/components/form/select-field";
 import { ISO_DATE } from "@/lib/date-formats";
 import { optionalDate } from "@/lib/validators";
 
-const roleOptions: SelectOption[] = [
+const defaultRoleOptions: SelectOption[] = [
   { label: "Volunteer", value: "volunteer" },
   { label: "Admin", value: "admin" },
 ];
@@ -22,7 +22,7 @@ const genderOptions: SelectOption[] = [
   { label: "Female", value: "female" },
 ];
 
-const userRoleSchema = z.enum(["admin", "volunteer"]);
+const userRoleSchema = z.string().min(1, "Please select a role");
 const genderValueSchema = z.enum(["male", "female"], {
   error: "Please select a gender",
 });
@@ -94,7 +94,9 @@ const userFieldValidators = {
   role: { onBlur: baseUserFormSchema.shape.role },
 };
 
-type UserFormProps =
+type UserFormProps = {
+  roleOptions?: SelectOption[];
+} & (
   | {
       initialValues: CreateUserFormDefaults;
       mode: "create";
@@ -106,7 +108,8 @@ type UserFormProps =
       mode: "edit";
       onCancel: () => void;
       onSubmit: (values: EditUserFormValues) => Promise<void>;
-    };
+    }
+);
 
 export function UserForm(props: UserFormProps) {
   const schema =
@@ -161,7 +164,7 @@ export function UserForm(props: UserFormProps) {
           isRequired
           label="Role"
           name="role"
-          options={roleOptions}
+          options={props.roleOptions ?? defaultRoleOptions}
           validators={userFieldValidators.role}
         />
 

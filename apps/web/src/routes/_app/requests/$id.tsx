@@ -148,16 +148,18 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const { session } = Route.useRouteContext();
   const navigate = useNavigate();
   const [adminEditMode, setAdminEditMode] = useState(false);
-  const { isAdmin } = useApp();
+  const { hasPermission } = useApp();
 
   const { data: request, type: requestType } = resolved;
 
+  const canEditAll = hasPermission("requests.edit_all");
+  const canApprove = hasPermission("requests.approve");
   const isPending = request.status === "pending";
   const isOwner = request.userId === session.user.id;
-  const canEdit = isPending && (isOwner || isAdmin);
-  const showAdminActions = isAdmin && isPending;
+  const canEdit = isPending && (isOwner || canEditAll);
+  const showAdminActions = canApprove && isPending;
   const isAdminEditingAnotherUser =
-    isAdmin && request.userId !== session.user.id;
+    canEditAll && request.userId !== session.user.id;
   const showEditForm = canEdit && (!showAdminActions || adminEditMode);
 
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
@@ -211,7 +213,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
           </Button>
         </div>
       ) : null}
-      <RequestDetail isAdmin={isAdmin} request={request} />
+      <RequestDetail canApprove={canApprove} request={request} />
     </div>
   );
 }

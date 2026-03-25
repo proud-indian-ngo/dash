@@ -1,7 +1,11 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsLoggedIn } from "../permissions";
+import {
+  assertHasPermissionOrTeamLead,
+  assertIsLoggedIn,
+  can,
+} from "../permissions";
 import type { EventInterest, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
@@ -32,8 +36,10 @@ export const eventInterestMutators = {
         );
       }
 
-      if (ctx.role === "admin") {
-        throw new Error("Admins cannot submit interest requests");
+      if (can(ctx, "events.manage_interest")) {
+        throw new Error(
+          "Users who manage interest cannot submit interest requests"
+        );
       }
 
       const teamMembership = await tx.run(
@@ -142,18 +148,14 @@ export const eventInterestMutators = {
         throw new Error("Event not found");
       }
 
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_interest", isTeamLead);
 
       await tx.mutate.eventInterest.update({
         id: args.id,
@@ -247,18 +249,14 @@ export const eventInterestMutators = {
         throw new Error("Event not found");
       }
 
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_interest", isTeamLead);
 
       await tx.mutate.eventInterest.update({
         id: args.id,

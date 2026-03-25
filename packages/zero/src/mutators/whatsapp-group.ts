@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin } from "../permissions";
+import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
 
 export const whatsappGroupMutators = {
@@ -13,7 +13,7 @@ export const whatsappGroupMutators = {
       description: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.whatsapp_groups");
       await tx.mutate.whatsappGroup.insert({
         id: args.id,
         name: args.name,
@@ -32,7 +32,7 @@ export const whatsappGroupMutators = {
       description: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.whatsapp_groups");
       const existing = await tx.run(
         zql.whatsappGroup.where("id", args.id).one()
       );
@@ -51,7 +51,7 @@ export const whatsappGroupMutators = {
   delete: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.whatsapp_groups");
       const existing = await tx.run(
         zql.whatsappGroup.where("id", args.id).one()
       );

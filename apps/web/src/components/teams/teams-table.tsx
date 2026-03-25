@@ -21,8 +21,8 @@ import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import { authClient } from "@/lib/auth-client";
 
 export type TeamRow = Team & {
   members: ReadonlyArray<TeamMember & { user: User | undefined }>;
@@ -35,13 +35,13 @@ const SKELETON_COUNT = <Skeleton className="h-5 w-12" />;
 const SKELETON_WA = <Skeleton className="h-5 w-32" />;
 
 function RowActions({
+  canDelete,
   id,
-  isAdmin,
   onNavigate,
   onRequestDelete,
 }: {
+  canDelete: boolean;
   id: string;
-  isAdmin: boolean;
   onNavigate: (id: string) => void;
   onRequestDelete: () => void;
 }) {
@@ -67,7 +67,7 @@ function RowActions({
       />
       <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
-        {isAdmin ? (
+        {canDelete ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
@@ -103,8 +103,8 @@ export function TeamsTable({
   onNavigate,
   toolbarActions,
 }: TeamsTableProps) {
-  const { data: session } = authClient.useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const { hasPermission } = useApp();
+  const canDeleteTeam = hasPermission("teams.delete");
 
   const deleteAction = useConfirmAction<string>({
     onConfirm: async (id) => {
@@ -191,8 +191,8 @@ export function TeamsTable({
       header: "",
       cell: ({ row }) => (
         <RowActions
+          canDelete={canDeleteTeam}
           id={row.original.id}
-          isAdmin={isAdmin}
           onNavigate={onNavigate}
           onRequestDelete={() => deleteAction.trigger(row.original.id)}
         />

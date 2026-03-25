@@ -1,7 +1,8 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { assertOriented } from "@/lib/route-guards";
+import { assertAnyPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/requests")({
-  beforeLoad: ({ context }) => assertOriented(context),
+  beforeLoad: ({ context }) =>
+    assertAnyPermission(context, "requests.view_own", "requests.view_all"),
   component: () => <Outlet />,
 });

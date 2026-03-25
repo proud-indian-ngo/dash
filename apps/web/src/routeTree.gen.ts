@@ -38,8 +38,11 @@ import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
 import { Route as AppRequestsNewRouteImport } from './routes/_app/requests/new'
 import { Route as AppRequestsIdRouteImport } from './routes/_app/requests/$id'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
+import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
+import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
 import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/original.$id'
+import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -184,6 +187,16 @@ const AppEventsIdRoute = AppEventsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppEventsRouteRoute,
 } as any)
+const AppSettingsRolesRouteRoute = AppSettingsRolesRouteRouteImport.update({
+  id: '/settings/roles',
+  path: '/settings/roles',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRolesIndexRoute = AppSettingsRolesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRolesRouteRoute,
+} as any)
 const ApiImmichThumbnailIdRoute = ApiImmichThumbnailIdRouteImport.update({
   id: '/api/immich/thumbnail/$id',
   path: '/api/immich/thumbnail/$id',
@@ -193,6 +206,11 @@ const ApiImmichOriginalIdRoute = ApiImmichOriginalIdRouteImport.update({
   id: '/api/immich/original/$id',
   path: '/api/immich/original/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppSettingsRolesRoleIdRoute = AppSettingsRolesRoleIdRouteImport.update({
+  id: '/$roleId',
+  path: '/$roleId',
+  getParentRoute: () => AppSettingsRolesRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -210,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
+  '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
   '/requests/$id': typeof AppRequestsIdRoute
   '/requests/new': typeof AppRequestsNewRoute
@@ -223,8 +242,10 @@ export interface FileRoutesByFullPath {
   '/requests/': typeof AppRequestsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
+  '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
+  '/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -250,8 +271,10 @@ export interface FileRoutesByTo {
   '/requests': typeof AppRequestsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
+  '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
+  '/settings/roles': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -271,6 +294,7 @@ export interface FileRoutesById {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
   '/_app/requests/$id': typeof AppRequestsIdRoute
   '/_app/requests/new': typeof AppRequestsNewRoute
@@ -284,8 +308,10 @@ export interface FileRoutesById {
   '/_app/requests/': typeof AppRequestsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
+  '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
+  '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -304,6 +330,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/avatar'
     | '/api/health'
+    | '/settings/roles'
     | '/events/$id'
     | '/requests/$id'
     | '/requests/new'
@@ -317,8 +344,10 @@ export interface FileRouteTypes {
     | '/requests/'
     | '/teams/'
     | '/vendors/'
+    | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
+    | '/settings/roles/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -344,8 +373,10 @@ export interface FileRouteTypes {
     | '/requests'
     | '/teams'
     | '/vendors'
+    | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
+    | '/settings/roles'
   id:
     | '__root__'
     | '/_app'
@@ -364,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/_app/'
+    | '/_app/settings/roles'
     | '/_app/events/$id'
     | '/_app/requests/$id'
     | '/_app/requests/new'
@@ -377,8 +409,10 @@ export interface FileRouteTypes {
     | '/_app/requests/'
     | '/_app/teams/'
     | '/_app/vendors/'
+    | '/_app/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
+    | '/_app/settings/roles/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -600,6 +634,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsIdRouteImport
       parentRoute: typeof AppEventsRouteRoute
     }
+    '/_app/settings/roles': {
+      id: '/_app/settings/roles'
+      path: '/settings/roles'
+      fullPath: '/settings/roles'
+      preLoaderRoute: typeof AppSettingsRolesRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/roles/': {
+      id: '/_app/settings/roles/'
+      path: '/'
+      fullPath: '/settings/roles/'
+      preLoaderRoute: typeof AppSettingsRolesIndexRouteImport
+      parentRoute: typeof AppSettingsRolesRouteRoute
+    }
     '/api/immich/thumbnail/$id': {
       id: '/api/immich/thumbnail/$id'
       path: '/api/immich/thumbnail/$id'
@@ -613,6 +661,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/immich/original/$id'
       preLoaderRoute: typeof ApiImmichOriginalIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/settings/roles/$roleId': {
+      id: '/_app/settings/roles/$roleId'
+      path: '/$roleId'
+      fullPath: '/settings/roles/$roleId'
+      preLoaderRoute: typeof AppSettingsRolesRoleIdRouteImport
+      parentRoute: typeof AppSettingsRolesRouteRoute
     }
   }
 }
@@ -672,6 +727,21 @@ const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
   AppVendorsRouteRouteChildren,
 )
 
+interface AppSettingsRolesRouteRouteChildren {
+  AppSettingsRolesRoleIdRoute: typeof AppSettingsRolesRoleIdRoute
+  AppSettingsRolesIndexRoute: typeof AppSettingsRolesIndexRoute
+}
+
+const AppSettingsRolesRouteRouteChildren: AppSettingsRolesRouteRouteChildren = {
+  AppSettingsRolesRoleIdRoute: AppSettingsRolesRoleIdRoute,
+  AppSettingsRolesIndexRoute: AppSettingsRolesIndexRoute,
+}
+
+const AppSettingsRolesRouteRouteWithChildren =
+  AppSettingsRolesRouteRoute._addFileChildren(
+    AppSettingsRolesRouteRouteChildren,
+  )
+
 interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
   AppRequestsRouteRoute: typeof AppRequestsRouteRouteWithChildren
@@ -680,6 +750,7 @@ interface AppRouteChildren {
   AppExportRoute: typeof AppExportRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -690,6 +761,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExportRoute: AppExportRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

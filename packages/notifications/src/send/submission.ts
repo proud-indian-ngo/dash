@@ -1,6 +1,6 @@
 import { env } from "@pi-dash/env/server";
 import type { LineItemDetail } from "../helpers";
-import { getAdminUserIds } from "../helpers";
+import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
 
 const currencyFormat = new Intl.NumberFormat("en-IN", {
@@ -78,15 +78,15 @@ export function createSubmissionNotifier({
 }: SubmissionNotifierConfig): SubmissionNotifier {
   return {
     async notifySubmitted({ entityId, title, submitterName }) {
-      const [adminIds, lineItems] = await Promise.all([
-        getAdminUserIds(),
+      const [approverIds, lineItems] = await Promise.all([
+        getUserIdsWithPermission("requests.approve"),
         getLineItems(entityId),
       ]);
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `${submitterName} submitted "${title}" for review.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       await sendBulkMessage({
-        userIds: adminIds,
+        userIds: approverIds,
         title: `New ${entityLabel} Submitted`,
         body: `${baseMessage}${totalSuffix}`,
         emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,

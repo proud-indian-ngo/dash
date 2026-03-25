@@ -92,6 +92,46 @@ Better Auth (`packages/auth/src/index.ts`) with:
 
 Zero cache forwards cookies to the app's mutate/query endpoints (`ZERO_MUTATE_FORWARD_COOKIES=true`). The app validates the session cookie and builds the Zero context — no separate JWT for Zero auth.
 
+## Authorization
+
+### Permission Model
+
+Permissions are code-defined in `packages/db/src/permissions.ts` and synced to the `permission` table via `syncPermissions()`. This runs automatically on server boot via the Nitro plugin at `apps/web/server/plugins/sync-permissions.ts`. Roles are stored in the `role` table. The `rolePermission` join table maps roles to permissions.
+
+```
+role  →  rolePermission  →  permission (code-defined, DB-synced)
+```
+
+### Role Hierarchy
+
+Roles are stored in the `role` table. Built-in system roles (highest to lowest privilege):
+
+1. **admin** — all permissions, system role
+2. **Custom roles** (e.g. `team_lead`) — configurable permissions via role management UI
+3. **volunteer** — baseline permissions for oriented volunteers
+4. **unoriented_volunteer** — minimal permissions, default for new users who haven't completed orientation
+
+The default role for new users and null-role fallbacks is `unoriented_volunteer`. Better Auth's admin plugin only knows `admin` vs `volunteer` — custom roles are stored in `user.role` and mapped via `toBetterAuthRole()`.
+
+### Resolution
+
+`resolvePermissions()` in `packages/db/src/queries/resolve-permissions.ts` fetches a user's effective permissions from their assigned role. Results are cached in-memory for 60 seconds. Call `invalidatePermissionCache()` after role or permission changes to bust the cache.
+
+### Enforcement Layers
+
+| Layer | Mechanism |
+|---|---|
+| Zero mutators (server) | `assertHasPermission(ctx, "permission.id")` — throws if user lacks the permission |
+| Zero mutators (team-scoped) | `assertHasPermissionOrTeamLead()` — allows team leads to perform team-scoped operations without the global permission |
+| Zero queries | `can(ctx, "permission.id")` — boolean check for conditional query filtering |
+| Route guards | `assertPermission(session, "permission.id")` — server-side route protection |
+| Server functions | `resolvePermissions(userId)` — direct permission resolution for complex checks |
+| UI | `hasPermission("permission.id")` via `AppContext` — controls visibility of UI elements |
+
+### Better Auth Compatibility
+
+`toBetterAuthRole()` maps custom roles to `admin` or `volunteer` for Better Auth's admin plugin, which expects one of those two values. Custom roles with admin-level permissions map to `admin`; all others map to `volunteer`.
+
 ## Notifications
 
 ### Architecture

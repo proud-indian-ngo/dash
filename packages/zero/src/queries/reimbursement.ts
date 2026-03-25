@@ -1,5 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.reimbursement) {
@@ -23,7 +24,7 @@ export const reimbursementQueries = {
       id: z.string(),
     }),
     ({ args: { id }, ctx }) =>
-      ctx?.role === "admin"
+      ctx != null && can(ctx, "requests.view_all")
         ? withRelated(zql.reimbursement).where("id", id).one()
         : withRelated(zql.reimbursement)
             .where("id", id)
@@ -31,7 +32,7 @@ export const reimbursementQueries = {
             .one()
   ),
   all: defineQuery(({ ctx }) =>
-    ctx?.role === "admin"
+    ctx != null && can(ctx, "requests.view_all")
       ? withRelated(zql.reimbursement).orderBy("createdAt", "desc")
       : withRelated(zql.reimbursement)
           .where("userId", ctx?.userId ?? "")

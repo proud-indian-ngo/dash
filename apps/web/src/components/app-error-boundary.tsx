@@ -10,7 +10,7 @@ type Level = "root" | "section" | "inline";
 
 function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
   const appCtx = use(AppContext);
-  const isAdmin = appCtx?.isAdmin ?? false;
+  const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-4">
@@ -25,7 +25,7 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
           This page couldn't load properly. Try again, or head back to the home
           page if the problem persists.
         </p>
-        {isAdmin ? (
+        {canSeeErrors ? (
           <p className="mt-2 max-w-md rounded-md bg-muted p-2 font-mono text-muted-foreground text-xs">
             {error instanceof Error ? error.message : String(error)}
           </p>
@@ -51,7 +51,7 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
   const appCtx = use(AppContext);
-  const isAdmin = appCtx?.isAdmin ?? false;
+  const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
   return (
     <div className="flex flex-col items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-6 text-center">
@@ -62,7 +62,7 @@ function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
       />
       <p className="font-medium text-sm">Failed to load this section</p>
       <p className="max-w-sm text-muted-foreground text-xs">
-        {isAdmin && error instanceof Error
+        {canSeeErrors && error instanceof Error
           ? error.message
           : "An unexpected error occurred. Please try again."}
       </p>
@@ -80,12 +80,12 @@ function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 function InlineFallback({ error, resetErrorBoundary }: FallbackProps) {
   const appCtx = use(AppContext);
-  const isAdmin = appCtx?.isAdmin ?? false;
+  const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
   return (
     <span className="text-destructive text-sm">
       Error
-      {isAdmin && error instanceof Error ? `: ${error.message}` : ""}{" "}
+      {canSeeErrors && error instanceof Error ? `: ${error.message}` : ""}{" "}
       <button
         className="underline underline-offset-2"
         onClick={resetErrorBoundary}

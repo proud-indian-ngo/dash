@@ -33,9 +33,10 @@ export const Route = createFileRoute("/api/zero/mutate")({
           return rateLimitResponse(rl);
         }
 
-        const { role, userId } = buildSessionContext(session);
+        const { permissions, role, userId } =
+          await buildSessionContext(session);
         const asyncTasks: AsyncTask[] = [];
-        const ctx = { asyncTasks, role, userId };
+        const ctx = { asyncTasks, permissions, role, userId };
 
         const result = await handleMutateRequest(
           dbProvider,

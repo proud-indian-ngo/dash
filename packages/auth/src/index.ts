@@ -186,18 +186,22 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "volunteer",
+        defaultValue: "unoriented_volunteer",
         input: false,
       },
     },
   },
   plugins: [
     tanstackStartCookies(),
+    // Custom roles (e.g. team_lead) are NOT registered here — Better Auth only
+    // needs to know about its access-control tiers (admin vs user). Custom roles
+    // are stored in user.role and resolved to permissions via resolvePermissions().
     admin({
-      defaultRole: "volunteer",
+      defaultRole: "unoriented_volunteer",
       adminRoles: ["admin"],
       roles: {
         admin: adminAc,
+        unoriented_volunteer: userAc,
         volunteer: userAc,
       },
     }),

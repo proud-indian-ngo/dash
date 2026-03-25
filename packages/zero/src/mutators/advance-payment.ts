@@ -2,7 +2,7 @@ import { cityValues } from "@pi-dash/db/schema/shared";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
+import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
@@ -105,7 +105,12 @@ export const advancePaymentMutators = {
     const userId = ctx.userId;
     const entity = await tx.run(zql.advancePayment.where("id", args.id).one());
     assertEntityExists(entity, "Advance payment");
-    assertCanModify(entity, userId, ctx.role === "admin", "advance payment");
+    assertCanModify(
+      entity,
+      userId,
+      can(ctx, "requests.edit_all"),
+      "advance payment"
+    );
 
     const now = Date.now();
 
@@ -147,7 +152,7 @@ export const advancePaymentMutators = {
       approvalScreenshotKey: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
       const entity = await tx.run(
         zql.advancePayment.where("id", args.id).one()
@@ -209,7 +214,7 @@ export const advancePaymentMutators = {
         zql.advancePayment.where("id", args.id).one()
       );
       assertEntityExists(entity, "Advance payment");
-      assertCanDelete(entity, userId, ctx.role === "admin");
+      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
 
       await deleteAllRelations({
         queryLineItems: () =>
@@ -233,7 +238,7 @@ export const advancePaymentMutators = {
   reject: defineMutator(
     z.object({ id: z.string(), reason: z.string().trim().min(1) }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
       const entity = await tx.run(
         zql.advancePayment.where("id", args.id).one()

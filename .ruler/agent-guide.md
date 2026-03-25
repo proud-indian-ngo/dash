@@ -49,6 +49,10 @@
 - DO: Use `log.error()` from `evlog` in client-side catch blocks — never use `console.error`. Include component name, action, entity IDs, and error message.
 - DO: Use `handleMutationResult()` from `@/lib/mutation-result` for Zero mutation server results instead of inline `if (res.type === "error") { toast.error(...) }`.
 - DO NOT: Use `console.error` on the client — use `log.error()` from `evlog` so errors are shipped to the server log drain.
+- DO: Use `assertHasPermission(ctx, "permission.id")` for authorization in new code — never `assertIsAdmin` or `role === "admin"`.
+- DO: Use `can(ctx, "permission.id")` for conditional checks and `hasPermission("id")` from AppContext on the client.
+- DO: Add new permissions to `packages/db/src/permissions.ts` — they sync to DB automatically on server boot via `syncPermissions()`.
+- DO NOT: Delete or rename permission IDs without migrating existing `rolePermission` rows.
 
 ## E2E Testing
 

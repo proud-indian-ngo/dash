@@ -14,6 +14,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import z from "zod";
+import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
 const statusValues = ["pending", "approved", "rejected"] as const;
@@ -27,17 +28,6 @@ const exportCsvSchema = z.object({
   fyStart: z.number().int().min(2020).max(2099),
   statuses: z.array(statusEnum).optional(),
 });
-
-function ensureAdmin(context: {
-  session: { user: { role?: string | null } } | null;
-}) {
-  if (!context.session) {
-    throw new Error("Unauthorized");
-  }
-  if (context.session.user.role !== "admin") {
-    throw new Error("Forbidden");
-  }
-}
 
 export interface ExportAttachment {
   filename: string | null;
@@ -220,7 +210,7 @@ export const exportCsvData = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(exportCsvSchema)
   .handler(async ({ context, data }) => {
-    ensureAdmin(context);
+    await assertServerPermission(context.session, "requests.export");
 
     const fyStartDate = new Date(data.fyStart, 3, 1); // April 1
     const fyEndDate = new Date(data.fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31

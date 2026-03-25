@@ -1,8 +1,8 @@
 import {
+  Mortarboard02Icon,
   UserCheck01Icon,
-  UserIcon,
   UserMultipleIcon,
-  UserShield01Icon,
+  UserRemove01Icon,
 } from "@hugeicons/core-free-icons";
 import type { StatItem } from "@/components/stats/stats-cards";
 
@@ -14,8 +14,10 @@ interface UserLike {
 
 export function computeUserStats(users: readonly UserLike[]): StatItem[] {
   const active = users.filter((u) => u.isActive && !u.banned);
-  const admins = users.filter((u) => u.role === "admin");
-  const volunteers = users.filter((u) => u.role === "volunteer");
+  const inactive = users.filter((u) => !u.isActive || u.banned);
+  const needsOrientation = users.filter(
+    (u) => u.role === "unoriented_volunteer"
+  );
 
   return [
     {
@@ -33,18 +35,18 @@ export function computeUserStats(users: readonly UserLike[]): StatItem[] {
       bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
     },
     {
-      label: "Admins",
-      value: admins.length,
-      icon: UserShield01Icon,
-      accent: "border-l-violet-500",
-      bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
+      label: "Inactive",
+      value: inactive.length,
+      icon: UserRemove01Icon,
+      accent: "border-l-amber-500",
+      bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
     },
     {
-      label: "Volunteers",
-      value: volunteers.length,
-      icon: UserIcon,
-      accent: "border-l-sky-500",
-      bgAccent: "bg-sky-500/5 dark:bg-sky-500/10",
+      label: "Needs Orientation",
+      value: needsOrientation.length,
+      icon: Mortarboard02Icon,
+      accent: "border-l-violet-500",
+      bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
     },
   ];
 }

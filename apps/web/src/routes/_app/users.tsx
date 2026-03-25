@@ -5,11 +5,11 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { parseAsString, useQueryState } from "nuqs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormModal } from "@/components/form/form-modal";
@@ -22,6 +22,7 @@ import {
 } from "@/components/users/user-form";
 import { computeUserStats } from "@/components/users/user-stats";
 import { UsersTable } from "@/components/users/users-table";
+import { getRoleOptions } from "@/functions/role-admin";
 import {
   createUserAdmin,
   deleteUserAdmin,
@@ -30,17 +31,14 @@ import {
   updateUserAdmin,
 } from "@/functions/user-admin";
 import { getErrorMessage } from "@/lib/errors";
+import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/users")({
   head: () => ({
     meta: [{ title: `Users | ${env.VITE_APP_NAME}` }],
   }),
+  beforeLoad: ({ context }) => assertPermission(context, "users.view"),
   loader: ({ context }) => {
-    if (context.session.user.role !== "admin") {
-      throw redirect({
-        to: "/",
-      });
-    }
     context.zero?.run(queries.user.all());
   },
   component: UsersRouteComponent,
@@ -70,6 +68,23 @@ function UsersRouteComponent() {
 
   const allUsers = (usersData ?? []) as User[];
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [roleSelectOptions, setRoleSelectOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+
+  useEffect(() => {
+    getRoleOptions()
+      .then((roles) =>
+        setRoleSelectOptions(roles.map((r) => ({ label: r.name, value: r.id })))
+      )
+      .catch((error: unknown) => {
+        log.error({
+          component: "UsersRoute",
+          action: "getRoleOptions",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+  }, []);
 
   const [roleFilter, setRoleFilter] = useQueryState(
     "role",
@@ -238,6 +253,7 @@ function UsersRouteComponent() {
           onSetPassword={handleResetPassword}
           onUnbanUser={handleUnbanUser}
           onUpdateUser={handleUpdateUser}
+          roleOptions={roleSelectOptions}
           toolbarActions={
             <Button
               onClick={() => {
@@ -292,6 +308,7 @@ function UsersRouteComponent() {
             mode="create"
             onCancel={() => setCreateModalOpen(false)}
             onSubmit={handleCreateUser}
+            roleOptions={roleSelectOptions}
           />
         ) : null}
       </FormModal>

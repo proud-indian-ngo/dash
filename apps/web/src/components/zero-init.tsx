@@ -4,9 +4,16 @@ import { schema } from "@pi-dash/zero/schema";
 import type { Zero } from "@rocicorp/zero";
 import { ZeroProvider } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { log } from "evlog";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { getPermissions } from "@/functions/get-permissions";
 import { authClient } from "@/lib/auth-client";
-import type { UserRole } from "@/lib/db-enums";
 
 interface ZeroInitProps {
   children: ReactNode;
@@ -15,11 +22,34 @@ interface ZeroInitProps {
 export function ZeroInit({ children }: ZeroInitProps) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
-  const role = (session?.user.role ?? "volunteer") as UserRole;
+  const role = session?.user.role ?? "unoriented_volunteer";
   const userID = session?.user.id ?? "anon";
+  const [permissions, setPermissions] = useState<string[]>([]);
+
+  const userId = session?.user?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch permissions when role changes
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+    getPermissions()
+      .then(setPermissions)
+      .catch((error: unknown) => {
+        log.error({
+          component: "ZeroInit",
+          action: "getPermissions",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setPermissions([]);
+      });
+  }, [userId, role]);
+
   const context = useMemo(
-    () => (session ? { role, userId: session.user.id } : { userId: "anon" }),
-    [role, session]
+    () =>
+      session
+        ? { permissions, role, userId: session.user.id }
+        : { permissions: [], role: "unoriented_volunteer", userId: "anon" },
+    [permissions, role, session]
   );
 
   const init = useCallback(

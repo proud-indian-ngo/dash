@@ -69,8 +69,11 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
-| `routes/_app/vendors/route.tsx` | Vendors layout (admin-only, `assertAdmin` guard) |
+| `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
 | `routes/_app/vendors/index.tsx` | Vendors list + vendor payments |
+| `routes/_app/settings/roles/route.tsx` | Roles layout |
+| `routes/_app/settings/roles/index.tsx` | Roles list |
+| `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
 | `routes/_app/export.tsx` | CSV data export |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
@@ -135,6 +138,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
+| `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
 | `functions/notification-preferences.ts` | Get/update user notification topic preferences |
 
 All function paths above are prefixed with `apps/web/src/`.
@@ -173,7 +177,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | Package | Key paths |
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), seed-admin script |
-| `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
+| `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
@@ -216,6 +220,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `vendorPaymentLineItem` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentAttachment` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentHistory` | `packages/db/src/schema/vendor.ts` |
+| `role` | `packages/db/src/schema/permission.ts` |
+| `permission` | `packages/db/src/schema/permission.ts` |
+| `rolePermission` | `packages/db/src/schema/permission.ts` |
 | `appConfig` | `packages/db/src/schema/app-config.ts` |
 | `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
 
@@ -229,7 +236,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
 - **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) is used in notification functions to construct screenshot URLs for approval messages.
 - **JWT**: `src/jwt.ts` generates Courier JWTs for client-side inbox.
-- **Helpers**: `src/helpers.ts` provides `getAdminUserIds`, `getUserName`, `syncCourierUser`.
+- **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`, `syncCourierUser`.
 - DO: Add new notification types in `packages/notifications/src/send/`.
 - DO: Register new env vars in `packages/env/src/server.ts`.
 - DO NOT: Call Courier directly from web app code — use the notifications package.

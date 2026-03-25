@@ -3,7 +3,11 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 import type { Context } from "../context";
 import "../context";
-import { assertIsLoggedIn } from "../permissions";
+import {
+  assertHasPermissionOrTeamLead,
+  assertIsLoggedIn,
+  can,
+} from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
@@ -241,18 +245,15 @@ export const eventPhotoMutators = {
         throw new Error("Cannot upload photos before event starts");
       }
 
-      // Check admin/lead
-      let isAdminOrLead = ctx.role === "admin";
-      if (!isAdminOrLead) {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        isAdminOrLead = !!membership;
-      }
+      // Check permission or team lead
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      const isAdminOrLead = can(ctx, "events.manage_photos") || isTeamLead;
 
       // If not admin/lead, check event membership
       if (!isAdminOrLead) {
@@ -330,18 +331,14 @@ export const eventPhotoMutators = {
         throw new Error("Event not found");
       }
 
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
 
       await tx.mutate.eventPhoto.update({
         id: args.id,
@@ -391,18 +388,14 @@ export const eventPhotoMutators = {
         throw new Error("Event not found");
       }
 
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
 
       await tx.mutate.eventPhoto.update({
         id: args.id,
@@ -449,17 +442,15 @@ export const eventPhotoMutators = {
       const isOwnPending =
         photo.uploadedBy === ctx.userId && photo.status === "pending";
 
-      if (!isOwnPending && ctx.role !== "admin") {
-        const membership = await tx.run(
+      if (!isOwnPending) {
+        const isTeamLead = !!(await tx.run(
           zql.teamMember
             .where("teamId", event.teamId)
             .where("userId", ctx.userId)
             .where("role", "lead")
             .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
+        ));
+        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
       }
 
       await tx.mutate.eventPhoto.delete({ id: args.id });

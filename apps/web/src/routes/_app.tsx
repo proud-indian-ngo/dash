@@ -14,6 +14,7 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppProvider, useApp } from "@/context/app-context";
 import { getCourierToken } from "@/functions/courier-token";
+import { getPermissions } from "@/functions/get-permissions";
 import { getSession } from "@/functions/get-session";
 
 export const Route = createFileRoute("/_app")({
@@ -27,7 +28,9 @@ export const Route = createFileRoute("/_app")({
       });
     }
 
-    return { session };
+    const permissions = await getPermissions();
+
+    return { permissions, session };
   },
   component: AppLayout,
 });
@@ -64,10 +67,10 @@ function CourierAuth() {
 
 function AppLayout() {
   const isMobile = useIsMobile();
-  const { session } = Route.useRouteContext();
+  const { permissions, session } = Route.useRouteContext();
 
   return (
-    <AppProvider user={session.user}>
+    <AppProvider permissions={permissions} user={session.user}>
       <SidebarProvider>
         <CourierAuth />
         <AppSidebar />

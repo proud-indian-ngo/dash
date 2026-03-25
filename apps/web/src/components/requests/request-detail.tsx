@@ -33,11 +33,11 @@ import {
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
 
 interface RequestDetailProps {
-  isAdmin: boolean;
+  canApprove: boolean;
   request: RequestDetailData;
 }
 
-export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
+export function RequestDetail({ canApprove, request }: RequestDetailProps) {
   const zero = useZero();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -147,7 +147,7 @@ export function RequestDetail({ isAdmin, request }: RequestDetailProps) {
         <BankAccountCard request={request} />
 
         {/* Admin actions */}
-        {isAdmin && request.status === "pending" ? (
+        {canApprove && request.status === "pending" ? (
           <>
             <div className="flex gap-2">
               <Button

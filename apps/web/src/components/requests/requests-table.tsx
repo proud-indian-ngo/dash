@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
 import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
@@ -131,7 +132,8 @@ export function RequestsTable({
 }: RequestsTableProps) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
-  const isAdmin = session?.user?.role === "admin";
+  const { hasPermission } = useApp();
+  const canDeleteAll = hasPermission("requests.delete_all");
 
   const [deleteTarget, setDeleteTarget] = useState<{
     row: RequestRow;
@@ -312,7 +314,7 @@ export function RequestsTable({
         const r = row.original;
         const isOwner = r.userId === currentUserId;
         const canDelete =
-          isAdmin ||
+          canDeleteAll ||
           (isOwner && (r.status === "pending" || r.status === "draft"));
         return (
           <RowActions

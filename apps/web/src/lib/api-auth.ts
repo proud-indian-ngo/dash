@@ -1,13 +1,13 @@
 import { auth } from "@pi-dash/auth";
+import type { PermissionId } from "@pi-dash/db/permissions";
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { createRequestLogger } from "evlog";
-import { type UserRole, userRoleValues } from "@/lib/db-enums";
 
 export interface SessionContext {
-  role: UserRole;
+  permissions: string[];
+  role: string;
   userId: string;
 }
-
-const VALID_ROLES: readonly string[] = userRoleValues;
 
 type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
@@ -37,12 +37,27 @@ export async function requireSession(
   return { session };
 }
 
-export function buildSessionContext(session: {
+export async function buildSessionContext(session: {
   user: { id: string; role?: string | null };
-}): SessionContext {
-  const role = session.user.role ?? "volunteer";
-  if (!VALID_ROLES.includes(role)) {
-    return { role: "volunteer" as UserRole, userId: session.user.id };
+}): Promise<SessionContext> {
+  const role = session.user.role ?? "unoriented_volunteer";
+  const permissions = await resolvePermissions(role);
+  return { permissions, role, userId: session.user.id };
+}
+
+/**
+ * Assert that the session user has the given permission, or throw a 403 Error.
+ */
+export async function assertServerPermission(
+  session: { user: { id: string; role?: string | null } } | null | undefined,
+  permissionId: PermissionId
+): Promise<void> {
+  if (!session) {
+    throw new Error("Unauthorized");
   }
-  return { role: role as UserRole, userId: session.user.id };
+  const role = session.user.role ?? "unoriented_volunteer";
+  const permissions = await resolvePermissions(role);
+  if (!permissions.includes(permissionId)) {
+    throw new Error("Forbidden");
+  }
 }

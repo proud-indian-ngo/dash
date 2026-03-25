@@ -1,13 +1,13 @@
-import type { UserRole } from "@pi-dash/db/schema/auth";
-
 export interface AsyncTask {
   fn: () => Promise<void>;
   meta: { mutator: string; [key: string]: unknown };
 }
 
 export interface Context {
+  _permissionSet?: Set<string>;
   asyncTasks?: AsyncTask[];
-  role?: UserRole;
+  permissions: string[];
+  role: string;
   userId: string;
 }
 

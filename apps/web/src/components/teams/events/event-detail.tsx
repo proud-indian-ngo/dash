@@ -40,10 +40,10 @@ const TRAILING_SLASH = /\/$/;
 
 interface EventDetailProps {
   canManage: boolean;
+  canManageVolunteers: boolean;
   currentUserId: string;
   event: EventRow;
   interests?: readonly InterestWithUser[];
-  isAdmin: boolean;
   isMember?: boolean;
   myInterest?: InterestWithUser | null;
   team?: TeamDetailData | null;
@@ -109,7 +109,7 @@ export function EventDetail({
   currentUserId,
   event,
   interests,
-  isAdmin,
+  canManageVolunteers: canManageVolunteersProp,
   isMember,
   myInterest,
   team,
@@ -142,7 +142,7 @@ export function EventDetail({
   const isPastEvent = new Date(eventTime) < new Date();
   const hasStarted = new Date(event.startTime) <= new Date();
   const canCancel = hasStarted ? false : canManage;
-  const canManageVolunteers = isPastEvent ? isAdmin : canManage;
+  const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
 
   const [updates] = useQuery(
     queries.eventUpdate.byEvent({ eventId: event.id })
