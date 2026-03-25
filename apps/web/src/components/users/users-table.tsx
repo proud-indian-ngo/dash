@@ -44,6 +44,7 @@ interface UsersTableProps {
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUnbanUser: (userId: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
+  roleOptions?: { label: string; value: string }[];
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
   users: User[];
@@ -69,6 +70,7 @@ interface UserRowActionDialogsProps {
   onDelete: () => Promise<void>;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
+  roleOptions?: { label: string; value: string }[];
   user: User;
 }
 
@@ -182,6 +184,7 @@ function UserRowActions({
   onSetPassword,
   onUnbanUser,
   onUpdateUser,
+  roleOptions,
   user,
 }: UserRowActionsProps) {
   const [isBanning, setIsBanning] = useState(false);
@@ -240,6 +243,7 @@ function UserRowActions({
         onDelete={handleDelete}
         onSetPassword={onSetPassword}
         onUpdateUser={onUpdateUser}
+        roleOptions={roleOptions}
         user={user}
       />
     </>
@@ -254,6 +258,7 @@ function UserRowActionDialogs({
   onDelete,
   onSetPassword,
   onUpdateUser,
+  roleOptions,
   user,
 }: UserRowActionDialogsProps) {
   const { data: session } = authClient.useSession();
@@ -291,6 +296,7 @@ function UserRowActionDialogs({
               await onUpdateUser(value);
               onCloseForm("edit");
             }}
+            roleOptions={roleOptions}
           />
         ) : null}
       </FormModal>
@@ -388,6 +394,7 @@ export function UsersTable({
   onSetPassword,
   onUnbanUser,
   onUpdateUser,
+  roleOptions,
   toolbarActions,
   toolbarFilters,
   users,
@@ -419,6 +426,7 @@ export function UsersTable({
       onSetPassword={onSetPassword}
       onUnbanUser={onUnbanUser}
       onUpdateUser={onUpdateUser}
+      roleOptions={roleOptions}
       user={user}
     />
   ));

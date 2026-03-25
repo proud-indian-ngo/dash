@@ -57,6 +57,17 @@ export const getRoles = createServerFn({ method: "GET" })
 
 export type RoleListItem = Awaited<ReturnType<typeof getRoles>>[number];
 
+// ── Role options for dropdowns (no special permission required) ──
+
+export const getRoleOptions = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async () => {
+    return await db
+      .select({ id: role.id, name: role.name })
+      .from(role)
+      .orderBy(role.name);
+  });
+
 // ── Get single role with its permission IDs ──
 
 const getRoleByIdSchema = z.object({
