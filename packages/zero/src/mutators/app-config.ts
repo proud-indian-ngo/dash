@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin } from "../permissions";
+import { assertHasPermission } from "../permissions";
 
 export const appConfigMutators = {
   upsert: defineMutator(
@@ -10,7 +10,7 @@ export const appConfigMutators = {
       value: z.string().min(1),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.app_config");
       await tx.mutate.appConfig.upsert({
         key: args.key,
         value: args.value,

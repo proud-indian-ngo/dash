@@ -15,7 +15,18 @@ import { authMiddleware } from "@/middleware/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-const roleSchema = z.enum(["admin", "volunteer"]);
+const BETTER_AUTH_ROLES = ["admin", "volunteer"] as const;
+type BetterAuthRole = (typeof BETTER_AUTH_ROLES)[number];
+
+/** Better Auth only understands "admin" | "volunteer". Custom roles map to "volunteer". */
+function toBetterAuthRole(role: string): BetterAuthRole {
+  if (BETTER_AUTH_ROLES.includes(role as BetterAuthRole)) {
+    return role as BetterAuthRole;
+  }
+  return "volunteer";
+}
+
+const roleSchema = z.string().min(1, "Role is required");
 const genderSchema = z.enum(["male", "female"]);
 
 const createUserSchema = z.object({
@@ -164,7 +175,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         email: normalizedEmail,
         name: data.name,
         password: data.password,
-        role: data.role,
+        role: toBetterAuthRole(data.role),
       },
       headers: context.headers,
     });
@@ -188,7 +199,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
 
     await auth.api.setRole({
       body: {
-        role: data.role,
+        role: toBetterAuthRole(data.role),
         userId: created.user.id,
       },
       headers: context.headers,
@@ -270,7 +281,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       const newRole = data.role;
       await auth.api.setRole({
         body: {
-          role: newRole,
+          role: toBetterAuthRole(newRole),
           userId: data.userId,
         },
         headers: context.headers,

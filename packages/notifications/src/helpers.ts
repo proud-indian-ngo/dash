@@ -2,9 +2,10 @@ import { db } from "@pi-dash/db";
 import { advancePaymentLineItem } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { rolePermission } from "@pi-dash/db/schema/permission";
 import { reimbursementLineItem } from "@pi-dash/db/schema/reimbursement";
 import { vendorPaymentLineItem } from "@pi-dash/db/schema/vendor";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { courier } from "./client";
 
 export interface LineItemDetail {
@@ -19,6 +20,22 @@ export async function getAdminUserIds(): Promise<string[]> {
     .from(user)
     .where(eq(user.role, "admin"));
   return admins.map((a) => a.id);
+}
+
+export async function getUserIdsWithPermission(
+  permissionId: string
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .innerJoin(rolePermission, eq(user.role, rolePermission.roleId))
+    .where(
+      and(
+        eq(rolePermission.permissionId, permissionId),
+        or(eq(user.banned, false), isNull(user.banned))
+      )
+    );
+  return rows.map((r) => r.id);
 }
 
 export async function getUserName(userId: string): Promise<string | null> {

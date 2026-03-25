@@ -2,7 +2,12 @@ import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import "../context";
-import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
+import {
+  assertHasPermission,
+  assertHasPermissionOrTeamLead,
+  assertIsLoggedIn,
+  can,
+} from "../permissions";
 import { zql } from "../schema";
 
 export const teamMutators = {
@@ -15,7 +20,7 @@ export const teamMutators = {
       createWhatsAppGroup: z.boolean().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "teams.create");
       const now = Date.now();
       await tx.mutate.team.insert({
         id: args.id,
@@ -80,7 +85,7 @@ export const teamMutators = {
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "teams.edit");
       const existing = await tx.run(zql.team.where("id", args.id).one());
       if (!existing) {
         throw new Error("Team not found");
@@ -125,7 +130,7 @@ export const teamMutators = {
   delete: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "teams.delete");
       const existing = await tx.run(
         zql.team.where("id", args.id).related("members").one()
       );
@@ -173,18 +178,14 @@ export const teamMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", args.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", args.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "teams.manage_members", isTeamLead);
 
       const existing = await tx.run(
         zql.teamMember
@@ -250,18 +251,14 @@ export const teamMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", args.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", args.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "teams.manage_members", isTeamLead);
 
       const member = await tx.run(
         zql.teamMember.where("id", args.memberId).one()
@@ -270,7 +267,7 @@ export const teamMutators = {
         throw new Error("Member not found");
       }
 
-      if (ctx.role !== "admin" && member.role === "lead") {
+      if (!can(ctx, "teams.manage_members") && member.role === "lead") {
         throw new Error("Team leads cannot remove other leads");
       }
 
@@ -333,18 +330,14 @@ export const teamMutators = {
       if (!member) {
         throw new Error("Member not found");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", member.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", member.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "teams.manage_members", isTeamLead);
       await tx.mutate.teamMember.update({
         id: args.memberId,
         role: args.role,

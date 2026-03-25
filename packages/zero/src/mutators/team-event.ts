@@ -1,7 +1,10 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsLoggedIn } from "../permissions";
+import {
+  assertHasPermissionOrTeamLead,
+  assertIsLoggedIn,
+} from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
@@ -85,18 +88,14 @@ export const teamEventMutators = {
       if (args.endTime !== undefined && args.endTime <= args.startTime) {
         throw new Error("End time must be after start time");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", args.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", args.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.create", isTeamLead);
 
       await tx.mutate.teamEvent.insert({
         id: args.id,
@@ -230,18 +229,14 @@ export const teamEventMutators = {
       ) {
         throw new Error("End time must be after start time");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", existing.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", existing.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
 
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
 
@@ -289,18 +284,14 @@ export const teamEventMutators = {
       if (!existing) {
         throw new Error("Event not found");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", existing.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", existing.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
 
       if (existing.startTime <= args.now) {
         throw new Error("Cannot cancel an event that has already started");
@@ -358,18 +349,14 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
 
       const existing = await tx.run(
         zql.teamEventMember
@@ -463,18 +450,14 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
 
       for (const member of args.members) {
         const existing = await tx.run(
@@ -553,18 +536,14 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      if (ctx.role !== "admin") {
-        const membership = await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        );
-        if (!membership) {
-          throw new Error("Unauthorized");
-        }
-      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
 
       const member = (await tx.run(
         zql.teamEventMember.where("id", args.memberId).one()

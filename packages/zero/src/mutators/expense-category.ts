@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin } from "../permissions";
+import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
 
 export const expenseCategoryMutators = {
@@ -12,7 +12,7 @@ export const expenseCategoryMutators = {
       description: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.expense_categories");
       await tx.mutate.expenseCategory.insert({
         id: args.id,
         name: args.name,
@@ -29,7 +29,7 @@ export const expenseCategoryMutators = {
       description: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.expense_categories");
       const existing = await tx.run(
         zql.expenseCategory.where("id", args.id).one()
       );
@@ -47,7 +47,7 @@ export const expenseCategoryMutators = {
   delete: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "settings.expense_categories");
       const existing = await tx.run(
         zql.expenseCategory.where("id", args.id).one()
       );

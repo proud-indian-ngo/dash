@@ -1,10 +1,11 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+import { can } from "../permissions";
 import { zql } from "../schema";
 
 export const vendorQueries = {
   all: defineQuery(({ ctx }) =>
-    ctx?.role === "admin"
+    ctx != null && can(ctx, "vendors.view_all")
       ? zql.vendor.orderBy("name", "asc")
       : zql.vendor.where("status", "approved").orderBy("name", "asc")
   ),

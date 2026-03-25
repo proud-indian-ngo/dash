@@ -70,8 +70,9 @@ const eventsNavItem: NavItem = {
 };
 
 export function buildNavItems(
-  isAdmin: boolean,
-  isOriented: boolean
+  _isAdmin: boolean,
+  isOriented: boolean,
+  permissions: string[] = []
 ): NavItem[] {
   if (!isOriented) {
     return [homeNavItem, eventsNavItem];
@@ -79,9 +80,19 @@ export function buildNavItems(
 
   const items = [homeNavItem, requestsNavItem, teamsNavItem, eventsNavItem];
 
-  if (isAdmin) {
+  const hasVendors =
+    permissions.includes("vendors.view_all") ||
+    permissions.includes("vendors.view_approved");
+  const hasUsers = permissions.includes("users.view");
+  const hasExport = permissions.includes("requests.export");
+
+  if (hasVendors) {
     items.push(vendorsNavItem);
+  }
+  if (hasUsers) {
     items.push(usersNavItem);
+  }
+  if (hasExport) {
     items.push(exportNavItem);
   }
 
@@ -89,15 +100,22 @@ export function buildNavItems(
 }
 
 export function buildNavGroups(
-  isAdmin: boolean,
-  isOriented: boolean
+  _isAdmin: boolean,
+  isOriented: boolean,
+  permissions: string[] = []
 ): NavGroup[] {
   if (!isOriented) {
     return [{ items: [homeNavItem, eventsNavItem] }];
   }
 
+  const hasVendors =
+    permissions.includes("vendors.view_all") ||
+    permissions.includes("vendors.view_approved");
+  const hasUsers = permissions.includes("users.view");
+  const hasExport = permissions.includes("requests.export");
+
   const financeItems = [requestsNavItem];
-  if (isAdmin) {
+  if (hasVendors) {
     financeItems.push(vendorsNavItem);
   }
 
@@ -113,10 +131,18 @@ export function buildNavGroups(
     },
   ];
 
-  if (isAdmin) {
+  const adminItems: NavItem[] = [];
+  if (hasUsers) {
+    adminItems.push(usersNavItem);
+  }
+  if (hasExport) {
+    adminItems.push(exportNavItem);
+  }
+
+  if (adminItems.length > 0) {
     groups.push({
       label: "Admin",
-      items: [usersNavItem, exportNavItem],
+      items: adminItems,
     });
   }
 

@@ -2,7 +2,7 @@ import { cityValues } from "@pi-dash/db/schema/shared";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertIsAdmin, assertIsLoggedIn } from "../permissions";
+import { assertHasPermission, assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
@@ -148,7 +148,7 @@ export const reimbursementMutators = {
       approvalScreenshotKey: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
@@ -228,7 +228,7 @@ export const reimbursementMutators = {
   reject: defineMutator(
     z.object({ id: z.string(), reason: z.string().trim().min(1) }),
     async ({ tx, ctx, args }) => {
-      assertIsAdmin(ctx);
+      assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");

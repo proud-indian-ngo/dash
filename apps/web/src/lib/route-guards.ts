@@ -11,13 +11,11 @@ export function assertOriented(context: {
   }
 }
 
-export function assertAdmin(context: {
-  session: {
-    user: { role?: string | null };
-  };
-}) {
-  const { user } = context.session;
-  if (user.role !== "admin") {
+export function assertPermission(
+  context: { permissions?: string[] },
+  permission: string
+) {
+  if (!context.permissions?.includes(permission)) {
     throw redirect({ to: "/" });
   }
 }

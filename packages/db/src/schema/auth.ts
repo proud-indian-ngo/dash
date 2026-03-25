@@ -8,12 +8,12 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { role } from "./permission";
 
-const userRoleEnumValues = ["volunteer", "admin"] as const;
+export type UserRole = string;
+
 const userGenderEnumValues = ["male", "female"] as const;
-export type UserRole = (typeof userRoleEnumValues)[number];
 export type UserGender = (typeof userGenderEnumValues)[number];
-export const userRoleEnum = pgEnum("user_role", userRoleEnumValues);
 export const userGenderEnum = pgEnum("user_gender", userGenderEnumValues);
 
 export const user = pgTable("user", {
@@ -31,7 +31,10 @@ export const user = pgTable("user", {
     .notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   attendedOrientation: boolean("attended_orientation").default(false).notNull(),
-  role: userRoleEnum("role").default("volunteer").notNull(),
+  role: text("role")
+    .default("volunteer")
+    .notNull()
+    .references(() => role.id),
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
@@ -102,9 +105,13 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(user, ({ one, many }) => ({
   sessions: many(session),
   accounts: many(account),
+  roleRef: one(role, {
+    fields: [user.role],
+    references: [role.id],
+  }),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

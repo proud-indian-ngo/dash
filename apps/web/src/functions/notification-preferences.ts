@@ -1,3 +1,4 @@
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import {
   getAllUserPreferences,
   updateUserTopicPreference,
@@ -150,7 +151,9 @@ export const getNotificationPreferencesAdmin = createServerFn({
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    if (context.session.user.role !== "admin") {
+    const role = context.session.user.role ?? "volunteer";
+    const permissions = await resolvePermissions(role);
+    if (!permissions.includes("users.edit")) {
       throw new Error("Forbidden");
     }
 
@@ -186,7 +189,9 @@ export const updateNotificationPreferenceAdmin = createServerFn({
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    if (context.session.user.role !== "admin") {
+    const role = context.session.user.role ?? "volunteer";
+    const permissions = await resolvePermissions(role);
+    if (!permissions.includes("users.edit")) {
       throw new Error("Forbidden");
     }
 
@@ -227,7 +232,9 @@ export const getWhatsAppNotificationPrefAdmin = createServerFn({
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    if (context.session.user.role !== "admin") {
+    const role = context.session.user.role ?? "volunteer";
+    const permissions = await resolvePermissions(role);
+    if (!permissions.includes("users.edit")) {
       throw new Error("Forbidden");
     }
 
@@ -243,7 +250,9 @@ export const updateWhatsAppNotificationPrefAdmin = createServerFn({
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    if (context.session.user.role !== "admin") {
+    const role = context.session.user.role ?? "volunteer";
+    const permissions = await resolvePermissions(role);
+    if (!permissions.includes("users.edit")) {
       throw new Error("Forbidden");
     }
 

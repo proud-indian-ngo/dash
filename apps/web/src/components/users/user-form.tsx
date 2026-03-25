@@ -22,7 +22,7 @@ const genderOptions: SelectOption[] = [
   { label: "Female", value: "female" },
 ];
 
-const userRoleSchema = z.enum(["admin", "volunteer"]);
+const userRoleSchema = z.string().min(1, "Please select a role");
 const genderValueSchema = z.enum(["male", "female"], {
   error: "Please select a gender",
 });

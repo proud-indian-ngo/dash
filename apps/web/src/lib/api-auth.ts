@@ -1,13 +1,12 @@
 import { auth } from "@pi-dash/auth";
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { createRequestLogger } from "evlog";
-import { type UserRole, userRoleValues } from "@/lib/db-enums";
 
 export interface SessionContext {
-  role: UserRole;
+  permissions: string[];
+  role: string;
   userId: string;
 }
-
-const VALID_ROLES: readonly string[] = userRoleValues;
 
 type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
@@ -37,12 +36,10 @@ export async function requireSession(
   return { session };
 }
 
-export function buildSessionContext(session: {
+export async function buildSessionContext(session: {
   user: { id: string; role?: string | null };
-}): SessionContext {
+}): Promise<SessionContext> {
   const role = session.user.role ?? "volunteer";
-  if (!VALID_ROLES.includes(role)) {
-    return { role: "volunteer" as UserRole, userId: session.user.id };
-  }
-  return { role: role as UserRole, userId: session.user.id };
+  const permissions = await resolvePermissions(role);
+  return { permissions, role, userId: session.user.id };
 }

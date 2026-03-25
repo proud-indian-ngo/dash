@@ -1,4 +1,5 @@
-import { createContext, use, useState } from "react";
+import type { PermissionId } from "@pi-dash/db/permissions";
+import { createContext, use, useCallback, useMemo, useState } from "react";
 import {
   buildNavGroups,
   buildNavItems,
@@ -25,11 +26,13 @@ interface AppUser {
 }
 
 interface AppContextValue {
+  hasPermission: (permission: PermissionId) => boolean;
   isAdmin: boolean;
   isOriented: boolean;
   navGroups: NavGroup[];
   navItems: NavItem[];
   openSettings: (section?: Section) => void;
+  permissions: string[];
   setSettingsOpen: (open: boolean) => void;
   setSettingsSection: (section: Section) => void;
   settingsOpen: boolean;
@@ -41,9 +44,11 @@ export const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({
   children,
+  permissions = [],
   user,
 }: {
   children: React.ReactNode;
+  permissions?: string[];
   user: AppUser;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -51,8 +56,16 @@ export function AppProvider({
 
   const isAdmin = user.role === "admin";
   const isOriented = isAdmin || Boolean(user.attendedOrientation);
-  const navItems = buildNavItems(isAdmin, isOriented);
-  const navGroups = buildNavGroups(isAdmin, isOriented);
+  const navItems = buildNavItems(isAdmin, isOriented, permissions);
+  const navGroups = buildNavGroups(isAdmin, isOriented, permissions);
+
+  // Keep useMemo: permissionSet is passed to consumers via hasPermission callback.
+  // React Compiler cannot optimize across the context boundary.
+  const permissionSet = useMemo(() => new Set(permissions), [permissions]);
+  const hasPermission = useCallback(
+    (permission: PermissionId) => permissionSet.has(permission),
+    [permissionSet]
+  );
 
   const openSettings = (section: Section = "banking") => {
     setSettingsSection(section);
@@ -62,16 +75,18 @@ export function AppProvider({
   return (
     <AppContext
       value={{
-        user,
+        hasPermission,
         isAdmin,
         isOriented,
-        navItems,
         navGroups,
+        navItems,
         openSettings,
+        permissions,
         settingsOpen,
         settingsSection,
         setSettingsOpen,
         setSettingsSection,
+        user,
       }}
     >
       {children}

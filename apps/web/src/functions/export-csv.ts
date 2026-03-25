@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import {
   advancePayment,
   advancePaymentAttachment,
@@ -27,17 +28,6 @@ const exportCsvSchema = z.object({
   fyStart: z.number().int().min(2020).max(2099),
   statuses: z.array(statusEnum).optional(),
 });
-
-function ensureAdmin(context: {
-  session: { user: { role?: string | null } } | null;
-}) {
-  if (!context.session) {
-    throw new Error("Unauthorized");
-  }
-  if (context.session.user.role !== "admin") {
-    throw new Error("Forbidden");
-  }
-}
 
 export interface ExportAttachment {
   filename: string | null;
@@ -220,7 +210,14 @@ export const exportCsvData = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(exportCsvSchema)
   .handler(async ({ context, data }) => {
-    ensureAdmin(context);
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const role = context.session.user.role ?? "volunteer";
+    const permissions = await resolvePermissions(role);
+    if (!permissions.includes("requests.export")) {
+      throw new Error("Forbidden");
+    }
 
     const fyStartDate = new Date(data.fyStart, 3, 1); // April 1
     const fyEndDate = new Date(data.fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31

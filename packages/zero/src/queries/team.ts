@@ -1,5 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.team) {
@@ -10,14 +11,14 @@ function withRelated(q: typeof zql.team) {
 
 export const teamQueries = {
   all: defineQuery(({ ctx }) =>
-    ctx?.role === "admin"
+    ctx != null && can(ctx, "teams.view_all")
       ? withRelated(zql.team).orderBy("name", "asc")
       : withRelated(zql.team)
           .whereExists("members", (m) => m.where("userId", ctx?.userId ?? ""))
           .orderBy("name", "asc")
   ),
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
-    ctx?.role === "admin"
+    ctx != null && can(ctx, "teams.view_all")
       ? withRelated(zql.team).where("id", id).one()
       : withRelated(zql.team)
           .where("id", id)

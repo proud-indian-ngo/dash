@@ -9,6 +9,7 @@
     "packages/zero/src/schema.ts": ["duplicates"]
   },
   "ignoreExportsUsedInFile": true,
+  "ignore": [".claude/worktrees/**"],
   "workspaces": {
     ".": {},
     "apps/web": {
