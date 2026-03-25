@@ -5,20 +5,21 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
-import type { Vendor } from "@pi-dash/zero/schema";
+import { formatINR } from "@/lib/form-schemas";
 import { STATUS_BADGE_MAP } from "@/lib/status-badge";
+import type { VendorRow } from "@/lib/vendor-types";
 
 interface VendorDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  vendor: Vendor | null;
+  vendor: VendorRow | null;
 }
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="text-sm">{value || "—"}</span>
+      <span className="text-sm">{value ?? "—"}</span>
     </div>
   );
 }
@@ -85,6 +86,36 @@ export function VendorDetailSheet({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow label="GST Number" value={vendor.gstNumber} />
                   <DetailRow label="PAN Number" value={vendor.panNumber} />
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <p className="font-medium text-sm">Payment Summary</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <DetailRow
+                    label="Pending Payments"
+                    value={String(vendor.pendingCount)}
+                  />
+                  <DetailRow
+                    label="Approved Payments"
+                    value={String(vendor.approvedCount)}
+                  />
+                  <DetailRow
+                    label="Rejected Payments"
+                    value={String(vendor.rejectedCount)}
+                  />
+                  <DetailRow
+                    label="Pending Amount"
+                    value={formatINR(vendor.pendingAmount)}
+                  />
+                  <DetailRow
+                    label="Approved Amount"
+                    value={formatINR(vendor.approvedAmount)}
+                  />
+                  <DetailRow
+                    label="Rejected Amount"
+                    value={formatINR(vendor.rejectedAmount)}
+                  />
                 </div>
               </div>
             </div>

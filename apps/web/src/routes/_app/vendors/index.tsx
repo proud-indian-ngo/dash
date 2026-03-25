@@ -8,11 +8,14 @@ import type { Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { StatsCards } from "@/components/stats/stats-cards";
 import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
+import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
 
 export const Route = createFileRoute("/_app/vendors/")({
   head: () => ({
@@ -20,6 +23,7 @@ export const Route = createFileRoute("/_app/vendors/")({
   }),
   loader: ({ context }) => {
     context.zero?.run(queries.vendor.all());
+    context.zero?.run(queries.vendorPayment.all());
   },
   component: VendorsRouteComponent,
 });
@@ -27,11 +31,20 @@ export const Route = createFileRoute("/_app/vendors/")({
 function VendorsRouteComponent() {
   const zero = useZero();
   const [vendors, vendorsResult] = useQuery(queries.vendor.all());
-  const isLoading = useZeroQueryStatus(vendorsResult);
+  const [vendorPayments, vpResult] = useQuery(queries.vendorPayment.all());
+  const isLoadingVendors = useZeroQueryStatus(vendorsResult);
+  const isLoadingPayments = useZeroQueryStatus(vpResult);
+  const isLoading = isLoadingVendors || isLoadingPayments;
+
+  const vendorRows = enrichVendorsWithPayments(
+    vendors ?? [],
+    vendorPayments ?? []
+  );
+  const stats = computeVendorPaymentStats(vendorPayments ?? []);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
+  const [viewingVendor, setViewingVendor] = useState<VendorRow | null>(null);
 
   const handleDelete = async (id: string) => {
     const res = await zero.mutate(mutators.vendor.delete({ id })).server;
@@ -44,7 +57,7 @@ function VendorsRouteComponent() {
     return res;
   };
 
-  const handleApprove = async (vendor: Vendor) => {
+  const handleApprove = async (vendor: VendorRow) => {
     const res = await zero.mutate(mutators.vendor.approve({ id: vendor.id }))
       .server;
     handleMutationResult(res, {
@@ -56,7 +69,7 @@ function VendorsRouteComponent() {
     return res;
   };
 
-  const handleUnapprove = async (vendor: Vendor) => {
+  const handleUnapprove = async (vendor: VendorRow) => {
     const res = await zero.mutate(mutators.vendor.unapprove({ id: vendor.id }))
       .server;
     handleMutationResult(res, {
@@ -68,12 +81,12 @@ function VendorsRouteComponent() {
     return res;
   };
 
-  const handleEdit = (vendor: Vendor) => {
+  const handleEdit = (vendor: VendorRow) => {
     setEditingVendor(vendor);
     setFormOpen(true);
   };
 
-  const handleView = (vendor: Vendor) => {
+  const handleView = (vendor: VendorRow) => {
     setViewingVendor(vendor);
   };
 
@@ -82,8 +95,9 @@ function VendorsRouteComponent() {
       <h1 className="font-semibold text-2xl">Vendors</h1>
 
       <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+        <StatsCards isLoading={isLoading} items={stats} />
         <VendorsTable
-          data={(vendors ?? []) as Vendor[]}
+          data={vendorRows}
           isLoading={isLoading}
           onApprove={handleApprove}
           onDelete={handleDelete}

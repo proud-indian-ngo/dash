@@ -11,13 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import type { Vendor } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { formatINR } from "@/lib/form-schemas";
+import type { VendorRow } from "@/lib/vendor-types";
 
 const STATUS_BADGE_MAP: Record<
   string,
@@ -32,6 +33,8 @@ const SKELETON_PHONE = <Skeleton className="h-5 w-28" />;
 const SKELETON_EMAIL = <Skeleton className="h-5 w-36" />;
 const SKELETON_BANK = <Skeleton className="h-5 w-44" />;
 const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
+const SKELETON_COUNT = <Skeleton className="h-5 w-8" />;
+const SKELETON_AMOUNT = <Skeleton className="h-5 w-24" />;
 
 function RowActions({
   onApprove,
@@ -87,7 +90,7 @@ function RowActions({
   );
 }
 
-function searchVendor(row: Vendor, query: string): boolean {
+function searchVendor(row: VendorRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;
@@ -99,13 +102,13 @@ function searchVendor(row: Vendor, query: string): boolean {
 }
 
 interface VendorsTableProps {
-  data: Vendor[];
+  data: VendorRow[];
   isLoading?: boolean;
-  onApprove?: (vendor: Vendor) => void;
+  onApprove?: (vendor: VendorRow) => void;
   onDelete: (id: string) => Promise<{ type: string }>;
-  onEdit: (vendor: Vendor) => void;
-  onUnapprove?: (vendor: Vendor) => void;
-  onView: (vendor: Vendor) => void;
+  onEdit: (vendor: VendorRow) => void;
+  onUnapprove?: (vendor: VendorRow) => void;
+  onView: (vendor: VendorRow) => void;
   toolbarActions?: ReactNode;
 }
 
@@ -127,7 +130,7 @@ export function VendorsTable({
     onError: () => toast.error("Failed to delete vendor"),
   });
 
-  const columns: ColumnDef<Vendor>[] = [
+  const columns: ColumnDef<VendorRow>[] = [
     {
       id: "name",
       accessorFn: (row) => row.name,
@@ -189,6 +192,106 @@ export function VendorsTable({
       size: 220,
     },
     {
+      id: "pendingCount",
+      accessorFn: (row) => row.pendingCount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Pending Payments"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.pendingCount}</span>
+      ),
+      meta: { headerTitle: "Pending Payments", skeleton: SKELETON_COUNT },
+      size: 140,
+    },
+    {
+      id: "approvedCount",
+      accessorFn: (row) => row.approvedCount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Approved Payments"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.approvedCount}</span>
+      ),
+      meta: { headerTitle: "Approved Payments", skeleton: SKELETON_COUNT },
+      size: 160,
+    },
+    {
+      id: "pendingAmount",
+      accessorFn: (row) => row.pendingAmount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Pending Amount"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{formatINR(row.original.pendingAmount)}</span>
+      ),
+      meta: { headerTitle: "Pending Amount", skeleton: SKELETON_AMOUNT },
+      size: 150,
+    },
+    {
+      id: "approvedAmount",
+      accessorFn: (row) => row.approvedAmount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Approved Amount"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {formatINR(row.original.approvedAmount)}
+        </span>
+      ),
+      meta: { headerTitle: "Approved Amount", skeleton: SKELETON_AMOUNT },
+      size: 160,
+    },
+    {
+      id: "rejectedCount",
+      accessorFn: (row) => row.rejectedCount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Rejected Payments"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.rejectedCount}</span>
+      ),
+      meta: { headerTitle: "Rejected Payments", skeleton: SKELETON_COUNT },
+      size: 150,
+    },
+    {
+      id: "rejectedAmount",
+      accessorFn: (row) => row.rejectedAmount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Rejected Amount"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {formatINR(row.original.rejectedAmount)}
+        </span>
+      ),
+      meta: { headerTitle: "Rejected Amount", skeleton: SKELETON_AMOUNT },
+      size: 150,
+    },
+    {
       id: "status",
       accessorFn: (row) => row.status,
       header: ({ column }) => (
@@ -241,16 +344,22 @@ export function VendorsTable({
 
   return (
     <>
-      <DataTableWrapper<Vendor>
+      <DataTableWrapper<VendorRow>
         columns={columns}
         data={data}
+        defaultColumnVisibility={{
+          approvedCount: false,
+          approvedAmount: false,
+          rejectedCount: false,
+          rejectedAmount: false,
+        }}
         emptyMessage="No vendors found."
         getRowId={(row) => row.id}
         isLoading={isLoading}
         onRowClick={onView}
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
-        storageKey="vendors_table_state_v1"
+        storageKey="vendors_table_state_v2"
         tableLayout={{
           columnsResizable: true,
           columnsDraggable: true,
