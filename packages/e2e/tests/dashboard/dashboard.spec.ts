@@ -11,19 +11,26 @@ test.describe("Dashboard", () => {
     ).toBeVisible();
   });
 
-  test("shows welcome message with user name", async ({ page }) => {
-    await expect(page.getByText(/Welcome\s/)).toBeVisible();
+  test("shows New Request button", async ({ page }) => {
+    await expect(
+      page.getByRole("button", { name: "New Request" })
+    ).toBeVisible();
   });
 
   test("shows stats cards", async ({ page }, testInfo) => {
     const main = page.getByRole("main");
-    await expect(main.getByText("Requests")).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(main.getByText("Pending")).toBeVisible();
+    const isAdmin = testInfo.project.name === "admin";
 
-    if (testInfo.project.name === "admin") {
+    await expect(
+      main.getByText(isAdmin ? "All Requests" : "My Requests")
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      main.getByText(isAdmin ? "Pending Reviews" : "My Pending")
+    ).toBeVisible();
+
+    if (isAdmin) {
       await expect(main.getByText("Total Users")).toBeVisible();
+      await expect(main.getByText("Vendor Payments")).toBeVisible();
     }
   });
 });

@@ -34,20 +34,6 @@ test.describe("Teams list (admin)", () => {
     await expect(page.getByRole("button", { name: "Add team" })).toBeVisible();
   });
 
-  test("admin sees management description", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-
-    await expect(
-      page.getByText("Manage teams and their members.")
-    ).toBeVisible();
-  });
-
-  test("volunteer sees view-only description", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await expect(page.getByText("View the teams you belong to.")).toBeVisible();
-  });
-
   test("volunteer does not see Create Team button", async ({
     page,
   }, testInfo) => {

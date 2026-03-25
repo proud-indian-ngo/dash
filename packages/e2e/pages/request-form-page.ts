@@ -56,10 +56,16 @@ export class RequestFormPage {
     const bankAccountGroup = this.page
       .getByRole("group")
       .filter({ hasText: "Bank Account" });
-    await expect(bankAccountGroup.getByRole("combobox")).toBeVisible({
-      timeout,
-    });
-    await bankAccountGroup.getByRole("combobox").click();
+    const combobox = bankAccountGroup.getByRole("combobox");
+    await expect(combobox).toBeVisible({ timeout });
+
+    // If a default is already selected, skip — just verify it has a value
+    const text = await combobox.textContent();
+    if (text?.includes("••••")) {
+      return;
+    }
+
+    await combobox.click();
     await expect(this.page.getByRole("option")).toBeVisible({ timeout });
     await this.page.getByRole("option").first().click();
   }

@@ -45,7 +45,7 @@ export class RequestPage {
     await this.page.getByLabel("Expense Date").click();
     const calendar = this.page.locator('[data-slot="calendar"]');
     await expect(calendar).toBeVisible();
-    await calendar.getByRole("button", { name: /^Today/ }).click();
+    await calendar.locator('button[aria-current="date"]').click();
     await this.form.getTitleInput().click();
     await expect(
       this.page.locator('[data-slot="popover-content"]')
