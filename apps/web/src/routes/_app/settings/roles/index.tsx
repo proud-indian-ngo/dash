@@ -1,25 +1,9 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@pi-dash/design-system/components/ui/table";
 import { env } from "@pi-dash/env/web";
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useEffect, useState } from "react";
@@ -30,8 +14,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
-import { Loader } from "@/components/loader";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { RolesTable } from "@/components/roles/roles-table";
 import {
   createRole,
   deleteRole,
@@ -73,8 +56,6 @@ function RolesPage() {
   const [roles, setRoles] = useState<RoleListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<RoleListItem | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const loadRoles = useCallback(async () => {
     try {
@@ -121,122 +102,45 @@ function RolesPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) {
-      return;
-    }
-    setDeleteLoading(true);
+  const handleDelete = async ({ id: roleId }: { id: string; name: string }) => {
     try {
-      await deleteRoleFn({ data: { roleId: deleteTarget.id } });
-      toast.success("Role deleted");
-      setDeleteTarget(null);
+      await deleteRoleFn({ data: { roleId } });
       loadRoles();
+      return { type: "success" as const };
     } catch (error) {
       log.error({
         component: "RolesPage",
         action: "deleteRole",
-        roleId: deleteTarget.id,
+        roleId,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error(getErrorMessage(error));
-    } finally {
-      setDeleteLoading(false);
+      return {
+        type: "error" as const,
+        error: { message: getErrorMessage(error) },
+      };
     }
   };
 
-  if (loading) {
-    return <Loader />;
-  }
-
   return (
-    <div className="app-container mx-auto max-w-4xl px-4 py-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-semibold text-2xl">Roles</h1>
-        <Button onClick={() => setCreateOpen(true)} size="sm" type="button">
-          <HugeiconsIcon
-            className="size-4"
-            icon={PlusSignIcon}
-            strokeWidth={2}
-          />
-          Add role
-        </Button>
+    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+      <h1 className="font-semibold text-2xl">Roles</h1>
+      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+        <RolesTable
+          data={roles}
+          isLoading={loading}
+          onDelete={handleDelete}
+          toolbarActions={
+            <Button onClick={() => setCreateOpen(true)} size="sm" type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add role
+            </Button>
+          }
+        />
       </div>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>All roles</CardTitle>
-          <CardDescription>
-            Manage roles and their permissions. System roles cannot be deleted.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-center">Permissions</TableHead>
-                <TableHead className="text-center">Users</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {roles.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {r.name}
-                      {r.isSystem ? (
-                        <Badge variant="secondary">System</Badge>
-                      ) : null}
-                    </div>
-                    <span className="text-muted-foreground text-xs">
-                      {r.id}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
-                    {r.description ?? "--"}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {r.permissionCount}
-                  </TableCell>
-                  <TableCell className="text-center">{r.userCount}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-                        params={{ roleId: r.id }}
-                        to="/settings/roles/$roleId"
-                      >
-                        {r.id === "admin" ? "View" : "Edit"}
-                      </Link>
-                      {r.isSystem ? null : (
-                        <Button
-                          onClick={() => setDeleteTarget(r)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {roles.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    className="text-center text-muted-foreground"
-                    colSpan={5}
-                  >
-                    No roles found.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
 
       <FormModal
         description="Create a new role. You can assign permissions after creation."
@@ -251,26 +155,6 @@ function RolesPage() {
           />
         ) : null}
       </FormModal>
-
-      <ConfirmDialog
-        confirmLabel="Delete role"
-        description={
-          deleteTarget
-            ? `This will permanently delete the "${deleteTarget.name}" role. The role must not be assigned to any users.`
-            : ""
-        }
-        loading={deleteLoading}
-        loadingLabel="Deleting..."
-        onConfirm={handleDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
-        open={deleteTarget !== null}
-        title="Delete role"
-        variant="destructive"
-      />
     </div>
   );
 }
