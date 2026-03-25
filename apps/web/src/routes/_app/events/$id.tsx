@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_app/events/$id")({
 function EventDetailRouteComponent() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
-  const { isAdmin } = useApp();
+  const { hasPermission } = useApp();
 
   const [eventResult, eventStatus] = useQuery(queries.teamEvent.byId({ id }));
   const event = (eventResult ?? null) as EventRow | null;
@@ -59,7 +59,8 @@ function EventDetailRouteComponent() {
   }
 
   const canManage =
-    isAdmin || (team ? isTeamLead(team.members, session.user.id) : false);
+    hasPermission("events.edit") ||
+    (team ? isTeamLead(team.members, session.user.id) : false);
   const myInterest = interests.find(
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
@@ -70,6 +71,7 @@ function EventDetailRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
         canManage={canManage}
+        canManageVolunteers={hasPermission("events.edit") || (team ? isTeamLead(team.members, session.user.id) : false)}
         currentUserId={session.user.id}
         event={event}
         interests={
@@ -77,7 +79,6 @@ function EventDetailRouteComponent() {
             user: User | undefined;
           })[]
         }
-        isAdmin={isAdmin}
         isMember={isMember}
         myInterest={myInterest ?? null}
         team={team}

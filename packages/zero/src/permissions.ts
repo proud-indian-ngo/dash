@@ -9,15 +9,6 @@ export function assertIsLoggedIn(
   }
 }
 
-export function assertIsAdmin(
-  authData: Context | undefined
-): asserts authData is Context & { role: "admin" } {
-  assertIsLoggedIn(authData);
-  if (authData.role !== "admin") {
-    throw new Error("Unauthorized");
-  }
-}
-
 /** O(1) permission check via lazily-built Set on the context. */
 export function can(ctx: Context, permission: PermissionId): boolean {
   if (!ctx._permissionSet) {

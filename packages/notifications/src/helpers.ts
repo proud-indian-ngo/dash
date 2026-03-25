@@ -14,14 +14,6 @@ export interface LineItemDetail {
   description: string | null;
 }
 
-export async function getAdminUserIds(): Promise<string[]> {
-  const admins = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.role, "admin"));
-  return admins.map((a) => a.id);
-}
-
 export async function getUserIdsWithPermission(
   permissionId: string
 ): Promise<string[]> {

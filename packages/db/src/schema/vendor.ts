@@ -89,7 +89,7 @@ export const vendorPayment = pgTable(
     index("vendor_payment_status_idx").on(table.status),
     check(
       "vendor_payment_rejection_reason_chk",
-      sql`(status = 'rejected' AND rejection_reason IS NOT NULL) OR (status != 'rejected' AND rejection_reason IS NULL)`
+      sql`((status = 'rejected'::vendor_payment_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::vendor_payment_status) AND (rejection_reason IS NULL))`
     ),
   ]
 );

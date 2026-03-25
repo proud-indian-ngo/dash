@@ -102,6 +102,17 @@ Permissions are code-defined in `packages/db/src/permissions.ts` and synced to t
 role  →  rolePermission  →  permission (code-defined, DB-synced)
 ```
 
+### Role Hierarchy
+
+Roles are stored in the `role` table. Built-in system roles (highest to lowest privilege):
+
+1. **admin** — all permissions, system role
+2. **Custom roles** (e.g. `team_lead`) — configurable permissions via role management UI
+3. **volunteer** — baseline permissions for oriented volunteers
+4. **unoriented_volunteer** — minimal permissions, default for new users who haven't completed orientation
+
+The default role for new users and null-role fallbacks is `unoriented_volunteer`. Better Auth's admin plugin only knows `admin` vs `volunteer` — custom roles are stored in `user.role` and mapped via `toBetterAuthRole()`.
+
 ### Resolution
 
 `resolvePermissions()` in `packages/db/src/queries/resolve-permissions.ts` fetches a user's effective permissions from their assigned role. Results are cached in-memory for 60 seconds. Call `invalidatePermissionCache()` after role or permission changes to bust the cache.

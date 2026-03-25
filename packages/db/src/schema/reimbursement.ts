@@ -60,7 +60,7 @@ export const reimbursement = pgTable(
     index("reimbursement_status_idx").on(table.status),
     check(
       "reimbursement_rejection_reason_chk",
-      sql`(status = 'rejected' AND rejection_reason IS NOT NULL) OR (status != 'rejected' AND rejection_reason IS NULL)`
+      sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
     ),
   ]
 );

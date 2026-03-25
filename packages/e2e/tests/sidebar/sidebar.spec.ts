@@ -43,9 +43,13 @@ test.describe("Sidebar navigation", () => {
     const sidebar = page.locator("[data-sidebar='sidebar']");
     await sidebar.locator("[data-sidebar='menu-button']").last().click();
 
-    await expect(page.getByText("Settings")).toBeVisible();
-    await expect(page.getByText("Notifications")).toBeVisible();
-    await expect(page.getByText("Log out")).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Settings" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Notifications" })
+    ).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
   });
 
   test("toggle sidebar button works", async ({ page }) => {

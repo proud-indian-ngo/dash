@@ -1,9 +1,6 @@
 import { db } from "@pi-dash/db";
 import { PERMISSION_IDS } from "@pi-dash/db/permissions";
-import {
-  invalidatePermissionCache,
-  resolvePermissions,
-} from "@pi-dash/db/queries/resolve-permissions";
+import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   permission,
@@ -13,19 +10,13 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
+import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
 async function ensureRolePermission(
-  session: { user: { role?: string | null } } | null
+  session: { user: { id: string; role?: string | null } } | null
 ) {
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
-  const userRole = session.user.role ?? "volunteer";
-  const perms = await resolvePermissions(userRole);
-  if (!perms.includes("settings.roles")) {
-    throw new Error("Unauthorized");
-  }
+  await assertServerPermission(session, "settings.roles");
 }
 
 // ── List all roles ──
@@ -185,10 +176,13 @@ export const createRole = createServerFn({ method: "POST" })
         isSystem: false,
       });
 
-      for (const permId of data.permissionIds) {
-        await tx
-          .insert(rolePermission)
-          .values({ roleId: data.id, permissionId: permId });
+      if (data.permissionIds.length > 0) {
+        await tx.insert(rolePermission).values(
+          data.permissionIds.map((permId) => ({
+            roleId: data.id,
+            permissionId: permId,
+          }))
+        );
       }
     });
 
@@ -244,10 +238,13 @@ export const updateRole = createServerFn({ method: "POST" })
         .delete(rolePermission)
         .where(eq(rolePermission.roleId, data.roleId));
 
-      for (const permId of data.permissionIds) {
-        await tx
-          .insert(rolePermission)
-          .values({ roleId: data.roleId, permissionId: permId });
+      if (data.permissionIds.length > 0) {
+        await tx.insert(rolePermission).values(
+          data.permissionIds.map((permId) => ({
+            roleId: data.roleId,
+            permissionId: permId,
+          }))
+        );
       }
     });
 

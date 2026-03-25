@@ -1,4 +1,3 @@
-import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import {
   getAllUserPreferences,
   updateUserTopicPreference,
@@ -10,6 +9,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";
 import z from "zod";
+import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
 const adminUserIdSchema = z.object({
@@ -148,14 +148,7 @@ export const getNotificationPreferencesAdmin = createServerFn({
   .middleware([authMiddleware])
   .inputValidator(adminUserIdSchema)
   .handler(async ({ context, data }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    const role = context.session.user.role ?? "volunteer";
-    const permissions = await resolvePermissions(role);
-    if (!permissions.includes("users.edit")) {
-      throw new Error("Forbidden");
-    }
+    await assertServerPermission(context.session, "users.edit");
 
     try {
       const items = await getAllUserPreferences(data.userId);
@@ -186,14 +179,7 @@ export const updateNotificationPreferenceAdmin = createServerFn({
   .middleware([authMiddleware])
   .inputValidator(adminUpdatePreferenceSchema)
   .handler(async ({ context, data }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    const role = context.session.user.role ?? "volunteer";
-    const permissions = await resolvePermissions(role);
-    if (!permissions.includes("users.edit")) {
-      throw new Error("Forbidden");
-    }
+    await assertServerPermission(context.session, "users.edit");
 
     try {
       await updateUserTopicPreference({
@@ -229,14 +215,7 @@ export const getWhatsAppNotificationPrefAdmin = createServerFn({
   .middleware([authMiddleware])
   .inputValidator(adminUserIdSchema)
   .handler(async ({ context, data }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    const role = context.session.user.role ?? "volunteer";
-    const permissions = await resolvePermissions(role);
-    if (!permissions.includes("users.edit")) {
-      throw new Error("Forbidden");
-    }
+    await assertServerPermission(context.session, "users.edit");
 
     return await getWhatsAppNotifications(data.userId);
   });
@@ -247,14 +226,7 @@ export const updateWhatsAppNotificationPrefAdmin = createServerFn({
   .middleware([authMiddleware])
   .inputValidator(adminWhatsAppSchema)
   .handler(async ({ context, data }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    const role = context.session.user.role ?? "volunteer";
-    const permissions = await resolvePermissions(role);
-    if (!permissions.includes("users.edit")) {
-      throw new Error("Forbidden");
-    }
+    await assertServerPermission(context.session, "users.edit");
 
     try {
       await setWhatsAppNotifications(data.userId, data.enabled);

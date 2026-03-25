@@ -80,7 +80,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     log.set({ teamId: event.teamId, eventName: event.name });
 
     // Verify user has manage_photos permission or is team lead
-    const role = session.user.role ?? "volunteer";
+    const role = session.user.role ?? "unoriented_volunteer";
     const permissions = await resolvePermissions(role);
     let canUpload = permissions.includes("events.manage_photos");
     if (!canUpload) {

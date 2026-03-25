@@ -27,7 +27,6 @@ interface AppUser {
 
 interface AppContextValue {
   hasPermission: (permission: PermissionId) => boolean;
-  isAdmin: boolean;
   navGroups: NavGroup[];
   navItems: NavItem[];
   openSettings: (section?: Section) => void;
@@ -53,7 +52,6 @@ export function AppProvider({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<Section>("profile");
 
-  const isAdmin = user.role === "admin";
   const navItems = buildNavItems(permissions);
   const navGroups = buildNavGroups(permissions);
 
@@ -74,7 +72,6 @@ export function AppProvider({
     <AppContext
       value={{
         hasPermission,
-        isAdmin,
         navGroups,
         navItems,
         openSettings,

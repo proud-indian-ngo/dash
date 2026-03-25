@@ -4,6 +4,7 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -130,6 +131,9 @@ async function ensureBankAccount(userId: string): Promise<void> {
 }
 
 async function seed(): Promise<void> {
+  await syncPermissions();
+  log("Synced roles and permissions");
+
   await ensureExpenseCategories();
 
   for (const testUser of TEST_USERS) {

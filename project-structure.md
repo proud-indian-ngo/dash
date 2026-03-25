@@ -236,7 +236,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
 - **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) is used in notification functions to construct screenshot URLs for approval messages.
 - **JWT**: `src/jwt.ts` generates Courier JWTs for client-side inbox.
-- **Helpers**: `src/helpers.ts` provides `getAdminUserIds`, `getUserName`, `syncCourierUser`.
+- **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`, `syncCourierUser`.
 - DO: Add new notification types in `packages/notifications/src/send/`.
 - DO: Register new env vars in `packages/env/src/server.ts`.
 - DO NOT: Call Courier directly from web app code — use the notifications package.

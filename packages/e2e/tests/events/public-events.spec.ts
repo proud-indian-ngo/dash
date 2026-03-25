@@ -40,7 +40,9 @@ test.describe("Public events page", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "Events" })).toBeVisible({
+    await expect(
+      page.getByRole("link", { name: "Events", exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
   });

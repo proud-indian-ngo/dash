@@ -6,7 +6,7 @@ async function openSettings(page: import("@playwright/test").Page) {
 
   const sidebar = page.locator("[data-sidebar='sidebar']");
   await sidebar.locator("[data-sidebar='menu-button']").last().click();
-  await page.getByText("Settings").click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
 
   await expect(page.getByRole("dialog")).toBeVisible();
 }

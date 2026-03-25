@@ -8,6 +8,6 @@ export const getPermissions = createServerFn({ method: "GET" })
     if (!context.session) {
       return [];
     }
-    const role = context.session.user.role ?? "volunteer";
+    const role = context.session.user.role ?? "unoriented_volunteer";
     return await resolvePermissions(role);
   });

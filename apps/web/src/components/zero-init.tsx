@@ -22,11 +22,12 @@ interface ZeroInitProps {
 export function ZeroInit({ children }: ZeroInitProps) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
-  const role = session?.user.role ?? "volunteer";
+  const role = session?.user.role ?? "unoriented_volunteer";
   const userID = session?.user.id ?? "anon";
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const userId = session?.user?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch permissions when role changes
   useEffect(() => {
     if (!userId) {
       return;
@@ -41,13 +42,13 @@ export function ZeroInit({ children }: ZeroInitProps) {
         });
         setPermissions([]);
       });
-  }, [userId]);
+  }, [userId, role]);
 
   const context = useMemo(
     () =>
       session
         ? { permissions, role, userId: session.user.id }
-        : { permissions: [], role: "volunteer", userId: "anon" },
+        : { permissions: [], role: "unoriented_volunteer", userId: "anon" },
     [permissions, role, session]
   );
 

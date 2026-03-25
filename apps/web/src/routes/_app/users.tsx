@@ -73,9 +73,17 @@ function UsersRouteComponent() {
   >([]);
 
   useEffect(() => {
-    getRoleOptions().then((roles) =>
-      setRoleSelectOptions(roles.map((r) => ({ label: r.name, value: r.id })))
-    );
+    getRoleOptions()
+      .then((roles) =>
+        setRoleSelectOptions(roles.map((r) => ({ label: r.name, value: r.id })))
+      )
+      .catch((error: unknown) => {
+        log.error({
+          component: "UsersRoute",
+          action: "getRoleOptions",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
   }, []);
 
   const [roleFilter, setRoleFilter] = useQueryState(

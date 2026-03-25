@@ -1,6 +1,5 @@
 // biome-ignore lint/performance/noBarrelFile: intentional
 export {
-  getAdminUserIds,
   getUserIdsWithPermission,
   getUserName,
   syncCourierUser,

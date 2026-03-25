@@ -28,6 +28,7 @@ import type { EventRow } from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamMembersSection } from "@/components/teams/team-members-section";
+import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -39,7 +40,6 @@ export type TeamDetailData = Team & {
 };
 
 interface TeamDetailProps {
-  isAdmin: boolean;
   team: TeamDetailData;
   userId: string;
 }
@@ -50,10 +50,55 @@ type TeamDialog =
   | { type: "createEvent" }
   | { type: "editEvent"; event: EventRow };
 
-export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
+function TeamHeaderActions({
+  canDelete,
+  canEdit,
+  onDelete,
+  onEdit,
+}: {
+  canDelete: boolean;
+  canEdit: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  if (!(canEdit || canDelete)) {
+    return null;
+  }
+  return (
+    <div className="flex gap-2">
+      {canEdit ? (
+        <Button onClick={onEdit} size="sm" type="button" variant="outline">
+          <HugeiconsIcon className="size-4" icon={Edit02Icon} strokeWidth={2} />
+          Edit
+        </Button>
+      ) : null}
+      {canDelete ? (
+        <Button
+          onClick={onDelete}
+          size="sm"
+          type="button"
+          variant="destructive"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={Delete02Icon}
+            strokeWidth={2}
+          />
+          Delete
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+export function TeamDetail({ team, userId }: TeamDetailProps) {
   const zero = useZero();
   const navigate = useNavigate();
-  const canManage = isAdmin || isTeamLead(team.members, userId);
+  const { hasPermission } = useApp();
+  const canEdit = hasPermission("teams.edit");
+  const canDelete = hasPermission("teams.delete");
+  const canManageMembers = hasPermission("teams.manage_members");
+  const canManage = canManageMembers || isTeamLead(team.members, userId);
 
   const dialog = useDialogManager<TeamDialog>();
 
@@ -161,36 +206,12 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
               </p>
             ) : null}
           </div>
-          {isAdmin ? (
-            <div className="flex gap-2">
-              <Button
-                onClick={() => dialog.open({ type: "edit" })}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Edit02Icon}
-                  strokeWidth={2}
-                />
-                Edit
-              </Button>
-              <Button
-                onClick={() => deleteTeam.trigger()}
-                size="sm"
-                type="button"
-                variant="destructive"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                />
-                Delete
-              </Button>
-            </div>
-          ) : null}
+          <TeamHeaderActions
+            canDelete={canDelete}
+            canEdit={canEdit}
+            onDelete={() => deleteTeam.trigger()}
+            onEdit={() => dialog.open({ type: "edit" })}
+          />
         </div>
 
         <Separator />
@@ -198,7 +219,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         {/* Members */}
         <TeamMembersSection
           canManage={canManage}
-          isAdmin={isAdmin}
+          canRemoveLeads={canManageMembers}
           leadCount={leadCount}
           members={team.members}
           onAddMember={() => dialog.open({ type: "addMember" })}
@@ -253,7 +274,7 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         </div>
 
         {/* Edit Team Dialog */}
-        {isAdmin ? (
+        {canEdit ? (
           <TeamFormDialog
             initialValues={{
               id: team.id,
@@ -269,8 +290,8 @@ export function TeamDetail({ isAdmin, team, userId }: TeamDetailProps) {
         {/* Add Member Dialog */}
         {canManage ? (
           <AddMemberDialog
+            canSetRole={canManageMembers}
             existingMembers={team.members}
-            isAdmin={isAdmin}
             onOpenChange={dialog.onOpenChange}
             open={dialog.isOpen("addMember")}
             teamId={team.id}

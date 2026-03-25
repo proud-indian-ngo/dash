@@ -1,5 +1,4 @@
 import { db } from "@pi-dash/db";
-import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import {
   advancePayment,
   advancePaymentAttachment,
@@ -15,6 +14,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import z from "zod";
+import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
 const statusValues = ["pending", "approved", "rejected"] as const;
@@ -210,14 +210,7 @@ export const exportCsvData = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(exportCsvSchema)
   .handler(async ({ context, data }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    const role = context.session.user.role ?? "volunteer";
-    const permissions = await resolvePermissions(role);
-    if (!permissions.includes("requests.export")) {
-      throw new Error("Forbidden");
-    }
+    await assertServerPermission(context.session, "requests.export");
 
     const fyStartDate = new Date(data.fyStart, 3, 1); // April 1
     const fyEndDate = new Date(data.fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31

@@ -96,6 +96,8 @@ function RoleEditPage() {
     loadData();
   }, [loadData]);
 
+  const formKey = roleData ? `role-form-${roleData.id}` : "role-form-loading";
+
   const form = useForm({
     defaultValues: {
       name: roleData?.name ?? "",
@@ -124,16 +126,6 @@ function RoleEditPage() {
       }
     },
   });
-
-  // Reset form when roleData loads — form is intentionally excluded from deps
-  // biome-ignore lint/correctness/useExhaustiveDependencies: form reference changes on every render
-  useEffect(() => {
-    if (roleData) {
-      form.reset();
-      form.setFieldValue("name", roleData.name);
-      form.setFieldValue("description", roleData.description ?? "");
-    }
-  }, [roleData]);
 
   const togglePermission = (permId: string) => {
     setSelectedPermissions((prev) => {
@@ -204,7 +196,7 @@ function RoleEditPage() {
           by default.
         </div>
       ) : null}
-      <FormLayout className="mt-6 space-y-6" form={form}>
+      <FormLayout className="mt-6 space-y-6" form={form} key={formKey}>
         <Card>
           <CardHeader>
             <CardTitle>Details</CardTitle>

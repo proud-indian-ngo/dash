@@ -1,4 +1,4 @@
-import { eq, notInArray } from "drizzle-orm";
+import { eq, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   PERMISSIONS,
@@ -20,24 +20,24 @@ export async function syncPermissions(): Promise<void> {
   const currentIds = PERMISSIONS.map((p) => p.id);
 
   // Batch upsert all permissions from code constant
-  for (const perm of PERMISSIONS) {
-    await db
-      .insert(permission)
-      .values({
+  await db
+    .insert(permission)
+    .values(
+      PERMISSIONS.map((perm) => ({
         id: perm.id,
         name: perm.name,
         category: perm.category,
         description: perm.description,
-      })
-      .onConflictDoUpdate({
-        target: permission.id,
-        set: {
-          name: perm.name,
-          category: perm.category,
-          description: perm.description,
-        },
-      });
-  }
+      }))
+    )
+    .onConflictDoUpdate({
+      target: permission.id,
+      set: {
+        name: sql`excluded.name`,
+        category: sql`excluded.category`,
+        description: sql`excluded.description`,
+      },
+    });
 
   // Remove stale rolePermission rows then stale permissions (single pass)
   await db
@@ -65,50 +65,56 @@ export async function syncPermissions(): Promise<void> {
       .onConflictDoNothing();
   }
 
-  // Admin gets ALL permissions — delete and re-insert in batch
-  await db.delete(rolePermission).where(eq(rolePermission.roleId, "admin"));
-  if (currentIds.length > 0) {
-    await db.insert(rolePermission).values(
-      currentIds.map((permId) => ({
-        roleId: "admin",
-        permissionId: permId,
-      }))
-    );
-  }
+  // Admin gets ALL permissions — delete and re-insert atomically
+  await db.transaction(async (tx) => {
+    await tx.delete(rolePermission).where(eq(rolePermission.roleId, "admin"));
+    if (currentIds.length > 0) {
+      await tx.insert(rolePermission).values(
+        currentIds.map((permId) => ({
+          roleId: "admin",
+          permissionId: permId,
+        }))
+      );
+    }
+  });
 
   // Volunteer baseline — only seed if volunteer has zero permissions (first run)
-  const volunteerPerms = await db
-    .select({ permissionId: rolePermission.permissionId })
-    .from(rolePermission)
-    .where(eq(rolePermission.roleId, "volunteer"));
+  await db.transaction(async (tx) => {
+    const volunteerPerms = await tx
+      .select({ permissionId: rolePermission.permissionId })
+      .from(rolePermission)
+      .where(eq(rolePermission.roleId, "volunteer"));
 
-  if (
-    volunteerPerms.length === 0 &&
-    VOLUNTEER_BASELINE_PERMISSIONS.length > 0
-  ) {
-    await db.insert(rolePermission).values(
-      VOLUNTEER_BASELINE_PERMISSIONS.map((permId) => ({
-        roleId: "volunteer",
-        permissionId: permId,
-      }))
-    );
-  }
+    if (
+      volunteerPerms.length === 0 &&
+      VOLUNTEER_BASELINE_PERMISSIONS.length > 0
+    ) {
+      await tx.insert(rolePermission).values(
+        VOLUNTEER_BASELINE_PERMISSIONS.map((permId) => ({
+          roleId: "volunteer",
+          permissionId: permId,
+        }))
+      );
+    }
+  });
 
   // Unoriented volunteer baseline — only seed on first run
-  const unorientedPerms = await db
-    .select({ permissionId: rolePermission.permissionId })
-    .from(rolePermission)
-    .where(eq(rolePermission.roleId, "unoriented_volunteer"));
+  await db.transaction(async (tx) => {
+    const unorientedPerms = await tx
+      .select({ permissionId: rolePermission.permissionId })
+      .from(rolePermission)
+      .where(eq(rolePermission.roleId, "unoriented_volunteer"));
 
-  if (
-    unorientedPerms.length === 0 &&
-    UNORIENTED_VOLUNTEER_PERMISSIONS.length > 0
-  ) {
-    await db.insert(rolePermission).values(
-      UNORIENTED_VOLUNTEER_PERMISSIONS.map((permId) => ({
-        roleId: "unoriented_volunteer",
-        permissionId: permId,
-      }))
-    );
-  }
+    if (
+      unorientedPerms.length === 0 &&
+      UNORIENTED_VOLUNTEER_PERMISSIONS.length > 0
+    ) {
+      await tx.insert(rolePermission).values(
+        UNORIENTED_VOLUNTEER_PERMISSIONS.map((permId) => ({
+          roleId: "unoriented_volunteer",
+          permissionId: permId,
+        }))
+      );
+    }
+  });
 }

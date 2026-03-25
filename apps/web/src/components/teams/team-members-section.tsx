@@ -6,7 +6,7 @@ import { MemberRow } from "@/components/teams/team-member-row";
 
 interface TeamMembersSectionProps {
   canManage: boolean;
-  isAdmin: boolean;
+  canRemoveLeads: boolean;
   leadCount: number;
   members: ReadonlyArray<TeamMember & { user: User | undefined }>;
   onAddMember: () => void;
@@ -17,7 +17,7 @@ interface TeamMembersSectionProps {
 
 export function TeamMembersSection({
   canManage,
-  isAdmin,
+  canRemoveLeads,
   leadCount,
   members,
   onAddMember,
@@ -51,7 +51,9 @@ export function TeamMembersSection({
           {members.map((member) => (
             <MemberRow
               canManage={canManage}
-              canRemove={isAdmin || (canManage && member.role !== "lead")}
+              canRemove={
+                canRemoveLeads || (canManage && member.role !== "lead")
+              }
               isSoleLeadSelf={
                 leadCount === 1 &&
                 member.role === "lead" &&

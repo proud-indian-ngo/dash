@@ -3,7 +3,6 @@ import type { Context } from "./context";
 import {
   assertHasPermission,
   assertHasPermissionOrTeamLead,
-  assertIsAdmin,
   assertIsLoggedIn,
   can,
 } from "./permissions";
@@ -35,24 +34,6 @@ describe("assertIsLoggedIn", () => {
   });
 });
 
-describe("assertIsAdmin", () => {
-  it("throws when authData is undefined", () => {
-    expect(() => assertIsAdmin(undefined)).toThrow("Unauthorized");
-  });
-
-  it("throws when role is not admin", () => {
-    expect(() =>
-      assertIsAdmin(makeCtx({ userId: "u1", role: "volunteer" }))
-    ).toThrow("Unauthorized");
-  });
-
-  it("does not throw for admin role", () => {
-    expect(() =>
-      assertIsAdmin(makeCtx({ userId: "u1", role: "admin" }))
-    ).not.toThrow();
-  });
-});
-
 describe("can", () => {
   it("returns true when permission is in context", () => {
     const ctx = makeCtx({
@@ -70,6 +51,15 @@ describe("can", () => {
       permissions: ["requests.create"],
     });
     expect(can(ctx, "users.view")).toBe(false);
+  });
+
+  it("returns false when permissions array is empty", () => {
+    const ctx = makeCtx({
+      userId: "u1",
+      role: "volunteer",
+      permissions: [],
+    });
+    expect(can(ctx, "requests.create")).toBe(false);
   });
 
   it("caches permission set on context", () => {
@@ -129,6 +119,17 @@ describe("assertHasPermissionOrTeamLead", () => {
       userId: "u1",
       role: "volunteer",
       permissions: [],
+    });
+    expect(() =>
+      assertHasPermissionOrTeamLead(ctx, "events.create", true)
+    ).not.toThrow();
+  });
+
+  it("does not throw when both permission and team lead", () => {
+    const ctx = makeCtx({
+      userId: "u1",
+      role: "volunteer",
+      permissions: ["events.create"],
     });
     expect(() =>
       assertHasPermissionOrTeamLead(ctx, "events.create", true)

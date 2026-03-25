@@ -1,5 +1,11 @@
 import { auth } from "@pi-dash/auth";
-import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
+import { db } from "@pi-dash/db";
+import type { PermissionId } from "@pi-dash/db/permissions";
+import {
+  invalidatePermissionCache,
+  resolvePermissions,
+} from "@pi-dash/db/queries/resolve-permissions";
+import { user } from "@pi-dash/db/schema/auth";
 import {
   notifyRoleChanged,
   notifyUserBanned,
@@ -10,6 +16,7 @@ import {
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { manageOrientationGroupMembership } from "@pi-dash/whatsapp";
 import { createServerFn } from "@tanstack/react-start";
+import { eq } from "drizzle-orm";
 import z from "zod";
 import { optionalDate } from "@/lib/validators";
 import { authMiddleware } from "@/middleware/auth";
@@ -86,12 +93,12 @@ interface AdminContextWithSession extends AdminContext {
 
 async function ensurePermission(
   context: AdminContext,
-  permissionId: string
+  permissionId: PermissionId
 ): Promise<AdminContextWithSession> {
   if (!context.session) {
     throw new Error("Unauthorized");
   }
-  const role = context.session.user.role ?? "volunteer";
+  const role = context.session.user.role ?? "unoriented_volunteer";
   const perms = await resolvePermissions(role);
   if (!perms.includes(permissionId)) {
     throw new Error("Forbidden");
@@ -209,6 +216,12 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       headers: context.headers,
     });
 
+    // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
+    await db
+      .update(user)
+      .set({ role: data.role })
+      .where(eq(user.id, created.user.id));
+
     // Fire-and-forget: sync user to Courier, then send welcome notification
     // (welcome must wait for sync so the email channel is registered)
     withFireAndForgetLog(
@@ -228,8 +241,8 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         )
     );
 
-    // Fire-and-forget: add new volunteer to orientation WhatsApp group
-    if (data.role === "volunteer" && !data.attendedOrientation) {
+    // Fire-and-forget: add new user to orientation WhatsApp group if not yet oriented
+    if (!data.attendedOrientation) {
       withFireAndForgetLog(
         { handler: "createUser", userId: created.user.id, role: data.role },
         () => manageOrientationGroupMembership(created.user.id, false)
@@ -291,6 +304,20 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         headers: context.headers,
       });
 
+      // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
+      await db
+        .update(user)
+        .set({ role: newRole })
+        .where(eq(user.id, data.userId));
+
+      // Invalidate permission cache + user sessions so the new role takes effect
+      invalidatePermissionCache(newRole);
+      invalidatePermissionCache(previousRole ?? undefined);
+      await auth.api.revokeUserSessions({
+        body: { userId: data.userId },
+        headers: context.headers,
+      });
+
       // Fire-and-forget: notify role change
       withFireAndForgetLog(
         { handler: "updateUser", userId: data.userId, newRole },
@@ -315,10 +342,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
     );
 
     // Fire-and-forget: manage WhatsApp group membership on orientation change
-    // Only applies to volunteers, not admins
-    const effectiveRole = data.role ?? previousRole;
     if (
-      effectiveRole === "volunteer" &&
       data.attendedOrientation !== undefined &&
       data.attendedOrientation !== previousAttendedOrientation
     ) {

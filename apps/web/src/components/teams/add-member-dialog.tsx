@@ -26,8 +26,8 @@ const addTeamMemberSchema = z.object({
 });
 
 interface AddMemberDialogProps {
+  canSetRole: boolean;
   existingMembers: readonly TeamMember[];
-  isAdmin: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   teamId: string;
@@ -35,7 +35,7 @@ interface AddMemberDialogProps {
 
 function AddMemberFormContent({
   existingMembers,
-  isAdmin,
+  canSetRole,
   onOpenChange,
   open,
   teamId,
@@ -102,7 +102,7 @@ function AddMemberFormContent({
       <form.Subscribe selector={(state) => state.values.userIds.length}>
         {(count) => (
           <>
-            {isAdmin && count === 1 ? (
+            {canSetRole && count === 1 ? (
               <SelectField
                 label="Role"
                 name="role"
@@ -126,7 +126,7 @@ function AddMemberFormContent({
 
 export function AddMemberDialog({
   existingMembers,
-  isAdmin,
+  canSetRole,
   onOpenChange,
   open,
   teamId,
@@ -150,8 +150,8 @@ export function AddMemberDialog({
           </DialogDescription>
         </DialogHeader>
         <AddMemberFormContent
+          canSetRole={canSetRole}
           existingMembers={existingMembers}
-          isAdmin={isAdmin}
           key={formKey}
           onOpenChange={onOpenChange}
           open={open}
