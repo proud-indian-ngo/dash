@@ -28,7 +28,6 @@ interface AppUser {
 interface AppContextValue {
   hasPermission: (permission: PermissionId) => boolean;
   isAdmin: boolean;
-  isOriented: boolean;
   navGroups: NavGroup[];
   navItems: NavItem[];
   openSettings: (section?: Section) => void;
@@ -55,12 +54,8 @@ export function AppProvider({
   const [settingsSection, setSettingsSection] = useState<Section>("profile");
 
   const isAdmin = user.role === "admin";
-  const isOriented =
-    isAdmin ||
-    permissions.includes("users.view") ||
-    Boolean(user.attendedOrientation);
-  const navItems = buildNavItems(isAdmin, isOriented, permissions);
-  const navGroups = buildNavGroups(isAdmin, isOriented, permissions);
+  const navItems = buildNavItems(permissions);
+  const navGroups = buildNavGroups(permissions);
 
   // Keep useMemo: permissionSet is passed to consumers via hasPermission callback.
   // React Compiler cannot optimize across the context boundary.
@@ -80,7 +75,6 @@ export function AppProvider({
       value={{
         hasPermission,
         isAdmin,
-        isOriented,
         navGroups,
         navItems,
         openSettings,

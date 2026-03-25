@@ -32,7 +32,7 @@ export const user = pgTable("user", {
   isActive: boolean("is_active").default(true).notNull(),
   attendedOrientation: boolean("attended_orientation").default(false).notNull(),
   role: text("role")
-    .default("volunteer")
+    .default("unoriented_volunteer")
     .notNull()
     .references(() => role.id),
   banned: boolean("banned").default(false),

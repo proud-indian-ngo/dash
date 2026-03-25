@@ -186,7 +186,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "volunteer",
+        defaultValue: "unoriented_volunteer",
         input: false,
       },
     },
@@ -194,10 +194,11 @@ export const auth = betterAuth({
   plugins: [
     tanstackStartCookies(),
     admin({
-      defaultRole: "volunteer",
+      defaultRole: "unoriented_volunteer",
       adminRoles: ["admin"],
       roles: {
         admin: adminAc,
+        unoriented_volunteer: userAc,
         volunteer: userAc,
       },
     }),

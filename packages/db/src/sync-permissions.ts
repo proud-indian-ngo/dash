@@ -1,6 +1,10 @@
 import { eq, notInArray } from "drizzle-orm";
 import { db } from ".";
-import { PERMISSIONS, VOLUNTEER_BASELINE_PERMISSIONS } from "./permissions";
+import {
+  PERMISSIONS,
+  UNORIENTED_VOLUNTEER_PERMISSIONS,
+  VOLUNTEER_BASELINE_PERMISSIONS,
+} from "./permissions";
 import { permission, role, rolePermission } from "./schema/permission";
 
 /**
@@ -45,6 +49,11 @@ export async function syncPermissions(): Promise<void> {
   for (const systemRole of [
     { id: "admin", name: "Admin", isSystem: true },
     { id: "volunteer", name: "Volunteer", isSystem: true },
+    {
+      id: "unoriented_volunteer",
+      name: "Unoriented Volunteer",
+      isSystem: true,
+    },
   ]) {
     await db
       .insert(role)
@@ -80,6 +89,24 @@ export async function syncPermissions(): Promise<void> {
     await db.insert(rolePermission).values(
       VOLUNTEER_BASELINE_PERMISSIONS.map((permId) => ({
         roleId: "volunteer",
+        permissionId: permId,
+      }))
+    );
+  }
+
+  // Unoriented volunteer baseline — only seed on first run
+  const unorientedPerms = await db
+    .select({ permissionId: rolePermission.permissionId })
+    .from(rolePermission)
+    .where(eq(rolePermission.roleId, "unoriented_volunteer"));
+
+  if (
+    unorientedPerms.length === 0 &&
+    UNORIENTED_VOLUNTEER_PERMISSIONS.length > 0
+  ) {
+    await db.insert(rolePermission).values(
+      UNORIENTED_VOLUNTEER_PERMISSIONS.map((permId) => ({
+        roleId: "unoriented_volunteer",
         permissionId: permId,
       }))
     );

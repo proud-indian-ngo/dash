@@ -132,9 +132,10 @@ function computeDashboardStats({
 }
 
 function DashboardHome() {
-  const { isOriented } = useApp();
+  const { hasPermission } = useApp();
 
-  if (!isOriented) {
+  // Unoriented volunteers only have events.view_own — show welcome dashboard
+  if (!hasPermission("requests.view_own")) {
     return <WelcomeDashboard />;
   }
 

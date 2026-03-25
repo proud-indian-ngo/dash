@@ -292,7 +292,7 @@ export type PermissionId = (typeof PERMISSIONS)[number]["id"];
 
 export const PERMISSION_IDS = new Set<string>(PERMISSIONS.map((p) => p.id));
 
-/** Baseline permissions granted to the default volunteer role */
+/** Baseline permissions granted to the oriented volunteer role */
 export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "requests.create",
   "requests.view_own",
@@ -305,4 +305,9 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "event_updates.edit_own",
   "event_updates.delete_own",
   "bank_accounts.manage_own",
+];
+
+/** Minimal permissions for unoriented volunteers (pre-orientation signup default) */
+export const UNORIENTED_VOLUNTEER_PERMISSIONS: readonly PermissionId[] = [
+  "events.view_own",
 ];
