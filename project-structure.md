@@ -71,6 +71,9 @@ All paths are relative to project root.
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
 | `routes/_app/vendors/route.tsx` | Vendors layout (admin-only, `assertAdmin` guard) |
 | `routes/_app/vendors/index.tsx` | Vendors list + vendor payments |
+| `routes/_app/settings/roles/route.tsx` | Roles layout |
+| `routes/_app/settings/roles/index.tsx` | Roles list |
+| `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
 | `routes/_app/export.tsx` | CSV data export |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
@@ -135,6 +138,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
+| `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
 | `functions/notification-preferences.ts` | Get/update user notification topic preferences |
 
 All function paths above are prefixed with `apps/web/src/`.
@@ -173,7 +177,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | Package | Key paths |
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), seed-admin script |
-| `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
+| `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
@@ -216,6 +220,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `vendorPaymentLineItem` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentAttachment` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentHistory` | `packages/db/src/schema/vendor.ts` |
+| `role` | `packages/db/src/schema/role.ts` |
+| `permission` | `packages/db/src/schema/role.ts` |
+| `rolePermission` | `packages/db/src/schema/role.ts` |
 | `appConfig` | `packages/db/src/schema/app-config.ts` |
 | `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
 
