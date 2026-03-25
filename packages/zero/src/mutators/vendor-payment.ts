@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertHasPermission, assertIsLoggedIn } from "../permissions";
+import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
@@ -110,7 +110,12 @@ export const vendorPaymentMutators = {
     const userId = ctx.userId;
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
-    assertCanModify(entity, userId, ctx.role === "admin", "vendor payment");
+    assertCanModify(
+      entity,
+      userId,
+      can(ctx, "requests.edit_all"),
+      "vendor payment"
+    );
 
     const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
     if (!vendor) {
@@ -226,7 +231,7 @@ export const vendorPaymentMutators = {
       const userId = ctx.userId;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
-      assertCanDelete(entity, userId, ctx.role === "admin");
+      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
 
       await deleteAllRelations({
         queryLineItems: () =>

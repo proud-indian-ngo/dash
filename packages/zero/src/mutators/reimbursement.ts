@@ -2,7 +2,7 @@ import { cityValues } from "@pi-dash/db/schema/shared";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertHasPermission, assertIsLoggedIn } from "../permissions";
+import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
@@ -108,7 +108,12 @@ export const reimbursementMutators = {
     const userId = ctx.userId;
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
-    assertCanModify(entity, userId, ctx.role === "admin", "reimbursement");
+    assertCanModify(
+      entity,
+      userId,
+      can(ctx, "requests.edit_all"),
+      "reimbursement"
+    );
 
     const now = Date.now();
 
@@ -206,7 +211,7 @@ export const reimbursementMutators = {
       const userId = ctx.userId;
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
-      assertCanDelete(entity, userId, ctx.role === "admin");
+      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
 
       await deleteAllRelations({
         queryLineItems: () =>
