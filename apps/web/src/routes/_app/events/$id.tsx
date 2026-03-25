@@ -71,7 +71,10 @@ function EventDetailRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
         canManage={canManage}
-        canManageVolunteers={hasPermission("events.edit") || (team ? isTeamLead(team.members, session.user.id) : false)}
+        canManageVolunteers={
+          hasPermission("events.edit") ||
+          (team ? isTeamLead(team.members, session.user.id) : false)
+        }
         currentUserId={session.user.id}
         event={event}
         interests={
