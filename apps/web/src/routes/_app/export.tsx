@@ -205,7 +205,7 @@ function ExportRouteComponent() {
         year.
       </p>
 
-      <div className="mt-6 grid max-w-md gap-6">
+      <div className="fade-in-0 mt-4 grid max-w-md animate-in gap-6 fill-mode-backwards duration-200">
         <fieldset className="grid gap-3">
           <legend className="font-medium text-sm">Data types</legend>
           <div className="flex items-center gap-2">

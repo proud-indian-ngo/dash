@@ -228,11 +228,8 @@ function UsersRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Users</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        Manage users, roles, status flags, and credentials.
-      </p>
 
-      <div className="mt-6 grid gap-6 *:min-w-0">
+      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
         <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
         <UsersTable
           isLoading={isLoading}

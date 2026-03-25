@@ -1,4 +1,5 @@
 import {
+  ArrowRight01Icon,
   Calendar03Icon,
   Clock01Icon,
   Invoice01Icon,
@@ -43,10 +44,13 @@ export const Route = createFileRoute("/_app/")({
   component: DashboardHome,
 });
 
+const SECTION_DELAY_MS = 150;
+
 interface DashboardStatsInput {
   advancePayments: readonly WithStatusAndLineItems[];
   events: readonly { startTime: number | null }[];
   isAdmin: boolean;
+  pendingCount: number;
   reimbursements: readonly WithStatusAndLineItems[];
   teams: readonly { id: string }[];
   users: readonly { role: string | null }[];
@@ -61,11 +65,9 @@ function computeDashboardStats({
   events,
   vendorPayments,
   isAdmin,
+  pendingCount,
 }: DashboardStatsInput): StatItem[] {
   const allRequests = [...reimbursements, ...advancePayments];
-  const pendingCount =
-    byStatus(reimbursements, "pending").length +
-    byStatus(advancePayments, "pending").length;
 
   return [
     {
@@ -74,6 +76,7 @@ function computeDashboardStats({
       description: formatINR(sumTotal(allRequests)),
       icon: Invoice01Icon,
       accent: "border-l-blue-500",
+      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
       href: "/requests",
     },
     {
@@ -82,6 +85,7 @@ function computeDashboardStats({
       description: "Awaiting review",
       icon: Clock01Icon,
       accent: "border-l-amber-500",
+      bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
       href: "/requests?status=pending",
     },
     ...(isAdmin
@@ -91,6 +95,7 @@ function computeDashboardStats({
             value: users.length,
             icon: UserMultipleIcon,
             accent: "border-l-emerald-500",
+            bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
             href: "/users",
           },
           {
@@ -99,6 +104,7 @@ function computeDashboardStats({
             description: formatINR(sumTotal(vendorPayments)),
             icon: Store01Icon,
             accent: "border-l-violet-500",
+            bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
             href: "/vendors",
           },
         ]
@@ -108,6 +114,7 @@ function computeDashboardStats({
             value: teams.length,
             icon: UserMultipleIcon,
             accent: "border-l-teal-500",
+            bgAccent: "bg-teal-500/5 dark:bg-teal-500/10",
             href: "/teams",
           },
           {
@@ -117,6 +124,7 @@ function computeDashboardStats({
             ).length,
             icon: Calendar03Icon,
             accent: "border-l-purple-500",
+            bgAccent: "bg-purple-500/5 dark:bg-purple-500/10",
             href: "/events",
           },
         ]),
@@ -161,8 +169,36 @@ function WelcomeDashboard() {
   );
 }
 
+function PendingCallout({ count }: { count: number }) {
+  if (count === 0) {
+    return null;
+  }
+
+  return (
+    <Link
+      className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 transition-colors hover:bg-amber-50 dark:border-amber-500/20 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
+      search={{ status: "pending" }}
+      to="/requests"
+    >
+      <HugeiconsIcon
+        className="size-4 shrink-0 text-amber-500"
+        icon={Clock01Icon}
+        strokeWidth={2}
+      />
+      <span className="flex-1 text-sm">
+        <span className="font-medium">{count}</span>{" "}
+        {count === 1 ? "request needs" : "requests need"} your review
+      </span>
+      <HugeiconsIcon
+        className="size-4 shrink-0 text-muted-foreground"
+        icon={ArrowRight01Icon}
+        strokeWidth={2}
+      />
+    </Link>
+  );
+}
+
 function OrientedDashboard() {
-  const { session } = Route.useRouteContext();
   const { isAdmin } = useApp();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
@@ -180,6 +216,12 @@ function OrientedDashboard() {
     r5.type === "unknown" ||
     r6.type === "unknown";
 
+  const pendingCount = isLoading
+    ? 0
+    : byStatus(reimbursements ?? [], "pending").length +
+      byStatus(advancePayments ?? [], "pending").length +
+      byStatus(vendorPayments ?? [], "pending").length;
+
   const stats = isLoading
     ? []
     : computeDashboardStats({
@@ -190,20 +232,13 @@ function OrientedDashboard() {
         events: events ?? [],
         vendorPayments: vendorPayments ?? [],
         isAdmin,
+        pendingCount,
       });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
-      <h1 className="font-semibold text-2xl">Dashboard</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        Welcome {session?.user.name}
-      </p>
-
-      <div className="mt-6">
-        <StatsCards isLoading={isLoading} items={stats} />
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-semibold text-2xl">Dashboard</h1>
         <Button
           nativeButton={false}
           render={<Link to="/requests/new" />}
@@ -215,7 +250,16 @@ function OrientedDashboard() {
         </Button>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      {isAdmin && <PendingCallout count={pendingCount} />}
+
+      <div className="mt-3">
+        <StatsCards isLoading={isLoading} items={stats} />
+      </div>
+
+      <div
+        className="fade-in-0 mt-8 grid animate-in gap-6 fill-mode-backwards duration-200 lg:grid-cols-2"
+        style={{ animationDelay: `${SECTION_DELAY_MS}ms` }}
+      >
         <div className="space-y-6">
           <MyTeams isLoading={isLoading} teams={teams ?? []} />
           <RecentActivity

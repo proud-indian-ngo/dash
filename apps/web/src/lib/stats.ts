@@ -48,6 +48,7 @@ export function computeSubmissionStats(
       description: formatTotal(data),
       icon: totalIcon,
       accent: "border-l-blue-500",
+      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
     },
     {
       label: "Pending",
@@ -55,6 +56,7 @@ export function computeSubmissionStats(
       description: formatTotal(pending),
       icon: Clock01Icon,
       accent: "border-l-amber-500",
+      bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
     },
     {
       label: "Approved",
@@ -62,6 +64,7 @@ export function computeSubmissionStats(
       description: formatTotal(approved),
       icon: CheckmarkCircle02Icon,
       accent: "border-l-emerald-500",
+      bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
     },
     {
       label: "Rejected",
@@ -69,6 +72,7 @@ export function computeSubmissionStats(
       description: formatTotal(rejected),
       icon: CancelCircleIcon,
       accent: "border-l-red-500",
+      bgAccent: "bg-red-500/5 dark:bg-red-500/10",
     },
   ];
 }

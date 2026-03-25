@@ -23,6 +23,7 @@ interface RequestItem {
   id: string;
   lineItems: readonly { amount: number }[];
   status: string | null;
+  title: string;
 }
 
 interface ActivityItem {
@@ -32,6 +33,7 @@ interface ActivityItem {
   id: string;
   label: string;
   status: string | null;
+  title: string;
   type: "reimbursement" | "advance_payment";
 }
 
@@ -50,6 +52,7 @@ function toActivityItems(
     id: item.id,
     label,
     status: item.status,
+    title: item.title,
     type,
   }));
 }
@@ -137,12 +140,7 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm">
-                  {activity.label}
-                  <span className="ml-1 text-muted-foreground">
-                    {formatINR(activity.amount)}
-                  </span>
-                </p>
+                <p className="truncate font-medium text-sm">{activity.title}</p>
                 {statusInfo && (
                   <Badge
                     size="xs"
@@ -153,6 +151,7 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
                 )}
               </div>
               <p className="text-muted-foreground text-xs">
+                {activity.label} &middot; {formatINR(activity.amount)} &middot;{" "}
                 {formatDistanceToNow(activity.createdAt, {
                   addSuffix: true,
                 })}
@@ -179,7 +178,7 @@ export function RecentActivity({
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <HugeiconsIcon
-            className="size-4"
+            className="size-4 text-amber-500"
             icon={Clock01Icon}
             strokeWidth={2}
           />

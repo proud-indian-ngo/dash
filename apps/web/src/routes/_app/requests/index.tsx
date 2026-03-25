@@ -13,7 +13,6 @@ import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeRequestStats } from "@/components/requests/request-stats";
 import { RequestsTable } from "@/components/requests/requests-table";
 import { StatsCards } from "@/components/stats/stats-cards";
-import { useApp } from "@/context/app-context";
 import { deleteUploadedAssets } from "@/functions/attachments";
 import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import {
@@ -68,7 +67,6 @@ function getMutatorNs(type: RequestRow["type"]) {
 }
 
 function RequestsRouteComponent() {
-  const { isAdmin } = useApp();
   const navigate = useNavigate();
   const zero = useZero();
 
@@ -139,13 +137,8 @@ function RequestsRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Requests</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        {isAdmin
-          ? "Review and manage all requests."
-          : "Submit and track your requests."}
-      </p>
 
-      <div className="mt-6 grid gap-6 *:min-w-0">
+      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
           items={computeRequestStats(allData)}

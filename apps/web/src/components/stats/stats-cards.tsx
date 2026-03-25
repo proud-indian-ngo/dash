@@ -9,8 +9,11 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 
+const STAGGER_DELAY_MS = 50;
+
 export interface StatItem {
   accent?: string;
+  bgAccent?: string;
   description?: string;
   href?: string;
   icon?: IconSvgElement;
@@ -18,12 +21,23 @@ export interface StatItem {
   value: string | number;
 }
 
-export function StatCard({ item }: { item: StatItem }) {
+export function StatCard({
+  item,
+  animationDelay,
+}: {
+  animationDelay?: number;
+  item: StatItem;
+}) {
+  const cardClasses = [
+    "h-full",
+    item.accent && `border-l-2 ${item.accent}`,
+    item.bgAccent,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const card = (
-    <Card
-      className={item.accent ? `h-full border-l-2 ${item.accent}` : "h-full"}
-      size="sm"
-    >
+    <Card className={cardClasses} size="sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
           {item.icon && (
@@ -45,15 +59,35 @@ export function StatCard({ item }: { item: StatItem }) {
     </Card>
   );
 
+  const animate = animationDelay != null;
+  const animationClasses = animate
+    ? "fade-in-0 slide-in-from-bottom-1 animate-in fill-mode-backwards duration-200"
+    : "";
+  const animationStyle = animate
+    ? { animationDelay: `${animationDelay}ms` }
+    : undefined;
+
   if (item.href) {
     return (
-      <Link className="transition-opacity hover:opacity-80" to={item.href}>
+      <Link
+        className={`transition-colors hover:bg-muted/40 ${animationClasses}`}
+        style={animationStyle}
+        to={item.href}
+      >
         {card}
       </Link>
     );
   }
 
-  return card;
+  if (!animate) {
+    return card;
+  }
+
+  return (
+    <div className={animationClasses} style={animationStyle}>
+      {card}
+    </div>
+  );
 }
 
 function StatsCardsSkeleton() {
@@ -88,8 +122,12 @@ export function StatsCards({
   }
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {items.map((item) => (
-        <StatCard item={item} key={item.label} />
+      {items.map((item, index) => (
+        <StatCard
+          animationDelay={index * STAGGER_DELAY_MS}
+          item={item}
+          key={item.label}
+        />
       ))}
     </div>
   );

@@ -122,7 +122,7 @@ export function UpcomingEvents({
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <HugeiconsIcon
-            className="size-4"
+            className="size-4 text-purple-500"
             icon={Calendar03Icon}
             strokeWidth={2}
           />

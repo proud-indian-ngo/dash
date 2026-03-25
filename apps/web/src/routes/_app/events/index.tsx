@@ -41,10 +41,7 @@ function PublicEventsRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Events</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        Public events across all teams.
-      </p>
-      <div className="mt-6 grid gap-6 *:min-w-0">
+      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
         <PublicEventsTable
           data={(data as PublicEventRow[]) ?? []}
           isAdmin={isAdmin}

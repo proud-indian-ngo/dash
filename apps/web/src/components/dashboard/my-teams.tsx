@@ -99,7 +99,7 @@ export function MyTeams({
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <HugeiconsIcon
-            className="size-4"
+            className="size-4 text-teal-500"
             icon={UserMultipleIcon}
             strokeWidth={2}
           />
