@@ -3,6 +3,7 @@ import {
   FileExportIcon,
   HomeIcon,
   Invoice01Icon,
+  SecurityLockIcon,
   Store01Icon,
   UserGroupIcon,
   UserIcon,
@@ -33,6 +34,15 @@ const exportNavItem: NavItem = {
   title: "Export",
   url: "/export",
   icon: FileExportIcon,
+};
+
+const rolesNavItem: NavItem = {
+  title: "Roles",
+  url: "/settings/roles",
+  icon: SecurityLockIcon,
+  subItems: [
+    { title: "Edit Role", url: "/settings/roles/$roleId", isHidden: true },
+  ],
 };
 
 const requestsNavItem: NavItem = {
@@ -85,6 +95,7 @@ export function buildNavItems(
     permissions.includes("vendors.view_approved");
   const hasUsers = permissions.includes("users.view");
   const hasExport = permissions.includes("requests.export");
+  const hasRoles = permissions.includes("settings.roles");
 
   if (hasVendors) {
     items.push(vendorsNavItem);
@@ -94,6 +105,9 @@ export function buildNavItems(
   }
   if (hasExport) {
     items.push(exportNavItem);
+  }
+  if (hasRoles) {
+    items.push(rolesNavItem);
   }
 
   return items;
@@ -137,6 +151,9 @@ export function buildNavGroups(
   }
   if (hasExport) {
     adminItems.push(exportNavItem);
+  }
+  if (permissions.includes("settings.roles")) {
+    adminItems.push(rolesNavItem);
   }
 
   if (adminItems.length > 0) {
