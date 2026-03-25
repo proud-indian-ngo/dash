@@ -15,7 +15,7 @@ import { permission, role, rolePermission } from "./schema/permission";
 export async function syncPermissions(): Promise<void> {
   const currentIds = PERMISSIONS.map((p) => p.id);
 
-  // Upsert all permissions from code constant
+  // Batch upsert all permissions from code constant
   for (const perm of PERMISSIONS) {
     await db
       .insert(permission)
@@ -56,22 +56,15 @@ export async function syncPermissions(): Promise<void> {
       .onConflictDoNothing();
   }
 
-  // Admin gets ALL permissions (always enforced)
-  const existingAdminPerms = await db
-    .select({ permissionId: rolePermission.permissionId })
-    .from(rolePermission)
-    .where(eq(rolePermission.roleId, "admin"));
-  const existingAdminPermIds = new Set(
-    existingAdminPerms.map((r) => r.permissionId)
-  );
-
-  for (const perm of PERMISSIONS) {
-    if (!existingAdminPermIds.has(perm.id)) {
-      await db.insert(rolePermission).values({
+  // Admin gets ALL permissions — delete and re-insert in batch
+  await db.delete(rolePermission).where(eq(rolePermission.roleId, "admin"));
+  if (currentIds.length > 0) {
+    await db.insert(rolePermission).values(
+      currentIds.map((permId) => ({
         roleId: "admin",
-        permissionId: perm.id,
-      });
-    }
+        permissionId: permId,
+      }))
+    );
   }
 
   // Volunteer baseline — only seed if volunteer has zero permissions (first run)
@@ -80,12 +73,15 @@ export async function syncPermissions(): Promise<void> {
     .from(rolePermission)
     .where(eq(rolePermission.roleId, "volunteer"));
 
-  if (volunteerPerms.length === 0) {
-    for (const permId of VOLUNTEER_BASELINE_PERMISSIONS) {
-      await db.insert(rolePermission).values({
+  if (
+    volunteerPerms.length === 0 &&
+    VOLUNTEER_BASELINE_PERMISSIONS.length > 0
+  ) {
+    await db.insert(rolePermission).values(
+      VOLUNTEER_BASELINE_PERMISSIONS.map((permId) => ({
         roleId: "volunteer",
         permissionId: permId,
-      });
-    }
+      }))
+    );
   }
 }

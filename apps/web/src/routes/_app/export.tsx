@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
 import { env } from "@pi-dash/env/web";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
@@ -22,16 +22,13 @@ import {
 import { getAttachmentPreviewHref } from "@/lib/attachment-links";
 import { downloadCsv } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
+import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/export")({
   head: () => ({
     meta: [{ title: `Export Data | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => {
-    if (!context.session || context.session.user.role !== "admin") {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: ({ context }) => assertPermission(context, "requests.export"),
   component: ExportRouteComponent,
 });
 

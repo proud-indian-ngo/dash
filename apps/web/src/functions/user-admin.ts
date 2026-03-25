@@ -1,4 +1,5 @@
 import { auth } from "@pi-dash/auth";
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import {
   notifyRoleChanged,
   notifyUserBanned,
@@ -83,6 +84,21 @@ interface AdminContextWithSession extends AdminContext {
   session: NonNullable<AdminContext["session"]>;
 }
 
+async function ensurePermission(
+  context: AdminContext,
+  permissionId: string
+): Promise<AdminContextWithSession> {
+  if (!context.session) {
+    throw new Error("Unauthorized");
+  }
+  const role = context.session.user.role ?? "volunteer";
+  const perms = await resolvePermissions(role);
+  if (!perms.includes(permissionId)) {
+    throw new Error("Forbidden");
+  }
+  return context as AdminContextWithSession;
+}
+
 const normalizeOptionalString = (value?: string): string | undefined => {
   if (!value) {
     return undefined;
@@ -120,18 +136,6 @@ const toBanExpiresInSeconds = (value?: string): number | undefined => {
   return Math.ceil(deltaMs / 1000);
 };
 
-function ensureAdminContext(
-  context: AdminContext
-): asserts context is AdminContextWithSession {
-  if (!context.session) {
-    throw new Error("Unauthorized");
-  }
-
-  if (context.session.user.role !== "admin") {
-    throw new Error("Forbidden");
-  }
-}
-
 const setBanState = async ({
   context,
   userId,
@@ -167,7 +171,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(createUserSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    await ensurePermission(context, "users.create");
 
     const normalizedEmail = data.email.toLowerCase();
     const created = await auth.api.createUser({
@@ -239,7 +243,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(updateUserSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    await ensurePermission(context, "users.edit");
 
     // Fetch current user to detect actual changes
     const currentUsers = await auth.api.listUsers({
@@ -339,7 +343,7 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(setUserPasswordSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    await ensurePermission(context, "users.set_password");
 
     await auth.api.setUserPassword({
       body: {
@@ -356,9 +360,9 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(deleteUserSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    const authed = await ensurePermission(context, "users.delete");
 
-    if (context.session.user.id === data.userId) {
+    if (authed.session.user.id === data.userId) {
       throw new Error("You cannot delete your own account");
     }
 
@@ -376,9 +380,9 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(setUserBanSchema)
   .handler(async ({ context, data }) => {
-    ensureAdminContext(context);
+    const authed = await ensurePermission(context, "users.ban");
 
-    if (context.session.user.id === data.userId && data.banned) {
+    if (authed.session.user.id === data.userId && data.banned) {
       throw new Error("You cannot ban your own account");
     }
 

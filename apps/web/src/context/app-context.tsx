@@ -55,7 +55,10 @@ export function AppProvider({
   const [settingsSection, setSettingsSection] = useState<Section>("profile");
 
   const isAdmin = user.role === "admin";
-  const isOriented = isAdmin || Boolean(user.attendedOrientation);
+  const isOriented =
+    isAdmin ||
+    permissions.includes("users.view") ||
+    Boolean(user.attendedOrientation);
   const navItems = buildNavItems(isAdmin, isOriented, permissions);
   const navGroups = buildNavGroups(isAdmin, isOriented, permissions);
 

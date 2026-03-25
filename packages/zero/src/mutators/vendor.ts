@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertHasPermission } from "../permissions";
+import { assertHasPermission, can } from "../permissions";
 import { zql } from "../schema";
 import { GST_REGEX, IFSC_REGEX, PAN_REGEX } from "../vendor-patterns";
 
@@ -27,8 +27,8 @@ export const vendorMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "vendors.create");
       const userId = ctx.userId;
-      const isAdmin = ctx.role === "admin";
-      const status = isAdmin ? (args.status ?? "approved") : "pending";
+      const canAutoApprove = can(ctx, "vendors.approve");
+      const status = canAutoApprove ? (args.status ?? "approved") : "pending";
       const now = Date.now();
 
       await tx.mutate.vendor.insert({

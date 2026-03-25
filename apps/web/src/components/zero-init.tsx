@@ -26,8 +26,9 @@ export function ZeroInit({ children }: ZeroInitProps) {
   const userID = session?.user.id ?? "anon";
   const [permissions, setPermissions] = useState<string[]>([]);
 
+  const userId = session?.user?.id;
   useEffect(() => {
-    if (!session) {
+    if (!userId) {
       return;
     }
     getPermissions()
@@ -40,7 +41,7 @@ export function ZeroInit({ children }: ZeroInitProps) {
         });
         setPermissions([]);
       });
-  }, [session]);
+  }, [userId]);
 
   const context = useMemo(
     () =>

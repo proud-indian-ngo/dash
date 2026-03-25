@@ -69,7 +69,7 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
-| `routes/_app/vendors/route.tsx` | Vendors layout (admin-only, `assertAdmin` guard) |
+| `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
 | `routes/_app/vendors/index.tsx` | Vendors list + vendor payments |
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
@@ -220,9 +220,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `vendorPaymentLineItem` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentAttachment` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentHistory` | `packages/db/src/schema/vendor.ts` |
-| `role` | `packages/db/src/schema/role.ts` |
-| `permission` | `packages/db/src/schema/role.ts` |
-| `rolePermission` | `packages/db/src/schema/role.ts` |
+| `role` | `packages/db/src/schema/permission.ts` |
+| `permission` | `packages/db/src/schema/permission.ts` |
+| `rolePermission` | `packages/db/src/schema/permission.ts` |
 | `appConfig` | `packages/db/src/schema/app-config.ts` |
 | `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
 

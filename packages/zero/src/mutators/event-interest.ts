@@ -4,6 +4,7 @@ import "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
+  can,
 } from "../permissions";
 import type { EventInterest, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
@@ -35,8 +36,10 @@ export const eventInterestMutators = {
         );
       }
 
-      if (ctx.role === "admin") {
-        throw new Error("Admins cannot submit interest requests");
+      if (can(ctx, "events.manage_interest")) {
+        throw new Error(
+          "Users who manage interest cannot submit interest requests"
+        );
       }
 
       const teamMembership = await tx.run(

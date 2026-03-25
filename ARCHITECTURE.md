@@ -96,7 +96,7 @@ Zero cache forwards cookies to the app's mutate/query endpoints (`ZERO_MUTATE_FO
 
 ### Permission Model
 
-Permissions are code-defined in `packages/db/src/permissions.ts` and synced to the `permission` table via `syncPermissions()`. Roles are stored in the `role` table. The `rolePermission` join table maps roles to permissions.
+Permissions are code-defined in `packages/db/src/permissions.ts` and synced to the `permission` table via `syncPermissions()`. This runs automatically on server boot via the Nitro plugin at `apps/web/server/plugins/sync-permissions.ts`. Roles are stored in the `role` table. The `rolePermission` join table maps roles to permissions.
 
 ```
 role  →  rolePermission  →  permission (code-defined, DB-synced)

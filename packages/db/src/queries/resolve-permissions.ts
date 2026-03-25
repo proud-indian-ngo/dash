@@ -7,6 +7,11 @@ interface CacheEntry {
   permissions: string[];
 }
 
+/**
+ * In-memory cache assumes single server instance. In a multi-instance
+ * deployment, invalidatePermissionCache() only clears the local process.
+ * Other instances serve stale data for up to CACHE_TTL_MS after changes.
+ */
 const CACHE_TTL_MS = 60_000;
 const cache = new Map<string, CacheEntry>();
 
