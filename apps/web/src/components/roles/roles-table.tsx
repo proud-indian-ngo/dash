@@ -43,7 +43,6 @@ function RowActions({
         render={
           <Button
             aria-label="Row actions"
-            className="size-7"
             data-testid="row-actions"
             onClick={(e) => e.stopPropagation()}
             size="icon"
@@ -123,9 +122,13 @@ export function RolesTable({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       cell: ({ row }) => (
-        <div>
-          <span className="font-medium text-sm">{row.original.name}</span>
-          <div className="text-muted-foreground text-xs">{row.original.id}</div>
+        <div className="min-w-0">
+          <div className="truncate font-medium text-sm">
+            {row.original.name}
+          </div>
+          <div className="truncate text-muted-foreground text-xs">
+            {row.original.id}
+          </div>
         </div>
       ),
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
@@ -142,7 +145,7 @@ export function RolesTable({
         />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.description || "\u2014"}
         </span>
       ),

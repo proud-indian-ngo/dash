@@ -82,7 +82,7 @@ export function PhotoCard({
             variant="secondary"
           >
             <HugeiconsIcon
-              className="size-3.5 text-green-600"
+              className="size-3.5 text-success"
               icon={CheckmarkCircle02Icon}
               strokeWidth={2}
             />
@@ -96,7 +96,7 @@ export function PhotoCard({
             variant="secondary"
           >
             <HugeiconsIcon
-              className="size-3.5 text-red-600"
+              className="size-3.5 text-destructive"
               icon={Cancel01Icon}
               strokeWidth={2}
             />
@@ -110,7 +110,7 @@ export function PhotoCard({
             variant="secondary"
           >
             <HugeiconsIcon
-              className="size-3.5 text-red-600"
+              className="size-3.5 text-destructive"
               icon={Delete02Icon}
               strokeWidth={2}
             />

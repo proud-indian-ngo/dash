@@ -55,7 +55,7 @@ export function VendorDetailSheet({
               })()}
 
               <div className="grid gap-4">
-                <p className="font-medium text-sm">Contact</p>
+                <h3 className="font-medium text-sm">Contact</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow label="Phone" value={vendor.contactPhone} />
                   <DetailRow label="Email" value={vendor.contactEmail} />
@@ -64,7 +64,7 @@ export function VendorDetailSheet({
               </div>
 
               <div className="grid gap-4">
-                <p className="font-medium text-sm">Bank Details</p>
+                <h3 className="font-medium text-sm">Bank Details</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow
                     label="Account Name"
@@ -82,7 +82,7 @@ export function VendorDetailSheet({
               </div>
 
               <div className="grid gap-4">
-                <p className="font-medium text-sm">Tax Details</p>
+                <h3 className="font-medium text-sm">Tax Details</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow label="GST Number" value={vendor.gstNumber} />
                   <DetailRow label="PAN Number" value={vendor.panNumber} />
@@ -90,7 +90,7 @@ export function VendorDetailSheet({
               </div>
 
               <div className="grid gap-4">
-                <p className="font-medium text-sm">Payment Summary</p>
+                <h3 className="font-medium text-sm">Payment Summary</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow
                     label="Pending Payments"

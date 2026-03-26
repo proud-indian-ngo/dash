@@ -32,17 +32,15 @@ export function GroupAssignments({
 
   const groupNameMap = new Map(groups.map((g) => [g.id, g.name]));
 
-  const handleChange = (key: string, value: string) => {
-    zero
-      .mutate(mutators.appConfig.upsert({ key, value }))
-      .server.then((res) => {
-        handleMutationResult(res, {
-          mutation: "appConfig.upsert",
-          entityId: key,
-          successMsg: "Assignment updated",
-          errorMsg: "Failed to update assignment",
-        });
-      });
+  const handleChange = async (key: string, value: string) => {
+    const res = await zero.mutate(mutators.appConfig.upsert({ key, value }))
+      .server;
+    handleMutationResult(res, {
+      mutation: "appConfig.upsert",
+      entityId: key,
+      successMsg: "Assignment updated",
+      errorMsg: "Failed to update assignment",
+    });
   };
 
   return (

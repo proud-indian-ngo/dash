@@ -30,10 +30,10 @@ export function createUserColumns(
         <DataGridColumnHeader column={column} title="User" visibility={true} />
       ),
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <UserAvatar className="size-8" user={row.original} />
-          <div className="space-y-px">
-            <div className="font-medium text-foreground">
+          <div className="min-w-0 space-y-px">
+            <div className="truncate font-medium text-foreground">
               {row.original.name}
             </div>
             <div className="truncate text-muted-foreground text-xs">
@@ -182,11 +182,11 @@ export function createUserColumns(
       cell: ({ row }) => {
         const isBanned = Boolean(row.original.banned);
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             <div
-              className={`size-2 rounded-full ${isBanned ? "bg-destructive" : "bg-green-500"}`}
+              className={`size-2 shrink-0 rounded-full ${isBanned ? "bg-destructive" : "bg-green-500"}`}
             />
-            <span className="text-muted-foreground text-sm">
+            <span className="truncate text-muted-foreground text-sm">
               {isBanned ? "Banned" : "Active"}
             </span>
           </div>

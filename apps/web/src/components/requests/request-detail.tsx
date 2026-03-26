@@ -59,57 +59,50 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
     0
   );
 
-  const handleApprove = (message: string, screenshotKey?: string) => {
-    zero
-      .mutate(
-        mutatorNs.approve({
-          id: request.id,
-          note: message || undefined,
-          approvalScreenshotKey: screenshotKey,
-        })
-      )
-      .server.then(async (res) => {
-        handleMutationResult(res, {
-          mutation: `${mutatorName}.approve`,
-          entityId: request.id,
-          successMsg: `${typeLabel} approved`,
-          errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
+  const handleApprove = async (message: string, screenshotKey?: string) => {
+    const res = await zero.mutate(
+      mutatorNs.approve({
+        id: request.id,
+        note: message || undefined,
+        approvalScreenshotKey: screenshotKey,
+      })
+    ).server;
+    handleMutationResult(res, {
+      mutation: `${mutatorName}.approve`,
+      entityId: request.id,
+      successMsg: `${typeLabel} approved`,
+      errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
+    });
+    if (res.type === "error" && screenshotKey) {
+      const { deleteUploadedAsset } = await import("@/functions/attachments");
+      deleteUploadedAsset({
+        data: { key: screenshotKey, subfolder: "approval-screenshots" },
+      }).catch((error) => {
+        log.error({
+          component: "RequestDetail",
+          action: "cleanupScreenshot",
+          screenshotKey,
+          error: error instanceof Error ? error.message : String(error),
         });
-        if (res.type === "error" && screenshotKey) {
-          const { deleteUploadedAsset } = await import(
-            "@/functions/attachments"
-          );
-          deleteUploadedAsset({
-            data: { key: screenshotKey, subfolder: "approval-screenshots" },
-          }).catch((error) => {
-            log.error({
-              component: "RequestDetail",
-              action: "cleanupScreenshot",
-              screenshotKey,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
-        }
-        if (res.type !== "error") {
-          setApproveOpen(false);
-        }
       });
+    }
+    if (res.type !== "error") {
+      setApproveOpen(false);
+    }
   };
 
-  const handleReject = (reason: string) => {
-    zero
-      .mutate(mutatorNs.reject({ id: request.id, reason }))
-      .server.then((res) => {
-        handleMutationResult(res, {
-          mutation: `${mutatorName}.reject`,
-          entityId: request.id,
-          successMsg: `${typeLabel} rejected`,
-          errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,
-        });
-        if (res.type !== "error") {
-          setRejectOpen(false);
-        }
-      });
+  const handleReject = async (reason: string) => {
+    const res = await zero.mutate(mutatorNs.reject({ id: request.id, reason }))
+      .server;
+    handleMutationResult(res, {
+      mutation: `${mutatorName}.reject`,
+      entityId: request.id,
+      successMsg: `${typeLabel} rejected`,
+      errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,
+    });
+    if (res.type !== "error") {
+      setRejectOpen(false);
+    }
   };
 
   return (

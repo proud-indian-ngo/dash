@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
-import { lazy, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ZeroInit } from "@/components/zero-init";
 import type { RouterContext } from "@/router";
@@ -129,7 +129,11 @@ function RootDocument() {
             </TooltipProvider>
           </AppErrorBoundary>
         </ThemeProvider>
-        {import.meta.env.DEV && <LazyDevTools />}
+        {import.meta.env.DEV && (
+          <Suspense>
+            <LazyDevTools />
+          </Suspense>
+        )}
         {import.meta.env.DEV && !import.meta.env.VITE_E2E && <Agentation />}
         <Scripts />
       </body>

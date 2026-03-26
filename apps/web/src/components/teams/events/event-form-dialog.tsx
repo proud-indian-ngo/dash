@@ -163,7 +163,7 @@ function EventFormContent({
 
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const mutation =
         isEdit && initialValues
           ? zero.mutate(
@@ -181,19 +181,16 @@ function EventFormContent({
       } else if (value.createWaGroup) {
         successMsg = "Event created. WhatsApp group will be created shortly.";
       }
-      mutation.server.then((res) => {
-        handleMutationResult(res, {
-          mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
-          entityId,
-          successMsg,
-          errorMsg: isEdit
-            ? "Failed to update event"
-            : "Failed to create event",
-        });
-        if (res.type !== "error") {
-          onOpenChange(false);
-        }
+      const res = await mutation.server;
+      handleMutationResult(res, {
+        mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
+        entityId,
+        successMsg,
+        errorMsg: isEdit ? "Failed to update event" : "Failed to create event",
       });
+      if (res.type !== "error") {
+        onOpenChange(false);
+      }
     },
     validators: {
       onBlur: eventFormSchema,

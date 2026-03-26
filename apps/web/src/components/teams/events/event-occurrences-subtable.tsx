@@ -39,8 +39,11 @@ export function OccurrencesSubTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Date/Time" />
       ),
-      cell: ({ row }) =>
-        format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME),
+      cell: ({ row }) => (
+        <span className="truncate text-sm">
+          {format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME)}
+        </span>
+      ),
       size: 180,
     },
     {
@@ -48,7 +51,11 @@ export function OccurrencesSubTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Location" />
       ),
-      cell: ({ row }) => row.original.location || "\u2014",
+      cell: ({ row }) => (
+        <span className="truncate text-sm">
+          {row.original.location || "\u2014"}
+        </span>
+      ),
       size: 140,
     },
     {

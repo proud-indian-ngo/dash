@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@pi-dash/design-system/components/ui/alert-dialog";
+import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useState } from "react";
 
@@ -36,13 +37,16 @@ export function RejectDialog({
             submitter.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <Textarea
-          aria-label="Rejection reason"
-          className="min-h-24"
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Rejection reason..."
-          value={reason}
-        />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="reject-reason">Reason</Label>
+          <Textarea
+            className="min-h-24"
+            id="reject-reason"
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Rejection reason..."
+            value={reason}
+          />
+        </div>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setReason("")}>
             Cancel

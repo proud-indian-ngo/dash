@@ -91,9 +91,9 @@ export function createEventsTableColumns({
       cell: ({ row }) => {
         const hasStarted = new Date(row.original.startTime) <= new Date();
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             <button
-              className="text-left font-medium text-sm hover:underline"
+              className="truncate text-left font-medium text-sm hover:underline"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectEvent(row.original);
@@ -102,7 +102,11 @@ export function createEventsTableColumns({
             >
               {row.original.name}
             </button>
-            {hasStarted ? <Badge variant="outline">Recap</Badge> : null}
+            {hasStarted ? (
+              <Badge className="shrink-0" variant="outline">
+                Recap
+              </Badge>
+            ) : null}
           </div>
         );
       },
@@ -142,8 +146,11 @@ export function createEventsTableColumns({
           visibility={true}
         />
       ),
-      cell: ({ row }) =>
-        format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME),
+      cell: ({ row }) => (
+        <span className="truncate text-sm">
+          {format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME)}
+        </span>
+      ),
       meta: {
         headerTitle: "Date/Time",
         skeleton: SKELETON_DATETIME,
@@ -161,7 +168,7 @@ export function createEventsTableColumns({
         />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.location || "\u2014"}
         </span>
       ),

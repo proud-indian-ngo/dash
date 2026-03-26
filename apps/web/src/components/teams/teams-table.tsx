@@ -123,7 +123,7 @@ export function TeamsTable({
       ),
       cell: ({ row }) => (
         <button
-          className="text-left font-medium text-sm hover:underline"
+          className="truncate text-left font-medium text-sm hover:underline"
           data-testid="row-title"
           onClick={() => onNavigate(row.original.id)}
           type="button"
@@ -145,7 +145,7 @@ export function TeamsTable({
         />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.description || "—"}
         </span>
       ),
@@ -179,7 +179,7 @@ export function TeamsTable({
         />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.whatsappGroup?.name || "—"}
         </span>
       ),

@@ -150,7 +150,7 @@ export function PublicEventsTable({
       ),
       cell: ({ row }) => (
         <Link
-          className="font-medium text-sm hover:underline"
+          className="truncate font-medium text-sm hover:underline"
           params={{ id: row.original.id }}
           to="/events/$id"
         >
@@ -167,7 +167,7 @@ export function PublicEventsTable({
         <DataGridColumnHeader column={column} title="Date & Time" visibility />
       ),
       cell: ({ row }) => (
-        <span className="text-sm">
+        <span className="truncate text-sm">
           {format(row.original.startTime, SHORT_MONTH_DATE_TIME)}
         </span>
       ),
@@ -181,7 +181,7 @@ export function PublicEventsTable({
         <DataGridColumnHeader column={column} title="Location" visibility />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.location || "\u2014"}
         </span>
       ),
@@ -196,7 +196,7 @@ export function PublicEventsTable({
       ),
       cell: ({ row }) => (
         <button
-          className="text-left text-sm hover:underline"
+          className="truncate text-left text-sm hover:underline"
           onClick={() => {
             const teamId = row.original.teamId;
             if (teamId) {

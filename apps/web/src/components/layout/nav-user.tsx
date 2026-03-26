@@ -47,6 +47,7 @@ import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-coun
 import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
 
+// Mirrors --primary from packages/design-system/styles.css (Courier API requires string values)
 const PRIMARY_LIGHT = "oklch(0.52 0.105 223.128)";
 const PRIMARY_DARK = "oklch(0.45 0.085 224.283)";
 
@@ -181,7 +182,7 @@ export function NavUser() {
                     <span className="fade-in-0 zoom-in-0 ml-auto inline-flex size-5 animate-in transition-all duration-150 ease-(--ease-out-expo)">
                       <span
                         className={cn(
-                          "!text-white inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px]",
+                          "inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px] text-primary-foreground",
                           hasPulsed && "animate-badge-pulse"
                         )}
                         key={`menu-badge-${badgePulseToken}`}

@@ -175,13 +175,16 @@ export function ApproveDialog({
             You can optionally add a message and payment proof.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <Textarea
-          aria-label="Optional message"
-          className="min-h-20"
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Optional message to the submitter..."
-          value={message}
-        />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="approve-message">Message (optional)</Label>
+          <Textarea
+            className="min-h-20"
+            id="approve-message"
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Optional message to the submitter..."
+            value={message}
+          />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="approval-screenshot">Payment proof (optional)</Label>
           {previewUrl ? (

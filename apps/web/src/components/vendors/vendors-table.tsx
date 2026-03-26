@@ -138,7 +138,9 @@ export function VendorsTable({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="font-medium text-sm">{row.original.name}</span>
+        <span className="truncate font-medium text-sm">
+          {row.original.name}
+        </span>
       ),
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
       size: 200,
@@ -150,7 +152,7 @@ export function VendorsTable({
         <DataGridColumnHeader column={column} title="Phone" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.contactPhone}</span>
+        <span className="truncate text-sm">{row.original.contactPhone}</span>
       ),
       meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
       size: 150,
@@ -162,7 +164,7 @@ export function VendorsTable({
         <DataGridColumnHeader column={column} title="Email" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.contactEmail ?? "—"}
         </span>
       ),
@@ -180,7 +182,7 @@ export function VendorsTable({
         />
       ),
       cell: ({ row }) => (
-        <span className="text-sm">
+        <span className="truncate text-sm">
           {row.original.bankAccountName} (••••
           {row.original.bankAccountNumber.length >= 4
             ? row.original.bankAccountNumber.slice(-4)
@@ -307,7 +309,11 @@ export function VendorsTable({
           label: status,
           variant: "secondary" as const,
         };
-        return <Badge variant={badge.variant}>{badge.label}</Badge>;
+        return (
+          <Badge className="max-w-full shrink truncate" variant={badge.variant}>
+            <span className="truncate">{badge.label}</span>
+          </Badge>
+        );
       },
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
       size: 120,

@@ -39,7 +39,7 @@ function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
     <PlateElement {...props} className="py-2.5">
       <figure
         className={`m-0 ${alignClass}`}
-        style={{ width: width ?? "100%" }}
+        style={width ? { width } : undefined}
       >
         <Image
           alt=""

@@ -173,7 +173,7 @@ export function RequestsTable({
       ),
       cell: ({ row }) => (
         <button
-          className="text-left font-medium text-sm hover:underline"
+          className="truncate text-left font-medium text-sm hover:underline"
           data-testid="row-title"
           onClick={() => onNavigate(row.original.id)}
           type="button"
@@ -183,6 +183,7 @@ export function RequestsTable({
       ),
       meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
       size: 240,
+      minSize: 200,
     },
     {
       id: "type",
@@ -191,12 +192,15 @@ export function RequestsTable({
         <DataGridColumnHeader column={column} title="Type" visibility={true} />
       ),
       cell: ({ row }) => (
-        <Badge variant="outline">
-          {REQUEST_TYPE_LABELS[row.original.type]}
+        <Badge className="max-w-full shrink truncate" variant="outline">
+          <span className="truncate">
+            {REQUEST_TYPE_LABELS[row.original.type]}
+          </span>
         </Badge>
       ),
       meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
       size: 150,
+      minSize: 120,
     },
     {
       id: "createdBy",
@@ -214,10 +218,10 @@ export function RequestsTable({
           return <span className="text-muted-foreground text-sm">—</span>;
         }
         return (
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <UserAvatar className="size-8" user={user} />
-            <div className="space-y-px">
-              <div className="font-medium text-foreground text-sm">
+            <div className="min-w-0 space-y-px">
+              <div className="truncate font-medium text-foreground text-sm">
                 {user.name}
               </div>
               <div className="truncate text-muted-foreground text-xs">
@@ -229,6 +233,7 @@ export function RequestsTable({
       },
       meta: { headerTitle: "Created By", skeleton: SKELETON_CREATED_BY },
       size: 220,
+      minSize: 180,
     },
     {
       id: "status",
@@ -257,7 +262,7 @@ export function RequestsTable({
       ),
       cell: ({ row }) => {
         const total = computeTotal(row.original.lineItems);
-        return <span className="text-sm">{formatINR(total)}</span>;
+        return <span className="truncate text-sm">{formatINR(total)}</span>;
       },
       meta: { headerTitle: "Total", skeleton: SKELETON_TOTAL },
       size: 120,
@@ -278,7 +283,7 @@ export function RequestsTable({
           return <span className="text-muted-foreground text-sm">—</span>;
         }
         return (
-          <span className="text-sm">
+          <span className="truncate text-sm">
             {format(new Date(r.expenseDate), SHORT_DATE)}
           </span>
         );
@@ -298,7 +303,7 @@ export function RequestsTable({
         />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.submittedAt == null
             ? "—"
             : format(row.original.submittedAt, SHORT_DATE)}
