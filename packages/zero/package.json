@@ -24,7 +24,7 @@
     "@rocicorp/zero": "catalog:",
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
-    "drizzle-zero": "^0.17.4",
+    "drizzle-zero": "^0.18.0",
     "uuidv7": "catalog:",
     "zod": "catalog:"
   },
