@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 9am on monday"],
+  "timezone": "Asia/Kolkata",
+  "packageRules": [
+    {
+      "description": "Group all non-breaking updates into a single PR",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "non-breaking updates"
+    },
+    {
+      "description": "Keep Zero client and server in sync",
+      "matchPackagePatterns": ["^@rocicorp/zero", "^rocicorp/zero"],
+      "groupName": "zero"
+    },
+    {
+      "description": "Keep Bun runtime and Docker image in sync",
+      "matchPackagePatterns": ["^oven/bun"],
+      "matchPackageNames": ["bun"],
+      "groupName": "bun"
+    },
+    {
+      "description": "Keep Postgres Docker images in sync across compose files",
+      "matchPackageNames": ["postgres"],
+      "groupName": "postgres"
+    }
+  ]
+}

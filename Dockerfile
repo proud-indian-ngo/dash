@@ -1,5 +1,5 @@
 # Stage 1: Install dependencies and build
-FROM oven/bun:1.3-slim AS build
+FROM oven/bun:1.3.11-slim AS build
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -26,7 +26,7 @@ ENV VITE_IMMICH_URL=$VITE_IMMICH_URL
 RUN cd apps/web && bunx --bun vite build
 
 # Stage 2: Migrator (runs pending DB migrations)
-FROM oven/bun:1.3-slim AS migrator
+FROM oven/bun:1.3.11-slim AS migrator
 WORKDIR /app
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/packages/db packages/db
@@ -34,7 +34,7 @@ COPY --from=build /app/package.json package.json
 CMD ["bun", "run", "packages/db/scripts/migrate.ts"]
 
 # Stage 3: Production
-FROM oven/bun:1.3-slim AS production
+FROM oven/bun:1.3.11-slim AS production
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
 EXPOSE 3000
