@@ -38,7 +38,7 @@ export async function notifyTeamUpdated({
     body: `${teamName} has been updated.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `team-updated-${teamId}-${updatedAt}`,
-    topic: TOPICS.GENERAL,
+    topic: TOPICS.TEAMS,
   });
 }
 
@@ -53,7 +53,7 @@ export async function notifyTeamDeleted({
     body: `${teamName} has been deleted.`,
     clickAction: "/teams",
     idempotencyKey: `team-deleted-${teamName}-${deletedAt}`,
-    topic: TOPICS.GENERAL,
+    topic: TOPICS.TEAMS,
   });
 }
 
@@ -68,7 +68,7 @@ export async function notifyAddedToTeam({
     body: `You've been added to ${teamName}.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `team-member-added-${teamId}-${userId}`,
-    topic: TOPICS.GENERAL,
+    topic: TOPICS.TEAMS,
   });
 }
 
@@ -83,6 +83,6 @@ export async function notifyRemovedFromTeam({
     body: `You've been removed from ${teamName}.`,
     clickAction: "/teams",
     idempotencyKey: `team-member-removed-${teamName}-${userId}-${removedAt}`,
-    topic: TOPICS.GENERAL,
+    topic: TOPICS.TEAMS,
   });
 }

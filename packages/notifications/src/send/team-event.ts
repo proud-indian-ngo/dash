@@ -85,7 +85,7 @@ export async function notifyAddedToEvent({
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-added-${eventId}-${userId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
 
@@ -103,7 +103,7 @@ export async function notifyUsersAddedToEvent({
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-added-${eventId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
 
@@ -119,7 +119,7 @@ export async function notifyRemovedFromEvent({
     body: `You've been removed from ${eventName}.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-removed-${eventId}-${userId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
 
@@ -137,7 +137,7 @@ export async function notifyEventCreated({
     body: `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-created-${eventId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
 
@@ -156,7 +156,7 @@ export async function notifyEventUpdated({
     body: `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-updated-${eventId}-${updatedAt}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
 
@@ -173,6 +173,6 @@ export async function notifyEventCancelled({
     body: `${eventName} has been cancelled.`,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-cancelled-${eventId}-${cancelledAt}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_SCHEDULE,
   });
 }

@@ -347,21 +347,45 @@ export const eventPhotoMutators = {
         reviewedAt: args.now,
       });
 
-      if (tx.location === "server" && photo.r2Key) {
-        pushImmichUploadTask(
-          ctx,
-          {
-            mutator: "approveEventPhoto",
-            photoId: args.id,
-            eventId: photo.eventId,
-            r2Key: photo.r2Key,
-            eventName: event.name,
-          },
-          args.id,
-          photo.eventId,
-          event.name,
-          photo.r2Key
-        );
+      if (tx.location === "server") {
+        if (photo.r2Key) {
+          pushImmichUploadTask(
+            ctx,
+            {
+              mutator: "approveEventPhoto",
+              photoId: args.id,
+              eventId: photo.eventId,
+              r2Key: photo.r2Key,
+              eventName: event.name,
+            },
+            args.id,
+            photo.eventId,
+            event.name,
+            photo.r2Key
+          );
+        }
+
+        if (photo.uploadedBy !== ctx.userId) {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "approveEventPhoto",
+              photoId: args.id,
+              eventId: photo.eventId,
+              uploadedBy: photo.uploadedBy,
+            },
+            fn: async () => {
+              const { notifyPhotoApproved } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyPhotoApproved({
+                photoId: args.id,
+                eventId: photo.eventId,
+                eventName: event.name,
+                uploaderId: photo.uploadedBy,
+              });
+            },
+          });
+        }
       }
     }
   ),
@@ -404,17 +428,41 @@ export const eventPhotoMutators = {
         reviewedAt: args.now,
       });
 
-      if (tx.location === "server" && photo.r2Key) {
-        pushR2DeleteTask(
-          ctx,
-          {
-            mutator: "rejectEventPhoto",
-            photoId: args.id,
-            eventId: photo.eventId,
-            r2Key: photo.r2Key,
-          },
-          photo.r2Key
-        );
+      if (tx.location === "server") {
+        if (photo.r2Key) {
+          pushR2DeleteTask(
+            ctx,
+            {
+              mutator: "rejectEventPhoto",
+              photoId: args.id,
+              eventId: photo.eventId,
+              r2Key: photo.r2Key,
+            },
+            photo.r2Key
+          );
+        }
+
+        if (photo.uploadedBy !== ctx.userId) {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "rejectEventPhoto",
+              photoId: args.id,
+              eventId: photo.eventId,
+              uploadedBy: photo.uploadedBy,
+            },
+            fn: async () => {
+              const { notifyPhotoRejected } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyPhotoRejected({
+                photoId: args.id,
+                eventId: photo.eventId,
+                eventName: event.name,
+                uploaderId: photo.uploadedBy,
+              });
+            },
+          });
+        }
       }
     }
   ),

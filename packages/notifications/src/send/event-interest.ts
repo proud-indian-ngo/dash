@@ -33,7 +33,7 @@ export async function notifyEventInterestReceived({
     body: `${volunteerName} is interested in ${eventName}.`,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-received-${eventId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_INTEREST,
   });
 }
 
@@ -48,7 +48,7 @@ export async function notifyEventInterestApproved({
     body: `Your interest in ${eventName} has been approved! You've been added as a volunteer.`,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-approved-${eventId}-${userId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_INTEREST,
   });
 }
 
@@ -63,6 +63,6 @@ export async function notifyEventInterestRejected({
     body: `Your interest in ${eventName} has been declined.`,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-rejected-${eventId}-${userId}`,
-    topic: TOPICS.EVENTS,
+    topic: TOPICS.EVENTS_INTEREST,
   });
 }

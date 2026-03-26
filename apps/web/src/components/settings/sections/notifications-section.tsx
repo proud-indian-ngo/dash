@@ -3,6 +3,7 @@ import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useApp } from "@/context/app-context";
 import type { TopicPreference } from "@/functions/notification-preferences";
 import {
   getNotificationPreferences,
@@ -10,19 +11,12 @@ import {
   updateNotificationPreference,
   updateWhatsAppNotificationPref,
 } from "@/functions/notification-preferences";
-
-const TOPIC_DESCRIPTIONS: Record<string, string> = {
-  "General Notifications":
-    "Advance payments, reimbursements, approvals, and rejections.",
-  "Account Notifications":
-    "Welcome messages, role changes, and account status updates.",
-  "Event Notifications":
-    "Team event creation, updates, cancellations, and interest responses.",
-};
+import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
 
 export function NotificationsSection() {
+  const { hasPermission } = useApp();
   const [preferences, setPreferences] = useState<TopicPreference[]>([]);
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,8 +25,22 @@ export function NotificationsSection() {
         setPreferences(prefs);
         setWhatsappEnabled(waPref);
       })
+      .catch((error) => {
+        log.error({
+          component: "NotificationsSection",
+          action: "fetchPreferences",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Failed to load notification preferences");
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const visiblePreferences = preferences.filter(
+    (pref) => !pref.requiredPermission || hasPermission(pref.requiredPermission)
+  );
+
+  const groupedPreferences = groupBy(visiblePreferences, (p) => p.group);
 
   const handleToggle = async (topicId: string, enabled: boolean) => {
     setPreferences((prev) =>
@@ -92,42 +100,58 @@ export function NotificationsSection() {
   }
 
   return (
-    <div className="space-y-6 p-4 pt-0">
+    <div className="flex flex-col gap-6 p-4">
       <p className="text-muted-foreground text-sm">
         Choose which notifications you want to receive.
       </p>
-      <div className="space-y-6">
-        {preferences.map((pref) => (
-          <div
-            className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
-            key={pref.topicId}
-          >
-            <div className="space-y-0.5">
-              <p className="font-medium text-sm">{pref.topicName}</p>
-              <p className="text-muted-foreground text-xs">
-                {pref.required
-                  ? "This notification is required and cannot be disabled."
-                  : (TOPIC_DESCRIPTIONS[pref.topicName] ??
-                    "Manage this notification preference.")}
-              </p>
-            </div>
-            <Switch
-              aria-label={pref.topicName}
-              checked={pref.enabled}
-              disabled={pref.required}
-              id={pref.topicId}
-              onCheckedChange={(checked) => handleToggle(pref.topicId, checked)}
-            />
-          </div>
-        ))}
-      </div>
+      {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
+        const items = groupedPreferences.get(groupName);
+        if (!items || items.length === 0) {
+          return [];
+        }
+        const elements = [
+          groupIndex > 0 && <Separator key={`sep-${groupName}`} />,
+          <div className="space-y-5" key={groupName}>
+            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+              {groupName}
+            </p>
+            {items.map((pref) => (
+              <div
+                className="flex items-center justify-between gap-4"
+                key={pref.topicId}
+              >
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">{pref.topicName}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {pref.required
+                      ? "This notification is required and cannot be disabled."
+                      : pref.description}
+                  </p>
+                </div>
+                <Switch
+                  aria-label={pref.topicName}
+                  checked={pref.enabled}
+                  disabled={pref.required}
+                  id={pref.topicId}
+                  onCheckedChange={(checked) =>
+                    handleToggle(pref.topicId, checked)
+                  }
+                />
+              </div>
+            ))}
+          </div>,
+        ];
+        return elements.filter(Boolean);
+      })}
       <Separator />
-      <div className="space-y-6">
-        <p className="font-medium text-xs">WhatsApp</p>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+      <div className="flex flex-col gap-5">
+        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          WhatsApp
+        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
             <p className="font-medium text-sm">WhatsApp Notifications</p>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-sm">
               Receive notifications via WhatsApp messages.
             </p>
           </div>

@@ -6,7 +6,7 @@ import {
   assertIsLoggedIn,
   can,
 } from "../permissions";
-import type { EventUpdate, TeamEvent } from "../schema";
+import type { EventUpdate, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
 export const eventUpdateMutators = {
@@ -49,6 +49,39 @@ export const eventUpdateMutators = {
         createdAt: args.now,
         updatedAt: args.now,
       });
+
+      if (tx.location === "server") {
+        const eventMembers = (await tx.run(
+          zql.teamEventMember.where("eventId", args.eventId)
+        )) as TeamEventMember[];
+        const eventMemberIds = eventMembers
+          .map((m) => m.userId)
+          .filter((id) => id !== ctx.userId);
+
+        if (eventMemberIds.length > 0) {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "createEventUpdate",
+              eventUpdateId: args.id,
+              eventId: args.eventId,
+              eventName: event.name,
+            },
+            fn: async () => {
+              const { notifyEventUpdatePosted, getUserName } = await import(
+                "@pi-dash/notifications"
+              );
+              const authorName = (await getUserName(ctx.userId)) ?? "Someone";
+              await notifyEventUpdatePosted({
+                eventId: args.eventId,
+                eventName: event.name,
+                eventMemberIds,
+                authorName,
+                updatedAt: args.now,
+              });
+            },
+          });
+        }
+      }
     }
   ),
 

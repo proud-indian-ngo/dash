@@ -21,6 +21,11 @@ export {
   notifyEventInterestRejected,
 } from "./send/event-interest";
 export {
+  notifyPhotoApproved,
+  notifyPhotoRejected,
+} from "./send/event-photo";
+export { notifyEventUpdatePosted } from "./send/event-update";
+export {
   notifyReimbursementApproved,
   notifyReimbursementRejected,
   notifyReimbursementSubmitted,
@@ -50,5 +55,5 @@ export {
   notifyVendorPaymentRejected,
   notifyVendorPaymentSubmitted,
 } from "./send/vendor-payment";
-export type { Topic } from "./topics";
-export { TOPICS } from "./topics";
+export type { Topic, TopicMeta } from "./topics";
+export { TOPIC_CATALOG, TOPICS } from "./topics";

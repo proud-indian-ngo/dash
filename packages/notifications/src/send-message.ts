@@ -7,7 +7,6 @@ import {
 import { createRequestLogger } from "evlog";
 import { courier } from "./client";
 import type { Topic } from "./topics";
-import { TOPICS } from "./topics";
 
 interface SendMessageOptions {
   body: string;
@@ -17,7 +16,7 @@ interface SendMessageOptions {
   imageUrl?: string;
   title: string;
   to: string;
-  topic?: Topic;
+  topic: Topic;
 }
 
 export async function sendMessage({
@@ -28,7 +27,7 @@ export async function sendMessage({
   idempotencyKey,
   clickAction,
   imageUrl,
-  topic = TOPICS.GENERAL,
+  topic,
 }: SendMessageOptions): Promise<void> {
   const inboxPromise = courier
     ? courier.send.message(
@@ -69,6 +68,9 @@ export async function sendMessage({
       )
     : undefined;
 
+  // TODO: WhatsApp channel does not respect Courier topic preferences.
+  // Users who opt out of a topic will stop receiving inbox/email but still get WhatsApp.
+  // To fix: check the user's topic preference status before sending.
   const whatsappPromise = (async () => {
     try {
       const phone = await getUserPhoneIfEnabled(to);
@@ -108,7 +110,7 @@ interface SendBulkMessageOptions {
   emailBody?: string;
   idempotencyKey: string;
   title: string;
-  topic?: Topic;
+  topic: Topic;
   userIds: string[];
 }
 
@@ -119,7 +121,7 @@ export async function sendBulkMessage({
   emailBody,
   clickAction,
   idempotencyKey,
-  topic = TOPICS.GENERAL,
+  topic,
 }: SendBulkMessageOptions): Promise<void> {
   if (userIds.length === 0) {
     return;

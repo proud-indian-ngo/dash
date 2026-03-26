@@ -11,15 +11,7 @@ import {
   updateNotificationPreferenceAdmin,
   updateWhatsAppNotificationPrefAdmin,
 } from "@/functions/notification-preferences";
-
-const TOPIC_DESCRIPTIONS: Record<string, string> = {
-  "General Notifications":
-    "Advance payments, reimbursements, approvals, and rejections.",
-  "Account Notifications":
-    "Welcome messages, role changes, and account status updates.",
-  "Event Notifications":
-    "Team event creation, updates, cancellations, and interest responses.",
-};
+import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
 
 interface UserNotificationsFormProps {
   userId: string;
@@ -27,7 +19,7 @@ interface UserNotificationsFormProps {
 
 export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
   const [preferences, setPreferences] = useState<TopicPreference[]>([]);
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [inflightTopics, setInflightTopics] = useState<Set<string>>(new Set());
   const [inflightWhatsApp, setInflightWhatsApp] = useState(false);
@@ -68,6 +60,8 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
       cancelled = true;
     };
   }, [userId]);
+
+  const groupedPreferences = groupBy(preferences, (p) => p.group);
 
   const handleToggle = async (topicId: string, enabled: boolean) => {
     setPreferences((prev) =>
@@ -134,10 +128,10 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-4 pt-0">
+      <div className="flex flex-col gap-6 p-4">
         <Skeleton className="h-4 w-64" />
         <div className="space-y-6">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div
               className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
               key={i}
@@ -166,42 +160,58 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
   }
 
   return (
-    <div className="space-y-6 p-4 pt-0">
+    <div className="flex flex-col gap-6 p-4">
       <p className="text-muted-foreground text-sm">
         Manage notification preferences for this user.
       </p>
-      <div className="space-y-6">
-        {preferences.map((pref) => (
-          <div
-            className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
-            key={pref.topicId}
-          >
-            <div className="space-y-0.5">
-              <p className="font-medium text-sm">{pref.topicName}</p>
-              <p className="text-muted-foreground text-xs">
-                {pref.required
-                  ? "This notification is required and cannot be disabled."
-                  : (TOPIC_DESCRIPTIONS[pref.topicName] ??
-                    "Manage this notification preference.")}
-              </p>
-            </div>
-            <Switch
-              aria-label={pref.topicName}
-              checked={pref.enabled}
-              disabled={pref.required || inflightTopics.has(pref.topicId)}
-              id={pref.topicId}
-              onCheckedChange={(checked) => handleToggle(pref.topicId, checked)}
-            />
-          </div>
-        ))}
-      </div>
+      {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
+        const items = groupedPreferences.get(groupName);
+        if (!items || items.length === 0) {
+          return [];
+        }
+        const elements = [
+          groupIndex > 0 && <Separator key={`sep-${groupName}`} />,
+          <div className="space-y-5" key={groupName}>
+            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+              {groupName}
+            </p>
+            {items.map((pref) => (
+              <div
+                className="flex items-center justify-between gap-4"
+                key={pref.topicId}
+              >
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">{pref.topicName}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {pref.required
+                      ? "This notification is required and cannot be disabled."
+                      : pref.description}
+                  </p>
+                </div>
+                <Switch
+                  aria-label={pref.topicName}
+                  checked={pref.enabled}
+                  disabled={pref.required || inflightTopics.has(pref.topicId)}
+                  id={pref.topicId}
+                  onCheckedChange={(checked) =>
+                    handleToggle(pref.topicId, checked)
+                  }
+                />
+              </div>
+            ))}
+          </div>,
+        ];
+        return elements.filter(Boolean);
+      })}
       <Separator />
-      <div className="space-y-6">
-        <p className="font-medium text-xs">WhatsApp</p>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+      <div className="flex flex-col gap-5">
+        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          WhatsApp
+        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
             <p className="font-medium text-sm">WhatsApp Notifications</p>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-sm">
               Receive notifications via WhatsApp messages.
             </p>
           </div>

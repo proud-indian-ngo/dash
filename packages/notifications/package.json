@@ -10,7 +10,8 @@
     }
   },
   "scripts": {
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@pi-dash/db": "workspace:*",

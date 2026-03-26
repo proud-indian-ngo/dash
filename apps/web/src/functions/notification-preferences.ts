@@ -1,5 +1,7 @@
+import type { PermissionId } from "@pi-dash/db/permissions";
 import {
   getAllUserPreferences,
+  TOPIC_CATALOG,
   updateUserTopicPreference,
 } from "@pi-dash/notifications";
 import {
@@ -17,21 +19,32 @@ const adminUserIdSchema = z.object({
 });
 
 export interface TopicPreference {
+  description: string;
   enabled: boolean;
+  group: string;
   required: boolean;
+  requiredPermission?: PermissionId;
   topicId: string;
   topicName: string;
 }
 
 function mapToTopicPreferences(
-  items: Awaited<ReturnType<typeof getAllUserPreferences>>
+  courierItems: Awaited<ReturnType<typeof getAllUserPreferences>>
 ): TopicPreference[] {
-  return items.map((item) => ({
-    topicId: item.topic_id,
-    topicName: item.topic_name,
-    enabled: item.status !== "OPTED_OUT",
-    required: item.default_status === "REQUIRED",
-  }));
+  const courierMap = new Map(courierItems.map((item) => [item.topic_id, item]));
+
+  return TOPIC_CATALOG.map((meta) => {
+    const courier = courierMap.get(meta.id);
+    return {
+      topicId: meta.id,
+      topicName: meta.name,
+      description: meta.description,
+      group: meta.group,
+      enabled: courier ? courier.status !== "OPTED_OUT" : meta.defaultEnabled,
+      required: meta.required,
+      requiredPermission: meta.requiredPermission,
+    };
+  });
 }
 
 export const getNotificationPreferences = createServerFn({ method: "GET" })

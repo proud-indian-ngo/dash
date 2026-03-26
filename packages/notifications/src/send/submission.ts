@@ -2,6 +2,7 @@ import { env } from "@pi-dash/env/server";
 import type { LineItemDetail } from "../helpers";
 import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
+import type { Topic } from "../topics";
 
 const currencyFormat = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -41,6 +42,8 @@ interface SubmissionNotifierConfig {
   getLineItems: (entityId: string) => Promise<LineItemDetail[]>;
   idempotencyPrefix: string;
   routePrefix: string;
+  statusTopic: Topic;
+  submittedTopic: Topic;
 }
 
 interface SubmittedOptions {
@@ -75,6 +78,8 @@ export function createSubmissionNotifier({
   routePrefix,
   idempotencyPrefix,
   getLineItems,
+  submittedTopic,
+  statusTopic,
 }: SubmissionNotifierConfig): SubmissionNotifier {
   return {
     async notifySubmitted({ entityId, title, submitterName }) {
@@ -92,6 +97,7 @@ export function createSubmissionNotifier({
         emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
+        topic: submittedTopic,
       });
     },
 
@@ -118,6 +124,7 @@ export function createSubmissionNotifier({
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
         imageUrl: screenshotUrl,
+        topic: statusTopic,
       });
     },
 
@@ -133,6 +140,7 @@ export function createSubmissionNotifier({
         emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-rejected-${entityId}-${submitterId}`,
+        topic: statusTopic,
       });
     },
   };

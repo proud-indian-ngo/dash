@@ -1,5 +1,6 @@
 import { env } from "@pi-dash/env/server";
 import { getAdvancePaymentLineItems } from "../helpers";
+import { TOPICS } from "../topics";
 import { createSubmissionNotifier } from "./submission";
 
 const TRAILING_SLASH = /\/$/;
@@ -9,6 +10,8 @@ const notifier = createSubmissionNotifier({
   routePrefix: "requests",
   idempotencyPrefix: "advance-payment",
   getLineItems: getAdvancePaymentLineItems,
+  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+  statusTopic: TOPICS.REQUESTS_STATUS,
 });
 
 export async function notifyAdvancePaymentSubmitted(options: {
