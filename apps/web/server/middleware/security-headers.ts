@@ -16,9 +16,9 @@ function buildCsp(): string {
   return [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com`,
-    "font-src 'self'",
+    "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://inbox.courier.com wss://inbox.courier.com wss://realtime.courier.io https://*.r2.cloudflarestorage.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
