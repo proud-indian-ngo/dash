@@ -40,7 +40,7 @@ export function PhotoCard({
       >
         <img
           alt={photo.caption ?? "Event photo"}
-          className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) group-hover:scale-[1.02]"
+          className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) [@media(hover:hover)]:group-hover:scale-[1.02]"
           height={320}
           loading="lazy"
           src={getPhotoThumbnailUrl(photo)}
@@ -73,7 +73,7 @@ export function PhotoCard({
       ) : null}
 
       {/* Hover action buttons */}
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
         {onApprove ? (
           <Button
             aria-label="Approve photo"
