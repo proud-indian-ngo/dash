@@ -24,6 +24,8 @@ export const getRouter = () => {
     context: {
       zero: undefined as unknown as Zero, // populated in ZeroInit,
     } satisfies RouterContext,
+    defaultPendingMs: 100,
+    defaultPendingMinMs: 200,
     defaultPendingComponent: Loader,
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: DefaultNotFound,
