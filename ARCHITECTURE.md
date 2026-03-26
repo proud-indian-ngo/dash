@@ -94,7 +94,7 @@ Better Auth (`packages/auth/src/index.ts`) with:
 
 1. Admin creates user → verification email sent → user sets password
 2. User signs in → session cookie set (cross-subdomain via `COOKIE_DOMAIN` if configured)
-3. `_app` layout requires authentication — middleware at `apps/web/src/middleware/auth.ts`
+3. `_app` layout `beforeLoad` calls `getAuth()` (combined session + permissions server function) via `getCachedAuth()` — cached client-side for 5 minutes with promise dedup to prevent redundant calls from viewport preloading
 4. Server functions and API routes call `requireSession(request)` to validate
 5. Zero mutate/query endpoints extract session → build `{ userId, role }` context
 

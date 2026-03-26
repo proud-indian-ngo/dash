@@ -131,7 +131,9 @@ All hook paths above are prefixed with `apps/web/src/`.
 
 | File | Purpose |
 |---|---|
+| `functions/get-auth.ts` | Combined session + permissions (single round-trip) |
 | `functions/get-session.ts` | Authenticated user session |
+| `functions/get-permissions.ts` | Resolve permissions for current user's role |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
 | `functions/attachments.ts` | R2 presigned upload URL, delete asset, avatar upload/delete |
 | `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |

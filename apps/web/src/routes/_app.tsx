@@ -22,13 +22,12 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppProvider, useApp } from "@/context/app-context";
 import { getCourierToken } from "@/functions/courier-token";
-import { getPermissions } from "@/functions/get-permissions";
-import { getSession } from "@/functions/get-session";
+import { getCachedAuth } from "@/lib/auth-cache";
 
 export const Route = createFileRoute("/_app")({
   staleTime: Number.POSITIVE_INFINITY,
   beforeLoad: async ({ location }) => {
-    const session = await getSession();
+    const { session, permissions } = await getCachedAuth();
 
     if (!session) {
       throw redirect({
@@ -36,8 +35,6 @@ export const Route = createFileRoute("/_app")({
         search: { redirect: location.pathname },
       });
     }
-
-    const permissions = await getPermissions();
 
     return { permissions, session };
   },

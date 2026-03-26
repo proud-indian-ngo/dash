@@ -44,6 +44,7 @@ import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
+import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
 
 const PRIMARY_LIGHT = "oklch(0.52 0.105 223.128)";
@@ -235,6 +236,7 @@ export function NavUser() {
                 authClient.signOut({
                   fetchOptions: {
                     onSuccess: () => {
+                      invalidateAuthCache();
                       navigate({
                         to: "/",
                       });
