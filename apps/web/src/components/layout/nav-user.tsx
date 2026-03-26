@@ -25,11 +25,13 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useTheme } from "@pi-dash/design-system/lib/theme-provider";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import type {
   CourierInboxListItemFactoryProps,
   CourierInboxTheme,
 } from "@trycourier/courier-react";
+import { log } from "evlog";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 const CourierInbox = lazy(() =>
@@ -89,6 +91,7 @@ const COURIER_DARK_THEME = courierTheme(PRIMARY_DARK);
 
 export function NavUser() {
   const { isMobile } = useSidebar();
+  const zero = useZero();
   const navigate = useNavigate();
   const { user, openSettings } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -218,7 +221,17 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() =>
+              onClick={async () => {
+                try {
+                  await zero.delete();
+                } catch (error: unknown) {
+                  log.error({
+                    component: "NavUser",
+                    action: "logout.clearCache",
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  });
+                }
                 authClient.signOut({
                   fetchOptions: {
                     onSuccess: () => {
@@ -227,8 +240,8 @@ export function NavUser() {
                       });
                     },
                   },
-                })
-              }
+                });
+              }}
             >
               <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
               Log out

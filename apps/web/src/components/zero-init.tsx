@@ -72,6 +72,7 @@ export function ZeroInit({ children }: ZeroInitProps) {
       init={init}
       mutators={mutators}
       schema={schema}
+      storageKey="pi-dash"
       userID={userID}
     >
       {children}

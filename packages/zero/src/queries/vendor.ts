@@ -15,7 +15,7 @@ export const vendorQueries = {
   pendingByCurrentUser: defineQuery(({ ctx }) =>
     zql.vendor
       .where("status", "pending")
-      .where("createdBy", ctx?.userId ?? "")
+      .where("createdBy", ctx?.userId)
       .orderBy("name", "asc")
   ),
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id } }) =>

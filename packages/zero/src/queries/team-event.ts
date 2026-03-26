@@ -25,7 +25,7 @@ export const teamEventQueries = {
             .where(({ or, cmp, exists }) =>
               or(
                 cmp("isPublic", true),
-                exists("members", (m) => m.where("userId", ctx?.userId ?? ""))
+                exists("members", (m) => m.where("userId", ctx?.userId))
               )
             )
             .orderBy("startTime", "desc")
@@ -38,7 +38,7 @@ export const teamEventQueries = {
           .where(({ or, cmp, exists }) =>
             or(
               cmp("isPublic", true),
-              exists("members", (m) => m.where("userId", ctx?.userId ?? ""))
+              exists("members", (m) => m.where("userId", ctx?.userId))
             )
           )
           .one()
@@ -54,7 +54,7 @@ export const teamEventQueries = {
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.teamEvent)
       .related("team")
-      .whereExists("members", (m) => m.where("userId", ctx?.userId ?? ""))
+      .whereExists("members", (m) => m.where("userId", ctx?.userId))
       .where("cancelledAt", "IS", null)
       .orderBy("startTime", "desc")
   ),

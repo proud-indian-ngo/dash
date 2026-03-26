@@ -12,6 +12,6 @@ export const eventInterestQueries = {
         .orderBy("createdAt", "desc")
   ),
   byCurrentUser: defineQuery(({ ctx }) =>
-    zql.eventInterest.where("userId", ctx?.userId ?? "").related("event")
+    zql.eventInterest.where("userId", ctx?.userId).related("event")
   ),
 };

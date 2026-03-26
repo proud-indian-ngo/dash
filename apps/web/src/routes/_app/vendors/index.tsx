@@ -21,8 +21,8 @@ export const Route = createFileRoute("/_app/vendors/")({
     meta: [{ title: `Vendors | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
-    context.zero?.run(queries.vendor.all());
-    context.zero?.run(queries.vendorPayment.all());
+    context.zero?.preload(queries.vendor.all());
+    context.zero?.preload(queries.vendorPayment.all());
   },
   component: VendorsRouteComponent,
 });

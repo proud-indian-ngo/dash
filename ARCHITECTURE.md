@@ -66,9 +66,13 @@ Zero handles real-time sync via PostgreSQL logical replication:
 4. Client maintains a local SQLite replica — reads are instant, writes are optimistic
 5. Server-side mutations flow: client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients
 
-The Zero client is initialized in `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`, which receives the schema, mutators, and user context (userId + role).
+The Zero client is initialized in `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`, which receives the schema, mutators, user context (userId + role), and `storageKey="pi-dash"` to namespace IndexedDB storage.
 
-Connection errors are monitored globally by `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` using `useConnectionState()`. Individual queries do not handle errors — the monitor shows a debounced toast on `error` or `needs-auth` state transitions.
+Route loaders use `context.zero?.preload()` (not `run()`) to sync data ahead of navigation without materializing results into JS objects. The `?.` is required because Zero doesn't exist server-side during SSR — loaders run on the server for initial page load.
+
+Connection errors are monitored globally by `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` using `useConnectionState()`. Individual queries do not handle errors. On `error` state, the monitor shows a debounced toast. On `needs-auth` state (401/403 from Zero endpoints), it redirects to `/login` with the current path as a redirect parameter.
+
+On logout, `zero.delete()` is called (best-effort) before `authClient.signOut()` to clear the user's IndexedDB cache.
 
 ### View Transitions
 

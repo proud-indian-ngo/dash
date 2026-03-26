@@ -10,8 +10,8 @@ export const Route = createFileRoute("/_app/teams/$id")({
     meta: [{ title: `Team Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
-    context.zero?.run(queries.team.byId({ id: params.id }));
-    context.zero?.run(queries.teamEvent.byTeam({ teamId: params.id }));
+    context.zero?.preload(queries.team.byId({ id: params.id }));
+    context.zero?.preload(queries.teamEvent.byTeam({ teamId: params.id }));
   },
   component: TeamDetailRouteComponent,
 });

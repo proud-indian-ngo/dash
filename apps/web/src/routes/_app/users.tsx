@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_app/users")({
   }),
   beforeLoad: ({ context }) => assertPermission(context, "users.view"),
   loader: ({ context }) => {
-    context.zero?.run(queries.user.all());
+    context.zero?.preload(queries.user.all());
   },
   component: UsersRouteComponent,
 });

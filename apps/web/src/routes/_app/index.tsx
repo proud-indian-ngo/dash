@@ -34,12 +34,12 @@ export const Route = createFileRoute("/_app/")({
     meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
-    context.zero?.run(queries.reimbursement.all());
-    context.zero?.run(queries.advancePayment.all());
-    context.zero?.run(queries.user.all());
-    context.zero?.run(queries.team.byCurrentUser());
-    context.zero?.run(queries.teamEvent.byCurrentUser());
-    context.zero?.run(queries.vendorPayment.all());
+    context.zero?.preload(queries.reimbursement.all());
+    context.zero?.preload(queries.advancePayment.all());
+    context.zero?.preload(queries.user.all());
+    context.zero?.preload(queries.team.byCurrentUser());
+    context.zero?.preload(queries.teamEvent.byCurrentUser());
+    context.zero?.preload(queries.vendorPayment.all());
   },
   component: DashboardHome,
 });

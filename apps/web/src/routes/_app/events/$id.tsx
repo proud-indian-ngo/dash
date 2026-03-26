@@ -15,16 +15,20 @@ export const Route = createFileRoute("/_app/events/$id")({
     meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
-    context.zero?.run(queries.teamEvent.byId({ id: params.id }));
-    context.zero?.run(queries.eventInterest.byEvent({ eventId: params.id }));
-    context.zero?.run(queries.eventUpdate.byEvent({ eventId: params.id }));
-    context.zero?.run(
+    context.zero?.preload(queries.teamEvent.byId({ id: params.id }));
+    context.zero?.preload(
+      queries.eventInterest.byEvent({ eventId: params.id })
+    );
+    context.zero?.preload(queries.eventUpdate.byEvent({ eventId: params.id }));
+    context.zero?.preload(
       queries.eventPhoto.approvedByEvent({ eventId: params.id })
     );
-    context.zero?.run(
+    context.zero?.preload(
       queries.eventPhoto.pendingByEvent({ eventId: params.id })
     );
-    context.zero?.run(queries.eventImmichAlbum.byEvent({ eventId: params.id }));
+    context.zero?.preload(
+      queries.eventImmichAlbum.byEvent({ eventId: params.id })
+    );
   },
   component: EventDetailRouteComponent,
 });
@@ -37,7 +41,12 @@ function EventDetailRouteComponent() {
   const [eventResult, eventStatus] = useQuery(queries.teamEvent.byId({ id }));
   const event = (eventResult ?? null) as EventRow | null;
 
-  const [teamResult] = useQuery(queries.team.byId({ id: event?.teamId ?? "" }));
+  const [teamResult] = useQuery(
+    queries.team.byId({ id: event?.teamId ?? "" }),
+    {
+      enabled: !!event?.teamId,
+    }
+  );
   const team = (teamResult ?? null) as TeamDetailData | null;
 
   const [interests] = useQuery(queries.eventInterest.byEvent({ eventId: id }));

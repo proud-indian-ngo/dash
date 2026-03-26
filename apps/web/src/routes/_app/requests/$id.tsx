@@ -20,9 +20,9 @@ export const Route = createFileRoute("/_app/requests/$id")({
     meta: [{ title: `Request Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
-    context.zero?.run(queries.reimbursement.byId({ id: params.id }));
-    context.zero?.run(queries.advancePayment.byId({ id: params.id }));
-    context.zero?.run(queries.vendorPayment.byId({ id: params.id }));
+    context.zero?.preload(queries.reimbursement.byId({ id: params.id }));
+    context.zero?.preload(queries.advancePayment.byId({ id: params.id }));
+    context.zero?.preload(queries.vendorPayment.byId({ id: params.id }));
   },
   component: RequestDetailRouteComponent,
 });

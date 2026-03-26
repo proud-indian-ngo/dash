@@ -14,9 +14,9 @@ export const Route = createFileRoute("/_app/events/")({
     meta: [{ title: `Events | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
-    context.zero?.run(queries.teamEvent.public());
-    context.zero?.run(queries.eventInterest.byCurrentUser());
-    context.zero?.run(queries.team.byCurrentUser());
+    context.zero?.preload(queries.teamEvent.public());
+    context.zero?.preload(queries.eventInterest.byCurrentUser());
+    context.zero?.preload(queries.team.byCurrentUser());
   },
   component: PublicEventsRouteComponent,
 });

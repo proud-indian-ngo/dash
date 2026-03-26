@@ -17,7 +17,7 @@ function withRelated(q: typeof zql.vendorPayment) {
 export const vendorPaymentQueries = {
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.vendorPayment)
-      .where("userId", ctx?.userId ?? "")
+      .where("userId", ctx?.userId)
       .orderBy("createdAt", "desc")
   ),
   byId: defineQuery(
@@ -29,14 +29,14 @@ export const vendorPaymentQueries = {
         ? withRelated(zql.vendorPayment).where("id", id).one()
         : withRelated(zql.vendorPayment)
             .where("id", id)
-            .where("userId", ctx?.userId ?? "")
+            .where("userId", ctx?.userId)
             .one()
   ),
   all: defineQuery(({ ctx }) =>
     ctx != null && can(ctx, "requests.view_all")
       ? withRelated(zql.vendorPayment).orderBy("createdAt", "desc")
       : withRelated(zql.vendorPayment)
-          .where("userId", ctx?.userId ?? "")
+          .where("userId", ctx?.userId)
           .orderBy("createdAt", "desc")
   ),
 };

@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_app/teams/")({
     meta: [{ title: `Teams | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
-    context.zero?.run(queries.team.all());
+    context.zero?.preload(queries.team.all());
   },
   component: TeamsRouteComponent,
 });

@@ -6,7 +6,12 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { useConnectionState } from "@rocicorp/zero/react";
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
 import { useCourier } from "@trycourier/courier-react";
 import { log } from "evlog";
 import debounce from "lodash/debounce";
@@ -75,31 +80,43 @@ const showSyncErrorToast = debounce(
   { leading: true, trailing: false }
 );
 
+function extractReason(state: { reason?: unknown }): string {
+  return typeof state.reason === "string"
+    ? state.reason
+    : JSON.stringify(state.reason ?? "unknown");
+}
+
 function ZeroConnectionMonitor() {
   const state = useConnectionState();
   const prevName = useRef(state.name);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (
-      (state.name === "error" || state.name === "needs-auth") &&
-      prevName.current !== state.name
-    ) {
-      let reason = "unknown";
-      if ("reason" in state) {
-        reason =
-          typeof state.reason === "string"
-            ? state.reason
-            : JSON.stringify(state.reason);
-      }
+    if (state.name === prevName.current) {
+      return;
+    }
+
+    if (state.name === "needs-auth") {
+      log.error({
+        component: "ZeroConnectionMonitor",
+        message: "Zero connection: needs-auth",
+        reason: extractReason(state),
+      });
+      navigate({
+        to: "/login",
+        search: { redirect: window.location.pathname },
+      });
+    } else if (state.name === "error") {
       log.error({
         component: "ZeroConnectionMonitor",
         message: `Zero connection: ${state.name}`,
-        reason,
+        reason: extractReason(state),
       });
       showSyncErrorToast();
     }
+
     prevName.current = state.name;
-  }, [state]);
+  }, [state, navigate]);
 
   return null;
 }
