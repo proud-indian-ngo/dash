@@ -14,7 +14,6 @@ import { computeRequestStats } from "@/components/requests/request-stats";
 import { RequestsTable } from "@/components/requests/requests-table";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { deleteUploadedAssets } from "@/functions/attachments";
-import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import {
   normalizeToRequestRows,
   REQUEST_TYPE_LABELS,
@@ -73,10 +72,13 @@ function RequestsRouteComponent() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
   const [vendorPayments, r3] = useQuery(queries.vendorPayment.all());
-  const isLoading1 = useZeroQueryStatus(r1);
-  const isLoading2 = useZeroQueryStatus(r2);
-  const isLoading3 = useZeroQueryStatus(r3);
-  const isLoading = isLoading1 || isLoading2 || isLoading3;
+  const isLoading =
+    reimbursements.length === 0 &&
+    advancePayments.length === 0 &&
+    vendorPayments.length === 0 &&
+    r1.type !== "complete" &&
+    r2.type !== "complete" &&
+    r3.type !== "complete";
 
   const [statusFilter, setStatusFilter] = useQueryState(
     "status",
@@ -138,7 +140,7 @@ function RequestsRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Requests</h1>
 
-      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+      <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
           items={computeRequestStats(allData)}

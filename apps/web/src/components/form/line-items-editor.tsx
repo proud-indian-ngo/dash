@@ -76,7 +76,7 @@ function LineItemRow({
   submitted,
 }: LineItemRowProps) {
   return (
-    <div className="grid grid-cols-[1fr_100px_32px] items-start gap-2 sm:grid-cols-[1fr_1fr_100px_32px]">
+    <div className="fade-in-0 grid animate-in grid-cols-[1fr_100px_32px] items-start gap-2 duration-150 ease-(--ease-out-expo) sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
         {(rawField: unknown) => {
           const field = rawField as SubFieldApi;

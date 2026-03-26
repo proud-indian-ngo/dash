@@ -8,7 +8,6 @@ import { Loader } from "@/components/loader";
 import { RequestDetail } from "@/components/requests/request-detail";
 import { RequestForm } from "@/components/requests/request-form";
 import { useApp } from "@/context/app-context";
-import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import type { RequestDetailData, RequestType } from "@/lib/request-types";
 import { isVendorPayment, REQUEST_TYPE_LABELS } from "@/lib/request-types";
 import {
@@ -41,11 +40,10 @@ function useResolvedRequest(id: string): {
   const [reimbursement, r1] = useQuery(queries.reimbursement.byId({ id }));
   const [advancePayment, r2] = useQuery(queries.advancePayment.byId({ id }));
   const [vendorPayment, r3] = useQuery(queries.vendorPayment.byId({ id }));
-  const isLoading1 = useZeroQueryStatus(r1);
-  const isLoading2 = useZeroQueryStatus(r2);
-  const isLoading3 = useZeroQueryStatus(r3);
+  const allNotComplete =
+    r1.type !== "complete" && r2.type !== "complete" && r3.type !== "complete";
 
-  if (isLoading1 || isLoading2 || isLoading3) {
+  if (!(reimbursement || advancePayment || vendorPayment) && allNotComplete) {
     return { isLoading: true, resolved: null };
   }
 
@@ -164,56 +162,61 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
 
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
 
-  if (showEditForm) {
-    return (
-      <div className="app-container mx-auto max-w-3xl px-4 py-6">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="font-semibold text-2xl">Edit {typeLabel}</h1>
-          {showAdminActions ? (
-            <Button
-              onClick={() => setAdminEditMode(false)}
-              type="button"
-              variant="outline"
-            >
-              View details
-            </Button>
-          ) : null}
-        </div>
-        <p className="mt-2 text-muted-foreground text-sm">
-          Update your submission before it is reviewed.
-        </p>
-        <div className="mt-6">
-          <RequestForm
-            disableBankAccountSelection={isAdminEditingAnotherUser}
-            disableTypeSelection
-            initialValues={buildInitialValues(resolved)}
-            onCancel={() => {
-              navigate({ to: "/requests" });
-            }}
-            onSaved={() => {
-              setAdminEditMode(false);
-            }}
-            requestType={requestType}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app-container mx-auto max-w-3xl px-4 py-6">
-      {showAdminActions ? (
-        <div className="mb-4 flex justify-end">
-          <Button
-            onClick={() => setAdminEditMode(true)}
-            type="button"
-            variant="outline"
-          >
-            Edit submission
-          </Button>
-        </div>
-      ) : null}
-      <RequestDetail canApprove={canApprove} request={request} />
+      <div
+        className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)"
+        key={showEditForm ? "edit" : "view"}
+      >
+        {showEditForm ? (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="font-semibold text-2xl">Edit {typeLabel}</h1>
+              {showAdminActions ? (
+                <Button
+                  onClick={() => setAdminEditMode(false)}
+                  type="button"
+                  variant="outline"
+                >
+                  View details
+                </Button>
+              ) : null}
+            </div>
+            <p className="mt-2 text-muted-foreground text-sm">
+              Update your submission before it is reviewed.
+            </p>
+            <div className="mt-6">
+              <RequestForm
+                disableBankAccountSelection={isAdminEditingAnotherUser}
+                disableTypeSelection
+                initialValues={buildInitialValues(resolved)}
+                onCancel={() => {
+                  navigate({ to: "/requests" });
+                }}
+                onSaved={() => {
+                  setAdminEditMode(false);
+                }}
+                requestType={requestType}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            {showAdminActions ? (
+              <div className="mb-4 flex justify-end">
+                <Button
+                  onClick={() => setAdminEditMode(true)}
+                  type="button"
+                  variant="outline"
+                >
+                  Edit submission
+                </Button>
+              </div>
+            ) : null}
+            <RequestDetail canApprove={canApprove} request={request} />
+          </>
+        )}
+      </div>
     </div>
   );
 }

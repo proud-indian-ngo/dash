@@ -46,10 +46,10 @@ export function ZeroInit({ children }: ZeroInitProps) {
 
   const context = useMemo(
     () =>
-      session
-        ? { permissions, role, userId: session.user.id }
-        : { permissions: [], role: "unoriented_volunteer", userId: "anon" },
-    [permissions, role, session]
+      userID === "anon"
+        ? { permissions: [], role: "unoriented_volunteer", userId: "anon" }
+        : { permissions, role, userId: userID },
+    [permissions, role, userID]
   );
 
   const init = useCallback(

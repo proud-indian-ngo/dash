@@ -24,12 +24,13 @@ import {
   useSidebar,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useTheme } from "@pi-dash/design-system/lib/theme-provider";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
 import type {
   CourierInboxListItemFactoryProps,
   CourierInboxTheme,
 } from "@trycourier/courier-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 const CourierInbox = lazy(() =>
   import("@trycourier/courier-react").then((m) => ({
@@ -93,6 +94,19 @@ export function NavUser() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { theme: mode } = useTheme();
   const unreadCount = useUnreadNotificationCount();
+  const [badgePulseToken, setBadgePulseToken] = useState(0);
+  const previousUnreadCount = useRef(unreadCount);
+
+  useEffect(() => {
+    if (unreadCount > previousUnreadCount.current) {
+      setBadgePulseToken((current) => current + 1);
+    }
+    previousUnreadCount.current = unreadCount;
+  }, [unreadCount]);
+
+  const hasUnreadNotifications = unreadCount > 0;
+  const hasPulsed = badgePulseToken > 0;
+  const unreadCountLabel = unreadCount > 99 ? "99+" : unreadCount;
 
   return (
     <SidebarMenu>
@@ -108,13 +122,21 @@ export function NavUser() {
           >
             <span className="relative">
               <UserAvatar user={user} />
-              {unreadCount > 0 && (
+              {hasUnreadNotifications && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-sidebar"
-                />
+                  className="fade-in-0 zoom-in-0 absolute -top-0.5 -right-0.5 size-2.5 animate-in transition-all duration-150 ease-(--ease-out-expo)"
+                >
+                  <span
+                    className={cn(
+                      "block size-full rounded-full bg-destructive ring-2 ring-sidebar",
+                      hasPulsed && "animate-badge-pulse"
+                    )}
+                    key={`avatar-badge-${badgePulseToken}`}
+                  />
+                </span>
               )}
-              {unreadCount > 0 && (
+              {hasUnreadNotifications && (
                 <span className="sr-only">You have unread notifications</span>
               )}
             </span>
@@ -151,9 +173,17 @@ export function NavUser() {
                 <DropdownMenuSubTrigger>
                   <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
                   Notifications
-                  {unreadCount > 0 && (
-                    <span className="!text-white ml-auto inline-flex size-5 items-center justify-center rounded-full bg-destructive font-medium text-[10px]">
-                      {unreadCount > 99 ? "99+" : unreadCount}
+                  {hasUnreadNotifications && (
+                    <span className="fade-in-0 zoom-in-0 ml-auto inline-flex size-5 animate-in transition-all duration-150 ease-(--ease-out-expo)">
+                      <span
+                        className={cn(
+                          "!text-white inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px]",
+                          hasPulsed && "animate-badge-pulse"
+                        )}
+                        key={`menu-badge-${badgePulseToken}`}
+                      >
+                        {unreadCountLabel}
+                      </span>
                     </span>
                   )}
                 </DropdownMenuSubTrigger>

@@ -39,6 +39,17 @@
 - DO NOT: Remove `useMemo`/`useCallback` from shared hooks or third-party component prop boundaries during React Compiler cleanup.
 - INSTEAD: For router tree changes, edit route source files and regenerate through app workflow.
 - INSTEAD: For Zero schema changes, edit Drizzle schema then run `bun run zero:generate`.
+
+## Zero Query Patterns
+
+Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `"unknown"` — it causes skeleton/content flash cycles.
+
+- DO: Derive loading state from **data emptiness + type**: `const isLoading = data.length === 0 && result.type !== "complete"`. This shows skeleton only on first load; once data is cached it persists through re-sync.
+- DO: For singular queries (`.byId`): `const isLoading = !item && result.type !== "complete"`.
+- DO: Always compute derived data (stats, counts, filters) from the live query data — never gate computation on `isLoading`. This prevents values flashing to 0 during re-sync.
+- DO NOT: Check `result.type === "unknown"` to show loading UI — Zero returns cached data during `"unknown"`, so it's never truly empty after first load.
+- DO NOT: Use per-query error hooks — connection errors are handled globally by `ZeroConnectionMonitor` in `_app.tsx` via `useConnectionState()`.
+- DO NOT: Pass unstable object references (e.g., `session` from `authClient.useSession()`) as `useMemo` dependencies for ZeroProvider props — extract stable primitives (`userId`, `role`) instead. Unstable refs cause ZeroProvider to reinitialize and remount the entire app.
 - INSTEAD: For DB schema changes, run `bun run db:generate` then required migrate/push step.
 - DO: Use `createRequestLogger()` + `log.set()` / `log.error()` / `log.emit()` from `evlog` for server-side error logging. Never use `console.error` on the server.
 - DO NOT: Pass custom fields to `createRequestLogger()` — it only accepts `{ method?, path?, requestId? }`. Use `log.set({ ... })` for context.

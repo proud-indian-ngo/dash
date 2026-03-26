@@ -44,8 +44,6 @@ export const Route = createFileRoute("/_app/")({
   component: DashboardHome,
 });
 
-const SECTION_DELAY_MS = 150;
-
 interface DashboardStatsInput {
   advancePayments: readonly WithStatusAndLineItems[];
   canApprove: boolean;
@@ -157,7 +155,7 @@ function WelcomeDashboard() {
   const { session } = Route.useRouteContext();
 
   return (
-    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
       <h1 className="font-semibold text-2xl">Dashboard</h1>
       <Card className="mt-6">
         <CardHeader>
@@ -188,7 +186,7 @@ function PendingCallout({ count }: { count: number }) {
 
   return (
     <Link
-      className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 transition-colors hover:bg-amber-50 dark:border-amber-500/20 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
+      className="fade-in-0 mt-3 flex animate-in items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 transition-colors duration-150 ease-(--ease-out-expo) hover:bg-amber-50 dark:border-amber-500/20 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
       search={{ status: "pending" }}
       to="/requests"
     >
@@ -219,43 +217,38 @@ function OrientedDashboard() {
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
-  const [users, r3] = useQuery(queries.user.all());
-  const [teams, r4] = useQuery(queries.team.byCurrentUser());
-  const [events, r5] = useQuery(queries.teamEvent.byCurrentUser());
-  const [vendorPayments, r6] = useQuery(queries.vendorPayment.all());
-
+  const [users] = useQuery(queries.user.all());
+  const [teams] = useQuery(queries.team.byCurrentUser());
+  const [events] = useQuery(queries.teamEvent.byCurrentUser());
+  const [vendorPayments] = useQuery(queries.vendorPayment.all());
+  // Skeleton only on first load — once Zero has cached data, it stays during re-sync
   const isLoading =
-    r1.type === "unknown" ||
-    r2.type === "unknown" ||
-    r3.type === "unknown" ||
-    r4.type === "unknown" ||
-    r5.type === "unknown" ||
-    r6.type === "unknown";
+    reimbursements.length === 0 &&
+    advancePayments.length === 0 &&
+    r1.type !== "complete" &&
+    r2.type !== "complete";
 
-  const pendingCount = isLoading
-    ? 0
-    : byStatus(reimbursements ?? [], "pending").length +
-      byStatus(advancePayments ?? [], "pending").length +
-      byStatus(vendorPayments ?? [], "pending").length;
+  const pendingCount =
+    byStatus(reimbursements, "pending").length +
+    byStatus(advancePayments, "pending").length +
+    byStatus(vendorPayments, "pending").length;
 
-  const stats = isLoading
-    ? []
-    : computeDashboardStats({
-        reimbursements: reimbursements ?? [],
-        advancePayments: advancePayments ?? [],
-        users: users ?? [],
-        teams: teams ?? [],
-        events: events ?? [],
-        vendorPayments: vendorPayments ?? [],
-        canViewAllRequests,
-        canApprove,
-        canViewUsers,
-        canViewVendors,
-        pendingCount,
-      });
+  const stats = computeDashboardStats({
+    reimbursements,
+    advancePayments,
+    users,
+    teams,
+    events,
+    vendorPayments,
+    canViewAllRequests,
+    canApprove,
+    canViewUsers,
+    canViewVendors,
+    pendingCount,
+  });
 
   return (
-    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-semibold text-2xl">Dashboard</h1>
         <Button
@@ -275,20 +268,17 @@ function OrientedDashboard() {
         <StatsCards isLoading={isLoading} items={stats} />
       </div>
 
-      <div
-        className="fade-in-0 mt-8 grid animate-in gap-6 fill-mode-backwards duration-200 lg:grid-cols-2"
-        style={{ animationDelay: `${SECTION_DELAY_MS}ms` }}
-      >
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
-          <MyTeams isLoading={isLoading} teams={teams ?? []} />
+          <MyTeams isLoading={isLoading} teams={teams} />
           <RecentActivity
-            advancePayments={advancePayments ?? []}
+            advancePayments={advancePayments}
             isLoading={isLoading}
-            reimbursements={reimbursements ?? []}
+            reimbursements={reimbursements}
           />
         </div>
         <div>
-          <UpcomingEvents events={events ?? []} isLoading={isLoading} />
+          <UpcomingEvents events={events} isLoading={isLoading} />
         </div>
       </div>
     </div>

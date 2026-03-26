@@ -28,6 +28,7 @@ export const getRouter = () => {
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: DefaultNotFound,
     defaultStructuralSharing: true,
+    defaultViewTransition: true,
   });
   return router;
 };

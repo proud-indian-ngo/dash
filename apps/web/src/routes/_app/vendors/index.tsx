@@ -13,7 +13,6 @@ import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
-import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
 
@@ -32,9 +31,11 @@ function VendorsRouteComponent() {
   const zero = useZero();
   const [vendors, vendorsResult] = useQuery(queries.vendor.all());
   const [vendorPayments, vpResult] = useQuery(queries.vendorPayment.all());
-  const isLoadingVendors = useZeroQueryStatus(vendorsResult);
-  const isLoadingPayments = useZeroQueryStatus(vpResult);
-  const isLoading = isLoadingVendors || isLoadingPayments;
+  const isLoading =
+    vendors.length === 0 &&
+    vendorPayments.length === 0 &&
+    vendorsResult.type !== "complete" &&
+    vpResult.type !== "complete";
 
   const vendorRows = enrichVendorsWithPayments(
     vendors ?? [],
@@ -94,7 +95,7 @@ function VendorsRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Vendors</h1>
 
-      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+      <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={stats} />
         <VendorsTable
           data={vendorRows}

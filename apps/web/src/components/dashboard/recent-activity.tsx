@@ -57,6 +57,21 @@ function toActivityItems(
   }));
 }
 
+function RecentActivityEmpty() {
+  return (
+    <p className="text-muted-foreground text-sm">
+      No recent activity.{" "}
+      <Link
+        className="text-foreground underline underline-offset-4"
+        to="/requests"
+      >
+        Submit a request
+      </Link>{" "}
+      to get started.
+    </p>
+  );
+}
+
 function RecentActivitySkeleton() {
   return (
     <div className="space-y-3">
@@ -73,21 +88,6 @@ function RecentActivitySkeleton() {
   );
 }
 
-function RecentActivityEmpty() {
-  return (
-    <p className="text-muted-foreground text-sm">
-      No recent activity.{" "}
-      <Link
-        className="text-foreground underline underline-offset-4"
-        to="/requests"
-      >
-        Submit a request
-      </Link>{" "}
-      to get started.
-    </p>
-  );
-}
-
 function RecentActivityContent({
   advancePayments,
   isLoading,
@@ -100,7 +100,6 @@ function RecentActivityContent({
   if (isLoading) {
     return <RecentActivitySkeleton />;
   }
-
   const activities = [
     ...toActivityItems(
       reimbursements,
@@ -119,9 +118,17 @@ function RecentActivityContent({
     .slice(0, MAX_ITEMS);
 
   if (activities.length === 0) {
-    return <RecentActivityEmpty />;
+    return (
+      <div className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)">
+        <RecentActivityEmpty />
+      </div>
+    );
   }
-  return <RecentActivityList activities={activities} />;
+  return (
+    <div className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)">
+      <RecentActivityList activities={activities} />
+    </div>
+  );
 }
 
 function RecentActivityList({ activities }: { activities: ActivityItem[] }) {

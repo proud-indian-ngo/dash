@@ -10,7 +10,6 @@ import { useState } from "react";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
-import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export const Route = createFileRoute("/_app/teams/")({
@@ -30,7 +29,7 @@ function TeamsRouteComponent() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const [data, result] = useQuery(queries.team.all());
-  const isLoading = useZeroQueryStatus(result);
+  const isLoading = data.length === 0 && result.type !== "complete";
 
   const handleDelete = async (id: string) => {
     const res = await zero.mutate(mutators.team.delete({ id })).server;
@@ -46,7 +45,7 @@ function TeamsRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Teams</h1>
 
-      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+      <div className="mt-4 grid gap-6 *:min-w-0">
         <TeamsTable
           data={data ?? []}
           isLoading={isLoading}

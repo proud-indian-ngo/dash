@@ -5,10 +5,13 @@ import {
   SidebarTrigger,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
+import { useConnectionState } from "@rocicorp/zero/react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useCourier } from "@trycourier/courier-react";
 import { log } from "evlog";
+import debounce from "lodash/debounce";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,6 +21,7 @@ import { getPermissions } from "@/functions/get-permissions";
 import { getSession } from "@/functions/get-session";
 
 export const Route = createFileRoute("/_app")({
+  staleTime: Number.POSITIVE_INFINITY,
   beforeLoad: async ({ location }) => {
     const session = await getSession();
 
@@ -65,6 +69,41 @@ function CourierAuth() {
   return null;
 }
 
+const showSyncErrorToast = debounce(
+  () => toast.error("Failed to sync data. Check your connection."),
+  3000,
+  { leading: true, trailing: false }
+);
+
+function ZeroConnectionMonitor() {
+  const state = useConnectionState();
+  const prevName = useRef(state.name);
+
+  useEffect(() => {
+    if (
+      (state.name === "error" || state.name === "needs-auth") &&
+      prevName.current !== state.name
+    ) {
+      let reason = "unknown";
+      if ("reason" in state) {
+        reason =
+          typeof state.reason === "string"
+            ? state.reason
+            : JSON.stringify(state.reason);
+      }
+      log.error({
+        component: "ZeroConnectionMonitor",
+        message: `Zero connection: ${state.name}`,
+        reason,
+      });
+      showSyncErrorToast();
+    }
+    prevName.current = state.name;
+  }, [state]);
+
+  return null;
+}
+
 function AppLayout() {
   const isMobile = useIsMobile();
   const { permissions, session } = Route.useRouteContext();
@@ -72,6 +111,7 @@ function AppLayout() {
   return (
     <AppProvider permissions={permissions} user={session.user}>
       <SidebarProvider>
+        <ZeroConnectionMonitor />
         <CourierAuth />
         <AppSidebar />
         <SidebarInset className="min-w-0" id="main" tabIndex={-1}>

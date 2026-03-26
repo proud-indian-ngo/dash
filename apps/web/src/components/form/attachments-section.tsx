@@ -331,7 +331,7 @@ export function AttachmentsSection({
         <div className="flex flex-col gap-1.5">
           {value.map((attachment) => (
             <div
-              className="flex items-center justify-between rounded-md border px-3 py-2"
+              className="fade-in-0 flex animate-in items-center justify-between rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)"
               key={attachment.id}
             >
               <span className="truncate text-sm">

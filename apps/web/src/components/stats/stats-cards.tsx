@@ -61,7 +61,7 @@ export function StatCard({
 
   const animate = animationDelay != null;
   const animationClasses = animate
-    ? "fade-in-0 slide-in-from-bottom-1 animate-in fill-mode-backwards duration-200"
+    ? "fade-in-0 slide-in-from-bottom-1 animate-in animate-blur-in fill-mode-backwards duration-200 ease-(--ease-out-expo)"
     : "";
   const animationStyle = animate
     ? { animationDelay: `${animationDelay}ms` }

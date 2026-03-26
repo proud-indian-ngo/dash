@@ -4,7 +4,6 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader } from "@/components/loader";
 import { TeamDetail } from "@/components/teams/team-detail";
-import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/teams/$id")({
   head: () => ({
@@ -21,9 +20,8 @@ function TeamDetailRouteComponent() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
   const [team, result] = useQuery(queries.team.byId({ id }));
-  const isLoading = useZeroQueryStatus(result);
 
-  if (isLoading) {
+  if (!team && result.type !== "complete") {
     return (
       <div className="app-container mx-auto max-w-7xl px-4 py-6">
         <Loader />

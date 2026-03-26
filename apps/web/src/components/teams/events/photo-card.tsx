@@ -40,7 +40,7 @@ export function PhotoCard({
       >
         <img
           alt={photo.caption ?? "Event photo"}
-          className="size-full object-cover"
+          className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) group-hover:scale-[1.02]"
           height={320}
           loading="lazy"
           src={getPhotoThumbnailUrl(photo)}

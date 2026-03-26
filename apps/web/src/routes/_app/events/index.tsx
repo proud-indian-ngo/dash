@@ -8,7 +8,6 @@ import {
   PublicEventsTable,
 } from "@/components/events/public-events-table";
 import { ShowInterestDialog } from "@/components/teams/events/show-interest-dialog";
-import { useZeroQueryStatus } from "@/hooks/use-zero-query";
 
 export const Route = createFileRoute("/_app/events/")({
   head: () => ({
@@ -25,7 +24,7 @@ export const Route = createFileRoute("/_app/events/")({
 function PublicEventsRouteComponent() {
   const { session } = Route.useRouteContext();
   const [data, result] = useQuery(queries.teamEvent.public());
-  const isLoading = useZeroQueryStatus(result);
+  const isLoading = data.length === 0 && result.type !== "complete";
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());
   const myTeamIds = new Set(myTeams.map((t) => t.id));
@@ -39,7 +38,7 @@ function PublicEventsRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Events</h1>
-      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+      <div className="mt-4 grid gap-6 *:min-w-0">
         <PublicEventsTable
           data={(data as PublicEventRow[]) ?? []}
           isLoading={isLoading}

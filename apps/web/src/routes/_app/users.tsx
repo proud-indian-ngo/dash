@@ -64,7 +64,7 @@ function UsersRouteComponent() {
   const setPassword = useServerFn(setUserPasswordAdmin);
   const deleteUser = useServerFn(deleteUserAdmin);
   const [usersData, queryResult] = useQuery(queries.user.all());
-  const isLoading = queryResult.type === "unknown";
+  const isLoading = usersData.length === 0 && queryResult.type !== "complete";
 
   const allUsers = (usersData ?? []) as User[];
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -244,7 +244,7 @@ function UsersRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-semibold text-2xl">Users</h1>
 
-      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+      <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
         <UsersTable
           isLoading={isLoading}

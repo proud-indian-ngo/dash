@@ -68,6 +68,12 @@ Zero handles real-time sync via PostgreSQL logical replication:
 
 The Zero client is initialized in `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`, which receives the schema, mutators, and user context (userId + role).
 
+Connection errors are monitored globally by `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` using `useConnectionState()`. Individual queries do not handle errors — the monitor shows a debounced toast on `error` or `needs-auth` state transitions.
+
+### View Transitions
+
+Route navigations use the View Transitions API (`defaultViewTransition: true` in `apps/web/src/router.tsx`). Transition animations are defined in `packages/design-system/styles.css` via `::view-transition-old(root)` and `::view-transition-new(root)` rules using a 150ms expo-out fade. All view transition animations are disabled under `prefers-reduced-motion: reduce`. Browsers without View Transitions API support (e.g., Firefox) fall back to instant navigation with no breakage.
+
 ## Auth Flow
 
 ### Setup

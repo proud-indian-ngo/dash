@@ -42,7 +42,7 @@ function EventDetailRouteComponent() {
 
   const [interests] = useQuery(queries.eventInterest.byEvent({ eventId: id }));
 
-  if (eventStatus.type === "unknown") {
+  if (!event && eventStatus.type !== "complete") {
     return (
       <div className="flex h-full items-center justify-center pt-8">
         <Loader />

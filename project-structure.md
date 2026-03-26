@@ -123,7 +123,6 @@ All component paths above are prefixed with `apps/web/src/`.
 | `hooks/use-dialog-manager.ts` | Discriminated-union state for managing multiple dialogs |
 | `hooks/use-local-storage.ts` | Generic localStorage with JSON serialization |
 | `hooks/use-table-state.ts` | Table state (pagination, sorting, filters, column persistence) |
-| `hooks/use-stable-query-result.ts` | Stabilize Zero query results across re-renders |
 | `hooks/use-unread-notification-count.ts` | Unread Courier notification count |
 
 All hook paths above are prefixed with `apps/web/src/`.

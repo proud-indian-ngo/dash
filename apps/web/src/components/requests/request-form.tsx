@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
-import { useStableQueryResult } from "@/hooks/use-stable-query-result";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { RequestType } from "@/lib/request-types";
@@ -82,37 +81,21 @@ function RequestFormInner({
   requestType,
 }: RequestFormInnerProps) {
   const zero = useZero();
-  const [categories, categoriesResult] = useQuery(
-    queries.expenseCategory.all()
-  );
+  const [categories] = useQuery(queries.expenseCategory.all());
   const [bankAccounts, bankAccountsResult] = useQuery(
     queries.bankAccount.bankAccountsByCurrentUser()
   );
-  const [vendors, vendorsResult] = useQuery(queries.vendor.approved());
-  const [pendingVendors, pendingVendorsResult] = useQuery(
-    queries.vendor.pendingByCurrentUser()
-  );
+  const [vendors] = useQuery(queries.vendor.approved());
+  const [pendingVendors] = useQuery(queries.vendor.pendingByCurrentUser());
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
   const entityId = existingId ?? uuidv7();
 
-  const categoryList = useStableQueryResult(
-    (categories ?? []) as ExpenseCategory[],
-    categoriesResult
-  );
-  const bankAccountList = useStableQueryResult(
-    (bankAccounts ?? []) as BankAccount[],
-    bankAccountsResult
-  );
-  const approvedVendorList = useStableQueryResult(
-    (vendors ?? []) as Vendor[],
-    vendorsResult
-  );
-  const pendingVendorList = useStableQueryResult(
-    (pendingVendors ?? []) as Vendor[],
-    pendingVendorsResult
-  );
+  const categoryList = (categories ?? []) as ExpenseCategory[];
+  const bankAccountList = (bankAccounts ?? []) as BankAccount[];
+  const approvedVendorList = (vendors ?? []) as Vendor[];
+  const pendingVendorList = (pendingVendors ?? []) as Vendor[];
 
   const vendorList = [...approvedVendorList, ...pendingVendorList].sort(
     (a, b) => a.name.localeCompare(b.name)
@@ -235,16 +218,19 @@ function RequestFormInner({
     );
   }
 
+  let bankAccountsStatus: "loading" | "complete" | "error" = "complete";
+  if (bankAccountList.length === 0 && bankAccountsResult.type !== "complete") {
+    bankAccountsStatus = "loading";
+  } else if (bankAccountsResult.type === "error") {
+    bankAccountsStatus = "error";
+  }
+
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
       <StandardRequestFields
         bankAccountList={bankAccountList}
         bankAccountOptions={bankAccountOptions}
-        bankAccountsStatus={
-          bankAccountsResult.type === "unknown"
-            ? "loading"
-            : bankAccountsResult.type
-        }
+        bankAccountsStatus={bankAccountsStatus}
         categoryList={categoryList}
         disableBankAccountSelection={disableBankAccountSelection}
         entityId={entityId}
