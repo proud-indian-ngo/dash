@@ -24,7 +24,7 @@ const createSchema = z.object({
   vendorId: z.string(),
   title: z.string().min(1),
   invoiceNumber: z.string().optional(),
-  invoiceDate: z.string().min(1),
+  invoiceDate: z.number(),
   lineItems: z.array(lineItemSchema),
   attachments: z.array(attachmentSchema),
 });

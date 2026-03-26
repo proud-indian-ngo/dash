@@ -16,7 +16,7 @@ const validReimbursement = {
   type: "reimbursement" as const,
   title: "Monthly Reimbursement",
   city: "bangalore" as const,
-  expenseDate: "2025-06-01",
+  expenseDate: new Date(2025, 5, 1),
   bankAccountName: "HDFC Savings",
   bankAccountNumber: "1234567890",
   bankAccountIfscCode: "HDFC0001234",
@@ -78,7 +78,7 @@ describe("reimbursementRequestFormSchema", () => {
     it("rejects empty expense date", () => {
       const result = reimbursementRequestFormSchema.safeParse({
         ...validReimbursement,
-        expenseDate: "",
+        expenseDate: undefined,
       });
       expect(result.success).toBe(false);
     });
@@ -86,7 +86,7 @@ describe("reimbursementRequestFormSchema", () => {
     it("rejects future expense date", () => {
       const result = reimbursementRequestFormSchema.safeParse({
         ...validReimbursement,
-        expenseDate: "2025-12-31",
+        expenseDate: new Date(2025, 11, 31),
       });
       expect(result.success).toBe(false);
     });
@@ -94,7 +94,7 @@ describe("reimbursementRequestFormSchema", () => {
     it("accepts today as expense date", () => {
       const result = reimbursementRequestFormSchema.safeParse({
         ...validReimbursement,
-        expenseDate: "2025-06-15",
+        expenseDate: new Date(),
       });
       expect(result.success).toBe(true);
     });
@@ -102,7 +102,7 @@ describe("reimbursementRequestFormSchema", () => {
     it("accepts past expense date", () => {
       const result = reimbursementRequestFormSchema.safeParse({
         ...validReimbursement,
-        expenseDate: "2025-01-01",
+        expenseDate: new Date(2025, 0, 1),
       });
       expect(result.success).toBe(true);
     });
@@ -152,9 +152,11 @@ describe("requestFormSchema (discriminated union)", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects reimbursement without expenseDate via discriminated union", () => {
-    const { expenseDate: _, ...withoutDate } = validReimbursement;
-    const result = requestFormSchema.safeParse(withoutDate);
+  it("rejects reimbursement with undefined expenseDate via discriminated union", () => {
+    const result = requestFormSchema.safeParse({
+      ...validReimbursement,
+      expenseDate: undefined,
+    });
     expect(result.success).toBe(false);
   });
 

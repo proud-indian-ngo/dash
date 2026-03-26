@@ -3,6 +3,13 @@ import type { BankAccount } from "@pi-dash/zero/schema";
 import type { useZero } from "@rocicorp/zero/react";
 import type { RequestFormValues } from "./form/request-form.schema";
 
+function requireDate(value: Date | undefined, field: string): number {
+  if (!value) {
+    throw new Error(`${field} is required`);
+  }
+  return value.getTime();
+}
+
 export function buildMutation(
   zero: ReturnType<typeof useZero>,
   value: RequestFormValues,
@@ -24,7 +31,7 @@ export function buildMutation(
       vendorId: value.vendorId,
       title: value.title,
       invoiceNumber: value.invoiceNumber,
-      invoiceDate: value.invoiceDate,
+      invoiceDate: requireDate(value.invoiceDate, "invoiceDate"),
       lineItems,
       attachments,
     };
@@ -49,7 +56,10 @@ export function buildMutation(
   };
 
   if (value.type === "reimbursement") {
-    const reimbPayload = { ...basePayload, expenseDate: value.expenseDate };
+    const reimbPayload = {
+      ...basePayload,
+      expenseDate: requireDate(value.expenseDate, "expenseDate"),
+    };
     return existingId
       ? zero.mutate(mutators.reimbursement.update(reimbPayload))
       : zero.mutate(mutators.reimbursement.create(reimbPayload));

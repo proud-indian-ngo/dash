@@ -8,7 +8,7 @@ describe("reimbursement mutator schemas", () => {
         id: "r-1",
         title: "Travel expenses",
         city: "bangalore",
-        expenseDate: "2025-01-15",
+        expenseDate: new Date("2025-01-15").getTime(),
         lineItems: [
           {
             id: "li-1",
@@ -27,7 +27,7 @@ describe("reimbursement mutator schemas", () => {
       const result = createSchema.safeParse({
         id: "r-1",
         title: "Travel expenses",
-        expenseDate: "2025-01-15",
+        expenseDate: new Date("2025-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });
@@ -38,7 +38,7 @@ describe("reimbursement mutator schemas", () => {
       const result = createSchema.safeParse({
         id: "r-1",
         title: "",
-        expenseDate: "2025-01-15",
+        expenseDate: new Date("2025-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });
@@ -48,7 +48,7 @@ describe("reimbursement mutator schemas", () => {
     it("rejects missing title", () => {
       const result = createSchema.safeParse({
         id: "r-1",
-        expenseDate: "2025-01-15",
+        expenseDate: new Date("2025-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });
@@ -59,7 +59,7 @@ describe("reimbursement mutator schemas", () => {
       const result = createSchema.safeParse({
         id: "r-1",
         title: "Future expense",
-        expenseDate: "2099-12-31",
+        expenseDate: new Date("2099-12-31").getTime(),
         lineItems: [],
         attachments: [],
       });
@@ -70,7 +70,7 @@ describe("reimbursement mutator schemas", () => {
       const result = createSchema.safeParse({
         id: "r-1",
         title: "Bad date",
-        expenseDate: "not-a-date",
+        expenseDate: "not-a-date" as unknown as number,
         lineItems: [],
         attachments: [],
       });
@@ -82,7 +82,7 @@ describe("reimbursement mutator schemas", () => {
         id: "r-1",
         title: "Test",
         city: "mumbai",
-        expenseDate: "2025-01-15",
+        expenseDate: new Date("2025-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });
@@ -94,7 +94,7 @@ describe("reimbursement mutator schemas", () => {
         id: "r-1",
         title: "Test",
         city: "delhi",
-        expenseDate: "2025-01-15",
+        expenseDate: new Date("2025-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });

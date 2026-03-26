@@ -8,7 +8,6 @@ import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
-import { isDateOnOrBeforeToday } from "../validation";
 import {
   assertCanDelete,
   assertCanModify,
@@ -24,7 +23,9 @@ export const createSchema = z.object({
   id: z.string(),
   title: z.string().min(1),
   city: z.enum(cityValues).optional(),
-  expenseDate: z.string().refine(isDateOnOrBeforeToday),
+  expenseDate: z
+    .number()
+    .refine((n) => n <= Date.now(), "Expense date cannot be in the future"),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   bankAccountIfscCode: z.string().optional(),

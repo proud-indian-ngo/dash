@@ -24,7 +24,7 @@ const createSchema = z.object({
   vendorId: z.string(),
   title: z.string().min(1),
   invoiceNumber: z.string().optional(),
-  invoiceDate: z.string().min(1),
+  invoiceDate: z.number(),
   lineItems: z.array(lineItemSchema),
   attachments: z.array(attachmentSchema),
 });
@@ -49,7 +49,7 @@ describe("vendorPayment mutator schemas", () => {
         id: "vp-1",
         vendorId: "vendor-1",
         title: "Office supplies",
-        invoiceDate: "2026-01-15",
+        invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [
           {
             id: "li-1",
@@ -68,7 +68,7 @@ describe("vendorPayment mutator schemas", () => {
         id: "vp-1",
         vendorId: "vendor-1",
         title: "",
-        invoiceDate: "2026-01-15",
+        invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });
@@ -79,19 +79,19 @@ describe("vendorPayment mutator schemas", () => {
       const result = createSchema.safeParse({
         id: "vp-1",
         title: "Test",
-        invoiceDate: "2026-01-15",
+        invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [],
         attachments: [],
       });
       expect(result.success).toBe(false);
     });
 
-    it("rejects empty invoiceDate", () => {
+    it("rejects non-number invoiceDate", () => {
       const result = createSchema.safeParse({
         id: "vp-1",
         vendorId: "vendor-1",
         title: "Test",
-        invoiceDate: "",
+        invoiceDate: "2026-01-15",
         lineItems: [],
         attachments: [],
       });

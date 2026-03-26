@@ -1,6 +1,5 @@
 import type { User } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
-import { format } from "date-fns";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { DateField } from "@/components/form/date-field";
@@ -9,7 +8,6 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
-import { ISO_DATE } from "@/lib/date-formats";
 import { optionalDate } from "@/lib/validators";
 
 const defaultRoleOptions: SelectOption[] = [
@@ -51,11 +49,9 @@ export type CreateUserFormValues = z.infer<typeof createUserFormSchema>;
 export type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 export const toEditUserFormValues = (user: User): EditUserFormValues => {
-  const dob = user.dob == null ? "" : format(new Date(user.dob), ISO_DATE);
-
   return {
     attendedOrientation: Boolean(user.attendedOrientation),
-    dob,
+    dob: user.dob == null ? undefined : new Date(user.dob),
     email: user.email,
     emailVerified: Boolean(user.emailVerified),
     gender: user.gender ?? "male",
@@ -73,7 +69,7 @@ type CreateUserFormDefaults = Omit<CreateUserFormValues, "gender"> & {
 
 export const defaultCreateUserFormValues: CreateUserFormDefaults = {
   attendedOrientation: false,
-  dob: "",
+  dob: undefined,
   email: "",
   emailVerified: false,
   gender: undefined,

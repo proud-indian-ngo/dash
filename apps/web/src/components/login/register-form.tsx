@@ -21,7 +21,7 @@ const genderOptions: SelectOption[] = [
 
 const registerFields = {
   confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
-  dob: z.string().date("Invalid date"),
+  dob: z.date({ error: "Date of birth is required" }),
   email: z.email("Invalid email address"),
   gender: z.enum(["male", "female"], { error: "Please select a gender" }),
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -46,7 +46,7 @@ export function RegisterForm() {
   const form = useForm({
     defaultValues: {
       confirmPassword: "",
-      dob: "",
+      dob: undefined as Date | undefined,
       email: "",
       gender: "" as "" | "male" | "female",
       name: "",
@@ -55,7 +55,7 @@ export function RegisterForm() {
     },
     onSubmit: async ({ value }) => {
       const { error } = await authClient.signUp.email({
-        dob: new Date(value.dob),
+        dob: value.dob,
         email: value.email,
         gender: value.gender as "male" | "female",
         name: value.name,

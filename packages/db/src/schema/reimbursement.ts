@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -40,7 +41,7 @@ export const reimbursement = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     city: cityEnum("city"),
-    expenseDate: text("expense_date").notNull(),
+    expenseDate: date("expense_date", { mode: "string" }).notNull(),
     status: reimbursementStatusEnum("status").default("draft").notNull(),
     rejectionReason: text("rejection_reason"),
     bankAccountName: text("bank_account_name"),

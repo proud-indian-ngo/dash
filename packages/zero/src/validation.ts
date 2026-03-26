@@ -1,10 +1,3 @@
-import { isAfter, isValid, parseISO, startOfDay } from "date-fns";
-
-export const isDateOnOrBeforeToday = (dateValue: string): boolean => {
-  const parsedDate = parseISO(dateValue);
-  if (!isValid(parsedDate)) {
-    return false;
-  }
-
-  return !isAfter(startOfDay(parsedDate), startOfDay(new Date()));
-};
+// Date validation utilities are now handled inline in form schemas (z.date().refine())
+// and mutator schemas (z.number().refine()).
+// This file is kept as a placeholder for future shared validation utilities.

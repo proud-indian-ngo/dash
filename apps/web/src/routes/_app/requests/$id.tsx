@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_app/requests/$id")({
 
 interface ResolvedRequest {
   data: RequestDetailData;
-  expenseDate: string | undefined;
+  expenseDate: Date | undefined;
   type: RequestType;
 }
 
@@ -53,7 +53,7 @@ function useResolvedRequest(id: string): {
       resolved: {
         data: { ...reimbursement, type: "reimbursement" } as RequestDetailData,
         type: "reimbursement",
-        expenseDate: reimbursement.expenseDate,
+        expenseDate: new Date(reimbursement.expenseDate),
       },
     };
   }
@@ -119,7 +119,7 @@ function buildInitialValues(resolved: ResolvedRequest) {
     ? {
         vendorId: request.vendorId,
         invoiceNumber: request.invoiceNumber ?? "",
-        invoiceDate: request.invoiceDate,
+        invoiceDate: new Date(request.invoiceDate),
       }
     : {};
 

@@ -125,7 +125,7 @@ function RequestFormInner({
     const { expenseDate: _, ...rest } =
       initialValues as Partial<RequestFormValues> & {
         id?: string;
-        expenseDate?: string;
+        expenseDate?: Date;
       };
     return rest;
   })();

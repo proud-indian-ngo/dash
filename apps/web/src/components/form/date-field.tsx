@@ -11,50 +11,11 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { ISO_DATE, LONG_DATE } from "@/lib/date-formats";
+import { LONG_DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
 import { getFieldErrorState, useResolvedForm } from "./form-context";
-
-const parseDateInputValue = (value: string): Date | undefined => {
-  if (!value) {
-    return undefined;
-  }
-
-  const [year, month, day] = value.split("-").map(Number);
-  if (!(year && month && day)) {
-    return undefined;
-  }
-
-  const parsed = new Date(year, month - 1, day);
-  if (Number.isNaN(parsed.valueOf())) {
-    return undefined;
-  }
-
-  if (
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return undefined;
-  }
-
-  return parsed;
-};
-
-const formatDateInputValue = (date: Date): string => {
-  return format(date, ISO_DATE);
-};
-
-const formatDateLabel = (value: string, fallback: string): string => {
-  const date = parseDateInputValue(value);
-  if (!date) {
-    return fallback;
-  }
-
-  return format(date, LONG_DATE);
-};
 
 interface DateFieldProps {
   description?: ReactNode;
@@ -68,7 +29,7 @@ interface DateFieldProps {
   name: string;
   placeholder?: string;
   startMonth?: Date;
-  validators?: FieldValidatorConfig<string>;
+  validators?: FieldValidatorConfig<Date | undefined>;
 }
 
 interface DateInputPickerProps {
@@ -79,10 +40,10 @@ interface DateInputPickerProps {
   id: string;
   maxDate?: Date;
   onBlur: () => void;
-  onChange: (value: string) => void;
+  onChange: (value: Date | undefined) => void;
   placeholder: string;
   startMonth: Date;
-  value: string;
+  value: Date | undefined;
 }
 
 function DateInputPicker({
@@ -98,16 +59,12 @@ function DateInputPicker({
   startMonth,
   value,
 }: DateInputPickerProps) {
-  const selectedDate = parseDateInputValue(value);
-  const [month, setMonth] = useState<Date>(selectedDate ?? endMonth);
+  const [month, setMonth] = useState<Date>(value ?? endMonth);
 
   useEffect(() => {
-    const nextSelectedDate = parseDateInputValue(value);
-    if (!nextSelectedDate) {
-      return;
+    if (value) {
+      setMonth(value);
     }
-
-    setMonth(nextSelectedDate);
   }, [value]);
 
   return (
@@ -127,7 +84,7 @@ function DateInputPicker({
             type="button"
             variant="outline"
           >
-            {formatDateLabel(value, placeholder)}
+            {value ? format(value, LONG_DATE) : placeholder}
             <HugeiconsIcon
               className="size-4 opacity-60"
               icon={Calendar01Icon}
@@ -140,14 +97,14 @@ function DateInputPicker({
         <Calendar
           autoFocus
           captionLayout="dropdown"
-          defaultMonth={selectedDate ?? endMonth}
+          defaultMonth={value ?? endMonth}
           disabled={maxDate ? { after: maxDate } : undefined}
           endMonth={endMonth}
           mode="single"
           month={month}
           onMonthChange={setMonth}
-          onSelect={(date) => onChange(date ? formatDateInputValue(date) : "")}
-          selected={selectedDate}
+          onSelect={(date) => onChange(date ?? undefined)}
+          selected={value}
           startMonth={startMonth}
         />
       </PopoverContent>
@@ -171,7 +128,7 @@ export function DateField({
 }: DateFieldProps) {
   const resolvedForm = useResolvedForm(form, "DateField");
   return (
-    <CustomField<string>
+    <CustomField<Date | undefined>
       description={description}
       form={form}
       hideLabel={hideLabel}
@@ -199,7 +156,7 @@ export function DateField({
             onChange={(value) => field.handleChange(value)}
             placeholder={placeholder}
             startMonth={startMonth}
-            value={field.state.value ?? ""}
+            value={field.state.value}
           />
         );
       }}

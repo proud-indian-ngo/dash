@@ -205,14 +205,14 @@ export function ProfileSection() {
 
   const form = useForm({
     defaultValues: {
-      dob: user?.dob ? new Date(user.dob).toISOString().slice(0, 10) : "",
+      dob: user?.dob ? new Date(user.dob) : undefined,
       gender: (user?.gender ?? "") as "" | "male" | "female" | "unspecified",
       name: user?.name ?? "",
       phone: user?.phone ?? "",
     } satisfies ProfileFormValues,
     onSubmit: async ({ value }) => {
       const { error } = await authClient.updateUser({
-        dob: value.dob ? new Date(value.dob) : undefined,
+        dob: value.dob ?? undefined,
         gender: value.gender || undefined,
         name: value.name,
         phone: value.phone || undefined,

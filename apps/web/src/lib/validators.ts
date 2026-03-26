@@ -6,9 +6,7 @@ import {
 import { isValidPhoneNumber } from "libphonenumber-js";
 import z from "zod";
 
-export const optionalDate = z
-  .string()
-  .refine((v) => !v || z.string().date().safeParse(v).success, "Invalid date");
+export const optionalDate = z.union([z.date(), z.undefined()]);
 
 const gstNumber = z
   .string()

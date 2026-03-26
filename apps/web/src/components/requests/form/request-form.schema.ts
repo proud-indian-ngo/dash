@@ -1,4 +1,4 @@
-import { isDateOnOrBeforeToday } from "@pi-dash/zero/validation";
+import { startOfDay } from "date-fns";
 import z from "zod";
 import { cityValues } from "@/lib/db-enums";
 import {
@@ -28,21 +28,14 @@ const baseFields = {
 export const reimbursementRequestFormSchema = z.object({
   ...baseFields,
   type: z.literal("reimbursement"),
-  expenseDate: z.string().superRefine((val, ctx) => {
-    if (val.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Expense date is required",
-      });
-      return;
-    }
-    if (!isDateOnOrBeforeToday(val)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Expense date cannot be in the future",
-      });
-    }
-  }),
+  expenseDate: z
+    .date()
+    .optional()
+    .refine((d): d is Date => d != null, "Expense date is required")
+    .refine(
+      (d) => startOfDay(d) <= startOfDay(new Date()),
+      "Expense date cannot be in the future"
+    ),
 });
 
 export const advancePaymentRequestFormSchema = z.object({
@@ -63,7 +56,10 @@ export const vendorPaymentRequestFormSchema = z.object({
   type: z.literal("vendor_payment"),
   vendorId: z.string().min(1, "Vendor is required"),
   invoiceNumber: z.string().optional(),
-  invoiceDate: z.string().min(1, "Invoice date is required"),
+  invoiceDate: z
+    .date()
+    .optional()
+    .refine((d): d is Date => d != null, "Invoice date is required"),
 });
 
 export const requestFormSchema = z.discriminatedUnion("type", [
@@ -96,7 +92,11 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
   };
 
   if (type === "reimbursement") {
-    return { ...base, type: "reimbursement", expenseDate: "" };
+    return {
+      ...base,
+      type: "reimbursement",
+      expenseDate: undefined,
+    };
   }
   if (type === "vendor_payment") {
     return {
@@ -106,7 +106,7 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
       type: "vendor_payment",
       vendorId: "",
       invoiceNumber: "",
-      invoiceDate: "",
+      invoiceDate: undefined,
     };
   }
   return { ...base, type: "advance_payment" };

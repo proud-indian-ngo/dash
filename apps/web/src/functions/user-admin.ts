@@ -18,7 +18,7 @@ import { manageOrientationGroupMembership } from "@pi-dash/whatsapp";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { optionalDate } from "@/lib/validators";
+
 import { authMiddleware } from "@/middleware/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -39,7 +39,7 @@ const genderSchema = z.enum(["male", "female"]);
 
 const createUserSchema = z.object({
   attendedOrientation: z.boolean().default(false),
-  dob: optionalDate.optional(),
+  dob: z.coerce.date().optional(),
   email: z.email("Invalid email address"),
   emailVerified: z.boolean().default(false),
   gender: genderSchema.optional(),
@@ -52,7 +52,7 @@ const createUserSchema = z.object({
 
 const updateUserSchema = z.object({
   attendedOrientation: z.boolean().optional(),
-  dob: optionalDate.optional(),
+  dob: z.coerce.date().optional(),
   email: z.email("Invalid email address"),
   emailVerified: z.boolean().optional(),
   gender: genderSchema.optional(),
@@ -115,21 +115,8 @@ const normalizeOptionalString = (value?: string): string | undefined => {
   return trimmed === "" ? undefined : trimmed;
 };
 
-const toDate = (value?: string): Date | undefined => {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.valueOf())) {
-    throw new Error("Invalid date value");
-  }
-
-  return parsedDate;
-};
-
 const toBanExpiresInSeconds = (value?: string): number | undefined => {
-  const expiresAt = toDate(value);
+  const expiresAt = value ? new Date(value) : undefined;
 
   if (!expiresAt) {
     return undefined;
@@ -195,7 +182,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       body: {
         data: {
           attendedOrientation: data.attendedOrientation,
-          dob: toDate(data.dob),
+          dob: data.dob,
           email: normalizedEmail,
           emailVerified: data.emailVerified,
           gender: normalizeOptionalString(data.gender),
@@ -281,7 +268,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       body: {
         data: {
           attendedOrientation: data.attendedOrientation,
-          dob: toDate(data.dob),
+          dob: data.dob,
           email: normalizedEmail,
           emailVerified: data.emailVerified,
           gender: normalizeOptionalString(data.gender),

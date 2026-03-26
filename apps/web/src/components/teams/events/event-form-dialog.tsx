@@ -13,20 +13,23 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
+import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
-import { datetimeLocalToEpoch, epochToDatetimeLocal } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   location: z.string().optional(),
-  startTime: z.string().min(1, "Start time is required"),
-  endTime: z.string().optional(),
+  startTime: z
+    .date()
+    .optional()
+    .refine((d): d is Date => d != null, "Start time is required"),
+  endTime: z.date().optional(),
   isPublic: z.boolean(),
   frequency: z.enum(["", "weekly", "biweekly", "monthly"]),
   recurrenceEndDate: z.string().optional(),
@@ -36,7 +39,7 @@ const eventFormSchema = z.object({
 });
 
 const endTimeAfterStartTime = (data: EventFormValues) =>
-  !data.endTime || new Date(data.endTime) > new Date(data.startTime);
+  !(data.endTime && data.startTime) || data.endTime > data.startTime;
 
 function createEventFormSchema(isEdit: boolean) {
   const withEndTimeCheck = eventFormSchema.refine(endTimeAfterStartTime, {
@@ -47,7 +50,7 @@ function createEventFormSchema(isEdit: boolean) {
     return withEndTimeCheck;
   }
   return withEndTimeCheck.refine(
-    (data) => !data.startTime || new Date(data.startTime) > new Date(),
+    (data) => data.startTime == null || data.startTime > new Date(),
     { message: "Start time must be in the future", path: ["startTime"] }
   );
 }
@@ -82,12 +85,10 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     name: initialValues?.name ?? "",
     description: initialValues?.description ?? "",
     location: initialValues?.location ?? "",
-    startTime: initialValues
-      ? epochToDatetimeLocal(initialValues.startTime)
-      : "",
+    startTime: initialValues ? new Date(initialValues.startTime) : undefined,
     endTime: initialValues?.endTime
-      ? epochToDatetimeLocal(initialValues.endTime)
-      : "",
+      ? new Date(initialValues.endTime)
+      : undefined,
     isPublic: initialValues?.isPublic ?? false,
     frequency: initialValues?.recurrenceRule?.frequency ?? "",
     recurrenceEndDate: initialValues?.recurrenceRule?.endDate ?? "",
@@ -97,6 +98,13 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
   };
 }
 
+function getStartTimeEpoch(value: EventFormValues): number {
+  if (!value.startTime) {
+    throw new Error("startTime is required");
+  }
+  return value.startTime.getTime();
+}
+
 function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
   return {
     id,
@@ -104,8 +112,8 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
     now: Date.now(),
-    startTime: datetimeLocalToEpoch(value.startTime),
-    endTime: value.endTime ? datetimeLocalToEpoch(value.endTime) : undefined,
+    startTime: getStartTimeEpoch(value),
+    endTime: value.endTime?.getTime(),
     isPublic: value.isPublic,
     whatsappGroupId: value.whatsappGroupId || undefined,
   };
@@ -127,8 +135,8 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     name: value.name.trim(),
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
-    startTime: datetimeLocalToEpoch(value.startTime),
-    endTime: value.endTime ? datetimeLocalToEpoch(value.endTime) : undefined,
+    startTime: getStartTimeEpoch(value),
+    endTime: value.endTime?.getTime(),
     isPublic: value.isPublic,
     whatsappGroupId: value.whatsappGroupId || undefined,
     createWhatsAppGroup: value.createWaGroup || undefined,
@@ -213,13 +221,8 @@ function EventFormContent({
         name="location"
         placeholder="https://meet.google.com/..."
       />
-      <InputField
-        isRequired
-        label="Start Time"
-        name="startTime"
-        type="datetime-local"
-      />
-      <InputField label="End Time" name="endTime" type="datetime-local" />
+      <DateTimeField isRequired label="Start Time" name="startTime" />
+      <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
       {!isEdit && (
         <>

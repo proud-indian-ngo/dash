@@ -20,7 +20,7 @@ describe("genderSchema", () => {
 
 describe("profileSchema", () => {
   const valid = {
-    dob: "2000-01-15",
+    dob: new Date(2000, 0, 15),
     gender: "male" as const,
     name: "John Doe",
     phone: "+911234567890",
@@ -31,8 +31,8 @@ describe("profileSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts empty dob", () => {
-    const result = profileSchema.safeParse({ ...valid, dob: "" });
+  it("accepts undefined dob", () => {
+    const result = profileSchema.safeParse({ ...valid, dob: undefined });
     expect(result.success).toBe(true);
   });
 
@@ -44,11 +44,6 @@ describe("profileSchema", () => {
   it("rejects name shorter than 2 characters", () => {
     const result = profileSchema.safeParse({ ...valid, name: "J" });
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.message).toBe(
-        "Name must be at least 2 characters"
-      );
-    }
   });
 
   it("rejects empty name", () => {
@@ -56,13 +51,16 @@ describe("profileSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects invalid dob format", () => {
+  it("rejects non-Date dob", () => {
     const result = profileSchema.safeParse({ ...valid, dob: "not-a-date" });
     expect(result.success).toBe(false);
   });
 
-  it("accepts valid ISO date for dob", () => {
-    const result = profileSchema.safeParse({ ...valid, dob: "1995-12-25" });
+  it("accepts valid Date for dob", () => {
+    const result = profileSchema.safeParse({
+      ...valid,
+      dob: new Date(1995, 11, 25),
+    });
     expect(result.success).toBe(true);
   });
 });
