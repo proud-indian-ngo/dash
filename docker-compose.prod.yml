@@ -3,6 +3,18 @@ name: pi-dash
 x-db-url: &db-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@tailscale-postgres:5432/${POSTGRES_DB:-pi-dash}
 
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    environment:
+      DATABASE_URL: *db-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   web:
     build:
       context: .
@@ -50,6 +62,8 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       zero-cache:
@@ -145,6 +159,8 @@ services:
     volumes:
       - zero_cache_data:/data
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     healthcheck:

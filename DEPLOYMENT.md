@@ -102,12 +102,25 @@ This starts the container defined in `packages/db/docker-compose.yml` with `wal_
 
 **Production:** Ensure your managed Postgres instance has `wal_level=logical` enabled. Use an unpooled connection string for `ZERO_UPSTREAM_DB`.
 
-### 2. Generate Drizzle types and push schema
+### 2. Generate Drizzle types and apply schema
 
 ```bash
-bun run db:generate    # Generate migration types from Drizzle schema
-bun run db:push        # Push schema to database (dev) — or db:migrate for production
+bun run db:generate    # Generate migration SQL from Drizzle schema
+bun run db:migrate     # Apply pending migrations (dev and production)
+bun run db:push        # Alternative: push schema directly (local dev only)
 ```
+
+**Schema change workflow:**
+1. Edit Drizzle schema in `packages/db/src/schema/`
+2. `bun run db:generate` — creates a new migration SQL file
+3. `bun run db:migrate` — applies the migration
+
+**Zero compatibility:** Follow the expand/migrate/contract pattern for schema changes:
+1. **Expand** — additive migration (new columns/tables, with defaults)
+2. **Deploy** — release updated app code
+3. **Contract** — after a grace period, drop old columns in a separate deployment
+
+Always update DB schema before deploying the app. The Docker compose dependency chain handles this automatically.
 
 ### 3. Generate Zero schema
 

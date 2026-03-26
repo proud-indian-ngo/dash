@@ -25,7 +25,15 @@ ENV VITE_CDN_URL=$VITE_CDN_URL
 ENV VITE_IMMICH_URL=$VITE_IMMICH_URL
 RUN cd apps/web && bunx --bun vite build
 
-# Stage 2: Production
+# Stage 2: Migrator (runs pending DB migrations)
+FROM oven/bun:1.3-slim AS migrator
+WORKDIR /app
+COPY --from=build /app/node_modules node_modules
+COPY --from=build /app/packages/db packages/db
+COPY --from=build /app/package.json package.json
+CMD ["bun", "run", "packages/db/scripts/migrate.ts"]
+
+# Stage 3: Production
 FROM oven/bun:1.3-slim AS production
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
