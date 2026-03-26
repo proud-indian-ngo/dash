@@ -1,11 +1,13 @@
 import { env } from "@pi-dash/env/server";
 import {
-  getEnabledUserPhones,
-  getUserPhoneIfEnabled,
+  getEnabledUserPhonesForTopic,
+  getUserPhone,
+  isWhatsAppTopicEnabled,
   sendWhatsAppMessage,
 } from "@pi-dash/whatsapp";
 import { createRequestLogger } from "evlog";
 import { courier } from "./client";
+import { getCourierTopicId } from "./preferences";
 import type { Topic } from "./topics";
 
 interface SendMessageOptions {
@@ -29,6 +31,8 @@ export async function sendMessage({
   imageUrl,
   topic,
 }: SendMessageOptions): Promise<void> {
+  const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
+
   const inboxPromise = courier
     ? courier.send.message(
         {
@@ -41,7 +45,7 @@ export async function sendMessage({
               channels: ["inbox"],
             },
             preferences: {
-              subscription_topic_id: topic,
+              subscription_topic_id: courierTopicId,
             },
           },
         },
@@ -60,7 +64,7 @@ export async function sendMessage({
               channels: ["email"],
             },
             preferences: {
-              subscription_topic_id: topic,
+              subscription_topic_id: courierTopicId,
             },
           },
         },
@@ -68,13 +72,13 @@ export async function sendMessage({
       )
     : undefined;
 
-  // TODO: WhatsApp channel does not respect Courier topic preferences.
-  // Users who opt out of a topic will stop receiving inbox/email but still get WhatsApp.
-  // To fix: check the user's topic preference status before sending.
   const whatsappPromise = (async () => {
     try {
-      const phone = await getUserPhoneIfEnabled(to);
-      if (!phone) {
+      const [phone, topicEnabled] = await Promise.all([
+        getUserPhone(to),
+        isWhatsAppTopicEnabled(to, topic),
+      ]);
+      if (!(phone && topicEnabled)) {
         return;
       }
       const appUrl = env.APP_URL;
@@ -127,6 +131,7 @@ export async function sendBulkMessage({
     return;
   }
 
+  const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
   const recipients = userIds.map((id) => ({ user_id: id }));
 
   const inboxPromise = courier
@@ -141,7 +146,7 @@ export async function sendBulkMessage({
               channels: ["inbox"],
             },
             preferences: {
-              subscription_topic_id: topic,
+              subscription_topic_id: courierTopicId,
             },
           },
         },
@@ -160,7 +165,7 @@ export async function sendBulkMessage({
               channels: ["email"],
             },
             preferences: {
-              subscription_topic_id: topic,
+              subscription_topic_id: courierTopicId,
             },
           },
         },
@@ -170,7 +175,7 @@ export async function sendBulkMessage({
 
   const whatsappPromise = (async () => {
     try {
-      const phoneMap = await getEnabledUserPhones(userIds);
+      const phoneMap = await getEnabledUserPhonesForTopic(userIds, topic);
       if (phoneMap.size === 0) {
         return;
       }

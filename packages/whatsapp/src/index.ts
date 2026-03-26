@@ -12,9 +12,7 @@ export {
 export { sendWhatsAppMessage } from "./messaging";
 export { formatPhoneForWhatsApp } from "./phone";
 export {
-  getEnabledUserPhones,
-  getUserPhoneIfEnabled,
-  getWhatsAppNotifications,
-  setWhatsAppNotifications,
+  getEnabledUserPhonesForTopic,
+  isWhatsAppTopicEnabled,
 } from "./preferences";
 export { checkIsOnWhatsApp, syncWhatsAppStatus } from "./status";

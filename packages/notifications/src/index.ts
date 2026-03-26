@@ -5,11 +5,7 @@ export {
   syncCourierUser,
 } from "./helpers";
 export { generateCourierJwt } from "./jwt";
-export type { TopicPreference as CourierTopicPreference } from "./preferences";
-export {
-  getAllUserPreferences,
-  updateUserTopicPreference,
-} from "./preferences";
+export { updateUserTopicPreference } from "./preferences";
 export {
   notifyAdvancePaymentApproved,
   notifyAdvancePaymentRejected,

@@ -1,16 +1,15 @@
+import { Mail01Icon, WhatsappIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { TOPIC_CATALOG } from "@pi-dash/notifications/topics";
+import { mutators } from "@pi-dash/zero/mutators";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { TopicPreference } from "@/functions/notification-preferences";
-import {
-  getNotificationPreferencesAdmin,
-  getWhatsAppNotificationPrefAdmin,
-  updateNotificationPreferenceAdmin,
-  updateWhatsAppNotificationPrefAdmin,
-} from "@/functions/notification-preferences";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
 
 interface UserNotificationsFormProps {
@@ -18,115 +17,65 @@ interface UserNotificationsFormProps {
 }
 
 export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
-  const [preferences, setPreferences] = useState<TopicPreference[]>([]);
-  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [inflightTopics, setInflightTopics] = useState<Set<string>>(new Set());
-  const [inflightWhatsApp, setInflightWhatsApp] = useState(false);
+  const zero = useZero();
+  const [preferences, result] = useQuery(
+    queries.notificationPreference.byUser({ userId })
+  );
 
-  useEffect(() => {
-    let cancelled = false;
+  const isLoading = preferences.length === 0 && result.type !== "complete";
 
-    Promise.all([
-      getNotificationPreferencesAdmin({ data: { userId } }),
-      getWhatsAppNotificationPrefAdmin({ data: { userId } }),
-    ])
-      .then(([prefs, waPref]) => {
-        if (cancelled) {
-          return;
-        }
-        setPreferences(prefs);
-        setWhatsappEnabled(waPref);
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        log.error({
-          component: "UserNotificationsForm",
-          action: "fetchPreferences",
-          userId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Failed to load notification preferences");
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
+  const prefMap = new Map(preferences.map((p) => [p.topicId, p]));
 
-    return () => {
-      cancelled = true;
+  const topicsWithPrefs = TOPIC_CATALOG.map((meta) => {
+    const pref = prefMap.get(meta.id);
+    return {
+      topicId: meta.id,
+      topicName: meta.name,
+      description: meta.description,
+      group: meta.group,
+      required: meta.required,
+      emailEnabled: pref?.emailEnabled ?? true,
+      whatsappEnabled: pref?.whatsappEnabled ?? true,
     };
-  }, [userId]);
+  });
 
-  const groupedPreferences = groupBy(preferences, (p) => p.group);
+  const groupedTopics = groupBy(topicsWithPrefs, (t) => t.group);
 
-  const handleToggle = async (topicId: string, enabled: boolean) => {
-    setPreferences((prev) =>
-      prev.map((p) => (p.topicId === topicId ? { ...p, enabled } : p))
-    );
-    setInflightTopics((prev) => new Set(prev).add(topicId));
-
+  const handleToggle = async (
+    topicId: string,
+    channel: "email" | "whatsapp",
+    enabled: boolean
+  ) => {
     try {
-      await updateNotificationPreferenceAdmin({
-        data: { userId, topicId, enabled },
+      const res = await zero.mutate(
+        mutators.notificationPreference.adminUpsert({
+          userId,
+          topicId,
+          channel,
+          enabled,
+        })
+      ).server;
+      handleMutationResult(res, {
+        mutation: "notificationPreference.adminUpsert",
+        entityId: topicId,
+        successMsg: enabled ? "Notification enabled" : "Notification disabled",
+        errorMsg: "Failed to update notification preference",
       });
-      toast.success(enabled ? "Notification enabled" : "Notification disabled");
     } catch (error) {
-      setPreferences((prev) =>
-        prev.map((p) =>
-          p.topicId === topicId ? { ...p, enabled: !enabled } : p
-        )
-      );
       log.error({
         component: "UserNotificationsForm",
         action: "updatePreference",
         userId,
         topicId,
+        channel,
         enabled,
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Failed to update notification preference");
-    } finally {
-      setInflightTopics((prev) => {
-        const next = new Set(prev);
-        next.delete(topicId);
-        return next;
-      });
     }
   };
 
-  const handleWhatsAppToggle = async (enabled: boolean) => {
-    setWhatsappEnabled(enabled);
-    setInflightWhatsApp(true);
-
-    try {
-      await updateWhatsAppNotificationPrefAdmin({
-        data: { userId, enabled },
-      });
-      toast.success(
-        enabled
-          ? "WhatsApp notifications enabled"
-          : "WhatsApp notifications disabled"
-      );
-    } catch (error) {
-      setWhatsappEnabled(!enabled);
-      log.error({
-        component: "UserNotificationsForm",
-        action: "updateWhatsAppPref",
-        userId,
-        enabled,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      toast.error("Failed to update WhatsApp preference");
-    } finally {
-      setInflightWhatsApp(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col gap-6 p-4">
         <Skeleton className="h-4 w-64" />
@@ -140,20 +89,12 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="h-3 w-64" />
               </div>
-              <Skeleton className="h-5 w-9 rounded-full" />
+              <div className="flex gap-6">
+                <Skeleton className="h-5 w-9 rounded-full" />
+                <Skeleton className="h-5 w-9 rounded-full" />
+              </div>
             </div>
           ))}
-        </div>
-        <Separator />
-        <div className="space-y-6">
-          <Skeleton className="h-3 w-16" />
-          <div className="flex items-center justify-between">
-            <div className="space-y-1.5">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-64" />
-            </div>
-            <Skeleton className="h-5 w-9 rounded-full" />
-          </div>
         </div>
       </div>
     );
@@ -161,69 +102,78 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <p className="text-muted-foreground text-sm">
-        Manage notification preferences for this user.
-      </p>
       {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
-        const items = groupedPreferences.get(groupName);
+        const items = groupedTopics.get(groupName);
         if (!items || items.length === 0) {
           return [];
         }
         const elements = [
           groupIndex > 0 && <Separator key={`sep-${groupName}`} />,
           <div className="space-y-5" key={groupName}>
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-              {groupName}
-            </p>
-            {items.map((pref) => (
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                {groupName}
+              </p>
+              {groupIndex === 0 && (
+                <div className="flex items-center gap-6">
+                  <div className="flex w-9 items-center justify-center">
+                    <HugeiconsIcon
+                      className="text-muted-foreground"
+                      icon={Mail01Icon}
+                      size={14}
+                      strokeWidth={2}
+                    />
+                  </div>
+                  <div className="flex w-9 items-center justify-center">
+                    <HugeiconsIcon
+                      className="text-muted-foreground"
+                      icon={WhatsappIcon}
+                      size={14}
+                      strokeWidth={2}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            {items.map((topic) => (
               <div
                 className="flex items-center justify-between gap-4"
-                key={pref.topicId}
+                key={topic.topicId}
               >
-                <div className="space-y-1">
-                  <p className="font-medium text-sm">{pref.topicName}</p>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="font-medium text-sm">{topic.topicName}</p>
                   <p className="text-muted-foreground text-sm">
-                    {pref.required
+                    {topic.required
                       ? "This notification is required and cannot be disabled."
-                      : pref.description}
+                      : topic.description}
                   </p>
                 </div>
-                <Switch
-                  aria-label={pref.topicName}
-                  checked={pref.enabled}
-                  disabled={pref.required || inflightTopics.has(pref.topicId)}
-                  id={pref.topicId}
-                  onCheckedChange={(checked) =>
-                    handleToggle(pref.topicId, checked)
-                  }
-                />
+                <div className="flex shrink-0 items-center gap-6">
+                  <Switch
+                    aria-label={`${topic.topicName} email`}
+                    checked={topic.emailEnabled}
+                    disabled={topic.required}
+                    id={`${topic.topicId}-email`}
+                    onCheckedChange={(checked) =>
+                      handleToggle(topic.topicId, "email", checked)
+                    }
+                  />
+                  <Switch
+                    aria-label={`${topic.topicName} WhatsApp`}
+                    checked={topic.whatsappEnabled}
+                    disabled={topic.required}
+                    id={`${topic.topicId}-whatsapp`}
+                    onCheckedChange={(checked) =>
+                      handleToggle(topic.topicId, "whatsapp", checked)
+                    }
+                  />
+                </div>
               </div>
             ))}
           </div>,
         ];
         return elements.filter(Boolean);
       })}
-      <Separator />
-      <div className="flex flex-col gap-5">
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-          WhatsApp
-        </p>
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="font-medium text-sm">WhatsApp Notifications</p>
-            <p className="text-muted-foreground text-sm">
-              Receive notifications via WhatsApp messages.
-            </p>
-          </div>
-          <Switch
-            aria-label="WhatsApp Notifications"
-            checked={whatsappEnabled}
-            disabled={inflightWhatsApp}
-            id="whatsapp-notifications"
-            onCheckedChange={handleWhatsAppToggle}
-          />
-        </div>
-      </div>
     </div>
   );
 }

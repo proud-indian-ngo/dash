@@ -165,7 +165,13 @@ Zero mutator (server) → ctx.asyncTasks.push({ fn, meta })
 
 ### Topics & Preferences
 
-Notification topics defined in `packages/notifications/src/topics.ts` (GENERAL, ACCOUNT, EVENTS). Users manage per-topic preferences via settings dialog. `sendMessage` respects topic subscription preferences.
+Notification topics defined in `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (email + WhatsApp) stored in the `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: both channels enabled (no row = enabled).
+
+**Storage model**: Local DB is source of truth. Email preferences sync one-way to Courier via `syncCourierAndRevertOnFailure` in the Zero mutator's async task. WhatsApp preferences are checked at send-time from the local DB (`isWhatsAppTopicEnabled`), not via Courier.
+
+**UI**: Users manage preferences via settings (`NotificationsSection`). Admins can edit any user's preferences (`UserNotificationsForm`). Both use Zero queries/mutators — no server functions.
+
+**Mutators**: `notificationPreference.upsert` (self) and `notificationPreference.adminUpsert` (admin, requires `users.edit`). Required topics cannot be disabled (server-side guard).
 
 ## File Uploads
 

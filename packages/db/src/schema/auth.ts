@@ -5,6 +5,7 @@ import {
   index,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -26,9 +27,6 @@ export const user = pgTable("user", {
   dob: date("dob", { mode: "date" }),
   phone: text("phone").unique(),
   isOnWhatsapp: boolean("is_on_whatsapp").default(false).notNull(),
-  whatsappNotifications: boolean("whatsapp_notifications")
-    .default(true)
-    .notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   attendedOrientation: boolean("attended_orientation").default(false).notNull(),
   role: text("role")
@@ -108,6 +106,7 @@ export const verification = pgTable(
 export const userRelations = relations(user, ({ one, many }) => ({
   sessions: many(session),
   accounts: many(account),
+  notificationTopicPreferences: many(notificationTopicPreference),
   roleRef: one(role, {
     fields: [user.role],
     references: [role.id],
@@ -127,3 +126,26 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export const notificationTopicPreference = pgTable(
+  "notification_topic_preference",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: text("topic_id").notNull(),
+    emailEnabled: boolean("email_enabled").default(true).notNull(),
+    whatsappEnabled: boolean("whatsapp_enabled").default(true).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.topicId] })]
+);
+
+export const notificationTopicPreferenceRelations = relations(
+  notificationTopicPreference,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [notificationTopicPreference.userId],
+      references: [user.id],
+    }),
+  })
+);

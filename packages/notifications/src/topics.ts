@@ -2,12 +2,12 @@ import type { PermissionId } from "@pi-dash/db/permissions";
 
 export const TOPICS = {
   ACCOUNT: "Account Notifications",
-  REQUESTS_SUBMISSIONS: "Requests — New Submissions",
-  REQUESTS_STATUS: "Requests — Approvals & Rejections",
+  REQUESTS_SUBMISSIONS: "Requests - New Submissions",
+  REQUESTS_STATUS: "Requests - Approvals & Rejections",
   TEAMS: "Teams",
-  EVENTS_SCHEDULE: "Events — Schedule",
-  EVENTS_INTEREST: "Events — Interest",
-  EVENTS_PHOTOS: "Events — Photos",
+  EVENTS_SCHEDULE: "Events - Schedule",
+  EVENTS_INTEREST: "Events - Interest",
+  EVENTS_PHOTOS: "Events - Photos",
 } as const;
 
 export type Topic = (typeof TOPICS)[keyof typeof TOPICS];

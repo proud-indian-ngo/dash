@@ -6,6 +6,7 @@ import { eventInterestMutators } from "./mutators/event-interest";
 import { eventPhotoMutators } from "./mutators/event-photo";
 import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
+import { notificationPreferenceMutators } from "./mutators/notification-preference";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { teamMutators } from "./mutators/team";
 import { teamEventMutators } from "./mutators/team-event";
@@ -14,6 +15,7 @@ import { vendorPaymentMutators } from "./mutators/vendor-payment";
 import { whatsappGroupMutators } from "./mutators/whatsapp-group";
 
 export const mutators = defineMutators({
+  notificationPreference: notificationPreferenceMutators,
   bankAccount: bankAccountMutators,
   expenseCategory: expenseCategoryMutators,
   reimbursement: reimbursementMutators,
