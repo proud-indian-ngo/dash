@@ -9,7 +9,6 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { log } from "evlog";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
@@ -20,7 +19,6 @@ import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
-  getDirectAttachmentUrl,
 } from "@/lib/attachment-links";
 import { LONG_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
@@ -53,12 +51,11 @@ export function VendorPaymentDetail({
     0
   );
 
-  const handleApprove = async (message: string, screenshotKey?: string) => {
+  const handleApprove = async (message: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.approve({
         id: request.id,
         note: message || undefined,
-        approvalScreenshotKey: screenshotKey,
       })
     ).server;
     handleMutationResult(res, {
@@ -67,19 +64,6 @@ export function VendorPaymentDetail({
       successMsg: "Vendor payment approved",
       errorMsg: "Failed to approve vendor payment",
     });
-    if (res.type === "error" && screenshotKey) {
-      const { deleteUploadedAsset } = await import("@/functions/attachments");
-      deleteUploadedAsset({
-        data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error) => {
-        log.error({
-          component: "VendorPaymentDetail",
-          action: "cleanupScreenshot",
-          screenshotKey,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-    }
     if (res.type !== "error") {
       setApproveOpen(false);
     }
@@ -181,26 +165,6 @@ export function VendorPaymentDetail({
           <div className="fade-in-0 animate-in rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm duration-150 ease-(--ease-out-expo)">
             <span className="font-medium">Rejection reason: </span>
             {request.rejectionReason}
-          </div>
-        ) : null}
-
-        {/* Payment proof */}
-        {request.approvalScreenshotKey ? (
-          <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-(--ease-out-expo)">
-            <h2 className="font-medium text-sm">Payment proof</h2>
-            <a
-              href={getDirectAttachmentUrl(request.approvalScreenshotKey)}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <img
-                alt="Payment proof"
-                className="h-24 w-24 rounded-md border object-cover"
-                height={96}
-                src={getDirectAttachmentUrl(request.approvalScreenshotKey)}
-                width={96}
-              />
-            </a>
           </div>
         ) : null}
 
@@ -344,6 +308,7 @@ export function VendorPaymentDetail({
         <ApproveDialog
           entityId={request.id}
           entityLabel="vendor payment"
+          hideScreenshot
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
