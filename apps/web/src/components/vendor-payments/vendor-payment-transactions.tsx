@@ -9,6 +9,7 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
+import { RECORDABLE_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -22,13 +23,6 @@ import { getStatusBadge } from "@/lib/status-badge";
 import { TransactionFormDialog } from "./vendor-payment-transaction-form";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
-const RECORDABLE_STATUSES = new Set<string>([
-  "pending",
-  "approved",
-  "partially_paid",
-  "paid",
-]);
-
 interface VendorPaymentTransactionsProps {
   isOwner: boolean;
   request: VendorPaymentWithRelations;
@@ -39,7 +33,7 @@ export function VendorPaymentTransactions({
   isOwner,
 }: VendorPaymentTransactionsProps) {
   const zero = useZero();
-  const { hasPermission } = useApp();
+  const { hasPermission, user } = useApp();
   const [formOpen, setFormOpen] = useState(false);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -52,8 +46,7 @@ export function VendorPaymentTransactions({
     RECORDABLE_STATUSES.has(request.status as string) &&
     (isOwner || canApprove);
 
-  // biome-ignore lint/suspicious/noExplicitAny: Zero query result shape
-  const transactions = (request.transactions ?? []) as any[];
+  const transactions = request.transactions ?? [];
 
   const totalOwed = (request.lineItems ?? []).reduce(
     (sum: number, li: { amount: number | string }) => sum + Number(li.amount),
@@ -199,8 +192,7 @@ export function VendorPaymentTransactions({
                 {transactions.map((t) => {
                   const badge = getStatusBadge(t.status);
                   const isPending = t.status === "pending";
-                  const isTransactionOwner =
-                    isOwner || t.userId === request.userId;
+                  const isTransactionOwner = isOwner || t.userId === user.id;
                   return (
                     <tr className="border-b last:border-0" key={t.id}>
                       <td className="px-3 py-2 text-right tabular-nums">
@@ -226,9 +218,7 @@ export function VendorPaymentTransactions({
                             <>
                               <Button
                                 aria-label="Approve transaction"
-                                onClick={() =>
-                                  handleApproveTransaction(t.id as string)
-                                }
+                                onClick={() => handleApproveTransaction(t.id)}
                                 size="icon"
                                 title="Approve"
                                 type="button"
@@ -242,7 +232,7 @@ export function VendorPaymentTransactions({
                               </Button>
                               <Button
                                 aria-label="Reject transaction"
-                                onClick={() => setRejectingId(t.id as string)}
+                                onClick={() => setRejectingId(t.id)}
                                 size="icon"
                                 title="Reject"
                                 type="button"
@@ -259,7 +249,7 @@ export function VendorPaymentTransactions({
                           {isPending && isTransactionOwner ? (
                             <Button
                               aria-label="Delete transaction"
-                              onClick={() => setDeletingId(t.id as string)}
+                              onClick={() => setDeletingId(t.id)}
                               size="icon"
                               title="Delete"
                               type="button"

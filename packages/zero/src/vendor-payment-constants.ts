@@ -4,3 +4,9 @@ export const PAYABLE_STATUSES = new Set<string>([
   "partially_paid",
   "paid",
 ]);
+
+/** Statuses where recording a payment transaction is allowed (includes pending). */
+export const RECORDABLE_STATUSES = new Set<string>([
+  "pending",
+  ...PAYABLE_STATUSES,
+]);

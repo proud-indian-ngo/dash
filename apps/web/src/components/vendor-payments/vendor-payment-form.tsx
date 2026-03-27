@@ -41,15 +41,12 @@ export function VendorPaymentForm({
   const pendingVendorList = (pendingVendors ?? []) as Vendor[];
 
   const vendorList = [...approvedVendorList, ...pendingVendorList].sort(
-    (a, b) => (a.name as string).localeCompare(b.name as string)
+    (a, b) => a.name.localeCompare(b.name)
   );
 
   const vendorOptions = vendorList.map((v) => ({
-    label:
-      v.status === "pending"
-        ? `${v.name} (pending approval)`
-        : (v.name as string),
-    value: v.id as string,
+    label: v.status === "pending" ? `${v.name} (pending approval)` : v.name,
+    value: v.id,
   }));
 
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);

@@ -1,8 +1,10 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
+import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/vendor-payments/new")({
+  beforeLoad: ({ context }) => assertPermission(context, "requests.create"),
   head: () => ({
     meta: [{ title: `New Vendor Payment | ${env.VITE_APP_NAME}` }],
   }),

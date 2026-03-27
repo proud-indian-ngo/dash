@@ -296,8 +296,7 @@ export function VendorPaymentDetail({
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {/* biome-ignore lint/suspicious/noExplicitAny: VP history entries from Zero */}
-                {(request.history ?? []).map((entry: any) => (
+                {(request.history ?? []).map((entry) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>

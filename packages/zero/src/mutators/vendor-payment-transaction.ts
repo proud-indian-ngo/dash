@@ -358,6 +358,7 @@ export const vendorPaymentTransactionMutators = {
       );
       assertEntityExists(entity, "Transaction");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      const vpId = entity.vendorPaymentId as string;
 
       // Delete attachments
       const attachments = await tx.run(
@@ -384,6 +385,9 @@ export const vendorPaymentTransactionMutators = {
       }
 
       await tx.mutate.vendorPaymentTransaction.delete({ id: args.id });
+
+      // Recalculate parent VP status after deletion
+      await recalculateParentStatus(tx, vpId, Date.now());
     }
   ),
 };

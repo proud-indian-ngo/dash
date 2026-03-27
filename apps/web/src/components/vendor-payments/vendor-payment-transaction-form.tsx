@@ -21,7 +21,12 @@ import { type Attachment, attachmentSchema } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const transactionFormSchema = z.object({
-  amount: z.string().min(1, "Amount is required"),
+  amount: z
+    .string()
+    .min(1, "Amount is required")
+    .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
+      message: "Must be a positive number",
+    }),
   description: z.string(),
   transactionDate: z.date({ message: "Date is required" }),
   paymentMethod: z.string(),
@@ -57,9 +62,6 @@ function TransactionFormContent({
     onSubmit: async ({ value }) => {
       const parsed = transactionFormSchema.parse(value);
       const amount = Number(parsed.amount);
-      if (Number.isNaN(amount) || amount <= 0) {
-        throw new Error("Amount must be a positive number");
-      }
 
       const res = await zero.mutate(
         mutators.vendorPaymentTransaction.create({
