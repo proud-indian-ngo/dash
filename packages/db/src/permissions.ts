@@ -227,6 +227,13 @@ export const PERMISSIONS = [
     description:
       "Mark attendance for event members (also granted to team leads)",
   },
+  {
+    id: "events.manage_feedback",
+    name: "Manage Feedback",
+    category: "events",
+    description:
+      "Toggle feedback, set deadline, view anonymous responses (also granted to team leads)",
+  },
 
   // ── Event Updates ──
   {
