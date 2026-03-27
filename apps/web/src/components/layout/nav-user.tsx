@@ -48,8 +48,8 @@ import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
 
 // Mirrors --primary from packages/design-system/styles.css (Courier API requires string values)
-const PRIMARY_LIGHT = "oklch(0.52 0.105 223.128)";
-const PRIMARY_DARK = "oklch(0.45 0.085 224.283)";
+const PRIMARY_LIGHT = "oklch(0.55 0.15 210)";
+const PRIMARY_DARK = "oklch(0.65 0.14 200)";
 
 function courierTheme(primary: string): CourierInboxTheme {
   return {

@@ -242,7 +242,9 @@ function UsersRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
-      <h1 className="font-semibold text-2xl">Users</h1>
+      <h1 className="font-display font-semibold text-2xl tracking-tight">
+        Users
+      </h1>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />

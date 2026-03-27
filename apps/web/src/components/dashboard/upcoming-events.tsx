@@ -10,6 +10,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 
 interface TeamEvent {
@@ -36,17 +37,43 @@ function UpcomingEventsSkeleton() {
   );
 }
 
+const GHOST_EVENTS = [
+  {
+    name: "Orientation Session",
+    date: "Next Saturday — 10:00 AM",
+    team: "Onboarding",
+  },
+  {
+    name: "Weekend Drive",
+    date: "This Sunday — 9:00 AM",
+    team: "Outreach",
+  },
+];
+
 function UpcomingEventsEmpty() {
   return (
-    <p className="text-muted-foreground text-sm">
-      No upcoming events scheduled.{" "}
+    <GhostEmptyState
+      ghostContent={GHOST_EVENTS.map((event) => (
+        <div className="rounded-md p-2" key={event.name}>
+          <p className="truncate font-medium text-sm">{event.name}</p>
+          <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
+            <span>{event.date}</span>
+            <span>&middot;</span>
+            <span>{event.team}</span>
+          </div>
+        </div>
+      ))}
+    >
+      <p className="text-muted-foreground text-sm">
+        Events you join will appear here
+      </p>
       <Link
-        className="text-foreground underline underline-offset-4"
+        className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
         to="/events"
       >
-        View all events
+        View events
       </Link>
-    </p>
+    </GhostEmptyState>
   );
 }
 

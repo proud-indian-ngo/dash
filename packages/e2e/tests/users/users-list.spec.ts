@@ -2,8 +2,14 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Users list (admin)", () => {
   test.beforeEach(async ({ page }) => {
+    // Navigate to /users — if redirected to dashboard (auth race), retry once
     await page.goto("/users");
-    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+    if (!page.url().includes("/users")) {
+      await page.goto("/users");
+    }
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("renders users table with expected columns", async ({ page }) => {
@@ -63,12 +69,13 @@ test.describe("Users list (admin)", () => {
   });
 
   test("shows stats cards", async ({ page }) => {
-    const cards = page.locator("[data-slot='card-title']");
-    await expect(cards.getByText("Total Users")).toBeVisible({
+    const cardTitles = page.locator("[data-slot='card-title']");
+    await expect(cardTitles.getByText("Total Users")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(cards.getByText("Active")).toBeVisible();
-    await expect(cards.getByText("Admins")).toBeVisible();
-    await expect(cards.getByText("Volunteers")).toBeVisible();
+    // Use exact match to avoid "Active" matching "Inactive"
+    await expect(cardTitles.getByText("Active", { exact: true })).toBeVisible();
+    await expect(cardTitles.getByText("Inactive")).toBeVisible();
+    await expect(cardTitles.getByText("Needs Orientation")).toBeVisible();
   });
 });

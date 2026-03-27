@@ -138,7 +138,9 @@ function RequestsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
-      <h1 className="font-semibold text-2xl">Requests</h1>
+      <h1 className="font-display font-semibold text-2xl tracking-tight">
+        Requests
+      </h1>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards

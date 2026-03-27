@@ -123,7 +123,9 @@ function RolesPage() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
-      <h1 className="font-semibold text-2xl">Roles</h1>
+      <h1 className="font-display font-semibold text-2xl tracking-tight">
+        Roles
+      </h1>
       <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
         <RolesTable
           data={roles}

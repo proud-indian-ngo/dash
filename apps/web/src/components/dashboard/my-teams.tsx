@@ -8,6 +8,7 @@ import {
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
+import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 
 interface Team {
   description: string | null;
@@ -29,17 +30,45 @@ function MyTeamsSkeleton() {
   );
 }
 
+const GHOST_TEAMS = [
+  {
+    name: "Community Outreach",
+    description: "Weekend volunteering",
+    members: 12,
+  },
+  { name: "Event Planning", description: "Coordinate logistics", members: 8 },
+];
+
 function MyTeamsEmpty() {
   return (
-    <p className="text-muted-foreground text-sm">
-      You haven't joined any teams yet.{" "}
+    <GhostEmptyState
+      ghostContent={GHOST_TEAMS.map((team) => (
+        <div
+          className="flex items-center justify-between rounded-md p-2"
+          key={team.name}
+        >
+          <div className="min-w-0">
+            <p className="truncate font-medium text-sm">{team.name}</p>
+            <p className="truncate text-muted-foreground text-xs">
+              {team.description}
+            </p>
+          </div>
+          <span className="ml-2 shrink-0 text-muted-foreground text-xs">
+            {team.members} members
+          </span>
+        </div>
+      ))}
+    >
+      <p className="text-muted-foreground text-sm">
+        Join a team to see your schedule
+      </p>
       <Link
-        className="text-foreground underline underline-offset-4"
+        className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
         to="/teams"
       >
         Browse teams
       </Link>
-    </p>
+    </GhostEmptyState>
   );
 }
 

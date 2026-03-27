@@ -171,7 +171,9 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
         {showEditForm ? (
           <>
             <div className="flex items-center justify-between gap-3">
-              <h1 className="font-semibold text-2xl">Edit {typeLabel}</h1>
+              <h1 className="font-display font-semibold text-2xl tracking-tight">
+                Edit {typeLabel}
+              </h1>
               {showAdminActions ? (
                 <Button
                   onClick={() => setAdminEditMode(false)}

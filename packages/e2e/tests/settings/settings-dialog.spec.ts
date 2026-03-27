@@ -70,13 +70,17 @@ test.describe("Settings dialog", () => {
     ).toBeHidden();
   });
 
-  test("notifications section shows WhatsApp toggle", async ({ page }) => {
+  test("notifications section shows per-topic toggles", async ({ page }) => {
     await openSettings(page);
     const dialog = page.getByRole("dialog");
 
     await dialog.getByText("Notifications", { exact: true }).click();
-    await expect(dialog.getByText("WhatsApp Notifications")).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      dialog.getByText("Choose which notifications you want to receive.")
+    ).toBeVisible({ timeout: 15_000 });
+    // Each topic has an email and WhatsApp toggle
+    await expect(
+      dialog.getByRole("switch", { name: /WhatsApp/i }).first()
+    ).toBeVisible();
   });
 });

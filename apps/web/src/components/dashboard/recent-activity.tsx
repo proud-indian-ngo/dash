@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
+import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { formatINR } from "@/lib/form-schemas";
 import { STATUS_BADGE_MAP, type StatusBadgeVariant } from "@/lib/status-badge";
 
@@ -57,18 +58,40 @@ function toActivityItems(
   }));
 }
 
+const GHOST_ACTIVITIES = [
+  { title: "Office Supplies", label: "Reimbursement", amount: "2,500" },
+  { title: "Travel Allowance", label: "Advance Payment", amount: "5,000" },
+];
+
 function RecentActivityEmpty() {
   return (
-    <p className="text-muted-foreground text-sm">
-      No recent activity.{" "}
+    <GhostEmptyState
+      ghostContent={GHOST_ACTIVITIES.map((activity) => (
+        <div className="flex items-start gap-3" key={activity.title}>
+          <HugeiconsIcon
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            icon={Invoice01Icon}
+            strokeWidth={2}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium text-sm">{activity.title}</p>
+            <p className="text-muted-foreground text-xs">
+              {activity.label} &middot; {activity.amount}
+            </p>
+          </div>
+        </div>
+      ))}
+    >
+      <p className="text-muted-foreground text-sm">
+        Your requests and updates will appear here
+      </p>
       <Link
-        className="text-foreground underline underline-offset-4"
+        className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
         to="/requests"
       >
         Submit a request
-      </Link>{" "}
-      to get started.
-    </p>
+      </Link>
+    </GhostEmptyState>
   );
 }
 

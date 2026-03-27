@@ -106,10 +106,13 @@ test.describe("WhatsApp Groups (admin)", () => {
     await expect(dialog.getByText("Edit Group", { exact: true })).toBeVisible();
 
     const updatedName = `${groupName} Updated`;
-    // Wait for the form to be populated before editing (Zero sync can detach inputs)
-    const nameInput = dialog.getByLabel("Name");
-    await expect(nameInput).toHaveValue(groupName, { timeout: 10_000 });
-    await nameInput.fill(updatedName);
+    // Wait for form population then fill — retry if Zero re-sync detaches the DOM
+    await expect(dialog.getByLabel("Name")).toHaveValue(groupName, {
+      timeout: 10_000,
+    });
+    await expect(async () => {
+      await dialog.getByLabel("Name").fill(updatedName);
+    }).toPass({ timeout: 15_000 });
     await dialog
       .getByRole("button", { name: "Save" })
       .click({ timeout: 10_000 });

@@ -335,6 +335,15 @@ import { Button } from "@pi-dash/design-system/components/ui/button"
 import { DataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-grid"
 ```
 
+### Design Tokens
+
+| Token | Usage |
+|---|---|
+| `--primary` | Interactive elements: buttons, links, focus rings. Darker cyan in light mode. |
+| `--brand` / `--brand-foreground` | Decorative brand accent: borders, tints, indicators. Lighter cyan in light mode; converges with `--primary` in dark mode. |
+| `font-sans` (`Inter Variable`) | Body text, UI elements, form inputs, table cells. |
+| `font-display` (`Geist Variable`) | Page titles (`h1`), stat card values. Apply via `font-display tracking-tight`. |
+
 ### Server Functions
 
 Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. Auth-guarded via session checks.

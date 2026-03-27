@@ -184,7 +184,9 @@ function RoleEditPage() {
         </Link>
       </div>
       <div className="flex items-center gap-3">
-        <h1 className="font-semibold text-2xl">{roleData.name}</h1>
+        <h1 className="font-display font-semibold text-2xl tracking-tight">
+          {roleData.name}
+        </h1>
         {roleData.isSystem ? <Badge variant="secondary">System</Badge> : null}
       </div>
       <p className="mt-1 text-muted-foreground text-sm">

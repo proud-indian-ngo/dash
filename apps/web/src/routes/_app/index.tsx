@@ -79,8 +79,8 @@ function computeDashboardStats({
       value: allRequests.length,
       description: formatINR(sumTotal(allRequests)),
       icon: Invoice01Icon,
-      accent: "border-l-blue-500",
-      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
+      accent: "border-l-brand",
+      bgAccent: "bg-brand/5 dark:bg-brand/10",
       href: "/requests",
     },
     {
@@ -98,8 +98,8 @@ function computeDashboardStats({
             label: "Total Users",
             value: users.length,
             icon: UserMultipleIcon,
-            accent: "border-l-emerald-500",
-            bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
+            accent: "border-l-brand",
+            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/users",
           },
         ]
@@ -108,8 +108,8 @@ function computeDashboardStats({
             label: "My Teams",
             value: teams.length,
             icon: UserMultipleIcon,
-            accent: "border-l-teal-500",
-            bgAccent: "bg-teal-500/5 dark:bg-teal-500/10",
+            accent: "border-l-brand",
+            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/teams",
           },
         ]),
@@ -120,8 +120,8 @@ function computeDashboardStats({
             value: vendorPayments.length,
             description: formatINR(sumTotal(vendorPayments)),
             icon: Store01Icon,
-            accent: "border-l-violet-500",
-            bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
+            accent: "border-l-brand",
+            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/vendors",
           },
         ]
@@ -132,8 +132,8 @@ function computeDashboardStats({
               (e) => e.startTime != null && e.startTime > Date.now()
             ).length,
             icon: Calendar03Icon,
-            accent: "border-l-purple-500",
-            bgAccent: "bg-purple-500/5 dark:bg-purple-500/10",
+            accent: "border-l-brand",
+            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/events",
           },
         ]),
@@ -156,7 +156,9 @@ function WelcomeDashboard() {
 
   return (
     <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
-      <h1 className="font-semibold text-2xl">Dashboard</h1>
+      <h1 className="font-display font-semibold text-2xl tracking-tight">
+        Dashboard
+      </h1>
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Welcome, {session?.user.name}!</CardTitle>
@@ -179,32 +181,80 @@ function WelcomeDashboard() {
   );
 }
 
-function PendingCallout({ count }: { count: number }) {
-  if (count === 0) {
+function PendingActions({
+  canApprove,
+  draftCount,
+  pendingCount,
+}: {
+  canApprove: boolean;
+  draftCount: number;
+  pendingCount: number;
+}) {
+  if (pendingCount === 0 && draftCount === 0) {
     return null;
   }
 
   return (
-    <Link
-      className="fade-in-0 mt-3 flex animate-in items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 transition-colors duration-150 ease-(--ease-out-expo) hover:bg-amber-50 dark:border-amber-500/20 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
-      search={{ status: "pending" }}
-      to="/requests"
-    >
-      <HugeiconsIcon
-        className="size-4 shrink-0 text-amber-500"
-        icon={Clock01Icon}
-        strokeWidth={2}
-      />
-      <span className="flex-1 text-sm">
-        <span className="font-medium">{count}</span>{" "}
-        {count === 1 ? "request needs" : "requests need"} your review
-      </span>
-      <HugeiconsIcon
-        className="size-4 shrink-0 text-muted-foreground"
-        icon={ArrowRight01Icon}
-        strokeWidth={2}
-      />
-    </Link>
+    <div className="fade-in-0 slide-in-from-bottom-1 mt-4 animate-in space-y-2 fill-mode-backwards duration-200 ease-(--ease-out-expo)">
+      {canApprove && pendingCount > 0 && (
+        <Link
+          className="flex items-center gap-3 border-amber-500 border-l-2 bg-amber-50/50 px-4 py-3 transition-colors hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
+          search={{ status: "pending" }}
+          to="/requests"
+        >
+          <HugeiconsIcon
+            className="size-4 shrink-0 text-amber-500"
+            icon={Clock01Icon}
+            strokeWidth={2}
+          />
+          <span className="flex-1 text-sm">
+            <span className="font-display font-semibold text-lg tracking-tight">
+              {pendingCount}
+            </span>{" "}
+            {pendingCount === 1 ? "request needs" : "requests need"} your review
+          </span>
+          <Button
+            className="shrink-0"
+            nativeButton={false}
+            render={<span />}
+            size="xs"
+            variant="outline"
+          >
+            Review
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
+          </Button>
+        </Link>
+      )}
+      {draftCount > 0 && (
+        <Link
+          className="flex items-center gap-3 border-muted-foreground/30 border-l-2 bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/50"
+          search={{ status: "draft" }}
+          to="/requests"
+        >
+          <HugeiconsIcon
+            className="size-4 shrink-0 text-muted-foreground"
+            icon={Invoice01Icon}
+            strokeWidth={2}
+          />
+          <span className="flex-1 text-muted-foreground text-sm">
+            <span className="font-display font-semibold text-foreground text-lg tracking-tight">
+              {draftCount}
+            </span>{" "}
+            draft {draftCount === 1 ? "request" : "requests"} to complete
+          </span>
+          <Button
+            className="shrink-0"
+            nativeButton={false}
+            render={<span />}
+            size="xs"
+            variant="outline"
+          >
+            Continue
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
+          </Button>
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -233,6 +283,10 @@ function OrientedDashboard() {
     byStatus(advancePayments, "pending").length +
     byStatus(vendorPayments, "pending").length;
 
+  const draftCount =
+    byStatus(reimbursements, "draft").length +
+    byStatus(advancePayments, "draft").length;
+
   const stats = computeDashboardStats({
     reimbursements,
     advancePayments,
@@ -250,7 +304,9 @@ function OrientedDashboard() {
   return (
     <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-semibold text-2xl">Dashboard</h1>
+        <h1 className="font-display font-semibold text-2xl tracking-tight">
+          Dashboard
+        </h1>
         <Button
           nativeButton={false}
           render={<Link to="/requests/new" />}
@@ -262,9 +318,13 @@ function OrientedDashboard() {
         </Button>
       </div>
 
-      {canApprove && <PendingCallout count={pendingCount} />}
+      <PendingActions
+        canApprove={canApprove}
+        draftCount={draftCount}
+        pendingCount={pendingCount}
+      />
 
-      <div className="mt-3">
+      <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />
       </div>
 

@@ -14,7 +14,9 @@ function NewRequestRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-3xl px-4 py-6">
-      <h1 className="font-semibold text-2xl">New Request</h1>
+      <h1 className="font-display font-semibold text-2xl tracking-tight">
+        New Request
+      </h1>
       <p className="mt-2 text-muted-foreground text-sm">
         Fill in the details and add line items for your request.
       </p>

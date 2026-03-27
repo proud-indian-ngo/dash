@@ -196,7 +196,9 @@ function ExportRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
-      <h1 className="font-semibold text-2xl">Export Data</h1>
+      <h1 className="font-display font-semibold text-2xl tracking-tight">
+        Export Data
+      </h1>
       <p className="mt-2 text-muted-foreground text-sm">
         Export reimbursement and advance payment data as CSV for a financial
         year.

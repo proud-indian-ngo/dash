@@ -112,7 +112,9 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <h1 className="font-semibold text-2xl">{request.title}</h1>
+              <h1 className="font-display font-semibold text-2xl tracking-tight">
+                {request.title}
+              </h1>
               <Badge variant="outline">{typeLabel}</Badge>
             </div>
             <RequestHeaderMeta request={request} />

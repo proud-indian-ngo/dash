@@ -51,7 +51,9 @@ export function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="font-semibold text-2xl">{item.value}</div>
+        <div className="font-display font-semibold text-2xl tracking-tight">
+          {item.value}
+        </div>
         {item.description && (
           <p className="text-muted-foreground text-xs">{item.description}</p>
         )}

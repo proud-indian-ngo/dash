@@ -3,6 +3,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -13,8 +14,10 @@
   --card-foreground: oklch(0.145 0.008 326);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0.008 326);
-  --primary: oklch(0.52 0.105 223.128);
-  --primary-foreground: oklch(0.984 0.019 200.873);
+  --primary: oklch(0.55 0.15 210);
+  --primary-foreground: oklch(0.98 0.01 210);
+  --brand: oklch(0.75 0.14 200);
+  --brand-foreground: oklch(0.18 0.04 200);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.96 0.003 325.6);
@@ -25,16 +28,16 @@
   --border: oklch(0.922 0.005 325.62);
   --input: oklch(0.922 0.005 325.62);
   --ring: oklch(0.711 0.019 323.02);
-  --chart-1: oklch(0.865 0.127 207.078);
-  --chart-2: oklch(0.715 0.143 215.221);
-  --chart-3: oklch(0.609 0.126 221.723);
-  --chart-4: oklch(0.52 0.105 223.128);
-  --chart-5: oklch(0.45 0.085 224.283);
+  --chart-1: oklch(0.85 0.13 200);
+  --chart-2: oklch(0.75 0.14 200);
+  --chart-3: oklch(0.65 0.14 200);
+  --chart-4: oklch(0.55 0.15 210);
+  --chart-5: oklch(0.45 0.12 210);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0.008 326);
-  --sidebar-primary: oklch(0.609 0.126 221.723);
-  --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
+  --sidebar-primary: oklch(0.55 0.15 210);
+  --sidebar-primary-foreground: oklch(0.98 0.01 210);
   --sidebar-accent: oklch(0.96 0.003 325.6);
   --sidebar-accent-foreground: oklch(0.212 0.019 322.12);
   --sidebar-border: oklch(0.922 0.005 325.62);
@@ -57,8 +60,12 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.212 0.019 322.12);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.45 0.085 224.283);
-  --primary-foreground: oklch(0.984 0.019 200.873);
+  --primary: oklch(0.65 0.14 200);
+  --primary-foreground: oklch(0.15 0.04 200);
+  /* In dark mode, brand converges with primary — both are the same cyan.
+     In light mode, brand is lighter (0.75) for decorative accents while primary is darker (0.55) for interactive elements. */
+  --brand: oklch(0.65 0.14 200);
+  --brand-foreground: oklch(0.98 0.01 200);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.263 0.024 320.12);
@@ -69,15 +76,15 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.542 0.034 322.5);
-  --chart-1: oklch(0.865 0.127 207.078);
-  --chart-2: oklch(0.715 0.143 215.221);
-  --chart-3: oklch(0.609 0.126 221.723);
-  --chart-4: oklch(0.52 0.105 223.128);
-  --chart-5: oklch(0.45 0.085 224.283);
+  --chart-1: oklch(0.85 0.13 200);
+  --chart-2: oklch(0.75 0.14 200);
+  --chart-3: oklch(0.65 0.14 200);
+  --chart-4: oklch(0.55 0.15 210);
+  --chart-5: oklch(0.45 0.12 210);
   --sidebar: oklch(0.212 0.019 322.12);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.715 0.143 215.221);
-  --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
+  --sidebar-primary: oklch(0.65 0.14 200);
+  --sidebar-primary-foreground: oklch(0.98 0.01 200);
   --sidebar-accent: oklch(0.263 0.024 320.12);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
@@ -95,6 +102,7 @@
 
 @theme inline {
   --font-sans: "Inter Variable", sans-serif;
+  --font-display: "Geist Variable", "Inter Variable", sans-serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
   --ease-out-sheet: cubic-bezier(0.32, 0.72, 0, 1);
@@ -145,6 +153,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-success: var(--success);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
 }
 
 @utility app-container {
@@ -170,6 +180,14 @@
   @media (width >=96rem) {
     max-width: 96rem;
   }
+}
+
+@utility cn-toast {
+  border-radius: 0;
+  box-shadow: none;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(1px + var(--tw-ring-offset-width, 0px)) oklch(from var(--foreground) l c h / 15%);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
 }
 
 @utility animate-blur-in {

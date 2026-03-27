@@ -194,7 +194,9 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="font-semibold text-2xl">{team.name}</h1>
+            <h1 className="font-display font-semibold text-2xl tracking-tight">
+              {team.name}
+            </h1>
             {team.description ? (
               <p className="text-muted-foreground text-sm">
                 {team.description}
