@@ -86,10 +86,10 @@
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "knip": "^6.0.5",
-    "lefthook": "2.1.1",
+    "lefthook": "2.1.4",
     "turbo": "^2.8.20",
     "typescript": "catalog:",
-    "ultracite": "7.2.3",
+    "ultracite": "7.3.2",
     "vite-bundle-analyzer": "^1.3.6",
     "vitest": "^4.1.1"
   },
