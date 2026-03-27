@@ -100,7 +100,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (hasAny(permissions, "teams.view_own", "teams.view_all")) {
     items.push(teamsNavItem);
   }
-  if (hasAny(permissions, "vendors.view_all", "vendors.view_approved")) {
+  if (has(permissions, "vendors.view_all")) {
     items.push(vendorsNavItem);
   }
   if (has(permissions, "users.view")) {
@@ -129,11 +129,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
     "requests.view_own",
     "requests.view_all"
   );
-  const hasVendors = hasAny(
-    permissions,
-    "vendors.view_all",
-    "vendors.view_approved"
-  );
+  const hasVendors = permissions.includes("vendors.view_all");
   const financeItems: NavItem[] = [];
   if (hasRequests) {
     financeItems.push(requestsNavItem);

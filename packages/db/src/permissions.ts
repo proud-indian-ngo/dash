@@ -299,7 +299,6 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "requests.edit_own",
   "requests.delete_own",
   "vendors.create",
-  "vendors.view_approved",
   "teams.view_own",
   "events.view_own",
   "event_updates.edit_own",
