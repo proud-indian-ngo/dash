@@ -31,6 +31,7 @@ const MAX_SCREENSHOT_SIZE = 10 * 1024 * 1024; // 10 MB
 interface ApproveDialogProps {
   entityId: string;
   entityLabel: string;
+  hideScreenshot?: boolean;
   onConfirm: (message: string, screenshotKey?: string) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -39,6 +40,7 @@ interface ApproveDialogProps {
 export function ApproveDialog({
   entityId,
   entityLabel,
+  hideScreenshot = false,
   onConfirm,
   onOpenChange,
   open,
@@ -185,38 +187,42 @@ export function ApproveDialog({
             value={message}
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="approval-screenshot">Payment proof (optional)</Label>
-          {previewUrl ? (
-            <div className="flex items-start gap-3">
-              <img
-                alt="Payment proof preview"
-                className="h-20 w-20 rounded-md border object-cover"
-                height={80}
-                src={previewUrl}
-                width={80}
+        {hideScreenshot ? null : (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="approval-screenshot">
+              Payment proof (optional)
+            </Label>
+            {previewUrl ? (
+              <div className="flex items-start gap-3">
+                <img
+                  alt="Payment proof preview"
+                  className="h-20 w-20 rounded-md border object-cover"
+                  height={80}
+                  src={previewUrl}
+                  width={80}
+                />
+                <Button
+                  onClick={handleRemoveScreenshot}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:font-medium file:text-sm"
+                disabled={uploading}
+                id="approval-screenshot"
+                onChange={handleFileChange}
+                ref={fileInputRef}
+                type="file"
               />
-              <Button
-                onClick={handleRemoveScreenshot}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Remove
-              </Button>
-            </div>
-          ) : (
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:font-medium file:text-sm"
-              disabled={uploading}
-              id="approval-screenshot"
-              onChange={handleFileChange}
-              ref={fileInputRef}
-              type="file"
-            />
-          )}
-        </div>
+            )}
+          </div>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={cleanup}>Cancel</AlertDialogCancel>
           <AlertDialogAction

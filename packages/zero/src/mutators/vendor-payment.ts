@@ -275,6 +275,32 @@ export const vendorPaymentMutators = {
         vendorPaymentId: args.id,
       });
 
+      // Cascade reject all pending transactions
+      const pendingTransactions = await tx.run(
+        zql.vendorPaymentTransaction
+          .where("vendorPaymentId", args.id)
+          .where("status", "pending")
+      );
+      for (const txn of pendingTransactions) {
+        await tx.mutate.vendorPaymentTransaction.update({
+          id: txn.id,
+          status: "rejected",
+          rejectionReason: "Parent vendor payment was rejected",
+          reviewedBy: userId,
+          reviewedAt: now,
+          updatedAt: now,
+        });
+        await tx.mutate.vendorPaymentTransactionHistory.insert({
+          ...buildHistoryInsert(
+            userId,
+            "rejected",
+            now,
+            "Parent vendor payment was rejected"
+          ),
+          vendorPaymentTransactionId: txn.id,
+        });
+      }
+
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
         const id = args.id;

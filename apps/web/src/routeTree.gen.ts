@@ -22,10 +22,12 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-pa
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
+import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppRequestsRouteRouteImport } from './routes/_app/requests/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
+import { Route as AppVendorPaymentsIndexRouteImport } from './routes/_app/vendor-payments/index'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
 import { Route as AppRequestsIndexRouteImport } from './routes/_app/requests/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
@@ -34,6 +36,9 @@ import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
+import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-payments/new'
+import { Route as AppVendorPaymentsExportRouteImport } from './routes/_app/vendor-payments/export'
+import { Route as AppVendorPaymentsIdRouteImport } from './routes/_app/vendor-payments/$id'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
 import { Route as AppRequestsNewRouteImport } from './routes/_app/requests/new'
 import { Route as AppRequestsIdRouteImport } from './routes/_app/requests/$id'
@@ -107,6 +112,11 @@ const AppVendorsRouteRoute = AppVendorsRouteRouteImport.update({
   path: '/vendors',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVendorPaymentsRouteRoute = AppVendorPaymentsRouteRouteImport.update({
+  id: '/vendor-payments',
+  path: '/vendor-payments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTeamsRouteRoute = AppTeamsRouteRouteImport.update({
   id: '/teams',
   path: '/teams',
@@ -126,6 +136,11 @@ const AppVendorsIndexRoute = AppVendorsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppVendorsRouteRoute,
+} as any)
+const AppVendorPaymentsIndexRoute = AppVendorPaymentsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppVendorPaymentsRouteRoute,
 } as any)
 const AppTeamsIndexRoute = AppTeamsIndexRouteImport.update({
   id: '/',
@@ -166,6 +181,21 @@ const ApiAttachmentsDownloadRoute = ApiAttachmentsDownloadRouteImport.update({
   id: '/api/attachments/download',
   path: '/api/attachments/download',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppVendorPaymentsNewRoute = AppVendorPaymentsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppVendorPaymentsRouteRoute,
+} as any)
+const AppVendorPaymentsExportRoute = AppVendorPaymentsExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => AppVendorPaymentsRouteRoute,
+} as any)
+const AppVendorPaymentsIdRoute = AppVendorPaymentsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppVendorPaymentsRouteRoute,
 } as any)
 const AppTeamsIdRoute = AppTeamsIdRouteImport.update({
   id: '/$id',
@@ -218,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRouteRouteWithChildren
   '/requests': typeof AppRequestsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
+  '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/export': typeof AppExportRoute
   '/users': typeof AppUsersRoute
@@ -233,6 +264,9 @@ export interface FileRoutesByFullPath {
   '/requests/$id': typeof AppRequestsIdRoute
   '/requests/new': typeof AppRequestsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
+  '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
+  '/vendor-payments/export': typeof AppVendorPaymentsExportRoute
+  '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -241,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/events/': typeof AppEventsIndexRoute
   '/requests/': typeof AppRequestsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
+  '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
@@ -262,6 +297,9 @@ export interface FileRoutesByTo {
   '/requests/$id': typeof AppRequestsIdRoute
   '/requests/new': typeof AppRequestsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
+  '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
+  '/vendor-payments/export': typeof AppVendorPaymentsExportRoute
+  '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -270,6 +308,7 @@ export interface FileRoutesByTo {
   '/events': typeof AppEventsIndexRoute
   '/requests': typeof AppRequestsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
+  '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
@@ -283,6 +322,7 @@ export interface FileRoutesById {
   '/_app/events': typeof AppEventsRouteRouteWithChildren
   '/_app/requests': typeof AppRequestsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
+  '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/_app/export': typeof AppExportRoute
   '/_app/users': typeof AppUsersRoute
@@ -299,6 +339,9 @@ export interface FileRoutesById {
   '/_app/requests/$id': typeof AppRequestsIdRoute
   '/_app/requests/new': typeof AppRequestsNewRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
+  '/_app/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
+  '/_app/vendor-payments/export': typeof AppVendorPaymentsExportRoute
+  '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -307,6 +350,7 @@ export interface FileRoutesById {
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/requests/': typeof AppRequestsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
+  '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
   '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
@@ -320,6 +364,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/requests'
     | '/teams'
+    | '/vendor-payments'
     | '/vendors'
     | '/export'
     | '/users'
@@ -335,6 +380,9 @@ export interface FileRouteTypes {
     | '/requests/$id'
     | '/requests/new'
     | '/teams/$id'
+    | '/vendor-payments/$id'
+    | '/vendor-payments/export'
+    | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
     | '/api/log/ingest'
@@ -343,6 +391,7 @@ export interface FileRouteTypes {
     | '/events/'
     | '/requests/'
     | '/teams/'
+    | '/vendor-payments/'
     | '/vendors/'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
@@ -364,6 +413,9 @@ export interface FileRouteTypes {
     | '/requests/$id'
     | '/requests/new'
     | '/teams/$id'
+    | '/vendor-payments/$id'
+    | '/vendor-payments/export'
+    | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
     | '/api/log/ingest'
@@ -372,6 +424,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/requests'
     | '/teams'
+    | '/vendor-payments'
     | '/vendors'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
@@ -384,6 +437,7 @@ export interface FileRouteTypes {
     | '/_app/events'
     | '/_app/requests'
     | '/_app/teams'
+    | '/_app/vendor-payments'
     | '/_app/vendors'
     | '/_app/export'
     | '/_app/users'
@@ -400,6 +454,9 @@ export interface FileRouteTypes {
     | '/_app/requests/$id'
     | '/_app/requests/new'
     | '/_app/teams/$id'
+    | '/_app/vendor-payments/$id'
+    | '/_app/vendor-payments/export'
+    | '/_app/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
     | '/api/log/ingest'
@@ -408,6 +465,7 @@ export interface FileRouteTypes {
     | '/_app/events/'
     | '/_app/requests/'
     | '/_app/teams/'
+    | '/_app/vendor-payments/'
     | '/_app/vendors/'
     | '/_app/settings/roles/$roleId'
     | '/api/immich/original/$id'
@@ -522,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVendorsRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/vendor-payments': {
+      id: '/_app/vendor-payments'
+      path: '/vendor-payments'
+      fullPath: '/vendor-payments'
+      preLoaderRoute: typeof AppVendorPaymentsRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/teams': {
       id: '/_app/teams'
       path: '/teams'
@@ -549,6 +614,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/vendors/'
       preLoaderRoute: typeof AppVendorsIndexRouteImport
       parentRoute: typeof AppVendorsRouteRoute
+    }
+    '/_app/vendor-payments/': {
+      id: '/_app/vendor-payments/'
+      path: '/'
+      fullPath: '/vendor-payments/'
+      preLoaderRoute: typeof AppVendorPaymentsIndexRouteImport
+      parentRoute: typeof AppVendorPaymentsRouteRoute
     }
     '/_app/teams/': {
       id: '/_app/teams/'
@@ -605,6 +677,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/attachments/download'
       preLoaderRoute: typeof ApiAttachmentsDownloadRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/vendor-payments/new': {
+      id: '/_app/vendor-payments/new'
+      path: '/new'
+      fullPath: '/vendor-payments/new'
+      preLoaderRoute: typeof AppVendorPaymentsNewRouteImport
+      parentRoute: typeof AppVendorPaymentsRouteRoute
+    }
+    '/_app/vendor-payments/export': {
+      id: '/_app/vendor-payments/export'
+      path: '/export'
+      fullPath: '/vendor-payments/export'
+      preLoaderRoute: typeof AppVendorPaymentsExportRouteImport
+      parentRoute: typeof AppVendorPaymentsRouteRoute
+    }
+    '/_app/vendor-payments/$id': {
+      id: '/_app/vendor-payments/$id'
+      path: '/$id'
+      fullPath: '/vendor-payments/$id'
+      preLoaderRoute: typeof AppVendorPaymentsIdRouteImport
+      parentRoute: typeof AppVendorPaymentsRouteRoute
     }
     '/_app/teams/$id': {
       id: '/_app/teams/$id'
@@ -715,6 +808,26 @@ const AppTeamsRouteRouteWithChildren = AppTeamsRouteRoute._addFileChildren(
   AppTeamsRouteRouteChildren,
 )
 
+interface AppVendorPaymentsRouteRouteChildren {
+  AppVendorPaymentsIdRoute: typeof AppVendorPaymentsIdRoute
+  AppVendorPaymentsExportRoute: typeof AppVendorPaymentsExportRoute
+  AppVendorPaymentsNewRoute: typeof AppVendorPaymentsNewRoute
+  AppVendorPaymentsIndexRoute: typeof AppVendorPaymentsIndexRoute
+}
+
+const AppVendorPaymentsRouteRouteChildren: AppVendorPaymentsRouteRouteChildren =
+  {
+    AppVendorPaymentsIdRoute: AppVendorPaymentsIdRoute,
+    AppVendorPaymentsExportRoute: AppVendorPaymentsExportRoute,
+    AppVendorPaymentsNewRoute: AppVendorPaymentsNewRoute,
+    AppVendorPaymentsIndexRoute: AppVendorPaymentsIndexRoute,
+  }
+
+const AppVendorPaymentsRouteRouteWithChildren =
+  AppVendorPaymentsRouteRoute._addFileChildren(
+    AppVendorPaymentsRouteRouteChildren,
+  )
+
 interface AppVendorsRouteRouteChildren {
   AppVendorsIndexRoute: typeof AppVendorsIndexRoute
 }
@@ -746,6 +859,7 @@ interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
   AppRequestsRouteRoute: typeof AppRequestsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
+  AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
   AppExportRoute: typeof AppExportRoute
   AppUsersRoute: typeof AppUsersRoute
@@ -757,6 +871,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
   AppRequestsRouteRoute: AppRequestsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
+  AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
   AppExportRoute: AppExportRoute,
   AppUsersRoute: AppUsersRoute,

@@ -69,8 +69,13 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
+| `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
+| `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
+| `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
+| `routes/_app/vendor-payments/$id.tsx` | Vendor payment detail + transactions |
+| `routes/_app/vendor-payments/export.tsx` | Vendor payment CSV export |
 | `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
-| `routes/_app/vendors/index.tsx` | Vendors list + vendor payments |
+| `routes/_app/vendors/index.tsx` | Vendors list |
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
@@ -183,10 +188,10 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
+| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, requests, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, request-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
@@ -221,6 +226,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `vendorPaymentLineItem` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentAttachment` | `packages/db/src/schema/vendor.ts` |
 | `vendorPaymentHistory` | `packages/db/src/schema/vendor.ts` |
+| `vendorPaymentTransaction` | `packages/db/src/schema/vendor-payment-transaction.ts` |
+| `vendorPaymentTransactionAttachment` | `packages/db/src/schema/vendor-payment-transaction.ts` |
+| `vendorPaymentTransactionHistory` | `packages/db/src/schema/vendor-payment-transaction.ts` |
 | `role` | `packages/db/src/schema/permission.ts` |
 | `permission` | `packages/db/src/schema/permission.ts` |
 | `rolePermission` | `packages/db/src/schema/permission.ts` |
@@ -233,7 +241,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 - **Package**: `packages/notifications/` — Courier-based multi-channel notifications.
 - **Client**: `src/client.ts` initializes CourierClient from `COURIER_API_KEY`.
-- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, vendor-payment, user, submission, team, team-event, event-interest, event-update, event-photo). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
+- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
 - **Core**: `src/send-message.ts` provides `sendMessage()` and `sendBulkMessage()` with inbox, email, and WhatsApp channels + idempotency keys. `topic` is required on all sends.
 - **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
 - **Preferences**: Per-topic, per-channel (email + WhatsApp) toggles stored in `notification_topic_preference` table (local DB as source of truth). Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. Email preferences sync one-way to Courier. WhatsApp preferences checked at send-time from local DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
@@ -325,7 +333,13 @@ Split by domain in `packages/zero/src/mutators/`. Each file exports a mutators o
 
 ### Vendor Payment Workflow
 
-Vendors have a two-stage lifecycle: `pending` → `approved`. Any authenticated user can create a vendor (non-admins are server-forced to `pending` status). Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. Vendor payments (title, invoice number/date, line items, attachments) follow the same approval workflow as reimbursements and advance payments (submit → approve/reject with history tracking). The `/vendors` admin route is admin-only via `assertAdmin` route guard.
+Vendors have a two-stage lifecycle: `pending` → `approved`. Any authenticated user can create a vendor (non-admins are server-forced to `pending` status). Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. The `/vendors` admin route is admin-only via `assertPermission("vendors.view_all")` guard.
+
+**Vendor payments** have their own standalone section at `/vendor-payments` (separate from general requests). Status lifecycle: `pending` → `approved` → `partially_paid` → `paid` (or `rejected`). The transition from `approved` to `partially_paid`/`paid` happens automatically when payment transactions are approved.
+
+**Payment transactions** (`vendorPaymentTransaction`) are child records of a vendor payment, each representing an actual money transfer. Transactions have their own approval cycle (`pending` → `approved`/`rejected`). When a transaction is approved, `computePaymentStatus()` in `packages/zero/src/lib/compute-payment-status.ts` recalculates the parent vendor payment status using integer-cents arithmetic to avoid floating-point issues. The `requests.record_payment` permission (granted to volunteers by default) controls who can record transactions; `requests.approve` controls transaction approval. Both the VP submitter and admins can record transactions against approved vendor payments.
+
+Components: `apps/web/src/components/vendor-payments/` — detail, form, table, transaction form dialog, transaction section, types. Mutators/queries: `packages/zero/src/mutators/vendor-payment-transaction.ts`, `packages/zero/src/queries/vendor-payment-transaction.ts`. Export: `apps/web/src/functions/export-vendor-payments-csv.ts`.
 
 ### Auth Guard
 

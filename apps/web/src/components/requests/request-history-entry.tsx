@@ -1,12 +1,13 @@
 import { format } from "date-fns";
 import { SHORT_DATE_WITH_TIME } from "@/lib/date-formats";
-import type { RequestDetailData } from "@/lib/request-types";
 
-export function HistoryEntry({
-  entry,
-}: {
-  entry: RequestDetailData["history"][number];
-}) {
+interface HistoryEntryProps {
+  action: string;
+  createdAt: number;
+  note: string | null;
+}
+
+export function HistoryEntry({ entry }: { entry: HistoryEntryProps }) {
   return (
     <div className="flex gap-3">
       <div aria-hidden="true" className="mt-1 flex flex-col items-center">

@@ -59,6 +59,29 @@ const requestsNavItem: NavItem = {
   ],
 };
 
+const vendorPaymentsNavItem: NavItem = {
+  title: "Vendor Payments",
+  url: "/vendor-payments",
+  icon: Store01Icon,
+  subItems: [
+    {
+      title: "New Vendor Payment",
+      url: "/vendor-payments/new",
+      isHidden: true,
+    },
+    {
+      title: "Vendor Payment Details",
+      url: "/vendor-payments/$id",
+      isHidden: true,
+    },
+    {
+      title: "Export Vendor Payments",
+      url: "/vendor-payments/export",
+      isHidden: true,
+    },
+  ],
+};
+
 const vendorsNavItem: NavItem = {
   title: "Vendors",
   url: "/vendors",
@@ -96,6 +119,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   }
   if (hasAny(permissions, "requests.view_own", "requests.view_all")) {
     items.push(requestsNavItem);
+    items.push(vendorPaymentsNavItem);
   }
   if (hasAny(permissions, "teams.view_own", "teams.view_all")) {
     items.push(teamsNavItem);
@@ -133,6 +157,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   const financeItems: NavItem[] = [];
   if (hasRequests) {
     financeItems.push(requestsNavItem);
+    financeItems.push(vendorPaymentsNavItem);
   }
   if (hasVendors) {
     financeItems.push(vendorsNavItem);

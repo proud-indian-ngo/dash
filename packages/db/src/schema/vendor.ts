@@ -15,6 +15,7 @@ import {
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
 import { attachmentTypeEnum, historyActionEnum } from "./shared";
+import { vendorPaymentTransaction } from "./vendor-payment-transaction";
 
 // Vendor-specific enums
 const vendorStatusValues = ["pending", "approved"] as const;
@@ -23,7 +24,13 @@ export type VendorStatus = (typeof vendorStatusValues)[number];
 
 export const vendorStatusEnum = pgEnum("vendor_status", vendorStatusValues);
 
-const vendorPaymentStatusValues = ["pending", "approved", "rejected"] as const;
+const vendorPaymentStatusValues = [
+  "pending",
+  "approved",
+  "rejected",
+  "partially_paid",
+  "paid",
+] as const;
 
 export type VendorPaymentStatus = (typeof vendorPaymentStatusValues)[number];
 
@@ -189,6 +196,7 @@ export const vendorPaymentRelations = relations(
     lineItems: many(vendorPaymentLineItem),
     attachments: many(vendorPaymentAttachment),
     history: many(vendorPaymentHistory),
+    transactions: many(vendorPaymentTransaction),
   })
 );
 

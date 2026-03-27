@@ -15,7 +15,6 @@ import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { RequestHeaderMeta } from "@/components/requests/request-header-meta";
 import { HistoryEntry } from "@/components/requests/request-history-entry";
-import { VendorDetailsCard } from "@/components/requests/request-vendor-details";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getAttachmentDownloadHref,
@@ -26,11 +25,10 @@ import {
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
-  isVendorPayment,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/request-types";
-import { STATUS_BADGE_MAP } from "@/lib/status-badge";
+import { getStatusBadge } from "@/lib/status-badge";
 
 interface RequestDetailProps {
   canApprove: boolean;
@@ -46,13 +44,11 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
 
   const mutatorMap = {
     reimbursement: { ns: mutators.reimbursement, name: "reimbursement" },
-    vendor_payment: { ns: mutators.vendorPayment, name: "vendorPayment" },
     advance_payment: { ns: mutators.advancePayment, name: "advancePayment" },
   } as const;
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
-  const { label, variant } =
-    STATUS_BADGE_MAP[request.status ?? "draft"] ?? STATUS_BADGE_MAP.draft;
+  const { label, variant } = getStatusBadge(request.status);
 
   const total = request.lineItems.reduce(
     (sum, item) => sum + Number(item.amount),
@@ -134,9 +130,6 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
           </div>
           <Badge variant={variant}>{label}</Badge>
         </div>
-
-        {/* Vendor details */}
-        <VendorDetailsCard request={request} />
 
         {/* Bank account details */}
         <BankAccountCard request={request} />
@@ -364,16 +357,6 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
 }
 
 function getBankDetails(request: RequestDetailData) {
-  if (isVendorPayment(request)) {
-    if (!request.vendor) {
-      return null;
-    }
-    return {
-      name: request.vendor.bankAccountName?.trim() || null,
-      number: request.vendor.bankAccountNumber?.trim() || null,
-      ifsc: request.vendor.bankAccountIfscCode?.trim() || null,
-    };
-  }
   return {
     name: request.bankAccountName?.trim() || null,
     number: request.bankAccountNumber?.trim() || null,

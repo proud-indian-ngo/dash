@@ -17,6 +17,7 @@ import { teamEventQueries } from "./queries/team-event";
 import { userQueries } from "./queries/user";
 import { vendorQueries } from "./queries/vendor";
 import { vendorPaymentQueries } from "./queries/vendor-payment";
+import { vendorPaymentTransactionQueries } from "./queries/vendor-payment-transaction";
 import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
 export const queries = defineQueries({
@@ -36,5 +37,6 @@ export const queries = defineQueries({
   teamEvent: teamEventQueries,
   vendor: vendorQueries,
   vendorPayment: vendorPaymentQueries,
+  vendorPaymentTransaction: vendorPaymentTransactionQueries,
   whatsappGroup: whatsappGroupQueries,
 });

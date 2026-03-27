@@ -1,10 +1,6 @@
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { queries } from "@pi-dash/zero/queries";
-import type {
-  BankAccount,
-  ExpenseCategory,
-  Vendor,
-} from "@pi-dash/zero/schema";
+import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
@@ -24,7 +20,6 @@ import {
 import { buildMutation } from "./request-form-mutations";
 import { TypeSelector } from "./request-type-selector";
 import { StandardRequestFields } from "./standard-request-fields";
-import { VendorRequestFields } from "./vendor-request-fields";
 
 export interface RequestFormProps {
   disableBankAccountSelection?: boolean;
@@ -85,8 +80,6 @@ function RequestFormInner({
   const [bankAccounts, bankAccountsResult] = useQuery(
     queries.bankAccount.bankAccountsByCurrentUser()
   );
-  const [vendors] = useQuery(queries.vendor.approved());
-  const [pendingVendors] = useQuery(queries.vendor.pendingByCurrentUser());
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
@@ -94,29 +87,14 @@ function RequestFormInner({
 
   const categoryList = (categories ?? []) as ExpenseCategory[];
   const bankAccountList = (bankAccounts ?? []) as BankAccount[];
-  const approvedVendorList = (vendors ?? []) as Vendor[];
-  const pendingVendorList = (pendingVendors ?? []) as Vendor[];
-
-  const vendorList = [...approvedVendorList, ...pendingVendorList].sort(
-    (a, b) => a.name.localeCompare(b.name)
-  );
 
   const bankAccountOptions = bankAccountList.map((account) => ({
     label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
     value: account.id,
   }));
 
-  const vendorOptions = vendorList.map((v) => ({
-    label: v.status === "pending" ? `${v.name} (pending approval)` : v.name,
-    value: v.id,
-  }));
-
-  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
-
   const defaultBankAccount =
     bankAccountList.find((a) => a.isDefault) ?? bankAccountList[0];
-
-  const isVendorPayment = requestType === "vendor_payment";
 
   const strippedInitialValues = (() => {
     if (!initialValues || requestType === "reimbursement") {
@@ -199,24 +177,6 @@ function RequestFormInner({
       bankAccountApplied.current = true;
     }
   }, [defaultBankAccount, form, isEdit, hasInitialBankAccount]);
-
-  if (isVendorPayment) {
-    return (
-      <FormLayout className="flex flex-col gap-4" form={form}>
-        <VendorRequestFields
-          categoryList={categoryList}
-          entityId={entityId}
-          form={form}
-          isEdit={isEdit}
-          onCancel={onCancel}
-          onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
-          onVendorDialogOpenChange={setVendorDialogOpen}
-          vendorDialogOpen={vendorDialogOpen}
-          vendorOptions={vendorOptions}
-        />
-      </FormLayout>
-    );
-  }
 
   let bankAccountsStatus: "loading" | "complete" | "error" = "complete";
   if (bankAccountList.length === 0 && bankAccountsResult.type !== "complete") {

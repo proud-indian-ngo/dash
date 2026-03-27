@@ -25,21 +25,6 @@ export function buildMutation(
   const attachments = value.attachments;
   const id = existingId ?? entityId;
 
-  if (value.type === "vendor_payment") {
-    const payload = {
-      id,
-      vendorId: value.vendorId,
-      title: value.title,
-      invoiceNumber: value.invoiceNumber,
-      invoiceDate: requireDate(value.invoiceDate, "invoiceDate"),
-      lineItems,
-      attachments,
-    };
-    return existingId
-      ? zero.mutate(mutators.vendorPayment.update(payload))
-      : zero.mutate(mutators.vendorPayment.create(payload));
-  }
-
   const selectedAccount = bankAccountList.find(
     (account) => account.accountNumber === value.bankAccountNumber
   );

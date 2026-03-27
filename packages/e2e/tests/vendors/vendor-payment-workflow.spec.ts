@@ -11,14 +11,10 @@ test.describe("Vendor payment approval workflow (admin)", () => {
   ): Promise<string> {
     const title = `E2E VP ${titleSuffix} ${Date.now()}`;
 
-    await page.goto("/requests/new");
+    await page.goto("/vendor-payments/new");
     await expect(
-      page.getByRole("heading", { name: "New Request" })
+      page.getByRole("heading", { name: "New Vendor Payment" })
     ).toBeVisible();
-
-    // Select Vendor Payment type
-    await page.getByLabel("Type").click();
-    await page.getByRole("option", { name: "Vendor Payment" }).click();
 
     // Fill title
     await page.getByLabel("Title").fill(title);
@@ -62,8 +58,6 @@ test.describe("Vendor payment approval workflow (admin)", () => {
 
       await dialog.getByRole("button", { name: /Create/i }).click();
       await expect(dialog).toBeHidden({ timeout: 10_000 });
-
-      // The vendor should now be auto-selected
     }
 
     // Fill invoice date
@@ -91,7 +85,9 @@ test.describe("Vendor payment approval workflow (admin)", () => {
     // Submit
     await page.getByRole("button", { name: "Submit" }).click();
 
-    await page.waitForURL(/\/requests\/[a-z0-9-]+$/, { timeout: 15_000 });
+    await page.waitForURL(/\/vendor-payments\/[a-z0-9-]+$/, {
+      timeout: 15_000,
+    });
 
     return title;
   }

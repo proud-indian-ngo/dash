@@ -22,7 +22,7 @@ import { LineItemsEditor } from "@/components/form/line-items-editor";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import type { Attachment } from "@/lib/form-schemas";
 
-interface VendorRequestFieldsProps {
+interface VendorPaymentFieldsProps {
   categoryList: ExpenseCategory[];
   entityId: string;
   form: FormWithField;
@@ -34,7 +34,7 @@ interface VendorRequestFieldsProps {
   vendorOptions: { label: string; value: string }[];
 }
 
-export function VendorRequestFields({
+export function VendorPaymentFields({
   categoryList,
   entityId,
   form,
@@ -44,7 +44,7 @@ export function VendorRequestFields({
   vendorDialogOpen,
   vendorOptions,
   onVendorDialogOpenChange,
-}: VendorRequestFieldsProps) {
+}: VendorPaymentFieldsProps) {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">

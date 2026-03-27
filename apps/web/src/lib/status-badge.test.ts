@@ -1,36 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { STATUS_BADGE_MAP } from "./status-badge";
+import { getStatusBadge } from "./status-badge";
 
-describe("STATUS_BADGE_MAP", () => {
+describe("getStatusBadge", () => {
   it('maps draft to "Draft" label with "secondary" variant', () => {
-    expect(STATUS_BADGE_MAP.draft).toEqual({
+    expect(getStatusBadge("draft")).toEqual({
       label: "Draft",
       variant: "secondary",
     });
   });
 
   it('maps pending to "Pending" label with "warning-outline" variant', () => {
-    expect(STATUS_BADGE_MAP.pending).toEqual({
+    expect(getStatusBadge("pending")).toEqual({
       label: "Pending",
       variant: "warning-outline",
     });
   });
 
   it('maps approved to "Approved" label with "success-outline" variant', () => {
-    expect(STATUS_BADGE_MAP.approved).toEqual({
+    expect(getStatusBadge("approved")).toEqual({
       label: "Approved",
       variant: "success-outline",
     });
   });
 
   it('maps rejected to "Rejected" label with "destructive-outline" variant', () => {
-    expect(STATUS_BADGE_MAP.rejected).toEqual({
+    expect(getStatusBadge("rejected")).toEqual({
       label: "Rejected",
       variant: "destructive-outline",
     });
   });
 
-  it("has exactly 4 entries", () => {
-    expect(Object.keys(STATUS_BADGE_MAP)).toHaveLength(4);
+  it('maps partially_paid to "Partially Paid" with "warning-outline" variant', () => {
+    expect(getStatusBadge("partially_paid")).toEqual({
+      label: "Partially Paid",
+      variant: "warning-outline",
+    });
+  });
+
+  it('maps paid to "Paid" with "success-outline" variant', () => {
+    expect(getStatusBadge("paid")).toEqual({
+      label: "Paid",
+      variant: "success-outline",
+    });
+  });
+
+  it("returns fallback for unknown status", () => {
+    expect(getStatusBadge("unknown_status")).toEqual({
+      label: "Unknown",
+      variant: "secondary",
+    });
+  });
+
+  it("returns fallback for null", () => {
+    expect(getStatusBadge(null)).toEqual({
+      label: "Draft",
+      variant: "secondary",
+    });
   });
 });

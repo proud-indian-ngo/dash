@@ -14,4 +14,5 @@ export * from "./shared";
 export * from "./team";
 export * from "./team-event";
 export * from "./vendor";
+export * from "./vendor-payment-transaction";
 export * from "./whatsapp-group";
