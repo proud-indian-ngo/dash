@@ -22,7 +22,8 @@ import { getStatusBadge } from "@/lib/status-badge";
 import { TransactionFormDialog } from "./vendor-payment-transaction-form";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
-const PAYABLE_STATUSES = new Set<string>([
+const RECORDABLE_STATUSES = new Set<string>([
+  "pending",
   "approved",
   "partially_paid",
   "paid",
@@ -48,7 +49,7 @@ export function VendorPaymentTransactions({
   const canRecord = hasPermission("requests.record_payment");
   const showRecordButton =
     canRecord &&
-    PAYABLE_STATUSES.has(request.status as string) &&
+    RECORDABLE_STATUSES.has(request.status as string) &&
     (isOwner || canApprove);
 
   // biome-ignore lint/suspicious/noExplicitAny: Zero query result shape
@@ -119,7 +120,7 @@ export function VendorPaymentTransactions({
     }
   };
 
-  if (!PAYABLE_STATUSES.has(request.status as string)) {
+  if (!RECORDABLE_STATUSES.has(request.status as string)) {
     return null;
   }
 

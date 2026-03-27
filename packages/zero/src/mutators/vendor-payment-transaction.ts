@@ -83,15 +83,23 @@ export const vendorPaymentTransactionMutators = {
     );
     assertEntityExists(vendorPayment, "Vendor payment");
 
-    if (!PAYABLE_STATUSES.has(vendorPayment.status as string)) {
-      throw new Error(
-        "Can only record payments against approved vendor payments"
-      );
+    // Must be VP submitter or have approve permission
+    const isVpOwner = vendorPayment.userId === userId;
+    const isAdmin = can(ctx, "requests.approve");
+    if (!(isVpOwner || isAdmin)) {
+      throw new Error("Unauthorized");
     }
 
-    // Must be VP submitter or have approve permission
-    if (vendorPayment.userId !== userId && !can(ctx, "requests.approve")) {
-      throw new Error("Unauthorized");
+    const vpStatus = vendorPayment.status as string;
+    // Pending VPs allow transactions from submitter or admin;
+    // approved/partially_paid/paid always allow transactions
+    if (vpStatus === "rejected") {
+      throw new Error(
+        "Cannot record payments against rejected vendor payments"
+      );
+    }
+    if (!PAYABLE_STATUSES.has(vpStatus) && vpStatus !== "pending") {
+      throw new Error("Cannot record payments against this vendor payment");
     }
 
     const now = Date.now();
