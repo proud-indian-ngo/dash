@@ -74,9 +74,14 @@ function UsersRouteComponent() {
 
   useEffect(() => {
     getRoleOptions()
-      .then((roles) =>
-        setRoleSelectOptions(roles.map((r) => ({ label: r.name, value: r.id })))
-      )
+      .then((roles) => {
+        if (!roles) {
+          return;
+        }
+        setRoleSelectOptions(
+          roles.map((r) => ({ label: r.name, value: r.id }))
+        );
+      })
       .catch((error: unknown) => {
         log.error({
           component: "UsersRoute",

@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/db/schema/permission";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, sql } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
@@ -53,10 +54,18 @@ export type RoleListItem = Awaited<ReturnType<typeof getRoles>>[number];
 export const getRoleOptions = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async () => {
-    return await db
-      .select({ id: role.id, name: role.name })
-      .from(role)
-      .orderBy(role.name);
+    try {
+      return await db
+        .select({ id: role.id, name: role.name })
+        .from(role)
+        .orderBy(role.name);
+    } catch (error) {
+      const log = createRequestLogger();
+      log.set({ handler: "getRoleOptions" });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
+      throw error;
+    }
   });
 
 // ── Get single role with its permission IDs ──
