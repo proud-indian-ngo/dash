@@ -12,10 +12,7 @@
     {
       "description": "Keep Zero client and server in sync",
       "groupName": "zero",
-      "matchPackageNames": [
-        "/^@rocicorp/zero/",
-        "/^rocicorp/zero/"
-      ]
+      "matchPackageNames": ["/^@rocicorp/zero/", "/^rocicorp/zero/"]
     },
     {
       "description": "Keep Bun runtime and Docker image in sync",
