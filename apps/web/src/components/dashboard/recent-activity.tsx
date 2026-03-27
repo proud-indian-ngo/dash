@@ -17,7 +17,7 @@ import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { formatINR } from "@/lib/form-schemas";
-import { STATUS_BADGE_MAP, type StatusBadgeVariant } from "@/lib/status-badge";
+import { getStatusBadge, type StatusBadgeVariant } from "@/lib/status-badge";
 
 interface RequestItem {
   createdAt: number;
@@ -158,9 +158,9 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
   return (
     <div className="space-y-3">
       {activities.map((activity) => {
-        const statusInfo =
-          activity.status &&
-          STATUS_BADGE_MAP[activity.status as keyof typeof STATUS_BADGE_MAP];
+        const statusInfo = activity.status
+          ? getStatusBadge(activity.status)
+          : null;
         return (
           <div className="flex items-start gap-3" key={activity.id}>
             <HugeiconsIcon

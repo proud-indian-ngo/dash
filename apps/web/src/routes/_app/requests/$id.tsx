@@ -9,7 +9,7 @@ import { RequestDetail } from "@/components/requests/request-detail";
 import { RequestForm } from "@/components/requests/request-form";
 import { useApp } from "@/context/app-context";
 import type { RequestDetailData, RequestType } from "@/lib/request-types";
-import { isVendorPayment, REQUEST_TYPE_LABELS } from "@/lib/request-types";
+import { REQUEST_TYPE_LABELS } from "@/lib/request-types";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -22,7 +22,6 @@ export const Route = createFileRoute("/_app/requests/$id")({
   loader: ({ context, params }) => {
     context.zero?.preload(queries.reimbursement.byId({ id: params.id }));
     context.zero?.preload(queries.advancePayment.byId({ id: params.id }));
-    context.zero?.preload(queries.vendorPayment.byId({ id: params.id }));
   },
   component: RequestDetailRouteComponent,
 });
@@ -39,11 +38,9 @@ function useResolvedRequest(id: string): {
 } {
   const [reimbursement, r1] = useQuery(queries.reimbursement.byId({ id }));
   const [advancePayment, r2] = useQuery(queries.advancePayment.byId({ id }));
-  const [vendorPayment, r3] = useQuery(queries.vendorPayment.byId({ id }));
-  const allNotComplete =
-    r1.type !== "complete" && r2.type !== "complete" && r3.type !== "complete";
+  const allNotComplete = r1.type !== "complete" && r2.type !== "complete";
 
-  if (!(reimbursement || advancePayment || vendorPayment) && allNotComplete) {
+  if (!(reimbursement || advancePayment) && allNotComplete) {
     return { isLoading: true, resolved: null };
   }
 
@@ -67,20 +64,6 @@ function useResolvedRequest(id: string): {
           type: "advance_payment",
         } as RequestDetailData,
         type: "advance_payment",
-        expenseDate: undefined,
-      },
-    };
-  }
-
-  if (vendorPayment) {
-    return {
-      isLoading: false,
-      resolved: {
-        data: {
-          ...vendorPayment,
-          type: "vendor_payment",
-        } as RequestDetailData,
-        type: "vendor_payment",
         expenseDate: undefined,
       },
     };
@@ -115,14 +98,6 @@ function RequestDetailRouteComponent() {
 function buildInitialValues(resolved: ResolvedRequest) {
   const { data: request, type: requestType, expenseDate } = resolved;
 
-  const vendorInitialValues = isVendorPayment(request)
-    ? {
-        vendorId: request.vendorId,
-        invoiceNumber: request.invoiceNumber ?? "",
-        invoiceDate: new Date(request.invoiceDate),
-      }
-    : {};
-
   return {
     id: request.id,
     type: requestType,
@@ -138,7 +113,6 @@ function buildInitialValues(resolved: ResolvedRequest) {
     lineItems: mapLineItemsToFormValues(request.lineItems),
     attachments: mapAttachmentsToFormValues(request.attachments),
     ...(expenseDate ? { expenseDate } : {}),
-    ...vendorInitialValues,
   };
 }
 

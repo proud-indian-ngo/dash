@@ -8,12 +8,12 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+import { format } from "date-fns";
 import { log } from "evlog";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { RequestHeaderMeta } from "@/components/requests/request-header-meta";
 import { HistoryEntry } from "@/components/requests/request-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
@@ -22,52 +22,50 @@ import {
   getAttachmentPreviewHref,
   getDirectAttachmentUrl,
 } from "@/lib/attachment-links";
+import { LONG_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
-import {
-  REQUEST_TYPE_LABELS,
-  type RequestDetailData,
-} from "@/lib/request-types";
 import { getStatusBadge } from "@/lib/status-badge";
+import { VendorBankCard, VendorDetailsCard } from "./vendor-details-card";
+import { VendorPaymentTransactions } from "./vendor-payment-transactions";
+import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
-interface RequestDetailProps {
+interface VendorPaymentDetailProps {
   canApprove: boolean;
-  request: RequestDetailData;
+  isOwner: boolean;
+  request: VendorPaymentWithRelations;
 }
 
-export function RequestDetail({ canApprove, request }: RequestDetailProps) {
+export function VendorPaymentDetail({
+  canApprove,
+  isOwner,
+  request,
+}: VendorPaymentDetailProps) {
   const zero = useZero();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
-  const typeLabel = REQUEST_TYPE_LABELS[request.type];
-
-  const mutatorMap = {
-    reimbursement: { ns: mutators.reimbursement, name: "reimbursement" },
-    advance_payment: { ns: mutators.advancePayment, name: "advancePayment" },
-  } as const;
-  const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
-
   const { label, variant } = getStatusBadge(request.status);
 
-  const total = request.lineItems.reduce(
-    (sum, item) => sum + Number(item.amount),
+  const total = (request.lineItems ?? []).reduce(
+    (sum: number, item: { amount: number | string }) =>
+      sum + Number(item.amount),
     0
   );
 
   const handleApprove = async (message: string, screenshotKey?: string) => {
     const res = await zero.mutate(
-      mutatorNs.approve({
+      mutators.vendorPayment.approve({
         id: request.id,
         note: message || undefined,
         approvalScreenshotKey: screenshotKey,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: `${mutatorName}.approve`,
+      mutation: "vendorPayment.approve",
       entityId: request.id,
-      successMsg: `${typeLabel} approved`,
-      errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
+      successMsg: "Vendor payment approved",
+      errorMsg: "Failed to approve vendor payment",
     });
     if (res.type === "error" && screenshotKey) {
       const { deleteUploadedAsset } = await import("@/functions/attachments");
@@ -75,7 +73,7 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
       }).catch((error) => {
         log.error({
-          component: "RequestDetail",
+          component: "VendorPaymentDetail",
           action: "cleanupScreenshot",
           screenshotKey,
           error: error instanceof Error ? error.message : String(error),
@@ -88,13 +86,14 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
   };
 
   const handleReject = async (reason: string) => {
-    const res = await zero.mutate(mutatorNs.reject({ id: request.id, reason }))
-      .server;
+    const res = await zero.mutate(
+      mutators.vendorPayment.reject({ id: request.id, reason })
+    ).server;
     handleMutationResult(res, {
-      mutation: `${mutatorName}.reject`,
+      mutation: "vendorPayment.reject",
       entityId: request.id,
-      successMsg: `${typeLabel} rejected`,
-      errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,
+      successMsg: "Vendor payment rejected",
+      errorMsg: "Failed to reject vendor payment",
     });
     if (res.type !== "error") {
       setRejectOpen(false);
@@ -107,13 +106,20 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display font-semibold text-2xl tracking-tight">
-                {request.title}
-              </h1>
-              <Badge variant="outline">{typeLabel}</Badge>
+            <h1 className="font-display font-semibold text-2xl tracking-tight">
+              {request.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+              {request.vendor ? (
+                <span>Vendor: {request.vendor.name}</span>
+              ) : null}
+              {request.invoiceNumber ? (
+                <span>Invoice: {request.invoiceNumber}</span>
+              ) : null}
+              {request.invoiceDate ? (
+                <span>{format(request.invoiceDate, LONG_DATE)}</span>
+              ) : null}
             </div>
-            <RequestHeaderMeta request={request} />
             {request.user ? (
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-muted-foreground text-sm">
@@ -131,8 +137,11 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
           <Badge variant={variant}>{label}</Badge>
         </div>
 
+        {/* Vendor details */}
+        <VendorDetailsCard vendor={request.vendor} />
+
         {/* Bank account details */}
-        <BankAccountCard request={request} />
+        <VendorBankCard vendor={request.vendor} />
 
         {/* Admin actions */}
         {canApprove && request.status === "pending" ? (
@@ -176,46 +185,29 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
         ) : null}
 
         {/* Payment proof */}
-        {request.status === "approved" && request.approvalScreenshotKey ? (
+        {request.approvalScreenshotKey ? (
           <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-(--ease-out-expo)">
             <h2 className="font-medium text-sm">Payment proof</h2>
-            <div className="flex flex-col items-start gap-1.5">
-              <a
-                href={getDirectAttachmentUrl(request.approvalScreenshotKey)}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <img
-                  alt="Payment proof"
-                  className="h-24 w-24 rounded-md border object-cover"
-                  height={96}
-                  src={getDirectAttachmentUrl(request.approvalScreenshotKey)}
-                  width={96}
-                />
-              </a>
-              <a
-                className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                download
-                href={getAttachmentDownloadHref({
-                  type: "file",
-                  objectKey: request.approvalScreenshotKey,
-                  filename: "payment-proof",
-                  mimeType: "image/jpeg",
-                  url: null,
-                })}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Download
-              </a>
-            </div>
+            <a
+              href={getDirectAttachmentUrl(request.approvalScreenshotKey)}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <img
+                alt="Payment proof"
+                className="h-24 w-24 rounded-md border object-cover"
+                height={96}
+                src={getDirectAttachmentUrl(request.approvalScreenshotKey)}
+                width={96}
+              />
+            </a>
           </div>
         ) : null}
 
         {/* Line items */}
         <div className="flex flex-col gap-3">
           <h2 className="font-medium text-sm">Line items</h2>
-          {request.lineItems.length > 0 ? (
+          {(request.lineItems ?? []).length > 0 ? (
             <div className="overflow-hidden rounded-md border">
               <table className="w-full text-sm">
                 <thead>
@@ -230,19 +222,26 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {request.lineItems.map((item) => (
-                    <tr className="border-b last:border-0" key={item.id}>
-                      <td className="px-3 py-2">
-                        {item.category?.name ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {item.description ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {formatINR(Number(item.amount))}
-                      </td>
-                    </tr>
-                  ))}
+                  {(request.lineItems ?? []).map(
+                    (item: {
+                      id: string;
+                      amount: number | string;
+                      description?: string | null;
+                      category?: { name: string } | undefined;
+                    }) => (
+                      <tr className="border-b last:border-0" key={item.id}>
+                        <td className="px-3 py-2">
+                          {item.category?.name ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {item.description ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {formatINR(Number(item.amount))}
+                        </td>
+                      </tr>
+                    )
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50">
@@ -264,73 +263,77 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
         </div>
 
         {/* Attachments */}
-        {request.attachments.length > 0 ? (
+        {(request.attachments ?? []).length > 0 ? (
           <div className="flex flex-col gap-3">
             <h2 className="font-medium text-sm">Attachments</h2>
             <div className="flex flex-col gap-1.5">
-              {request.attachments.map((att) => (
-                <div
-                  className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
-                  key={att.id}
-                >
-                  <span className="min-w-0 truncate text-sm">
-                    {getAttachmentLabel(att)}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {att.type === "url" ? (
-                      <a
-                        className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                        href={getAttachmentPreviewHref(att)}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        View link
-                        <span className="sr-only">
-                          {getAttachmentLabel(att)} (opens in new tab)
-                        </span>
-                      </a>
-                    ) : (
-                      <>
+              {(request.attachments ?? []).map(
+                (att: {
+                  id: string;
+                  type: "file" | "url";
+                  filename?: string | null;
+                  objectKey?: string | null;
+                  url?: string | null;
+                  mimeType?: string | null;
+                }) => (
+                  <div
+                    className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
+                    key={att.id}
+                  >
+                    <span className="min-w-0 truncate text-sm">
+                      {getAttachmentLabel(att)}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      {att.type === "url" ? (
                         <a
                           className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                           href={getAttachmentPreviewHref(att)}
                           rel="noopener noreferrer"
                           target="_blank"
                         >
-                          Preview
-                          <span className="sr-only">
-                            {getAttachmentLabel(att)} (opens in new tab)
-                          </span>
+                          View link
                         </a>
-                        <a
-                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                          download
-                          href={getAttachmentDownloadHref(att)}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Download
-                          <span className="sr-only">
-                            {getAttachmentLabel(att)} (opens in new tab)
-                          </span>
-                        </a>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <a
+                            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                            href={getAttachmentPreviewHref(att)}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            Preview
+                          </a>
+                          <a
+                            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                            download
+                            href={getAttachmentDownloadHref(att)}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            Download
+                          </a>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </div>
         ) : null}
 
+        {/* Transactions */}
+        <VendorPaymentTransactions isOwner={isOwner} request={request} />
+
         {/* History */}
-        {request.history.length > 0 ? (
+        {(request.history ?? []).length > 0 ? (
           <>
             <Separator />
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {request.history.map((entry) => (
+                {/* biome-ignore lint/suspicious/noExplicitAny: VP history entries from Zero */}
+                {(request.history ?? []).map((entry: any) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>
@@ -340,60 +343,18 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
 
         <ApproveDialog
           entityId={request.id}
-          entityLabel={typeLabel.toLowerCase()}
+          entityLabel="vendor payment"
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
         />
         <RejectDialog
-          entityLabel={typeLabel.toLowerCase()}
+          entityLabel="vendor payment"
           onConfirm={handleReject}
           onOpenChange={setRejectOpen}
           open={rejectOpen}
         />
       </div>
     </AppErrorBoundary>
-  );
-}
-
-function getBankDetails(request: RequestDetailData) {
-  return {
-    name: request.bankAccountName?.trim() || null,
-    number: request.bankAccountNumber?.trim() || null,
-    ifsc: request.bankAccountIfscCode?.trim() || null,
-  };
-}
-
-function BankAccountCard({ request }: { request: RequestDetailData }) {
-  const bank = getBankDetails(request);
-
-  if (!(bank && (bank.name || bank.number || bank.ifsc))) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
-      <h2 className="font-medium text-sm">Bank account details</h2>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
-        {bank.name ? (
-          <div>
-            <p className="text-muted-foreground text-xs">Account name</p>
-            <p className="text-sm">{bank.name}</p>
-          </div>
-        ) : null}
-        {bank.number ? (
-          <div>
-            <p className="text-muted-foreground text-xs">Account number</p>
-            <p className="font-mono text-sm">{bank.number}</p>
-          </div>
-        ) : null}
-        {bank.ifsc ? (
-          <div>
-            <p className="text-muted-foreground text-xs">IFSC code</p>
-            <p className="font-mono text-sm">{bank.ifsc}</p>
-          </div>
-        ) : null}
-      </div>
-    </div>
   );
 }

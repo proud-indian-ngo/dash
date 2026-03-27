@@ -49,6 +49,12 @@ export const PERMISSIONS = [
     description: "Approve or reject pending requests",
   },
   {
+    id: "requests.record_payment",
+    name: "Record Payments",
+    category: "requests",
+    description: "Record payment transactions against approved vendor payments",
+  },
+  {
     id: "requests.export",
     name: "Export Requests",
     category: "requests",
@@ -305,6 +311,7 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "requests.view_own",
   "requests.edit_own",
   "requests.delete_own",
+  "requests.record_payment",
   "vendors.create",
   "teams.view_own",
   "events.view_own",

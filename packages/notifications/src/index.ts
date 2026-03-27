@@ -51,5 +51,10 @@ export {
   notifyVendorPaymentRejected,
   notifyVendorPaymentSubmitted,
 } from "./send/vendor-payment";
+export {
+  notifyVendorPaymentTransactionApproved,
+  notifyVendorPaymentTransactionRejected,
+  notifyVendorPaymentTransactionSubmitted,
+} from "./send/vendor-payment-transaction";
 export type { Topic, TopicMeta } from "./topics";
 export { TOPIC_CATALOG, TOPICS } from "./topics";

@@ -6,7 +6,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { formatINR } from "@/lib/form-schemas";
-import { STATUS_BADGE_MAP } from "@/lib/status-badge";
+import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorRow } from "@/lib/vendor-types";
 
 interface VendorDetailSheetProps {
@@ -40,16 +40,10 @@ export function VendorDetailSheet({
 
             <div className="flex flex-col gap-6 px-6 pb-6">
               {(() => {
-                const statusKey = vendor.status as
-                  | keyof typeof STATUS_BADGE_MAP
-                  | null;
-                const badge = statusKey ? STATUS_BADGE_MAP[statusKey] : null;
+                const badge = getStatusBadge(vendor.status);
                 return (
-                  <Badge
-                    className="w-fit"
-                    variant={badge?.variant ?? "secondary"}
-                  >
-                    {badge?.label ?? "Unknown"}
+                  <Badge className="w-fit" variant={badge.variant}>
+                    {badge.label}
                   </Badge>
                 );
               })()}

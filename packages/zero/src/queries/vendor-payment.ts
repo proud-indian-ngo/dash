@@ -11,7 +11,14 @@ function withRelated(q: typeof zql.vendorPayment) {
     .related("attachments", (a) => a.orderBy("createdAt", "asc"))
     .related("history", (h) => h.orderBy("createdAt", "asc"))
     .related("user")
-    .related("vendor");
+    .related("vendor")
+    .related("transactions", (t) =>
+      t
+        .orderBy("createdAt", "desc")
+        .related("user")
+        .related("attachments", (a) => a.orderBy("createdAt", "asc"))
+        .related("history", (h) => h.orderBy("createdAt", "asc"))
+    );
 }
 
 export const vendorPaymentQueries = {

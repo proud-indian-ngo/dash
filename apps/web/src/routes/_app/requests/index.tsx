@@ -30,7 +30,6 @@ const STATUS_OPTIONS = [
 const TYPE_OPTIONS = [
   { label: "Reimbursement", value: "reimbursement" },
   { label: "Advance Payment", value: "advance_payment" },
-  { label: "Vendor Payment", value: "vendor_payment" },
 ];
 
 export const Route = createFileRoute("/_app/requests/")({
@@ -40,7 +39,6 @@ export const Route = createFileRoute("/_app/requests/")({
   loader: ({ context }) => {
     context.zero?.preload(queries.reimbursement.all());
     context.zero?.preload(queries.advancePayment.all());
-    context.zero?.preload(queries.vendorPayment.all());
   },
   component: RequestsRouteComponent,
 });
@@ -49,20 +47,14 @@ function fetchRequestItem(zero: ReturnType<typeof useZero>, row: RequestRow) {
   if (row.type === "reimbursement") {
     return zero.run(queries.reimbursement.byId({ id: row.id }));
   }
-  if (row.type === "advance_payment") {
-    return zero.run(queries.advancePayment.byId({ id: row.id }));
-  }
-  return zero.run(queries.vendorPayment.byId({ id: row.id }));
+  return zero.run(queries.advancePayment.byId({ id: row.id }));
 }
 
 function getMutatorNs(type: RequestRow["type"]) {
   if (type === "reimbursement") {
     return mutators.reimbursement;
   }
-  if (type === "advance_payment") {
-    return mutators.advancePayment;
-  }
-  return mutators.vendorPayment;
+  return mutators.advancePayment;
 }
 
 function RequestsRouteComponent() {
@@ -71,14 +63,11 @@ function RequestsRouteComponent() {
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
-  const [vendorPayments, r3] = useQuery(queries.vendorPayment.all());
   const isLoading =
     reimbursements.length === 0 &&
     advancePayments.length === 0 &&
-    vendorPayments.length === 0 &&
     r1.type !== "complete" &&
-    r2.type !== "complete" &&
-    r3.type !== "complete";
+    r2.type !== "complete";
 
   const [statusFilter, setStatusFilter] = useQueryState(
     "status",
@@ -91,8 +80,7 @@ function RequestsRouteComponent() {
 
   const allData = normalizeToRequestRows(
     reimbursements ?? [],
-    advancePayments ?? [],
-    vendorPayments ?? []
+    advancePayments ?? []
   );
 
   const filteredData = (() => {

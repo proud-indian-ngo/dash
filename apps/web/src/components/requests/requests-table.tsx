@@ -29,7 +29,7 @@ import {
   REQUEST_TYPE_LABELS,
   type RequestRow,
 } from "@/lib/request-types";
-import { STATUS_BADGE_MAP } from "@/lib/status-badge";
+import { getStatusBadge } from "@/lib/status-badge";
 
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
   return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
@@ -112,7 +112,7 @@ function searchRequest(row: RequestRow, query: string): boolean {
   }
   return [
     row.title,
-    row.type === "vendor_payment" ? "" : (row.city ?? ""),
+    row.city ?? "",
     row.status,
     row.user?.name ?? "",
     REQUEST_TYPE_LABELS[row.type],
@@ -137,7 +137,7 @@ export function RequestsTable({
 
   const [deleteTarget, setDeleteTarget] = useState<{
     row: RequestRow;
-    type: "reimbursement" | "advance_payment" | "vendor_payment";
+    type: "reimbursement" | "advance_payment";
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const onDeleteRef = useRef(onDelete);
@@ -246,9 +246,7 @@ export function RequestsTable({
         />
       ),
       cell: ({ row }) => {
-        const { label, variant } =
-          STATUS_BADGE_MAP[row.original.status ?? "draft"] ??
-          STATUS_BADGE_MAP.draft;
+        const { label, variant } = getStatusBadge(row.original.status);
         return <Badge variant={variant}>{label}</Badge>;
       },
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },

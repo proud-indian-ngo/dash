@@ -6,7 +6,6 @@
     "./schema": "./src/schema.ts",
     "./queries": "./src/queries.ts",
     "./mutators": "./src/mutators.ts",
-    "./validation": "./src/validation.ts",
     "./lib/recurrence": "./src/lib/recurrence.ts",
     "./vendor-patterns": "./src/vendor-patterns.ts"
   },

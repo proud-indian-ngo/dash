@@ -12,6 +12,7 @@ import { teamMutators } from "./mutators/team";
 import { teamEventMutators } from "./mutators/team-event";
 import { vendorMutators } from "./mutators/vendor";
 import { vendorPaymentMutators } from "./mutators/vendor-payment";
+import { vendorPaymentTransactionMutators } from "./mutators/vendor-payment-transaction";
 import { whatsappGroupMutators } from "./mutators/whatsapp-group";
 
 export const mutators = defineMutators({
@@ -28,5 +29,6 @@ export const mutators = defineMutators({
   teamEvent: teamEventMutators,
   vendor: vendorMutators,
   vendorPayment: vendorPaymentMutators,
+  vendorPaymentTransaction: vendorPaymentTransactionMutators,
   whatsappGroup: whatsappGroupMutators,
 });
