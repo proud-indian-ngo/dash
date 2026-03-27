@@ -66,6 +66,9 @@ temp
 .grepai/
 .desloppify/
 
+# Worktrees
+.worktrees/
+
 # Playwright
 packages/e2e/.auth/
 packages/e2e/test-results/
