@@ -1,4 +1,4 @@
-# pi-dash
+# Proud Indian Dashboard
 
 A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process financial request workflows (reimbursements and advance payments) — with real-time data sync powered by Rocicorp Zero and multi-channel notifications via Courier.
 
