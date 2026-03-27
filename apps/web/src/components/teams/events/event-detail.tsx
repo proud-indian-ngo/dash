@@ -31,6 +31,7 @@ import {
   VolunteerInterestSection,
 } from "./event-interest-section";
 import { EventMembersSection } from "./event-members-section";
+import { EventFeedbackSection } from "./event-feedback";
 import { EventPhotos } from "./event-photos";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
@@ -162,6 +163,14 @@ export function EventDetail({
     queries.eventImmichAlbum.byEvent({ eventId: event.id })
   );
 
+  const [feedback] = useQuery(
+    queries.eventFeedback.byEvent({ eventId: event.id })
+  );
+
+  const feedbackDeadlinePassed = event.feedbackDeadline
+    ? new Date(event.feedbackDeadline) < new Date()
+    : false;
+
   const immichAlbumUrl =
     album?.immichAlbumId && env.VITE_IMMICH_URL
       ? `${env.VITE_IMMICH_URL.replace(TRAILING_SLASH, "")}/albums/${album.immichAlbumId}`
@@ -253,6 +262,12 @@ export function EventDetail({
                     ? ` (${approvedPhotos.length})`
                     : ""}
                 </TabsTrigger>
+                {event.feedbackEnabled && isPastEvent ? (
+                  <TabsTrigger value="feedback">
+                    Feedback
+                    {feedback.length > 0 ? ` (${feedback.length})` : ""}
+                  </TabsTrigger>
+                ) : null}
               </TabsList>
               <TabsContent value="updates">
                 <EventUpdates
@@ -272,6 +287,18 @@ export function EventDetail({
                   pendingPhotos={pendingPhotos}
                 />
               </TabsContent>
+              {event.feedbackEnabled && isPastEvent ? (
+                <TabsContent value="feedback">
+                  <EventFeedbackSection
+                    canManageFeedback={canManage}
+                    currentUserId={currentUserId}
+                    eventId={event.id}
+                    feedbackDeadline={event.feedbackDeadline}
+                    feedbackDeadlinePassed={feedbackDeadlinePassed}
+                    isMember={!!isMember}
+                  />
+                </TabsContent>
+              ) : null}
             </Tabs>
           </>
         ) : null}
