@@ -1,15 +1,25 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { format, formatDistanceToNow } from "date-fns";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { getMyEventFeedback } from "@/functions/event-feedback";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
+
+const PlateEditor = lazy(() =>
+  import("@/components/editor/plate-editor").then((m) => ({
+    default: m.PlateEditor,
+  }))
+);
+const PlateRenderer = lazy(() =>
+  import("@/components/editor/plate-renderer").then((m) => ({
+    default: m.PlateRenderer,
+  }))
+);
 
 interface EventFeedbackSectionProps {
   canManageFeedback: boolean;
@@ -87,7 +97,9 @@ function EventFeedbackAdmin({
               className="flex flex-col gap-2 rounded-lg border p-4"
               key={item.id}
             >
-              <p className="whitespace-pre-wrap text-sm">{item.content}</p>
+              <Suspense>
+                <PlateRenderer content={item.content} />
+              </Suspense>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground text-xs">
                   {formatDistanceToNow(new Date(item.createdAt), {
@@ -147,7 +159,6 @@ function EventFeedbackParticipant({
   const [loading, setLoading] = useState(true);
   const [myFeedback, setMyFeedback] = useState<MyFeedback | null>(null);
   const [editing, setEditing] = useState(false);
-  const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -178,10 +189,7 @@ function EventFeedbackParticipant({
     };
   }, [eventId]);
 
-  const handleSubmit = async () => {
-    if (!content.trim()) {
-      return;
-    }
+  const handleSubmit = async (content: string) => {
     setSaving(true);
     try {
       const feedbackId = uuidv7();
@@ -192,7 +200,7 @@ function EventFeedbackParticipant({
           feedbackId,
           submissionId,
           eventId,
-          content: content.trim(),
+          content,
           now,
         })
       ).server;
@@ -205,11 +213,10 @@ function EventFeedbackParticipant({
       if (res.type !== "error") {
         setMyFeedback({
           id: feedbackId,
-          content: content.trim(),
+          content,
           createdAt: now,
           updatedAt: now,
         });
-        setContent("");
       }
     } catch (err) {
       log.error({
@@ -223,8 +230,8 @@ function EventFeedbackParticipant({
     }
   };
 
-  const handleUpdate = async () => {
-    if (!(content.trim() && myFeedback)) {
+  const handleUpdate = async (content: string) => {
+    if (!myFeedback) {
       return;
     }
     setSaving(true);
@@ -232,7 +239,7 @@ function EventFeedbackParticipant({
       const res = await zero.mutate(
         mutators.eventFeedback.update({
           eventId,
-          content: content.trim(),
+          content,
           now: Date.now(),
         })
       ).server;
@@ -246,7 +253,7 @@ function EventFeedbackParticipant({
         const now = Date.now();
         setMyFeedback({
           ...myFeedback,
-          content: content.trim(),
+          content,
           updatedAt: now,
         });
         setEditing(false);
@@ -280,43 +287,16 @@ function EventFeedbackParticipant({
         </p>
       );
     }
-    return (
-      <div className="flex flex-col gap-2 rounded-lg border p-4">
-        <p className="whitespace-pre-wrap text-sm">{myFeedback.content}</p>
-        <span className="text-muted-foreground text-xs">
-          Submitted{" "}
-          {formatDistanceToNow(new Date(myFeedback.createdAt), {
-            addSuffix: true,
-          })}
-          {myFeedback.updatedAt === myFeedback.createdAt ? "" : " (edited)"}
-        </span>
-      </div>
-    );
+    return <FeedbackCard feedback={myFeedback} />;
   }
 
   // Has existing feedback — view or edit
   if (myFeedback && !editing) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2 rounded-lg border p-4">
-          <p className="whitespace-pre-wrap text-sm">{myFeedback.content}</p>
-          <span className="text-muted-foreground text-xs">
-            Submitted{" "}
-            {formatDistanceToNow(new Date(myFeedback.createdAt), {
-              addSuffix: true,
-            })}
-            {myFeedback.updatedAt === myFeedback.createdAt ? "" : " (edited)"}
-          </span>
-        </div>
+        <FeedbackCard feedback={myFeedback} />
         <div>
-          <Button
-            onClick={() => {
-              setContent(myFeedback.content);
-              setEditing(true);
-            }}
-            size="sm"
-            variant="outline"
-          >
+          <Button onClick={() => setEditing(true)} size="sm" variant="outline">
             Edit
           </Button>
         </div>
@@ -327,46 +307,50 @@ function EventFeedbackParticipant({
   // Editing existing feedback
   if (myFeedback && editing) {
     return (
-      <div className="flex flex-col gap-4">
-        <Textarea
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Update your feedback..."
-          rows={4}
-          value={content}
+      <Suspense>
+        <PlateEditor
+          content={myFeedback.content}
+          entityId={eventId}
+          key={`edit-${myFeedback.id}`}
+          onCancel={() => setEditing(false)}
+          onSave={handleUpdate}
+          saving={saving}
         />
-        <div className="flex gap-2">
-          <Button disabled={saving || !content.trim()} onClick={handleUpdate}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
-          <Button
-            disabled={saving}
-            onClick={() => {
-              setEditing(false);
-              setContent("");
-            }}
-            variant="ghost"
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
+      </Suspense>
     );
   }
 
   // New submission
   return (
-    <div className="flex flex-col gap-4">
-      <Textarea
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Share your anonymous feedback..."
-        rows={4}
-        value={content}
+    <Suspense>
+      <PlateEditor
+        entityId={eventId}
+        key="create"
+        onSave={handleSubmit}
+        saving={saving}
       />
-      <div>
-        <Button disabled={saving || !content.trim()} onClick={handleSubmit}>
-          {saving ? "Submitting..." : "Submit"}
-        </Button>
-      </div>
+    </Suspense>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared read-only feedback card
+// ---------------------------------------------------------------------------
+
+function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
+  const isEdited = feedback.updatedAt !== feedback.createdAt;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-4">
+      <Suspense>
+        <PlateRenderer content={feedback.content} />
+      </Suspense>
+      <span className="text-muted-foreground text-xs">
+        Submitted{" "}
+        {formatDistanceToNow(new Date(feedback.createdAt), {
+          addSuffix: true,
+        })}
+        {isEdited ? " (edited)" : ""}
+      </span>
     </div>
   );
 }
