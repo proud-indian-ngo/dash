@@ -49,6 +49,8 @@ export const teamEvent = pgTable(
       { onDelete: "set null" }
     ),
     cancelledAt: timestamp("cancelled_at"),
+    feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
+    feedbackDeadline: timestamp("feedback_deadline"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),

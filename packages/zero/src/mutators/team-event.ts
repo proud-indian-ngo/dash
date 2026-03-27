@@ -32,6 +32,8 @@ async function addUsersToEventWhatsAppGroup(
 interface UpdateArgs {
   description?: string;
   endTime?: number;
+  feedbackDeadline?: number | null;
+  feedbackEnabled?: boolean;
   id: string;
   isPublic?: boolean;
   location?: string;
@@ -52,6 +54,12 @@ function buildUpdateFields(args: UpdateArgs) {
     ...(args.startTime !== undefined && { startTime: args.startTime }),
     ...(args.endTime !== undefined && { endTime: args.endTime }),
     ...(args.isPublic !== undefined && { isPublic: args.isPublic }),
+    ...(args.feedbackEnabled !== undefined && {
+      feedbackEnabled: args.feedbackEnabled,
+    }),
+    ...(args.feedbackDeadline !== undefined && {
+      feedbackDeadline: args.feedbackDeadline ?? null,
+    }),
     ...(args.whatsappGroupId !== undefined && {
       whatsappGroupId: args.whatsappGroupId || null,
     }),
@@ -81,6 +89,8 @@ export const teamEventMutators = {
       whatsappGroupId: z.string().optional(),
       createWhatsAppGroup: z.boolean().optional(),
       copyAllMembers: z.boolean().optional(),
+      feedbackEnabled: z.boolean().optional(),
+      feedbackDeadline: z.number().nullable().optional(),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -108,6 +118,8 @@ export const teamEventMutators = {
         isPublic: args.isPublic ?? false,
         recurrenceRule: args.recurrenceRule ?? null,
         copyAllMembers: args.copyAllMembers ?? false,
+        feedbackEnabled: args.feedbackEnabled ?? false,
+        feedbackDeadline: args.feedbackDeadline ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
         parentEventId: null,
         cancelledAt: null,
@@ -210,6 +222,8 @@ export const teamEventMutators = {
       startTime: z.number().optional(),
       endTime: z.number().optional(),
       isPublic: z.boolean().optional(),
+      feedbackEnabled: z.boolean().optional(),
+      feedbackDeadline: z.number().nullable().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
