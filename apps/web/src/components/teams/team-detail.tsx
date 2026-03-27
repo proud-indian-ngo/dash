@@ -326,6 +326,8 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               } | null,
               startTime: editEventData.event.startTime,
               whatsappGroupId: editEventData.event.whatsappGroupId,
+              feedbackEnabled: !!editEventData.event.feedbackEnabled,
+              feedbackDeadline: editEventData.event.feedbackDeadline,
             }}
             onOpenChange={dialog.onOpenChange}
             open

@@ -183,6 +183,20 @@
       "when": 1774598724886,
       "tag": "0025_cute_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1774605988947,
+      "tag": "0026_right_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1774606264784,
+      "tag": "0027_bouncy_bug",
+      "breakpoints": true
     }
   ]
 }

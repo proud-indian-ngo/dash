@@ -36,6 +36,8 @@ const eventFormSchema = z.object({
   copyAllMembers: z.boolean(),
   whatsappGroupId: z.string().optional(),
   createWaGroup: z.boolean(),
+  feedbackEnabled: z.boolean(),
+  feedbackDeadline: z.date().optional(),
 });
 
 const endTimeAfterStartTime = (data: EventFormValues) =>
@@ -60,6 +62,8 @@ type EventFormValues = z.infer<typeof eventFormSchema>;
 interface InitialValues {
   description: string | null;
   endTime: number | null;
+  feedbackDeadline: number | null;
+  feedbackEnabled: boolean;
   id: string;
   isPublic: boolean;
   location: string | null;
@@ -95,6 +99,10 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     copyAllMembers: false,
     whatsappGroupId: initialValues?.whatsappGroupId ?? "",
     createWaGroup: false,
+    feedbackEnabled: initialValues?.feedbackEnabled ?? false,
+    feedbackDeadline: initialValues?.feedbackDeadline
+      ? new Date(initialValues.feedbackDeadline)
+      : undefined,
   };
 }
 
@@ -116,6 +124,8 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     endTime: value.endTime?.getTime(),
     isPublic: value.isPublic,
     whatsappGroupId: value.whatsappGroupId || undefined,
+    feedbackEnabled: value.feedbackEnabled,
+    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
   };
 }
 
@@ -143,6 +153,8 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     copyAllMembers: value.copyAllMembers || undefined,
     now: Date.now(),
     recurrenceRule,
+    feedbackEnabled: value.feedbackEnabled,
+    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
   };
 }
 
@@ -268,6 +280,22 @@ function EventFormContent({
           isEdit || whatsappGroupId ? null : (
             <CheckboxField label="Create WhatsApp group" name="createWaGroup" />
           )
+        }
+      </form.Subscribe>
+      <CheckboxField
+        description="Participants can share anonymous feedback after the event ends"
+        label="Enable anonymous feedback"
+        name="feedbackEnabled"
+      />
+      <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
+        {(feedbackEnabled) =>
+          feedbackEnabled ? (
+            <DateTimeField
+              description="Leave empty for no deadline"
+              label="Feedback deadline (optional)"
+              name="feedbackDeadline"
+            />
+          ) : null
         }
       </form.Subscribe>
       <FormActions
