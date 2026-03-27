@@ -41,9 +41,7 @@ test.describe("Event feedback — admin", () => {
     await createDialog.getByLabel("Public").check();
 
     // Enable anonymous feedback
-    await createDialog
-      .getByLabel("Enable anonymous feedback")
-      .check();
+    await createDialog.getByLabel("Enable anonymous feedback").check();
 
     await createDialog
       .getByRole("button", { name: "Create", exact: true })
@@ -144,9 +142,7 @@ test.describe("Event feedback — volunteer", () => {
     await feedbackTab.click();
 
     // Click Edit to modify existing feedback
-    await page
-      .getByRole("button", { name: "Edit", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
 
     // Clear and type updated content
     const updatedText = `E2E updated feedback ${Date.now()}`;

@@ -60,9 +60,7 @@ export const eventFeedbackMutators = {
             .one()
         )) as EventFeedbackSubmission | undefined;
         if (existing) {
-          throw new Error(
-            "You have already submitted feedback for this event"
-          );
+          throw new Error("You have already submitted feedback for this event");
         }
       }
 
