@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "evlog": "catalog:",
-    "p-retry": "^7.1.1"
+    "p-retry": "^8.0.0"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
