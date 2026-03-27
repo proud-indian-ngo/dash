@@ -1,18 +1,31 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "schedule": ["before 9am on monday"],
+  "schedule": ["before 9am every weekday"],
   "timezone": "Asia/Kolkata",
+  "platformAutomerge": true,
+  "rebaseWhen": "behind-base-branch",
   "packageRules": [
     {
-      "description": "Group all non-breaking updates into a single PR",
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "non-breaking updates"
+      "description": "Automerge patch updates",
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "groupName": "patch updates",
+      "automerge": true
+    },
+    {
+      "description": "Group minor updates into a single PR",
+      "matchUpdateTypes": ["minor"],
+      "groupName": "minor updates"
+    },
+    {
+      "description": "Keep TanStack packages in sync",
+      "matchPackageNames": ["/^@tanstack//"],
+      "groupName": "tanstack"
     },
     {
       "description": "Keep Zero client and server in sync",
-      "groupName": "zero",
-      "matchPackageNames": ["/^@rocicorp/zero/", "/^rocicorp/zero/"]
+      "matchPackageNames": ["/^@rocicorp/zero/", "/^rocicorp/zero/"],
+      "groupName": "zero"
     },
     {
       "description": "Keep Bun runtime and Docker image in sync",
