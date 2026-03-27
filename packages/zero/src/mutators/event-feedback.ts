@@ -50,14 +50,20 @@ export const eventFeedbackMutators = {
         throw new Error("You are not a member of this event");
       }
 
-      const existing = (await tx.run(
-        zql.eventFeedbackSubmission
-          .where("eventId", args.eventId)
-          .where("userId", ctx.userId)
-          .one()
-      )) as EventFeedbackSubmission | undefined;
-      if (existing) {
-        throw new Error("You have already submitted feedback for this event");
+      // Duplicate check on server only — eventFeedbackSubmission is not
+      // synced to clients (anonymity preservation).
+      if (tx.location === "server") {
+        const existing = (await tx.run(
+          zql.eventFeedbackSubmission
+            .where("eventId", args.eventId)
+            .where("userId", ctx.userId)
+            .one()
+        )) as EventFeedbackSubmission | undefined;
+        if (existing) {
+          throw new Error(
+            "You have already submitted feedback for this event"
+          );
+        }
       }
 
       await tx.mutate.eventFeedback.insert({
@@ -80,6 +86,7 @@ export const eventFeedbackMutators = {
 
   update: defineMutator(
     z.object({
+      feedbackId: z.string(),
       eventId: z.string(),
       content: z.string().min(1, "Feedback cannot be empty").max(5000),
       now: z.number(),
@@ -87,14 +94,21 @@ export const eventFeedbackMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
-      const submission = (await tx.run(
-        zql.eventFeedbackSubmission
-          .where("eventId", args.eventId)
-          .where("userId", ctx.userId)
-          .one()
-      )) as EventFeedbackSubmission | undefined;
-      if (!submission) {
-        throw new Error("No feedback submission found");
+      // Validate ownership on server only — eventFeedbackSubmission is not
+      // synced to clients (anonymity), so the client passes feedbackId directly.
+      if (tx.location === "server") {
+        const submission = (await tx.run(
+          zql.eventFeedbackSubmission
+            .where("eventId", args.eventId)
+            .where("userId", ctx.userId)
+            .one()
+        )) as EventFeedbackSubmission | undefined;
+        if (!submission) {
+          throw new Error("No feedback submission found");
+        }
+        if (submission.feedbackId !== args.feedbackId) {
+          throw new Error("Unauthorized");
+        }
       }
 
       const event = (await tx.run(
@@ -109,7 +123,7 @@ export const eventFeedbackMutators = {
       }
 
       await tx.mutate.eventFeedback.update({
-        id: submission.feedbackId,
+        id: args.feedbackId,
         content: args.content,
         updatedAt: args.now,
       });

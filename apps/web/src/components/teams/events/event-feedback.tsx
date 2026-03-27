@@ -238,6 +238,7 @@ function EventFeedbackParticipant({
     try {
       const res = await zero.mutate(
         mutators.eventFeedback.update({
+          feedbackId: myFeedback.id,
           eventId,
           content,
           now: Date.now(),
