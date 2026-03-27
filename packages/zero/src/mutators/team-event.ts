@@ -523,6 +523,97 @@ export const teamEventMutators = {
     }
   ),
 
+  markAttendance: defineMutator(
+    z.object({
+      eventId: z.string(),
+      memberId: z.string(),
+      attendance: z.enum(["present", "absent"]).nullable(),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      if (event.startTime > args.now) {
+        throw new Error("Cannot mark attendance before event starts");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(
+        ctx,
+        "events.manage_attendance",
+        isTeamLead
+      );
+
+      const member = (await tx.run(
+        zql.teamEventMember.where("id", args.memberId).one()
+      )) as TeamEventMember | undefined;
+      if (!member || member.eventId !== args.eventId) {
+        throw new Error("Member not found in this event");
+      }
+
+      await tx.mutate.teamEventMember.update({
+        id: args.memberId,
+        attendance: args.attendance,
+        attendanceMarkedAt: args.now,
+        attendanceMarkedBy: ctx.userId,
+      });
+    }
+  ),
+
+  markAllPresent: defineMutator(
+    z.object({
+      eventId: z.string(),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      if (event.startTime > args.now) {
+        throw new Error("Cannot mark attendance before event starts");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(
+        ctx,
+        "events.manage_attendance",
+        isTeamLead
+      );
+
+      const members = (await tx.run(
+        zql.teamEventMember.where("eventId", args.eventId)
+      )) as TeamEventMember[];
+
+      for (const member of members) {
+        await tx.mutate.teamEventMember.update({
+          id: member.id,
+          attendance: "present",
+          attendanceMarkedAt: args.now,
+          attendanceMarkedBy: ctx.userId,
+        });
+      }
+    }
+  ),
+
   removeMember: defineMutator(
     z.object({
       eventId: z.string(),

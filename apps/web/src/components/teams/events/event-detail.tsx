@@ -23,6 +23,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
+import { EventAttendanceSection } from "./event-attendance-section";
 import { EventFormDialog } from "./event-form-dialog";
 import { EventInfoSection } from "./event-info-section";
 import {
@@ -40,6 +41,7 @@ const TRAILING_SLASH = /\/$/;
 
 interface EventDetailProps {
   canManage: boolean;
+  canManageAttendance: boolean;
   canManageVolunteers: boolean;
   currentUserId: string;
   event: EventRow;
@@ -108,6 +110,7 @@ function EventHeader({
 
 export function EventDetail({
   canManage,
+  canManageAttendance,
   currentUserId,
   event,
   interests,
@@ -224,6 +227,16 @@ export function EventDetail({
           onAddMember={() => dialog.open({ type: "addMember" })}
           onRemoveMember={(id) => removeMember.trigger(id)}
         />
+
+        {canManageAttendance && hasStarted ? (
+          <>
+            <Separator />
+            <EventAttendanceSection
+              eventId={event.id}
+              members={event.members}
+            />
+          </>
+        ) : null}
 
         {hasStarted ? (
           <>

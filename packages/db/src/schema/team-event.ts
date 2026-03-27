@@ -5,6 +5,7 @@ import {
   check,
   index,
   jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -15,6 +16,11 @@ import { user } from "./auth";
 import { eventInterest } from "./event-interest";
 import { team } from "./team";
 import { whatsappGroup } from "./whatsapp-group";
+
+export const attendanceStatusEnum = pgEnum("attendance_status", [
+  "present",
+  "absent",
+]);
 
 export const teamEvent = pgTable(
   "team_event",
@@ -77,6 +83,11 @@ export const teamEventMember = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     addedAt: timestamp("added_at").notNull(),
+    attendance: attendanceStatusEnum("attendance"),
+    attendanceMarkedAt: timestamp("attendance_marked_at"),
+    attendanceMarkedBy: text("attendance_marked_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     uniqueIndex("team_event_member_eventId_userId_uidx").on(

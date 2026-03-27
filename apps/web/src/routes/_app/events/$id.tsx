@@ -67,9 +67,10 @@ function EventDetailRouteComponent() {
     );
   }
 
-  const canManage =
-    hasPermission("events.edit") ||
-    (team ? isTeamLead(team.members, session.user.id) : false);
+  const isLead = team ? isTeamLead(team.members, session.user.id) : false;
+  const canManage = hasPermission("events.edit") || isLead;
+  const canManageAttendance =
+    hasPermission("events.manage_attendance") || isLead;
   const myInterest = interests.find(
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
@@ -80,10 +81,8 @@ function EventDetailRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
         canManage={canManage}
-        canManageVolunteers={
-          hasPermission("events.edit") ||
-          (team ? isTeamLead(team.members, session.user.id) : false)
-        }
+        canManageAttendance={canManageAttendance}
+        canManageVolunteers={canManage}
         currentUserId={session.user.id}
         event={event}
         interests={

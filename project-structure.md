@@ -104,7 +104,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
-| `components/teams/events/` | events-table, event-form-dialog, event-detail, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
+| `components/teams/events/` | events-table, event-form-dialog, event-detail, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |

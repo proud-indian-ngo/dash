@@ -220,6 +220,13 @@ export const PERMISSIONS = [
     description:
       "Approve/reject volunteer interest in events (also granted to team leads)",
   },
+  {
+    id: "events.manage_attendance",
+    name: "Manage Attendance",
+    category: "events",
+    description:
+      "Mark attendance for event members (also granted to team leads)",
+  },
 
   // ── Event Updates ──
   {

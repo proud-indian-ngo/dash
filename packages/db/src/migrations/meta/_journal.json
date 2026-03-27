@@ -176,6 +176,13 @@
       "when": 1774522969957,
       "tag": "0024_complex_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1774598724886,
+      "tag": "0025_cute_mandrill",
+      "breakpoints": true
     }
   ]
 }
