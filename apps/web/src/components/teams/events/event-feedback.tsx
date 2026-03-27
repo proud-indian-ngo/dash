@@ -125,6 +125,21 @@ interface MyFeedback {
   updatedAt: number;
 }
 
+async function fetchFeedbackForEvent(
+  eventId: string
+): Promise<MyFeedback | null> {
+  const result = await getMyEventFeedback({ data: { eventId } });
+  if (!result) {
+    return null;
+  }
+  return {
+    id: result.id,
+    content: result.content,
+    createdAt: new Date(result.createdAt).getTime(),
+    updatedAt: new Date(result.updatedAt).getTime(),
+  };
+}
+
 interface EventFeedbackParticipantProps {
   eventId: string;
   feedbackDeadlinePassed: boolean;
@@ -141,33 +156,32 @@ function EventFeedbackParticipant({
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchMyFeedback = async () => {
-    try {
-      const result = await getMyEventFeedback({ data: { eventId } });
-      if (result) {
-        setMyFeedback({
-          id: result.id,
-          content: result.content,
-          createdAt: new Date(result.createdAt).getTime(),
-          updatedAt: new Date(result.updatedAt).getTime(),
-        });
-      } else {
-        setMyFeedback(null);
-      }
-    } catch (err) {
-      log.error({
-        component: "EventFeedbackParticipant",
-        action: "fetchMyFeedback",
-        eventId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchMyFeedback();
+    let cancelled = false;
+    fetchFeedbackForEvent(eventId)
+      .then((result) => {
+        if (!cancelled) {
+          setMyFeedback(result);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          log.error({
+            component: "EventFeedbackParticipant",
+            action: "fetchMyFeedback",
+            eventId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [eventId]);
 
   const handleSubmit = async () => {
@@ -196,7 +210,8 @@ function EventFeedbackParticipant({
       });
       if (res.type !== "error") {
         setContent("");
-        await fetchMyFeedback();
+        const updated = await fetchFeedbackForEvent(eventId);
+        setMyFeedback(updated);
       }
     } catch (err) {
       log.error({
@@ -231,7 +246,8 @@ function EventFeedbackParticipant({
       });
       if (res.type !== "error") {
         setEditing(false);
-        await fetchMyFeedback();
+        const updated = await fetchFeedbackForEvent(eventId);
+        setMyFeedback(updated);
       }
     } catch (err) {
       log.error({
