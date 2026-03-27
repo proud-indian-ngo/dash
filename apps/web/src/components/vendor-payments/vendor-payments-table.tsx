@@ -65,80 +65,111 @@ export function VendorPaymentsTable({
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {
       id: "title",
-      accessorKey: "title",
+      accessorFn: (row) => row.title,
       header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Title" visibility />
+        <DataGridColumnHeader column={column} title="Title" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.title}</span>
+        <button
+          className="truncate text-left font-medium text-sm hover:underline"
+          data-testid="row-title"
+          onClick={() => onNavigate(row.original.id as string)}
+          type="button"
+        >
+          {row.original.title}
+        </button>
       ),
       meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
-      size: 250,
+      size: 240,
+      minSize: 200,
     },
     {
       id: "vendor",
       accessorFn: (row) => row.vendor?.name ?? "",
       header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Vendor" visibility />
+        <DataGridColumnHeader
+          column={column}
+          title="Vendor"
+          visibility={true}
+        />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.vendor?.name ?? "—"}
         </span>
       ),
       meta: { headerTitle: "Vendor", skeleton: SKELETON_TEXT },
       size: 180,
+      minSize: 120,
     },
     {
       id: "submittedBy",
       accessorFn: (row) => row.user?.name ?? "",
       header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Submitted by" visibility />
+        <DataGridColumnHeader
+          column={column}
+          title="Submitted by"
+          visibility={true}
+        />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground">
+        <span className="truncate text-muted-foreground text-sm">
           {row.original.user?.name ?? "—"}
         </span>
       ),
       meta: { headerTitle: "Submitted by", skeleton: SKELETON_TEXT },
       size: 150,
+      minSize: 120,
     },
     {
       id: "total",
       accessorFn: (row) => computeTotal(row.lineItems),
       header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Amount" visibility />
+        <DataGridColumnHeader
+          column={column}
+          title="Amount"
+          visibility={true}
+        />
       ),
       cell: ({ row }) => (
-        <span className="tabular-nums">
+        <span className="truncate text-sm tabular-nums">
           {formatINR(computeTotal(row.original.lineItems))}
         </span>
       ),
       meta: { headerTitle: "Amount", skeleton: SKELETON_TOTAL },
       size: 120,
+      minSize: 100,
     },
     {
-      id: "date",
-      accessorKey: "submittedAt",
+      id: "submittedAt",
+      accessorFn: (row) =>
+        row.submittedAt == null ? "—" : format(row.submittedAt, SHORT_DATE),
       header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Date" visibility />
+        <DataGridColumnHeader
+          column={column}
+          title="Submitted"
+          visibility={true}
+        />
       ),
-      cell: ({ row }) =>
-        row.original.submittedAt ? (
-          <span className="text-muted-foreground">
-            {format(row.original.submittedAt, SHORT_DATE)}
-          </span>
-        ) : (
-          "—"
-        ),
-      meta: { headerTitle: "Date", skeleton: SKELETON_TEXT },
-      size: 120,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.submittedAt == null
+            ? "—"
+            : format(row.original.submittedAt, SHORT_DATE)}
+        </span>
+      ),
+      meta: { headerTitle: "Submitted", skeleton: SKELETON_TEXT },
+      size: 130,
     },
     {
       id: "status",
-      accessorKey: "status",
+      accessorFn: (row) => row.status,
       header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Status" visibility />
+        <DataGridColumnHeader
+          column={column}
+          title="Status"
+          visibility={true}
+        />
       ),
       cell: ({ row }) => {
         const { label, variant } = getStatusBadge(row.original.status);
@@ -149,7 +180,7 @@ export function VendorPaymentsTable({
     },
     {
       id: "actions",
-      header: () => null,
+      header: "",
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -179,9 +210,13 @@ export function VendorPaymentsTable({
           </DropdownMenuContent>
         </DropdownMenu>
       ),
-      size: 50,
-      enableSorting: false,
       enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      enableColumnOrdering: false,
+      meta: { cellClassName: "text-center" },
+      size: 52,
+      minSize: 52,
     },
   ];
 
@@ -189,13 +224,18 @@ export function VendorPaymentsTable({
     <DataTableWrapper<VendorPaymentWithRelations>
       columns={columns}
       data={data}
+      emptyMessage="No vendor payments found."
       getRowId={(row) => row.id as string}
       isLoading={isLoading}
-      onRowClick={(row) => onNavigate(row.id as string)}
       searchFn={searchFn}
       searchPlaceholder="Search vendor payments..."
-      searchQueryKey="s"
       storageKey="vendor_payments_table_state_v1"
+      tableLayout={{
+        columnsResizable: true,
+        columnsDraggable: true,
+        columnsVisibility: true,
+        columnsPinnable: true,
+      }}
       toolbarActions={toolbarActions}
       toolbarFilters={toolbarFilters}
     />
