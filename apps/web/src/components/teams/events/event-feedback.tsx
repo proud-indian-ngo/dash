@@ -2,7 +2,6 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import type { EventFeedback } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { format, formatDistanceToNow } from "date-fns";
 import { log } from "evlog";
@@ -64,8 +63,7 @@ function EventFeedbackAdmin({
   feedbackDeadline,
   feedbackDeadlinePassed,
 }: EventFeedbackAdminProps) {
-  const result = useQuery(queries.eventFeedback.byEvent({ eventId }));
-  const feedback = result[0] as readonly EventFeedback[];
+  const [feedback] = useQuery(queries.eventFeedback.byEvent({ eventId }));
 
   return (
     <div className="flex flex-col gap-4">
