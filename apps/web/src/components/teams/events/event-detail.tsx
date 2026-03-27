@@ -289,6 +289,8 @@ export function EventDetail({
           whatsappGroupId: event.whatsappGroupId,
           parentEventId: event.parentEventId,
           recurrenceRule: recurrence ?? null,
+          feedbackEnabled: !!event.feedbackEnabled,
+          feedbackDeadline: event.feedbackDeadline,
         }}
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("edit")}
