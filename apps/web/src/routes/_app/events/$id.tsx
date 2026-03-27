@@ -71,6 +71,7 @@ function EventDetailRouteComponent() {
   const canManage = hasPermission("events.edit") || isLead;
   const canManageAttendance =
     hasPermission("events.manage_attendance") || isLead;
+  const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
   const myInterest = interests.find(
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
@@ -82,6 +83,7 @@ function EventDetailRouteComponent() {
       <EventDetail
         canManage={canManage}
         canManageAttendance={canManageAttendance}
+        canManageFeedback={canManageFeedback}
         canManageVolunteers={canManage}
         currentUserId={session.user.id}
         event={event}

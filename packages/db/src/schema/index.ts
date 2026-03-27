@@ -3,6 +3,7 @@ export * from "./advance-payment";
 export * from "./app-config";
 export * from "./auth";
 export * from "./bank-account";
+export * from "./event-feedback";
 export * from "./event-interest";
 export * from "./event-photo";
 export * from "./event-update";

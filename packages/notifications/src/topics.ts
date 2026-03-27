@@ -8,6 +8,7 @@ export const TOPICS = {
   EVENTS_SCHEDULE: "Events - Schedule",
   EVENTS_INTEREST: "Events - Interest",
   EVENTS_PHOTOS: "Events - Photos",
+  EVENTS_FEEDBACK: "Events - Feedback",
 } as const;
 
 export type Topic = (typeof TOPICS)[keyof typeof TOPICS];
@@ -82,6 +83,16 @@ export const TOPIC_CATALOG: TopicMeta[] = [
     id: TOPICS.EVENTS_PHOTOS,
     name: "Photos",
     description: "Notifications when your uploaded photos are reviewed.",
+    group: "Events",
+    required: false,
+    defaultEnabled: true,
+    requiredPermission: "events.view_own",
+  },
+  {
+    id: TOPICS.EVENTS_FEEDBACK,
+    name: "Feedback",
+    description:
+      "Notifications when event feedback is open for your participation.",
     group: "Events",
     required: false,
     defaultEnabled: true,

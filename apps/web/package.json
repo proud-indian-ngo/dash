@@ -33,8 +33,8 @@
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-form": "^1.28.5",
     "@tanstack/react-form-devtools": "^0.2.19",
-    "@tanstack/react-router": "^1.168.4",
-    "@tanstack/react-start": "^1.167.8",
+    "@tanstack/react-router": "^1.168.7",
+    "@tanstack/react-start": "^1.167.12",
     "@tanstack/react-table": "^8.21.3",
     "@trycourier/courier-react": "^9.0.6",
     "@trycourier/courier-ui-inbox": "^2.4.1",
@@ -51,7 +51,7 @@
     "react-error-boundary": "^6.1.1",
     "sonner": "catalog:",
     "uuidv7": "catalog:",
-    "yet-another-react-lightbox": "^3.29.2",
+    "yet-another-react-lightbox": "^3.30.1",
     "zod": "catalog:"
   },
   "devDependencies": {

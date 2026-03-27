@@ -1,4 +1,4 @@
-# pi-dash
+# Proud Indian Dashboard
 
 A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process financial request workflows (reimbursements and advance payments) — with real-time data sync powered by Rocicorp Zero and multi-channel notifications via Courier.
 
@@ -44,6 +44,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
+| Anonymous feedback | Collect anonymous feedback from event participants after events complete, with configurable deadlines and admin visibility |
 | File attachments | Upload files to Cloudflare R2; attach URLs to requests |
 | Bank accounts | Users manage bank accounts for request payouts |
 | Expense categories | Admin-managed categories for request line items |

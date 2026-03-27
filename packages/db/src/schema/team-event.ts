@@ -13,6 +13,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { team } from "./team";
 import { whatsappGroup } from "./whatsapp-group";
@@ -49,6 +50,8 @@ export const teamEvent = pgTable(
       { onDelete: "set null" }
     ),
     cancelledAt: timestamp("cancelled_at"),
+    feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
+    feedbackDeadline: timestamp("feedback_deadline"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
@@ -116,6 +119,7 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
   occurrences: many(teamEvent, { relationName: "parentChild" }),
   members: many(teamEventMember),
   interests: many(eventInterest),
+  feedback: many(eventFeedback),
   creator: one(user, {
     fields: [teamEvent.createdBy],
     references: [user.id],

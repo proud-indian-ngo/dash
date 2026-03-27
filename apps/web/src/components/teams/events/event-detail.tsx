@@ -24,6 +24,7 @@ import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventAttendanceSection } from "./event-attendance-section";
+import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
 import { EventInfoSection } from "./event-info-section";
 import {
@@ -42,6 +43,7 @@ const TRAILING_SLASH = /\/$/;
 interface EventDetailProps {
   canManage: boolean;
   canManageAttendance: boolean;
+  canManageFeedback: boolean;
   canManageVolunteers: boolean;
   currentUserId: string;
   event: EventRow;
@@ -108,9 +110,90 @@ function EventHeader({
   );
 }
 
+interface EventTabsProps {
+  approvedPhotos: Parameters<typeof EventPhotos>[0]["approvedPhotos"];
+  canManage: boolean;
+  canManageFeedback: boolean;
+  currentUserId: string;
+  event: EventRow;
+  feedback: readonly { id: string }[];
+  feedbackDeadlinePassed: boolean;
+  immichAlbumUrl: string | null;
+  isMember: boolean;
+  isPastEvent: boolean;
+  pendingPhotos: Parameters<typeof EventPhotos>[0]["pendingPhotos"];
+  updates: Parameters<typeof EventUpdates>[0]["updates"];
+}
+
+function EventTabs({
+  approvedPhotos,
+  canManage,
+  canManageFeedback,
+  currentUserId,
+  event,
+  feedback,
+  feedbackDeadlinePassed,
+  immichAlbumUrl,
+  isMember,
+  isPastEvent,
+  pendingPhotos,
+  updates,
+}: EventTabsProps) {
+  return (
+    <Tabs defaultValue="updates">
+      <TabsList>
+        <TabsTrigger value="updates">
+          Updates
+          {updates.length > 0 ? ` (${updates.length})` : ""}
+        </TabsTrigger>
+        <TabsTrigger value="photos">
+          Photos
+          {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
+        </TabsTrigger>
+        {event.feedbackEnabled && isPastEvent ? (
+          <TabsTrigger value="feedback">
+            Feedback
+            {feedback.length > 0 ? ` (${feedback.length})` : ""}
+          </TabsTrigger>
+        ) : null}
+      </TabsList>
+      <TabsContent value="updates">
+        <EventUpdates
+          canManage={canManage}
+          eventId={event.id}
+          updates={updates}
+        />
+      </TabsContent>
+      <TabsContent value="photos">
+        <EventPhotos
+          approvedPhotos={approvedPhotos}
+          canManage={canManage}
+          currentUserId={currentUserId}
+          eventId={event.id}
+          immichAlbumUrl={immichAlbumUrl}
+          isMember={isMember}
+          pendingPhotos={pendingPhotos}
+        />
+      </TabsContent>
+      {event.feedbackEnabled && isPastEvent ? (
+        <TabsContent value="feedback">
+          <EventFeedbackSection
+            canManageFeedback={canManageFeedback}
+            eventId={event.id}
+            feedbackDeadline={event.feedbackDeadline}
+            feedbackDeadlinePassed={feedbackDeadlinePassed}
+            isMember={isMember}
+          />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  );
+}
+
 export function EventDetail({
   canManage,
   canManageAttendance,
+  canManageFeedback,
   currentUserId,
   event,
   interests,
@@ -161,6 +244,14 @@ export function EventDetail({
   const [album] = useQuery(
     queries.eventImmichAlbum.byEvent({ eventId: event.id })
   );
+
+  const [feedback] = useQuery(
+    queries.eventFeedback.byEvent({ eventId: event.id })
+  );
+
+  const feedbackDeadlinePassed = event.feedbackDeadline
+    ? new Date(event.feedbackDeadline) < new Date()
+    : false;
 
   const immichAlbumUrl =
     album?.immichAlbumId && env.VITE_IMMICH_URL
@@ -241,38 +332,20 @@ export function EventDetail({
         {hasStarted ? (
           <>
             <Separator />
-            <Tabs defaultValue="updates">
-              <TabsList>
-                <TabsTrigger value="updates">
-                  Updates
-                  {updates.length > 0 ? ` (${updates.length})` : ""}
-                </TabsTrigger>
-                <TabsTrigger value="photos">
-                  Photos
-                  {approvedPhotos.length > 0
-                    ? ` (${approvedPhotos.length})`
-                    : ""}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="updates">
-                <EventUpdates
-                  canManage={canManage}
-                  eventId={event.id}
-                  updates={updates}
-                />
-              </TabsContent>
-              <TabsContent value="photos">
-                <EventPhotos
-                  approvedPhotos={approvedPhotos}
-                  canManage={canManage}
-                  currentUserId={currentUserId}
-                  eventId={event.id}
-                  immichAlbumUrl={immichAlbumUrl}
-                  isMember={!!isMember}
-                  pendingPhotos={pendingPhotos}
-                />
-              </TabsContent>
-            </Tabs>
+            <EventTabs
+              approvedPhotos={approvedPhotos}
+              canManage={canManage}
+              canManageFeedback={canManageFeedback}
+              currentUserId={currentUserId}
+              event={event}
+              feedback={feedback}
+              feedbackDeadlinePassed={feedbackDeadlinePassed}
+              immichAlbumUrl={immichAlbumUrl}
+              isMember={!!isMember}
+              isPastEvent={isPastEvent}
+              pendingPhotos={pendingPhotos}
+              updates={updates}
+            />
           </>
         ) : null}
       </div>
@@ -289,6 +362,8 @@ export function EventDetail({
           whatsappGroupId: event.whatsappGroupId,
           parentEventId: event.parentEventId,
           recurrenceRule: recurrence ?? null,
+          feedbackEnabled: !!event.feedbackEnabled,
+          feedbackDeadline: event.feedbackDeadline,
         }}
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("edit")}
