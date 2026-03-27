@@ -6,6 +6,7 @@ import {
   resolvePermissions,
 } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
+import { role } from "@pi-dash/db/schema/permission";
 import {
   notifyRoleChanged,
   notifyUserBanned,
@@ -305,10 +306,18 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         headers: context.headers,
       });
 
+      // Look up display name for notification
+      const roleRecord = await db
+        .select({ name: role.name })
+        .from(role)
+        .where(eq(role.id, newRole))
+        .then((rows) => rows[0]);
+      const roleName = roleRecord?.name ?? newRole;
+
       // Fire-and-forget: notify role change
       withFireAndForgetLog(
-        { handler: "updateUser", userId: data.userId, newRole },
-        () => notifyRoleChanged({ userId: data.userId, newRole })
+        { handler: "updateUser", userId: data.userId, newRole: roleName },
+        () => notifyRoleChanged({ userId: data.userId, newRole: roleName })
       );
     }
 
