@@ -11,6 +11,7 @@ export {
   notifyAdvancePaymentRejected,
   notifyAdvancePaymentSubmitted,
 } from "./send/advance-payment";
+export { notifyEventFeedbackOpen } from "./send/event-feedback";
 export {
   notifyEventInterestApproved,
   notifyEventInterestReceived,

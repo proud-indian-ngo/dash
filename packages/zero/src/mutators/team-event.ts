@@ -284,6 +284,29 @@ export const teamEventMutators = {
             });
           },
         });
+
+        if (
+          args.feedbackEnabled === true &&
+          !existing.feedbackEnabled &&
+          (existing.endTime ?? existing.startTime) < args.now
+        ) {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "updateTeamEvent:feedbackEnabled",
+              eventId,
+            },
+            fn: async () => {
+              const { notifyEventFeedbackOpen } = await import(
+                "@pi-dash/notifications"
+              );
+              await notifyEventFeedbackOpen({
+                eventId,
+                eventName,
+                memberUserIds: eventMemberIds,
+              });
+            },
+          });
+        }
       }
     }
   ),
