@@ -24,6 +24,7 @@ import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventAttendanceSection } from "./event-attendance-section";
+import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
 import { EventInfoSection } from "./event-info-section";
 import {
@@ -31,7 +32,6 @@ import {
   VolunteerInterestSection,
 } from "./event-interest-section";
 import { EventMembersSection } from "./event-members-section";
-import { EventFeedbackSection } from "./event-feedback";
 import { EventPhotos } from "./event-photos";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";

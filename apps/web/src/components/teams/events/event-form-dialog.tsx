@@ -62,6 +62,8 @@ type EventFormValues = z.infer<typeof eventFormSchema>;
 interface InitialValues {
   description: string | null;
   endTime: number | null;
+  feedbackDeadline: number | null;
+  feedbackEnabled: boolean;
   id: string;
   isPublic: boolean;
   location: string | null;
@@ -73,8 +75,6 @@ interface InitialValues {
   } | null;
   startTime: number;
   whatsappGroupId: string | null;
-  feedbackEnabled: boolean;
-  feedbackDeadline: number | null;
 }
 
 interface EventFormDialogProps {

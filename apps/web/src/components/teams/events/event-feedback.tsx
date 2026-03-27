@@ -119,9 +119,9 @@ function EventFeedbackAdmin({
 // ---------------------------------------------------------------------------
 
 interface MyFeedback {
-  id: string;
   content: string;
   createdAt: number;
+  id: string;
   updatedAt: number;
 }
 
@@ -171,7 +171,9 @@ function EventFeedbackParticipant({
   }, [eventId]);
 
   const handleSubmit = async () => {
-    if (!content.trim()) return;
+    if (!content.trim()) {
+      return;
+    }
     setSaving(true);
     try {
       const feedbackId = uuidv7();
@@ -209,7 +211,9 @@ function EventFeedbackParticipant({
   };
 
   const handleUpdate = async () => {
-    if (!content.trim() || !myFeedback) return;
+    if (!(content.trim() && myFeedback)) {
+      return;
+    }
     setSaving(true);
     try {
       const res = await zero.mutate(
@@ -266,7 +270,7 @@ function EventFeedbackParticipant({
           {formatDistanceToNow(new Date(myFeedback.createdAt), {
             addSuffix: true,
           })}
-          {myFeedback.updatedAt !== myFeedback.createdAt ? " (edited)" : ""}
+          {myFeedback.updatedAt === myFeedback.createdAt ? "" : " (edited)"}
         </span>
       </div>
     );
@@ -283,7 +287,7 @@ function EventFeedbackParticipant({
             {formatDistanceToNow(new Date(myFeedback.createdAt), {
               addSuffix: true,
             })}
-            {myFeedback.updatedAt !== myFeedback.createdAt ? " (edited)" : ""}
+            {myFeedback.updatedAt === myFeedback.createdAt ? "" : " (edited)"}
           </span>
         </div>
         <div>
