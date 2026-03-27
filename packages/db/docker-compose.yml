@@ -2,7 +2,7 @@ name: pi-dash
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     container_name: pi-dash-postgres
     environment:
       POSTGRES_DB: pi-dash
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   postgres-test:
-    image: postgres:17
+    image: postgres:18
     container_name: pi-dash-postgres-test
     environment:
       POSTGRES_DB: pi-dash-test
@@ -40,7 +40,7 @@ services:
       retries: 5
 
   postgres-migration:
-    image: postgres:17
+    image: postgres:18
     container_name: pi-dash-postgres-migration
     environment:
       POSTGRES_DB: pi-dash-migration
