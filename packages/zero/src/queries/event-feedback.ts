@@ -11,9 +11,11 @@ export const eventFeedbackQueries = {
         ? zql.eventFeedback
             .where("eventId", eventId)
             .orderBy("createdAt", "desc")
-        : zql.eventFeedback
+        : // Non-admin: return empty. Participants fetch their own feedback
+          // via the getMyEventFeedback server function to preserve anonymity.
+          zql.eventFeedback
             .where("eventId", eventId)
-            .where("id", ctx?.userId ?? "")
+            .where("id", "__never_match__")
             .orderBy("createdAt", "desc")
   ),
 };

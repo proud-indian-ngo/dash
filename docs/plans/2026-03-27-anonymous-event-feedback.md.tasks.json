@@ -1,0 +1,64 @@
+{
+  "planPath": "docs/plans/2026-03-27-anonymous-event-feedback.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Add feedbackEnabled and feedbackDeadline columns to teamEvent",
+      "status": "pending"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: Add events.manage_feedback permission",
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Create eventFeedback and eventFeedbackSubmission schema tables",
+      "status": "pending",
+      "blockedBy": [0]
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Create eventFeedback mutators",
+      "status": "pending",
+      "blockedBy": [2]
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: Create eventFeedback Zero query and server function",
+      "status": "pending",
+      "blockedBy": [2]
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Add notification for feedback enabled",
+      "status": "pending",
+      "blockedBy": [1]
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Update event form dialog with feedback toggle and deadline",
+      "status": "pending",
+      "blockedBy": [0]
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Create EventFeedback UI components",
+      "status": "pending",
+      "blockedBy": [3, 4]
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: Integrate feedback tab into event detail page",
+      "status": "pending",
+      "blockedBy": [7, 6]
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: Run full verification",
+      "status": "pending",
+      "blockedBy": [8]
+    }
+  ],
+  "lastUpdated": "2026-03-27T00:00:00Z"
+}

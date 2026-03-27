@@ -15,7 +15,7 @@ export const eventFeedbackMutators = {
       feedbackId: z.string(),
       submissionId: z.string(),
       eventId: z.string(),
-      content: z.string().min(1, "Feedback cannot be empty"),
+      content: z.string().min(1, "Feedback cannot be empty").max(5000),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -81,7 +81,7 @@ export const eventFeedbackMutators = {
   update: defineMutator(
     z.object({
       eventId: z.string(),
-      content: z.string().min(1, "Feedback cannot be empty"),
+      content: z.string().min(1, "Feedback cannot be empty").max(5000),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {

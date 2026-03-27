@@ -1,5 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -15,7 +14,6 @@ import { handleMutationResult } from "@/lib/mutation-result";
 
 interface EventFeedbackSectionProps {
   canManageFeedback: boolean;
-  currentUserId: string;
   eventId: string;
   feedbackDeadline: number | null;
   feedbackDeadlinePassed: boolean;
@@ -84,28 +82,26 @@ function EventFeedbackAdmin({
           No feedback submitted yet.
         </p>
       ) : (
-        feedback.map((item, index) => {
+        feedback.map((item) => {
           const isEdited = item.updatedAt !== item.createdAt;
           return (
-            <div key={item.id}>
-              <div className="flex flex-col gap-2 rounded-lg border p-4">
-                <p className="text-sm">{item.content}</p>
-                <div className="flex items-center gap-2">
+            <div
+              className="flex flex-col gap-2 rounded-lg border p-4"
+              key={item.id}
+            >
+              <p className="whitespace-pre-wrap text-sm">{item.content}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">
+                  {formatDistanceToNow(new Date(item.createdAt), {
+                    addSuffix: true,
+                  })}
+                </span>
+                {isEdited ? (
                   <span className="text-muted-foreground text-xs">
-                    {formatDistanceToNow(new Date(item.createdAt), {
-                      addSuffix: true,
-                    })}
+                    (edited)
                   </span>
-                  {isEdited ? (
-                    <span className="text-muted-foreground text-xs">
-                      (edited)
-                    </span>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
-              {index < feedback.length - 1 ? (
-                <Separator className="mt-4" />
-              ) : null}
             </div>
           );
         })
@@ -209,9 +205,13 @@ function EventFeedbackParticipant({
         errorMsg: "Failed to submit feedback",
       });
       if (res.type !== "error") {
+        setMyFeedback({
+          id: feedbackId,
+          content: content.trim(),
+          createdAt: now,
+          updatedAt: now,
+        });
         setContent("");
-        const updated = await fetchFeedbackForEvent(eventId);
-        setMyFeedback(updated);
       }
     } catch (err) {
       log.error({
@@ -245,9 +245,13 @@ function EventFeedbackParticipant({
         errorMsg: "Failed to update feedback",
       });
       if (res.type !== "error") {
+        const now = Date.now();
+        setMyFeedback({
+          ...myFeedback,
+          content: content.trim(),
+          updatedAt: now,
+        });
         setEditing(false);
-        const updated = await fetchFeedbackForEvent(eventId);
-        setMyFeedback(updated);
       }
     } catch (err) {
       log.error({
@@ -280,7 +284,7 @@ function EventFeedbackParticipant({
     }
     return (
       <div className="flex flex-col gap-2 rounded-lg border p-4">
-        <p className="text-sm">{myFeedback.content}</p>
+        <p className="whitespace-pre-wrap text-sm">{myFeedback.content}</p>
         <span className="text-muted-foreground text-xs">
           Submitted{" "}
           {formatDistanceToNow(new Date(myFeedback.createdAt), {
@@ -297,7 +301,7 @@ function EventFeedbackParticipant({
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 rounded-lg border p-4">
-          <p className="text-sm">{myFeedback.content}</p>
+          <p className="whitespace-pre-wrap text-sm">{myFeedback.content}</p>
           <span className="text-muted-foreground text-xs">
             Submitted{" "}
             {formatDistanceToNow(new Date(myFeedback.createdAt), {

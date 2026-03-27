@@ -43,6 +43,7 @@ const TRAILING_SLASH = /\/$/;
 interface EventDetailProps {
   canManage: boolean;
   canManageAttendance: boolean;
+  canManageFeedback: boolean;
   canManageVolunteers: boolean;
   currentUserId: string;
   event: EventRow;
@@ -112,6 +113,7 @@ function EventHeader({
 interface EventTabsProps {
   approvedPhotos: Parameters<typeof EventPhotos>[0]["approvedPhotos"];
   canManage: boolean;
+  canManageFeedback: boolean;
   currentUserId: string;
   event: EventRow;
   feedback: readonly { id: string }[];
@@ -126,6 +128,7 @@ interface EventTabsProps {
 function EventTabs({
   approvedPhotos,
   canManage,
+  canManageFeedback,
   currentUserId,
   event,
   feedback,
@@ -175,8 +178,7 @@ function EventTabs({
       {event.feedbackEnabled && isPastEvent ? (
         <TabsContent value="feedback">
           <EventFeedbackSection
-            canManageFeedback={canManage}
-            currentUserId={currentUserId}
+            canManageFeedback={canManageFeedback}
             eventId={event.id}
             feedbackDeadline={event.feedbackDeadline}
             feedbackDeadlinePassed={feedbackDeadlinePassed}
@@ -191,6 +193,7 @@ function EventTabs({
 export function EventDetail({
   canManage,
   canManageAttendance,
+  canManageFeedback,
   currentUserId,
   event,
   interests,
@@ -332,6 +335,7 @@ export function EventDetail({
             <EventTabs
               approvedPhotos={approvedPhotos}
               canManage={canManage}
+              canManageFeedback={canManageFeedback}
               currentUserId={currentUserId}
               event={event}
               feedback={feedback}

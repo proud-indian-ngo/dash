@@ -285,6 +285,9 @@ export const teamEventMutators = {
           },
         });
 
+        // Notify members when feedback is newly enabled on an already-ended event.
+        // Limitation: if feedback is enabled at creation time, no notification fires
+        // when the event ends naturally — would require a scheduled/cron mechanism.
         if (
           args.feedbackEnabled === true &&
           !existing.feedbackEnabled &&
