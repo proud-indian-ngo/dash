@@ -137,6 +137,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
 | `functions/attachments.ts` | R2 presigned upload URL, delete asset, avatar upload/delete |
 | `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |
+| `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
 | `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
@@ -182,10 +183,10 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, user, submission, team, team-event, event-interest, event-update, event-photo), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (7 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
+| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update, event-interest, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/shared-schemas.ts`, `src/validation.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, requests, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, request-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
@@ -224,6 +225,8 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `permission` | `packages/db/src/schema/permission.ts` |
 | `rolePermission` | `packages/db/src/schema/permission.ts` |
 | `appConfig` | `packages/db/src/schema/app-config.ts` |
+| `eventFeedback` | `packages/db/src/schema/event-feedback.ts` |
+| `eventFeedbackSubmission` | `packages/db/src/schema/event-feedback.ts` |
 | `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
 
 ## Notifications
@@ -232,7 +235,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Client**: `src/client.ts` initializes CourierClient from `COURIER_API_KEY`.
 - **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, vendor-payment, user, submission, team, team-event, event-interest, event-update, event-photo). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()`.
 - **Core**: `src/send-message.ts` provides `sendMessage()` and `sendBulkMessage()` with inbox, email, and WhatsApp channels + idempotency keys. `topic` is required on all sends.
-- **Topics**: 7 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
+- **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
 - **Preferences**: Per-topic, per-channel (email + WhatsApp) toggles stored in `notification_topic_preference` table (local DB as source of truth). Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. Email preferences sync one-way to Courier. WhatsApp preferences checked at send-time from local DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
 - **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) is used in notification functions to construct screenshot URLs for approval messages.
