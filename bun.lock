@@ -168,6 +168,7 @@
       "dependencies": {
         "@pi-dash/auth": "workspace:*",
         "@pi-dash/db": "workspace:*",
+        "better-auth": "catalog:",
         "dotenv": "catalog:",
         "drizzle-orm": "catalog:",
         "uuidv7": "catalog:",
