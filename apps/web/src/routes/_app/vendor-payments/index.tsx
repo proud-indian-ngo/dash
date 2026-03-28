@@ -8,6 +8,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { parseAsString, useQueryState } from "nuqs";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { StatsCards } from "@/components/stats/stats-cards";
+import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-payment-stats";
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
 import { VendorPaymentsTable } from "@/components/vendor-payments/vendor-payments-table";
 import { useApp } from "@/context/app-context";
@@ -45,26 +46,6 @@ function VendorPaymentsRouteComponent() {
     ? data.filter((vp) => vp.status === statusFilter)
     : data;
 
-  const stats = [
-    { label: "Total", value: data.length },
-    {
-      label: "Pending",
-      value: data.filter((vp) => vp.status === "pending").length,
-    },
-    {
-      label: "Approved",
-      value: data.filter((vp) => vp.status === "approved").length,
-    },
-    {
-      label: "Partially Paid",
-      value: data.filter((vp) => vp.status === "partially_paid").length,
-    },
-    {
-      label: "Paid",
-      value: data.filter((vp) => vp.status === "paid").length,
-    },
-  ];
-
   const isLoading = data.length === 0 && result.type !== "complete";
 
   return (
@@ -74,7 +55,10 @@ function VendorPaymentsRouteComponent() {
       </h1>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
-        <StatsCards isLoading={isLoading} items={stats} />
+        <StatsCards
+          isLoading={isLoading}
+          items={computeVendorPaymentStats(data)}
+        />
         <VendorPaymentsTable
           data={filtered}
           isLoading={isLoading}

@@ -17,6 +17,9 @@ test.describe("Export CSV (admin)", () => {
     await expect(
       page.getByRole("checkbox", { name: "Advance Payments" })
     ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { name: "Vendor Payments" })
+    ).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "Pending" })).toBeVisible();
     await expect(
       page.getByRole("checkbox", { name: "Approved" })
@@ -77,7 +80,7 @@ test.describe("Export CSV (admin)", () => {
     expect(headerLine).toContain("Title");
     expect(headerLine).toContain("Status");
 
-    await expect(page.getByText(/Exported \d+ records/)).toBeVisible();
+    await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 
   test("downloads CSV with single type selected", async ({ page }) => {
@@ -88,7 +91,7 @@ test.describe("Export CSV (admin)", () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/^reimbursements_/);
-    await expect(page.getByText(/Exported \d+ records/)).toBeVisible();
+    await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 
   test("can change financial year", async ({ page }) => {
@@ -102,6 +105,82 @@ test.describe("Export CSV (admin)", () => {
     await expect(
       page.getByRole("button", { name: "Export CSV" })
     ).toBeEnabled();
+  });
+
+  test("vendor payments checkbox shows VP status filters", async ({ page }) => {
+    // VP status filters should not be visible initially
+    await expect(
+      page.getByRole("checkbox", { name: "Partially Paid" })
+    ).not.toBeVisible();
+
+    // Check vendor payments
+    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+
+    // VP status filters should now be visible
+    await expect(
+      page.getByRole("checkbox", { name: "Partially Paid" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { name: "Paid", exact: true })
+    ).toBeVisible();
+  });
+
+  test("vendor payments checkbox shows transaction details option", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByRole("checkbox", {
+        name: "Include transaction details (separate CSV)",
+      })
+    ).not.toBeVisible();
+
+    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+
+    await expect(
+      page.getByRole("checkbox", {
+        name: "Include transaction details (separate CSV)",
+      })
+    ).toBeVisible();
+  });
+
+  test("export button disabled when VP-only and all VP statuses unchecked", async ({
+    page,
+  }) => {
+    // Uncheck request types, check vendor payments
+    await page.getByRole("checkbox", { name: "Reimbursements" }).click();
+    await page.getByRole("checkbox", { name: "Advance Payments" }).click();
+    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+
+    // Uncheck all VP statuses
+    for (const status of [
+      "Pending",
+      "Approved",
+      "Rejected",
+      "Partially Paid",
+    ]) {
+      await page.getByRole("checkbox", { name: status }).click();
+    }
+    await page.getByRole("checkbox", { name: "Paid", exact: true }).click();
+
+    await expect(
+      page.getByRole("button", { name: "Export CSV" })
+    ).toBeDisabled();
+  });
+
+  test("downloads vendor payment CSV", async ({ page }) => {
+    // Uncheck request types, check vendor payments only
+    await page.getByRole("checkbox", { name: "Reimbursements" }).click();
+    await page.getByRole("checkbox", { name: "Advance Payments" }).click();
+    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export CSV" }).click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toMatch(
+      /^vendor-payments_FY\d{4}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/
+    );
+    await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 });
 

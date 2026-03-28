@@ -12,14 +12,14 @@ import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
-const statusValues = [
+export const vendorPaymentStatusValues = [
   "pending",
   "approved",
   "rejected",
   "partially_paid",
   "paid",
 ] as const;
-const statusEnum = z.enum(statusValues);
+const statusEnum = z.enum(vendorPaymentStatusValues);
 
 const exportSchema = z.object({
   fyStart: z.number().int().min(2020).max(2099),

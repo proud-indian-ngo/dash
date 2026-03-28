@@ -25,7 +25,8 @@
     },
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],
-      "entry": ["helpers/seed-dev-data.ts"]
+      "entry": ["helpers/seed-dev-data.ts"],
+      "ignoreDependencies": ["better-auth"]
     },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],

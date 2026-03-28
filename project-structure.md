@@ -79,13 +79,12 @@ All paths are relative to project root.
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
 | `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
 | `routes/_app/vendor-payments/$id.tsx` | Vendor payment detail + transactions |
-| `routes/_app/vendor-payments/export.tsx` | Vendor payment CSV export |
 | `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
 | `routes/_app/vendors/index.tsx` | Vendors list |
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
-| `routes/_app/export.tsx` | CSV data export |
+| `routes/_app/export.tsx` | CSV data export (requests, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
 | `routes/_auth/forgot-password.tsx` | Forgot password |

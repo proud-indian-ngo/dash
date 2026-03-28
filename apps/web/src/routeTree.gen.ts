@@ -37,7 +37,6 @@ import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
 import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-payments/new'
-import { Route as AppVendorPaymentsExportRouteImport } from './routes/_app/vendor-payments/export'
 import { Route as AppVendorPaymentsIdRouteImport } from './routes/_app/vendor-payments/$id'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
 import { Route as AppRequestsNewRouteImport } from './routes/_app/requests/new'
@@ -187,11 +186,6 @@ const AppVendorPaymentsNewRoute = AppVendorPaymentsNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppVendorPaymentsRouteRoute,
 } as any)
-const AppVendorPaymentsExportRoute = AppVendorPaymentsExportRouteImport.update({
-  id: '/export',
-  path: '/export',
-  getParentRoute: () => AppVendorPaymentsRouteRoute,
-} as any)
 const AppVendorPaymentsIdRoute = AppVendorPaymentsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -265,7 +259,6 @@ export interface FileRoutesByFullPath {
   '/requests/new': typeof AppRequestsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
-  '/vendor-payments/export': typeof AppVendorPaymentsExportRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -298,7 +291,6 @@ export interface FileRoutesByTo {
   '/requests/new': typeof AppRequestsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
-  '/vendor-payments/export': typeof AppVendorPaymentsExportRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -340,7 +332,6 @@ export interface FileRoutesById {
   '/_app/requests/new': typeof AppRequestsNewRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/_app/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
-  '/_app/vendor-payments/export': typeof AppVendorPaymentsExportRoute
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -381,7 +372,6 @@ export interface FileRouteTypes {
     | '/requests/new'
     | '/teams/$id'
     | '/vendor-payments/$id'
-    | '/vendor-payments/export'
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
@@ -414,7 +404,6 @@ export interface FileRouteTypes {
     | '/requests/new'
     | '/teams/$id'
     | '/vendor-payments/$id'
-    | '/vendor-payments/export'
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
@@ -455,7 +444,6 @@ export interface FileRouteTypes {
     | '/_app/requests/new'
     | '/_app/teams/$id'
     | '/_app/vendor-payments/$id'
-    | '/_app/vendor-payments/export'
     | '/_app/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
@@ -685,13 +673,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVendorPaymentsNewRouteImport
       parentRoute: typeof AppVendorPaymentsRouteRoute
     }
-    '/_app/vendor-payments/export': {
-      id: '/_app/vendor-payments/export'
-      path: '/export'
-      fullPath: '/vendor-payments/export'
-      preLoaderRoute: typeof AppVendorPaymentsExportRouteImport
-      parentRoute: typeof AppVendorPaymentsRouteRoute
-    }
     '/_app/vendor-payments/$id': {
       id: '/_app/vendor-payments/$id'
       path: '/$id'
@@ -810,7 +791,6 @@ const AppTeamsRouteRouteWithChildren = AppTeamsRouteRoute._addFileChildren(
 
 interface AppVendorPaymentsRouteRouteChildren {
   AppVendorPaymentsIdRoute: typeof AppVendorPaymentsIdRoute
-  AppVendorPaymentsExportRoute: typeof AppVendorPaymentsExportRoute
   AppVendorPaymentsNewRoute: typeof AppVendorPaymentsNewRoute
   AppVendorPaymentsIndexRoute: typeof AppVendorPaymentsIndexRoute
 }
@@ -818,7 +798,6 @@ interface AppVendorPaymentsRouteRouteChildren {
 const AppVendorPaymentsRouteRouteChildren: AppVendorPaymentsRouteRouteChildren =
   {
     AppVendorPaymentsIdRoute: AppVendorPaymentsIdRoute,
-    AppVendorPaymentsExportRoute: AppVendorPaymentsExportRoute,
     AppVendorPaymentsNewRoute: AppVendorPaymentsNewRoute,
     AppVendorPaymentsIndexRoute: AppVendorPaymentsIndexRoute,
   }

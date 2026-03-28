@@ -74,11 +74,6 @@ const vendorPaymentsNavItem: NavItem = {
       url: "/vendor-payments/$id",
       isHidden: true,
     },
-    {
-      title: "Export Vendor Payments",
-      url: "/vendor-payments/export",
-      isHidden: true,
-    },
   ],
 };
 
