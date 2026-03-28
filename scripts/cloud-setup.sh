@@ -15,6 +15,21 @@ set -euo pipefail
 
 echo "=== Pi-Dash Cloud Environment Setup ==="
 
+# ── 0. Find repo root ─────────────────────────────────────────────────────────
+# The setup script runs from /home/user/ but the repo is cloned elsewhere.
+REPO_DIR=$(find /home/user -maxdepth 2 -name "package.json" -path "*/pi-dash/*" -printf '%h' -quit 2>/dev/null || true)
+if [ -z "$REPO_DIR" ]; then
+  # Fallback: look for any directory with our marker file
+  REPO_DIR=$(find /home/user -maxdepth 2 -name "CLAUDE.md" -printf '%h' -quit 2>/dev/null || true)
+fi
+if [ -z "$REPO_DIR" ]; then
+  echo "ERROR: Could not find pi-dash repo. Contents of /home/user:"
+  ls -la /home/user/
+  exit 1
+fi
+echo "Found repo at: $REPO_DIR"
+cd "$REPO_DIR"
+
 # ── 1. Start PostgreSQL ────────────────────────────────────────────────────────
 PG_VERSION=$(psql --version 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo "0")
 
