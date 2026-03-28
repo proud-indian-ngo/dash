@@ -1,9 +1,9 @@
 #!/bin/bash
 # Setup script for Claude Code Cloud environments.
-# Configure this in claude.ai/code → Environment Settings → Setup Script.
+# Paste this script's contents into claude.ai/code → Environment Settings → Setup Script.
 #
-# The cloud VM has PostgreSQL 16 pre-installed. We upgrade to PG 18 to match
-# our dev/prod setup, then create the database, install deps, push schema, and seed.
+# The cloud VM has PostgreSQL 16 pre-installed. We use it directly (PG 18 apt
+# repo is blocked by the cloud proxy). PG 16 is compatible for dev purposes.
 #
 # Environment variables to set in claude.ai/code UI:
 #   DEV_DB_PASSWORD=db@1234
@@ -15,35 +15,15 @@ set -euo pipefail
 
 echo "=== Pi-Dash Cloud Environment Setup ==="
 
-# ── 1. Upgrade PostgreSQL 16 → 18 ────────────────────────────────────────────
+# ── 1. Start PostgreSQL ────────────────────────────────────────────────────────
 PG_VERSION=$(psql --version 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo "0")
 
-if [ "$PG_VERSION" -lt 18 ]; then
-  echo "Upgrading PostgreSQL to 18..."
-  # Stop PG 16
-  service postgresql stop 2>/dev/null || pg_ctlcluster 16 main stop 2>/dev/null || true
-
-  # Add PG 18 repo and install
-  apt-get update -qq
-  apt-get install -y -qq curl ca-certificates
-  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
-  echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
-  apt-get update -qq
-  apt-get install -y -qq postgresql-18
-
-  # Disable PG 16 cluster, configure PG 18
-  pg_dropcluster 16 main --stop 2>/dev/null || true
-  pg_ctlcluster 18 main start 2>/dev/null || service postgresql start 2>/dev/null || true
-  echo "✓ PostgreSQL 18 installed"
-else
-  # Start existing PostgreSQL if not running
-  if ! pg_isready -U postgres 2>/dev/null; then
-    echo "Starting PostgreSQL..."
-    service postgresql start 2>/dev/null || pg_ctlcluster "$PG_VERSION" main start 2>/dev/null || true
-    sleep 2
-  fi
-  echo "✓ PostgreSQL $PG_VERSION already available"
+if ! pg_isready -U postgres 2>/dev/null; then
+  echo "Starting PostgreSQL $PG_VERSION..."
+  service postgresql start 2>/dev/null || pg_ctlcluster "$PG_VERSION" main start 2>/dev/null || true
+  sleep 2
 fi
+echo "✓ PostgreSQL $PG_VERSION running"
 
 # ── 2. Configure PostgreSQL ──────────────────────────────────────────────────
 echo "Configuring PostgreSQL..."
@@ -59,7 +39,7 @@ su - postgres -c "psql -c \"ALTER SYSTEM SET max_connections = 300\"" 2>/dev/nul
   psql -U postgres -c "ALTER SYSTEM SET max_connections = 300" 2>/dev/null || true
 
 # Restart to apply wal_level change (requires restart, not just reload)
-service postgresql restart 2>/dev/null || pg_ctlcluster 18 main restart 2>/dev/null || true
+service postgresql restart 2>/dev/null || pg_ctlcluster "$PG_VERSION" main restart 2>/dev/null || true
 sleep 2
 
 # Create database
