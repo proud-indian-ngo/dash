@@ -1,9 +1,11 @@
 #!/bin/bash
-# Setup script for Claude Code Cloud environments.
+# Setup script for Claude Code Cloud environments (system-level only).
 # Paste this script's contents into claude.ai/code → Environment Settings → Setup Script.
 #
-# The cloud VM has PostgreSQL 16 pre-installed. We use it directly (PG 18 apt
-# repo is blocked by the cloud proxy). PG 16 is compatible for dev purposes.
+# This script runs as root BEFORE the project is available. It only configures
+# system-level services (PostgreSQL). Project setup (deps, schema, seed) is
+# handled by the SessionStart hook in .claude/settings.json, which has access
+# to $CLAUDE_PROJECT_DIR.
 #
 # Environment variables to set in claude.ai/code UI:
 #   DEV_DB_PASSWORD=db@1234
@@ -13,22 +15,7 @@
 
 set -euo pipefail
 
-echo "=== Pi-Dash Cloud Environment Setup ==="
-
-# ── 0. Find repo root ─────────────────────────────────────────────────────────
-# The setup script runs from /home/user/ but the repo is cloned elsewhere.
-REPO_DIR=$(find /home/user -maxdepth 2 -name "package.json" -path "*/pi-dash/*" -printf '%h' -quit 2>/dev/null || true)
-if [ -z "$REPO_DIR" ]; then
-  # Fallback: look for any directory with our marker file
-  REPO_DIR=$(find /home/user -maxdepth 2 -name "CLAUDE.md" -printf '%h' -quit 2>/dev/null || true)
-fi
-if [ -z "$REPO_DIR" ]; then
-  echo "ERROR: Could not find pi-dash repo. Contents of /home/user:"
-  ls -la /home/user/
-  exit 1
-fi
-echo "Found repo at: $REPO_DIR"
-cd "$REPO_DIR"
+echo "=== Pi-Dash Cloud Setup (system) ==="
 
 # ── 1. Start PostgreSQL ────────────────────────────────────────────────────────
 PG_VERSION=$(psql --version 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo "0")
@@ -63,40 +50,4 @@ su - postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'pi-dash'
   psql -U postgres -c 'CREATE DATABASE "pi-dash"' 2>/dev/null || true
 
 echo "✓ PostgreSQL configured (wal_level=logical, max_connections=300)"
-
-# ── 3. Install dependencies ──────────────────────────────────────────────────
-echo "Installing dependencies..."
-# Bun has known proxy issues in cloud — fall back to npm if bun fails
-if command -v bun &>/dev/null; then
-  bun install 2>/dev/null || { echo "⚠ bun install failed (proxy issue?), trying npm..."; npm install; }
-else
-  npm install
-fi
-echo "✓ Dependencies installed"
-
-# ── 4. Push schema ───────────────────────────────────────────────────────────
-DB_URL="postgres://postgres:${DEV_DB_PASSWORD:-db@1234}@localhost:5432/pi-dash"
-
-echo "Pushing schema..."
-(cd packages/db && DATABASE_URL="$DB_URL" SKIP_VALIDATION=true npx drizzle-kit push)
-echo "✓ Schema pushed"
-
-# ── 5. Seed dev data ─────────────────────────────────────────────────────────
-echo "Seeding dev data..."
-(cd packages/e2e && \
-  DATABASE_URL="$DB_URL" \
-  BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}" \
-  BETTER_AUTH_URL="${BETTER_AUTH_URL:-http://localhost:3001}" \
-  SKIP_VALIDATION=true \
-  bun run helpers/seed-dev-data.ts) || echo "⚠ Seed failed (non-critical)"
-echo "✓ Data seeded"
-
-# ── 6. Regenerate Ruler files ─────────────────────────────────────────────────
-echo "Regenerating Ruler files..."
-bun run ruler:apply 2>/dev/null || npx @intellectronica/ruler@latest apply --local-only 2>/dev/null || true
-echo "✓ Ruler files ready"
-
-echo ""
-echo "=== Cloud setup complete ==="
-echo "  PostgreSQL: $DB_URL"
-echo "  Run: bun run dev (starts on :3001)"
+echo "=== System setup complete ==="
