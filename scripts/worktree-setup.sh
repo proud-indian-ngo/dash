@@ -120,7 +120,7 @@ EOF
 name: pi-dash-wt${WORKTREE_ID}
 services:
   postgres:
-    image: postgres:18
+    image: postgres:17
     container_name: ${DB_CONTAINER}
     environment:
       POSTGRES_DB: pi-dash
