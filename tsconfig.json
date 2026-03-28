@@ -3,5 +3,10 @@
   "compilerOptions": {
     "strictNullChecks": true
   },
-  "exclude": ["node_modules", "./apps/web/dist"]
+  "exclude": [
+    "node_modules",
+    "./apps/web/dist",
+    ".worktrees",
+    ".claude/worktrees"
+  ]
 }

@@ -8,7 +8,7 @@
     "serve": "bunx --bun vite preview",
     "dev": "bunx --bun vite dev",
     "check:types": "tsc --noEmit",
-    "test:unit": "bun run --env-file ../../.env vitest run",
+    "test:unit": "bun run --env-file ../../.env --env-file ../../.env.worktree vitest run",
     "analyze": "bunx analyze"
   },
   "dependencies": {

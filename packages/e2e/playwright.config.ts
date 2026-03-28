@@ -3,7 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const isCI = !!process.env.CI;
 const isTestDB = !!process.env.TEST_DB_URL;
-const webServerPort = isTestDB ? 3099 : 3001;
+const webServerPort =
+  Number(process.env.E2E_WEB_PORT) || (isTestDB ? 3099 : 3001);
 
 export default defineConfig({
   testDir: "./tests",

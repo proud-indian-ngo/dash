@@ -24,6 +24,12 @@ All paths are relative to project root.
 | `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
 | `bun run analyze` | Bundle analysis (web app) |
 | `bun run ruler:apply` | Apply Ruler config |
+| `bun run worktree:setup <ID>` | Set up worktree with port isolation (ID 1-9) |
+| `bun run worktree:setup <ID> --isolated-db` | Set up worktree with isolated Postgres |
+| `bun run worktree:teardown` | Clean up worktree resources |
+| `bash scripts/worktree-smoke-test.sh` | End-to-end worktree validation |
+| `bash scripts/cloud-setup.sh` | Cloud environment setup (PG upgrade, schema push, seed) |
+| `bun run seed:dev` | Seed dev data for isolated DB worktrees |
 
 ## Fast Lookup Map
 

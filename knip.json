@@ -24,7 +24,8 @@
       "ignoreDependencies": ["uuidv7"]
     },
     "packages/e2e": {
-      "ignoreFiles": ["global-setup.ts"]
+      "ignoreFiles": ["global-setup.ts"],
+      "entry": ["helpers/seed-dev-data.ts"]
     },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],

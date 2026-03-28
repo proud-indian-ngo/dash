@@ -68,6 +68,11 @@ temp
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
+.env.worktree
+.worktree-id
+packages/db/docker-compose.e2e*.yml
+packages/db/docker-compose.wt*.yml
 
 # Playwright
 packages/e2e/.auth/

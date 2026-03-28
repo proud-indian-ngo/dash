@@ -11,7 +11,7 @@
     "./vendor-payment-constants": "./src/vendor-payment-constants.ts"
   },
   "scripts": {
-    "dev": "bun run --env-file=../../.env zero-cache-dev",
+    "dev": "bun run --env-file=../../.env --env-file=../../.env.worktree zero-cache-dev",
     "zero:generate": "drizzle-zero generate -f -s ../db/src/schema/index.ts -o src/schema.ts",
     "check:types": "tsc --noEmit",
     "test:unit": "vitest run"

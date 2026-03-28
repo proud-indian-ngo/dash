@@ -127,6 +127,6 @@ export default defineConfig(({ mode }) => ({
     tsconfigPaths: true,
   },
   server: {
-    port: 3001,
+    port: Number(process.env.DEV_WEB_PORT) || 3001,
   },
 }));

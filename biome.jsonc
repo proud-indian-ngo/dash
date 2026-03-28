@@ -6,6 +6,7 @@
       "**/*",
       "!.agents/**/*",
       "!.claude/worktrees/**/*",
+      "!.worktrees/**/*",
       "!packages/design-system/components",
       "!packages/design-system/lib/utils.ts",
       "!packages/design-system/hooks/use-mobile.ts",

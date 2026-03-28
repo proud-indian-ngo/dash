@@ -75,7 +75,10 @@
     "test:seed": "turbo -F @pi-dash/e2e seed",
     "test:e2e": "turbo -F @pi-dash/e2e test",
     "test:e2e:ui": "turbo -F @pi-dash/e2e test:ui",
-    "analyze": "turbo -F web analyze"
+    "analyze": "turbo -F web analyze",
+    "worktree:setup": "bash scripts/worktree-setup.sh",
+    "worktree:teardown": "bash scripts/worktree-teardown.sh",
+    "seed:dev": "cd packages/e2e && bun run helpers/seed-dev-data.ts"
   },
   "dependencies": {},
   "devDependencies": {

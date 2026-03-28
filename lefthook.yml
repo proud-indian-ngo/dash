@@ -17,3 +17,19 @@ pre-commit:
     unused:
       glob: "*.{ts,tsx}"
       run: bun run check:unused
+
+post-checkout:
+  commands:
+    worktree-bootstrap:
+      run: |
+        MAIN_DIR=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+        CURRENT_DIR=$(git rev-parse --show-toplevel)
+        if [ "$MAIN_DIR" != "$CURRENT_DIR" ]; then
+          if [ ! -f .env ]; then
+            cp "$MAIN_DIR/.env" .env 2>/dev/null || true
+            echo "Copied .env from main worktree"
+          fi
+          if [ ! -f CLAUDE.md ] || [ .ruler/agent-guide.md -nt CLAUDE.md ]; then
+            bun run ruler:apply 2>/dev/null || true
+          fi
+        fi
