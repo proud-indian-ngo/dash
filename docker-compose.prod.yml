@@ -142,7 +142,7 @@ services:
     restart: unless-stopped
 
   zero-cache:
-    image: rocicorp/zero:1.0.0
+    image: rocicorp/zero:1.1.1
     ports:
       - "${ZERO_CACHE_PORT:-4848}:4848"
     environment:
