@@ -24,9 +24,9 @@ import { SelectField } from "@/components/form/select-field";
 import { useApp } from "@/context/app-context";
 import type { Attachment } from "@/lib/form-schemas";
 import { cityOptions } from "@/lib/form-schemas";
-import type { RequestType } from "@/lib/request-types";
+import type { RequestType } from "@/lib/reimbursement-types";
 
-interface StandardRequestFieldsProps {
+interface StandardReimbursementFieldsProps {
   bankAccountList: BankAccount[];
   bankAccountOptions: { label: string; value: string }[];
   bankAccountsStatus: "loading" | "complete" | "error";
@@ -40,7 +40,7 @@ interface StandardRequestFieldsProps {
   requestType: RequestType;
 }
 
-export function StandardRequestFields({
+export function StandardReimbursementFields({
   bankAccountList,
   bankAccountOptions,
   bankAccountsStatus,
@@ -52,9 +52,12 @@ export function StandardRequestFields({
   isEdit,
   onCancel,
   requestType,
-}: StandardRequestFieldsProps) {
+}: StandardReimbursementFieldsProps) {
   const { openSettings } = useApp();
-  const resolvedForm = useResolvedForm(undefined, "StandardRequestFields");
+  const resolvedForm = useResolvedForm(
+    undefined,
+    "StandardReimbursementFields"
+  );
 
   function renderBankAccountField() {
     if (bankAccountOptions.length > 0) {
@@ -75,6 +78,11 @@ export function StandardRequestFields({
             return (
               <Select
                 disabled={disableBankAccountSelection}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    field.handleBlur();
+                  }
+                }}
                 onValueChange={(accountId) => {
                   const account = bankAccountList.find(
                     (entry) => entry.id === accountId
@@ -91,7 +99,6 @@ export function StandardRequestFields({
                   {...fieldErrorProps(field, submitted)}
                   className="w-full"
                   id={field.name}
-                  onBlur={field.handleBlur}
                 >
                   <span
                     className="flex flex-1 items-center text-left"

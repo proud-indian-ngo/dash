@@ -18,6 +18,8 @@ export const vendorPaymentStatusValues = [
   "rejected",
   "partially_paid",
   "paid",
+  "invoice_pending",
+  "completed",
 ] as const;
 const statusEnum = z.enum(vendorPaymentStatusValues);
 

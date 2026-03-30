@@ -25,6 +25,7 @@ export type VendorPaymentWithRelations = VendorPayment & {
   >;
   attachments: readonly VendorPaymentAttachment[];
   history: ReadonlyArray<VendorPaymentHistory & { actor?: User | undefined }>;
+  invoiceReviewer: User | undefined;
   user: User | undefined;
   vendor: Vendor | undefined;
   transactions: readonly VendorPaymentTransactionWithRelations[];

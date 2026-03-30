@@ -66,6 +66,11 @@ export function SelectField({
         return (
           <Select
             disabled={disabled}
+            onOpenChange={(open) => {
+              if (!open) {
+                field.handleBlur();
+              }
+            }}
             onValueChange={(value) => field.handleChange(value)}
             value={selectedValue ?? ""}
           >
@@ -77,7 +82,6 @@ export function SelectField({
               aria-required={isRequired}
               className={triggerClassName}
               id={field.name}
-              onBlur={field.handleBlur}
             >
               <span
                 className="flex flex-1 items-center text-left"

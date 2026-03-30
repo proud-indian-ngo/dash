@@ -1,66 +1,53 @@
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { queries } from "@pi-dash/zero/queries";
 import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
-import type { RequestType } from "@/lib/request-types";
-import { REQUEST_TYPE_LABELS } from "@/lib/request-types";
+import type { RequestType } from "@/lib/reimbursement-types";
+import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import {
   getDefaultValues,
   getFormSchema,
   type RequestFormValues,
   requestFormSchema,
-} from "./form/request-form.schema";
-import { buildMutation } from "./request-form-mutations";
-import { TypeSelector } from "./request-type-selector";
-import { StandardRequestFields } from "./standard-request-fields";
+} from "./form/reimbursement-form.schema";
+import { buildMutation } from "./reimbursement-form-mutations";
+import { StandardReimbursementFields } from "./standard-reimbursement-fields";
 
-export interface RequestFormProps {
+export interface ReimbursementFormProps {
   disableBankAccountSelection?: boolean;
-  disableTypeSelection?: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
   onSaved: (id: string) => void;
   requestType: RequestType;
 }
 
-export function RequestForm({
+export function ReimbursementForm({
   disableBankAccountSelection = false,
-  disableTypeSelection = false,
   initialValues,
   onCancel,
   onSaved,
   requestType,
-}: RequestFormProps) {
-  const [currentType, setCurrentType] = useState<RequestType>(requestType);
-
+}: ReimbursementFormProps) {
   return (
     <AppErrorBoundary level="section">
-      {disableTypeSelection ? null : (
-        <>
-          <TypeSelector onChange={setCurrentType} value={currentType} />
-          <Separator className="my-4" />
-        </>
-      )}
-      <RequestFormInner
+      <ReimbursementFormInner
         disableBankAccountSelection={disableBankAccountSelection}
         initialValues={initialValues}
-        key={currentType}
         onCancel={onCancel}
         onSaved={onSaved}
-        requestType={currentType}
+        requestType={requestType}
       />
     </AppErrorBoundary>
   );
 }
 
-interface RequestFormInnerProps {
+interface ReimbursementFormInnerProps {
   disableBankAccountSelection: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
@@ -68,13 +55,13 @@ interface RequestFormInnerProps {
   requestType: RequestType;
 }
 
-function RequestFormInner({
+function ReimbursementFormInner({
   disableBankAccountSelection,
   initialValues,
   onCancel,
   onSaved,
   requestType,
-}: RequestFormInnerProps) {
+}: ReimbursementFormInnerProps) {
   const zero = useZero();
   const [categories] = useQuery(queries.expenseCategory.all());
   const [bankAccounts, bankAccountsResult] = useQuery(
@@ -187,7 +174,7 @@ function RequestFormInner({
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
-      <StandardRequestFields
+      <StandardReimbursementFields
         bankAccountList={bankAccountList}
         bankAccountOptions={bankAccountOptions}
         bankAccountsStatus={bankAccountsStatus}

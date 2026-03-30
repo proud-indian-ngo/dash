@@ -204,6 +204,13 @@
       "when": 1774606264800,
       "tag": "0028_vendor_payment_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1774852635410,
+      "tag": "0029_abandoned_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

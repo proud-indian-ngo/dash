@@ -5,25 +5,25 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Loader } from "@/components/loader";
-import { RequestDetail } from "@/components/requests/request-detail";
-import { RequestForm } from "@/components/requests/request-form";
+import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
+import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 import { useApp } from "@/context/app-context";
-import type { RequestDetailData, RequestType } from "@/lib/request-types";
-import { REQUEST_TYPE_LABELS } from "@/lib/request-types";
+import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
+import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
 } from "@/lib/submission-mappers";
 
-export const Route = createFileRoute("/_app/requests/$id")({
+export const Route = createFileRoute("/_app/reimbursements/$id")({
   head: () => ({
-    meta: [{ title: `Request Details | ${env.VITE_APP_NAME}` }],
+    meta: [{ title: `Reimbursement Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
     context.zero?.preload(queries.reimbursement.byId({ id: params.id }));
     context.zero?.preload(queries.advancePayment.byId({ id: params.id }));
   },
-  component: RequestDetailRouteComponent,
+  component: ReimbursementDetailRouteComponent,
 });
 
 interface ResolvedRequest {
@@ -72,7 +72,7 @@ function useResolvedRequest(id: string): {
   return { isLoading: false, resolved: null };
 }
 
-function RequestDetailRouteComponent() {
+function ReimbursementDetailRouteComponent() {
   const { id } = Route.useParams();
   const { isLoading, resolved } = useResolvedRequest(id);
 
@@ -87,7 +87,9 @@ function RequestDetailRouteComponent() {
   if (!resolved) {
     return (
       <div className="app-container mx-auto max-w-3xl px-4 py-6">
-        <p className="text-muted-foreground text-sm">Request not found.</p>
+        <p className="text-muted-foreground text-sm">
+          Reimbursement not found.
+        </p>
       </div>
     );
   }
@@ -162,12 +164,11 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               Update your submission before it is reviewed.
             </p>
             <div className="mt-6">
-              <RequestForm
+              <ReimbursementForm
                 disableBankAccountSelection={isAdminEditingAnotherUser}
-                disableTypeSelection
                 initialValues={buildInitialValues(resolved)}
                 onCancel={() => {
-                  navigate({ to: "/requests" });
+                  navigate({ to: "/reimbursements" });
                 }}
                 onSaved={() => {
                   setAdminEditMode(false);
@@ -189,7 +190,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
                 </Button>
               </div>
             ) : null}
-            <RequestDetail canApprove={canApprove} request={request} />
+            <ReimbursementDetail canApprove={canApprove} request={request} />
           </>
         )}
       </div>

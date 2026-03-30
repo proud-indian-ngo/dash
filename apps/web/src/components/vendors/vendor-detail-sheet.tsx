@@ -91,8 +91,12 @@ export function VendorDetailSheet({
                     value={String(vendor.pendingCount)}
                   />
                   <DetailRow
-                    label="Approved Payments"
-                    value={String(vendor.approvedCount)}
+                    label="Active Payments"
+                    value={String(vendor.activeCount)}
+                  />
+                  <DetailRow
+                    label="Completed"
+                    value={String(vendor.completedCount)}
                   />
                   <DetailRow
                     label="Rejected Payments"
@@ -103,8 +107,12 @@ export function VendorDetailSheet({
                     value={formatINR(vendor.pendingAmount)}
                   />
                   <DetailRow
-                    label="Approved Amount"
-                    value={formatINR(vendor.approvedAmount)}
+                    label="Active Amount"
+                    value={formatINR(vendor.activeAmount)}
+                  />
+                  <DetailRow
+                    label="Completed Amount"
+                    value={formatINR(vendor.completedAmount)}
                   />
                   <DetailRow
                     label="Rejected Amount"

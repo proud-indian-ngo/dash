@@ -13,6 +13,10 @@ export const historyActionValues = [
   "submitted",
   "approved",
   "rejected",
+  "invoice_submitted",
+  "invoice_updated",
+  "invoice_approved",
+  "invoice_rejected",
 ] as const;
 export type HistoryAction = (typeof historyActionValues)[number];
 

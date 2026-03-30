@@ -210,20 +210,36 @@ export function VendorsTable({
       size: 140,
     },
     {
-      id: "approvedCount",
-      accessorFn: (row) => row.approvedCount,
+      id: "activeCount",
+      accessorFn: (row) => row.activeCount,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Approved Payments"
+          title="Active Payments"
           visibility={true}
         />
       ),
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.approvedCount}</span>
+        <span className="text-sm">{row.original.activeCount}</span>
       ),
-      meta: { headerTitle: "Approved Payments", skeleton: SKELETON_COUNT },
-      size: 160,
+      meta: { headerTitle: "Active Payments", skeleton: SKELETON_COUNT },
+      size: 140,
+    },
+    {
+      id: "completedCount",
+      accessorFn: (row) => row.completedCount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Completed"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.completedCount}</span>
+      ),
+      meta: { headerTitle: "Completed", skeleton: SKELETON_COUNT },
+      size: 120,
     },
     {
       id: "pendingAmount",
@@ -242,21 +258,37 @@ export function VendorsTable({
       size: 150,
     },
     {
-      id: "approvedAmount",
-      accessorFn: (row) => row.approvedAmount,
+      id: "activeAmount",
+      accessorFn: (row) => row.activeAmount,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Approved Amount"
+          title="Active Amount"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm">{formatINR(row.original.activeAmount)}</span>
+      ),
+      meta: { headerTitle: "Active Amount", skeleton: SKELETON_AMOUNT },
+      size: 140,
+    },
+    {
+      id: "completedAmount",
+      accessorFn: (row) => row.completedAmount,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Completed Amount"
           visibility={true}
         />
       ),
       cell: ({ row }) => (
         <span className="text-sm">
-          {formatINR(row.original.approvedAmount)}
+          {formatINR(row.original.completedAmount)}
         </span>
       ),
-      meta: { headerTitle: "Approved Amount", skeleton: SKELETON_AMOUNT },
+      meta: { headerTitle: "Completed Amount", skeleton: SKELETON_AMOUNT },
       size: 160,
     },
     {
@@ -354,8 +386,10 @@ export function VendorsTable({
         columns={columns}
         data={data}
         defaultColumnVisibility={{
-          approvedCount: false,
-          approvedAmount: false,
+          activeCount: false,
+          activeAmount: false,
+          completedCount: false,
+          completedAmount: false,
           rejectedCount: false,
           rejectedAmount: false,
         }}
@@ -365,7 +399,7 @@ export function VendorsTable({
         onRowClick={onView}
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
-        storageKey="vendors_table_state_v2"
+        storageKey="vendors_table_state_v3"
         tableLayout={{
           columnsResizable: true,
           columnsDraggable: true,

@@ -1,16 +1,16 @@
 import { expect, test } from "../../fixtures/test";
-import { RequestPage } from "../../pages/request-page";
+import { ReimbursementPage } from "../../pages/reimbursement-page";
 
-test.describe("Requests list", () => {
-  let requests: RequestPage;
+test.describe("Reimbursements list", () => {
+  let reimbursements: ReimbursementPage;
 
   test.beforeEach(async ({ page }) => {
-    requests = new RequestPage(page, "reimbursement");
-    await requests.navigateToList();
+    reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToList();
   });
 
   test("renders table with expected columns", async () => {
-    const headers = requests.list.getColumnHeaders();
+    const headers = reimbursements.list.getColumnHeaders();
     await expect(headers.filter({ hasText: /Title/ })).toBeVisible();
     await expect(headers.filter({ hasText: /Type/ })).toBeVisible();
     await expect(headers.filter({ hasText: /Status/ })).toBeVisible();
@@ -20,20 +20,22 @@ test.describe("Requests list", () => {
 
   test("search box is present", async () => {
     await expect(
-      requests.list.getSearchInput("Search requests...")
+      reimbursements.list.getSearchInput("Search reimbursements...")
     ).toBeVisible();
   });
 
-  test("New request button navigates to /requests/new", async ({ page }) => {
-    await requests.list.getNewRequestButton().click();
-    await page.waitForURL(/\/requests\/new/);
+  test("New reimbursement button navigates to /reimbursements/new", async ({
+    page,
+  }) => {
+    await reimbursements.list.getNewReimbursementButton().click();
+    await page.waitForURL(/\/reimbursements\/new/);
     await expect(
-      page.getByRole("heading", { name: "New Request" })
+      page.getByRole("heading", { name: "New Reimbursement" })
     ).toBeVisible();
   });
 
   test("columns dropdown toggles column visibility", async ({ page }) => {
-    await requests.list.getColumnsButton().click();
+    await reimbursements.list.getColumnsButton().click();
     await expect(
       page.getByRole("menuitemcheckbox", { name: "Title" })
     ).toBeVisible();
@@ -45,7 +47,7 @@ test.describe("Requests list", () => {
   });
 
   test("shows stats cards", async () => {
-    const cards = requests.list.getStatsCards();
+    const cards = reimbursements.list.getStatsCards();
     await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
     await expect(cards.getByText("Pending")).toBeVisible();
     await expect(cards.getByText("Approved")).toBeVisible();

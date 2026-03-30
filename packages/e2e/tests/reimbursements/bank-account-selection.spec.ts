@@ -1,5 +1,5 @@
 import { expect, test } from "../../fixtures/test";
-import { RequestPage } from "../../pages/request-page";
+import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.slow();
 
@@ -39,6 +39,12 @@ test.describe("Bank account selection with duplicate names", () => {
   test.afterEach(async ({ page }) => {
     // Cleanup: delete the duplicate account if it exists
     try {
+      // Dismiss any open dialogs first
+      await page.keyboard.press("Escape").catch(() => {
+        // Ignore — page may have navigated
+      });
+      await page.waitForTimeout(300);
+
       const dialog = await navigateToBanking(page);
       const card = accountCard(dialog, DUPLICATE_LAST4);
       if ((await card.count()) > 0) {
@@ -46,7 +52,10 @@ test.describe("Bank account selection with duplicate names", () => {
           .first()
           .getByRole("button", { name: "Delete account" })
           .click();
-        await page.getByRole("button", { name: "Delete" }).click();
+        const confirmBtn = page
+          .getByRole("alertdialog")
+          .getByRole("button", { name: "Delete" });
+        await confirmBtn.click({ timeout: 5000 });
         await expect(card).toHaveCount(0, { timeout: 10_000 });
       }
     } catch {
@@ -84,10 +93,10 @@ test.describe("Bank account selection with duplicate names", () => {
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
 
-    // Step 3: Open new request form and verify the default account is selected
-    const requests = new RequestPage(page, "reimbursement");
-    await requests.navigateToNew();
-    await requests.selectType("reimbursement");
+    // Step 3: Open new reimbursement form and verify the default account is selected
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToNew();
+    await reimbursements.selectType("reimbursement");
 
     // The bank account field should show the new default (••••3210)
     const bankAccountGroup = page

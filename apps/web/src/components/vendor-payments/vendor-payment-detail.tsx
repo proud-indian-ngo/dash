@@ -8,23 +8,22 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { format } from "date-fns";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { HistoryEntry } from "@/components/requests/request-history-entry";
+import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
-import { LONG_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
 import { VendorBankCard, VendorDetailsCard } from "./vendor-details-card";
+import { VendorPaymentInvoiceSection } from "./vendor-payment-invoice-section";
 import { VendorPaymentTransactions } from "./vendor-payment-transactions";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
@@ -84,6 +83,14 @@ export function VendorPaymentDetail({
     }
   };
 
+  const status = request.status as string;
+  const invoiceAttachments = (request.attachments ?? []).filter(
+    (att) => att.purpose === "invoice"
+  );
+  const quotationAttachments = (request.attachments ?? []).filter(
+    (att) => att.purpose !== "invoice"
+  );
+
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
@@ -96,12 +103,6 @@ export function VendorPaymentDetail({
             <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
               {request.vendor ? (
                 <span>Vendor: {request.vendor.name}</span>
-              ) : null}
-              {request.invoiceNumber ? (
-                <span>Invoice: {request.invoiceNumber}</span>
-              ) : null}
-              {request.invoiceDate ? (
-                <span>{format(request.invoiceDate, LONG_DATE)}</span>
               ) : null}
             </div>
             {request.user ? (
@@ -226,12 +227,14 @@ export function VendorPaymentDetail({
           )}
         </div>
 
-        {/* Attachments */}
-        {(request.attachments ?? []).length > 0 ? (
+        {/* Quotation / Supporting Documents */}
+        {quotationAttachments.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h2 className="font-medium text-sm">Attachments</h2>
+            <h2 className="font-medium text-sm">
+              Quotation / Supporting Documents
+            </h2>
             <div className="flex flex-col gap-1.5">
-              {(request.attachments ?? []).map(
+              {quotationAttachments.map(
                 (att: {
                   id: string;
                   type: "file" | "url";
@@ -288,6 +291,15 @@ export function VendorPaymentDetail({
 
         {/* Transactions */}
         <VendorPaymentTransactions isOwner={isOwner} request={request} />
+
+        {/* Invoice section */}
+        <VendorPaymentInvoiceSection
+          canApprove={canApprove}
+          invoiceAttachments={invoiceAttachments}
+          isOwner={isOwner}
+          request={request}
+          status={status}
+        />
 
         {/* History */}
         {(request.history ?? []).length > 0 ? (

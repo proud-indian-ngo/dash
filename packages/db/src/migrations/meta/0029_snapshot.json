@@ -1,6 +1,6 @@
 {
-  "id": "c571ce8c-11f8-4512-bc6c-ae7dbfa92dce",
-  "prevId": "07a4ae80-6789-44ea-bfa1-77c243b305f9",
+  "id": "bae45a96-bd74-4a35-b9c3-56abe1255eb4",
+  "prevId": "c571ce8c-11f8-4512-bc6c-ae7dbfa92dce",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1135,6 +1135,199 @@
           "value": "ifsc_code ~ '^[A-Z]{4}0[A-Z0-9]{6}$'"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.event_feedback": {
+      "name": "event_feedback",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "event_feedback_eventId_idx": {
+          "name": "event_feedback_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_feedback_event_id_team_event_id_fk": {
+          "name": "event_feedback_event_id_team_event_id_fk",
+          "tableFrom": "event_feedback",
+          "tableTo": "team_event",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.event_feedback_submission": {
+      "name": "event_feedback_submission",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feedback_id": {
+          "name": "feedback_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "event_feedback_sub_eventId_userId_uidx": {
+          "name": "event_feedback_sub_eventId_userId_uidx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_feedback_sub_eventId_idx": {
+          "name": "event_feedback_sub_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_feedback_submission_event_id_team_event_id_fk": {
+          "name": "event_feedback_submission_event_id_team_event_id_fk",
+          "tableFrom": "event_feedback_submission",
+          "tableTo": "team_event",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_feedback_submission_user_id_user_id_fk": {
+          "name": "event_feedback_submission_user_id_user_id_fk",
+          "tableFrom": "event_feedback_submission",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_feedback_submission_feedback_id_event_feedback_id_fk": {
+          "name": "event_feedback_submission_feedback_id_event_feedback_id_fk",
+          "tableFrom": "event_feedback_submission",
+          "tableTo": "event_feedback",
+          "columnsFrom": [
+            "feedback_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.event_interest": {
@@ -2585,6 +2778,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "feedback_enabled": {
+          "name": "feedback_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "feedback_deadline": {
+          "name": "feedback_deadline",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -3052,7 +3258,7 @@
           "name": "invoice_date",
           "type": "date",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -3083,6 +3289,24 @@
         "reviewed_at": {
           "name": "reviewed_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_reviewed_by": {
+          "name": "invoice_reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_reviewed_at": {
+          "name": "invoice_reviewed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_rejection_reason": {
+          "name": "invoice_rejection_reason",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3191,6 +3415,19 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "vendor_payment_invoice_reviewed_by_user_id_fk": {
+          "name": "vendor_payment_invoice_reviewed_by_user_id_fk",
+          "tableFrom": "vendor_payment",
+          "tableTo": "user",
+          "columnsFrom": [
+            "invoice_reviewed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3226,6 +3463,14 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "attachment_purpose",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'quotation'"
         },
         "filename": {
           "name": "filename",
@@ -4009,7 +4254,11 @@
         "updated",
         "submitted",
         "approved",
-        "rejected"
+        "rejected",
+        "invoice_submitted",
+        "invoice_updated",
+        "invoice_approved",
+        "invoice_rejected"
       ]
     },
     "public.team_member_role": {
@@ -4028,6 +4277,14 @@
         "absent"
       ]
     },
+    "public.attachment_purpose": {
+      "name": "attachment_purpose",
+      "schema": "public",
+      "values": [
+        "quotation",
+        "invoice"
+      ]
+    },
     "public.vendor_payment_status": {
       "name": "vendor_payment_status",
       "schema": "public",
@@ -4036,7 +4293,9 @@
         "approved",
         "rejected",
         "partially_paid",
-        "paid"
+        "paid",
+        "invoice_pending",
+        "completed"
       ]
     },
     "public.vendor_status": {

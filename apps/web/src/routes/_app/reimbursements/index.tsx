@@ -10,15 +10,15 @@ import { log } from "evlog";
 import { parseAsString, useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
-import { computeRequestStats } from "@/components/requests/request-stats";
-import { RequestsTable } from "@/components/requests/requests-table";
+import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
+import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { deleteUploadedAssets } from "@/functions/attachments";
 import {
   normalizeToRequestRows,
   REQUEST_TYPE_LABELS,
   type RequestRow,
-} from "@/lib/request-types";
+} from "@/lib/reimbursement-types";
 
 const STATUS_OPTIONS = [
   { label: "Draft", value: "draft" },
@@ -32,15 +32,15 @@ const TYPE_OPTIONS = [
   { label: "Advance Payment", value: "advance_payment" },
 ];
 
-export const Route = createFileRoute("/_app/requests/")({
+export const Route = createFileRoute("/_app/reimbursements/")({
   head: () => ({
-    meta: [{ title: `Requests | ${env.VITE_APP_NAME}` }],
+    meta: [{ title: `Reimbursements | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.preload(queries.reimbursement.all());
     context.zero?.preload(queries.advancePayment.all());
   },
-  component: RequestsRouteComponent,
+  component: ReimbursementsRouteComponent,
 });
 
 function fetchRequestItem(zero: ReturnType<typeof useZero>, row: RequestRow) {
@@ -57,7 +57,7 @@ function getMutatorNs(type: RequestRow["type"]) {
   return mutators.advancePayment;
 }
 
-function RequestsRouteComponent() {
+function ReimbursementsRouteComponent() {
   const navigate = useNavigate();
   const zero = useZero();
 
@@ -114,7 +114,7 @@ function RequestsRouteComponent() {
       toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
     } catch (error) {
       log.error({
-        component: "RequestsIndex",
+        component: "ReimbursementsIndex",
         action: "delete",
         requestId: row.id,
         type: row.type,
@@ -127,25 +127,25 @@ function RequestsRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
-        Requests
+        Reimbursements
       </h1>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
-          items={computeRequestStats(allData)}
+          items={computeReimbursementStats(allData)}
         />
-        <RequestsTable
+        <ReimbursementsTable
           data={filteredData}
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={(id) => {
-            navigate({ to: "/requests/$id", params: { id } });
+            navigate({ to: "/reimbursements/$id", params: { id } });
           }}
           toolbarActions={
             <Button
               onClick={() => {
-                navigate({ to: "/requests/new" });
+                navigate({ to: "/reimbursements/new" });
               }}
               size="sm"
               type="button"
@@ -155,7 +155,7 @@ function RequestsRouteComponent() {
                 icon={PlusSignIcon}
                 strokeWidth={2}
               />
-              Add request
+              Add reimbursement
             </Button>
           }
           toolbarFilters={

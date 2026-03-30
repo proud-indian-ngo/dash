@@ -142,6 +142,46 @@ The default role for new users and null-role fallbacks is `unoriented_volunteer`
 
 `toBetterAuthRole()` maps custom roles to `admin` or `volunteer` for Better Auth's admin plugin, which expects one of those two values. Custom roles with admin-level permissions map to `admin`; all others map to `volunteer`.
 
+## Vendor Payment Lifecycle
+
+Vendor payments follow a two-phase approval flow: payment approval, then invoice approval.
+
+### Status State Machine
+
+```
+pending → approved → partially_paid → paid → invoice_pending → completed
+  │                      │               │          │
+  └→ rejected            └→ paid ────────┘          └→ paid (rejection reverts)
+```
+
+| Status | Meaning |
+|---|---|
+| `pending` | Submitted, awaiting admin approval |
+| `approved` | Admin approved, payments can be recorded |
+| `rejected` | Admin rejected (terminal unless resubmitted) |
+| `partially_paid` | Some transactions approved, total < line items |
+| `paid` | All transactions approved, total >= line items |
+| `invoice_pending` | Invoice uploaded, awaiting admin approval |
+| `completed` | Invoice approved (terminal) |
+
+### Phase 1: Payment
+
+1. Volunteer (or admin) creates VP with title, vendor, line items, and quotation attachments
+2. Admin approves or rejects the VP
+3. Transactions are recorded against the VP. If the creator is an admin, transactions are auto-approved. Otherwise, they require separate approval.
+4. `recalculateParentStatus()` transitions the VP through `approved` → `partially_paid` → `paid` based on approved transaction totals vs line item totals
+
+### Phase 2: Invoice
+
+5. Once status is `paid`, the owner (or admin) uploads an invoice (number, date, attachments with `purpose: "invoice"`)
+6. Status moves to `invoice_pending`
+7. Admin approves → `completed`, or rejects → reverts to `paid` with `invoiceRejectionReason` set
+8. On rejection, the owner can resubmit the invoice (calls `submitInvoice` again)
+
+### Attachment Purposes
+
+Vendor payment attachments have a `purpose` field: `"quotation"` (uploaded at creation) or `"invoice"` (uploaded post-payment). The create/update mutators only touch `purpose: "quotation"` attachments; invoice mutators only touch `purpose: "invoice"` attachments.
+
 ## Notifications
 
 ### Architecture

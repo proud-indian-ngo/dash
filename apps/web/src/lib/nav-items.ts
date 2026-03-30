@@ -45,15 +45,15 @@ const rolesNavItem: NavItem = {
   ],
 };
 
-const requestsNavItem: NavItem = {
-  title: "Requests",
-  url: "/requests",
+const reimbursementsNavItem: NavItem = {
+  title: "Reimbursements",
+  url: "/reimbursements",
   icon: Invoice01Icon,
   subItems: [
-    { title: "New Request", url: "/requests/new", isHidden: true },
+    { title: "New Reimbursement", url: "/reimbursements/new", isHidden: true },
     {
-      title: "Request Details",
-      url: "/requests/$id",
+      title: "Reimbursement Details",
+      url: "/reimbursements/$id",
       isHidden: true,
     },
   ],
@@ -113,7 +113,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
     items.push(eventsNavItem);
   }
   if (hasAny(permissions, "requests.view_own", "requests.view_all")) {
-    items.push(requestsNavItem);
+    items.push(reimbursementsNavItem);
     items.push(vendorPaymentsNavItem);
   }
   if (hasAny(permissions, "teams.view_own", "teams.view_all")) {
@@ -151,7 +151,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   const hasVendors = permissions.includes("vendors.view_all");
   const financeItems: NavItem[] = [];
   if (hasRequests) {
-    financeItems.push(requestsNavItem);
+    financeItems.push(reimbursementsNavItem);
     financeItems.push(vendorPaymentsNavItem);
   }
   if (hasVendors) {

@@ -1,5 +1,9 @@
 import { env } from "@pi-dash/env/server";
-import { getVendorPaymentLineItems } from "../helpers";
+import {
+  getUserIdsWithPermission,
+  getVendorPaymentLineItems,
+} from "../helpers";
+import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 import { createSubmissionNotifier } from "./submission";
 
@@ -56,5 +60,64 @@ export async function notifyVendorPaymentRejected(options: {
     submitterId: options.submitterId,
     title: options.title,
     reason: options.reason,
+  });
+}
+
+export async function notifyVendorPaymentInvoiceSubmitted(options: {
+  submitterName: string;
+  timestamp: number;
+  vendorPaymentId: string;
+  vendorPaymentTitle: string;
+}): Promise<void> {
+  const approverIds = await getUserIdsWithPermission("requests.approve");
+  const body = `${options.submitterName} uploaded an invoice for "${options.vendorPaymentTitle}".`;
+  const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
+  await sendBulkMessage({
+    userIds: approverIds,
+    title: "Invoice Uploaded",
+    body,
+    emailBody: `${body}\n\nView: ${fullUrl}`,
+    clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    idempotencyKey: `vp-invoice-submitted-${options.vendorPaymentId}-${options.timestamp}`,
+    topic: TOPICS.REQUESTS_SUBMISSIONS,
+  });
+}
+
+export async function notifyVendorPaymentInvoiceApproved(options: {
+  note?: string;
+  submitterId: string;
+  vendorPaymentId: string;
+  vendorPaymentTitle: string;
+}): Promise<void> {
+  const body = `Your invoice for "${options.vendorPaymentTitle}" has been approved.${options.note ? ` Note: ${options.note}` : ""}`;
+  const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
+  await sendMessage({
+    to: options.submitterId,
+    title: "Invoice Approved",
+    body,
+    emailBody: `${body}\n\nView: ${fullUrl}`,
+    clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    idempotencyKey: `vp-invoice-approved-${options.vendorPaymentId}`,
+    topic: TOPICS.REQUESTS_STATUS,
+  });
+}
+
+export async function notifyVendorPaymentInvoiceRejected(options: {
+  reason: string;
+  submitterId: string;
+  timestamp: number;
+  vendorPaymentId: string;
+  vendorPaymentTitle: string;
+}): Promise<void> {
+  const body = `Your invoice for "${options.vendorPaymentTitle}" was rejected. Reason: ${options.reason}`;
+  const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
+  await sendMessage({
+    to: options.submitterId,
+    title: "Invoice Rejected",
+    body,
+    emailBody: `${body}\n\nView: ${fullUrl}`,
+    clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    idempotencyKey: `vp-invoice-rejected-${options.vendorPaymentId}-${options.timestamp}`,
+    topic: TOPICS.REQUESTS_STATUS,
   });
 }

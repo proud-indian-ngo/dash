@@ -64,8 +64,6 @@ function VendorPaymentDetailRouteComponent() {
     id: vendorPayment.id as string,
     title: vendorPayment.title as string,
     vendorId: vendorPayment.vendorId as string,
-    invoiceNumber: (vendorPayment.invoiceNumber as string) ?? "",
-    invoiceDate: new Date(vendorPayment.invoiceDate as number | string),
     lineItems: mapLineItemsToFormValues(vendorPayment.lineItems ?? []),
     attachments: mapAttachmentsToFormValues(vendorPayment.attachments ?? []),
   };

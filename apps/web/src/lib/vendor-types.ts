@@ -1,9 +1,18 @@
 import type { Vendor } from "@pi-dash/zero/schema";
 import { sumAmounts } from "@/lib/stats";
 
+const ACTIVE_STATUSES = new Set([
+  "approved",
+  "partially_paid",
+  "paid",
+  "invoice_pending",
+]);
+
 export interface VendorPaymentSummary {
-  approvedAmount: number;
-  approvedCount: number;
+  activeAmount: number;
+  activeCount: number;
+  completedAmount: number;
+  completedCount: number;
   pendingAmount: number;
   pendingCount: number;
   rejectedAmount: number;
@@ -33,15 +42,21 @@ export function enrichVendorsWithPayments(
   return vendors.map((v) => {
     const payments = byVendor.get(v.id) ?? [];
     const pending = payments.filter((p) => p.status === "pending");
-    const approved = payments.filter((p) => p.status === "approved");
+    const active = payments.filter((p) => ACTIVE_STATUSES.has(p.status ?? ""));
+    const completed = payments.filter((p) => p.status === "completed");
     const rejected = payments.filter((p) => p.status === "rejected");
     return {
       ...v,
       pendingCount: pending.length,
-      approvedCount: approved.length,
+      activeCount: active.length,
+      completedCount: completed.length,
       rejectedCount: rejected.length,
       pendingAmount: pending.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
-      approvedAmount: approved.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
+      activeAmount: active.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
+      completedAmount: completed.reduce(
+        (s, p) => s + sumAmounts(p.lineItems),
+        0
+      ),
       rejectedAmount: rejected.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
     };
   });

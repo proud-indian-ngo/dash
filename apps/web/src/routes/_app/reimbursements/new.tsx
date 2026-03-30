@@ -1,32 +1,32 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { RequestForm } from "@/components/requests/request-form";
+import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 
-export const Route = createFileRoute("/_app/requests/new")({
+export const Route = createFileRoute("/_app/reimbursements/new")({
   head: () => ({
-    meta: [{ title: `New Request | ${env.VITE_APP_NAME}` }],
+    meta: [{ title: `New Reimbursement | ${env.VITE_APP_NAME}` }],
   }),
-  component: NewRequestRouteComponent,
+  component: NewReimbursementRouteComponent,
 });
 
-function NewRequestRouteComponent() {
+function NewReimbursementRouteComponent() {
   const navigate = useNavigate();
 
   return (
     <div className="app-container mx-auto max-w-3xl px-4 py-6">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
-        New Request
+        New Reimbursement
       </h1>
       <p className="mt-2 text-muted-foreground text-sm">
-        Fill in the details and add line items for your request.
+        Fill in the details and add line items for your reimbursement.
       </p>
       <div className="mt-6">
-        <RequestForm
+        <ReimbursementForm
           onCancel={() => {
-            navigate({ to: "/requests" });
+            navigate({ to: "/reimbursements" });
           }}
           onSaved={(id) => {
-            navigate({ to: "/requests/$id", params: { id } });
+            navigate({ to: "/reimbursements/$id", params: { id } });
           }}
           requestType="reimbursement"
         />

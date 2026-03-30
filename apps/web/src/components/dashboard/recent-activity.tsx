@@ -83,13 +83,13 @@ function RecentActivityEmpty() {
       ))}
     >
       <p className="text-muted-foreground text-sm">
-        Your requests and updates will appear here
+        Your reimbursements and updates will appear here
       </p>
       <Link
         className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
-        to="/requests"
+        to="/reimbursements"
       >
-        Submit a request
+        Submit a reimbursement
       </Link>
     </GhostEmptyState>
   );
