@@ -65,10 +65,10 @@ All paths are relative to project root.
 |---|---|
 | `routes/_app/index.tsx` | Dashboard |
 | `routes/_app/users.tsx` | User management |
-| `routes/_app/requests/route.tsx` | Requests layout |
-| `routes/_app/requests/index.tsx` | Requests list (combined reimbursements + advance payments) |
-| `routes/_app/requests/new.tsx` | Create request (type picker) |
-| `routes/_app/requests/$id.tsx` | View/edit request (resolves type from ID) |
+| `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
+| `routes/_app/reimbursements/index.tsx` | Reimbursements list (combined reimbursements + advance payments) |
+| `routes/_app/reimbursements/new.tsx` | Create reimbursement |
+| `routes/_app/reimbursements/$id.tsx` | View/edit reimbursement (resolves type from ID) |
 | `routes/_app/teams/route.tsx` | Teams layout |
 | `routes/_app/teams/index.tsx` | Teams list |
 | `routes/_app/teams/$id.tsx` | Team detail |
@@ -84,7 +84,7 @@ All paths are relative to project root.
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
-| `routes/_app/export.tsx` | CSV data export (requests, advance payments, vendor payments) |
+| `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
@@ -109,7 +109,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
-| `components/requests/` | requests-table, request-form, request-detail, request-stats (unified reimbursements + advance payments) |
+| `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
@@ -167,7 +167,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/errors.ts` | Error handling utilities |
 | `lib/logger.ts` | evlog init (imported at server startup) |
 | `lib/attachment-links.ts` | Generic attachment URL helpers |
-| `lib/request-types.ts` | Union types, type guards, and normalizer for unified requests module |
+| `lib/reimbursement-types.ts` | Union types, type guards, and normalizer for unified reimbursements module |
 | `lib/stats.ts` | Shared stat computation helpers |
 | `lib/status-badge.ts` | Status → badge variant mapping |
 | `lib/submission-mappers.ts` | Map Zero rows to form/display models |
@@ -197,7 +197,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
 | `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, requests, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, request-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
+| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
 
@@ -269,7 +269,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 ## E2E Testing
 
 - **When to write E2E tests**: Write E2E tests when adding a major feature (new route/page, new CRUD workflow, new role-gated capability). Minor UI tweaks and refactors do not require E2E tests.
-- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `requests/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
+- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `reimbursements/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
 - **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up. Pass test file paths as args for targeted runs (e.g., `bash run-e2e.sh tests/reimbursements/reimbursement-delete.spec.ts`).
 - **Timeout**: Global timeout is 45s. Use `test.slow()` (triples to 135s) for multi-step CRUD tests.
 - **Projects**: Three Playwright projects — `admin` (authenticated as admin), `volunteer` (authenticated as volunteer), `unauthenticated` (no auth, for login/forgot-password tests).
@@ -291,11 +291,11 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 ### DataTableWrapper
 
-Generic `DataTableWithFilters<TData>` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, requests-table) are thin wrappers that pass columns, data, and filter config.
+Generic `DataTableWithFilters<TData>` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, reimbursements-table) are thin wrappers that pass columns, data, and filter config.
 
 ### Adding a New Table
 
-Every feature table follows the same structure. Use existing tables (requests-table, events/public-events-table) as reference.
+Every feature table follows the same structure. Use existing tables (reimbursements-table, events/public-events-table) as reference.
 
 1. **Row type**: Define `export type FooRow = ZeroModel & { ...relations }` at the top of the table component file.
 2. **Search function**: Module-level `function searchFoo(row: FooRow, query: string): boolean` — check relevant text fields against `query.trim().toLowerCase()`.
@@ -340,7 +340,7 @@ Split by domain in `packages/zero/src/mutators/`. Each file exports a mutators o
 
 Vendors have a two-stage lifecycle: `pending` → `approved`. Any authenticated user can create a vendor (non-admins are server-forced to `pending` status). Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. The `/vendors` admin route is admin-only via `assertPermission("vendors.view_all")` guard.
 
-**Vendor payments** have their own standalone section at `/vendor-payments` (separate from general requests). Status lifecycle: `pending` → `approved` → `partially_paid` → `paid` (or `rejected`). The transition from `approved` to `partially_paid`/`paid` happens automatically when payment transactions are approved.
+**Vendor payments** have their own standalone section at `/vendor-payments` (separate from reimbursements). Status lifecycle: `pending` → `approved` → `partially_paid` → `paid` (or `rejected`). The transition from `approved` to `partially_paid`/`paid` happens automatically when payment transactions are approved.
 
 **Payment transactions** (`vendorPaymentTransaction`) are child records of a vendor payment, each representing an actual money transfer. Transactions have their own approval cycle (`pending` → `approved`/`rejected`). When a transaction is approved, `computePaymentStatus()` in `packages/zero/src/lib/compute-payment-status.ts` recalculates the parent vendor payment status using integer-cents arithmetic to avoid floating-point issues. The `requests.record_payment` permission (granted to volunteers by default) controls who can record transactions; `requests.approve` controls transaction approval. Both the VP submitter and admins can record transactions against approved vendor payments.
 

@@ -12,7 +12,7 @@ import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { HistoryEntry } from "@/components/requests/request-history-entry";
+import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getAttachmentDownloadHref,

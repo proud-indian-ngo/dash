@@ -11,9 +11,9 @@ test.describe("Dashboard", () => {
     ).toBeVisible();
   });
 
-  test("shows New Request button", async ({ page }) => {
+  test("shows New Reimbursement button", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "New Request" })
+      page.getByRole("button", { name: "New Reimbursement" })
     ).toBeVisible();
   });
 
@@ -22,7 +22,7 @@ test.describe("Dashboard", () => {
     const isAdmin = testInfo.project.name === "admin";
 
     await expect(
-      main.getByText(isAdmin ? "All Requests" : "My Requests")
+      main.getByText(isAdmin ? "All Reimbursements" : "My Reimbursements")
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       main.getByText(isAdmin ? "Pending Reviews" : "My Pending")

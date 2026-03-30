@@ -19,9 +19,13 @@ test.describe("Sidebar navigation", () => {
   test("nav links are present", async ({ page }, testInfo) => {
     const nav = page.locator("[data-sidebar='content']");
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Requests" })).toBeVisible();
+    await expect(
+      nav.getByRole("link", { name: "Reimbursements" })
+    ).toBeVisible();
     await expect(nav.getByRole("button", { name: "Dashboard" })).toHaveCount(0);
-    await expect(nav.getByRole("button", { name: "Requests" })).toHaveCount(0);
+    await expect(
+      nav.getByRole("button", { name: "Reimbursements" })
+    ).toHaveCount(0);
 
     if (testInfo.project.name === "admin") {
       await expect(nav.getByRole("link", { name: "Users" })).toBeVisible();
@@ -30,11 +34,13 @@ test.describe("Sidebar navigation", () => {
     }
   });
 
-  test("clicking Requests navigates correctly", async ({ page }) => {
+  test("clicking Reimbursements navigates correctly", async ({ page }) => {
     const nav = page.locator("[data-sidebar='content']");
-    await nav.getByRole("link", { name: "Requests" }).click();
-    await page.waitForURL(/\/requests/);
-    await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
+    await nav.getByRole("link", { name: "Reimbursements" }).click();
+    await page.waitForURL(/\/reimbursements/);
+    await expect(
+      page.getByRole("heading", { name: "Reimbursements" })
+    ).toBeVisible();
   });
 
   test("user menu opens dropdown with Settings, Notifications, Log out", async ({

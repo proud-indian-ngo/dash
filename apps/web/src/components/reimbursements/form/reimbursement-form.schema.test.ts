@@ -3,7 +3,7 @@ import {
   advancePaymentRequestFormSchema,
   reimbursementRequestFormSchema,
   requestFormSchema,
-} from "./request-form.schema";
+} from "./reimbursement-form.schema";
 
 const validLineItem = {
   id: "test-id-1",

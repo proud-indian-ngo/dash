@@ -78,8 +78,12 @@ test.describe("Register page", () => {
     // Select gender
     await page.getByLabel("Gender").click();
     await page.getByRole("option", { name: "Male", exact: true }).click();
-    await page.getByRole("button", { name: "Register" }).click();
-    await page.waitForURL("/login", { timeout: 15_000 });
+    const registerBtn = page.getByRole("button", { name: "Register" });
+    await expect(registerBtn).toBeEnabled({ timeout: 5000 });
+    // Ensure gender dropdown is fully closed before clicking Register
+    await expect(page.getByRole("option")).toHaveCount(0, { timeout: 3000 });
+    await registerBtn.click();
+    await page.waitForURL("/login", { timeout: 30_000 });
     await expect(
       page.locator("[data-sonner-toast]").getByText("Registration successful")
     ).toBeVisible({ timeout: 10_000 });

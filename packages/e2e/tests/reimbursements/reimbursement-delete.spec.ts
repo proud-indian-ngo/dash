@@ -1,27 +1,27 @@
 import { expect, test } from "../../fixtures/test";
-import { RequestPage } from "../../pages/request-page";
+import { ReimbursementPage } from "../../pages/reimbursement-page";
 
-test.describe("Request delete (reimbursement)", () => {
-  let requests: RequestPage;
+test.describe("Reimbursement delete (reimbursement)", () => {
+  let reimbursements: ReimbursementPage;
 
   test.beforeEach(({ page }) => {
-    requests = new RequestPage(page, "reimbursement");
+    reimbursements = new ReimbursementPage(page, "reimbursement");
   });
 
-  test("admin deletes a request via actions menu", async ({
+  test("admin deletes a reimbursement via actions menu", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    const title = await requests.createRequest("Delete Admin");
+    const title = await reimbursements.createReimbursement("Delete Admin");
 
-    await requests.navigateToList();
-    await requests.list.waitForTableData();
+    await reimbursements.navigateToList();
+    await reimbursements.list.waitForTableData();
 
-    const row = requests.list.getRowByText(title);
+    const row = reimbursements.list.getRowByText(title);
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    await requests.list.openRowActionAndClick(row, "Delete");
+    await reimbursements.list.openRowActionAndClick(row, "Delete");
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
@@ -39,15 +39,15 @@ test.describe("Request delete (reimbursement)", () => {
   test("admin can cancel delete dialog", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    const title = await requests.createRequest("Delete Cancel");
+    const title = await reimbursements.createReimbursement("Delete Cancel");
 
-    await requests.navigateToList();
-    await requests.list.waitForTableData();
+    await reimbursements.navigateToList();
+    await reimbursements.list.waitForTableData();
 
-    const row = requests.list.getRowByText(title);
+    const row = reimbursements.list.getRowByText(title);
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    await requests.list.openRowActionAndClick(row, "Delete");
+    await reimbursements.list.openRowActionAndClick(row, "Delete");
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
@@ -56,20 +56,20 @@ test.describe("Request delete (reimbursement)", () => {
     await expect(dialog).toBeHidden();
   });
 
-  test("volunteer sees Delete option for own pending request", async ({
+  test("volunteer sees Delete option for own pending reimbursement", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-    const title = await requests.createRequest("Delete Vol");
+    const title = await reimbursements.createReimbursement("Delete Vol");
 
-    await requests.navigateToList();
-    await requests.list.waitForTableData();
+    await reimbursements.navigateToList();
+    await reimbursements.list.waitForTableData();
 
-    const row = requests.list.getRowByText(title);
+    const row = reimbursements.list.getRowByText(title);
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    await requests.list.openRowActionAndClick(row, "Delete");
+    await reimbursements.list.openRowActionAndClick(row, "Delete");
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
@@ -81,11 +81,11 @@ test.describe("Request delete (reimbursement)", () => {
 
 // Advance payment creation is disabled in the UI.
 test.describe
-  .skip("Request delete (advance_payment)", () => {
-    let requests: RequestPage;
+  .skip("Reimbursement delete (advance_payment)", () => {
+    let reimbursements: ReimbursementPage;
 
     test.beforeEach(({ page }) => {
-      requests = new RequestPage(page, "advance_payment");
+      reimbursements = new ReimbursementPage(page, "advance_payment");
     });
 
     test("admin deletes an advance payment via actions menu", async ({
@@ -93,15 +93,15 @@ test.describe
     }, testInfo) => {
       test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-      const title = await requests.createRequest("Delete AP Admin");
+      const title = await reimbursements.createReimbursement("Delete AP Admin");
 
-      await requests.navigateToList();
-      await requests.list.waitForTableData();
+      await reimbursements.navigateToList();
+      await reimbursements.list.waitForTableData();
 
-      const row = requests.list.getRowByText(title);
+      const row = reimbursements.list.getRowByText(title);
       await expect(row).toBeVisible({ timeout: 10_000 });
 
-      await requests.list.openRowActionAndClick(row, "Delete");
+      await reimbursements.list.openRowActionAndClick(row, "Delete");
 
       const dialog = page.getByRole("alertdialog");
       await expect(dialog).toBeVisible();
@@ -121,15 +121,15 @@ test.describe
     }, testInfo) => {
       test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-      const title = await requests.createRequest("Delete AP Vol");
+      const title = await reimbursements.createReimbursement("Delete AP Vol");
 
-      await requests.navigateToList();
-      await requests.list.waitForTableData();
+      await reimbursements.navigateToList();
+      await reimbursements.list.waitForTableData();
 
-      const row = requests.list.getRowByText(title);
+      const row = reimbursements.list.getRowByText(title);
       await expect(row).toBeVisible({ timeout: 10_000 });
 
-      await requests.list.openRowActionAndClick(row, "Delete");
+      await reimbursements.list.openRowActionAndClick(row, "Delete");
 
       const dialog = page.getByRole("alertdialog");
       await expect(dialog).toBeVisible();

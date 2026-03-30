@@ -1,8 +1,15 @@
 import { format } from "date-fns";
 import { LONG_DATE } from "@/lib/date-formats";
-import { isReimbursement, type RequestDetailData } from "@/lib/request-types";
+import {
+  isReimbursement,
+  type RequestDetailData,
+} from "@/lib/reimbursement-types";
 
-export function RequestHeaderMeta({ request }: { request: RequestDetailData }) {
+export function ReimbursementHeaderMeta({
+  request,
+}: {
+  request: RequestDetailData;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
       {request.city ? <span>{request.city}</span> : null}

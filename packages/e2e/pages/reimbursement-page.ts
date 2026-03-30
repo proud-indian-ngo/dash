@@ -5,7 +5,7 @@ import { RequestFormPage } from "./request-form-page";
 
 type RequestType = "reimbursement" | "advance_payment";
 
-export class RequestPage {
+export class ReimbursementPage {
   readonly page: Page;
   readonly list: ListPage;
   readonly form: RequestFormPage;
@@ -21,22 +21,22 @@ export class RequestPage {
   }
 
   async navigateToList(): Promise<void> {
-    await this.page.goto("/requests");
+    await this.page.goto("/reimbursements");
     await expect(
-      this.page.getByRole("heading", { name: "Requests" })
+      this.page.getByRole("heading", { name: "Reimbursements" })
     ).toBeVisible();
   }
 
   async navigateToNew(): Promise<void> {
-    await this.page.goto("/requests/new");
+    await this.page.goto("/reimbursements/new");
     await expect(
-      this.page.getByRole("heading", { name: "New Request" })
+      this.page.getByRole("heading", { name: "New Reimbursement" })
     ).toBeVisible();
   }
 
   /** @deprecated Type selector has been removed — form defaults to reimbursement. */
   async selectType(_type: RequestType): Promise<void> {
-    // No-op: TypeSelector was removed from the request form.
+    // No-op: TypeSelector was removed from the reimbursement form.
     // The form now only supports reimbursement.
   }
 
@@ -51,7 +51,7 @@ export class RequestPage {
     ).toBeHidden();
   }
 
-  async createRequest(titleSuffix: string): Promise<string> {
+  async createReimbursement(titleSuffix: string): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
     await this.selectType(this.type);
@@ -68,7 +68,7 @@ export class RequestPage {
       amount: this.type === "reimbursement" ? "100" : "200",
     });
     await this.form.submit();
-    await this.page.waitForURL(/\/requests\/[a-z0-9-]+$/, {
+    await this.page.waitForURL(/\/reimbursements\/[a-z0-9-]+$/, {
       timeout: 10_000,
     });
     return title;

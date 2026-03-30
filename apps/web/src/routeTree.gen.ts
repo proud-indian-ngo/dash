@@ -24,12 +24,12 @@ import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
-import { Route as AppRequestsRouteRouteImport } from './routes/_app/requests/route'
+import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as AppVendorPaymentsIndexRouteImport } from './routes/_app/vendor-payments/index'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
-import { Route as AppRequestsIndexRouteImport } from './routes/_app/requests/index'
+import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbursements/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
@@ -39,8 +39,8 @@ import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachm
 import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-payments/new'
 import { Route as AppVendorPaymentsIdRouteImport } from './routes/_app/vendor-payments/$id'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
-import { Route as AppRequestsNewRouteImport } from './routes/_app/requests/new'
-import { Route as AppRequestsIdRouteImport } from './routes/_app/requests/$id'
+import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
+import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimbursements/$id'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
@@ -121,9 +121,9 @@ const AppTeamsRouteRoute = AppTeamsRouteRouteImport.update({
   path: '/teams',
   getParentRoute: () => AppRoute,
 } as any)
-const AppRequestsRouteRoute = AppRequestsRouteRouteImport.update({
-  id: '/requests',
-  path: '/requests',
+const AppReimbursementsRouteRoute = AppReimbursementsRouteRouteImport.update({
+  id: '/reimbursements',
+  path: '/reimbursements',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
@@ -146,10 +146,10 @@ const AppTeamsIndexRoute = AppTeamsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTeamsRouteRoute,
 } as any)
-const AppRequestsIndexRoute = AppRequestsIndexRouteImport.update({
+const AppReimbursementsIndexRoute = AppReimbursementsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRequestsRouteRoute,
+  getParentRoute: () => AppReimbursementsRouteRoute,
 } as any)
 const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   id: '/',
@@ -196,15 +196,15 @@ const AppTeamsIdRoute = AppTeamsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppTeamsRouteRoute,
 } as any)
-const AppRequestsNewRoute = AppRequestsNewRouteImport.update({
+const AppReimbursementsNewRoute = AppReimbursementsNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => AppRequestsRouteRoute,
+  getParentRoute: () => AppReimbursementsRouteRoute,
 } as any)
-const AppRequestsIdRoute = AppRequestsIdRouteImport.update({
+const AppReimbursementsIdRoute = AppReimbursementsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => AppRequestsRouteRoute,
+  getParentRoute: () => AppReimbursementsRouteRoute,
 } as any)
 const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
@@ -240,7 +240,7 @@ const AppSettingsRolesRoleIdRoute = AppSettingsRolesRoleIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/events': typeof AppEventsRouteRouteWithChildren
-  '/requests': typeof AppRequestsRouteRouteWithChildren
+  '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
@@ -255,8 +255,8 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
-  '/requests/$id': typeof AppRequestsIdRoute
-  '/requests/new': typeof AppRequestsNewRoute
+  '/reimbursements/$id': typeof AppReimbursementsIdRoute
+  '/reimbursements/new': typeof AppReimbursementsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -266,7 +266,7 @@ export interface FileRoutesByFullPath {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/events/': typeof AppEventsIndexRoute
-  '/requests/': typeof AppRequestsIndexRoute
+  '/reimbursements/': typeof AppReimbursementsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
@@ -287,8 +287,8 @@ export interface FileRoutesByTo {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
-  '/requests/$id': typeof AppRequestsIdRoute
-  '/requests/new': typeof AppRequestsNewRoute
+  '/reimbursements/$id': typeof AppReimbursementsIdRoute
+  '/reimbursements/new': typeof AppReimbursementsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -298,7 +298,7 @@ export interface FileRoutesByTo {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/events': typeof AppEventsIndexRoute
-  '/requests': typeof AppRequestsIndexRoute
+  '/reimbursements': typeof AppReimbursementsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
@@ -312,7 +312,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
-  '/_app/requests': typeof AppRequestsRouteRouteWithChildren
+  '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
@@ -328,8 +328,8 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
-  '/_app/requests/$id': typeof AppRequestsIdRoute
-  '/_app/requests/new': typeof AppRequestsNewRoute
+  '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
+  '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/_app/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -339,7 +339,7 @@ export interface FileRoutesById {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/_app/events/': typeof AppEventsIndexRoute
-  '/_app/requests/': typeof AppRequestsIndexRoute
+  '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
@@ -353,7 +353,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/events'
-    | '/requests'
+    | '/reimbursements'
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
@@ -368,8 +368,8 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/settings/roles'
     | '/events/$id'
-    | '/requests/$id'
-    | '/requests/new'
+    | '/reimbursements/$id'
+    | '/reimbursements/new'
     | '/teams/$id'
     | '/vendor-payments/$id'
     | '/vendor-payments/new'
@@ -379,7 +379,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/events/'
-    | '/requests/'
+    | '/reimbursements/'
     | '/teams/'
     | '/vendor-payments/'
     | '/vendors/'
@@ -400,8 +400,8 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/events/$id'
-    | '/requests/$id'
-    | '/requests/new'
+    | '/reimbursements/$id'
+    | '/reimbursements/new'
     | '/teams/$id'
     | '/vendor-payments/$id'
     | '/vendor-payments/new'
@@ -411,7 +411,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/events'
-    | '/requests'
+    | '/reimbursements'
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
@@ -424,7 +424,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/_app/events'
-    | '/_app/requests'
+    | '/_app/reimbursements'
     | '/_app/teams'
     | '/_app/vendor-payments'
     | '/_app/vendors'
@@ -440,8 +440,8 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/settings/roles'
     | '/_app/events/$id'
-    | '/_app/requests/$id'
-    | '/_app/requests/new'
+    | '/_app/reimbursements/$id'
+    | '/_app/reimbursements/new'
     | '/_app/teams/$id'
     | '/_app/vendor-payments/$id'
     | '/_app/vendor-payments/new'
@@ -451,7 +451,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/_app/events/'
-    | '/_app/requests/'
+    | '/_app/reimbursements/'
     | '/_app/teams/'
     | '/_app/vendor-payments/'
     | '/_app/vendors/'
@@ -582,11 +582,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsRouteRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/requests': {
-      id: '/_app/requests'
-      path: '/requests'
-      fullPath: '/requests'
-      preLoaderRoute: typeof AppRequestsRouteRouteImport
+    '/_app/reimbursements': {
+      id: '/_app/reimbursements'
+      path: '/reimbursements'
+      fullPath: '/reimbursements'
+      preLoaderRoute: typeof AppReimbursementsRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/events': {
@@ -617,12 +617,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsIndexRouteImport
       parentRoute: typeof AppTeamsRouteRoute
     }
-    '/_app/requests/': {
-      id: '/_app/requests/'
+    '/_app/reimbursements/': {
+      id: '/_app/reimbursements/'
       path: '/'
-      fullPath: '/requests/'
-      preLoaderRoute: typeof AppRequestsIndexRouteImport
-      parentRoute: typeof AppRequestsRouteRoute
+      fullPath: '/reimbursements/'
+      preLoaderRoute: typeof AppReimbursementsIndexRouteImport
+      parentRoute: typeof AppReimbursementsRouteRoute
     }
     '/_app/events/': {
       id: '/_app/events/'
@@ -687,19 +687,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsIdRouteImport
       parentRoute: typeof AppTeamsRouteRoute
     }
-    '/_app/requests/new': {
-      id: '/_app/requests/new'
+    '/_app/reimbursements/new': {
+      id: '/_app/reimbursements/new'
       path: '/new'
-      fullPath: '/requests/new'
-      preLoaderRoute: typeof AppRequestsNewRouteImport
-      parentRoute: typeof AppRequestsRouteRoute
+      fullPath: '/reimbursements/new'
+      preLoaderRoute: typeof AppReimbursementsNewRouteImport
+      parentRoute: typeof AppReimbursementsRouteRoute
     }
-    '/_app/requests/$id': {
-      id: '/_app/requests/$id'
+    '/_app/reimbursements/$id': {
+      id: '/_app/reimbursements/$id'
       path: '/$id'
-      fullPath: '/requests/$id'
-      preLoaderRoute: typeof AppRequestsIdRouteImport
-      parentRoute: typeof AppRequestsRouteRoute
+      fullPath: '/reimbursements/$id'
+      preLoaderRoute: typeof AppReimbursementsIdRouteImport
+      parentRoute: typeof AppReimbursementsRouteRoute
     }
     '/_app/events/$id': {
       id: '/_app/events/$id'
@@ -760,20 +760,23 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
 
-interface AppRequestsRouteRouteChildren {
-  AppRequestsIdRoute: typeof AppRequestsIdRoute
-  AppRequestsNewRoute: typeof AppRequestsNewRoute
-  AppRequestsIndexRoute: typeof AppRequestsIndexRoute
+interface AppReimbursementsRouteRouteChildren {
+  AppReimbursementsIdRoute: typeof AppReimbursementsIdRoute
+  AppReimbursementsNewRoute: typeof AppReimbursementsNewRoute
+  AppReimbursementsIndexRoute: typeof AppReimbursementsIndexRoute
 }
 
-const AppRequestsRouteRouteChildren: AppRequestsRouteRouteChildren = {
-  AppRequestsIdRoute: AppRequestsIdRoute,
-  AppRequestsNewRoute: AppRequestsNewRoute,
-  AppRequestsIndexRoute: AppRequestsIndexRoute,
-}
+const AppReimbursementsRouteRouteChildren: AppReimbursementsRouteRouteChildren =
+  {
+    AppReimbursementsIdRoute: AppReimbursementsIdRoute,
+    AppReimbursementsNewRoute: AppReimbursementsNewRoute,
+    AppReimbursementsIndexRoute: AppReimbursementsIndexRoute,
+  }
 
-const AppRequestsRouteRouteWithChildren =
-  AppRequestsRouteRoute._addFileChildren(AppRequestsRouteRouteChildren)
+const AppReimbursementsRouteRouteWithChildren =
+  AppReimbursementsRouteRoute._addFileChildren(
+    AppReimbursementsRouteRouteChildren,
+  )
 
 interface AppTeamsRouteRouteChildren {
   AppTeamsIdRoute: typeof AppTeamsIdRoute
@@ -836,7 +839,7 @@ const AppSettingsRolesRouteRouteWithChildren =
 
 interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
-  AppRequestsRouteRoute: typeof AppRequestsRouteRouteWithChildren
+  AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
@@ -848,7 +851,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
-  AppRequestsRouteRoute: AppRequestsRouteRouteWithChildren,
+  AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,

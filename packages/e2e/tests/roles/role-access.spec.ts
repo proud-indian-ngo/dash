@@ -13,23 +13,27 @@ test.describe("Volunteer role restrictions", () => {
     ).toBeVisible();
   });
 
-  test("volunteer sees requests list (data isolation)", async ({
+  test("volunteer sees reimbursements list (data isolation)", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-    await page.goto("/requests");
-    await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
+    await page.goto("/reimbursements");
+    await expect(
+      page.getByRole("heading", { name: "Reimbursements" })
+    ).toBeVisible();
 
     // Wait for table to load
     const table = page.getByRole("table");
     await expect(table).toBeVisible({ timeout: 15_000 });
   });
 
-  test("admin sees requests page", async ({ page }, testInfo) => {
+  test("admin sees reimbursements page", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    await page.goto("/requests");
-    await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
+    await page.goto("/reimbursements");
+    await expect(
+      page.getByRole("heading", { name: "Reimbursements" })
+    ).toBeVisible();
   });
 });

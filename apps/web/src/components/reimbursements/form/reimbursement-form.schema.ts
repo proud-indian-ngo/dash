@@ -6,7 +6,7 @@ import {
   lineItemSchema,
   newLineItem,
 } from "@/lib/form-schemas";
-import type { RequestType } from "@/lib/request-types";
+import type { RequestType } from "@/lib/reimbursement-types";
 
 const baseFields = {
   title: z.string().min(1, "Title is required"),

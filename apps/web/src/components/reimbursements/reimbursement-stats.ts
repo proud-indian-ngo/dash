@@ -5,7 +5,7 @@ import {
   type WithStatusAndLineItems,
 } from "@/lib/stats";
 
-export function computeRequestStats(
+export function computeReimbursementStats(
   data: readonly WithStatusAndLineItems[]
 ): StatItem[] {
   return computeSubmissionStats(data, Invoice01Icon);

@@ -247,7 +247,7 @@ async function exportRequests(
     REQUEST_CSV_HEADERS,
     result.rows.map(requestRowToArray)
   );
-  return `${result.rows.length} requests`;
+  return `${result.rows.length} reimbursements`;
 }
 
 async function exportVendorPayments(
@@ -321,7 +321,7 @@ async function runAllExports(opts: {
         action: "exportRequests",
         error: error instanceof Error ? error.message : String(error),
       });
-      errors.push(`Requests: ${getErrorMessage(error)}`);
+      errors.push(`Reimbursements: ${getErrorMessage(error)}`);
     }
   }
 
@@ -467,7 +467,9 @@ function ExportRouteComponent() {
 
         {hasRequestSelection && (
           <fieldset className="grid gap-3">
-            <legend className="font-medium text-sm">Request status</legend>
+            <legend className="font-medium text-sm">
+              Reimbursement status
+            </legend>
             {ALL_STATUSES.map((status) => (
               <div className="flex items-center gap-2" key={status}>
                 <Checkbox

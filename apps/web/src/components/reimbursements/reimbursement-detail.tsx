@@ -13,8 +13,8 @@ import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { RequestHeaderMeta } from "@/components/requests/request-header-meta";
-import { HistoryEntry } from "@/components/requests/request-history-entry";
+import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
+import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getAttachmentDownloadHref,
@@ -27,15 +27,18 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import {
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
-} from "@/lib/request-types";
+} from "@/lib/reimbursement-types";
 import { getStatusBadge } from "@/lib/status-badge";
 
-interface RequestDetailProps {
+interface ReimbursementDetailProps {
   canApprove: boolean;
   request: RequestDetailData;
 }
 
-export function RequestDetail({ canApprove, request }: RequestDetailProps) {
+export function ReimbursementDetail({
+  canApprove,
+  request,
+}: ReimbursementDetailProps) {
   const zero = useZero();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -75,7 +78,7 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
       }).catch((error) => {
         log.error({
-          component: "RequestDetail",
+          component: "ReimbursementDetail",
           action: "cleanupScreenshot",
           screenshotKey,
           error: error instanceof Error ? error.message : String(error),
@@ -113,7 +116,7 @@ export function RequestDetail({ canApprove, request }: RequestDetailProps) {
               </h1>
               <Badge variant="outline">{typeLabel}</Badge>
             </div>
-            <RequestHeaderMeta request={request} />
+            <ReimbursementHeaderMeta request={request} />
             {request.user ? (
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-muted-foreground text-sm">

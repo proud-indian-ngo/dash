@@ -28,7 +28,7 @@ import {
   isReimbursement,
   REQUEST_TYPE_LABELS,
   type RequestRow,
-} from "@/lib/request-types";
+} from "@/lib/reimbursement-types";
 import { getStatusBadge } from "@/lib/status-badge";
 
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
@@ -50,7 +50,7 @@ const SKELETON_TOTAL = <Skeleton className="h-5 w-20" />;
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
 const SKELETON_TYPE = <Skeleton className="h-6 w-24" />;
 
-interface RequestsTableProps {
+interface ReimbursementsTableProps {
   data: RequestRow[];
   isLoading?: boolean;
   onDelete: (row: RequestRow) => Promise<void>;
@@ -105,7 +105,7 @@ function RowActions({
   );
 }
 
-function searchRequest(row: RequestRow, query: string): boolean {
+function searchReimbursement(row: RequestRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;
@@ -122,14 +122,14 @@ function searchRequest(row: RequestRow, query: string): boolean {
     .includes(q);
 }
 
-export function RequestsTable({
+export function ReimbursementsTable({
   data,
   isLoading,
   onDelete,
   onNavigate,
   toolbarActions,
   toolbarFilters,
-}: RequestsTableProps) {
+}: ReimbursementsTableProps) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
   const { hasPermission } = useApp();
@@ -152,12 +152,12 @@ export function RequestsTable({
       await onDeleteRef.current(deleteTarget.row);
     } catch (e) {
       log.error({
-        component: "RequestsTable",
+        component: "ReimbursementsTable",
         action: "delete",
         entityId: deleteTarget.row.id,
         error: e instanceof Error ? e.message : String(e),
       });
-      toast.error("Failed to delete request");
+      toast.error("Failed to delete reimbursement");
     } finally {
       setDeleteLoading(false);
       setDeleteTarget(null);
@@ -347,12 +347,12 @@ export function RequestsTable({
       <DataTableWrapper<RequestRow>
         columns={columns}
         data={data}
-        emptyMessage="No requests found."
+        emptyMessage="No reimbursements found."
         getRowId={(row) => row.id}
         isLoading={isLoading}
-        searchFn={searchRequest}
-        searchPlaceholder="Search requests..."
-        storageKey="requests_table_state_v1"
+        searchFn={searchReimbursement}
+        searchPlaceholder="Search reimbursements..."
+        storageKey="reimbursements_table_state_v1"
         tableLayout={{
           columnsResizable: true,
           columnsDraggable: true,

@@ -29,8 +29,8 @@ export class ListPage {
     return this.page.getByRole("button", { name: "Columns" });
   }
 
-  getNewRequestButton(): Locator {
-    return this.page.getByRole("button", { name: "Add request" });
+  getNewReimbursementButton(): Locator {
+    return this.page.getByRole("button", { name: "Add reimbursement" });
   }
 
   getSearchInput(placeholder: string): Locator {

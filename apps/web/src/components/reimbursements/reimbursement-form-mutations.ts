@@ -1,7 +1,7 @@
 import { mutators } from "@pi-dash/zero/mutators";
 import type { BankAccount } from "@pi-dash/zero/schema";
 import type { useZero } from "@rocicorp/zero/react";
-import type { RequestFormValues } from "./form/request-form.schema";
+import type { RequestFormValues } from "./form/reimbursement-form.schema";
 
 function requireDate(value: Date | undefined, field: string): number {
   if (!value) {

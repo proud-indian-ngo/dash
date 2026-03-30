@@ -75,13 +75,13 @@ function computeDashboardStats({
 
   return [
     {
-      label: canViewAllRequests ? "All Requests" : "My Requests",
+      label: canViewAllRequests ? "All Reimbursements" : "My Reimbursements",
       value: allRequests.length,
       description: formatINR(sumTotal(allRequests)),
       icon: Invoice01Icon,
       accent: "border-l-brand",
       bgAccent: "bg-brand/5 dark:bg-brand/10",
-      href: "/requests",
+      href: "/reimbursements",
     },
     {
       label: canApprove ? "Pending Reviews" : "My Pending",
@@ -90,7 +90,7 @@ function computeDashboardStats({
       icon: Clock01Icon,
       accent: "border-l-amber-500",
       bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
-      href: "/requests?status=pending",
+      href: "/reimbursements?status=pending",
     },
     ...(canViewUsers
       ? [
@@ -200,7 +200,7 @@ function PendingActions({
         <Link
           className="flex items-center gap-3 border-amber-500 border-l-2 bg-amber-50/50 px-4 py-3 transition-colors hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
           search={{ status: "pending" }}
-          to="/requests"
+          to="/reimbursements"
         >
           <HugeiconsIcon
             className="size-4 shrink-0 text-amber-500"
@@ -211,7 +211,8 @@ function PendingActions({
             <span className="font-display font-semibold text-lg tracking-tight">
               {pendingCount}
             </span>{" "}
-            {pendingCount === 1 ? "request needs" : "requests need"} your review
+            {pendingCount === 1 ? "reimbursement needs" : "reimbursements need"}{" "}
+            your review
           </span>
           <Button
             className="shrink-0"
@@ -229,7 +230,7 @@ function PendingActions({
         <Link
           className="flex items-center gap-3 border-muted-foreground/30 border-l-2 bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/50"
           search={{ status: "draft" }}
-          to="/requests"
+          to="/reimbursements"
         >
           <HugeiconsIcon
             className="size-4 shrink-0 text-muted-foreground"
@@ -240,7 +241,8 @@ function PendingActions({
             <span className="font-display font-semibold text-foreground text-lg tracking-tight">
               {draftCount}
             </span>{" "}
-            draft {draftCount === 1 ? "request" : "requests"} to complete
+            draft {draftCount === 1 ? "reimbursement" : "reimbursements"} to
+            complete
           </span>
           <Button
             className="shrink-0"
@@ -309,12 +311,12 @@ function OrientedDashboard() {
         </h1>
         <Button
           nativeButton={false}
-          render={<Link to="/requests/new" />}
+          render={<Link to="/reimbursements/new" />}
           size="sm"
           variant="outline"
         >
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-          New Request
+          New Reimbursement
         </Button>
       </div>
 
