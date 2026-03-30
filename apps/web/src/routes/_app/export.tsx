@@ -69,6 +69,8 @@ const VP_STATUS_LABELS: Record<VPStatus, string> = {
   rejected: "Rejected",
   partially_paid: "Partially Paid",
   paid: "Paid",
+  invoice_pending: "Invoice Pending",
+  completed: "Completed",
 };
 
 const REQUEST_CSV_HEADERS = [

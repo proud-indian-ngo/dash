@@ -57,7 +57,7 @@ export function FormLayout({
     <FormContextProvider form={form}>
       <form
         {...props}
-        className={cn(className)}
+        className={cn("min-w-0", className)}
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();

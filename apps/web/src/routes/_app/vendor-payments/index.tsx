@@ -19,6 +19,8 @@ const STATUS_OPTIONS = [
   { label: "Rejected", value: "rejected" },
   { label: "Partially Paid", value: "partially_paid" },
   { label: "Paid", value: "paid" },
+  { label: "Invoice Pending", value: "invoice_pending" },
+  { label: "Completed", value: "completed" },
 ];
 
 export const Route = createFileRoute("/_app/vendor-payments/")({

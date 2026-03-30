@@ -5,7 +5,10 @@ import { computePaymentStatus } from "../lib/compute-payment-status";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import { mutatorAttachmentSchema as attachmentSchema } from "../shared-schemas";
-import { PAYABLE_STATUSES } from "../vendor-payment-constants";
+import {
+  INVOICE_LOCKED_STATUSES,
+  PAYABLE_STATUSES,
+} from "../vendor-payment-constants";
 import {
   assertCanDelete,
   assertCanModify,
@@ -62,7 +65,8 @@ async function recalculateParentStatus(
     current &&
     current.status !== newStatus &&
     current.status !== "pending" &&
-    current.status !== "rejected"
+    current.status !== "rejected" &&
+    !INVOICE_LOCKED_STATUSES.has(current.status as string)
   ) {
     await tx.mutate.vendorPayment.update({
       id: vendorPaymentId,
@@ -104,6 +108,8 @@ export const vendorPaymentTransactionMutators = {
 
     const now = Date.now();
 
+    const isApprover = can(ctx, "requests.approve");
+
     await tx.mutate.vendorPaymentTransaction.insert({
       id: args.id,
       vendorPaymentId: args.vendorPaymentId,
@@ -113,10 +119,10 @@ export const vendorPaymentTransactionMutators = {
       transactionDate: args.transactionDate,
       paymentMethod: args.paymentMethod ?? null,
       paymentReference: args.paymentReference ?? null,
-      status: "pending",
+      status: isApprover ? "approved" : "pending",
       rejectionReason: null,
-      reviewedBy: null,
-      reviewedAt: null,
+      reviewedBy: isApprover ? userId : null,
+      reviewedAt: isApprover ? now : null,
       createdAt: now,
       updatedAt: now,
     });
@@ -133,30 +139,43 @@ export const vendorPaymentTransactionMutators = {
       ...fk(args.id),
     });
 
+    if (isApprover) {
+      await tx.mutate.vendorPaymentTransactionHistory.insert({
+        ...buildHistoryInsert(userId, "approved", now),
+        ...fk(args.id),
+      });
+      await recalculateParentStatus(tx, args.vendorPaymentId, now);
+    }
+
     if (tx.location === "server") {
       const transactionId = args.id;
       const vpId = args.vendorPaymentId;
       const vpTitle = vendorPayment.title;
-      ctx.asyncTasks?.push({
-        meta: {
-          mutator: "createVendorPaymentTransaction",
-          userId,
-          transactionId,
-          vendorPaymentId: vpId,
-        },
-        fn: async () => {
-          const { getUserName, notifyVendorPaymentTransactionSubmitted } =
-            await import("@pi-dash/notifications");
-          const submitterName = (await getUserName(userId)) ?? "Unknown";
-          await notifyVendorPaymentTransactionSubmitted({
+
+      if (isApprover) {
+        // Admin auto-approved their own transaction — no need to notify themselves
+      } else {
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "createVendorPaymentTransaction",
+            userId,
             transactionId,
             vendorPaymentId: vpId,
-            vendorPaymentTitle: vpTitle,
-            amount: args.amount,
-            submitterName,
-          });
-        },
-      });
+          },
+          fn: async () => {
+            const { getUserName, notifyVendorPaymentTransactionSubmitted } =
+              await import("@pi-dash/notifications");
+            const submitterName = (await getUserName(userId)) ?? "Unknown";
+            await notifyVendorPaymentTransactionSubmitted({
+              transactionId,
+              vendorPaymentId: vpId,
+              vendorPaymentTitle: vpTitle,
+              amount: args.amount,
+              submitterName,
+            });
+          },
+        });
+      }
     }
   }),
 

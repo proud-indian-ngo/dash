@@ -331,13 +331,13 @@ export function AttachmentsSection({
         <div className="flex flex-col gap-1.5">
           {value.map((attachment) => (
             <div
-              className="fade-in-0 flex animate-in items-center justify-between rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)"
+              className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)"
               key={attachment.id}
             >
-              <span className="truncate text-sm">
+              <span className="min-w-0 flex-1 truncate text-sm">
                 {getAttachmentLabel(attachment)}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 {attachment.type === "url" ? (
                   <a
                     className="font-medium text-primary text-xs underline-offset-2 hover:underline"

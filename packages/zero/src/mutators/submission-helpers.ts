@@ -66,7 +66,11 @@ type HistoryAction =
   | "rejected"
   | "created"
   | "updated"
-  | "submitted";
+  | "submitted"
+  | "invoice_submitted"
+  | "invoice_updated"
+  | "invoice_approved"
+  | "invoice_rejected";
 
 export function buildHistoryInsert(
   actorId: string,

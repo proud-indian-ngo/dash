@@ -151,15 +151,18 @@ test.describe("Export CSV (admin)", () => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
     await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
 
-    // Uncheck all VP statuses
+    // Uncheck all VP statuses (use exact to avoid "Pending" matching "Invoice Pending",
+    // and "Paid" matching "Partially Paid")
     for (const status of [
-      "Pending",
       "Approved",
       "Rejected",
       "Partially Paid",
+      "Invoice Pending",
+      "Completed",
     ]) {
       await page.getByRole("checkbox", { name: status }).click();
     }
+    await page.getByRole("checkbox", { name: "Pending", exact: true }).click();
     await page.getByRole("checkbox", { name: "Paid", exact: true }).click();
 
     await expect(

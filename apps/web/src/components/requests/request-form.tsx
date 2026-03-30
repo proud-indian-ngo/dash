@@ -1,9 +1,8 @@
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { queries } from "@pi-dash/zero/queries";
 import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
@@ -18,12 +17,10 @@ import {
   requestFormSchema,
 } from "./form/request-form.schema";
 import { buildMutation } from "./request-form-mutations";
-import { TypeSelector } from "./request-type-selector";
 import { StandardRequestFields } from "./standard-request-fields";
 
 export interface RequestFormProps {
   disableBankAccountSelection?: boolean;
-  disableTypeSelection?: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
   onSaved: (id: string) => void;
@@ -32,29 +29,19 @@ export interface RequestFormProps {
 
 export function RequestForm({
   disableBankAccountSelection = false,
-  disableTypeSelection = false,
   initialValues,
   onCancel,
   onSaved,
   requestType,
 }: RequestFormProps) {
-  const [currentType, setCurrentType] = useState<RequestType>(requestType);
-
   return (
     <AppErrorBoundary level="section">
-      {disableTypeSelection ? null : (
-        <>
-          <TypeSelector onChange={setCurrentType} value={currentType} />
-          <Separator className="my-4" />
-        </>
-      )}
       <RequestFormInner
         disableBankAccountSelection={disableBankAccountSelection}
         initialValues={initialValues}
-        key={currentType}
         onCancel={onCancel}
         onSaved={onSaved}
-        requestType={currentType}
+        requestType={requestType}
       />
     </AppErrorBoundary>
   );

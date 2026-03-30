@@ -16,11 +16,6 @@ const vendorPaymentBaseFields = {
 export const vendorPaymentFormSchema = z.object({
   ...vendorPaymentBaseFields,
   vendorId: z.string().min(1, "Vendor is required"),
-  invoiceNumber: z.string().optional(),
-  invoiceDate: z
-    .date()
-    .optional()
-    .refine((d): d is Date => d != null, "Invoice date is required"),
 });
 
 export type VendorPaymentFormValues = z.infer<typeof vendorPaymentFormSchema>;
@@ -31,7 +26,5 @@ export function getVendorPaymentDefaultValues(): VendorPaymentFormValues {
     lineItems: [newLineItem()],
     attachments: [],
     vendorId: "",
-    invoiceNumber: "",
-    invoiceDate: undefined,
   };
 }

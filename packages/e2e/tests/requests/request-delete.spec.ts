@@ -79,60 +79,62 @@ test.describe("Request delete (reimbursement)", () => {
   });
 });
 
-test.describe("Request delete (advance_payment)", () => {
-  let requests: RequestPage;
+// Advance payment creation is disabled in the UI.
+test.describe
+  .skip("Request delete (advance_payment)", () => {
+    let requests: RequestPage;
 
-  test.beforeEach(({ page }) => {
-    requests = new RequestPage(page, "advance_payment");
+    test.beforeEach(({ page }) => {
+      requests = new RequestPage(page, "advance_payment");
+    });
+
+    test("admin deletes an advance payment via actions menu", async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+
+      const title = await requests.createRequest("Delete AP Admin");
+
+      await requests.navigateToList();
+      await requests.list.waitForTableData();
+
+      const row = requests.list.getRowByText(title);
+      await expect(row).toBeVisible({ timeout: 10_000 });
+
+      await requests.list.openRowActionAndClick(row, "Delete");
+
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText("Delete advance payment")).toBeVisible();
+      await expect(
+        dialog.getByText("permanently delete this advance payment")
+      ).toBeVisible();
+
+      await dialog.getByRole("button", { name: "Delete" }).click();
+
+      await expect(page.getByText("Advance payment deleted")).toBeVisible();
+      await expect(row).toBeHidden({ timeout: 10_000 });
+    });
+
+    test("volunteer sees Delete option for own pending advance payment", async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+
+      const title = await requests.createRequest("Delete AP Vol");
+
+      await requests.navigateToList();
+      await requests.list.waitForTableData();
+
+      const row = requests.list.getRowByText(title);
+      await expect(row).toBeVisible({ timeout: 10_000 });
+
+      await requests.list.openRowActionAndClick(row, "Delete");
+
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Delete" }).click();
+      await expect(page.getByText("Advance payment deleted")).toBeVisible();
+      await expect(row).toBeHidden({ timeout: 10_000 });
+    });
   });
-
-  test("admin deletes an advance payment via actions menu", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-
-    const title = await requests.createRequest("Delete AP Admin");
-
-    await requests.navigateToList();
-    await requests.list.waitForTableData();
-
-    const row = requests.list.getRowByText(title);
-    await expect(row).toBeVisible({ timeout: 10_000 });
-
-    await requests.list.openRowActionAndClick(row, "Delete");
-
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Delete advance payment")).toBeVisible();
-    await expect(
-      dialog.getByText("permanently delete this advance payment")
-    ).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Delete" }).click();
-
-    await expect(page.getByText("Advance payment deleted")).toBeVisible();
-    await expect(row).toBeHidden({ timeout: 10_000 });
-  });
-
-  test("volunteer sees Delete option for own pending advance payment", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    const title = await requests.createRequest("Delete AP Vol");
-
-    await requests.navigateToList();
-    await requests.list.waitForTableData();
-
-    const row = requests.list.getRowByText(title);
-    await expect(row).toBeVisible({ timeout: 10_000 });
-
-    await requests.list.openRowActionAndClick(row, "Delete");
-
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText("Advance payment deleted")).toBeVisible();
-    await expect(row).toBeHidden({ timeout: 10_000 });
-  });
-});

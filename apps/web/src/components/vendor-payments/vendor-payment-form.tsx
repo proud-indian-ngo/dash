@@ -72,8 +72,6 @@ export function VendorPaymentForm({
         id,
         vendorId: value.vendorId,
         title: value.title,
-        invoiceNumber: value.invoiceNumber,
-        invoiceDate: (value.invoiceDate as Date).getTime(),
         lineItems,
         attachments: value.attachments,
       };
@@ -105,7 +103,6 @@ export function VendorPaymentForm({
         <VendorPaymentFields
           categoryList={categoryList}
           entityId={entityId}
-          form={form}
           isEdit={isEdit}
           onCancel={onCancel}
           onVendorCreated={(id) => form.setFieldValue("vendorId", id)}

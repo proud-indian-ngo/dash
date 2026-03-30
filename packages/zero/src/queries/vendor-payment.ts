@@ -12,6 +12,7 @@ function withRelated(q: typeof zql.vendorPayment) {
     .related("history", (h) => h.orderBy("createdAt", "asc"))
     .related("user")
     .related("vendor")
+    .related("invoiceReviewer")
     .related("transactions", (t) =>
       t
         .orderBy("createdAt", "desc")

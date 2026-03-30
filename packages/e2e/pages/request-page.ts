@@ -34,11 +34,10 @@ export class RequestPage {
     ).toBeVisible();
   }
 
-  async selectType(type: RequestType): Promise<void> {
-    const typeLabel =
-      type === "reimbursement" ? "Reimbursement" : "Advance Payment";
-    await this.page.getByLabel("Type").click();
-    await this.page.getByRole("option", { name: typeLabel }).click();
+  /** @deprecated Type selector has been removed — form defaults to reimbursement. */
+  async selectType(_type: RequestType): Promise<void> {
+    // No-op: TypeSelector was removed from the request form.
+    // The form now only supports reimbursement.
   }
 
   async selectExpenseDate(): Promise<void> {

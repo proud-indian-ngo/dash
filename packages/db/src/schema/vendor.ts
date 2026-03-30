@@ -30,6 +30,8 @@ const vendorPaymentStatusValues = [
   "rejected",
   "partially_paid",
   "paid",
+  "invoice_pending",
+  "completed",
 ] as const;
 
 export type VendorPaymentStatus = (typeof vendorPaymentStatusValues)[number];
@@ -37,6 +39,13 @@ export type VendorPaymentStatus = (typeof vendorPaymentStatusValues)[number];
 export const vendorPaymentStatusEnum = pgEnum(
   "vendor_payment_status",
   vendorPaymentStatusValues
+);
+
+const attachmentPurposeValues = ["quotation", "invoice"] as const;
+export type AttachmentPurpose = (typeof attachmentPurposeValues)[number];
+export const attachmentPurposeEnum = pgEnum(
+  "attachment_purpose",
+  attachmentPurposeValues
 );
 
 // Vendor table
@@ -79,7 +88,7 @@ export const vendorPayment = pgTable(
       .references(() => vendor.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     invoiceNumber: text("invoice_number"),
-    invoiceDate: date("invoice_date", { mode: "string" }).notNull(),
+    invoiceDate: date("invoice_date", { mode: "string" }),
     status: vendorPaymentStatusEnum("status").default("pending").notNull(),
     rejectionReason: text("rejection_reason"),
     approvalScreenshotKey: text("approval_screenshot_key"),
@@ -87,6 +96,11 @@ export const vendorPayment = pgTable(
       onDelete: "set null",
     }),
     reviewedAt: timestamp("reviewed_at"),
+    invoiceReviewedBy: text("invoice_reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    invoiceReviewedAt: timestamp("invoice_reviewed_at"),
+    invoiceRejectionReason: text("invoice_rejection_reason"),
     submittedAt: timestamp("submitted_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -133,6 +147,7 @@ export const vendorPaymentAttachment = pgTable(
       .notNull()
       .references(() => vendorPayment.id, { onDelete: "cascade" }),
     type: attachmentTypeEnum("type").notNull(),
+    purpose: attachmentPurposeEnum("purpose").default("quotation").notNull(),
     filename: text("filename"),
     objectKey: text("object_key"),
     url: text("url"),
@@ -192,6 +207,11 @@ export const vendorPaymentRelations = relations(
       fields: [vendorPayment.reviewedBy],
       references: [user.id],
       relationName: "vendor_payment_reviewer",
+    }),
+    invoiceReviewer: one(user, {
+      fields: [vendorPayment.invoiceReviewedBy],
+      references: [user.id],
+      relationName: "vendor_payment_invoice_reviewer",
     }),
     lineItems: many(vendorPaymentLineItem),
     attachments: many(vendorPaymentAttachment),

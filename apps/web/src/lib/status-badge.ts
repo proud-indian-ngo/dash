@@ -19,6 +19,8 @@ const STATUS_BADGE_ENTRIES: Record<
   rejected: { label: "Rejected", variant: "destructive-outline" },
   partially_paid: { label: "Partially Paid", variant: "warning-outline" },
   paid: { label: "Paid", variant: "success-outline" },
+  invoice_pending: { label: "Invoice Pending", variant: "warning-outline" },
+  completed: { label: "Completed", variant: "success-outline" },
 };
 
 export function getStatusBadge(status: string | null): {

@@ -11,12 +11,7 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
-import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
-import type {
-  FormFieldApi,
-  FormWithField,
-} from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
@@ -25,7 +20,6 @@ import type { Attachment } from "@/lib/form-schemas";
 interface VendorPaymentFieldsProps {
   categoryList: ExpenseCategory[];
   entityId: string;
-  form: FormWithField;
   isEdit: boolean;
   onCancel: () => void;
   onVendorCreated: (vendorId: string) => void;
@@ -37,7 +31,6 @@ interface VendorPaymentFieldsProps {
 export function VendorPaymentFields({
   categoryList,
   entityId,
-  form,
   isEdit,
   onCancel,
   onVendorCreated,
@@ -99,8 +92,6 @@ export function VendorPaymentFields({
             </div>
           )}
         </CustomField>
-        <InputField label="Invoice Number" name="invoiceNumber" />
-        <DateField isRequired label="Invoice Date" name="invoiceDate" />
       </div>
 
       <Separator />
@@ -109,15 +100,18 @@ export function VendorPaymentFields({
 
       <Separator />
 
-      <form.Field name="attachments">
-        {(field: FormFieldApi<unknown[]>) => (
+      <CustomField<Attachment[]>
+        label="Quotation / Supporting Documents"
+        name="attachments"
+      >
+        {(field) => (
           <AttachmentsSection
             entityId={entityId}
             onChange={(attachments) => field.handleChange(attachments)}
-            value={field.state.value as Attachment[]}
+            value={field.state.value ?? []}
           />
         )}
-      </form.Field>
+      </CustomField>
 
       <Separator />
 

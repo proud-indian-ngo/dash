@@ -164,7 +164,6 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             <div className="mt-6">
               <RequestForm
                 disableBankAccountSelection={isAdminEditingAnotherUser}
-                disableTypeSelection
                 initialValues={buildInitialValues(resolved)}
                 onCancel={() => {
                   navigate({ to: "/requests" });

@@ -252,6 +252,12 @@ export const useFileUpload = (
         clearFiles();
       }
 
+      // Compute new state outside setState to avoid side effects inside the
+      // updater (React strict mode double-invokes updater functions).
+      let addedFiles: FileWithPreview[] | null = null;
+      let updatedFiles: FileWithPreview[] | null = null;
+      let pendingErrors: string[] | null = null;
+
       setState((prev) => {
         // Check if adding these files would exceed maxFiles (only in multiple mode)
         if (
@@ -259,11 +265,10 @@ export const useFileUpload = (
           maxFiles !== Number.POSITIVE_INFINITY &&
           prev.files.length + newFilesArray.length > maxFiles
         ) {
-          const errors = [
+          pendingErrors = [
             `You can only upload a maximum of ${maxFiles} files.`,
           ];
-          onError?.(errors);
-          return { ...prev, errors };
+          return { ...prev, errors: pendingErrors };
         }
 
         const { errors, validFiles } = prepareFilesForUpload({
@@ -278,12 +283,8 @@ export const useFileUpload = (
 
         // Only update state if we have valid files to add
         if (validFiles.length > 0) {
-          onFilesAdded?.(validFiles);
-
-          const updatedFiles = multiple
-            ? [...prev.files, ...validFiles]
-            : validFiles;
-          onFilesChange?.(updatedFiles);
+          addedFiles = validFiles;
+          updatedFiles = multiple ? [...prev.files, ...validFiles] : validFiles;
           return {
             ...prev,
             files: updatedFiles,
@@ -292,12 +293,23 @@ export const useFileUpload = (
         }
 
         if (errors.length > 0) {
-          onError?.(errors);
+          pendingErrors = errors;
           return { ...prev, errors };
         }
 
         return { ...prev, errors: [] };
       });
+
+      // Fire callbacks outside setState to avoid double-invocation
+      if (addedFiles) {
+        onFilesAdded?.(addedFiles);
+      }
+      if (updatedFiles) {
+        onFilesChange?.(updatedFiles);
+      }
+      if (pendingErrors) {
+        onError?.(pendingErrors);
+      }
 
       // Reset input value after handling files
       if (inputRef.current) {

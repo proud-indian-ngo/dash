@@ -160,59 +160,61 @@ test.describe("Request detail (reimbursement)", () => {
   });
 });
 
-test.describe("Request detail (advance_payment)", () => {
-  let requests: RequestPage;
+// Advance payment creation is disabled in the UI.
+test.describe
+  .skip("Request detail (advance_payment)", () => {
+    let requests: RequestPage;
 
-  test.beforeEach(({ page }) => {
-    requests = new RequestPage(page, "advance_payment");
-  });
-
-  test("advance payment detail does not show Expense Date", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-
-    await requests.createRequest("AP Detail NoDate");
-
-    await expect(
-      page.getByText("Advance Payment", { exact: true }).first()
-    ).toBeVisible();
-    await expect(page.getByText("Expense Date")).toBeHidden();
-  });
-
-  test("admin approves a pending advance payment", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-
-    await requests.createRequest("AP Approve Flow");
-
-    await expect(requests.detail.getApproveButton()).toBeVisible();
-    await requests.detail.approve();
-
-    await expect(page.getByText("Advance payment approved")).toBeVisible();
-    await expect(requests.detail.getStatusBadge("Approved")).toBeVisible({
-      timeout: 10_000,
+    test.beforeEach(({ page }) => {
+      requests = new RequestPage(page, "advance_payment");
     });
 
-    await expect(requests.detail.getApproveButton()).toBeHidden();
-    await expect(requests.detail.getRejectButton()).toBeHidden();
-  });
+    test("advance payment detail does not show Expense Date", async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-  test("admin rejects a pending advance payment with reason", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+      await requests.createRequest("AP Detail NoDate");
 
-    await requests.createRequest("AP Reject Flow");
-
-    await requests.detail.reject("Budget exceeded");
-
-    await expect(page.getByText("Advance payment rejected")).toBeVisible();
-    await expect(requests.detail.getStatusBadge("Rejected")).toBeVisible({
-      timeout: 10_000,
+      await expect(
+        page.getByText("Advance Payment", { exact: true }).first()
+      ).toBeVisible();
+      await expect(page.getByText("Expense Date")).toBeHidden();
     });
 
-    await expect(requests.detail.getApproveButton()).toBeHidden();
+    test("admin approves a pending advance payment", async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+
+      await requests.createRequest("AP Approve Flow");
+
+      await expect(requests.detail.getApproveButton()).toBeVisible();
+      await requests.detail.approve();
+
+      await expect(page.getByText("Advance payment approved")).toBeVisible();
+      await expect(requests.detail.getStatusBadge("Approved")).toBeVisible({
+        timeout: 10_000,
+      });
+
+      await expect(requests.detail.getApproveButton()).toBeHidden();
+      await expect(requests.detail.getRejectButton()).toBeHidden();
+    });
+
+    test("admin rejects a pending advance payment with reason", async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+
+      await requests.createRequest("AP Reject Flow");
+
+      await requests.detail.reject("Budget exceeded");
+
+      await expect(page.getByText("Advance payment rejected")).toBeVisible();
+      await expect(requests.detail.getStatusBadge("Rejected")).toBeVisible({
+        timeout: 10_000,
+      });
+
+      await expect(requests.detail.getApproveButton()).toBeHidden();
+    });
   });
-});

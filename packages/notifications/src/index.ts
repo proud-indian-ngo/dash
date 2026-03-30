@@ -49,6 +49,9 @@ export {
 } from "./send/user";
 export {
   notifyVendorPaymentApproved,
+  notifyVendorPaymentInvoiceApproved,
+  notifyVendorPaymentInvoiceRejected,
+  notifyVendorPaymentInvoiceSubmitted,
   notifyVendorPaymentRejected,
   notifyVendorPaymentSubmitted,
 } from "./send/vendor-payment";

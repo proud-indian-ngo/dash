@@ -135,7 +135,7 @@ export function VendorPaymentTransactions({
                 icon={PlusSignIcon}
                 strokeWidth={2}
               />
-              Record Payment
+              {canApprove ? "Record Payment" : "Request Payment"}
             </Button>
           ) : null}
         </div>
@@ -278,6 +278,7 @@ export function VendorPaymentTransactions({
       </div>
 
       <TransactionFormDialog
+        canApprove={canApprove}
         onOpenChange={setFormOpen}
         open={formOpen}
         vendorPaymentId={request.id as string}

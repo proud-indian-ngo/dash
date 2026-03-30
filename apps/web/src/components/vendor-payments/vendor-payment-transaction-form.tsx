@@ -35,15 +35,18 @@ const transactionFormSchema = z.object({
 });
 
 interface TransactionFormDialogProps {
+  canApprove: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   vendorPaymentId: string;
 }
 
 function TransactionFormContent({
+  canApprove,
   onOpenChange,
   vendorPaymentId,
 }: {
+  canApprove: boolean;
   onOpenChange: (open: boolean) => void;
   vendorPaymentId: string;
 }) {
@@ -99,8 +102,12 @@ function TransactionFormContent({
         <InputField isRequired label="Amount" name="amount" />
         <InputField label="Description" name="description" />
         <DateField isRequired label="Transaction Date" name="transactionDate" />
-        <InputField label="Payment Method" name="paymentMethod" />
-        <InputField label="Payment Reference" name="paymentReference" />
+        {canApprove ? (
+          <>
+            <InputField label="Payment Method" name="paymentMethod" />
+            <InputField label="Payment Reference" name="paymentReference" />
+          </>
+        ) : null}
       </div>
 
       <CustomField<Attachment[]> label="Attachments" name="attachments">
@@ -116,14 +123,15 @@ function TransactionFormContent({
       <FormActions
         cancelLabel="Cancel"
         onCancel={() => onOpenChange(false)}
-        submitLabel="Record Payment"
-        submittingLabel="Recording..."
+        submitLabel={canApprove ? "Record Payment" : "Request Payment"}
+        submittingLabel={canApprove ? "Recording..." : "Requesting..."}
       />
     </FormLayout>
   );
 }
 
 export function TransactionFormDialog({
+  canApprove,
   onOpenChange,
   open,
   vendorPaymentId,
@@ -141,12 +149,17 @@ export function TransactionFormDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Record Payment</DialogTitle>
+          <DialogTitle>
+            {canApprove ? "Record Payment" : "Request Payment"}
+          </DialogTitle>
           <DialogDescription>
-            Record a payment made against this vendor payment.
+            {canApprove
+              ? "Record a payment made against this vendor payment."
+              : "Request a payment against this vendor payment. An approver will record the payment details."}
           </DialogDescription>
         </DialogHeader>
         <TransactionFormContent
+          canApprove={canApprove}
           key={formKey}
           onOpenChange={onOpenChange}
           vendorPaymentId={vendorPaymentId}

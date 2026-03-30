@@ -1,8 +1,11 @@
 import {
+  Cancel01Icon,
   CheckmarkCircle02Icon,
   Clock01Icon,
+  Invoice02Icon,
   MoneyReceiveSquareIcon,
   Store01Icon,
+  TaskDone01Icon,
 } from "@hugeicons/core-free-icons";
 import type { StatItem } from "@/components/stats/stats-cards";
 import {
@@ -16,7 +19,10 @@ export function computeVendorPaymentStats(
 ): StatItem[] {
   const pending = byStatus(data, "pending");
   const approved = byStatus(data, "approved");
+  const rejected = byStatus(data, "rejected");
   const paid = byStatus(data, "paid");
+  const invoicePending = byStatus(data, "invoice_pending");
+  const completed = byStatus(data, "completed");
 
   return [
     {
@@ -44,12 +50,36 @@ export function computeVendorPaymentStats(
       bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
     },
     {
+      label: "Rejected",
+      value: rejected.length,
+      description: formatTotal(rejected),
+      icon: Cancel01Icon,
+      accent: "border-l-red-500",
+      bgAccent: "bg-red-500/5 dark:bg-red-500/10",
+    },
+    {
       label: "Paid",
       value: paid.length,
       description: formatTotal(paid),
       icon: MoneyReceiveSquareIcon,
       accent: "border-l-cyan-500",
       bgAccent: "bg-cyan-500/5 dark:bg-cyan-500/10",
+    },
+    {
+      label: "Invoice Pending",
+      value: invoicePending.length,
+      description: formatTotal(invoicePending),
+      icon: Invoice02Icon,
+      accent: "border-l-orange-500",
+      bgAccent: "bg-orange-500/5 dark:bg-orange-500/10",
+    },
+    {
+      label: "Completed",
+      value: completed.length,
+      description: formatTotal(completed),
+      icon: TaskDone01Icon,
+      accent: "border-l-violet-500",
+      bgAccent: "bg-violet-500/5 dark:bg-violet-500/10",
     },
   ];
 }

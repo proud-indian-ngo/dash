@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { Link } from "@tanstack/react-router";
 
 const STAGGER_DELAY_MS = 50;
@@ -113,9 +114,11 @@ function StatsCardsSkeleton() {
 }
 
 export function StatsCards({
+  className,
   items,
   isLoading,
 }: {
+  className?: string;
   items: StatItem[];
   isLoading?: boolean;
 }) {
@@ -123,7 +126,7 @@ export function StatsCards({
     return <StatsCardsSkeleton />;
   }
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
       {items.map((item, index) => (
         <StatCard
           animationDelay={index * STAGGER_DELAY_MS}
