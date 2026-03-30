@@ -68,7 +68,13 @@ function DateInputPicker({
   }, [value]);
 
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open) => {
+        if (!open) {
+          onBlur();
+        }
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
@@ -80,7 +86,6 @@ function DateInputPicker({
             )}
             disabled={disabled}
             id={id}
-            onBlur={onBlur}
             type="button"
             variant="outline"
           >

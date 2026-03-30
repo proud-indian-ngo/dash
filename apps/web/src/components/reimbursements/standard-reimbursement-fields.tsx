@@ -78,6 +78,11 @@ export function StandardReimbursementFields({
             return (
               <Select
                 disabled={disableBankAccountSelection}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    field.handleBlur();
+                  }
+                }}
                 onValueChange={(accountId) => {
                   const account = bankAccountList.find(
                     (entry) => entry.id === accountId
@@ -94,7 +99,6 @@ export function StandardReimbursementFields({
                   {...fieldErrorProps(field, submitted)}
                   className="w-full"
                   id={field.name}
-                  onBlur={field.handleBlur}
                 >
                   <span
                     className="flex flex-1 items-center text-left"

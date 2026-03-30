@@ -84,6 +84,11 @@ function LineItemRow({
           return (
             <div className="col-span-3 min-w-0 sm:col-span-1">
               <Select
+                onOpenChange={(open) => {
+                  if (!open) {
+                    field.handleBlur();
+                  }
+                }}
                 onValueChange={(selectedValue) =>
                   field.handleChange(selectedValue ?? "")
                 }
@@ -94,7 +99,6 @@ function LineItemRow({
                   aria-invalid={hasError || undefined}
                   aria-label={`Category for line item ${index + 1}`}
                   className="w-full"
-                  onBlur={field.handleBlur}
                 >
                   <span
                     className="flex flex-1 items-center text-left"
@@ -215,67 +219,79 @@ export function LineItemsEditor({
   }));
 
   return (
-    <form.Field mode="array" name={name}>
-      {(rawField: unknown) => {
-        const arrayField = rawField as ArrayFieldApi;
-        const total = computeRunningTotal(arrayField.state.value);
-
-        return (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Label className="font-medium text-sm">Line items</Label>
-                <span className="text-destructive text-xs"> *</span>
-              </div>
-              <span className="text-muted-foreground text-xs">
-                Total: {formatINR(total)}
-              </span>
+    <>
+      <form.Subscribe
+        selector={(state) =>
+          computeRunningTotal(
+            (state as unknown as { values: Record<string, LineItem[]> }).values[
+              name
+            ] ?? []
+          )
+        }
+      >
+        {(total: number) => (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Label className="font-medium text-sm">Line items</Label>
+              <span className="text-destructive text-xs"> *</span>
             </div>
-
-            {arrayField.state.value.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {arrayField.state.value.map((item, index) => (
-                  <LineItemRow
-                    categoryOptions={categoryOptions}
-                    form={form}
-                    index={index}
-                    key={item.id}
-                    name={name}
-                    onRemove={() => arrayField.removeValue(index)}
-                    submitted={form.state.submissionAttempts > 0}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="py-2 text-center text-muted-foreground text-xs">
-                No line items yet.
-              </p>
-            )}
-
-            {form.state.submissionAttempts > 0 &&
-            arrayField.state.value.length === 0 ? (
-              <p className="text-destructive text-xs" role="alert">
-                At least one line item is required
-              </p>
-            ) : null}
-
-            <Button
-              className="self-start"
-              onClick={() => arrayField.pushValue(newLineItem())}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-3.5"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add line item
-            </Button>
+            <span className="text-muted-foreground text-xs">
+              Total: {formatINR(total)}
+            </span>
           </div>
-        );
-      }}
-    </form.Field>
+        )}
+      </form.Subscribe>
+      <form.Field mode="array" name={name}>
+        {(rawField: unknown) => {
+          const arrayField = rawField as ArrayFieldApi;
+
+          return (
+            <div className="flex flex-col gap-3">
+              {arrayField.state.value.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {arrayField.state.value.map((item, index) => (
+                    <LineItemRow
+                      categoryOptions={categoryOptions}
+                      form={form}
+                      index={index}
+                      key={item.id}
+                      name={name}
+                      onRemove={() => arrayField.removeValue(index)}
+                      submitted={form.state.submissionAttempts > 0}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-2 text-center text-muted-foreground text-xs">
+                  No line items yet.
+                </p>
+              )}
+
+              {form.state.submissionAttempts > 0 &&
+              arrayField.state.value.length === 0 ? (
+                <p className="text-destructive text-xs" role="alert">
+                  At least one line item is required
+                </p>
+              ) : null}
+
+              <Button
+                className="self-start"
+                onClick={() => arrayField.pushValue(newLineItem())}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  className="size-3.5"
+                  icon={PlusSignIcon}
+                  strokeWidth={2}
+                />
+                Add line item
+              </Button>
+            </div>
+          );
+        }}
+      </form.Field>
+    </>
   );
 }
