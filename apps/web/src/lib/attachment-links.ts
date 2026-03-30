@@ -14,8 +14,9 @@ const getAssetCdnBase = () => env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
 export const getDirectAttachmentUrl = (objectKey: string): string =>
   `${getAssetCdnBase()}/${objectKey}`;
 
-const getImageProxyUrl = (objectKey: string): string =>
-  `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${getDirectAttachmentUrl(objectKey)}`;
+/** Cloudflare-resized thumbnail for inline `<img>` embeds (e.g. payment proof). */
+export const getImageThumbnailUrl = (objectKey: string, size: number): string =>
+  `${getAssetCdnBase()}/cdn-cgi/image/width=${size},height=${size},fit=cover,format=auto,quality=80/${objectKey}`;
 
 export const getAttachmentLabel = (attachment: AttachmentLike): string => {
   if (attachment.type === "url") {
@@ -36,9 +37,7 @@ export const getAttachmentPreviewHref = (
     return "#";
   }
 
-  return attachment.mimeType?.startsWith("image/")
-    ? getImageProxyUrl(attachment.objectKey)
-    : getDirectAttachmentUrl(attachment.objectKey);
+  return getDirectAttachmentUrl(attachment.objectKey);
 };
 
 export const getAttachmentDownloadHref = (
