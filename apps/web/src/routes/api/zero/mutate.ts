@@ -49,15 +49,14 @@ export const Route = createFileRoute("/api/zero/mutate")({
           request
         );
 
-        // Run async tasks (e.g. WhatsApp group ops) AFTER successful commit — retried via withTaskLog
-        await Promise.allSettled(
-          asyncTasks.map((task, i) =>
-            withTaskLog(
-              { ...task.meta, handler: "mutate", userId, taskIndex: i },
-              () => task.fn()
-            )
-          )
-        );
+        // Fire-and-forget: enqueue jobs after commit without blocking the response.
+        // pg-boss handles persistence and retries from here.
+        for (const [i, task] of asyncTasks.entries()) {
+          withTaskLog(
+            { ...task.meta, handler: "mutate", userId, taskIndex: i },
+            () => task.fn()
+          );
+        }
 
         return Response.json(result);
       },

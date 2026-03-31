@@ -43,11 +43,19 @@ export async function ensureBossReady(): Promise<PgBoss> {
   }
   const ready = getReadyPromise();
   if (ready) {
-    await ready;
+    await Promise.race([
+      ready,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("pg-boss startup timed out after 10s")),
+          10_000
+        )
+      ),
+    ]);
   }
   const boss = getBossInstance();
   if (!boss) {
-    throw new Error("pg-boss failed to start");
+    throw new Error("pg-boss not available");
   }
   return boss;
 }
