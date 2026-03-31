@@ -5,6 +5,7 @@ import {
   Invoice01Icon,
   SecurityLockIcon,
   Store01Icon,
+  TaskDaily02Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -90,6 +91,12 @@ const teamsNavItem: NavItem = {
   subItems: [{ title: "Team Details", url: "/teams/$id", isHidden: true }],
 };
 
+const jobsNavItem: NavItem = {
+  title: "Jobs",
+  url: "/jobs",
+  icon: TaskDaily02Icon,
+};
+
 const eventsNavItem: NavItem = {
   title: "Events",
   url: "/events",
@@ -130,6 +137,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   }
   if (has(permissions, "settings.roles")) {
     items.push(rolesNavItem);
+  }
+  if (has(permissions, "jobs.manage")) {
+    items.push(jobsNavItem);
   }
 
   return items;
@@ -184,6 +194,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (has(permissions, "settings.roles")) {
     adminItems.push(rolesNavItem);
+  }
+  if (has(permissions, "jobs.manage")) {
+    adminItems.push(jobsNavItem);
   }
   if (adminItems.length > 0) {
     groups.push({ label: "Admin", items: adminItems });
