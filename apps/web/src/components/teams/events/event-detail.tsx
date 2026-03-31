@@ -384,20 +384,19 @@ export function EventDetail({
 
           {/* Sidebar */}
           <aside className="lg:col-span-2 lg:col-start-4 lg:row-start-1">
-            <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-              <div className="hidden lg:block">
+            <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:overflow-x-hidden">
+              <div className="hidden -space-y-px lg:flex lg:flex-col">
                 <EventDetailsCard event={event} />
+                {canManage ? (
+                  <EventQuickStats
+                    feedbackCount={feedback.length}
+                    hasStarted={hasStarted}
+                    memberCount={event.members.length}
+                    photoCount={approvedPhotos.length}
+                    presentCount={presentCount}
+                  />
+                ) : null}
               </div>
-
-              {canManage ? (
-                <EventQuickStats
-                  feedbackCount={feedback.length}
-                  hasStarted={hasStarted}
-                  memberCount={event.members.length}
-                  photoCount={approvedPhotos.length}
-                  presentCount={presentCount}
-                />
-              ) : null}
 
               {hasStarted ? (
                 <PastInterestBadge
