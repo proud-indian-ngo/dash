@@ -1,5 +1,5 @@
 import {
-  Activity03Icon,
+  Cancel01Icon,
   CheckmarkCircle01Icon,
   Clock01Icon,
   MultiplicationSignCircleIcon,
@@ -29,19 +29,12 @@ export function computeJobStats(
   jobs: readonly JobRow[],
   queues: readonly QueueStat[]
 ): StatItem[] {
-  const active = jobs.filter((j) => j.state === "active").length;
   const completed = jobs.filter((j) => j.state === "completed").length;
   const failed = jobs.filter((j) => j.state === "failed").length;
+  const cancelled = jobs.filter((j) => j.state === "cancelled").length;
   const scheduled = queues.reduce((sum, q) => sum + q.size, 0);
 
   return [
-    {
-      label: "Active",
-      value: active,
-      icon: Activity03Icon,
-      accent: "border-l-blue-500",
-      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
-    },
     {
       label: "Completed",
       value: completed,
@@ -55,6 +48,13 @@ export function computeJobStats(
       icon: MultiplicationSignCircleIcon,
       accent: "border-l-red-500",
       bgAccent: "bg-red-500/5 dark:bg-red-500/10",
+    },
+    {
+      label: "Cancelled",
+      value: cancelled,
+      icon: Cancel01Icon,
+      accent: "border-l-orange-500",
+      bgAccent: "bg-orange-500/5 dark:bg-orange-500/10",
     },
     {
       label: "Scheduled",
