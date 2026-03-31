@@ -217,6 +217,7 @@
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/observability": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
+        "@pi-dash/zero": "workspace:*",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
         "pg-boss": "^12.15.0",
