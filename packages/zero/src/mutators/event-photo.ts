@@ -374,10 +374,8 @@ export const eventPhotoMutators = {
               uploadedBy: photo.uploadedBy,
             },
             fn: async () => {
-              const { notifyPhotoApproved } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyPhotoApproved({
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-photo-approved", {
                 photoId: args.id,
                 eventId: photo.eventId,
                 eventName: event.name,
@@ -456,10 +454,8 @@ export const eventPhotoMutators = {
                 uploadedBy: photo.uploadedBy,
               },
               fn: async () => {
-                const { notifyPhotoApproved } = await import(
-                  "@pi-dash/notifications"
-                );
-                await notifyPhotoApproved({
+                const { enqueue } = await import("@pi-dash/jobs");
+                await enqueue("notify-photo-approved", {
                   photoId: id,
                   eventId: photo.eventId,
                   eventName: event.name,
@@ -534,10 +530,8 @@ export const eventPhotoMutators = {
               uploadedBy: photo.uploadedBy,
             },
             fn: async () => {
-              const { notifyPhotoRejected } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyPhotoRejected({
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-photo-rejected", {
                 photoId: args.id,
                 eventId: photo.eventId,
                 eventName: event.name,

@@ -299,6 +299,15 @@ export const PERMISSIONS = [
     description: "CRUD roles and assign permissions",
   },
 
+  // ── Jobs ──
+  {
+    id: "jobs.manage",
+    name: "Manage Jobs",
+    category: "jobs",
+    description:
+      "View and manage background job queue (cancel, retry, schedule)",
+  },
+
   // ── Bank Accounts (user-scoped) ──
   {
     id: "bank_accounts.manage_own",

@@ -1,16 +1,59 @@
-import { db } from "@pi-dash/db";
-import { teamMember } from "@pi-dash/db/schema/team";
-import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
-import { getNextOccurrenceDate } from "@pi-dash/zero/lib/recurrence";
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import { defineTask } from "nitro/task";
-import { uuidv7 } from "uuidv7";
+import type { teamEvent as teamEventTable } from "@pi-dash/db/schema/team-event";
+import { createRequestLogger } from "evlog";
+import type { Job } from "pg-boss";
+import type { RecurringEventsPayload } from "../enqueue";
 
-type ParentEvent = typeof teamEvent.$inferSelect;
+type ParentEvent = typeof teamEventTable.$inferSelect;
 
 const MAX_CATCHUP_ITERATIONS = 52;
 
-async function createNextOccurrence(parent: ParentEvent): Promise<number> {
+async function loadDeps() {
+  const [
+    { db },
+    { teamEvent, teamEventMember },
+    { teamMember },
+    { getNextOccurrenceDate },
+    drizzle,
+    { uuidv7 },
+  ] = await Promise.all([
+    import("@pi-dash/db"),
+    import("@pi-dash/db/schema/team-event"),
+    import("@pi-dash/db/schema/team"),
+    import("../lib/recurrence"),
+    import("drizzle-orm"),
+    import("uuidv7"),
+  ]);
+  return {
+    db,
+    teamEvent,
+    teamEventMember,
+    teamMember,
+    getNextOccurrenceDate,
+    and: drizzle.and,
+    desc: drizzle.desc,
+    eq: drizzle.eq,
+    uuidv7,
+  };
+}
+
+type Deps = Awaited<ReturnType<typeof loadDeps>>;
+
+async function createNextOccurrence(
+  parent: ParentEvent,
+  deps: Deps
+): Promise<number> {
+  const {
+    db,
+    teamEvent,
+    teamEventMember,
+    teamMember,
+    getNextOccurrenceDate,
+    and,
+    desc,
+    eq,
+    uuidv7,
+  } = deps;
+
   const rule = parent.recurrenceRule as {
     frequency: "weekly" | "biweekly" | "monthly";
     endDate?: string;
@@ -28,7 +71,7 @@ async function createNextOccurrence(parent: ParentEvent): Promise<number> {
   let created = 0;
 
   // Hoist latest occurrence query outside the loop to avoid N+1
-  let lastStart =
+  let lastStart: Date =
     (
       await db
         .select({ startTime: teamEvent.startTime })
@@ -135,17 +178,30 @@ async function createNextOccurrence(parent: ParentEvent): Promise<number> {
   return created;
 }
 
-export default defineTask({
-  meta: {
-    name: "create-recurring-events",
-    description: "Create next occurrence of recurring team events",
-  },
-  async run() {
+export async function handleCreateRecurringEvents(
+  jobs: Job<RecurringEventsPayload>[]
+): Promise<void> {
+  for (const job of jobs) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "create-recurring-events",
+    });
+
+    log.set({
+      event: "job_start",
+      jobId: job.id,
+      triggeredAt: job.data.triggeredAt,
+    });
+
+    const deps = await loadDeps();
+    const { db, teamEvent } = deps;
+    const { isNotNull, isNull } = await import("drizzle-orm");
+
     const parentEvents = await db
       .select()
       .from(teamEvent)
       .where(
-        and(
+        deps.and(
           isNull(teamEvent.parentEventId),
           isNotNull(teamEvent.recurrenceRule),
           isNull(teamEvent.cancelledAt)
@@ -155,9 +211,10 @@ export default defineTask({
     let createdCount = 0;
 
     for (const parent of parentEvents) {
-      createdCount += await createNextOccurrence(parent);
+      createdCount += await createNextOccurrence(parent, deps);
     }
 
-    return { result: { success: true, eventsCreated: createdCount } };
-  },
-});
+    log.set({ event: "job_complete", eventsCreated: createdCount });
+    log.emit();
+  }
+}

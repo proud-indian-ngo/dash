@@ -67,11 +67,10 @@ export const eventUpdateMutators = {
               eventName: event.name,
             },
             fn: async () => {
-              const { notifyEventUpdatePosted, getUserName } = await import(
-                "@pi-dash/notifications"
-              );
+              const { enqueue } = await import("@pi-dash/jobs");
+              const { getUserName } = await import("@pi-dash/notifications");
               const authorName = (await getUserName(ctx.userId)) ?? "Someone";
-              await notifyEventUpdatePosted({
+              await enqueue("notify-event-update-posted", {
                 eventId: args.eventId,
                 eventName: event.name,
                 eventMemberIds,

@@ -1,5 +1,4 @@
 import { defineMutator } from "@rocicorp/zero";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
 import "../context";
 import {
@@ -42,35 +41,13 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "createTeam", teamId, teamName },
           fn: async () => {
-            const { createWhatsAppGroup, getUserPhone } = await import(
-              "@pi-dash/whatsapp"
-            );
-            const { db } = await import("@pi-dash/db");
-            const { whatsappGroup } = await import(
-              "@pi-dash/db/schema/whatsapp-group"
-            );
-            const { team } = await import("@pi-dash/db/schema/team");
-            const { eq } = await import("drizzle-orm");
-
-            const creatorPhone = await getUserPhone(creatorUserId);
-            const participants = creatorPhone ? [creatorPhone] : [];
-            const { jid } = await createWhatsAppGroup(teamName, participants);
-            const groupId = uuidv7();
-            const timestamp = new Date();
-
-            await db.insert(whatsappGroup).values({
-              id: groupId,
-              name: teamName,
-              jid,
-              createdAt: timestamp,
-              updatedAt: timestamp,
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("whatsapp-create-group", {
+              entityType: "team",
+              entityId: teamId,
+              groupName: teamName,
+              creatorUserId,
             });
-
-            // eq import needed for db.update().where() — no callback form available
-            await db
-              .update(team)
-              .set({ whatsappGroupId: groupId })
-              .where(eq(team.id, teamId));
           },
         });
       }
@@ -105,9 +82,7 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "updateTeam", teamId, teamName },
           fn: async () => {
-            const { notifyTeamUpdated } = await import(
-              "@pi-dash/notifications"
-            );
+            const { enqueue } = await import("@pi-dash/jobs");
             const { db } = await import("@pi-dash/db");
 
             const members = await db.query.teamMember.findMany({
@@ -115,7 +90,7 @@ export const teamMutators = {
               where: (t, { eq }) => eq(t.teamId, teamId),
             });
 
-            await notifyTeamUpdated({
+            await enqueue("notify-team-updated", {
               memberIds: members.map((m) => m.userId),
               teamId,
               teamName,
@@ -155,10 +130,8 @@ export const teamMutators = {
             memberCount: memberUserIds.length,
           },
           fn: async () => {
-            const { notifyTeamDeleted } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyTeamDeleted({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-team-deleted", {
               deletedAt,
               memberIds: memberUserIds,
               teamName,
@@ -211,19 +184,8 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "addTeamMember", teamId, userId },
           fn: async () => {
-            const {
-              addToWhatsAppGroup,
-              getTeamWhatsAppGroupJid,
-              getUserPhone,
-            } = await import("@pi-dash/whatsapp");
-
-            const jid = await getTeamWhatsAppGroupJid(teamId);
-            if (jid) {
-              const phone = await getUserPhone(userId);
-              if (phone) {
-                await addToWhatsAppGroup(jid, phone);
-              }
-            }
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("whatsapp-add-member-team", { teamId, userId });
           },
         });
 
@@ -233,10 +195,12 @@ export const teamMutators = {
           ctx.asyncTasks?.push({
             meta: { mutator: "addTeamMember", teamId, teamName, userId },
             fn: async () => {
-              const { notifyAddedToTeam } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyAddedToTeam({ userId, teamName, teamId });
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-added-to-team", {
+                userId,
+                teamName,
+                teamId,
+              });
             },
           });
         }
@@ -281,19 +245,11 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "removeTeamMember", teamId, memberUserId },
           fn: async () => {
-            const {
-              getTeamWhatsAppGroupJid,
-              getUserPhone,
-              removeFromWhatsAppGroup,
-            } = await import("@pi-dash/whatsapp");
-
-            const jid = await getTeamWhatsAppGroupJid(teamId);
-            if (jid) {
-              const phone = await getUserPhone(memberUserId);
-              if (phone) {
-                await removeFromWhatsAppGroup(jid, phone);
-              }
-            }
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("whatsapp-remove-member-team", {
+              teamId,
+              userId: memberUserId,
+            });
           },
         });
 
@@ -302,10 +258,8 @@ export const teamMutators = {
           ctx.asyncTasks?.push({
             meta: { mutator: "removeTeamMember", memberUserId, teamName },
             fn: async () => {
-              const { notifyRemovedFromTeam } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyRemovedFromTeam({
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-removed-from-team", {
                 removedAt,
                 userId: memberUserId,
                 teamName,

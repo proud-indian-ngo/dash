@@ -60,12 +60,7 @@ export default defineConfig(({ mode }) => ({
       preset: "bun",
       serverDir: "server",
       experimental: {
-        tasks: true,
         vite: {},
-      },
-      scheduledTasks: {
-        // Every day at midnight UTC
-        "0 0 * * *": ["create-recurring-events"],
       },
     }),
     react(),

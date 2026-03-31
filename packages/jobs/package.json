@@ -1,0 +1,32 @@
+{
+  "name": "@pi-dash/jobs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@pi-dash/db": "workspace:*",
+    "@pi-dash/env": "workspace:*",
+    "@pi-dash/notifications": "workspace:*",
+    "@pi-dash/observability": "workspace:*",
+    "@pi-dash/whatsapp": "workspace:*",
+    "date-fns": "catalog:",
+    "drizzle-orm": "catalog:",
+    "evlog": "catalog:",
+    "pg-boss": "^12.15.0",
+    "uuidv7": "catalog:"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

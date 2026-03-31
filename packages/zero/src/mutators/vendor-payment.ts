@@ -92,11 +92,10 @@ export const vendorPaymentMutators = {
           title,
         },
         fn: async () => {
-          const { getUserName, notifyVendorPaymentSubmitted } = await import(
-            "@pi-dash/notifications"
-          );
+          const { enqueue } = await import("@pi-dash/jobs");
+          const { getUserName } = await import("@pi-dash/notifications");
           const submitterName = (await getUserName(userId)) ?? "Unknown";
-          await notifyVendorPaymentSubmitted({
+          await enqueue("notify-vendor-payment-submitted", {
             vendorPaymentId,
             title,
             submitterName,
@@ -217,10 +216,8 @@ export const vendorPaymentMutators = {
             submitterId: ownerId,
           },
           fn: async () => {
-            const { notifyVendorPaymentApproved } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyVendorPaymentApproved({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-vendor-payment-approved", {
               vendorPaymentId: id,
               title,
               submitterId: ownerId,
@@ -323,10 +320,8 @@ export const vendorPaymentMutators = {
             reason,
           },
           fn: async () => {
-            const { notifyVendorPaymentRejected } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyVendorPaymentRejected({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-vendor-payment-rejected", {
               vendorPaymentId: id,
               title,
               submitterId: ownerId,
@@ -406,10 +401,10 @@ export const vendorPaymentMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { getUserName, notifyVendorPaymentInvoiceSubmitted } =
-              await import("@pi-dash/notifications");
+            const { enqueue } = await import("@pi-dash/jobs");
+            const { getUserName } = await import("@pi-dash/notifications");
             const submitterName = (await getUserName(userId)) ?? "Unknown";
-            await notifyVendorPaymentInvoiceSubmitted({
+            await enqueue("notify-vp-invoice-submitted", {
               vendorPaymentId: vpId,
               vendorPaymentTitle: vpTitle,
               submitterName,
@@ -524,10 +519,8 @@ export const vendorPaymentMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { notifyVendorPaymentInvoiceApproved } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyVendorPaymentInvoiceApproved({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-vp-invoice-approved", {
               vendorPaymentId: vpId,
               vendorPaymentTitle: vpTitle,
               submitterId,
@@ -581,10 +574,8 @@ export const vendorPaymentMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { notifyVendorPaymentInvoiceRejected } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyVendorPaymentInvoiceRejected({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-vp-invoice-rejected", {
               vendorPaymentId: vpId,
               vendorPaymentTitle: vpTitle,
               submitterId,
