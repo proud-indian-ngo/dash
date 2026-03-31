@@ -196,6 +196,7 @@ function createJobColumns(
           </DropdownMenu>
         );
       },
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -241,6 +242,13 @@ export function JobsTable({
       searchFn={searchJob}
       searchPlaceholder="Search jobs..."
       storageKey="jobs_table_state_v1"
+      tableLayout={{
+        columnsMovable: true,
+        columnsResizable: true,
+        columnsDraggable: true,
+        columnsVisibility: true,
+        columnsPinnable: true,
+      }}
       toolbarActions={toolbarActions}
       toolbarFilters={toolbarFilters}
     />
