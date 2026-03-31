@@ -1,0 +1,14 @@
+{
+  "planPath": "docs/plans/2026-03-31-photo-approval-batch-notifications.md",
+  "tasks": [
+    {"id": 7, "subject": "Task 1: Add PHOTO_NOTIFICATION_DELAY_SECONDS env var", "status": "pending"},
+    {"id": 8, "subject": "Task 2: Add batch notification variants", "status": "pending", "blockedBy": [7]},
+    {"id": 9, "subject": "Task 3: Write unit tests for handler grouping logic", "status": "pending", "blockedBy": [8]},
+    {"id": 10, "subject": "Task 4: Rewrite notify-event-photo handler", "status": "pending", "blockedBy": [9]},
+    {"id": 11, "subject": "Task 5: Register handlers with batchSize: 50", "status": "pending", "blockedBy": [10]},
+    {"id": 12, "subject": "Task 6: Add startAfter delay to mutator enqueue calls", "status": "pending", "blockedBy": [11]},
+    {"id": 13, "subject": "Task 7: E2E tests for batch photo notifications", "status": "pending", "blockedBy": [12]},
+    {"id": 14, "subject": "Task 8: Final verification", "status": "pending", "blockedBy": [13]}
+  ],
+  "lastUpdated": "2026-03-31T00:00:00Z"
+}
