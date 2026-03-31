@@ -198,9 +198,11 @@ export const auth = betterAuth({
     // are stored in user.role and resolved to permissions via resolvePermissions().
     admin({
       defaultRole: "unoriented_volunteer",
-      adminRoles: ["admin"],
+      adminRoles: ["super_admin", "admin", "finance_admin"],
       roles: {
+        super_admin: adminAc,
         admin: adminAc,
+        finance_admin: adminAc,
         unoriented_volunteer: userAc,
         volunteer: userAc,
       },
