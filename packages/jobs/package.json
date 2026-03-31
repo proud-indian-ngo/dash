@@ -1,0 +1,29 @@
+{
+  "name": "@pi-dash/jobs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@pi-dash/db": "workspace:*",
+    "@pi-dash/env": "workspace:*",
+    "@pi-dash/notifications": "workspace:*",
+    "@pi-dash/observability": "workspace:*",
+    "@pi-dash/whatsapp": "workspace:*",
+    "evlog": "catalog:",
+    "pg-boss": "^10.3.1"
+  },
+  "devDependencies": {
+    "@pi-dash/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

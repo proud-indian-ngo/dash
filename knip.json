@@ -28,6 +28,17 @@
       "entry": ["helpers/seed-dev-data.ts"],
       "ignoreDependencies": ["better-auth"]
     },
+    "packages/jobs": {
+      "ignoreDependencies": [
+        "@pi-dash/db",
+        "@pi-dash/env",
+        "@pi-dash/notifications",
+        "@pi-dash/observability",
+        "@pi-dash/whatsapp",
+        "evlog",
+        "pg-boss"
+      ]
+    },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],
       "ignoreDependencies": ["@tailwindcss/.*"]
