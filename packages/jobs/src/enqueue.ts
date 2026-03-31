@@ -1,5 +1,5 @@
 import type PgBoss from "pg-boss";
-import { getBoss } from "./boss";
+import { ensureBossReady } from "./boss";
 
 // -- Low-level payload types ---------------------------------------------------
 
@@ -402,7 +402,7 @@ export async function enqueue<T extends JobName>(
   data: JobPayloads[T],
   options?: PgBoss.SendOptions
 ): Promise<string | null> {
-  const boss = getBoss();
+  const boss = await ensureBossReady();
   return await boss.send(name, data as object, {
     retryLimit: 3,
     retryDelay: 5,

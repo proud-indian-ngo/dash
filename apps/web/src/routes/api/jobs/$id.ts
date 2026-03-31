@@ -1,7 +1,10 @@
-import { getBoss, QUEUE_NAMES } from "@pi-dash/jobs";
+import { ensureBossReady, QUEUE_NAMES } from "@pi-dash/jobs";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const Route = createFileRoute("/api/jobs/$id")({
   server: {
@@ -19,7 +22,13 @@ export const Route = createFileRoute("/api/jobs/$id")({
         }
 
         const { id } = params;
-        const boss = getBoss();
+
+        // Skip non-UUID ids to avoid pg-boss errors on static route conflicts
+        if (!UUID_RE.test(id)) {
+          return Response.json({ error: "Job not found" }, { status: 404 });
+        }
+
+        const boss = await ensureBossReady();
 
         try {
           for (const queue of QUEUE_NAMES) {

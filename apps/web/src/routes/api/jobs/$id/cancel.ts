@@ -1,4 +1,4 @@
-import { getBoss, QUEUE_NAMES } from "@pi-dash/jobs";
+import { ensureBossReady, QUEUE_NAMES } from "@pi-dash/jobs";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/jobs/$id/cancel")({
         }
 
         const { id } = params;
-        const boss = getBoss();
+        const boss = await ensureBossReady();
 
         try {
           for (const queue of QUEUE_NAMES) {

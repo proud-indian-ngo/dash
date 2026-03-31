@@ -1,4 +1,4 @@
-import { getBoss, QUEUE_NAMES } from "@pi-dash/jobs";
+import { ensureBossReady, QUEUE_NAMES } from "@pi-dash/jobs";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/jobs/stats")({
           return Response.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const boss = getBoss();
+        const boss = await ensureBossReady();
 
         try {
           const stats = await Promise.all(
