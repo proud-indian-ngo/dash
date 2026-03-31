@@ -1,6 +1,6 @@
 import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
-import PgBoss from "pg-boss";
+import type { PgBoss } from "pg-boss";
 
 // Use globalThis to share across Vite SSR module scopes
 // (Nitro plugins and API routes may get different module instances in dev)
@@ -64,6 +64,9 @@ export async function startWorker(): Promise<void> {
   const log = createRequestLogger({ method: "SYSTEM", path: "jobs/startup" });
 
   const promise = (async () => {
+    // Dynamic import to avoid Vite SSR CJS interop issues with pg-boss v12 ESM
+    const { PgBoss } = await import("pg-boss");
+
     const boss = new PgBoss({
       connectionString: env.DATABASE_URL,
       schema: "pgboss",
@@ -73,7 +76,7 @@ export async function startWorker(): Promise<void> {
       migrate: true,
     });
 
-    boss.on("error", (error) => {
+    boss.on("error", (error: Error) => {
       const errLog = createRequestLogger({
         method: "SYSTEM",
         path: "jobs/error",
@@ -105,7 +108,7 @@ export async function stopWorker(): Promise<void> {
       method: "SYSTEM",
       path: "jobs/shutdown",
     });
-    await boss.stop({ graceful: true, timeout: 10_000 });
+    await boss.stop({ graceful: true, timeout: 30_000 });
     log.set({ event: "pg_boss_stopped" });
     log.emit();
     setBossInstance(undefined);

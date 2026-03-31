@@ -1,5 +1,3 @@
-import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
 import type {
   NotifyVendorPaymentApprovedPayload,
   NotifyVendorPaymentRejectedPayload,
@@ -8,111 +6,49 @@ import type {
   NotifyVpInvoiceRejectedPayload,
   NotifyVpInvoiceSubmittedPayload,
 } from "../enqueue";
+import { createNotifyHandler } from "./create-handler";
 
-export async function handleNotifyVendorPaymentSubmitted(
-  jobs: PgBoss.Job<NotifyVendorPaymentSubmittedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-vendor-payment-submitted",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyVendorPaymentSubmitted } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyVendorPaymentSubmitted(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyVendorPaymentSubmitted =
+  createNotifyHandler<NotifyVendorPaymentSubmittedPayload>(
+    "notify-vendor-payment-submitted",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyVendorPaymentSubmitted
+  );
 
-export async function handleNotifyVendorPaymentApproved(
-  jobs: PgBoss.Job<NotifyVendorPaymentApprovedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-vendor-payment-approved",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyVendorPaymentApproved } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyVendorPaymentApproved(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyVendorPaymentApproved =
+  createNotifyHandler<NotifyVendorPaymentApprovedPayload>(
+    "notify-vendor-payment-approved",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyVendorPaymentApproved
+  );
 
-export async function handleNotifyVendorPaymentRejected(
-  jobs: PgBoss.Job<NotifyVendorPaymentRejectedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-vendor-payment-rejected",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyVendorPaymentRejected } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyVendorPaymentRejected(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyVendorPaymentRejected =
+  createNotifyHandler<NotifyVendorPaymentRejectedPayload>(
+    "notify-vendor-payment-rejected",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyVendorPaymentRejected
+  );
 
-export async function handleNotifyVpInvoiceSubmitted(
-  jobs: PgBoss.Job<NotifyVpInvoiceSubmittedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-vp-invoice-submitted",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyVendorPaymentInvoiceSubmitted } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyVendorPaymentInvoiceSubmitted(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyVpInvoiceSubmitted =
+  createNotifyHandler<NotifyVpInvoiceSubmittedPayload>(
+    "notify-vp-invoice-submitted",
+    async () =>
+      (await import("@pi-dash/notifications"))
+        .notifyVendorPaymentInvoiceSubmitted
+  );
 
-export async function handleNotifyVpInvoiceApproved(
-  jobs: PgBoss.Job<NotifyVpInvoiceApprovedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-vp-invoice-approved",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyVendorPaymentInvoiceApproved } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyVendorPaymentInvoiceApproved(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyVpInvoiceApproved =
+  createNotifyHandler<NotifyVpInvoiceApprovedPayload>(
+    "notify-vp-invoice-approved",
+    async () =>
+      (await import("@pi-dash/notifications"))
+        .notifyVendorPaymentInvoiceApproved
+  );
 
-export async function handleNotifyVpInvoiceRejected(
-  jobs: PgBoss.Job<NotifyVpInvoiceRejectedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-vp-invoice-rejected",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyVendorPaymentInvoiceRejected } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyVendorPaymentInvoiceRejected(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyVpInvoiceRejected =
+  createNotifyHandler<NotifyVpInvoiceRejectedPayload>(
+    "notify-vp-invoice-rejected",
+    async () =>
+      (await import("@pi-dash/notifications"))
+        .notifyVendorPaymentInvoiceRejected
+  );

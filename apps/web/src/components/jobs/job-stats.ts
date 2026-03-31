@@ -2,13 +2,16 @@ import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Clock01Icon,
+  Loading03Icon,
   MultiplicationSignCircleIcon,
 } from "@hugeicons/core-free-icons";
 import type { StatItem } from "@/components/stats/stats-cards";
 
 export interface QueueStat {
+  active: number;
   queue: string;
   size: number;
+  total: number;
 }
 
 export interface JobRow {
@@ -17,6 +20,7 @@ export interface JobRow {
   data: object;
   id: string;
   name: string;
+  output: object | null;
   priority: number;
   retryCount: number;
   retryLimit: number;
@@ -26,32 +30,37 @@ export interface JobRow {
 }
 
 export function computeJobStats(
-  jobs: readonly JobRow[],
-  queues: readonly QueueStat[]
+  queues: readonly QueueStat[],
+  stateCounts: Readonly<Record<string, number>>
 ): StatItem[] {
-  const completed = jobs.filter((j) => j.state === "completed").length;
-  const failed = jobs.filter((j) => j.state === "failed").length;
-  const cancelled = jobs.filter((j) => j.state === "cancelled").length;
+  const active = queues.reduce((sum, q) => sum + q.active, 0);
   const scheduled = queues.reduce((sum, q) => sum + q.size, 0);
 
   return [
     {
+      label: "Active",
+      value: active,
+      icon: Loading03Icon,
+      accent: "border-l-blue-500",
+      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
+    },
+    {
       label: "Completed",
-      value: completed,
+      value: stateCounts.completed ?? 0,
       icon: CheckmarkCircle01Icon,
       accent: "border-l-emerald-500",
       bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
     },
     {
       label: "Failed",
-      value: failed,
+      value: stateCounts.failed ?? 0,
       icon: MultiplicationSignCircleIcon,
       accent: "border-l-red-500",
       bgAccent: "bg-red-500/5 dark:bg-red-500/10",
     },
     {
       label: "Cancelled",
-      value: cancelled,
+      value: stateCounts.cancelled ?? 0,
       icon: Cancel01Icon,
       accent: "border-l-orange-500",
       bgAccent: "bg-orange-500/5 dark:bg-orange-500/10",

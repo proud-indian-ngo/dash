@@ -1,9 +1,9 @@
 import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import type { NotificationPayload } from "../enqueue";
 
 export async function handleSendNotification(
-  jobs: PgBoss.Job<NotificationPayload>[]
+  jobs: Job<NotificationPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({

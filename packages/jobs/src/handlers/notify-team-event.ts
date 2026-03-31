@@ -1,5 +1,3 @@
-import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
 import type {
   NotifyAddedToEventPayload,
   NotifyEventCancelledPayload,
@@ -8,99 +6,40 @@ import type {
   NotifyRemovedFromEventPayload,
   NotifyUsersAddedToEventPayload,
 } from "../enqueue";
+import { createNotifyHandler } from "./create-handler";
 
-export async function handleNotifyEventCreated(
-  jobs: PgBoss.Job<NotifyEventCreatedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-event-created",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyEventCreated } = await import("@pi-dash/notifications");
-    await notifyEventCreated(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyEventCreated =
+  createNotifyHandler<NotifyEventCreatedPayload>(
+    "notify-event-created",
+    async () => (await import("@pi-dash/notifications")).notifyEventCreated
+  );
 
-export async function handleNotifyEventUpdated(
-  jobs: PgBoss.Job<NotifyEventUpdatedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-event-updated",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyEventUpdated } = await import("@pi-dash/notifications");
-    await notifyEventUpdated(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyEventUpdated =
+  createNotifyHandler<NotifyEventUpdatedPayload>(
+    "notify-event-updated",
+    async () => (await import("@pi-dash/notifications")).notifyEventUpdated
+  );
 
-export async function handleNotifyEventCancelled(
-  jobs: PgBoss.Job<NotifyEventCancelledPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-event-cancelled",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyEventCancelled } = await import("@pi-dash/notifications");
-    await notifyEventCancelled(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyEventCancelled =
+  createNotifyHandler<NotifyEventCancelledPayload>(
+    "notify-event-cancelled",
+    async () => (await import("@pi-dash/notifications")).notifyEventCancelled
+  );
 
-export async function handleNotifyAddedToEvent(
-  jobs: PgBoss.Job<NotifyAddedToEventPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-added-to-event",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyAddedToEvent } = await import("@pi-dash/notifications");
-    await notifyAddedToEvent(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyAddedToEvent =
+  createNotifyHandler<NotifyAddedToEventPayload>(
+    "notify-added-to-event",
+    async () => (await import("@pi-dash/notifications")).notifyAddedToEvent
+  );
 
-export async function handleNotifyUsersAddedToEvent(
-  jobs: PgBoss.Job<NotifyUsersAddedToEventPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-users-added-to-event",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyUsersAddedToEvent } = await import("@pi-dash/notifications");
-    await notifyUsersAddedToEvent(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyUsersAddedToEvent =
+  createNotifyHandler<NotifyUsersAddedToEventPayload>(
+    "notify-users-added-to-event",
+    async () => (await import("@pi-dash/notifications")).notifyUsersAddedToEvent
+  );
 
-export async function handleNotifyRemovedFromEvent(
-  jobs: PgBoss.Job<NotifyRemovedFromEventPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-removed-from-event",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyRemovedFromEvent } = await import("@pi-dash/notifications");
-    await notifyRemovedFromEvent(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyRemovedFromEvent =
+  createNotifyHandler<NotifyRemovedFromEventPayload>(
+    "notify-removed-from-event",
+    async () => (await import("@pi-dash/notifications")).notifyRemovedFromEvent
+  );

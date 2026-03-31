@@ -2,7 +2,7 @@ import { db } from "@pi-dash/db";
 import type { JobName } from "@pi-dash/jobs";
 import { enqueue, QUEUE_NAMES } from "@pi-dash/jobs";
 import { createFileRoute } from "@tanstack/react-router";
-import { sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/jobs/")({
           Number(url.searchParams.get("limit") ?? 50),
           100
         );
-        const offset = Number(url.searchParams.get("offset") ?? 0);
+        const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0));
 
         if (queue && !QUEUE_NAMES.includes(queue as JobName)) {
           return Response.json(
@@ -53,24 +53,30 @@ export const Route = createFileRoute("/api/jobs/")({
         }
 
         try {
-          const conditions: string[] = [];
+          const conditions: SQL[] = [];
           if (queue) {
-            conditions.push(`name = '${queue}'`);
+            conditions.push(sql`name = ${queue}`);
           }
           if (state) {
-            conditions.push(`state = '${state}'`);
+            conditions.push(sql`state = ${state}`);
+          }
+          if (conditions.length === 0) {
+            conditions.push(
+              sql`name IN (${sql.join(
+                QUEUE_NAMES.map((n) => sql`${n}`),
+                sql`, `
+              )})`
+            );
           }
 
-          const where =
-            conditions.length > 0
-              ? `WHERE ${conditions.join(" AND ")}`
-              : `WHERE name = ANY(ARRAY[${QUEUE_NAMES.map((n) => `'${n}'`).join(",")}])`;
+          const whereClause = sql.join(conditions, sql` AND `);
 
           const [jobs, countResult] = await Promise.all([
             db.execute<{
               id: string;
               name: string;
               data: object;
+              output: object | null;
               state: string;
               priority: number;
               retryLimit: number;
@@ -80,12 +86,10 @@ export const Route = createFileRoute("/api/jobs/")({
               completedOn: string | null;
               startAfter: string;
             }>(
-              sql.raw(
-                `SELECT id, name, data, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job ${where} ORDER BY created_on DESC LIMIT ${limit} OFFSET ${offset}`
-              )
+              sql`SELECT id, name, data, output, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE ${whereClause} ORDER BY created_on DESC LIMIT ${limit} OFFSET ${offset}`
             ),
             db.execute<{ total: number }>(
-              sql.raw(`SELECT COUNT(*)::int AS total FROM pgboss.job ${where}`)
+              sql`SELECT COUNT(*)::int AS total FROM pgboss.job_common WHERE ${whereClause}`
             ),
           ]);
 

@@ -16,28 +16,16 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import type { JobRow } from "@/components/jobs/job-stats";
-import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
+import { formatTimestamp } from "@/lib/date-formats";
 
 const SKELETON_QUEUE = <Skeleton className="h-4 w-24" />;
 const SKELETON_STATE = <Skeleton className="h-5 w-16" />;
 const SKELETON_DATE = <Skeleton className="h-4 w-28" />;
 const SKELETON_ACTIONS = <Skeleton className="size-8" />;
-
-function formatTimestamp(value: string | null): string {
-  if (!value) {
-    return "\u2014";
-  }
-  try {
-    return format(new Date(value), SHORT_DATE_WITH_SECONDS);
-  } catch {
-    return value;
-  }
-}
 
 function searchJob(row: JobRow, query: string): boolean {
   const q = query.trim().toLowerCase();

@@ -1,5 +1,5 @@
 import { db } from "@pi-dash/db";
-import { withTaskLog } from "@pi-dash/observability";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import type { AsyncTask } from "@pi-dash/zero/context";
 import { mutators } from "@pi-dash/zero/mutators";
 import { schema } from "@pi-dash/zero/schema";
@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/zero/mutate")({
         // Fire-and-forget: enqueue jobs after commit without blocking the response.
         // pg-boss handles persistence and retries from here.
         for (const [i, task] of asyncTasks.entries()) {
-          withTaskLog(
+          withFireAndForgetLog(
             { ...task.meta, handler: "mutate", userId, taskIndex: i },
             () => task.fn()
           );

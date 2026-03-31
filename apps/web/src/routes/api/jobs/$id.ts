@@ -1,5 +1,7 @@
-import { ensureBossReady, QUEUE_NAMES } from "@pi-dash/jobs";
+import { db } from "@pi-dash/db";
+import { QUEUE_NAMES } from "@pi-dash/jobs";
 import { createFileRoute } from "@tanstack/react-router";
+import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 
@@ -23,24 +25,37 @@ export const Route = createFileRoute("/api/jobs/$id")({
 
         const { id } = params;
 
-        // Skip non-UUID ids to avoid pg-boss errors on static route conflicts
         if (!UUID_RE.test(id)) {
           return Response.json({ error: "Job not found" }, { status: 404 });
         }
 
-        const boss = await ensureBossReady();
-
         try {
-          for (const queue of QUEUE_NAMES) {
-            const job = await boss.getJobById(queue, id, {
-              includeArchive: true,
-            });
-            if (job) {
-              return Response.json({ job });
-            }
+          const rows = await db.execute<{
+            id: string;
+            name: string;
+            data: object;
+            output: object | null;
+            state: string;
+            priority: number;
+            retryLimit: number;
+            retryCount: number;
+            createdOn: string;
+            startedOn: string | null;
+            completedOn: string | null;
+            startAfter: string;
+          }>(
+            sql`SELECT id, name, data, output, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
+              QUEUE_NAMES.map((n) => sql`${n}`),
+              sql`, `
+            )}) LIMIT 1`
+          );
+
+          const job = rows[0];
+          if (!job) {
+            return Response.json({ error: "Job not found" }, { status: 404 });
           }
 
-          return Response.json({ error: "Job not found" }, { status: 404 });
+          return Response.json({ job });
         } catch (err) {
           const log = createRequestLogger({
             method: "GET",

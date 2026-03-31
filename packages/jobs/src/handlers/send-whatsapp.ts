@@ -1,9 +1,9 @@
 import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import type { WhatsAppPayload } from "../enqueue";
 
 export async function handleSendWhatsApp(
-  jobs: PgBoss.Job<WhatsAppPayload>[]
+  jobs: Job<WhatsAppPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({ method: "JOB", path: "send-whatsapp" });

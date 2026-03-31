@@ -20,9 +20,9 @@
     "@pi-dash/observability": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
     "drizzle-orm": "catalog:",
-    "uuidv7": "catalog:",
     "evlog": "catalog:",
-    "pg-boss": "^10.3.1"
+    "pg-boss": "^12.15.0",
+    "uuidv7": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

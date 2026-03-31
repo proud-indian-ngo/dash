@@ -1,23 +1,58 @@
 import type { teamEvent as teamEventTable } from "@pi-dash/db/schema/team-event";
 import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import type { RecurringEventsPayload } from "../enqueue";
 
 type ParentEvent = typeof teamEventTable.$inferSelect;
 
 const MAX_CATCHUP_ITERATIONS = 52;
 
-async function createNextOccurrence(parent: ParentEvent): Promise<number> {
-  const { db } = await import("@pi-dash/db");
-  const { teamEvent, teamEventMember } = await import(
-    "@pi-dash/db/schema/team-event"
-  );
-  const { teamMember } = await import("@pi-dash/db/schema/team");
-  const { getNextOccurrenceDate } = await import(
-    "@pi-dash/zero/lib/recurrence"
-  );
-  const { and, desc, eq } = await import("drizzle-orm");
-  const { uuidv7 } = await import("uuidv7");
+async function loadDeps() {
+  const [
+    { db },
+    { teamEvent, teamEventMember },
+    { teamMember },
+    { getNextOccurrenceDate },
+    drizzle,
+    { uuidv7 },
+  ] = await Promise.all([
+    import("@pi-dash/db"),
+    import("@pi-dash/db/schema/team-event"),
+    import("@pi-dash/db/schema/team"),
+    import("@pi-dash/zero/lib/recurrence"),
+    import("drizzle-orm"),
+    import("uuidv7"),
+  ]);
+  return {
+    db,
+    teamEvent,
+    teamEventMember,
+    teamMember,
+    getNextOccurrenceDate,
+    and: drizzle.and,
+    desc: drizzle.desc,
+    eq: drizzle.eq,
+    uuidv7,
+  };
+}
+
+type Deps = Awaited<ReturnType<typeof loadDeps>>;
+
+async function createNextOccurrence(
+  parent: ParentEvent,
+  deps: Deps
+): Promise<number> {
+  const {
+    db,
+    teamEvent,
+    teamEventMember,
+    teamMember,
+    getNextOccurrenceDate,
+    and,
+    desc,
+    eq,
+    uuidv7,
+  } = deps;
 
   const rule = parent.recurrenceRule as {
     frequency: "weekly" | "biweekly" | "monthly";
@@ -144,7 +179,7 @@ async function createNextOccurrence(parent: ParentEvent): Promise<number> {
 }
 
 export async function handleCreateRecurringEvents(
-  jobs: PgBoss.Job<RecurringEventsPayload>[]
+  jobs: Job<RecurringEventsPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({
@@ -158,15 +193,15 @@ export async function handleCreateRecurringEvents(
       triggeredAt: job.data.triggeredAt,
     });
 
-    const { db } = await import("@pi-dash/db");
-    const { teamEvent } = await import("@pi-dash/db/schema/team-event");
-    const { and, isNotNull, isNull } = await import("drizzle-orm");
+    const deps = await loadDeps();
+    const { db, teamEvent } = deps;
+    const { isNotNull, isNull } = await import("drizzle-orm");
 
     const parentEvents = await db
       .select()
       .from(teamEvent)
       .where(
-        and(
+        deps.and(
           isNull(teamEvent.parentEventId),
           isNotNull(teamEvent.recurrenceRule),
           isNull(teamEvent.cancelledAt)
@@ -176,7 +211,7 @@ export async function handleCreateRecurringEvents(
     let createdCount = 0;
 
     for (const parent of parentEvents) {
-      createdCount += await createNextOccurrence(parent);
+      createdCount += await createNextOccurrence(parent, deps);
     }
 
     log.set({ event: "job_complete", eventsCreated: createdCount });

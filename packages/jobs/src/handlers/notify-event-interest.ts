@@ -1,61 +1,27 @@
-import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
 import type {
   NotifyEventInterestApprovedPayload,
   NotifyEventInterestReceivedPayload,
   NotifyEventInterestRejectedPayload,
 } from "../enqueue";
+import { createNotifyHandler } from "./create-handler";
 
-export async function handleNotifyEventInterestReceived(
-  jobs: PgBoss.Job<NotifyEventInterestReceivedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-event-interest-received",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyEventInterestReceived } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyEventInterestReceived(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyEventInterestReceived =
+  createNotifyHandler<NotifyEventInterestReceivedPayload>(
+    "notify-event-interest-received",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyEventInterestReceived
+  );
 
-export async function handleNotifyEventInterestApproved(
-  jobs: PgBoss.Job<NotifyEventInterestApprovedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-event-interest-approved",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyEventInterestApproved } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyEventInterestApproved(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyEventInterestApproved =
+  createNotifyHandler<NotifyEventInterestApprovedPayload>(
+    "notify-event-interest-approved",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyEventInterestApproved
+  );
 
-export async function handleNotifyEventInterestRejected(
-  jobs: PgBoss.Job<NotifyEventInterestRejectedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-event-interest-rejected",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyEventInterestRejected } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyEventInterestRejected(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyEventInterestRejected =
+  createNotifyHandler<NotifyEventInterestRejectedPayload>(
+    "notify-event-interest-rejected",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyEventInterestRejected
+  );

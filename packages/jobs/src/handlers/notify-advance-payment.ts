@@ -1,61 +1,27 @@
-import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
 import type {
   NotifyAdvancePaymentApprovedPayload,
   NotifyAdvancePaymentRejectedPayload,
   NotifyAdvancePaymentSubmittedPayload,
 } from "../enqueue";
+import { createNotifyHandler } from "./create-handler";
 
-export async function handleNotifyAdvancePaymentSubmitted(
-  jobs: PgBoss.Job<NotifyAdvancePaymentSubmittedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-advance-payment-submitted",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyAdvancePaymentSubmitted } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyAdvancePaymentSubmitted(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyAdvancePaymentSubmitted =
+  createNotifyHandler<NotifyAdvancePaymentSubmittedPayload>(
+    "notify-advance-payment-submitted",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyAdvancePaymentSubmitted
+  );
 
-export async function handleNotifyAdvancePaymentApproved(
-  jobs: PgBoss.Job<NotifyAdvancePaymentApprovedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-advance-payment-approved",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyAdvancePaymentApproved } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyAdvancePaymentApproved(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyAdvancePaymentApproved =
+  createNotifyHandler<NotifyAdvancePaymentApprovedPayload>(
+    "notify-advance-payment-approved",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyAdvancePaymentApproved
+  );
 
-export async function handleNotifyAdvancePaymentRejected(
-  jobs: PgBoss.Job<NotifyAdvancePaymentRejectedPayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-advance-payment-rejected",
-    });
-    log.set({ jobId: job.id, ...job.data });
-    const { notifyAdvancePaymentRejected } = await import(
-      "@pi-dash/notifications"
-    );
-    await notifyAdvancePaymentRejected(job.data);
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
-}
+export const handleNotifyAdvancePaymentRejected =
+  createNotifyHandler<NotifyAdvancePaymentRejectedPayload>(
+    "notify-advance-payment-rejected",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyAdvancePaymentRejected
+  );

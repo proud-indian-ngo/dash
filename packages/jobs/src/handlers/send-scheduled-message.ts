@@ -1,9 +1,9 @@
 import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import type { ScheduledMessagePayload } from "../enqueue";
 
 export async function handleSendScheduledMessage(
-  jobs: PgBoss.Job<ScheduledMessagePayload>[]
+  jobs: Job<ScheduledMessagePayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({

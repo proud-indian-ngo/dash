@@ -1,5 +1,7 @@
+import { db } from "@pi-dash/db";
 import { ensureBossReady, QUEUE_NAMES } from "@pi-dash/jobs";
 import { createFileRoute } from "@tanstack/react-router";
+import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 
@@ -23,12 +25,37 @@ export const Route = createFileRoute("/api/jobs/stats")({
         try {
           const stats = await Promise.all(
             QUEUE_NAMES.map(async (queue) => {
-              const size = await boss.getQueueSize(queue);
-              return { queue, size };
+              try {
+                const result = await boss.getQueueStats(queue);
+                return {
+                  queue,
+                  size: result.queuedCount,
+                  active: result.activeCount,
+                  total: result.totalCount,
+                };
+              } catch {
+                // Queue may not exist yet (worker startup race)
+                return { queue, size: 0, active: 0, total: 0 };
+              }
             })
           );
 
-          return Response.json({ queues: stats });
+          const stateCountRows = await db.execute<{
+            state: string;
+            count: number;
+          }>(
+            sql`SELECT state, COUNT(*)::int AS count FROM pgboss.job_common WHERE name IN (${sql.join(
+              QUEUE_NAMES.map((n) => sql`${n}`),
+              sql`, `
+            )}) GROUP BY state`
+          );
+
+          const stateCounts: Record<string, number> = {};
+          for (const row of stateCountRows) {
+            stateCounts[row.state] = row.count;
+          }
+
+          return Response.json({ queues: stats, stateCounts });
         } catch (err) {
           const log = createRequestLogger({
             method: "GET",

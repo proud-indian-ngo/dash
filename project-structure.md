@@ -84,6 +84,7 @@ All paths are relative to project root.
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
+| `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
@@ -98,6 +99,11 @@ All paths are relative to project root.
 | `routes/api/log/ingest.ts` | Client-side log ingestion |
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
+| `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
+| `routes/api/jobs/stats.ts` | Queue size stats API |
+| `routes/api/jobs/$id.ts` | Job detail API |
+| `routes/api/jobs/$id/cancel.ts` | Cancel job API |
+| `routes/api/jobs/$id/retry.ts` | Retry failed job API |
 | `routes/api/attachments/download.ts` | Attachment download |
 
 All route paths above are prefixed with `apps/web/src/`.
@@ -194,6 +200,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
 | `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
+| `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory) |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
 | `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, submission-helpers), `src/lib/recurrence.ts`, `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |

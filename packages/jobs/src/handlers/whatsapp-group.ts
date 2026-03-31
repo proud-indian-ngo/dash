@@ -1,5 +1,5 @@
 import { createRequestLogger } from "evlog";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import type {
   WhatsAppAddMemberPayload,
   WhatsAppAddMembersPayload,
@@ -10,7 +10,7 @@ import type {
 } from "../enqueue";
 
 export async function handleWhatsAppCreateGroup(
-  jobs: PgBoss.Job<WhatsAppCreateGroupPayload>[]
+  jobs: Job<WhatsAppCreateGroupPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({
@@ -62,7 +62,7 @@ export async function handleWhatsAppCreateGroup(
 }
 
 export async function handleWhatsAppAddMember(
-  jobs: PgBoss.Job<WhatsAppAddMemberPayload>[]
+  jobs: Job<WhatsAppAddMemberPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({
@@ -93,7 +93,7 @@ export async function handleWhatsAppAddMember(
 }
 
 export async function handleWhatsAppAddMembers(
-  jobs: PgBoss.Job<WhatsAppAddMembersPayload>[]
+  jobs: Job<WhatsAppAddMembersPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({
@@ -123,7 +123,7 @@ export async function handleWhatsAppAddMembers(
 }
 
 export async function handleWhatsAppRemoveMember(
-  jobs: PgBoss.Job<WhatsAppRemoveMemberPayload>[]
+  jobs: Job<WhatsAppRemoveMemberPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({
@@ -154,7 +154,7 @@ export async function handleWhatsAppRemoveMember(
 }
 
 export async function handleWhatsAppAddMemberTeam(
-  jobs: PgBoss.Job<WhatsAppAddMemberTeamPayload>[]
+  jobs: Job<WhatsAppAddMemberTeamPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({
@@ -181,7 +181,7 @@ export async function handleWhatsAppAddMemberTeam(
 }
 
 export async function handleWhatsAppRemoveMemberTeam(
-  jobs: PgBoss.Job<WhatsAppRemoveMemberTeamPayload>[]
+  jobs: Job<WhatsAppRemoveMemberTeamPayload>[]
 ): Promise<void> {
   for (const job of jobs) {
     const log = createRequestLogger({

@@ -6,9 +6,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
-import { format } from "date-fns";
 import type { JobRow } from "@/components/jobs/job-stats";
-import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
+import { formatTimestamp } from "@/lib/date-formats";
 
 interface JobDetailSheetProps {
   job: JobRow | null;
@@ -42,17 +41,6 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
       <span className="text-sm">{value ?? "\u2014"}</span>
     </div>
   );
-}
-
-function formatTimestamp(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  try {
-    return format(new Date(value), SHORT_DATE_WITH_SECONDS);
-  } catch {
-    return value;
-  }
 }
 
 export { getStateBadge };
@@ -116,6 +104,17 @@ export function JobDetailSheet({
                       value={`${job.retryCount} / ${job.retryLimit}`}
                     />
                   </div>
+                </div>
+              )}
+
+              {job.output && (
+                <div className="grid gap-4">
+                  <h3 className="font-medium text-sm">
+                    {job.state === "failed" ? "Error Output" : "Output"}
+                  </h3>
+                  <pre className="max-h-60 overflow-auto rounded-md border border-destructive/30 bg-destructive/5 p-3 font-mono text-xs leading-relaxed">
+                    {JSON.stringify(job.output, null, 2)}
+                  </pre>
                 </div>
               )}
 
