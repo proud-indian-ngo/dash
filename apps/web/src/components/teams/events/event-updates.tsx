@@ -1,5 +1,12 @@
+import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -119,78 +126,107 @@ export function EventUpdates({
           No updates yet.
         </p>
       ) : (
-        updates.map((update, index) => {
-          const isAuthor = update.createdBy === user.id;
-          const canEdit = isAuthor || canManage;
-          const isEdited = update.updatedAt !== update.createdAt;
+        <div className="relative">
+          {/* Timeline line — stops at last avatar center (0.875rem = half of size-7) */}
+          <div className="absolute top-0 bottom-3.5 left-3.5 w-px bg-border" />
 
-          return (
-            <div key={update.id}>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  {update.author ? (
-                    <UserAvatar
-                      className="size-7"
-                      fallbackClassName="text-xs"
-                      user={update.author}
-                    />
-                  ) : null}
-                  <span className="font-medium text-sm">
-                    {update.author?.name ?? "Unknown"}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {format(new Date(update.createdAt), LONG_DATE_TIME)}
-                  </span>
-                  {isEdited ? (
-                    <span className="text-muted-foreground text-xs">
-                      (edited)
-                    </span>
-                  ) : null}
-                </div>
+          <div className="flex flex-col gap-6">
+            {updates.map((update) => {
+              const isAuthor = update.createdBy === user.id;
+              const canEdit = isAuthor || canManage;
+              const isEdited = update.updatedAt !== update.createdAt;
 
-                <Suspense>
-                  {editingId === update.id ? (
-                    <PlateEditor
-                      content={update.content}
-                      entityId={eventId}
-                      key={editingId}
-                      onCancel={() => setEditingId(null)}
-                      onSave={(content) => handleUpdate(update.id, content)}
-                      saving={saving}
-                    />
-                  ) : (
-                    <PlateRenderer
-                      content={update.content}
-                      key={update.updatedAt}
-                    />
-                  )}
-                </Suspense>
-
-                {canEdit && editingId !== update.id ? (
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => setEditingId(update.id)}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      onClick={() => deleteAction.trigger(update.id)}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      Delete
-                    </Button>
+              return (
+                <div className="relative pl-10" key={update.id}>
+                  {/* Avatar on the timeline */}
+                  <div className="absolute top-0 left-0">
+                    {update.author ? (
+                      <UserAvatar
+                        className="size-7 ring-4 ring-background"
+                        fallbackClassName="text-xs"
+                        user={update.author}
+                      />
+                    ) : (
+                      <div className="size-7 rounded-full bg-muted ring-4 ring-background" />
+                    )}
                   </div>
-                ) : null}
-              </div>
-              {index < updates.length - 1 ? (
-                <Separator className="mt-4" />
-              ) : null}
-            </div>
-          );
-        })
+
+                  {/* Content card */}
+                  <div className="rounded-lg border p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        {update.author?.name ?? "Unknown"}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {format(new Date(update.createdAt), LONG_DATE_TIME)}
+                      </span>
+                      {isEdited ? (
+                        <span className="text-muted-foreground text-xs">
+                          (edited)
+                        </span>
+                      ) : null}
+
+                      {canEdit && editingId !== update.id ? (
+                        <div className="ml-auto">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  aria-label="Update actions"
+                                  className="size-7"
+                                  size="icon"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  <HugeiconsIcon
+                                    className="size-3.5"
+                                    icon={MoreVerticalIcon}
+                                    strokeWidth={2}
+                                  />
+                                </Button>
+                              }
+                            />
+                            <DropdownMenuContent align="end" className="w-28">
+                              <DropdownMenuItem
+                                onClick={() => setEditingId(update.id)}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => deleteAction.trigger(update.id)}
+                                variant="destructive"
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <Suspense>
+                      {editingId === update.id ? (
+                        <PlateEditor
+                          content={update.content}
+                          entityId={eventId}
+                          key={editingId}
+                          onCancel={() => setEditingId(null)}
+                          onSave={(content) => handleUpdate(update.id, content)}
+                          saving={saving}
+                        />
+                      ) : (
+                        <PlateRenderer
+                          content={update.content}
+                          key={update.updatedAt}
+                        />
+                      )}
+                    </Suspense>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

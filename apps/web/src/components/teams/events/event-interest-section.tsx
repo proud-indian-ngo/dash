@@ -48,7 +48,7 @@ export function VolunteerInterestSection({
   return (
     <>
       {showButton ? (
-        <Button onClick={onShowInterest} size="sm" variant="outline">
+        <Button onClick={onShowInterest} size="sm" variant="default">
           Show Interest
         </Button>
       ) : null}

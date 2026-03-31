@@ -67,9 +67,14 @@ function AttendanceRow({
       <div className="flex gap-1">
         <Button
           aria-label={`Mark ${displayName} present`}
+          className={
+            member.attendance === "present"
+              ? "bg-success/10 text-success hover:bg-success/20"
+              : ""
+          }
           onClick={() => toggle("present")}
           size="icon"
-          variant={member.attendance === "present" ? "default" : "ghost"}
+          variant={member.attendance === "present" ? "secondary" : "ghost"}
         >
           <HugeiconsIcon
             className="size-4"

@@ -63,7 +63,7 @@ export function EventMembersSection({
       <div className="flex items-center justify-between">
         <h2 className="font-medium text-sm">Volunteers ({members.length})</h2>
         {canManage ? (
-          <Button onClick={onAddMember} size="sm" variant="outline">
+          <Button onClick={onAddMember} size="sm" variant="default">
             <HugeiconsIcon className="size-4" icon={PlusSignIcon} />
             Add Volunteer
           </Button>

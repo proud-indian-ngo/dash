@@ -1,7 +1,7 @@
 import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import {
   Tabs,
   TabsContent,
@@ -24,15 +24,16 @@ import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import { EventAttendanceSection } from "./event-attendance-section";
+import { EventDetailsCard } from "./event-details-card";
 import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
-import { EventInfoSection } from "./event-info-section";
 import {
   PastInterestBadge,
   VolunteerInterestSection,
 } from "./event-interest-section";
 import { EventMembersSection } from "./event-members-section";
 import { EventPhotos } from "./event-photos";
+import { EventQuickStats } from "./event-quick-stats";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
 import type { InterestWithUser } from "./interest-requests";
@@ -58,12 +59,43 @@ type EventDialog =
   | { type: "addMember" }
   | { type: "interest" };
 
+type EventStatus = "upcoming" | "in-progress" | "completed" | "cancelled";
+
+const STATUS_CONFIG: Record<
+  EventStatus,
+  {
+    label: string;
+    variant: "outline" | "secondary" | "default" | "destructive-light";
+  }
+> = {
+  upcoming: { label: "Upcoming", variant: "outline" },
+  "in-progress": { label: "In Progress", variant: "secondary" },
+  completed: { label: "Completed", variant: "default" },
+  cancelled: { label: "Cancelled", variant: "destructive-light" },
+};
+
+function deriveEventStatus(event: EventRow): EventStatus {
+  if (event.cancelledAt) {
+    return "cancelled";
+  }
+  const now = new Date();
+  const eventEnd = event.endTime ?? event.startTime;
+  if (new Date(eventEnd) < now) {
+    return "completed";
+  }
+  if (new Date(event.startTime) <= now) {
+    return "in-progress";
+  }
+  return "upcoming";
+}
+
 function EventHeader({
   canCancel,
   canManage,
   event,
   onCancel,
   onEdit,
+  status,
   teamName,
 }: {
   canCancel: boolean;
@@ -71,16 +103,23 @@ function EventHeader({
   event: EventRow;
   onCancel: () => void;
   onEdit: () => void;
+  status: EventStatus;
   teamName: string | null;
 }) {
   const navigate = useNavigate();
+  const { label, variant } = STATUS_CONFIG[status];
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="font-display font-semibold text-2xl tracking-tight">
-          {event.name}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-display font-semibold text-2xl tracking-tight">
+            {event.name}
+          </h1>
+          <Badge size="sm" variant={variant}>
+            {label}
+          </Badge>
+        </div>
         <button
           className="text-left text-muted-foreground text-sm hover:underline"
           onClick={() =>
@@ -121,6 +160,7 @@ interface EventTabsProps {
   immichAlbumUrl: string | null;
   isMember: boolean;
   isPastEvent: boolean;
+  memberCount: number;
   pendingPhotos: Parameters<typeof EventPhotos>[0]["pendingPhotos"];
   updates: Parameters<typeof EventUpdates>[0]["updates"];
 }
@@ -136,6 +176,7 @@ function EventTabs({
   immichAlbumUrl,
   isMember,
   isPastEvent,
+  memberCount,
   pendingPhotos,
   updates,
 }: EventTabsProps) {
@@ -183,6 +224,7 @@ function EventTabs({
             feedbackDeadline={event.feedbackDeadline}
             feedbackDeadlinePassed={feedbackDeadlinePassed}
             isMember={isMember}
+            memberCount={memberCount}
           />
         </TabsContent>
       ) : null}
@@ -226,6 +268,7 @@ export function EventDetail({
     },
   });
 
+  const status = deriveEventStatus(event);
   const eventTime = event.endTime ?? event.startTime;
   const isPastEvent = new Date(eventTime) < new Date();
   const hasStarted = new Date(event.startTime) <= new Date();
@@ -283,71 +326,111 @@ export function EventDetail({
     | null
     | undefined;
 
+  const presentCount = event.members.filter(
+    (m) => m.attendance === "present"
+  ).length;
+
   return (
     <AppErrorBoundary level="section">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <EventHeader
           canCancel={canCancel}
           canManage={canManage}
           event={event}
           onCancel={() => cancelAction.trigger()}
           onEdit={() => dialog.open({ type: "edit" })}
+          status={status}
           teamName={team?.name ?? null}
         />
 
-        <EventInfoSection event={event} />
+        {/* Mobile-only details card (above tabs) */}
+        <div className="lg:hidden">
+          <EventDetailsCard event={event} />
+        </div>
 
-        {hasStarted ? (
-          <PastInterestBadge isMember={isMember} myInterest={myInterest} />
-        ) : (
-          <VolunteerInterestSection
-            canManage={canManage}
-            interests={interests}
-            isMember={isMember}
-            isPublic={!!event.isPublic}
-            myInterest={myInterest}
-            onShowInterest={() => dialog.open({ type: "interest" })}
-          />
-        )}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          {/* Main column */}
+          <div className="lg:col-span-3">
+            {event.description ? (
+              <p className="mb-6 text-muted-foreground text-sm">
+                {event.description}
+              </p>
+            ) : null}
 
-        <Separator />
+            {hasStarted ? (
+              <EventTabs
+                approvedPhotos={approvedPhotos}
+                canManage={canManage}
+                canManageFeedback={canManageFeedback}
+                currentUserId={currentUserId}
+                event={event}
+                feedback={feedback}
+                feedbackDeadlinePassed={feedbackDeadlinePassed}
+                immichAlbumUrl={immichAlbumUrl}
+                isMember={!!isMember}
+                isPastEvent={isPastEvent}
+                memberCount={event.members.length}
+                pendingPhotos={pendingPhotos}
+                updates={updates}
+              />
+            ) : (
+              <p className="py-12 text-center text-muted-foreground text-sm">
+                This event is scheduled for{" "}
+                {format(new Date(event.startTime), LONG_DATE_TIME)}. Updates,
+                photos, and feedback will appear here once it starts.
+              </p>
+            )}
+          </div>
 
-        <EventMembersSection
-          canManage={canManageVolunteers}
-          members={event.members}
-          onAddMember={() => dialog.open({ type: "addMember" })}
-          onRemoveMember={(id) => removeMember.trigger(id)}
-        />
+          {/* Sidebar */}
+          <aside className="lg:col-span-2 lg:col-start-4 lg:row-start-1">
+            <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+              <div className="hidden lg:block">
+                <EventDetailsCard event={event} />
+              </div>
 
-        {canManageAttendance && hasStarted ? (
-          <>
-            <Separator />
-            <EventAttendanceSection
-              eventId={event.id}
-              members={event.members}
-            />
-          </>
-        ) : null}
+              {canManage ? (
+                <EventQuickStats
+                  feedbackCount={feedback.length}
+                  hasStarted={hasStarted}
+                  memberCount={event.members.length}
+                  photoCount={approvedPhotos.length}
+                  presentCount={presentCount}
+                />
+              ) : null}
 
-        {hasStarted ? (
-          <>
-            <Separator />
-            <EventTabs
-              approvedPhotos={approvedPhotos}
-              canManage={canManage}
-              canManageFeedback={canManageFeedback}
-              currentUserId={currentUserId}
-              event={event}
-              feedback={feedback}
-              feedbackDeadlinePassed={feedbackDeadlinePassed}
-              immichAlbumUrl={immichAlbumUrl}
-              isMember={!!isMember}
-              isPastEvent={isPastEvent}
-              pendingPhotos={pendingPhotos}
-              updates={updates}
-            />
-          </>
-        ) : null}
+              {hasStarted ? (
+                <PastInterestBadge
+                  isMember={isMember}
+                  myInterest={myInterest}
+                />
+              ) : (
+                <VolunteerInterestSection
+                  canManage={canManage}
+                  interests={interests}
+                  isMember={isMember}
+                  isPublic={!!event.isPublic}
+                  myInterest={myInterest}
+                  onShowInterest={() => dialog.open({ type: "interest" })}
+                />
+              )}
+
+              <EventMembersSection
+                canManage={canManageVolunteers}
+                members={event.members}
+                onAddMember={() => dialog.open({ type: "addMember" })}
+                onRemoveMember={(id) => removeMember.trigger(id)}
+              />
+
+              {canManageAttendance && hasStarted ? (
+                <EventAttendanceSection
+                  eventId={event.id}
+                  members={event.members}
+                />
+              ) : null}
+            </div>
+          </aside>
+        </div>
       </div>
 
       <EventFormDialog

@@ -390,6 +390,89 @@ export const eventPhotoMutators = {
     }
   ),
 
+  approveBatch: defineMutator(
+    z.object({ ids: z.array(z.string()), now: z.number() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      for (const id of args.ids) {
+        const photo = (await tx.run(zql.eventPhoto.where("id", id).one())) as
+          | EventPhoto
+          | undefined;
+        if (!photo) {
+          continue;
+        }
+        if (photo.status !== "pending") {
+          continue;
+        }
+
+        const event = (await tx.run(
+          zql.teamEvent.where("id", photo.eventId).one()
+        )) as TeamEvent | undefined;
+        if (!event) {
+          continue;
+        }
+
+        const isTeamLead = !!(await tx.run(
+          zql.teamMember
+            .where("teamId", event.teamId)
+            .where("userId", ctx.userId)
+            .where("role", "lead")
+            .one()
+        ));
+        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
+
+        await tx.mutate.eventPhoto.update({
+          id,
+          status: "approved",
+          reviewedBy: ctx.userId,
+          reviewedAt: args.now,
+        });
+
+        if (tx.location === "server") {
+          if (photo.r2Key) {
+            pushImmichUploadTask(
+              ctx,
+              {
+                mutator: "approveEventPhotoBatch",
+                photoId: id,
+                eventId: photo.eventId,
+                r2Key: photo.r2Key,
+                eventName: event.name,
+              },
+              id,
+              photo.eventId,
+              event.name,
+              photo.r2Key
+            );
+          }
+
+          if (photo.uploadedBy !== ctx.userId) {
+            ctx.asyncTasks?.push({
+              meta: {
+                mutator: "approveEventPhotoBatch",
+                photoId: id,
+                eventId: photo.eventId,
+                uploadedBy: photo.uploadedBy,
+              },
+              fn: async () => {
+                const { notifyPhotoApproved } = await import(
+                  "@pi-dash/notifications"
+                );
+                await notifyPhotoApproved({
+                  photoId: id,
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  uploaderId: photo.uploadedBy,
+                });
+              },
+            });
+          }
+        }
+      }
+    }
+  ),
+
   reject: defineMutator(
     z.object({ id: z.string(), now: z.number() }),
     async ({ tx, ctx, args }) => {

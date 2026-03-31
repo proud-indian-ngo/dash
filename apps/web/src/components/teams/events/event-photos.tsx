@@ -37,6 +37,46 @@ function isPhotoSlide(s: Slide): s is PhotoSlide {
   return "photoId" in s;
 }
 
+function buildSlides(
+  canManage: boolean,
+  pendingPhotos: readonly PhotoWithUploader[],
+  myPendingPhotos: readonly PhotoWithUploader[],
+  approvedPhotos: readonly PhotoWithUploader[]
+): PhotoSlide[] {
+  const result: PhotoSlide[] = [];
+  if (canManage) {
+    for (const photo of pendingPhotos) {
+      result.push(
+        toPhotoSlide(photo, {
+          canApprove: true,
+          canReject: true,
+          canDelete: true,
+        })
+      );
+    }
+  } else {
+    for (const photo of myPendingPhotos) {
+      result.push(
+        toPhotoSlide(photo, {
+          canApprove: false,
+          canReject: false,
+          canDelete: true,
+        })
+      );
+    }
+  }
+  for (const photo of approvedPhotos) {
+    result.push(
+      toPhotoSlide(photo, {
+        canApprove: false,
+        canReject: false,
+        canDelete: canManage,
+      })
+    );
+  }
+  return result;
+}
+
 interface EventPhotosProps {
   approvedPhotos: readonly PhotoWithUploader[];
   canManage: boolean;
@@ -71,40 +111,12 @@ export function EventPhotos({
     : pendingPhotos.filter((p) => p.uploadedBy === currentUserId);
 
   // Build unified slides array: pending → userPending → approved
-  const slides = (() => {
-    const result: PhotoSlide[] = [];
-    if (canManage) {
-      for (const photo of pendingPhotos) {
-        result.push(
-          toPhotoSlide(photo, {
-            canApprove: true,
-            canReject: true,
-            canDelete: true,
-          })
-        );
-      }
-    } else {
-      for (const photo of myPendingPhotos) {
-        result.push(
-          toPhotoSlide(photo, {
-            canApprove: false,
-            canReject: false,
-            canDelete: true,
-          })
-        );
-      }
-    }
-    for (const photo of approvedPhotos) {
-      result.push(
-        toPhotoSlide(photo, {
-          canApprove: false,
-          canReject: false,
-          canDelete: canManage,
-        })
-      );
-    }
-    return result;
-  })();
+  const slides = buildSlides(
+    canManage,
+    pendingPhotos,
+    myPendingPhotos,
+    approvedPhotos
+  );
 
   // Compute section offset for approved photos (pending sections start at 0)
   const approvedSectionOffset = canManage
@@ -189,6 +201,21 @@ export function EventPhotos({
     }
   };
 
+  const approveAllAction = useConfirmAction({
+    onConfirm: () => {
+      const ids = pendingPhotos.map((p) => p.id);
+      return zero.mutate(
+        mutators.eventPhoto.approveBatch({ ids, now: Date.now() })
+      ).server;
+    },
+    mutationMeta: {
+      mutation: "eventPhoto.approveBatch",
+      entityId: () => eventId,
+      successMsg: `${pendingPhotos.length} photo${pendingPhotos.length > 1 ? "s" : ""} approved`,
+      errorMsg: "Failed to approve photos",
+    },
+  });
+
   const handleApprove = async (id: string) => {
     const now = Date.now();
     try {
@@ -241,7 +268,7 @@ export function EventPhotos({
               disabled={isUploading}
               onClick={() => fileInputRef.current?.click()}
               size="sm"
-              variant="outline"
+              variant="default"
             >
               <HugeiconsIcon
                 className="size-4"
@@ -279,10 +306,20 @@ export function EventPhotos({
 
       {/* Pending photos: admins/leads see all, volunteers see own */}
       {canManage && pendingPhotos.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          <p className="font-medium text-sm">
-            Pending Approval ({pendingPhotos.length})
-          </p>
+        <div className="flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-sm">
+              Pending Approval ({pendingPhotos.length})
+            </p>
+            <Button
+              disabled={approveAllAction.isLoading}
+              onClick={() => approveAllAction.trigger()}
+              size="sm"
+              variant="outline"
+            >
+              Approve All
+            </Button>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {pendingPhotos.map((photo, i) => (
               <PhotoCard
@@ -300,7 +337,7 @@ export function EventPhotos({
         </div>
       ) : null}
       {!canManage && myPendingPhotos.length > 0 ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 rounded-lg border p-4">
           <p className="font-medium text-sm">
             Your Pending Photos ({myPendingPhotos.length})
           </p>
@@ -319,18 +356,23 @@ export function EventPhotos({
         </div>
       ) : null}
 
-      {/* Approved photos grid */}
+      {/* Approved photos */}
       {approvedPhotos.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {approvedPhotos.map((photo, i) => (
-            <PhotoCard
-              canDelete={canManage}
-              key={photo.id}
-              onClick={() => openLightbox(approvedSectionOffset + i)}
-              onDelete={() => deleteAction.trigger(photo.id)}
-              photo={photo}
-            />
-          ))}
+        <div className="flex flex-col gap-3">
+          <p className="font-medium text-sm">
+            Approved ({approvedPhotos.length})
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {approvedPhotos.map((photo, i) => (
+              <PhotoCard
+                canDelete={canManage}
+                key={photo.id}
+                onClick={() => openLightbox(approvedSectionOffset + i)}
+                onDelete={() => deleteAction.trigger(photo.id)}
+                photo={photo}
+              />
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -381,6 +423,21 @@ export function EventPhotos({
         }}
         thumbnails={{ width: 64, height: 64 }}
         zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
+      />
+
+      <ConfirmDialog
+        confirmLabel="Approve All"
+        description={`Approve all ${pendingPhotos.length} pending photo${pendingPhotos.length > 1 ? "s" : ""}?`}
+        loading={approveAllAction.isLoading}
+        loadingLabel="Approving..."
+        onConfirm={approveAllAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            approveAllAction.cancel();
+          }
+        }}
+        open={approveAllAction.isOpen}
+        title="Approve all photos"
       />
 
       <ConfirmDialog

@@ -1,3 +1,4 @@
+import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -27,6 +28,7 @@ interface EventFeedbackSectionProps {
   feedbackDeadline: number | null;
   feedbackDeadlinePassed: boolean;
   isMember: boolean;
+  memberCount: number;
 }
 
 export function EventFeedbackSection({
@@ -35,6 +37,7 @@ export function EventFeedbackSection({
   feedbackDeadline,
   feedbackDeadlinePassed,
   isMember,
+  memberCount,
 }: EventFeedbackSectionProps) {
   if (canManageFeedback) {
     return (
@@ -42,6 +45,7 @@ export function EventFeedbackSection({
         eventId={eventId}
         feedbackDeadline={feedbackDeadline}
         feedbackDeadlinePassed={feedbackDeadlinePassed}
+        memberCount={memberCount}
       />
     );
   }
@@ -50,6 +54,7 @@ export function EventFeedbackSection({
     return (
       <EventFeedbackParticipant
         eventId={eventId}
+        feedbackDeadline={feedbackDeadline}
         feedbackDeadlinePassed={feedbackDeadlinePassed}
       />
     );
@@ -59,59 +64,81 @@ export function EventFeedbackSection({
 }
 
 // ---------------------------------------------------------------------------
-// Admin view — anonymous feedback list
+// Admin view — anonymous feedback list with stats
 // ---------------------------------------------------------------------------
 
 interface EventFeedbackAdminProps {
   eventId: string;
   feedbackDeadline: number | null;
   feedbackDeadlinePassed: boolean;
+  memberCount: number;
 }
 
 function EventFeedbackAdmin({
   eventId,
   feedbackDeadline,
   feedbackDeadlinePassed,
+  memberCount,
 }: EventFeedbackAdminProps) {
   const [feedback] = useQuery(queries.eventFeedback.byEvent({ eventId }));
+  const pct = memberCount > 0 ? (feedback.length / memberCount) * 100 : 0;
 
   return (
     <div className="flex flex-col gap-4">
-      {feedbackDeadline ? (
-        <p className="text-muted-foreground text-sm">
-          Feedback deadline:{" "}
-          {format(new Date(feedbackDeadline), LONG_DATE_TIME)}
-          {feedbackDeadlinePassed ? " (closed)" : " (open)"}
-        </p>
-      ) : null}
+      {/* Stats bar */}
+      <div className="flex flex-col gap-2 rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-sm">
+            {Math.min(feedback.length, memberCount)}/{memberCount} submitted
+          </span>
+          {feedbackDeadline ? (
+            <Badge
+              size="sm"
+              variant={feedbackDeadlinePassed ? "secondary" : "info-light"}
+            >
+              {feedbackDeadlinePassed
+                ? `Closed ${formatDistanceToNow(new Date(feedbackDeadline), { addSuffix: true })}`
+                : `Closes ${formatDistanceToNow(new Date(feedbackDeadline), { addSuffix: true })}`}
+            </Badge>
+          ) : null}
+        </div>
+        <div className="h-1.5 rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+        </div>
+      </div>
 
       {feedback.length === 0 ? (
         <p className="text-center text-muted-foreground text-sm">
           No feedback submitted yet.
         </p>
       ) : (
-        feedback.map((item) => {
+        feedback.map((item, index) => {
           const isEdited = item.updatedAt !== item.createdAt;
           return (
-            <div
-              className="flex flex-col gap-2 rounded-lg border p-4"
-              key={item.id}
-            >
+            <div className="rounded-lg border p-4" key={item.id}>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-medium text-muted-foreground text-xs">
+                  #{index + 1}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground text-xs">
+                    {formatDistanceToNow(new Date(item.createdAt), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                  {isEdited ? (
+                    <span className="text-muted-foreground text-xs">
+                      (edited)
+                    </span>
+                  ) : null}
+                </div>
+              </div>
               <Suspense>
                 <PlateRenderer content={item.content} />
               </Suspense>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-xs">
-                  {formatDistanceToNow(new Date(item.createdAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-                {isEdited ? (
-                  <span className="text-muted-foreground text-xs">
-                    (edited)
-                  </span>
-                ) : null}
-              </div>
             </div>
           );
         })
@@ -148,11 +175,13 @@ async function fetchFeedbackForEvent(
 
 interface EventFeedbackParticipantProps {
   eventId: string;
+  feedbackDeadline: number | null;
   feedbackDeadlinePassed: boolean;
 }
 
 function EventFeedbackParticipant({
   eventId,
+  feedbackDeadline,
   feedbackDeadlinePassed,
 }: EventFeedbackParticipantProps) {
   const zero = useZero();
@@ -321,16 +350,29 @@ function EventFeedbackParticipant({
     );
   }
 
-  // New submission
+  // New submission — guidance + editor
   return (
-    <Suspense>
-      <PlateEditor
-        entityId={eventId}
-        key="create"
-        onSave={handleSubmit}
-        saving={saving}
-      />
-    </Suspense>
+    <div className="flex flex-col gap-4">
+      <div className="rounded-lg border bg-muted/30 p-4">
+        <p className="font-medium text-sm">Share your anonymous feedback</p>
+        <p className="text-muted-foreground text-xs">
+          Your identity will not be visible to anyone.
+        </p>
+        {feedbackDeadline ? (
+          <p className="mt-1 text-muted-foreground text-xs">
+            Deadline: {format(new Date(feedbackDeadline), LONG_DATE_TIME)}
+          </p>
+        ) : null}
+      </div>
+      <Suspense>
+        <PlateEditor
+          entityId={eventId}
+          key="create"
+          onSave={handleSubmit}
+          saving={saving}
+        />
+      </Suspense>
+    </div>
   );
 }
 
@@ -341,11 +383,11 @@ function EventFeedbackParticipant({
 function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
   const isEdited = feedback.updatedAt !== feedback.createdAt;
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-4">
+    <div className="rounded-lg border p-4">
       <Suspense>
         <PlateRenderer content={feedback.content} />
       </Suspense>
-      <span className="text-muted-foreground text-xs">
+      <span className="mt-2 block text-muted-foreground text-xs">
         Submitted{" "}
         {formatDistanceToNow(new Date(feedback.createdAt), {
           addSuffix: true,

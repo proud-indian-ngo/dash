@@ -76,15 +76,17 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
         <div className="flex gap-1">
           <Button
             aria-label={`Approve ${interest.user?.name ?? "request"}`}
+            className="border-success/20 bg-success/10 text-success hover:bg-success/20"
             disabled={isSubmitting}
             onClick={handleApprove}
             size="icon"
-            variant="ghost"
+            variant="outline"
           >
             <HugeiconsIcon
               aria-hidden="true"
-              className="size-4 text-green-600"
+              className="size-4"
               icon={Tick02Icon}
+              strokeWidth={2}
             />
           </Button>
           <Button
@@ -92,12 +94,13 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
             disabled={isSubmitting}
             onClick={handleReject}
             size="icon"
-            variant="ghost"
+            variant="destructive"
           >
             <HugeiconsIcon
               aria-hidden="true"
-              className="size-4 text-destructive"
+              className="size-4"
               icon={Cancel01Icon}
+              strokeWidth={2}
             />
           </Button>
         </div>
