@@ -6,7 +6,6 @@
     "./schema": "./src/schema.ts",
     "./queries": "./src/queries.ts",
     "./mutators": "./src/mutators.ts",
-    "./lib/recurrence": "./src/lib/recurrence.ts",
     "./vendor-patterns": "./src/vendor-patterns.ts",
     "./vendor-payment-constants": "./src/vendor-payment-constants.ts"
   },
@@ -22,7 +21,6 @@
     "@pi-dash/jobs": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
     "@rocicorp/zero": "catalog:",
-    "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zero": "^0.18.0",
     "uuidv7": "catalog:",

@@ -19,7 +19,7 @@ async function loadDeps() {
     import("@pi-dash/db"),
     import("@pi-dash/db/schema/team-event"),
     import("@pi-dash/db/schema/team"),
-    import("@pi-dash/zero/lib/recurrence"),
+    import("../lib/recurrence"),
     import("drizzle-orm"),
     import("uuidv7"),
   ]);
