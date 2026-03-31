@@ -86,11 +86,10 @@ export const advancePaymentMutators = {
           title,
         },
         fn: async () => {
-          const { getUserName, notifyAdvancePaymentSubmitted } = await import(
-            "@pi-dash/notifications"
-          );
+          const { enqueue } = await import("@pi-dash/jobs");
+          const { getUserName } = await import("@pi-dash/notifications");
           const submitterName = (await getUserName(userId)) ?? "Unknown";
-          await notifyAdvancePaymentSubmitted({
+          await enqueue("notify-advance-payment-submitted", {
             advancePaymentId,
             title,
             submitterName,
@@ -189,10 +188,8 @@ export const advancePaymentMutators = {
             submitterId: ownerId,
           },
           fn: async () => {
-            const { notifyAdvancePaymentApproved } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyAdvancePaymentApproved({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-advance-payment-approved", {
               advancePaymentId: id,
               title,
               submitterId: ownerId,
@@ -275,10 +272,8 @@ export const advancePaymentMutators = {
             reason,
           },
           fn: async () => {
-            const { notifyAdvancePaymentRejected } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyAdvancePaymentRejected({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-advance-payment-rejected", {
               advancePaymentId: id,
               title,
               submitterId: ownerId,

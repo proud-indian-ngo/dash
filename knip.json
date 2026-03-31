@@ -30,7 +30,7 @@
       "ignoreDependencies": ["better-auth"]
     },
     "packages/jobs": {
-      "ignoreDependencies": ["@pi-dash/observability"]
+      "ignoreDependencies": ["@pi-dash/observability", "@pi-dash/zero"]
     },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],

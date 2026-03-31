@@ -8,27 +8,6 @@ import {
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
-async function addUsersToEventWhatsAppGroup(
-  whatsappGroupId: string,
-  userIds: string[]
-) {
-  const { addUsersToWhatsAppGroup, getUserPhones } = await import(
-    "@pi-dash/whatsapp"
-  );
-  const { db } = await import("@pi-dash/db");
-
-  const group = await db.query.whatsappGroup.findFirst({
-    where: (t, { eq }) => eq(t.id, whatsappGroupId),
-  });
-  if (!group) {
-    return;
-  }
-
-  const phoneMap = await getUserPhones(userIds);
-  const phones = [...phoneMap.values()];
-  await addUsersToWhatsAppGroup(group.jid, phones);
-}
-
 interface UpdateArgs {
   description?: string;
   endTime?: number;
@@ -139,34 +118,13 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "createTeamEvent", eventId, eventName },
           fn: async () => {
-            const { createWhatsAppGroup, getUserPhone } = await import(
-              "@pi-dash/whatsapp"
-            );
-            const { db } = await import("@pi-dash/db");
-            const { whatsappGroup } = await import(
-              "@pi-dash/db/schema/whatsapp-group"
-            );
-            const { teamEvent } = await import("@pi-dash/db/schema/team-event");
-            const { eq } = await import("drizzle-orm");
-
-            const creatorPhone = await getUserPhone(creatorUserId);
-            const participants = creatorPhone ? [creatorPhone] : [];
-            const { jid } = await createWhatsAppGroup(eventName, participants);
-            const groupId = crypto.randomUUID();
-            const timestamp = new Date();
-
-            await db.insert(whatsappGroup).values({
-              id: groupId,
-              name: eventName,
-              jid,
-              createdAt: timestamp,
-              updatedAt: timestamp,
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("whatsapp-create-group", {
+              entityType: "event",
+              entityId: eventId,
+              groupName: eventName,
+              creatorUserId,
             });
-
-            await db
-              .update(teamEvent)
-              .set({ whatsappGroupId: groupId })
-              .where(eq(teamEvent.id, eventId));
           },
         });
       }
@@ -187,9 +145,7 @@ export const teamEventMutators = {
             location,
           },
           fn: async () => {
-            const { notifyEventCreated } = await import(
-              "@pi-dash/notifications"
-            );
+            const { enqueue } = await import("@pi-dash/jobs");
             const { db } = await import("@pi-dash/db");
 
             const members = await db.query.teamMember.findMany({
@@ -198,7 +154,7 @@ export const teamEventMutators = {
             });
             const teamMemberIds = members.map((m) => m.userId);
 
-            await notifyEventCreated({
+            await enqueue("notify-event-created", {
               eventId,
               eventName,
               location: location ?? null,
@@ -269,11 +225,8 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "updateTeamEvent", eventId, eventName, teamId },
           fn: async () => {
-            const { notifyEventUpdated } = await import(
-              "@pi-dash/notifications"
-            );
-
-            await notifyEventUpdated({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-event-updated", {
               eventId,
               eventMemberIds,
               eventName,
@@ -299,10 +252,8 @@ export const teamEventMutators = {
               eventId,
             },
             fn: async () => {
-              const { notifyEventFeedbackOpen } = await import(
-                "@pi-dash/notifications"
-              );
-              await notifyEventFeedbackOpen({
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-event-feedback-open", {
                 eventId,
                 eventName,
                 memberUserIds: eventMemberIds,
@@ -357,11 +308,8 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "cancelTeamEvent", eventId, eventName, teamId },
           fn: async () => {
-            const { notifyEventCancelled } = await import(
-              "@pi-dash/notifications"
-            );
-
-            await notifyEventCancelled({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-event-cancelled", {
               cancelledAt,
               eventId,
               eventMemberIds,
@@ -427,20 +375,11 @@ export const teamEventMutators = {
               whatsappGroupId,
             },
             fn: async () => {
-              const { addToWhatsAppGroup, getUserPhone } = await import(
-                "@pi-dash/whatsapp"
-              );
-              const { db } = await import("@pi-dash/db");
-
-              const group = await db.query.whatsappGroup.findFirst({
-                where: (t, { eq }) => eq(t.id, whatsappGroupId),
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("whatsapp-add-member", {
+                groupId: whatsappGroupId,
+                userId,
               });
-              if (group) {
-                const phone = await getUserPhone(userId);
-                if (phone) {
-                  await addToWhatsAppGroup(group.jid, phone);
-                }
-              }
             },
           });
         }
@@ -459,10 +398,8 @@ export const teamEventMutators = {
             teamId,
           },
           fn: async () => {
-            const { notifyAddedToEvent } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyAddedToEvent({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-added-to-event", {
               eventId,
               eventName,
               location: location ?? null,
@@ -527,7 +464,11 @@ export const teamEventMutators = {
               userCount: userIds.length,
             },
             fn: async () => {
-              await addUsersToEventWhatsAppGroup(whatsappGroupId, userIds);
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("whatsapp-add-members", {
+                groupId: whatsappGroupId,
+                userIds,
+              });
             },
           });
         }
@@ -546,10 +487,8 @@ export const teamEventMutators = {
             userCount: userIds.length,
           },
           fn: async () => {
-            const { notifyUsersAddedToEvent } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyUsersAddedToEvent({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-users-added-to-event", {
               userIds,
               eventId,
               eventName,
@@ -696,20 +635,11 @@ export const teamEventMutators = {
               whatsappGroupId,
             },
             fn: async () => {
-              const { getUserPhone, removeFromWhatsAppGroup } = await import(
-                "@pi-dash/whatsapp"
-              );
-              const { db } = await import("@pi-dash/db");
-
-              const group = await db.query.whatsappGroup.findFirst({
-                where: (t, { eq }) => eq(t.id, whatsappGroupId),
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("whatsapp-remove-member", {
+                groupId: whatsappGroupId,
+                userId: memberUserId,
               });
-              if (group) {
-                const phone = await getUserPhone(memberUserId);
-                if (phone) {
-                  await removeFromWhatsAppGroup(group.jid, phone);
-                }
-              }
             },
           });
         }
@@ -726,10 +656,8 @@ export const teamEventMutators = {
             userId: memberUserId,
           },
           fn: async () => {
-            const { notifyRemovedFromEvent } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyRemovedFromEvent({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-removed-from-event", {
               eventId,
               eventName,
               teamId,

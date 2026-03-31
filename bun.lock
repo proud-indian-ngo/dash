@@ -217,7 +217,6 @@
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/observability": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
-        "@pi-dash/zero": "workspace:*",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
         "pg-boss": "^10.3.1",
@@ -273,8 +272,8 @@
       "dependencies": {
         "@pi-dash/db": "workspace:*",
         "@pi-dash/env": "workspace:*",
+        "@pi-dash/jobs": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
-        "@pi-dash/whatsapp": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "date-fns": "catalog:",
         "drizzle-orm": "catalog:",

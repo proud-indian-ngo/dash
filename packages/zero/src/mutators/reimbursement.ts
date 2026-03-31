@@ -90,11 +90,10 @@ export const reimbursementMutators = {
           title,
         },
         fn: async () => {
-          const { getUserName, notifyReimbursementSubmitted } = await import(
-            "@pi-dash/notifications"
-          );
+          const { enqueue } = await import("@pi-dash/jobs");
+          const { getUserName } = await import("@pi-dash/notifications");
           const submitterName = (await getUserName(userId)) ?? "Unknown";
-          await notifyReimbursementSubmitted({
+          await enqueue("notify-reimbursement-submitted", {
             reimbursementId,
             title,
             submitterName,
@@ -189,10 +188,8 @@ export const reimbursementMutators = {
             submitterId: ownerId,
           },
           fn: async () => {
-            const { notifyReimbursementApproved } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyReimbursementApproved({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-reimbursement-approved", {
               reimbursementId: id,
               title,
               submitterId: ownerId,
@@ -269,10 +266,8 @@ export const reimbursementMutators = {
             reason,
           },
           fn: async () => {
-            const { notifyReimbursementRejected } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyReimbursementRejected({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-reimbursement-rejected", {
               reimbursementId: id,
               title,
               submitterId: ownerId,

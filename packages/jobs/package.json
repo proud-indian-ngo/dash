@@ -19,7 +19,6 @@
     "@pi-dash/notifications": "workspace:*",
     "@pi-dash/observability": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
-    "@pi-dash/zero": "workspace:*",
     "drizzle-orm": "catalog:",
     "uuidv7": "catalog:",
     "evlog": "catalog:",

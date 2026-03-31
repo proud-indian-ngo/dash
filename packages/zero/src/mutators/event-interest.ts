@@ -97,9 +97,7 @@ export const eventInterestMutators = {
             volunteerUserId,
           },
           fn: async () => {
-            const { notifyEventInterestReceived } = await import(
-              "@pi-dash/notifications"
-            );
+            const { enqueue } = await import("@pi-dash/jobs");
             const { db } = await import("@pi-dash/db");
 
             const leads = await db.query.teamMember.findMany({
@@ -113,7 +111,7 @@ export const eventInterestMutators = {
             });
             const volunteerName = volunteer?.name ?? "A volunteer";
 
-            await notifyEventInterestReceived({
+            await enqueue("notify-event-interest-received", {
               eventId,
               eventName,
               leadUserIds: leads.map((l) => l.userId),
@@ -187,20 +185,11 @@ export const eventInterestMutators = {
               whatsappGroupId,
             },
             fn: async () => {
-              const { addToWhatsAppGroup, getUserPhone } = await import(
-                "@pi-dash/whatsapp"
-              );
-              const { db } = await import("@pi-dash/db");
-
-              const group = await db.query.whatsappGroup.findFirst({
-                where: (t, { eq }) => eq(t.id, whatsappGroupId),
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("whatsapp-add-member", {
+                groupId: whatsappGroupId,
+                userId,
               });
-              if (group) {
-                const phone = await getUserPhone(userId);
-                if (phone) {
-                  await addToWhatsAppGroup(group.jid, phone);
-                }
-              }
             },
           });
         }
@@ -213,10 +202,8 @@ export const eventInterestMutators = {
             userId,
           },
           fn: async () => {
-            const { notifyEventInterestApproved } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyEventInterestApproved({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-event-interest-approved", {
               eventId,
               eventName,
               userId,
@@ -278,10 +265,8 @@ export const eventInterestMutators = {
             userId,
           },
           fn: async () => {
-            const { notifyEventInterestRejected } = await import(
-              "@pi-dash/notifications"
-            );
-            await notifyEventInterestRejected({
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-event-interest-rejected", {
               eventId,
               eventName,
               userId,
