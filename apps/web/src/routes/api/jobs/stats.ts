@@ -20,9 +20,8 @@ export const Route = createFileRoute("/api/jobs/stats")({
           return Response.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const boss = await ensureBossReady();
-
         try {
+          const boss = await ensureBossReady();
           const stats = await Promise.all(
             QUEUE_NAMES.map(async (queue) => {
               try {

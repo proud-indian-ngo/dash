@@ -61,6 +61,13 @@ export async function ensureBossReady(): Promise<PgBoss> {
 }
 
 export async function startWorker(): Promise<void> {
+  // Skip if already started (prevents duplicate pools on Vite SSR HMR re-evaluations).
+  // IMPORTANT: Do not add any `await` between this guard and setReadyPromise() below —
+  // the guard is safe because the code between them is synchronous (no yield points).
+  if (getBossInstance() || getReadyPromise()) {
+    return;
+  }
+
   const log = createRequestLogger({ method: "SYSTEM", path: "jobs/startup" });
 
   const promise = (async () => {
@@ -71,6 +78,7 @@ export async function startWorker(): Promise<void> {
       connectionString: env.DATABASE_URL,
       schema: "pgboss",
       application_name: "pi-dash-jobs",
+      max: 10, // shared query pool — workers poll through this; keep low to leave room for Drizzle (20)
       supervise: true,
       schedule: true,
       migrate: true,

@@ -56,6 +56,14 @@ Queries are defined in `packages/zero/src/queries/` using `defineQueries()`. On 
 
 `packages/zero/src/permissions.ts` exports assertion functions (`assertIsLoggedIn`, `assertIsAdmin`) that throw on failure. These are called at the top of server-side mutator execution. On the client, they are no-ops (optimistic path trusts the UI).
 
+### Connection Pool
+
+Server-side PostgreSQL access uses two connection pools, both cached on `globalThis` to survive Vite SSR hot reloads (without this, each HMR cycle leaks a new pool, eventually exhausting `max_connections`):
+
+- **Drizzle pool** (`packages/db/src/index.ts`): Bun SQL, `max: 20`, `application_name: "pi-dash"`. Used by Drizzle ORM queries and Better Auth (via Drizzle adapter).
+- **pg-boss pool** (`packages/jobs/src/boss.ts`): `pg` module, `max: 10`, `application_name: "pi-dash-jobs"`. Used for job queue operations. A `startWorker` guard prevents duplicate instances on HMR.
+- **Zero Cache**: connects separately via `ZERO_UPSTREAM_DB` (unpooled, for logical replication) — not part of either pool.
+
 ### Data Sync
 
 Zero handles real-time sync via PostgreSQL logical replication:
