@@ -31,12 +31,9 @@
     "packages/jobs": {
       "ignoreDependencies": [
         "@pi-dash/db",
-        "@pi-dash/env",
         "@pi-dash/notifications",
         "@pi-dash/observability",
-        "@pi-dash/whatsapp",
-        "evlog",
-        "pg-boss"
+        "@pi-dash/whatsapp"
       ]
     },
     "packages/design-system": {
