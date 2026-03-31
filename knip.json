@@ -17,8 +17,7 @@
         "server/**",
         "src/lib/logger.ts",
         "src/stubs/**"
-      ],
-      "ignoreDependencies": ["@pi-dash/jobs"]
+      ]
     },
     "packages/db": {
       "ignoreFiles": ["scripts/**"],

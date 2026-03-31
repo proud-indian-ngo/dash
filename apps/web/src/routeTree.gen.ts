@@ -20,6 +20,7 @@ import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
@@ -104,6 +105,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJobsRoute = AppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppExportRoute = AppExportRouteImport.update({
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/export': typeof AppExportRoute
+  '/jobs': typeof AppJobsRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -313,6 +320,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/export': typeof AppExportRoute
+  '/jobs': typeof AppJobsRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -357,6 +365,7 @@ export interface FileRoutesById {
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/_app/export': typeof AppExportRoute
+  '/_app/jobs': typeof AppJobsRoute
   '/_app/users': typeof AppUsersRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -403,6 +412,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/export'
+    | '/jobs'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -441,6 +451,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/export'
+    | '/jobs'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -484,6 +495,7 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments'
     | '/_app/vendors'
     | '/_app/export'
+    | '/_app/jobs'
     | '/_app/users'
     | '/_auth/forgot-password'
     | '/_auth/login'
@@ -615,6 +627,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/jobs': {
+      id: '/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AppJobsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/export': {
@@ -942,6 +961,7 @@ interface AppRouteChildren {
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
   AppExportRoute: typeof AppExportRoute
+  AppJobsRoute: typeof AppJobsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
@@ -954,6 +974,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
   AppExportRoute: AppExportRoute,
+  AppJobsRoute: AppJobsRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
