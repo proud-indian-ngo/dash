@@ -1,4 +1,4 @@
-import { eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   PERMISSIONS,
@@ -65,18 +65,28 @@ export async function syncPermissions(): Promise<void> {
       .onConflictDoNothing();
   }
 
-  // Admin gets ALL permissions — delete and re-insert atomically
-  await db.transaction(async (tx) => {
-    await tx.delete(rolePermission).where(eq(rolePermission.roleId, "admin"));
-    if (currentIds.length > 0) {
-      await tx.insert(rolePermission).values(
+  // Admin gets ALL permissions — upsert to avoid race conditions
+  if (currentIds.length > 0) {
+    await db
+      .insert(rolePermission)
+      .values(
         currentIds.map((permId) => ({
           roleId: "admin",
           permissionId: permId,
         }))
-      );
-    }
-  });
+      )
+      .onConflictDoNothing();
+  }
+
+  // Remove admin permissions that are no longer in code
+  await db
+    .delete(rolePermission)
+    .where(
+      and(
+        eq(rolePermission.roleId, "admin"),
+        notInArray(rolePermission.permissionId, currentIds)
+      )
+    );
 
   // Volunteer baseline — only seed if volunteer has zero permissions (first run)
   await db.transaction(async (tx) => {
