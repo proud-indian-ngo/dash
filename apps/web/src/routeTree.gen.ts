@@ -26,6 +26,7 @@ import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
+import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as AppVendorPaymentsIndexRouteImport } from './routes/_app/vendor-payments/index'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
@@ -34,6 +35,8 @@ import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
+import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
+import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
 import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-payments/new'
@@ -44,6 +47,8 @@ import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimburse
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
+import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
+import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
 import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/original.$id'
 import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
@@ -131,6 +136,11 @@ const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
   path: '/events',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiJobsIndexRoute = ApiJobsIndexRouteImport.update({
+  id: '/api/jobs/',
+  path: '/api/jobs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppVendorsIndexRoute = AppVendorsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -169,6 +179,16 @@ const ApiZeroMutateRoute = ApiZeroMutateRouteImport.update({
 const ApiLogIngestRoute = ApiLogIngestRouteImport.update({
   id: '/api/log/ingest',
   path: '/api/log/ingest',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsStatsRoute = ApiJobsStatsRouteImport.update({
+  id: '/api/jobs/stats',
+  path: '/api/jobs/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsIdRoute = ApiJobsIdRouteImport.update({
+  id: '/api/jobs/$id',
+  path: '/api/jobs/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -221,6 +241,16 @@ const AppSettingsRolesIndexRoute = AppSettingsRolesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSettingsRolesRouteRoute,
 } as any)
+const ApiJobsIdRetryRoute = ApiJobsIdRetryRouteImport.update({
+  id: '/retry',
+  path: '/retry',
+  getParentRoute: () => ApiJobsIdRoute,
+} as any)
+const ApiJobsIdCancelRoute = ApiJobsIdCancelRouteImport.update({
+  id: '/cancel',
+  path: '/cancel',
+  getParentRoute: () => ApiJobsIdRoute,
+} as any)
 const ApiImmichThumbnailIdRoute = ApiImmichThumbnailIdRouteImport.update({
   id: '/api/immich/thumbnail/$id',
   path: '/api/immich/thumbnail/$id',
@@ -262,6 +292,8 @@ export interface FileRoutesByFullPath {
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
+  '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -270,9 +302,12 @@ export interface FileRoutesByFullPath {
   '/teams/': typeof AppTeamsIndexRoute
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
+  '/api/jobs/': typeof ApiJobsIndexRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
+  '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
+  '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -294,6 +329,8 @@ export interface FileRoutesByTo {
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
+  '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -302,9 +339,12 @@ export interface FileRoutesByTo {
   '/teams': typeof AppTeamsIndexRoute
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
+  '/api/jobs': typeof ApiJobsIndexRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
+  '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
+  '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesById {
@@ -335,6 +375,8 @@ export interface FileRoutesById {
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
+  '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -343,9 +385,12 @@ export interface FileRoutesById {
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
+  '/api/jobs/': typeof ApiJobsIndexRoute
   '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
+  '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
+  '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRouteTypes {
@@ -375,6 +420,8 @@ export interface FileRouteTypes {
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/jobs/$id'
+    | '/api/jobs/stats'
     | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -383,9 +430,12 @@ export interface FileRouteTypes {
     | '/teams/'
     | '/vendor-payments/'
     | '/vendors/'
+    | '/api/jobs/'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
+    | '/api/jobs/$id/cancel'
+    | '/api/jobs/$id/retry'
     | '/settings/roles/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -407,6 +457,8 @@ export interface FileRouteTypes {
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/jobs/$id'
+    | '/api/jobs/stats'
     | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -415,9 +467,12 @@ export interface FileRouteTypes {
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
+    | '/api/jobs'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
+    | '/api/jobs/$id/cancel'
+    | '/api/jobs/$id/retry'
     | '/settings/roles'
   id:
     | '__root__'
@@ -447,6 +502,8 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/jobs/$id'
+    | '/api/jobs/stats'
     | '/api/log/ingest'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -455,9 +512,12 @@ export interface FileRouteTypes {
     | '/_app/teams/'
     | '/_app/vendor-payments/'
     | '/_app/vendors/'
+    | '/api/jobs/'
     | '/_app/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
+    | '/api/jobs/$id/cancel'
+    | '/api/jobs/$id/retry'
     | '/_app/settings/roles/'
   fileRoutesById: FileRoutesById
 }
@@ -468,9 +528,12 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
+  ApiJobsStatsRoute: typeof ApiJobsStatsRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
+  ApiJobsIndexRoute: typeof ApiJobsIndexRoute
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
 }
@@ -596,6 +659,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/jobs/': {
+      id: '/api/jobs/'
+      path: '/api/jobs'
+      fullPath: '/api/jobs/'
+      preLoaderRoute: typeof ApiJobsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/vendors/': {
       id: '/_app/vendors/'
       path: '/'
@@ -650,6 +720,20 @@ declare module '@tanstack/react-router' {
       path: '/api/log/ingest'
       fullPath: '/api/log/ingest'
       preLoaderRoute: typeof ApiLogIngestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs/stats': {
+      id: '/api/jobs/stats'
+      path: '/api/jobs/stats'
+      fullPath: '/api/jobs/stats'
+      preLoaderRoute: typeof ApiJobsStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs/$id': {
+      id: '/api/jobs/$id'
+      path: '/api/jobs/$id'
+      fullPath: '/api/jobs/$id'
+      preLoaderRoute: typeof ApiJobsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -721,6 +805,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/roles/'
       preLoaderRoute: typeof AppSettingsRolesIndexRouteImport
       parentRoute: typeof AppSettingsRolesRouteRoute
+    }
+    '/api/jobs/$id/retry': {
+      id: '/api/jobs/$id/retry'
+      path: '/retry'
+      fullPath: '/api/jobs/$id/retry'
+      preLoaderRoute: typeof ApiJobsIdRetryRouteImport
+      parentRoute: typeof ApiJobsIdRoute
+    }
+    '/api/jobs/$id/cancel': {
+      id: '/api/jobs/$id/cancel'
+      path: '/cancel'
+      fullPath: '/api/jobs/$id/cancel'
+      preLoaderRoute: typeof ApiJobsIdCancelRouteImport
+      parentRoute: typeof ApiJobsIdRoute
     }
     '/api/immich/thumbnail/$id': {
       id: '/api/immich/thumbnail/$id'
@@ -881,6 +979,20 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface ApiJobsIdRouteChildren {
+  ApiJobsIdCancelRoute: typeof ApiJobsIdCancelRoute
+  ApiJobsIdRetryRoute: typeof ApiJobsIdRetryRoute
+}
+
+const ApiJobsIdRouteChildren: ApiJobsIdRouteChildren = {
+  ApiJobsIdCancelRoute: ApiJobsIdCancelRoute,
+  ApiJobsIdRetryRoute: ApiJobsIdRetryRoute,
+}
+
+const ApiJobsIdRouteWithChildren = ApiJobsIdRoute._addFileChildren(
+  ApiJobsIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
@@ -888,9 +1000,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiJobsIdRoute: ApiJobsIdRouteWithChildren,
+  ApiJobsStatsRoute: ApiJobsStatsRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
+  ApiJobsIndexRoute: ApiJobsIndexRoute,
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,
 }
