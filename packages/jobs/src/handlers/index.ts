@@ -233,12 +233,12 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
 
   await boss.work(
     "notify-photo-approved",
-    NOTIFY_POLL,
+    { ...NOTIFY_POLL, batchSize: 50 },
     handleNotifyPhotoApproved
   );
   await boss.work(
     "notify-photo-rejected",
-    NOTIFY_POLL,
+    { ...NOTIFY_POLL, batchSize: 50 },
     handleNotifyPhotoRejected
   );
 
