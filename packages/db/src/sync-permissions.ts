@@ -1,6 +1,8 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
+  ADMIN_PERMISSIONS,
+  FINANCE_ADMIN_PERMISSIONS,
   PERMISSIONS,
   UNORIENTED_VOLUNTEER_PERMISSIONS,
   VOLUNTEER_BASELINE_PERMISSIONS,
@@ -13,8 +15,9 @@ import { permission, role, rolePermission } from "./schema/permission";
  *
  * 1. Upserts all permissions from the PERMISSIONS constant
  * 2. Removes stale permissions (and their rolePermission rows via cascade)
- * 3. Ensures admin role has all permissions
- * 4. Seeds volunteer baseline permissions on first run (does not override manual changes)
+ * 3. Ensures all system roles exist
+ * 4. Deterministically syncs super_admin, admin, and finance_admin permissions
+ * 5. Seeds volunteer baseline permissions on first run (does not override manual changes)
  */
 export async function syncPermissions(): Promise<void> {
   const currentIds = PERMISSIONS.map((p) => p.id);
@@ -47,7 +50,9 @@ export async function syncPermissions(): Promise<void> {
 
   // Ensure system roles exist
   for (const systemRole of [
+    { id: "super_admin", name: "Super Admin", isSystem: true },
     { id: "admin", name: "Admin", isSystem: true },
+    { id: "finance_admin", name: "Finance Admin", isSystem: true },
     { id: "volunteer", name: "Volunteer", isSystem: true },
     {
       id: "unoriented_volunteer",
@@ -65,28 +70,29 @@ export async function syncPermissions(): Promise<void> {
       .onConflictDoNothing();
   }
 
-  // Admin gets ALL permissions — upsert to avoid race conditions
-  if (currentIds.length > 0) {
-    await db
-      .insert(rolePermission)
-      .values(
-        currentIds.map((permId) => ({
-          roleId: "admin",
-          permissionId: permId,
-        }))
-      )
-      .onConflictDoNothing();
+  // Deterministically sync permissions for the three admin-tier roles
+  for (const [roleId, permIds] of [
+    ["super_admin", currentIds],
+    ["admin", ADMIN_PERMISSIONS as string[]],
+    ["finance_admin", FINANCE_ADMIN_PERMISSIONS as string[]],
+  ] as [string, string[]][]) {
+    if (permIds.length > 0) {
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(rolePermission)
+          .values(permIds.map((permId) => ({ roleId, permissionId: permId })))
+          .onConflictDoNothing();
+        await tx
+          .delete(rolePermission)
+          .where(
+            and(
+              eq(rolePermission.roleId, roleId),
+              notInArray(rolePermission.permissionId, permIds)
+            )
+          );
+      });
+    }
   }
-
-  // Remove admin permissions that are no longer in code
-  await db
-    .delete(rolePermission)
-    .where(
-      and(
-        eq(rolePermission.roleId, "admin"),
-        notInArray(rolePermission.permissionId, currentIds)
-      )
-    );
 
   // Volunteer baseline — only seed if volunteer has zero permissions (first run)
   await db.transaction(async (tx) => {

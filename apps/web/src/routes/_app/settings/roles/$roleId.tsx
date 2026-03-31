@@ -1,5 +1,6 @@
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ADMIN_TIER_ROLES } from "@pi-dash/db/permissions";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import {
   Card,
@@ -68,7 +69,7 @@ function RoleEditPage() {
   );
   const [loading, setLoading] = useState(true);
 
-  const isAdminRole = roleData?.id === "admin";
+  const isSystemRole = roleData ? ADMIN_TIER_ROLES.has(roleData.id) : false;
 
   const loadData = useCallback(async () => {
     try {
@@ -192,10 +193,9 @@ function RoleEditPage() {
       <p className="mt-1 text-muted-foreground text-sm">
         Role ID: {roleData.id}
       </p>
-      {isAdminRole ? (
+      {isSystemRole ? (
         <div className="mt-4 rounded-md border border-border bg-muted/50 p-3 text-muted-foreground text-sm">
-          The system admin role cannot be modified. Admins have all permissions
-          by default.
+          This system role cannot be modified.
         </div>
       ) : null}
       <FormLayout className="mt-6 space-y-6" form={form} key={formKey}>
@@ -206,13 +206,13 @@ function RoleEditPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <InputField
-              disabled={isAdminRole}
+              disabled={isSystemRole}
               isRequired
               label="Name"
               name="name"
             />
             <TextareaField
-              disabled={isAdminRole}
+              disabled={isSystemRole}
               label="Description"
               name="description"
               rows={2}
@@ -224,8 +224,8 @@ function RoleEditPage() {
           <CardHeader>
             <CardTitle>Permissions</CardTitle>
             <CardDescription>
-              {isAdminRole
-                ? "Admin has all permissions. This cannot be changed."
+              {isSystemRole
+                ? "System role permissions are managed in code and cannot be changed here."
                 : "Select which permissions this role grants."}
             </CardDescription>
           </CardHeader>
@@ -240,7 +240,7 @@ function RoleEditPage() {
                   <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
                     <Checkbox
                       checked={allSelected}
-                      disabled={isAdminRole}
+                      disabled={isSystemRole}
                       onCheckedChange={() => toggleCategory(perms, allSelected)}
                     />
                     <CollapsibleTrigger className="flex-1 text-left font-medium text-sm capitalize">
@@ -263,10 +263,8 @@ function RoleEditPage() {
                           key={p.id}
                         >
                           <Checkbox
-                            checked={
-                              isAdminRole || selectedPermissions.has(p.id)
-                            }
-                            disabled={isAdminRole}
+                            checked={selectedPermissions.has(p.id)}
+                            disabled={isSystemRole}
                             id={`perm-${p.id}`}
                             onCheckedChange={() => togglePermission(p.id)}
                           />
@@ -293,7 +291,7 @@ function RoleEditPage() {
           </CardContent>
         </Card>
 
-        {isAdminRole ? null : (
+        {isSystemRole ? null : (
           <FormActions
             form={form}
             submitLabel="Save changes"

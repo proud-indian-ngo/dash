@@ -340,3 +340,46 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
 export const UNORIENTED_VOLUNTEER_PERMISSIONS: readonly PermissionId[] = [
   "events.view_own",
 ];
+
+/** Role IDs that are immutable system roles (permissions managed in code, not editable via UI) */
+export const ADMIN_TIER_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "finance_admin",
+]);
+
+const adminExcluded = new Set<PermissionId>([
+  "requests.approve",
+  "vendors.approve",
+  "users.create",
+  "users.edit",
+  "users.delete",
+  "users.ban",
+  "users.set_password",
+  "settings.app_config",
+  "settings.roles",
+  "settings.expense_categories",
+  "settings.whatsapp_groups",
+  "jobs.manage",
+]);
+
+const financeAdminExcluded = new Set<PermissionId>([
+  "users.create",
+  "users.edit",
+  "users.delete",
+  "users.ban",
+  "users.set_password",
+  "settings.app_config",
+  "settings.roles",
+  "settings.whatsapp_groups",
+  "jobs.manage",
+]);
+
+/** Permissions for the admin role — all except finance approvals, user CRUD, app settings, and jobs */
+export const ADMIN_PERMISSIONS: readonly PermissionId[] = PERMISSIONS.map(
+  (p) => p.id
+).filter((id) => !adminExcluded.has(id));
+
+/** Permissions for the finance_admin role — all except user CRUD, app settings, and jobs */
+export const FINANCE_ADMIN_PERMISSIONS: readonly PermissionId[] =
+  PERMISSIONS.map((p) => p.id).filter((id) => !financeAdminExcluded.has(id));

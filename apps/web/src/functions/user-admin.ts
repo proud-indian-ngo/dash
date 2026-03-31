@@ -1,6 +1,7 @@
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import type { PermissionId } from "@pi-dash/db/permissions";
+import { ADMIN_TIER_ROLES } from "@pi-dash/db/permissions";
 import {
   invalidatePermissionCache,
   resolvePermissions,
@@ -27,10 +28,10 @@ const MIN_PASSWORD_LENGTH = 8;
 const BETTER_AUTH_ROLES = ["admin", "volunteer"] as const;
 type BetterAuthRole = (typeof BETTER_AUTH_ROLES)[number];
 
-/** Better Auth only understands "admin" | "volunteer". Custom roles map to "volunteer". */
+/** Better Auth only understands "admin" | "volunteer". Map admin-tier roles to "admin". */
 function toBetterAuthRole(role: string): BetterAuthRole {
-  if (BETTER_AUTH_ROLES.includes(role as BetterAuthRole)) {
-    return role as BetterAuthRole;
+  if (ADMIN_TIER_ROLES.has(role)) {
+    return "admin";
   }
   return "volunteer";
 }

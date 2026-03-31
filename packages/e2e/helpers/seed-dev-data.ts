@@ -79,7 +79,7 @@ const USERS: SeedUser[] = [
     email: "admin@pi-dash.dev",
     name: "Dev Admin",
     password: "Admin123!",
-    role: "admin",
+    role: "super_admin",
     gender: "male",
     phone: "+919876543210",
   },

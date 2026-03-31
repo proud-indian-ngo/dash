@@ -56,16 +56,16 @@ const ensureAdminUser = async (): Promise<void> => {
     throw new Error(`Unable to find user record for ${email} after creation.`);
   }
 
-  if (userRecord.role !== "admin") {
+  if (userRecord.role !== "super_admin") {
     await db
       .update(user)
-      .set({ role: "admin" })
+      .set({ role: "super_admin" })
       .where(eq(user.id, userRecord.id));
-    log(`Promoted user to admin: ${email}`);
+    log(`Promoted user to super_admin: ${email}`);
     return;
   }
 
-  log(`User already has admin role: ${email}`);
+  log(`User already has super_admin role: ${email}`);
 };
 
 ensureAdminUser().catch((error: unknown) => {

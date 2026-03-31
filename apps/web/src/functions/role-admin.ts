@@ -1,5 +1,5 @@
 import { db } from "@pi-dash/db";
-import { PERMISSION_IDS } from "@pi-dash/db/permissions";
+import { ADMIN_TIER_ROLES, PERMISSION_IDS } from "@pi-dash/db/permissions";
 import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
@@ -231,10 +231,8 @@ export const updateRole = createServerFn({ method: "POST" })
       throw new Error("Role not found");
     }
 
-    // System admin role: block name/description changes but allow permission edits
-    // (admin always has all permissions in practice, but we still persist them)
-    if (found.isSystem && found.id === "admin") {
-      throw new Error("Cannot modify the system admin role");
+    if (found.isSystem && ADMIN_TIER_ROLES.has(found.id)) {
+      throw new Error("Cannot modify a system role");
     }
 
     await db.transaction(async (tx) => {
