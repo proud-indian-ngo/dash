@@ -103,7 +103,6 @@ export function WhatsAppGroupsSection() {
             onClick={() => setInlineMode({ kind: "create" })}
             size="sm"
             type="button"
-            variant="outline"
           >
             <HugeiconsIcon
               className="size-3.5"

@@ -124,12 +124,7 @@ export function VendorPaymentTransactions({
         <div className="flex items-center justify-between">
           <h2 className="font-medium text-sm">Payments</h2>
           {showRecordButton ? (
-            <Button
-              onClick={() => setFormOpen(true)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
+            <Button onClick={() => setFormOpen(true)} size="sm" type="button">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}

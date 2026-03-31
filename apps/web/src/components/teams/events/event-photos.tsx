@@ -315,7 +315,6 @@ export function EventPhotos({
               disabled={approveAllAction.isLoading}
               onClick={() => approveAllAction.trigger()}
               size="sm"
-              variant="outline"
             >
               Approve All
             </Button>

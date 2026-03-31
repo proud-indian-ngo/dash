@@ -313,7 +313,6 @@ function OrientedDashboard() {
           nativeButton={false}
           render={<Link to="/reimbursements/new" />}
           size="sm"
-          variant="outline"
         >
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
           New Reimbursement

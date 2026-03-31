@@ -30,12 +30,7 @@ export function TeamMembersSection({
       <div className="flex items-center justify-between">
         <h2 className="font-medium text-sm">Members ({members.length})</h2>
         {canManage ? (
-          <Button
-            onClick={onAddMember}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
+          <Button onClick={onAddMember} size="sm" type="button">
             <HugeiconsIcon
               className="size-4"
               icon={PlusSignIcon}

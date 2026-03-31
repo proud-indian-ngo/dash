@@ -142,7 +142,7 @@ export function EventAttendanceSection({
           Attendance ({presentCount}/{members.length} present)
         </h2>
         {members.length > 0 ? (
-          <Button onClick={markAllPresent} size="sm" variant="outline">
+          <Button onClick={markAllPresent} size="sm">
             <HugeiconsIcon
               className="size-4"
               icon={UserGroupIcon}

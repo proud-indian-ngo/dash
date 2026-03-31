@@ -124,7 +124,6 @@ function InterestCell({
         onShowInterest(eventId);
       }}
       size="sm"
-      variant="outline"
     >
       Show Interest
     </Button>
