@@ -17,7 +17,8 @@
         "server/**",
         "src/lib/logger.ts",
         "src/stubs/**"
-      ]
+      ],
+      "ignoreDependencies": ["@pi-dash/jobs"]
     },
     "packages/db": {
       "ignoreFiles": ["scripts/**"],
@@ -29,12 +30,7 @@
       "ignoreDependencies": ["better-auth"]
     },
     "packages/jobs": {
-      "ignoreDependencies": [
-        "@pi-dash/db",
-        "@pi-dash/notifications",
-        "@pi-dash/observability",
-        "@pi-dash/whatsapp"
-      ]
+      "ignoreDependencies": ["@pi-dash/observability"]
     },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],

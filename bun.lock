@@ -31,6 +31,7 @@
         "@pi-dash/db": "workspace:*",
         "@pi-dash/design-system": "workspace:*",
         "@pi-dash/env": "workspace:*",
+        "@pi-dash/jobs": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/observability": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
