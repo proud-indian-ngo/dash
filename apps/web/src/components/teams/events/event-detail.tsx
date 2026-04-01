@@ -15,7 +15,9 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
+import { useCallback } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { TeamDetailData } from "@/components/teams/team-detail";
@@ -51,6 +53,8 @@ interface EventDetailProps {
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
   myInterest?: InterestWithUser | null;
+  /** ISO date (YYYY-MM-DD) when viewing a virtual occurrence of a series. */
+  occDate?: string;
   team?: TeamDetailData | null;
 }
 
@@ -247,17 +251,64 @@ export function EventDetail({
   canManageVolunteers: canManageVolunteersProp,
   isMember,
   myInterest,
+  occDate,
   team,
 }: EventDetailProps) {
   const zero = useZero();
   const navigate = useNavigate();
 
+  // Whether this is a virtual occurrence that needs materialization before modification
+  const isVirtualOccurrence =
+    !!occDate && !!event.recurrenceRule && !event.seriesId;
+
+  /**
+   * Materialize this virtual occurrence. Returns the new exception event ID.
+   * After materialization, navigates to the new event's detail page.
+   */
+  const materializeOccurrence = useCallback(async (): Promise<
+    string | null
+  > => {
+    if (!(isVirtualOccurrence && occDate)) {
+      return null;
+    }
+    const newId = uuidv7();
+    const res = await zero.mutate(
+      mutators.teamEvent.materialize({
+        id: newId,
+        seriesId: event.id,
+        originalDate: occDate,
+        now: Date.now(),
+      })
+    ).server;
+    if (res.type === "error") {
+      toast.error("Failed to create occurrence");
+      return null;
+    }
+    // Navigate to the materialized event (no more occDate needed)
+    navigate({ to: "/events/$id", params: { id: newId } });
+    return newId;
+  }, [isVirtualOccurrence, occDate, event.id, zero, navigate]);
+
   const dialog = useDialogManager<EventDialog>();
 
   const cancelAction = useConfirmAction({
-    onConfirm: () =>
-      zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
-        .server,
+    onConfirm: () => {
+      if (isVirtualOccurrence && occDate) {
+        // Cancel a virtual occurrence via cancelSeries "this" mode
+        return zero.mutate(
+          mutators.teamEvent.cancelSeries({
+            id: event.id,
+            mode: "this",
+            originalDate: occDate,
+            newExceptionId: uuidv7(),
+            now: Date.now(),
+          })
+        ).server;
+      }
+      return zero.mutate(
+        mutators.teamEvent.cancel({ id: event.id, now: Date.now() })
+      ).server;
+    },
     onSuccess: () => {
       toast.success("Event cancelled");
       navigate({ to: "/teams/$id", params: { id: event.teamId } });
@@ -460,6 +511,7 @@ export function EventDetail({
       <AddEventMemberDialog
         eventId={event.id}
         existingMembers={event.members}
+        onBeforeAdd={isVirtualOccurrence ? materializeOccurrence : undefined}
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("addMember")}
       />

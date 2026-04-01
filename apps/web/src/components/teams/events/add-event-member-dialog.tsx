@@ -25,6 +25,8 @@ const addMemberSchema = z.object({
 interface AddEventMemberDialogProps {
   eventId: string;
   existingMembers: ReadonlyArray<{ userId: string }>;
+  /** Called before adding members. Returns the actual eventId to use (may differ if materialization happened). */
+  onBeforeAdd?: () => Promise<string | null>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
@@ -32,6 +34,7 @@ interface AddEventMemberDialogProps {
 function AddEventMemberFormContent({
   eventId,
   existingMembers,
+  onBeforeAdd,
   onOpenChange,
   open,
 }: AddEventMemberDialogProps) {
@@ -43,13 +46,22 @@ function AddEventMemberFormContent({
   const form = useForm({
     defaultValues: { userIds: [] as string[] },
     onSubmit: async ({ value }) => {
+      // Materialize if this is a virtual occurrence
+      const targetEventId = onBeforeAdd
+        ? ((await onBeforeAdd()) ?? eventId)
+        : eventId;
+
       const members = value.userIds.map((userId) => ({
         id: uuidv7(),
         userId,
       }));
 
       const res = await zero.mutate(
-        mutators.teamEvent.addMembers({ eventId, members, now: Date.now() })
+        mutators.teamEvent.addMembers({
+          eventId: targetEventId,
+          members,
+          now: Date.now(),
+        })
       ).server;
 
       const count = members.length;
@@ -104,6 +116,7 @@ function AddEventMemberFormContent({
 export function AddEventMemberDialog({
   eventId,
   existingMembers,
+  onBeforeAdd,
   onOpenChange,
   open,
 }: AddEventMemberDialogProps) {
@@ -129,6 +142,7 @@ export function AddEventMemberDialog({
           eventId={eventId}
           existingMembers={existingMembers}
           key={formKey}
+          onBeforeAdd={onBeforeAdd}
           onOpenChange={onOpenChange}
           open={open}
         />

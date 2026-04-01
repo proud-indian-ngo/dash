@@ -125,6 +125,7 @@ function EventDetailRouteComponent() {
         }
         isMember={isMember}
         myInterest={myInterest ?? null}
+        occDate={occDate}
         team={team}
       />
     </div>
