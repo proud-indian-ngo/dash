@@ -46,7 +46,7 @@ interface PublicEventsTableProps {
 
 function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
   const now = Date.now();
-  const rangeEnd = addWeeks(new Date(), 8).getTime();
+  const rangeEnd = addWeeks(new Date(), 4).getTime();
   const rows: PublicDisplayRow[] = [];
 
   for (const event of data) {
