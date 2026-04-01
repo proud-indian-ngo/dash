@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_app/events/")({
     meta: [{ title: `Events | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
-    context.zero?.preload(queries.teamEvent.public());
+    context.zero?.preload(queries.teamEvent.allAccessible());
     context.zero?.preload(queries.eventInterest.byCurrentUser());
     context.zero?.preload(queries.team.byCurrentUser());
   },
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_app/events/")({
 
 function PublicEventsRouteComponent() {
   const { session } = Route.useRouteContext();
-  const [data, result] = useQuery(queries.teamEvent.public());
+  const [data, result] = useQuery(queries.teamEvent.allAccessible());
   const isLoading = data.length === 0 && result.type !== "complete";
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());

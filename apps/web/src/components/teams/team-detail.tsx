@@ -19,12 +19,19 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
+import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
+import { EditScopeDialog } from "@/components/teams/events/edit-scope-dialog";
 import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
-import type { EventRow } from "@/components/teams/events/events-table";
+import type {
+  EventDisplayRow,
+  EventRow,
+} from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamMembersSection } from "@/components/teams/team-members-section";
@@ -48,7 +55,7 @@ type TeamDialog =
   | { type: "edit" }
   | { type: "addMember" }
   | { type: "createEvent" }
-  | { type: "editEvent"; event: EventRow };
+  | { type: "editEvent"; event: EventDisplayRow };
 
 function TeamHeaderActions({
   canDelete,
@@ -135,11 +142,68 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     },
   });
 
-  const cancelEvent = useConfirmAction<EventRow>({
-    onConfirm: (event) =>
-      zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
-        .server,
-    onSuccess: () => toast.success("Event cancelled"),
+  // --- Edit scope state ---
+  const [editScope, setEditScope] = useState<EditScope | null>(null);
+  const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
+  const [editScopeRow, setEditScopeRow] = useState<EventDisplayRow | null>(
+    null
+  );
+
+  const handleEditEvent = useCallback(
+    (row: EventDisplayRow) => {
+      if (row.seriesId) {
+        setEditScopeRow(row);
+        setEditScopeDialogOpen(true);
+      } else {
+        dialog.open({ type: "editEvent", event: row });
+      }
+    },
+    [dialog]
+  );
+
+  const handleEditScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setEditScopeDialogOpen(false);
+      setEditScope(scope);
+      if (editScopeRow) {
+        dialog.open({ type: "editEvent", event: editScopeRow });
+      }
+    },
+    [dialog, editScopeRow]
+  );
+
+  // --- Cancel scope state ---
+  const cancelScopeRef = useRef<EditScope | null>(null);
+  const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
+  const [cancelScopeRow, setCancelScopeRow] = useState<EventDisplayRow | null>(
+    null
+  );
+
+  const cancelEvent = useConfirmAction<EventDisplayRow>({
+    onConfirm: (row) => {
+      const mode = cancelScopeRef.current;
+      if (mode && row.seriesId) {
+        // "this" targets the event itself; "following"/"all" target the series parent
+        const targetId = mode === "this" ? row.eventId : row.seriesId;
+        return zero.mutate(
+          mutators.teamEvent.cancelSeries({
+            id: targetId,
+            mode,
+            originalDate: row.originalDate ?? undefined,
+            newExceptionId: mode === "this" ? uuidv7() : undefined,
+            now: Date.now(),
+          })
+        ).server;
+      }
+      return zero.mutate(
+        mutators.teamEvent.cancel({ id: row.event.id, now: Date.now() })
+      ).server;
+    },
+    onSuccess: () => {
+      toast.success("Event cancelled");
+      cancelScopeRef.current = null;
+      setCancelScopeRow(null);
+    },
     onError: (msg) => {
       log.error({
         component: "TeamDetail",
@@ -147,8 +211,33 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         error: msg ?? "unknown",
       });
       toast.error("Failed to cancel event");
+      cancelScopeRef.current = null;
+      setCancelScopeRow(null);
     },
   });
+
+  const handleCancelEvent = useCallback(
+    (row: EventDisplayRow) => {
+      if (row.seriesId) {
+        setCancelScopeRow(row);
+        setCancelScopeDialogOpen(true);
+      } else {
+        cancelEvent.trigger(row);
+      }
+    },
+    [cancelEvent]
+  );
+
+  const handleCancelScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setCancelScopeDialogOpen(false);
+      cancelScopeRef.current = scope;
+      if (cancelScopeRow) {
+        cancelEvent.trigger(cancelScopeRow);
+      }
+    },
+    [cancelEvent, cancelScopeRow]
+  );
 
   const [events] = useQuery(queries.teamEvent.byTeam({ teamId: team.id }));
 
@@ -182,8 +271,13 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     });
   };
 
-  const handleSelectEvent = (event: EventRow) => {
-    navigate({ to: "/events/$id", params: { id: event.id } });
+  const handleSelectEvent = (row: EventDisplayRow) => {
+    navigate({
+      to: "/events/$id",
+      params: { id: row.eventId },
+      search:
+        row.isVirtual && row.originalDate ? { occDate: row.originalDate } : {},
+    });
   };
 
   const editEventData = dialog.getData("editEvent");
@@ -253,8 +347,8 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           <EventsTable
             canManage={canManage}
             events={(events as EventRow[]) ?? []}
-            onCancelEvent={(event) => cancelEvent.trigger(event)}
-            onEditEvent={(event) => dialog.open({ type: "editEvent", event })}
+            onCancelEvent={handleCancelEvent}
+            onEditEvent={handleEditEvent}
             onSelectEvent={handleSelectEvent}
             toolbarActions={
               canManage ? (
@@ -309,28 +403,52 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           />
         ) : null}
 
+        {/* Edit Scope Dialog */}
+        <EditScopeDialog
+          onOpenChange={setEditScopeDialogOpen}
+          onSelect={handleEditScopeSelect}
+          open={editScopeDialogOpen}
+          title="Edit recurring event"
+        />
+
+        {/* Cancel Scope Dialog */}
+        <EditScopeDialog
+          onOpenChange={setCancelScopeDialogOpen}
+          onSelect={handleCancelScopeSelect}
+          open={cancelScopeDialogOpen}
+          title="Cancel recurring event"
+        />
+
         {/* Edit Event Dialog */}
         {editEventData ? (
           <EventFormDialog
+            editScope={editScope ?? undefined}
             initialValues={{
-              id: editEventData.event.id,
-              name: editEventData.event.name,
-              description: editEventData.event.description,
+              id: editEventData.event.eventId,
+              name: editEventData.event.event.name,
+              description: editEventData.event.event.description,
               endTime: editEventData.event.endTime,
-              isPublic: editEventData.event.isPublic ?? false,
-              location: editEventData.event.location,
-              parentEventId: editEventData.event.parentEventId,
-              recurrenceRule: editEventData.event.recurrenceRule as {
-                frequency: "weekly" | "biweekly" | "monthly";
-                endDate?: string;
+              isPublic: editEventData.event.event.isPublic ?? false,
+              location: editEventData.event.event.location,
+              seriesId: editEventData.event.seriesId,
+              recurrenceRule: editEventData.event.event.recurrenceRule as {
+                rrule: string;
+                exdates?: string[];
               } | null,
               startTime: editEventData.event.startTime,
-              whatsappGroupId: editEventData.event.whatsappGroupId,
-              feedbackEnabled: !!editEventData.event.feedbackEnabled,
-              feedbackDeadline: editEventData.event.feedbackDeadline,
+              whatsappGroupId: editEventData.event.event.whatsappGroupId,
+              feedbackEnabled: !!editEventData.event.event.feedbackEnabled,
+              feedbackDeadline: editEventData.event.event.feedbackDeadline,
             }}
-            onOpenChange={dialog.onOpenChange}
+            onOpenChange={(open) => {
+              dialog.onOpenChange(open);
+              if (!open) {
+                setEditScope(null);
+                setEditScopeRow(null);
+              }
+            }}
             open
+            originalDate={editEventData.event.originalDate ?? undefined}
             teamId={team.id}
           />
         ) : null}
@@ -371,7 +489,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         <ConfirmDialog
           cancelLabel="Keep Event"
           confirmLabel="Cancel Event"
-          description={`Are you sure you want to cancel "${cancelEvent.payload?.name}"? This action cannot be undone and all members will be notified.`}
+          description={`Are you sure you want to cancel "${cancelEvent.payload?.event.name}"? This action cannot be undone and all members will be notified.`}
           loading={cancelEvent.isLoading}
           loadingLabel="Cancelling..."
           onConfirm={cancelEvent.confirm}

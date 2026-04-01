@@ -7,7 +7,8 @@
     "./queries": "./src/queries.ts",
     "./mutators": "./src/mutators.ts",
     "./vendor-patterns": "./src/vendor-patterns.ts",
-    "./vendor-payment-constants": "./src/vendor-payment-constants.ts"
+    "./vendor-payment-constants": "./src/vendor-payment-constants.ts",
+    "./rrule-utils": "./src/lib/rrule-utils.ts"
   },
   "scripts": {
     "dev": "bun run --env-file=../../.env --env-file=../../.env.worktree zero-cache-dev",
@@ -23,6 +24,7 @@
     "@rocicorp/zero": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zero": "^0.18.0",
+    "rrule": "^2.8.1",
     "uuidv7": "catalog:",
     "zod": "catalog:"
   },

@@ -3,14 +3,22 @@ import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { Loader } from "@/components/loader";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
+import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/$id")({
+  validateSearch: z.object({
+    occDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  }),
   head: () => ({
     meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -35,6 +43,7 @@ export const Route = createFileRoute("/_app/events/$id")({
 
 function EventDetailRouteComponent() {
   const { id } = Route.useParams();
+  const { occDate } = Route.useSearch();
   const { session } = Route.useRouteContext();
   const { hasPermission } = useApp();
 
@@ -78,6 +87,15 @@ function EventDetailRouteComponent() {
   );
   const isMember = event.members.some((m) => m.userId === session.user.id);
 
+  // For virtual occurrences, override the displayed start/end with the occurrence date
+  const displayEvent =
+    occDate && event.recurrenceRule
+      ? {
+          ...event,
+          ...applyOccurrenceDate(event.startTime, event.endTime, occDate),
+        }
+      : event;
+
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
@@ -86,7 +104,7 @@ function EventDetailRouteComponent() {
         canManageFeedback={canManageFeedback}
         canManageVolunteers={canManage}
         currentUserId={session.user.id}
-        event={event}
+        event={displayEvent}
         interests={
           interests as readonly (EventInterest & {
             user: User | undefined;
@@ -94,6 +112,7 @@ function EventDetailRouteComponent() {
         }
         isMember={isMember}
         myInterest={myInterest ?? null}
+        occDate={occDate}
         team={team}
       />
     </div>

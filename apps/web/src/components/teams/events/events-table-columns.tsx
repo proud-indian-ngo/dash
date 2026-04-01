@@ -1,17 +1,12 @@
-import { AddSquareIcon, MinusSignSquareIcon } from "@hugeicons/core-free-icons";
+import { RepeatIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
-import { OccurrencesSubTable } from "@/components/teams/events/event-occurrences-subtable";
-import type {
-  EventRow,
-  ParentEventRow,
-} from "@/components/teams/events/events-table-helpers";
+import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
 import {
   getEventStatus,
   getRecurrenceLabel,
@@ -25,9 +20,9 @@ import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 
 interface ColumnCallbacks {
   canManage: boolean;
-  onCancelEvent: (event: EventRow) => void;
-  onEditEvent: (event: EventRow) => void;
-  onSelectEvent: (event: EventRow) => void;
+  onCancelEvent: (row: EventDisplayRow) => void;
+  onEditEvent: (row: EventDisplayRow) => void;
+  onSelectEvent: (row: EventDisplayRow) => void;
 }
 
 export function createEventsTableColumns({
@@ -35,63 +30,28 @@ export function createEventsTableColumns({
   onCancelEvent,
   onEditEvent,
   onSelectEvent,
-}: ColumnCallbacks): (ColumnDef<ParentEventRow> & {
+}: ColumnCallbacks): (ColumnDef<EventDisplayRow> & {
   enableColumnOrdering?: boolean;
 })[] {
   return [
     {
-      id: "expand",
-      header: "",
-      cell: ({ row }) =>
-        row.getCanExpand() ? (
-          <Button
-            aria-label={
-              row.getIsExpanded()
-                ? "Collapse occurrences"
-                : "Expand occurrences"
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              row.toggleExpanded();
-            }}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={row.getIsExpanded() ? MinusSignSquareIcon : AddSquareIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null,
-      size: 40,
-      minSize: 40,
-      enableSorting: false,
-      enableHiding: false,
-      enableResizing: false,
-      enableColumnOrdering: false,
-      meta: {
-        expandedContent: (data: ParentEventRow) => (
-          <OccurrencesSubTable
-            canManage={canManage}
-            occurrences={data.occurrences}
-            onCancelEvent={onCancelEvent}
-            onEditEvent={onEditEvent}
-            onSelectEvent={onSelectEvent}
-          />
-        ),
-      },
-    },
-    {
       id: "name",
-      accessorFn: (row) => row.name,
+      accessorFn: (row) => row.event.name,
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       cell: ({ row }) => {
         const hasStarted = new Date(row.original.startTime) <= new Date();
+        const isSeries = !!row.original.seriesId;
         return (
           <div className="flex min-w-0 items-center gap-1.5">
+            {isSeries ? (
+              <HugeiconsIcon
+                className="size-3.5 shrink-0 text-muted-foreground"
+                icon={RepeatIcon}
+                strokeWidth={2}
+              />
+            ) : null}
             <button
               className="truncate text-left font-medium text-sm hover:underline"
               onClick={(e) => {
@@ -100,7 +60,7 @@ export function createEventsTableColumns({
               }}
               type="button"
             >
-              {row.original.name}
+              {row.original.event.name}
             </button>
             {hasStarted ? (
               <Badge className="shrink-0" variant="outline">
@@ -159,7 +119,7 @@ export function createEventsTableColumns({
     },
     {
       id: "location",
-      accessorFn: (row) => row.location,
+      accessorFn: (row) => row.event.location,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -169,7 +129,7 @@ export function createEventsTableColumns({
       ),
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
-          {row.original.location || "\u2014"}
+          {row.original.event.location || "\u2014"}
         </span>
       ),
       meta: {
@@ -180,7 +140,7 @@ export function createEventsTableColumns({
     },
     {
       id: "isPublic",
-      accessorFn: (row) => row.isPublic,
+      accessorFn: (row) => row.event.isPublic,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -189,7 +149,7 @@ export function createEventsTableColumns({
         />
       ),
       cell: ({ row }) =>
-        row.original.isPublic ? (
+        row.original.event.isPublic ? (
           <Badge variant="default">Public</Badge>
         ) : (
           <Badge variant="secondary">Private</Badge>
@@ -211,13 +171,13 @@ export function createEventsTableColumns({
         />
       ),
       cell: ({ row }) => {
-        const rule = row.original.recurrenceRule as
-          | { frequency: string }
+        const rule = row.original.event.recurrenceRule as
+          | { rrule: string }
           | null
           | undefined;
         const label = getRecurrenceLabel(rule);
         return (
-          <Badge variant={label === "One-time" ? "secondary" : "default"}>
+          <Badge variant={label === "One-time" ? "secondary" : "outline"}>
             {label}
           </Badge>
         );
@@ -255,10 +215,9 @@ export function createEventsTableColumns({
       cell: ({ row }) => (
         <EventActionsMenu
           canManage={canManage}
-          event={row.original}
-          onCancelEvent={onCancelEvent}
-          onEditEvent={onEditEvent}
-          onSelectEvent={onSelectEvent}
+          onCancelEvent={() => onCancelEvent(row.original)}
+          onEditEvent={() => onEditEvent(row.original)}
+          onSelectEvent={() => onSelectEvent(row.original)}
         />
       ),
       enableHiding: false,

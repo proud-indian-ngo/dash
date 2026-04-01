@@ -36,7 +36,7 @@ test.describe("Create event (admin)", () => {
     await expect(dialog.getByLabel("Start Time")).toBeVisible();
     await expect(dialog.getByLabel("End Time")).toBeVisible();
     await expect(dialog.getByLabel("Public")).toBeVisible();
-    await expect(dialog.getByLabel("Recurrence")).toBeVisible();
+    await expect(dialog.getByText("Recurrence")).toBeVisible();
   });
 
   test("Create button is disabled when name is empty", async ({ page }) => {
@@ -71,8 +71,8 @@ test.describe("Create event (admin)", () => {
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
   });
 
-  test("creates a recurring event successfully", async ({ page }) => {
-    const eventName = `E2E Recurring ${Date.now()}`;
+  test("creates a weekly recurring event successfully", async ({ page }) => {
+    const eventName = `E2E Weekly ${Date.now()}`;
 
     await page.getByRole("button", { name: "Create Event" }).click();
     const dialog = page.getByRole("dialog");
@@ -85,14 +85,46 @@ test.describe("Create event (admin)", () => {
       .getByLabel("Start Time")
       .fill(tomorrow.toISOString().slice(0, 16));
 
-    // Select weekly recurrence
-    await dialog.getByLabel("Recurrence").click();
+    // Select weekly recurrence from the builder
+    await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
-    await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
+
+    // Recurring event should show multiple occurrences in the table
+    await expect(page.getByText(eventName).first()).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("recurrence builder shows preview of upcoming dates", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Create Event" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByLabel("Name", { exact: true }).fill("Preview Test");
+
+    // Set start time so preview can calculate dates
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    await dialog
+      .getByLabel("Start Time")
+      .fill(tomorrow.toISOString().slice(0, 16));
+
+    // Select daily recurrence
+    await dialog.getByText("None (one-time)").click();
+    await page.getByRole("option", { name: "Daily" }).click();
+
+    // Preview section should show upcoming dates
+    await expect(dialog.getByText("Next")).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText("occurrences")).toBeVisible();
+  });
+
+  test("table shows Recurrence column", async ({ page }) => {
+    await expect(page.getByText("Recurrence")).toBeVisible();
   });
 });

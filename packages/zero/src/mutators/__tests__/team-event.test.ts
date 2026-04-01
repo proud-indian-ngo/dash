@@ -3,8 +3,8 @@ import z from "zod";
 
 const recurrenceRuleSchema = z
   .object({
-    frequency: z.enum(["weekly", "biweekly", "monthly"]),
-    endDate: z.string().optional(),
+    rrule: z.string(),
+    exdates: z.array(z.string()).optional(),
   })
   .optional();
 
@@ -20,7 +20,6 @@ const createSchema = z.object({
   recurrenceRule: recurrenceRuleSchema,
   whatsappGroupId: z.string().optional(),
   createWhatsAppGroup: z.boolean().optional(),
-  copyAllMembers: z.boolean().optional(),
   now: z.number(),
 });
 
@@ -56,6 +55,40 @@ const removeMemberSchema = z.object({
   memberId: z.string(),
 });
 
+const materializeSchema = z.object({
+  id: z.string(),
+  seriesId: z.string(),
+  originalDate: z.string(),
+  now: z.number(),
+});
+
+const updateSeriesSchema = z.object({
+  id: z.string(),
+  mode: z.enum(["this", "following", "all"]),
+  originalDate: z.string().optional(),
+  newExceptionId: z.string().optional(),
+  newSeriesId: z.string().optional(),
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  location: z.string().optional(),
+  now: z.number(),
+  startTime: z.number().optional(),
+  endTime: z.number().optional(),
+  isPublic: z.boolean().optional(),
+  recurrenceRule: recurrenceRuleSchema,
+  feedbackEnabled: z.boolean().optional(),
+  feedbackDeadline: z.number().nullable().optional(),
+  whatsappGroupId: z.string().optional(),
+});
+
+const cancelSeriesSchema = z.object({
+  id: z.string(),
+  mode: z.enum(["this", "following", "all"]),
+  originalDate: z.string().optional(),
+  newExceptionId: z.string().optional(),
+  now: z.number(),
+});
+
 describe("teamEvent mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input with all fields", () => {
@@ -68,7 +101,7 @@ describe("teamEvent mutator schemas", () => {
         startTime: 1_700_000_000_000,
         endTime: 1_700_003_600_000,
         isPublic: true,
-        recurrenceRule: { frequency: "weekly" },
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO" },
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
@@ -122,19 +155,19 @@ describe("teamEvent mutator schemas", () => {
         teamId: "team-1",
         name: "Recurring",
         startTime: 1_700_000_000_000,
-        recurrenceRule: { frequency: "monthly", endDate: "2026-12-31" },
+        recurrenceRule: { rrule: "FREQ=MONTHLY;BYDAY=1SA;UNTIL=20261231" },
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
     });
 
-    it("rejects invalid recurrence frequency", () => {
+    it("rejects invalid recurrence rule", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
         teamId: "team-1",
         name: "Recurring",
         startTime: 1_700_000_000_000,
-        recurrenceRule: { frequency: "daily" },
+        recurrenceRule: { rrule: 123 },
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(false);
@@ -255,6 +288,105 @@ describe("teamEvent mutator schemas", () => {
         eventId: "evt-1",
       });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("materialize", () => {
+    it("accepts valid input", () => {
+      const result = materializeSchema.safeParse({
+        id: "exc-1",
+        seriesId: "evt-1",
+        originalDate: "2026-04-12",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects missing originalDate", () => {
+      const result = materializeSchema.safeParse({
+        id: "exc-1",
+        seriesId: "evt-1",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("updateSeries", () => {
+    it("accepts 'all' mode with recurrence update", () => {
+      const result = updateSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "all",
+        name: "Updated name",
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO,WE" },
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts 'this' mode with originalDate", () => {
+      const result = updateSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "this",
+        originalDate: "2026-04-12",
+        newExceptionId: "exc-1",
+        name: "Special session",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts 'following' mode with new series ID", () => {
+      const result = updateSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "following",
+        originalDate: "2026-04-19",
+        newSeriesId: "series-2",
+        name: "New series name",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects invalid mode", () => {
+      const result = updateSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "invalid",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("cancelSeries", () => {
+    it("accepts 'all' mode", () => {
+      const result = cancelSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "all",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts 'this' mode with originalDate", () => {
+      const result = cancelSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "this",
+        originalDate: "2026-04-12",
+        newExceptionId: "exc-1",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts 'following' mode", () => {
+      const result = cancelSeriesSchema.safeParse({
+        id: "evt-1",
+        mode: "following",
+        originalDate: "2026-04-19",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
     });
   });
 });

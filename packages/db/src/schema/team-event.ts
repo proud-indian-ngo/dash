@@ -40,15 +40,14 @@ export const teamEvent = pgTable(
       () => whatsappGroup.id,
       { onDelete: "set null" }
     ),
-    copyAllMembers: boolean("copy_all_members").default(false).notNull(),
     recurrenceRule: jsonb("recurrence_rule").$type<{
-      endDate?: string;
-      frequency: "weekly" | "biweekly" | "monthly";
+      rrule: string;
+      exdates?: string[];
     }>(),
-    parentEventId: uuid("parent_event_id").references(
-      (): AnyPgColumn => teamEvent.id,
-      { onDelete: "set null" }
-    ),
+    seriesId: uuid("series_id").references((): AnyPgColumn => teamEvent.id, {
+      onDelete: "cascade",
+    }),
+    originalDate: text("original_date"),
     cancelledAt: timestamp("cancelled_at"),
     feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
     feedbackDeadline: timestamp("feedback_deadline"),
@@ -60,13 +59,13 @@ export const teamEvent = pgTable(
   },
   (table) => [
     index("team_event_teamId_idx").on(table.teamId),
-    index("team_event_parentEventId_idx").on(table.parentEventId),
+    index("team_event_seriesId_idx").on(table.seriesId),
     // PostgreSQL treats each NULL as distinct in unique indexes, so rows with
-    // parentEventId = NULL are never constrained by this index. Only child
-    // occurrences (non-NULL parentEventId) are deduplicated by (parent, startTime).
-    uniqueIndex("team_event_parent_start_uidx").on(
-      table.parentEventId,
-      table.startTime
+    // seriesId = NULL are never constrained by this index. Only exception
+    // rows (non-NULL seriesId) are deduplicated by (series, originalDate).
+    uniqueIndex("team_event_series_originalDate_uidx").on(
+      table.seriesId,
+      table.originalDate
     ),
     check(
       "team_event_end_after_start_chk",
@@ -111,12 +110,12 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
     fields: [teamEvent.whatsappGroupId],
     references: [whatsappGroup.id],
   }),
-  parentEvent: one(teamEvent, {
-    fields: [teamEvent.parentEventId],
+  series: one(teamEvent, {
+    fields: [teamEvent.seriesId],
     references: [teamEvent.id],
-    relationName: "parentChild",
+    relationName: "seriesExceptions",
   }),
-  occurrences: many(teamEvent, { relationName: "parentChild" }),
+  exceptions: many(teamEvent, { relationName: "seriesExceptions" }),
   members: many(teamEventMember),
   interests: many(eventInterest),
   feedback: many(eventFeedback),

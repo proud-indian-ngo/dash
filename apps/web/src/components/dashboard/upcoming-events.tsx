@@ -8,14 +8,33 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { expandSeries, type RecurrenceRule } from "@pi-dash/zero/rrule-utils";
 import { Link } from "@tanstack/react-router";
-import { format } from "date-fns";
+import { addWeeks, format } from "date-fns";
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 
+interface TeamEventException {
+  cancelledAt: number | null;
+  originalDate: string | null;
+  startTime: number;
+}
+
 interface TeamEvent {
+  endTime: number | null;
+  exceptions: readonly TeamEventException[];
   id: string;
   interests: readonly { id: string }[];
+  isPublic: boolean | null;
+  name: string;
+  recurrenceRule: unknown;
+  startTime: number;
+  team: { id: string; name: string } | undefined;
+}
+
+interface UpcomingItem {
+  eventId: string;
+  interestCount: number;
   isPublic: boolean | null;
   name: string;
   startTime: number;
@@ -77,36 +96,36 @@ function UpcomingEventsEmpty() {
   );
 }
 
-function UpcomingEventsList({ events }: { events: TeamEvent[] }) {
+function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
   return (
     <div className="space-y-3">
-      {events.map((event) => (
+      {items.map((item) => (
         <Link
           className="block rounded-md p-2 transition-colors hover:bg-muted/50"
-          key={event.id}
-          params={{ id: event.id }}
+          key={`${item.eventId}-${item.startTime}`}
+          params={{ id: item.eventId }}
           to="/events/$id"
         >
           <div className="flex items-center gap-2">
-            <p className="truncate font-medium text-sm">{event.name}</p>
-            {event.isPublic && (
+            <p className="truncate font-medium text-sm">{item.name}</p>
+            {item.isPublic && (
               <Badge size="xs" variant="info-light">
                 Public
               </Badge>
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
-            <span>{format(event.startTime, LONG_DATE_TIME)}</span>
-            {event.team && (
+            <span>{format(item.startTime, LONG_DATE_TIME)}</span>
+            {item.team && (
               <>
                 <span>&middot;</span>
-                <span>{event.team.name}</span>
+                <span>{item.team.name}</span>
               </>
             )}
-            {event.interests.length > 0 && (
+            {item.interestCount > 0 && (
               <>
                 <span>&middot;</span>
-                <span>{event.interests.length} interested</span>
+                <span>{item.interestCount} interested</span>
               </>
             )}
           </div>
@@ -117,19 +136,77 @@ function UpcomingEventsList({ events }: { events: TeamEvent[] }) {
 }
 
 function UpcomingEventsContent({
-  events,
+  items,
   isLoading,
 }: {
-  events: TeamEvent[];
+  items: UpcomingItem[];
   isLoading?: boolean;
 }) {
   if (isLoading) {
     return <UpcomingEventsSkeleton />;
   }
-  if (events.length === 0) {
+  if (items.length === 0) {
     return <UpcomingEventsEmpty />;
   }
-  return <UpcomingEventsList events={events} />;
+  return <UpcomingEventsList items={items} />;
+}
+
+function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
+  const now = Date.now();
+  const rangeEnd = addWeeks(new Date(), 8).getTime();
+  const items: UpcomingItem[] = [];
+
+  for (const event of events) {
+    const rule = event.recurrenceRule as RecurrenceRule | null;
+    const base = {
+      eventId: event.id,
+      isPublic: event.isPublic,
+      name: event.name,
+      team: event.team,
+      interestCount: event.interests.length,
+    };
+
+    if (!rule) {
+      if (event.startTime > now) {
+        items.push({ ...base, startTime: event.startTime });
+      }
+      continue;
+    }
+
+    const exceptions = event.exceptions ?? [];
+    const exceptionDates = new Set<string>();
+    for (const exc of exceptions) {
+      if (exc.originalDate) {
+        exceptionDates.add(exc.originalDate);
+      }
+    }
+
+    const occs = expandSeries(
+      rule,
+      event.startTime,
+      event.endTime,
+      now,
+      rangeEnd,
+      exceptionDates
+    );
+    for (const occ of occs) {
+      items.push({ ...base, startTime: occ.startTime });
+    }
+
+    // Add back non-cancelled materialized exceptions in range
+    for (const exc of exceptions) {
+      if (
+        !exc.cancelledAt &&
+        exc.startTime >= now &&
+        exc.startTime <= rangeEnd
+      ) {
+        items.push({ ...base, startTime: exc.startTime });
+      }
+    }
+  }
+
+  items.sort((a, b) => a.startTime - b.startTime);
+  return items.slice(0, MAX_EVENTS);
 }
 
 export function UpcomingEvents({
@@ -139,10 +216,7 @@ export function UpcomingEvents({
   events: readonly TeamEvent[];
   isLoading?: boolean;
 }) {
-  const upcoming = events
-    .filter((e) => e.startTime > Date.now())
-    .sort((a, b) => a.startTime - b.startTime)
-    .slice(0, MAX_EVENTS);
+  const upcoming = buildUpcomingItems(events);
 
   return (
     <Card>
@@ -157,7 +231,7 @@ export function UpcomingEvents({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <UpcomingEventsContent events={upcoming} isLoading={isLoading} />
+        <UpcomingEventsContent isLoading={isLoading} items={upcoming} />
       </CardContent>
     </Card>
   );

@@ -11,6 +11,7 @@ import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { DateTimeField } from "@/components/form/date-time-field";
@@ -20,6 +21,8 @@ import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { handleMutationResult } from "@/lib/mutation-result";
+import type { EditScope } from "./edit-scope-dialog";
+import { RecurrenceBuilder } from "./recurrence-builder";
 
 const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -31,9 +34,7 @@ const eventFormSchema = z.object({
     .refine((d): d is Date => d != null, "Start time is required"),
   endTime: z.date().optional(),
   isPublic: z.boolean(),
-  frequency: z.enum(["", "weekly", "biweekly", "monthly"]),
-  recurrenceEndDate: z.string().optional(),
-  copyAllMembers: z.boolean(),
+  rrule: z.string().optional(),
   whatsappGroupId: z.string().optional(),
   createWaGroup: z.boolean(),
   feedbackEnabled: z.boolean(),
@@ -68,19 +69,21 @@ interface InitialValues {
   isPublic: boolean;
   location: string | null;
   name: string;
-  parentEventId: string | null;
   recurrenceRule: {
-    frequency: "weekly" | "biweekly" | "monthly";
-    endDate?: string;
+    rrule: string;
+    exdates?: string[];
   } | null;
+  seriesId: string | null;
   startTime: number;
   whatsappGroupId: string | null;
 }
 
 interface EventFormDialogProps {
+  editScope?: EditScope;
   initialValues?: InitialValues;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  originalDate?: string;
   teamId: string;
 }
 
@@ -94,9 +97,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
       ? new Date(initialValues.endTime)
       : undefined,
     isPublic: initialValues?.isPublic ?? false,
-    frequency: initialValues?.recurrenceRule?.frequency ?? "",
-    recurrenceEndDate: initialValues?.recurrenceRule?.endDate ?? "",
-    copyAllMembers: false,
+    rrule: initialValues?.recurrenceRule?.rrule ?? "",
     whatsappGroupId: initialValues?.whatsappGroupId ?? "",
     createWaGroup: false,
     feedbackEnabled: initialValues?.feedbackEnabled ?? false,
@@ -129,15 +130,38 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
   };
 }
 
+function buildUpdateSeriesArgs(
+  id: string,
+  value: EventFormValues,
+  editScope: EditScope,
+  originalDate?: string
+) {
+  const base = {
+    id,
+    mode: editScope as "this" | "following" | "all",
+    name: value.name.trim(),
+    description: value.description?.trim() || undefined,
+    location: value.location?.trim() || undefined,
+    now: Date.now(),
+    startTime: getStartTimeEpoch(value),
+    endTime: value.endTime?.getTime(),
+    isPublic: value.isPublic,
+    whatsappGroupId: value.whatsappGroupId || undefined,
+    feedbackEnabled: value.feedbackEnabled,
+    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    recurrenceRule: value.rrule ? { rrule: value.rrule } : undefined,
+  };
+  if (editScope === "this") {
+    return { ...base, originalDate, newExceptionId: uuidv7() };
+  }
+  if (editScope === "following") {
+    return { ...base, originalDate, newSeriesId: uuidv7() };
+  }
+  return base;
+}
+
 function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
-  const recurrenceRule = value.frequency
-    ? {
-        frequency: value.frequency as "weekly" | "biweekly" | "monthly",
-        ...(value.recurrenceEndDate
-          ? { endDate: value.recurrenceEndDate }
-          : {}),
-      }
-    : undefined;
+  const recurrenceRule = value.rrule ? { rrule: value.rrule } : undefined;
 
   return {
     id: crypto.randomUUID(),
@@ -150,7 +174,6 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     isPublic: value.isPublic,
     whatsappGroupId: value.whatsappGroupId || undefined,
     createWhatsAppGroup: value.createWaGroup || undefined,
-    copyAllMembers: value.copyAllMembers || undefined,
     now: Date.now(),
     recurrenceRule,
     feedbackEnabled: value.feedbackEnabled,
@@ -158,16 +181,63 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
   };
 }
 
+function getMutation(
+  zero: ReturnType<typeof useZero>,
+  value: EventFormValues,
+  editScope: EditScope | undefined,
+  initialValues: InitialValues | undefined,
+  originalDate: string | undefined,
+  isEdit: boolean,
+  teamId: string
+) {
+  if (editScope && initialValues) {
+    // "this" targets the event itself (exception or series parent).
+    // "following"/"all" target the series parent.
+    const targetId =
+      editScope === "this"
+        ? initialValues.id
+        : (initialValues.seriesId ?? initialValues.id);
+    return {
+      mutation: zero.mutate(
+        mutators.teamEvent.updateSeries(
+          buildUpdateSeriesArgs(targetId, value, editScope, originalDate)
+        )
+      ),
+      mutationName: "teamEvent.updateSeries",
+    };
+  }
+  if (isEdit && initialValues) {
+    return {
+      mutation: zero.mutate(
+        mutators.teamEvent.update(
+          buildUpdateMutatorArgs(initialValues.id, value)
+        )
+      ),
+      mutationName: "teamEvent.update",
+    };
+  }
+  return {
+    mutation: zero.mutate(
+      mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
+    ),
+    mutationName: "teamEvent.create",
+  };
+}
+
 function EventFormContent({
+  editScope,
   initialValues,
   isEdit,
   onOpenChange,
+  originalDate,
   teamId,
   waGroupOptions,
 }: {
+  editScope?: EditScope;
   initialValues?: InitialValues;
   isEdit: boolean;
   onOpenChange: (open: boolean) => void;
+  originalDate?: string;
   teamId: string;
   waGroupOptions: { label: string; value: string }[];
 }) {
@@ -176,16 +246,15 @@ function EventFormContent({
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
     onSubmit: async ({ value }) => {
-      const mutation =
-        isEdit && initialValues
-          ? zero.mutate(
-              mutators.teamEvent.update(
-                buildUpdateMutatorArgs(initialValues.id, value)
-              )
-            )
-          : zero.mutate(
-              mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
-            );
+      const { mutation, mutationName } = getMutation(
+        zero,
+        value,
+        editScope,
+        initialValues,
+        originalDate,
+        isEdit,
+        teamId
+      );
       const entityId = isEdit && initialValues ? initialValues.id : "new";
       let successMsg = "Event created";
       if (isEdit) {
@@ -195,7 +264,7 @@ function EventFormContent({
       }
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
+        mutation: mutationName,
         entityId,
         successMsg,
         errorMsg: isEdit ? "Failed to update event" : "Failed to create event",
@@ -233,37 +302,20 @@ function EventFormContent({
       <DateTimeField isRequired label="Start Time" name="startTime" />
       <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
-      {!isEdit && (
-        <>
-          <SelectField
-            label="Recurrence"
-            name="frequency"
-            options={[
-              { label: "None", value: "" },
-              { label: "Weekly", value: "weekly" },
-              { label: "Biweekly", value: "biweekly" },
-              { label: "Monthly", value: "monthly" },
-            ]}
-            placeholder="None"
-          />
-          <form.Subscribe selector={(state) => state.values.frequency}>
-            {(frequency) =>
-              frequency ? (
-                <>
-                  <InputField
-                    label="Recurrence End Date"
-                    name="recurrenceEndDate"
-                    type="date"
-                  />
-                  <CheckboxField
-                    label="Copy all members to recurring events"
-                    name="copyAllMembers"
-                  />
-                </>
-              ) : null
-            }
-          </form.Subscribe>
-        </>
+      {/* Show recurrence builder: on create, scope edits for "all"/"following", or editing a series parent directly */}
+      {(!isEdit ||
+        editScope === "all" ||
+        editScope === "following" ||
+        (!editScope && !!initialValues?.recurrenceRule)) && (
+        <form.Field name="rrule">
+          {(field) => (
+            <RecurrenceBuilder
+              onChange={(v) => field.handleChange(v)}
+              startTime={form.state.values.startTime}
+              value={field.state.value ?? ""}
+            />
+          )}
+        </form.Field>
       )}
       <SelectField
         label="WhatsApp Group"
@@ -308,10 +360,12 @@ function EventFormContent({
 }
 
 export function EventFormDialog({
+  editScope,
   teamId,
   initialValues,
   onOpenChange,
   open,
+  originalDate,
 }: EventFormDialogProps) {
   const isEdit = !!initialValues;
   // Increment key each time dialog opens to remount form with fresh state
@@ -343,10 +397,12 @@ export function EventFormDialog({
           </DialogDescription>
         </DialogHeader>
         <EventFormContent
+          editScope={editScope}
           initialValues={initialValues}
           isEdit={isEdit}
           key={formKey}
           onOpenChange={onOpenChange}
+          originalDate={originalDate}
           teamId={teamId}
           waGroupOptions={waGroupOptions}
         />

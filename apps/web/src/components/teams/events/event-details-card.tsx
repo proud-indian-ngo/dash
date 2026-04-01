@@ -14,7 +14,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
+import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
+import upperFirst from "lodash/upperFirst";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import type { EventRow } from "./events-table";
 
@@ -44,8 +47,9 @@ function PropertyRow({
 }
 
 export function EventDetailsCard({ event }: { event: EventRow }) {
+  const navigate = useNavigate();
   const recurrence = event.recurrenceRule as
-    | { frequency: string; endDate?: string }
+    | { rrule: string; exdates?: string[] }
     | null
     | undefined;
 
@@ -80,17 +84,26 @@ export function EventDetailsCard({ event }: { event: EventRow }) {
           </Badge>
         </PropertyRow>
 
-        {recurrence?.frequency ? (
+        {recurrence?.rrule ? (
           <PropertyRow icon={RepeatIcon} label="Recurrence">
-            {recurrence.frequency.charAt(0).toUpperCase() +
-              recurrence.frequency.slice(1)}
-            {recurrence.endDate ? ` until ${recurrence.endDate}` : null}
+            {upperFirst(rruleToLabel(recurrence.rrule))}
           </PropertyRow>
         ) : null}
 
-        {event.parentEventId ? (
+        {event.seriesId ? (
           <PropertyRow icon={RepeatIcon} label="Series">
-            Part of a recurring event
+            <button
+              className="text-left hover:underline"
+              onClick={() =>
+                navigate({
+                  to: "/events/$id",
+                  params: { id: event.seriesId as string },
+                })
+              }
+              type="button"
+            >
+              Part of a recurring series
+            </button>
           </PropertyRow>
         ) : null}
 

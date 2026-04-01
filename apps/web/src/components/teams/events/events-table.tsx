@@ -1,21 +1,29 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
 import type {
+  EventDisplayRow,
   EventRow,
-  ParentEventRow,
 } from "@/components/teams/events/events-table-helpers";
-import { searchEvent } from "@/components/teams/events/events-table-helpers";
+import {
+  buildEventDisplayRows,
+  getDefaultDateRange,
+  searchDisplayRow,
+} from "@/components/teams/events/events-table-helpers";
 
-export type { EventRow } from "@/components/teams/events/events-table-helpers";
+export type {
+  EventDisplayRow,
+  EventRow,
+} from "@/components/teams/events/events-table-helpers";
 
 interface EventsTableProps {
   canManage: boolean;
   events: EventRow[];
   isLoading?: boolean;
-  onCancelEvent: (event: EventRow) => void;
-  onEditEvent: (event: EventRow) => void;
-  onSelectEvent: (event: EventRow) => void;
+  onCancelEvent: (row: EventDisplayRow) => void;
+  onEditEvent: (row: EventDisplayRow) => void;
+  onSelectEvent: (row: EventDisplayRow) => void;
   toolbarActions?: ReactNode;
 }
 
@@ -28,25 +36,10 @@ export function EventsTable({
   onCancelEvent,
   toolbarActions,
 }: EventsTableProps) {
-  const parentRows = (() => {
-    const parents: EventRow[] = [];
-    const ocMap = new Map<string, EventRow[]>();
-
-    for (const event of events) {
-      if (event.parentEventId) {
-        const list = ocMap.get(event.parentEventId) ?? [];
-        list.push(event);
-        ocMap.set(event.parentEventId, list);
-      } else {
-        parents.push(event);
-      }
-    }
-
-    return parents.map<ParentEventRow>((p) => ({
-      ...p,
-      occurrences: ocMap.get(p.id) ?? [],
-    }));
-  })();
+  const displayRows = useMemo(() => {
+    const { start, end } = getDefaultDateRange();
+    return buildEventDisplayRows(events, start, end);
+  }, [events]);
 
   const columns = createEventsTableColumns({
     canManage,
@@ -56,17 +49,16 @@ export function EventsTable({
   });
 
   return (
-    <DataTableWrapper<ParentEventRow>
+    <DataTableWrapper<EventDisplayRow>
       columns={columns}
-      data={parentRows}
-      defaultColumnPinning={{ left: ["expand"], right: ["actions"] }}
+      data={displayRows}
+      defaultColumnPinning={{ right: ["actions"] }}
       emptyMessage="No events found."
-      getRowCanExpand={(row) => row.original.occurrences.length > 0}
-      getRowId={(row) => row.id}
+      getRowId={(row) => row.key}
       isLoading={isLoading}
-      searchFn={searchEvent}
+      searchFn={searchDisplayRow}
       searchPlaceholder="Search events..."
-      storageKey="events_table_state_v1"
+      storageKey="events_table_state_v2"
       tableLayout={{
         columnsResizable: true,
         columnsDraggable: true,

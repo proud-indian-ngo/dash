@@ -1,6 +1,5 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
-import { handleCreateRecurringEvents } from "./create-recurring-events";
 import {
   handleNotifyAdvancePaymentApproved,
   handleNotifyAdvancePaymentRejected,
@@ -98,7 +97,6 @@ const QUEUE_DEFAULTS: Omit<Queue, "name"> = {
 const QUEUE_OVERRIDES: Partial<
   Record<JobName | typeof DEAD_LETTER_QUEUE, Partial<Omit<Queue, "name">>>
 > = {
-  "create-recurring-events": { expireInSeconds: 1800 }, // 30 min — iterates all parent events
   "whatsapp-create-group": { expireInSeconds: 1800 },
 };
 
@@ -122,7 +120,6 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work("send-notification", handleSendNotification);
   await boss.work("send-bulk-notification", handleSendBulkNotification);
   await boss.work("send-whatsapp", handleSendWhatsApp);
-  await boss.work("create-recurring-events", handleCreateRecurringEvents);
   await boss.work("send-scheduled-message", handleSendScheduledMessage);
 
   // Notification handlers (5s polling — burst traffic, not continuous)

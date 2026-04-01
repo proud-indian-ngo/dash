@@ -30,10 +30,6 @@ export interface WhatsAppPayload {
   phone: string;
 }
 
-export interface RecurringEventsPayload {
-  triggeredAt: string; // ISO timestamp
-}
-
 export interface ScheduledMessagePayload {
   body: string;
   clickAction?: string;
@@ -395,7 +391,6 @@ export interface WhatsAppRemoveMemberTeamPayload {
 // -- Payload map ---------------------------------------------------------------
 
 export interface JobPayloads {
-  "create-recurring-events": RecurringEventsPayload;
   "notify-added-to-event": NotifyAddedToEventPayload;
   "notify-added-to-team": NotifyAddedToTeamPayload;
   "notify-advance-payment-approved": NotifyAdvancePaymentApprovedPayload;
@@ -462,7 +457,6 @@ export interface JobPayloads {
 export type JobName = keyof JobPayloads;
 
 export const QUEUE_NAMES: JobName[] = [
-  "create-recurring-events",
   "notify-added-to-event",
   "notify-added-to-team",
   "notify-advance-payment-approved",
