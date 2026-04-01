@@ -375,12 +375,19 @@ export const eventPhotoMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs");
-              await enqueue("notify-photo-approved", {
-                photoId: args.id,
-                eventId: photo.eventId,
-                eventName: event.name,
-                uploaderId: photo.uploadedBy,
-              });
+              const { env } = await import("@pi-dash/env/server");
+              await enqueue(
+                "notify-photo-approved",
+                {
+                  photoId: args.id,
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  uploaderId: photo.uploadedBy,
+                },
+                {
+                  startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                }
+              );
             },
           });
         }
@@ -455,12 +462,19 @@ export const eventPhotoMutators = {
               },
               fn: async () => {
                 const { enqueue } = await import("@pi-dash/jobs");
-                await enqueue("notify-photo-approved", {
-                  photoId: id,
-                  eventId: photo.eventId,
-                  eventName: event.name,
-                  uploaderId: photo.uploadedBy,
-                });
+                const { env } = await import("@pi-dash/env/server");
+                await enqueue(
+                  "notify-photo-approved",
+                  {
+                    photoId: id,
+                    eventId: photo.eventId,
+                    eventName: event.name,
+                    uploaderId: photo.uploadedBy,
+                  },
+                  {
+                    startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  }
+                );
               },
             });
           }
@@ -531,12 +545,19 @@ export const eventPhotoMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs");
-              await enqueue("notify-photo-rejected", {
-                photoId: args.id,
-                eventId: photo.eventId,
-                eventName: event.name,
-                uploaderId: photo.uploadedBy,
-              });
+              const { env } = await import("@pi-dash/env/server");
+              await enqueue(
+                "notify-photo-rejected",
+                {
+                  photoId: args.id,
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  uploaderId: photo.uploadedBy,
+                },
+                {
+                  startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                }
+              );
             },
           });
         }

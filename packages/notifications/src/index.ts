@@ -20,6 +20,8 @@ export {
 export {
   notifyPhotoApproved,
   notifyPhotoRejected,
+  notifyPhotosApproved,
+  notifyPhotosRejected,
 } from "./send/event-photo";
 export { notifyEventUpdatePosted } from "./send/event-update";
 export {

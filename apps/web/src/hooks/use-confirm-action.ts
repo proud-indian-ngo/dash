@@ -51,11 +51,15 @@ export function useConfirmAction<TPayload = void>(
     if (!isOpen) {
       return;
     }
+    // Snapshot before await — Zero reactivity can re-render the component
+    // mid-flight, overwriting optionsRef.current with stale derived values
+    // (e.g. successMsg built from pendingPhotos.length which becomes 0).
+    const snapshot = optionsRef.current;
     setIsLoading(true);
-    const res = await optionsRef.current.onConfirm(payload as TPayload);
+    const res = await snapshot.onConfirm(payload as TPayload);
     setIsLoading(false);
 
-    const { mutationMeta } = optionsRef.current;
+    const { mutationMeta } = snapshot;
     if (mutationMeta) {
       const entityId =
         typeof mutationMeta.entityId === "function"
@@ -71,10 +75,10 @@ export function useConfirmAction<TPayload = void>(
 
     if (res.type === "error") {
       if (!mutationMeta) {
-        optionsRef.current.onError?.(res.error?.message);
+        snapshot.onError?.(res.error?.message);
       }
     } else {
-      optionsRef.current.onSuccess?.();
+      snapshot.onSuccess?.();
       setIsOpen(false);
       setPayload(null);
     }

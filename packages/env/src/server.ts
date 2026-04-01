@@ -46,6 +46,12 @@ export const env = createEnv({
     IMMICH_API_KEY: z.string().min(1).optional(),
     APP_NAME: z.string().min(1).default("Proud Indian Dashboard"),
     APP_URL: z.url().optional(),
+    PHOTO_NOTIFICATION_DELAY_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(3600)
+      .default(120),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

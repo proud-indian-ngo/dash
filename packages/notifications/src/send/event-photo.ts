@@ -46,3 +46,45 @@ export async function notifyPhotoRejected({
     topic: TOPICS.EVENTS_PHOTOS,
   });
 }
+
+interface PhotosBatchOptions {
+  count: number;
+  eventId: string;
+  eventName: string;
+  idempotencyKey: string;
+  uploaderId: string;
+}
+
+export async function notifyPhotosApproved({
+  count,
+  eventId,
+  eventName,
+  idempotencyKey,
+  uploaderId,
+}: PhotosBatchOptions): Promise<void> {
+  await sendMessage({
+    to: uploaderId,
+    title: "Photos Approved",
+    body: `${count} of your photos for ${eventName} have been approved.`,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey,
+    topic: TOPICS.EVENTS_PHOTOS,
+  });
+}
+
+export async function notifyPhotosRejected({
+  count,
+  eventId,
+  eventName,
+  idempotencyKey,
+  uploaderId,
+}: PhotosBatchOptions): Promise<void> {
+  await sendMessage({
+    to: uploaderId,
+    title: "Photos Rejected",
+    body: `${count} of your photos for ${eventName} were rejected.`,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey,
+    topic: TOPICS.EVENTS_PHOTOS,
+  });
+}
