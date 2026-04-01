@@ -1,5 +1,6 @@
 import { env } from "@pi-dash/env/web";
 import type { ReactNode } from "react";
+import { DotGridCanvas } from "./dot-grid-canvas";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -24,8 +25,15 @@ export function AuthLayout({ children, panel }: AuthLayoutProps) {
           <div className="w-full max-w-sm">{children}</div>
         </div>
       </div>
-      <div className="hidden bg-gradient-to-b from-sidebar to-sidebar-accent text-sidebar-foreground lg:flex lg:items-center lg:justify-center lg:p-10">
-        {panel}
+      <div
+        className="relative hidden overflow-hidden text-sidebar-foreground lg:flex lg:items-center lg:justify-center lg:p-10"
+        style={{
+          background:
+            "linear-gradient(to bottom right, var(--auth-panel-from), var(--auth-panel-to))",
+        }}
+      >
+        <DotGridCanvas />
+        <div className="relative z-10">{panel}</div>
       </div>
     </main>
   );
