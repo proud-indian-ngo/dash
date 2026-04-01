@@ -15,7 +15,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -25,6 +25,8 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
+import type { EditScope } from "./edit-scope-dialog";
+import { EditScopeDialog } from "./edit-scope-dialog";
 import { EventAttendanceSection } from "./event-attendance-section";
 import { EventDetailsCard } from "./event-details-card";
 import { EventFeedbackSection } from "./event-feedback";
@@ -42,6 +44,79 @@ import type { InterestWithUser } from "./interest-requests";
 import { ShowInterestDialog } from "./show-interest-dialog";
 
 const TRAILING_SLASH = /\/$/;
+
+/** Shift an epoch-ms timestamp to a different date, preserving time-of-day. */
+function shiftToDate(epochMs: number, isoDate: string): number {
+  const d = new Date(epochMs);
+  const [y = 0, m = 1, day] = isoDate.split("-").map(Number);
+  d.setFullYear(y, m - 1, day);
+  return d.getTime();
+}
+
+function buildCancelMutation(
+  zero: ReturnType<typeof useZero>,
+  event: EventRow,
+  cancelScope: EditScope | null,
+  isRecurring: boolean,
+  scopeOccDate: string | undefined
+) {
+  const mode = cancelScope;
+  if (mode && isRecurring) {
+    // "this" targets the event itself; "following"/"all" target the series parent
+    const targetId = mode === "this" ? event.id : (event.seriesId ?? event.id);
+    return zero.mutate(
+      mutators.teamEvent.cancelSeries({
+        id: targetId,
+        mode,
+        originalDate: scopeOccDate,
+        newExceptionId: mode === "this" ? uuidv7() : undefined,
+        now: Date.now(),
+      })
+    ).server;
+  }
+  return zero.mutate(
+    mutators.teamEvent.cancel({ id: event.id, now: Date.now() })
+  ).server;
+}
+
+function deriveRecurrenceState(event: EventRow, occDate: string | undefined) {
+  const isVirtualOccurrence =
+    !!occDate && !!event.recurrenceRule && !event.seriesId;
+  const isRecurring = !!event.recurrenceRule || !!event.seriesId;
+  const isOccurrence = !!occDate || !!event.seriesId;
+  const scopeOccDate = occDate ?? event.originalDate ?? undefined;
+  return { isVirtualOccurrence, isRecurring, isOccurrence, scopeOccDate };
+}
+
+function deriveImmichUrl(
+  albumId: string | undefined | null,
+  immichUrl: string | undefined
+) {
+  if (!(albumId && immichUrl)) {
+    return null;
+  }
+  return `${immichUrl.replace(TRAILING_SLASH, "")}/albums/${albumId}`;
+}
+
+function deriveAddMemberTarget(
+  scope: EditScope | null,
+  event: EventRow,
+  isVirtualOccurrence: boolean,
+  materializeOccurrence: () => Promise<string | null>
+) {
+  if (scope === "all" || scope === "following") {
+    return {
+      addMemberEventId: event.seriesId ?? event.id,
+      addMemberOnBeforeAdd: undefined,
+    };
+  }
+  return {
+    addMemberEventId: event.id,
+    addMemberOnBeforeAdd: isVirtualOccurrence
+      ? materializeOccurrence
+      : undefined,
+  };
+}
 
 interface EventDetailProps {
   canManage: boolean;
@@ -257,9 +332,8 @@ export function EventDetail({
   const zero = useZero();
   const navigate = useNavigate();
 
-  // Whether this is a virtual occurrence that needs materialization before modification
-  const isVirtualOccurrence =
-    !!occDate && !!event.recurrenceRule && !event.seriesId;
+  const { isVirtualOccurrence, isRecurring, isOccurrence, scopeOccDate } =
+    deriveRecurrenceState(event, occDate);
 
   /**
    * Materialize this virtual occurrence. Returns the new exception event ID.
@@ -291,26 +365,33 @@ export function EventDetail({
 
   const dialog = useDialogManager<EventDialog>();
 
-  const cancelAction = useConfirmAction({
-    onConfirm: () => {
-      if (isVirtualOccurrence && occDate) {
-        // Cancel a virtual occurrence via cancelSeries "this" mode
-        return zero.mutate(
-          mutators.teamEvent.cancelSeries({
-            id: event.id,
-            mode: "this",
-            originalDate: occDate,
-            newExceptionId: uuidv7(),
-            now: Date.now(),
-          })
-        ).server;
-      }
-      return zero.mutate(
-        mutators.teamEvent.cancel({ id: event.id, now: Date.now() })
-      ).server;
+  // --- Edit scope state ---
+  const [editScope, setEditScope] = useState<EditScope | null>(null);
+  const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
+
+  const handleEditClick = isOccurrence
+    ? () => setEditScopeDialogOpen(true)
+    : () => dialog.open({ type: "edit" });
+
+  const handleEditScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setEditScopeDialogOpen(false);
+      setEditScope(scope);
+      dialog.open({ type: "edit" });
     },
+    [dialog]
+  );
+
+  // --- Cancel scope state ---
+  const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
+  const [cancelScope, setCancelScope] = useState<EditScope | null>(null);
+
+  const cancelAction = useConfirmAction({
+    onConfirm: () =>
+      buildCancelMutation(zero, event, cancelScope, isRecurring, scopeOccDate),
     onSuccess: () => {
       toast.success("Event cancelled");
+      setCancelScope(null);
       navigate({ to: "/teams/$id", params: { id: event.teamId } });
     },
     onError: (msg) => {
@@ -321,8 +402,47 @@ export function EventDetail({
         error: msg ?? "unknown",
       });
       toast.error("Failed to cancel event");
+      setCancelScope(null);
     },
   });
+
+  const handleCancelClick = isOccurrence
+    ? () => setCancelScopeDialogOpen(true)
+    : () => cancelAction.trigger();
+
+  const handleCancelScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setCancelScopeDialogOpen(false);
+      setCancelScope(scope);
+      cancelAction.trigger();
+    },
+    [cancelAction]
+  );
+
+  // --- Add member scope state ---
+  const [addMemberScopeDialogOpen, setAddMemberScopeDialogOpen] =
+    useState(false);
+  const [addMemberScope, setAddMemberScope] = useState<EditScope | null>(null);
+
+  const handleAddMemberClick = isOccurrence
+    ? () => setAddMemberScopeDialogOpen(true)
+    : () => dialog.open({ type: "addMember" });
+
+  const handleAddMemberScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setAddMemberScopeDialogOpen(false);
+      setAddMemberScope(scope);
+      dialog.open({ type: "addMember" });
+    },
+    [dialog]
+  );
+
+  const { addMemberEventId, addMemberOnBeforeAdd } = deriveAddMemberTarget(
+    addMemberScope,
+    event,
+    isVirtualOccurrence,
+    materializeOccurrence
+  );
 
   const status = deriveEventStatus(event);
   const eventTime = event.endTime ?? event.startTime;
@@ -348,14 +468,13 @@ export function EventDetail({
     queries.eventFeedback.byEvent({ eventId: event.id })
   );
 
-  const feedbackDeadlinePassed = event.feedbackDeadline
-    ? new Date(event.feedbackDeadline) < new Date()
-    : false;
+  const feedbackDeadlinePassed =
+    !!event.feedbackDeadline && new Date(event.feedbackDeadline) < new Date();
 
-  const immichAlbumUrl =
-    album?.immichAlbumId && env.VITE_IMMICH_URL
-      ? `${env.VITE_IMMICH_URL.replace(TRAILING_SLASH, "")}/albums/${album.immichAlbumId}`
-      : null;
+  const immichAlbumUrl = deriveImmichUrl(
+    album?.immichAlbumId,
+    env.VITE_IMMICH_URL
+  );
 
   const removeMember = useConfirmAction<string>({
     onConfirm: (memberId) =>
@@ -393,8 +512,8 @@ export function EventDetail({
           canCancel={canCancel}
           canManage={canManage}
           event={event}
-          onCancel={() => cancelAction.trigger()}
-          onEdit={() => dialog.open({ type: "edit" })}
+          onCancel={handleCancelClick}
+          onEdit={handleEditClick}
           status={status}
           teamName={team?.name ?? null}
         />
@@ -473,7 +592,7 @@ export function EventDetail({
               <EventMembersSection
                 canManage={canManageVolunteers}
                 members={event.members}
-                onAddMember={() => dialog.open({ type: "addMember" })}
+                onAddMember={handleAddMemberClick}
                 onRemoveMember={(id) => removeMember.trigger(id)}
               />
 
@@ -488,14 +607,34 @@ export function EventDetail({
         </div>
       </div>
 
+      <EditScopeDialog
+        onOpenChange={setEditScopeDialogOpen}
+        onSelect={handleEditScopeSelect}
+        open={editScopeDialogOpen}
+        title="Edit recurring event"
+      />
+
+      <EditScopeDialog
+        onOpenChange={setCancelScopeDialogOpen}
+        onSelect={handleCancelScopeSelect}
+        open={cancelScopeDialogOpen}
+        title="Cancel recurring event"
+      />
+
       <EventFormDialog
+        editScope={editScope ?? undefined}
         initialValues={{
           id: event.id,
           name: event.name,
           description: event.description,
           location: event.location,
-          startTime: event.startTime,
-          endTime: event.endTime,
+          startTime: occDate
+            ? shiftToDate(event.startTime, occDate)
+            : event.startTime,
+          endTime:
+            occDate && event.endTime
+              ? shiftToDate(event.endTime, occDate)
+              : event.endTime,
           isPublic: !!event.isPublic,
           whatsappGroupId: event.whatsappGroupId,
           seriesId: event.seriesId,
@@ -503,16 +642,34 @@ export function EventDetail({
           feedbackEnabled: !!event.feedbackEnabled,
           feedbackDeadline: event.feedbackDeadline,
         }}
-        onOpenChange={dialog.onOpenChange}
+        onOpenChange={(open) => {
+          dialog.onOpenChange(open);
+          if (!open) {
+            setEditScope(null);
+          }
+        }}
         open={dialog.isOpen("edit")}
+        originalDate={scopeOccDate}
         teamId={event.teamId}
       />
 
+      <EditScopeDialog
+        onOpenChange={setAddMemberScopeDialogOpen}
+        onSelect={handleAddMemberScopeSelect}
+        open={addMemberScopeDialogOpen}
+        title="Add volunteer to recurring event"
+      />
+
       <AddEventMemberDialog
-        eventId={event.id}
+        eventId={addMemberEventId}
         existingMembers={event.members}
-        onBeforeAdd={isVirtualOccurrence ? materializeOccurrence : undefined}
-        onOpenChange={dialog.onOpenChange}
+        onBeforeAdd={addMemberOnBeforeAdd}
+        onOpenChange={(open) => {
+          dialog.onOpenChange(open);
+          if (!open) {
+            setAddMemberScope(null);
+          }
+        }}
         open={dialog.isOpen("addMember")}
       />
 

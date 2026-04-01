@@ -11,6 +11,7 @@ import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { DateTimeField } from "@/components/form/date-time-field";
@@ -20,6 +21,7 @@ import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { handleMutationResult } from "@/lib/mutation-result";
+import type { EditScope } from "./edit-scope-dialog";
 import { RecurrenceBuilder } from "./recurrence-builder";
 
 const eventFormSchema = z.object({
@@ -77,9 +79,11 @@ interface InitialValues {
 }
 
 interface EventFormDialogProps {
+  editScope?: EditScope;
   initialValues?: InitialValues;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  originalDate?: string;
   teamId: string;
 }
 
@@ -126,6 +130,36 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
   };
 }
 
+function buildUpdateSeriesArgs(
+  id: string,
+  value: EventFormValues,
+  editScope: EditScope,
+  originalDate?: string
+) {
+  const base = {
+    id,
+    mode: editScope as "this" | "following" | "all",
+    name: value.name.trim(),
+    description: value.description?.trim() || undefined,
+    location: value.location?.trim() || undefined,
+    now: Date.now(),
+    startTime: getStartTimeEpoch(value),
+    endTime: value.endTime?.getTime(),
+    isPublic: value.isPublic,
+    whatsappGroupId: value.whatsappGroupId || undefined,
+    feedbackEnabled: value.feedbackEnabled,
+    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    recurrenceRule: value.rrule ? { rrule: value.rrule } : undefined,
+  };
+  if (editScope === "this") {
+    return { ...base, originalDate, newExceptionId: uuidv7() };
+  }
+  if (editScope === "following") {
+    return { ...base, originalDate, newSeriesId: uuidv7() };
+  }
+  return base;
+}
+
 function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
   const recurrenceRule = value.rrule ? { rrule: value.rrule } : undefined;
 
@@ -147,16 +181,63 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
   };
 }
 
+function getMutation(
+  zero: ReturnType<typeof useZero>,
+  value: EventFormValues,
+  editScope: EditScope | undefined,
+  initialValues: InitialValues | undefined,
+  originalDate: string | undefined,
+  isEdit: boolean,
+  teamId: string
+) {
+  if (editScope && initialValues) {
+    // "this" targets the event itself (exception or series parent).
+    // "following"/"all" target the series parent.
+    const targetId =
+      editScope === "this"
+        ? initialValues.id
+        : (initialValues.seriesId ?? initialValues.id);
+    return {
+      mutation: zero.mutate(
+        mutators.teamEvent.updateSeries(
+          buildUpdateSeriesArgs(targetId, value, editScope, originalDate)
+        )
+      ),
+      mutationName: "teamEvent.updateSeries",
+    };
+  }
+  if (isEdit && initialValues) {
+    return {
+      mutation: zero.mutate(
+        mutators.teamEvent.update(
+          buildUpdateMutatorArgs(initialValues.id, value)
+        )
+      ),
+      mutationName: "teamEvent.update",
+    };
+  }
+  return {
+    mutation: zero.mutate(
+      mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
+    ),
+    mutationName: "teamEvent.create",
+  };
+}
+
 function EventFormContent({
+  editScope,
   initialValues,
   isEdit,
   onOpenChange,
+  originalDate,
   teamId,
   waGroupOptions,
 }: {
+  editScope?: EditScope;
   initialValues?: InitialValues;
   isEdit: boolean;
   onOpenChange: (open: boolean) => void;
+  originalDate?: string;
   teamId: string;
   waGroupOptions: { label: string; value: string }[];
 }) {
@@ -165,16 +246,15 @@ function EventFormContent({
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
     onSubmit: async ({ value }) => {
-      const mutation =
-        isEdit && initialValues
-          ? zero.mutate(
-              mutators.teamEvent.update(
-                buildUpdateMutatorArgs(initialValues.id, value)
-              )
-            )
-          : zero.mutate(
-              mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
-            );
+      const { mutation, mutationName } = getMutation(
+        zero,
+        value,
+        editScope,
+        initialValues,
+        originalDate,
+        isEdit,
+        teamId
+      );
       const entityId = isEdit && initialValues ? initialValues.id : "new";
       let successMsg = "Event created";
       if (isEdit) {
@@ -184,7 +264,7 @@ function EventFormContent({
       }
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: isEdit ? "teamEvent.update" : "teamEvent.create",
+        mutation: mutationName,
         entityId,
         successMsg,
         errorMsg: isEdit ? "Failed to update event" : "Failed to create event",
@@ -222,7 +302,8 @@ function EventFormContent({
       <DateTimeField isRequired label="Start Time" name="startTime" />
       <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
-      {!isEdit && (
+      {/* Show recurrence builder: on create, or "all"/"following" scope edits (not "this" — single occurrence) */}
+      {(!isEdit || editScope === "all" || editScope === "following") && (
         <form.Field name="rrule">
           {(field) => (
             <RecurrenceBuilder
@@ -276,10 +357,12 @@ function EventFormContent({
 }
 
 export function EventFormDialog({
+  editScope,
   teamId,
   initialValues,
   onOpenChange,
   open,
+  originalDate,
 }: EventFormDialogProps) {
   const isEdit = !!initialValues;
   // Increment key each time dialog opens to remount form with fresh state
@@ -311,10 +394,12 @@ export function EventFormDialog({
           </DialogDescription>
         </DialogHeader>
         <EventFormContent
+          editScope={editScope}
           initialValues={initialValues}
           isEdit={isEdit}
           key={formKey}
           onOpenChange={onOpenChange}
+          originalDate={originalDate}
           teamId={teamId}
           waGroupOptions={waGroupOptions}
         />

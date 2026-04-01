@@ -11,7 +11,7 @@ import type {
   User,
   WhatsappGroup,
 } from "@pi-dash/zero/schema";
-import { addWeeks } from "date-fns";
+import { addWeeks, format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 
 export type EventRow = TeamEvent & {
@@ -31,6 +31,8 @@ export interface EventDisplayRow {
   endTime: number | null;
   /** The underlying event (series parent for virtual, the event itself for real). */
   event: EventRow;
+  /** The actual event ID for this row (exception's own ID, or parent ID for virtual/standalone). */
+  eventId: string;
   /** Whether this row represents a virtual (non-materialized) occurrence. */
   isVirtual: boolean;
   /** Unique display key for React/table row ID. */
@@ -76,17 +78,23 @@ function expandSeriesEvent(
     exceptionDates
   );
 
+  // The first RRULE occurrence matching the series parent's start date
+  // IS the series parent — not a virtual occurrence.
+  const seriesStartDate = format(new Date(event.startTime), "yyyy-MM-dd");
+
   for (const occ of virtualOccs) {
+    const isSeriesParent = occ.date === seriesStartDate;
     rows.push({
-      key: `${event.id}:${occ.date}`,
+      key: isSeriesParent ? event.id : `${event.id}:${occ.date}`,
       event,
-      virtual: occ,
+      eventId: event.id,
+      virtual: isSeriesParent ? undefined : occ,
       startTime: occ.startTime,
       endTime: occ.endTime,
       members: event.members,
-      isVirtual: true,
-      seriesId: event.id,
-      originalDate: occ.date,
+      isVirtual: !isSeriesParent,
+      seriesId: isSeriesParent ? null : event.id,
+      originalDate: isSeriesParent ? null : occ.date,
     });
   }
 
@@ -98,6 +106,7 @@ function expandSeriesEvent(
       rows.push({
         key: exc.id,
         event,
+        eventId: exc.id,
         startTime: exc.startTime,
         endTime: exc.endTime,
         members: exc.members,
@@ -128,6 +137,7 @@ export function buildEventDisplayRows(
       rows.push({
         key: event.id,
         event,
+        eventId: event.id,
         startTime: event.startTime,
         endTime: event.endTime,
         members: event.members,
