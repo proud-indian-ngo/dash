@@ -66,4 +66,27 @@ export const teamEventQueries = {
       .where("seriesId", "IS", null)
       .orderBy("startTime", "desc")
   ),
+  /** All events the current user can access: public + private from their teams. */
+  allAccessible: defineQuery(({ ctx }) =>
+    ctx != null && can(ctx, "events.view_all")
+      ? withRelated(zql.teamEvent)
+          .related("team")
+          .where("cancelledAt", "IS", null)
+          .where("seriesId", "IS", null)
+          .orderBy("startTime", "desc")
+      : withRelated(zql.teamEvent)
+          .related("team")
+          .where("cancelledAt", "IS", null)
+          .where("seriesId", "IS", null)
+          .where(({ or, cmp, exists }) =>
+            or(
+              cmp("isPublic", true),
+              exists("members", (m) => m.where("userId", ctx?.userId)),
+              exists("team", (t) =>
+                t.whereExists("members", (m) => m.where("userId", ctx?.userId))
+              )
+            )
+          )
+          .orderBy("startTime", "desc")
+  ),
 };

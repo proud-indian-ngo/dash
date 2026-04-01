@@ -62,6 +62,7 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
     };
 
     if (!rule) {
+      // Standalone events: always include (no range filter)
       rows.push({ ...base, startTime: event.startTime });
       continue;
     }
@@ -96,7 +97,21 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
     }
   }
 
-  rows.sort((a, b) => a.startTime - b.startTime);
+  // Upcoming first (ascending), then past (most recent first)
+  rows.sort((a, b) => {
+    const aUpcoming = a.startTime >= now;
+    const bUpcoming = b.startTime >= now;
+    if (aUpcoming && !bUpcoming) {
+      return -1;
+    }
+    if (!aUpcoming && bUpcoming) {
+      return 1;
+    }
+    if (aUpcoming) {
+      return a.startTime - b.startTime;
+    }
+    return b.startTime - a.startTime;
+  });
   return rows;
 }
 

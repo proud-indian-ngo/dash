@@ -123,25 +123,39 @@ export function buildEventDisplayRows(
     const rule = event.recurrenceRule as RecurrenceRule | null;
 
     if (!rule) {
-      if (event.startTime >= rangeStartMs && event.startTime <= rangeEndMs) {
-        rows.push({
-          key: event.id,
-          event,
-          startTime: event.startTime,
-          endTime: event.endTime,
-          members: event.members,
-          isVirtual: false,
-          seriesId: null,
-          originalDate: null,
-        });
-      }
+      // Standalone events: always include (no range filter — let the table sort handle visibility)
+      rows.push({
+        key: event.id,
+        event,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        members: event.members,
+        isVirtual: false,
+        seriesId: null,
+        originalDate: null,
+      });
       continue;
     }
 
     rows.push(...expandSeriesEvent(event, rule, rangeStartMs, rangeEndMs));
   }
 
-  rows.sort((a, b) => a.startTime - b.startTime);
+  // Upcoming events first (ascending), then past events (most recent first)
+  const now = Date.now();
+  rows.sort((a, b) => {
+    const aUpcoming = a.startTime >= now;
+    const bUpcoming = b.startTime >= now;
+    if (aUpcoming && !bUpcoming) {
+      return -1;
+    }
+    if (!aUpcoming && bUpcoming) {
+      return 1;
+    }
+    if (aUpcoming) {
+      return a.startTime - b.startTime;
+    }
+    return b.startTime - a.startTime;
+  });
   return rows;
 }
 
