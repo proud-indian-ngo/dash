@@ -211,6 +211,11 @@
       "sourceType": "github",
       "computedHash": "3f0795a17cd18ea117f41bcfb8fef66fa17b1a00a2c1a0a7f134e090f0dcdb92"
     },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "computedHash": "560cc0a7f030e766c72bca5a7eccde64b954765eb4d82051fa805378d00f0254"
+    },
     "typescript-best-practices": {
       "source": "0xbigboss/claude-code",
       "sourceType": "github",
