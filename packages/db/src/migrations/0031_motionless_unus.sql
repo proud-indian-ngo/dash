@@ -1,0 +1,1 @@
+ALTER TABLE "user" DROP COLUMN "attended_orientation";

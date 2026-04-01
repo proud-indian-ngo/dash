@@ -78,10 +78,6 @@ async function ensureTestUser(testUser: TestUser): Promise<string> {
     updates.emailVerified = true;
   }
 
-  if (testUser.role === "volunteer") {
-    updates.attendedOrientation = true;
-  }
-
   if (Object.keys(updates).length > 0) {
     await db.update(user).set(updates).where(eq(user.id, record.id));
     log(`Updated ${testUser.email}: ${JSON.stringify(updates)}`);

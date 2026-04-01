@@ -27,9 +27,6 @@ test.describe("Create user dialog (admin)", () => {
     // Switches (getByRole avoids strict mode violation from hidden backing checkbox)
     await expect(dialog.getByRole("switch", { name: "Active" })).toBeVisible();
     await expect(
-      dialog.getByRole("switch", { name: "Attended orientation" })
-    ).toBeVisible();
-    await expect(
       dialog.getByRole("switch", { name: "Email verified" })
     ).toBeVisible();
   });

@@ -102,7 +102,7 @@ export const auth = betterAuth({
         async () => {
           await enqueue("whatsapp-manage-orientation", {
             userId: user.id as string,
-            attendedOrientation: false,
+            isOriented: false,
           });
         }
       );
@@ -152,12 +152,6 @@ export const auth = betterAuth({
       phone: {
         type: "string",
         required: false,
-      },
-      attendedOrientation: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        input: false,
       },
       isOnWhatsapp: {
         type: "boolean",

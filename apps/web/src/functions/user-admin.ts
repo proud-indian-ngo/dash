@@ -34,7 +34,6 @@ const roleSchema = z.string().min(1, "Role is required");
 const genderSchema = z.enum(["male", "female"]);
 
 const createUserSchema = z.object({
-  attendedOrientation: z.boolean().default(false),
   dob: z.coerce.date().optional(),
   email: z.email("Invalid email address"),
   emailVerified: z.boolean().default(false),
@@ -47,7 +46,6 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = z.object({
-  attendedOrientation: z.boolean().optional(),
   dob: z.coerce.date().optional(),
   email: z.email("Invalid email address"),
   emailVerified: z.boolean().optional(),
@@ -177,7 +175,6 @@ export const createUserAdmin = createServerFn({ method: "POST" })
     await auth.api.adminUpdateUser({
       body: {
         data: {
-          attendedOrientation: data.attendedOrientation,
           dob: data.dob,
           email: normalizedEmail,
           emailVerified: data.emailVerified,
@@ -217,14 +214,14 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       }
     );
 
-    // Enqueue orientation WhatsApp group membership
-    if (!data.attendedOrientation) {
+    // Enqueue orientation WhatsApp group membership if role is unoriented
+    if (data.role === "unoriented_volunteer") {
       withFireAndForgetLog(
         { handler: "createUser:orientation", userId: created.user.id },
         async () => {
           await enqueue("whatsapp-manage-orientation", {
             userId: created.user.id,
-            attendedOrientation: false,
+            isOriented: false,
           });
         }
       );
@@ -254,15 +251,11 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
     }
     const previousRole = currentUser.role;
     const previousIsActive = (currentUser as { isActive?: boolean }).isActive;
-    const previousAttendedOrientation = (
-      currentUser as { attendedOrientation?: boolean }
-    ).attendedOrientation;
 
     const normalizedEmail = data.email.toLowerCase();
     await auth.api.adminUpdateUser({
       body: {
         data: {
-          attendedOrientation: data.attendedOrientation,
           dob: data.dob,
           email: normalizedEmail,
           emailVerified: data.emailVerified,
@@ -339,6 +332,39 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
           });
         }
       );
+
+      // Enqueue WhatsApp orientation group membership change on role transition
+      const wasUnoriented = previousRole === "unoriented_volunteer";
+      const isNowUnoriented = newRole === "unoriented_volunteer";
+      if (wasUnoriented && !isNowUnoriented) {
+        withFireAndForgetLog(
+          {
+            handler: "updateUser:orientation",
+            userId: data.userId,
+            isOriented: true,
+          },
+          async () => {
+            await enqueue("whatsapp-manage-orientation", {
+              userId: data.userId,
+              isOriented: true,
+            });
+          }
+        );
+      } else if (!wasUnoriented && isNowUnoriented) {
+        withFireAndForgetLog(
+          {
+            handler: "updateUser:orientation",
+            userId: data.userId,
+            isOriented: false,
+          },
+          async () => {
+            await enqueue("whatsapp-manage-orientation", {
+              userId: data.userId,
+              isOriented: false,
+            });
+          }
+        );
+      }
     }
 
     // Enqueue Courier profile sync
@@ -357,26 +383,6 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         });
       }
     );
-
-    // Enqueue WhatsApp group membership change on orientation update
-    if (
-      data.attendedOrientation !== undefined &&
-      data.attendedOrientation !== previousAttendedOrientation
-    ) {
-      withFireAndForgetLog(
-        {
-          handler: "updateUser:orientation",
-          userId: data.userId,
-          attendedOrientation: data.attendedOrientation,
-        },
-        async () => {
-          await enqueue("whatsapp-manage-orientation", {
-            userId: data.userId,
-            attendedOrientation: data.attendedOrientation as boolean,
-          });
-        }
-      );
-    }
 
     return data.userId;
   });

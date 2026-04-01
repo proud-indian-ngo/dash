@@ -177,14 +177,14 @@ export async function getTeamWhatsAppGroupJid(
 
 export async function manageOrientationGroupMembership(
   userId: string,
-  attendedOrientation: boolean
+  isOriented: boolean
 ): Promise<void> {
   const phone = await getUserPhone(userId);
   if (!phone) {
     return;
   }
 
-  if (attendedOrientation) {
+  if (isOriented) {
     const allVolunteersJid = await getGroupJidByConfigKey(
       ALL_VOLUNTEERS_GROUP_ID
     );

@@ -28,7 +28,6 @@ export const user = pgTable("user", {
   phone: text("phone").unique(),
   isOnWhatsapp: boolean("is_on_whatsapp").default(false).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-  attendedOrientation: boolean("attended_orientation").default(false).notNull(),
   role: text("role")
     .default("unoriented_volunteer")
     .notNull()

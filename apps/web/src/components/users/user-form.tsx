@@ -26,7 +26,6 @@ const genderValueSchema = z.enum(["male", "female"], {
 });
 
 export const baseUserFormSchema = z.object({
-  attendedOrientation: z.boolean(),
   dob: optionalDate,
   email: z.email("Invalid email address"),
   emailVerified: z.boolean(),
@@ -50,7 +49,6 @@ export type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 export const toEditUserFormValues = (user: User): EditUserFormValues => {
   return {
-    attendedOrientation: Boolean(user.attendedOrientation),
     dob: user.dob == null ? undefined : new Date(user.dob),
     email: user.email,
     emailVerified: Boolean(user.emailVerified),
@@ -68,7 +66,6 @@ type CreateUserFormDefaults = Omit<CreateUserFormValues, "gender"> & {
 };
 
 export const defaultCreateUserFormValues: CreateUserFormDefaults = {
-  attendedOrientation: false,
   dob: undefined,
   email: "",
   emailVerified: false,
@@ -189,10 +186,6 @@ export function UserForm(props: UserFormProps) {
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <CheckboxField label="Active" name="isActive" />
-        <CheckboxField
-          label="Attended orientation"
-          name="attendedOrientation"
-        />
         <CheckboxField label="Email verified" name="emailVerified" />
       </div>
 

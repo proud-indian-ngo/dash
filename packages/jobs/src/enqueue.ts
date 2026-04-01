@@ -341,7 +341,7 @@ export interface SyncWhatsAppStatusPayload {
   userId: string;
 }
 export interface WhatsAppManageOrientationPayload {
-  attendedOrientation: boolean;
+  isOriented: boolean;
   userId: string;
 }
 

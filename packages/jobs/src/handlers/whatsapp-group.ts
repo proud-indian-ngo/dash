@@ -216,13 +216,13 @@ export async function handleWhatsAppManageOrientation(
       method: "JOB",
       path: "whatsapp-manage-orientation",
     });
-    const { userId, attendedOrientation } = job.data;
-    log.set({ jobId: job.id, userId, attendedOrientation });
+    const { userId, isOriented } = job.data;
+    log.set({ jobId: job.id, userId, isOriented });
 
     const { manageOrientationGroupMembership } = await import(
       "@pi-dash/whatsapp"
     );
-    await manageOrientationGroupMembership(userId, attendedOrientation);
+    await manageOrientationGroupMembership(userId, isOriented);
 
     log.set({ event: "job_complete" });
     log.emit();

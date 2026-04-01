@@ -65,7 +65,6 @@ function subDays(date: Date, days: number): Date {
 // ── 1. Users ─────────────────────────────────────────────────────────────────
 
 interface SeedUser {
-  attendedOrientation?: boolean;
   email: string;
   gender?: "male" | "female";
   name: string;
@@ -90,7 +89,6 @@ const USERS: SeedUser[] = [
     role: "volunteer",
     gender: "female",
     phone: "+919876543211",
-    attendedOrientation: true,
   },
   {
     email: "volunteer1@pi-dash.dev",
@@ -99,7 +97,6 @@ const USERS: SeedUser[] = [
     role: "volunteer",
     gender: "male",
     phone: "+919876543212",
-    attendedOrientation: true,
   },
   {
     email: "volunteer2@pi-dash.dev",
@@ -108,7 +105,6 @@ const USERS: SeedUser[] = [
     role: "volunteer",
     gender: "female",
     phone: "+919876543213",
-    attendedOrientation: true,
   },
   {
     email: "volunteer3@pi-dash.dev",
@@ -117,7 +113,6 @@ const USERS: SeedUser[] = [
     role: "volunteer",
     gender: "male",
     phone: "+919876543214",
-    attendedOrientation: true,
   },
   {
     email: "volunteer4@pi-dash.dev",
@@ -126,7 +121,6 @@ const USERS: SeedUser[] = [
     role: "volunteer",
     gender: "female",
     phone: "+919876543215",
-    attendedOrientation: true,
   },
   {
     email: "newbie@pi-dash.dev",
@@ -171,7 +165,6 @@ async function seedUsers(): Promise<Map<string, string>> {
         phone: u.phone,
         isOnWhatsapp: true,
         isActive: true,
-        attendedOrientation: u.attendedOrientation ?? false,
       })
       .where(eq(user.id, record.id));
 

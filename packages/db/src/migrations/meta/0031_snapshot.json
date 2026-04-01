@@ -1,6 +1,6 @@
 {
-  "id": "d3e9a8ba-b4c0-4bbb-a14c-d12bf309fd2b",
-  "prevId": "bae45a96-bd74-4a35-b9c3-56abe1255eb4",
+  "id": "1c265004-c46b-41c0-b6ee-c88911db25cc",
+  "prevId": "d3e9a8ba-b4c0-4bbb-a14c-d12bf309fd2b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -850,13 +850,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
-        },
-        "attended_orientation": {
-          "name": "attended_orientation",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "role": {
           "name": "role",

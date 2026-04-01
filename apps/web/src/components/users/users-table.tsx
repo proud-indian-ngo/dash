@@ -83,9 +83,14 @@ interface UserRowActionsProps
 }
 
 const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  banExpires: false,
+  banReason: false,
   dob: false,
+  emailVerified: false,
   gender: false,
   isOnWhatsapp: false,
+  phone: false,
+  updatedAt: false,
 };
 
 function UserActionsMenu({

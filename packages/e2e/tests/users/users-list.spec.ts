@@ -21,9 +21,6 @@ test.describe("Users list (admin)", () => {
       header.getByRole("columnheader", { name: /Active/ })
     ).toBeVisible();
     await expect(
-      header.getByRole("columnheader", { name: /Orientation/ })
-    ).toBeVisible();
-    await expect(
       header.getByRole("columnheader", { name: /Banned/ })
     ).toBeVisible();
     await expect(

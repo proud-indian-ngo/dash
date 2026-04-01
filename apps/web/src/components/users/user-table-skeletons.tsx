@@ -13,7 +13,6 @@ export const SKELETON_ROLE = <Skeleton className="h-6 w-16" />;
 export const SKELETON_GENDER = <Skeleton className="h-5 w-14" />;
 export const SKELETON_DOB = <Skeleton className="h-5 w-20" />;
 export const SKELETON_ACTIVE = <Skeleton className="h-6 w-14" />;
-export const SKELETON_ORIENTATION = <Skeleton className="h-6 w-20" />;
 export const SKELETON_BANNED = (
   <div className="flex items-center gap-1.5">
     <Skeleton className="size-2 rounded-full" />
@@ -22,3 +21,8 @@ export const SKELETON_BANNED = (
 );
 export const SKELETON_CREATED_AT = <Skeleton className="h-5 w-32" />;
 export const SKELETON_WHATSAPP = <Skeleton className="h-6 w-14" />;
+export const SKELETON_PHONE = <Skeleton className="h-5 w-24" />;
+export const SKELETON_EMAIL_VERIFIED = <Skeleton className="h-6 w-14" />;
+export const SKELETON_UPDATED_AT = <Skeleton className="h-5 w-32" />;
+export const SKELETON_BAN_REASON = <Skeleton className="h-5 w-28" />;
+export const SKELETON_BAN_EXPIRES = <Skeleton className="h-5 w-32" />;

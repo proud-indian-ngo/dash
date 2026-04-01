@@ -48,9 +48,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import debounce from "lodash/debounce";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
@@ -163,6 +164,7 @@ export function DataTableWrapper<TData extends object>({
   );
 
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [localSearch, setLocalSearch] = useState(searchQuery);
 
   const resetPage = () => {
     setPagination((current) => ({
@@ -171,14 +173,25 @@ export function DataTableWrapper<TData extends object>({
     }));
   };
 
+  const debouncedSyncRef = useRef(
+    debounce((value: string) => {
+      setSearchQuery(value);
+    }, 300)
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedSyncRef.current.cancel();
+    };
+  }, []);
+
+  // Sync local state when URL changes externally (browser back/forward)
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
   const globalFilterFn: FilterFn<TData> = (row, _columnId, value) =>
     searchFn(row.original, String(value ?? ""));
-
-  const onGlobalFilterChange = (updater: Updater<unknown>) => {
-    const nextGlobalFilter = String(resolveUpdater(updater, searchQuery) ?? "");
-    resetPage();
-    setSearchQuery(nextGlobalFilter);
-  };
 
   const onPaginationChange = (updater: Updater<PaginationState>) => {
     const nextPagination = resolveUpdater(updater, pagination);
@@ -202,7 +215,7 @@ export function DataTableWrapper<TData extends object>({
       columnSizing,
       columnVisibility,
       expanded,
-      globalFilter: searchQuery,
+      globalFilter: localSearch,
       pagination,
       rowSelection,
       sorting,
@@ -217,7 +230,6 @@ export function DataTableWrapper<TData extends object>({
     onPaginationChange,
     onRowSelectionChange: setRowSelection,
     onSortingChange,
-    onGlobalFilterChange,
     enableRowSelection,
     ...(getRowCanExpand && { getRowCanExpand }),
     getCoreRowModel: getCoreRowModel(),
@@ -291,18 +303,24 @@ export function DataTableWrapper<TData extends object>({
                   <InputGroupInput
                     aria-label={searchPlaceholder}
                     onChange={(event) => {
-                      table.setGlobalFilter(event.target.value);
+                      const value = event.target.value;
+                      setLocalSearch(value);
+                      resetPage();
+                      debouncedSyncRef.current(value);
                     }}
                     placeholder={searchPlaceholder}
-                    value={searchQuery}
+                    value={localSearch}
                   />
 
-                  {searchQuery ? (
+                  {localSearch ? (
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton
                         aria-label="Clear search"
                         onClick={() => {
-                          table.setGlobalFilter("");
+                          setLocalSearch("");
+                          debouncedSyncRef.current.cancel();
+                          resetPage();
+                          setSearchQuery("");
                         }}
                         size="icon-xs"
                         type="button"

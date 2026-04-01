@@ -8,13 +8,17 @@ import type { ReactNode } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   SKELETON_ACTIVE,
+  SKELETON_BAN_EXPIRES,
+  SKELETON_BAN_REASON,
   SKELETON_BANNED,
   SKELETON_CREATED_AT,
   SKELETON_DOB,
+  SKELETON_EMAIL_VERIFIED,
   SKELETON_GENDER,
   SKELETON_NAME,
-  SKELETON_ORIENTATION,
+  SKELETON_PHONE,
   SKELETON_ROLE,
+  SKELETON_UPDATED_AT,
   SKELETON_WHATSAPP,
 } from "@/components/users/user-table-skeletons";
 import { SHORT_DATE, SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
@@ -126,28 +130,6 @@ export function createUserColumns(
       size: 110,
     },
     {
-      id: "attendedOrientation",
-      accessorFn: (row) => (row.attendedOrientation ? "yes" : "no"),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Orientation"
-          visibility={true}
-        />
-      ),
-      cell: ({ row }) =>
-        row.original.attendedOrientation ? (
-          <Badge variant="success-outline">Attended</Badge>
-        ) : (
-          <Badge variant="warning-outline">Pending</Badge>
-        ),
-      meta: {
-        headerTitle: "Orientation",
-        skeleton: SKELETON_ORIENTATION,
-      },
-      size: 140,
-    },
-    {
       id: "isOnWhatsapp",
       accessorFn: (row) => (row.isOnWhatsapp ? "yes" : "no"),
       header: ({ column }) => (
@@ -168,6 +150,40 @@ export function createUserColumns(
         skeleton: SKELETON_WHATSAPP,
       },
       size: 110,
+    },
+    {
+      id: "phone",
+      accessorFn: (row) => row.phone ?? "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Phone" visibility={true} />
+      ),
+      meta: {
+        headerTitle: "Phone",
+        skeleton: SKELETON_PHONE,
+      },
+      size: 140,
+    },
+    {
+      id: "emailVerified",
+      accessorFn: (row) => (row.emailVerified ? "yes" : "no"),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Email Verified"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) =>
+        row.original.emailVerified ? (
+          <Badge variant="success-outline">Verified</Badge>
+        ) : (
+          <Badge variant="secondary">Unverified</Badge>
+        ),
+      meta: {
+        headerTitle: "Email Verified",
+        skeleton: SKELETON_EMAIL_VERIFIED,
+      },
+      size: 130,
     },
     {
       id: "banned",
@@ -199,6 +215,43 @@ export function createUserColumns(
       size: 110,
     },
     {
+      id: "banReason",
+      accessorFn: (row) => row.banReason ?? "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Ban Reason"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Ban Reason",
+        skeleton: SKELETON_BAN_REASON,
+      },
+      size: 180,
+    },
+    {
+      id: "banExpires",
+      accessorFn: (row) => {
+        if (row.banExpires == null) {
+          return "—";
+        }
+        return format(row.banExpires, SHORT_DATE_WITH_SECONDS);
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Ban Expires"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Ban Expires",
+        skeleton: SKELETON_BAN_EXPIRES,
+      },
+      size: 180,
+    },
+    {
       id: "createdAt",
       accessorFn: (row) => {
         if (row.createdAt == null) {
@@ -216,6 +269,27 @@ export function createUserColumns(
       meta: {
         headerTitle: "Created",
         skeleton: SKELETON_CREATED_AT,
+      },
+      size: 180,
+    },
+    {
+      id: "updatedAt",
+      accessorFn: (row) => {
+        if (row.updatedAt == null) {
+          return "—";
+        }
+        return format(row.updatedAt, SHORT_DATE_WITH_SECONDS);
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Updated"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Updated",
+        skeleton: SKELETON_UPDATED_AT,
       },
       size: 180,
     },

@@ -16,7 +16,6 @@ export type Section =
   | "whatsapp-groups";
 
 interface AppUser {
-  attendedOrientation?: boolean | null;
   email: string;
   gender?: string | null;
   id: string;

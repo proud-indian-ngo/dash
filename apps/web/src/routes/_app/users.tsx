@@ -48,10 +48,6 @@ const ROLE_OPTIONS = [
   { label: "Admin", value: "admin" },
   { label: "Volunteer", value: "volunteer" },
 ];
-const ORIENTATION_OPTIONS = [
-  { label: "Attended", value: "yes" },
-  { label: "Pending", value: "no" },
-];
 const ACTIVE_OPTIONS = [
   { label: "Active", value: "yes" },
   { label: "Inactive", value: "no" },
@@ -95,10 +91,6 @@ function UsersRouteComponent() {
     "role",
     parseAsString.withDefault("")
   );
-  const [orientationFilter, setOrientationFilter] = useQueryState(
-    "orientation",
-    parseAsString.withDefault("")
-  );
   const [activeFilter, setActiveFilter] = useQueryState(
     "active",
     parseAsString.withDefault("")
@@ -108,13 +100,6 @@ function UsersRouteComponent() {
     let filtered = allUsers;
     if (roleFilter) {
       filtered = filtered.filter((u) => u.role === roleFilter);
-    }
-    if (orientationFilter) {
-      filtered = filtered.filter((u) =>
-        orientationFilter === "yes"
-          ? u.attendedOrientation
-          : !u.attendedOrientation
-      );
     }
     if (activeFilter) {
       filtered = filtered.filter((u) =>
@@ -284,12 +269,6 @@ function UsersRouteComponent() {
                 onChange={setRoleFilter}
                 options={ROLE_OPTIONS}
                 value={roleFilter}
-              />
-              <TableFilterSelect
-                label="Orientation"
-                onChange={setOrientationFilter}
-                options={ORIENTATION_OPTIONS}
-                value={orientationFilter}
               />
               <TableFilterSelect
                 label="Active"

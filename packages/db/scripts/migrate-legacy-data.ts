@@ -681,7 +681,6 @@ async function migrateUsers(
       dob: dob ?? undefined,
       phone: phone ?? undefined,
       isActive: u.status === 1,
-      attendedOrientation: u.is_orientation_attended === 1,
       role,
       createdAt,
       updatedAt: updatedAt || createdAt,
