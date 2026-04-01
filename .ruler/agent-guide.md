@@ -68,6 +68,10 @@ Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `
 - DO: Use `can(ctx, "permission.id")` for conditional checks and `hasPermission("id")` from AppContext on the client.
 - DO: Add new permissions to `packages/db/src/permissions.ts` — they sync to DB automatically on server boot via `syncPermissions()`.
 - DO NOT: Delete or rename permission IDs without migrating existing `rolePermission` rows.
+- DO: Use dynamic `import()` in Zero mutators (`packages/zero/src/mutators/`) for server-only packages (`@pi-dash/jobs`, `@pi-dash/notifications`, `@pi-dash/db`, `@pi-dash/env/server`, `drizzle-orm`, `bun`) — mutators run on both client and server, and the `tx.location === "server"` guard is a runtime check, so static imports would leak server code into the client bundle.
+- DO: Use `React.lazy(() => import(...))` for heavy third-party libraries that aren't needed on initial render (Plate editor, Courier inbox, phone input).
+- DO NOT: Use dynamic `import()` in server functions (`createServerFn`), API routes (`routes/api/`), or server-only packages (`packages/jobs/`, `packages/auth/`, `packages/notifications/`) — TanStack Start and Nitro already exclude these from the client bundle. Use static imports instead.
+- DO NOT: Use dynamic `import()` for `createServerFn` exports in client components — TanStack Start replaces them with RPC stubs in the client bundle automatically.
 
 ## E2E Testing
 
