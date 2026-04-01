@@ -9,6 +9,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/design-system/package.json packages/design-system/
 COPY packages/email/package.json packages/email/
 COPY packages/env/package.json packages/env/
+COPY packages/jobs/package.json packages/jobs/
 COPY packages/notifications/package.json packages/notifications/
 COPY packages/observability/package.json packages/observability/
 COPY packages/whatsapp/package.json packages/whatsapp/
