@@ -9,19 +9,15 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 
-import type { EventRow } from "@/components/teams/events/events-table-helpers";
-
 export interface EventActionsMenuProps {
   canManage: boolean;
-  event: EventRow;
-  onCancelEvent: (event: EventRow) => void;
-  onEditEvent: (event: EventRow) => void;
-  onSelectEvent: (event: EventRow) => void;
+  onCancelEvent: () => void;
+  onEditEvent: () => void;
+  onSelectEvent: () => void;
 }
 
 export function EventActionsMenu({
   canManage,
-  event,
   onCancelEvent,
   onEditEvent,
   onSelectEvent,
@@ -47,19 +43,12 @@ export function EventActionsMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={() => onSelectEvent(event)}>
-          View
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onSelectEvent}>View</DropdownMenuItem>
         {canManage && (
           <>
-            <DropdownMenuItem onClick={() => onEditEvent(event)}>
-              Edit
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onEditEvent}>Edit</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onCancelEvent(event)}
-              variant="destructive"
-            >
+            <DropdownMenuItem onClick={onCancelEvent} variant="destructive">
               Cancel
             </DropdownMenuItem>
           </>

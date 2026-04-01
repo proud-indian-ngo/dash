@@ -24,7 +24,10 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
-import type { EventRow } from "@/components/teams/events/events-table";
+import type {
+  EventDisplayRow,
+  EventRow,
+} from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamMembersSection } from "@/components/teams/team-members-section";
@@ -48,7 +51,7 @@ type TeamDialog =
   | { type: "edit" }
   | { type: "addMember" }
   | { type: "createEvent" }
-  | { type: "editEvent"; event: EventRow };
+  | { type: "editEvent"; event: EventDisplayRow };
 
 function TeamHeaderActions({
   canDelete,
@@ -135,10 +138,11 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     },
   });
 
-  const cancelEvent = useConfirmAction<EventRow>({
-    onConfirm: (event) =>
-      zero.mutate(mutators.teamEvent.cancel({ id: event.id, now: Date.now() }))
-        .server,
+  const cancelEvent = useConfirmAction<EventDisplayRow>({
+    onConfirm: (row) =>
+      zero.mutate(
+        mutators.teamEvent.cancel({ id: row.event.id, now: Date.now() })
+      ).server,
     onSuccess: () => toast.success("Event cancelled"),
     onError: (msg) => {
       log.error({
@@ -182,8 +186,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     });
   };
 
-  const handleSelectEvent = (event: EventRow) => {
-    navigate({ to: "/events/$id", params: { id: event.id } });
+  const handleSelectEvent = (row: EventDisplayRow) => {
+    // For virtual occurrences, navigate to the series parent for now
+    const id = row.isVirtual ? row.event.id : row.event.id;
+    navigate({ to: "/events/$id", params: { id } });
   };
 
   const editEventData = dialog.getData("editEvent");
@@ -313,21 +319,21 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {editEventData ? (
           <EventFormDialog
             initialValues={{
-              id: editEventData.event.id,
-              name: editEventData.event.name,
-              description: editEventData.event.description,
-              endTime: editEventData.event.endTime,
-              isPublic: editEventData.event.isPublic ?? false,
-              location: editEventData.event.location,
-              seriesId: editEventData.event.seriesId,
-              recurrenceRule: editEventData.event.recurrenceRule as {
+              id: editEventData.event.event.id,
+              name: editEventData.event.event.name,
+              description: editEventData.event.event.description,
+              endTime: editEventData.event.event.endTime,
+              isPublic: editEventData.event.event.isPublic ?? false,
+              location: editEventData.event.event.location,
+              seriesId: editEventData.event.event.seriesId,
+              recurrenceRule: editEventData.event.event.recurrenceRule as {
                 rrule: string;
                 exdates?: string[];
               } | null,
-              startTime: editEventData.event.startTime,
-              whatsappGroupId: editEventData.event.whatsappGroupId,
-              feedbackEnabled: !!editEventData.event.feedbackEnabled,
-              feedbackDeadline: editEventData.event.feedbackDeadline,
+              startTime: editEventData.event.event.startTime,
+              whatsappGroupId: editEventData.event.event.whatsappGroupId,
+              feedbackEnabled: !!editEventData.event.event.feedbackEnabled,
+              feedbackDeadline: editEventData.event.event.feedbackDeadline,
             }}
             onOpenChange={dialog.onOpenChange}
             open
@@ -371,7 +377,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         <ConfirmDialog
           cancelLabel="Keep Event"
           confirmLabel="Cancel Event"
-          description={`Are you sure you want to cancel "${cancelEvent.payload?.name}"? This action cannot be undone and all members will be notified.`}
+          description={`Are you sure you want to cancel "${cancelEvent.payload?.event.name}"? This action cannot be undone and all members will be notified.`}
           loading={cancelEvent.isLoading}
           loadingLabel="Cancelling..."
           onConfirm={cancelEvent.confirm}

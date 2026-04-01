@@ -1,18 +1,29 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
-import type { EventRow } from "@/components/teams/events/events-table-helpers";
-import { searchEvent } from "@/components/teams/events/events-table-helpers";
+import type {
+  EventDisplayRow,
+  EventRow,
+} from "@/components/teams/events/events-table-helpers";
+import {
+  buildEventDisplayRows,
+  getDefaultDateRange,
+  searchDisplayRow,
+} from "@/components/teams/events/events-table-helpers";
 
-export type { EventRow } from "@/components/teams/events/events-table-helpers";
+export type {
+  EventDisplayRow,
+  EventRow,
+} from "@/components/teams/events/events-table-helpers";
 
 interface EventsTableProps {
   canManage: boolean;
   events: EventRow[];
   isLoading?: boolean;
-  onCancelEvent: (event: EventRow) => void;
-  onEditEvent: (event: EventRow) => void;
-  onSelectEvent: (event: EventRow) => void;
+  onCancelEvent: (row: EventDisplayRow) => void;
+  onEditEvent: (row: EventDisplayRow) => void;
+  onSelectEvent: (row: EventDisplayRow) => void;
   toolbarActions?: ReactNode;
 }
 
@@ -25,8 +36,10 @@ export function EventsTable({
   onCancelEvent,
   toolbarActions,
 }: EventsTableProps) {
-  // Filter to series parents + standalone events (no exceptions shown in main table for now)
-  const rows = events.filter((e) => !e.seriesId);
+  const displayRows = useMemo(() => {
+    const { start, end } = getDefaultDateRange();
+    return buildEventDisplayRows(events, start, end);
+  }, [events]);
 
   const columns = createEventsTableColumns({
     canManage,
@@ -36,14 +49,14 @@ export function EventsTable({
   });
 
   return (
-    <DataTableWrapper<EventRow>
+    <DataTableWrapper<EventDisplayRow>
       columns={columns}
-      data={rows}
+      data={displayRows}
       defaultColumnPinning={{ right: ["actions"] }}
       emptyMessage="No events found."
-      getRowId={(row) => row.id}
+      getRowId={(row) => row.key}
       isLoading={isLoading}
-      searchFn={searchEvent}
+      searchFn={searchDisplayRow}
       searchPlaceholder="Search events..."
       storageKey="events_table_state_v2"
       tableLayout={{
