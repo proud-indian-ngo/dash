@@ -190,6 +190,11 @@ function EventTabs({
         <TabsTrigger value="photos">
           Photos
           {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
+          {canManage && pendingPhotos.length > 0 ? (
+            <Badge size="xs" variant="warning">
+              {pendingPhotos.length}
+            </Badge>
+          ) : null}
         </TabsTrigger>
         {event.feedbackEnabled && isPastEvent ? (
           <TabsTrigger value="feedback">
