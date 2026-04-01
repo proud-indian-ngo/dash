@@ -384,7 +384,9 @@ export const eventPhotoMutators = {
                   eventName: event.name,
                   uploaderId: photo.uploadedBy,
                 },
-                { startAfter: env.PHOTO_NOTIFICATION_DELAY_SECONDS }
+                {
+                  startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                }
               );
             },
           });
@@ -469,7 +471,9 @@ export const eventPhotoMutators = {
                     eventName: event.name,
                     uploaderId: photo.uploadedBy,
                   },
-                  { startAfter: env.PHOTO_NOTIFICATION_DELAY_SECONDS }
+                  {
+                    startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  }
                 );
               },
             });
@@ -550,7 +554,9 @@ export const eventPhotoMutators = {
                   eventName: event.name,
                   uploaderId: photo.uploadedBy,
                 },
-                { startAfter: env.PHOTO_NOTIFICATION_DELAY_SECONDS }
+                {
+                  startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                }
               );
             },
           });
