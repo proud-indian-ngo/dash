@@ -20,6 +20,7 @@ import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { RecurrenceBuilder } from "./recurrence-builder";
 
 const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -221,13 +222,16 @@ function EventFormContent({
       <DateTimeField isRequired label="Start Time" name="startTime" />
       <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
-      {/* TODO: Rich recurrence builder (Step 6) */}
       {!isEdit && (
-        <InputField
-          label="RRULE (e.g. FREQ=WEEKLY;BYDAY=SA)"
-          name="rrule"
-          placeholder="Leave empty for one-time event"
-        />
+        <form.Field name="rrule">
+          {(field) => (
+            <RecurrenceBuilder
+              onChange={(v) => field.handleChange(v)}
+              startTime={form.state.values.startTime}
+              value={field.state.value ?? ""}
+            />
+          )}
+        </form.Field>
       )}
       <SelectField
         label="WhatsApp Group"
