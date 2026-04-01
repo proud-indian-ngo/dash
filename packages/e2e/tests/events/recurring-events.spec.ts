@@ -41,7 +41,7 @@ test.describe("Recurring events", () => {
     await dialog.getByLabel("Public").check();
 
     // Select weekly recurrence
-    await dialog.getByLabel("Recurrence").click();
+    await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
     // Verify preview shows upcoming dates
@@ -121,11 +121,11 @@ test.describe("Recurring events", () => {
       .fill(tomorrow.toISOString().slice(0, 16));
 
     // Select monthly recurrence
-    await dialog.getByLabel("Recurrence").click();
+    await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Monthly" }).click();
 
     // Set end condition to "After N occurrences"
-    await dialog.getByLabel("Ends").click();
+    await dialog.getByText("Never").click();
     await page.getByRole("option", { name: "After N occurrences" }).click();
 
     // Set count to 6

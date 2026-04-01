@@ -36,7 +36,7 @@ test.describe("Create event (admin)", () => {
     await expect(dialog.getByLabel("Start Time")).toBeVisible();
     await expect(dialog.getByLabel("End Time")).toBeVisible();
     await expect(dialog.getByLabel("Public")).toBeVisible();
-    await expect(dialog.getByLabel("Recurrence")).toBeVisible();
+    await expect(dialog.getByText("Recurrence")).toBeVisible();
   });
 
   test("Create button is disabled when name is empty", async ({ page }) => {
@@ -86,7 +86,7 @@ test.describe("Create event (admin)", () => {
       .fill(tomorrow.toISOString().slice(0, 16));
 
     // Select weekly recurrence from the builder
-    await dialog.getByLabel("Recurrence").click();
+    await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
@@ -116,7 +116,7 @@ test.describe("Create event (admin)", () => {
       .fill(tomorrow.toISOString().slice(0, 16));
 
     // Select daily recurrence
-    await dialog.getByLabel("Recurrence").click();
+    await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Daily" }).click();
 
     // Preview section should show upcoming dates
