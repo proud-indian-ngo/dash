@@ -50,6 +50,7 @@ export const env = createEnv({
       .number()
       .int()
       .positive()
+      .max(3600)
       .default(120),
     NODE_ENV: z
       .enum(["development", "production", "test"])

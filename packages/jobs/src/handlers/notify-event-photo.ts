@@ -1,10 +1,16 @@
+import { createHash } from "node:crypto";
+import {
+  notifyPhotoApproved,
+  notifyPhotoRejected,
+  notifyPhotosApproved,
+  notifyPhotosRejected,
+} from "@pi-dash/notifications";
+import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type {
   NotifyPhotoApprovedPayload,
   NotifyPhotoRejectedPayload,
 } from "../enqueue";
-
-type PhotoJob<T> = Job<T>;
 
 function groupPhotoJobs<
   T extends {
@@ -14,7 +20,7 @@ function groupPhotoJobs<
     photoId: string;
   },
 >(
-  jobs: PhotoJob<T>[]
+  jobs: Job<T>[]
 ): Map<
   string,
   {
@@ -22,7 +28,6 @@ function groupPhotoJobs<
     eventId: string;
     eventName: string;
     photoIds: string[];
-    jobIds: string[];
   }
 > {
   const groups = new Map<
@@ -32,7 +37,6 @@ function groupPhotoJobs<
       eventId: string;
       eventName: string;
       photoIds: string[];
-      jobIds: string[];
     }
   >();
   for (const job of jobs) {
@@ -40,80 +44,118 @@ function groupPhotoJobs<
     const existing = groups.get(key);
     if (existing) {
       existing.photoIds.push(job.data.photoId);
-      existing.jobIds.push(job.id);
     } else {
       groups.set(key, {
         uploaderId: job.data.uploaderId,
         eventId: job.data.eventId,
         eventName: job.data.eventName,
         photoIds: [job.data.photoId],
-        jobIds: [job.id],
       });
     }
   }
   return groups;
 }
 
-function batchIdempotencyKey(prefix: string, jobIds: string[]): string {
-  return `${prefix}-${[...jobIds].sort().join("").slice(0, 20)}`;
+// Idempotency key derived from sorted photoIds — deterministic regardless of
+// how pg-boss splits the batch across poll cycles (unlike jobIds, which vary
+// per delivery).
+function batchIdempotencyKey(prefix: string, photoIds: string[]): string {
+  const hash = createHash("sha256")
+    .update([...photoIds].sort().join(","))
+    .digest("hex")
+    .slice(0, 12);
+  return `${prefix}-${hash}`;
 }
 
 export async function handleNotifyPhotoApproved(
-  jobs: PhotoJob<NotifyPhotoApprovedPayload>[]
+  jobs: Job<NotifyPhotoApprovedPayload>[]
 ): Promise<void> {
-  const { notifyPhotoApproved, notifyPhotosApproved } = await import(
-    "@pi-dash/notifications"
-  );
   const groups = groupPhotoJobs(jobs);
-  await Promise.all(
-    [...groups.values()].map(
-      ({ uploaderId, eventId, eventName, photoIds, jobIds }) => {
-        if (photoIds.length === 1 && photoIds[0]) {
-          return notifyPhotoApproved({
-            photoId: photoIds[0],
-            eventId,
-            eventName,
-            uploaderId,
-          });
-        }
-        return notifyPhotosApproved({
-          count: photoIds.length,
+  const results = await Promise.allSettled(
+    [...groups.values()].map(({ uploaderId, eventId, eventName, photoIds }) => {
+      // photoIds[0] is always defined: groupPhotoJobs initialises with at least
+      // one element, but TypeScript infers string[] not [string, ...string[]].
+      if (photoIds.length === 1 && photoIds[0]) {
+        return notifyPhotoApproved({
+          photoId: photoIds[0],
           eventId,
           eventName,
-          idempotencyKey: batchIdempotencyKey("photos-approved", jobIds),
           uploaderId,
         });
       }
-    )
+      return notifyPhotosApproved({
+        count: photoIds.length,
+        eventId,
+        eventName,
+        idempotencyKey: batchIdempotencyKey("photos-approved", photoIds),
+        uploaderId,
+      });
+    })
   );
+
+  const failures = results.filter((r) => r.status === "rejected");
+  if (failures.length > 0) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "notify-photo-approved",
+    });
+    for (const f of failures) {
+      log.set({ event: "notification_group_failed" });
+      log.error(
+        f.status === "rejected" && f.reason instanceof Error
+          ? f.reason
+          : String((f as PromiseRejectedResult).reason)
+      );
+      log.emit();
+    }
+    throw new Error(
+      `${failures.length} of ${results.length} photo approval notification groups failed`
+    );
+  }
 }
 
 export async function handleNotifyPhotoRejected(
-  jobs: PhotoJob<NotifyPhotoRejectedPayload>[]
+  jobs: Job<NotifyPhotoRejectedPayload>[]
 ): Promise<void> {
-  const { notifyPhotoRejected, notifyPhotosRejected } = await import(
-    "@pi-dash/notifications"
-  );
   const groups = groupPhotoJobs(jobs);
-  await Promise.all(
-    [...groups.values()].map(
-      ({ uploaderId, eventId, eventName, photoIds, jobIds }) => {
-        if (photoIds.length === 1 && photoIds[0]) {
-          return notifyPhotoRejected({
-            photoId: photoIds[0],
-            eventId,
-            eventName,
-            uploaderId,
-          });
-        }
-        return notifyPhotosRejected({
-          count: photoIds.length,
+  const results = await Promise.allSettled(
+    [...groups.values()].map(({ uploaderId, eventId, eventName, photoIds }) => {
+      // photoIds[0] is always defined: see note in handleNotifyPhotoApproved.
+      if (photoIds.length === 1 && photoIds[0]) {
+        return notifyPhotoRejected({
+          photoId: photoIds[0],
           eventId,
           eventName,
-          idempotencyKey: batchIdempotencyKey("photos-rejected", jobIds),
           uploaderId,
         });
       }
-    )
+      return notifyPhotosRejected({
+        count: photoIds.length,
+        eventId,
+        eventName,
+        idempotencyKey: batchIdempotencyKey("photos-rejected", photoIds),
+        uploaderId,
+      });
+    })
   );
+
+  const failures = results.filter((r) => r.status === "rejected");
+  if (failures.length > 0) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "notify-photo-rejected",
+    });
+    for (const f of failures) {
+      log.set({ event: "notification_group_failed" });
+      log.error(
+        f.status === "rejected" && f.reason instanceof Error
+          ? f.reason
+          : String((f as PromiseRejectedResult).reason)
+      );
+      log.emit();
+    }
+    throw new Error(
+      `${failures.length} of ${results.length} photo rejection notification groups failed`
+    );
+  }
 }

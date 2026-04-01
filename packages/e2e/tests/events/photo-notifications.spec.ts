@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test } from "../../fixtures/test";
 
 // These tests verify that photo approval/rejection notifications
@@ -11,8 +12,9 @@ test.describe("Photo notifications — admin batch approval", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
   });
 
-  test("batch approving multiple photos sends a single summary notification", async ({
+  test("batch approving multiple photos sends a single summary notification to the uploader", async ({
     page,
+    browser,
   }) => {
     test.slow();
 
@@ -90,26 +92,47 @@ test.describe("Photo notifications — admin batch approval", () => {
       timeout: 10_000,
     });
 
-    // Wait for PHOTO_NOTIFICATION_DELAY_SECONDS (5s in test env) + pg-boss processing
-    await page.waitForTimeout(10_000);
-
-    // Check the notification inbox — open user menu then Notifications submenu
-    const userMenuButton = page.getByRole("button", {
-      name: /open user menu/i,
+    // Open a volunteer browser context to check the uploader's notification
+    // inbox — the batch notification goes to the photo uploader, not the admin.
+    const volunteerAuthFile = path.resolve(
+      import.meta.dirname,
+      "../../.auth/volunteer.json"
+    );
+    const volunteerContext = await browser.newContext({
+      storageState: volunteerAuthFile,
     });
-    if (await userMenuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await userMenuButton.click();
-    } else {
-      // Try clicking on avatar/user trigger
-      await page.getByRole("button").filter({ hasText: "" }).last().click();
+    const volunteerPage = await volunteerContext.newPage();
+    await volunteerPage.goto("/");
+
+    try {
+      // Open notification inbox — wait up to 20s for the delayed notification
+      // (PHOTO_NOTIFICATION_DELAY_SECONDS=5 in test env + pg-boss processing).
+      const userMenuButton = volunteerPage.getByRole("button", {
+        name: /open user menu/i,
+      });
+      if (
+        await userMenuButton.isVisible({ timeout: 3000 }).catch(() => false)
+      ) {
+        await userMenuButton.click();
+      } else {
+        await volunteerPage
+          .getByRole("button")
+          .filter({ hasText: "" })
+          .last()
+          .click();
+      }
+
+      await volunteerPage
+        .getByRole("menuitem", { name: /Notifications/i })
+        .click();
+
+      // The Courier inbox should show a batch notification:
+      // "X of your photos for [event] have been approved."
+      const inboxNotification = volunteerPage.getByText(/photos.*approved/i);
+      await expect(inboxNotification).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await volunteerContext.close();
     }
-
-    await page.getByRole("menuitem", { name: /Notifications/i }).click();
-
-    // The Courier inbox should show a batch notification, not individual ones
-    // "X of your photos for [event] have been approved."
-    const inboxNotification = page.getByText(/photos.*approved/i);
-    await expect(inboxNotification).toBeVisible({ timeout: 5000 });
   });
 });
 
