@@ -7,13 +7,17 @@ import { z } from "zod";
 import { Loader } from "@/components/loader";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
+import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/$id")({
   validateSearch: z.object({
-    occDate: z.string().optional(),
+    occDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   }),
   head: () => ({
     meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
@@ -36,26 +40,6 @@ export const Route = createFileRoute("/_app/events/$id")({
   },
   component: EventDetailRouteComponent,
 });
-
-/** Apply occurrence date to the series parent's start/end times, preserving time-of-day. */
-function applyOccurrenceDate(
-  event: EventRow,
-  occDate: string
-): { startTime: number; endTime: number | null } {
-  const seriesStart = new Date(event.startTime);
-  const occStart = new Date(occDate);
-  occStart.setHours(
-    seriesStart.getHours(),
-    seriesStart.getMinutes(),
-    seriesStart.getSeconds(),
-    seriesStart.getMilliseconds()
-  );
-  const startTime = occStart.getTime();
-  const duration =
-    event.endTime == null ? null : event.endTime - event.startTime;
-  const endTime = duration == null ? null : startTime + duration;
-  return { startTime, endTime };
-}
 
 function EventDetailRouteComponent() {
   const { id } = Route.useParams();
@@ -106,7 +90,10 @@ function EventDetailRouteComponent() {
   // For virtual occurrences, override the displayed start/end with the occurrence date
   const displayEvent =
     occDate && event.recurrenceRule
-      ? { ...event, ...applyOccurrenceDate(event, occDate) }
+      ? {
+          ...event,
+          ...applyOccurrenceDate(event.startTime, event.endTime, occDate),
+        }
       : event;
 
   return (

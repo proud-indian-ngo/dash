@@ -181,6 +181,9 @@ export function getEventStatus(row: EventDisplayRow): {
   label: string;
   variant: "destructive" | "outline" | "secondary" | "success-outline";
 } {
+  if (row.event.cancelledAt) {
+    return { label: "Cancelled", variant: "destructive" };
+  }
   const eventEnd = row.endTime ?? row.startTime;
   if (new Date(eventEnd) < new Date()) {
     return { label: "Past", variant: "secondary" };
@@ -207,6 +210,26 @@ export function searchDisplayRow(row: EventDisplayRow, query: string): boolean {
     .join(" ")
     .toLowerCase()
     .includes(q);
+}
+
+/** Apply occurrence date to a series parent's start/end times, preserving time-of-day and duration. */
+export function applyOccurrenceDate(
+  startTime: number,
+  endTime: number | null,
+  occDate: string
+): { startTime: number; endTime: number | null } {
+  const seriesStart = new Date(startTime);
+  const occStart = new Date(occDate);
+  occStart.setHours(
+    seriesStart.getHours(),
+    seriesStart.getMinutes(),
+    seriesStart.getSeconds(),
+    seriesStart.getMilliseconds()
+  );
+  const newStart = occStart.getTime();
+  const duration = endTime == null ? null : endTime - startTime;
+  const newEnd = duration == null ? null : newStart + duration;
+  return { startTime: newStart, endTime: newEnd };
 }
 
 export const SKELETON_NAME = <Skeleton className="h-5 w-36" />;

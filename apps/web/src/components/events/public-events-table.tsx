@@ -63,7 +63,11 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
     };
 
     if (!rule) {
-      rows.push({ ...base, startTime: event.startTime, occDate: null });
+      // Exclude non-recurring events older than 4 weeks to keep the table focused
+      const fourWeeksAgo = now - 4 * 7 * 24 * 60 * 60 * 1000;
+      if (event.startTime >= fourWeeksAgo) {
+        rows.push({ ...base, startTime: event.startTime, occDate: null });
+      }
       continue;
     }
 

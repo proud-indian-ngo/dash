@@ -14,8 +14,15 @@ import { addWeeks, format } from "date-fns";
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 
+interface TeamEventException {
+  cancelledAt: number | null;
+  originalDate: string | null;
+  startTime: number;
+}
+
 interface TeamEvent {
   endTime: number | null;
+  exceptions: readonly TeamEventException[];
   id: string;
   interests: readonly { id: string }[];
   isPublic: boolean | null;
@@ -166,15 +173,35 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
       continue;
     }
 
+    const exceptions = event.exceptions ?? [];
+    const exceptionDates = new Set<string>();
+    for (const exc of exceptions) {
+      if (exc.originalDate) {
+        exceptionDates.add(exc.originalDate);
+      }
+    }
+
     const occs = expandSeries(
       rule,
       event.startTime,
       event.endTime,
       now,
-      rangeEnd
+      rangeEnd,
+      exceptionDates
     );
     for (const occ of occs) {
       items.push({ ...base, startTime: occ.startTime });
+    }
+
+    // Add back non-cancelled materialized exceptions in range
+    for (const exc of exceptions) {
+      if (
+        !exc.cancelledAt &&
+        exc.startTime >= now &&
+        exc.startTime <= rangeEnd
+      ) {
+        items.push({ ...base, startTime: exc.startTime });
+      }
     }
   }
 

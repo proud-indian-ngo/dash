@@ -106,6 +106,8 @@ function buildUpdateFields(args: UpdateArgs) {
   };
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 const recurrenceRuleSchema = z
   .object({
     rrule: z.string(),
@@ -386,7 +388,7 @@ export const teamEventMutators = {
     z.object({
       id: z.string(),
       seriesId: z.string(),
-      originalDate: z.string(), // ISO date string (YYYY-MM-DD)
+      originalDate: z.string().regex(ISO_DATE_RE),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -448,7 +450,7 @@ export const teamEventMutators = {
     z.object({
       id: z.string(),
       mode: z.enum(["this", "following", "all"]),
-      originalDate: z.string().optional(),
+      originalDate: z.string().regex(ISO_DATE_RE).optional(),
       newExceptionId: z.string().optional(),
       newSeriesId: z.string().optional(),
       name: z.string().min(1).optional(),
@@ -570,7 +572,7 @@ export const teamEventMutators = {
     z.object({
       id: z.string(),
       mode: z.enum(["this", "following", "all"]),
-      originalDate: z.string().optional(),
+      originalDate: z.string().regex(ISO_DATE_RE).optional(),
       newExceptionId: z.string().optional(),
       now: z.number(),
     }),

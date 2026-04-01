@@ -302,8 +302,11 @@ function EventFormContent({
       <DateTimeField isRequired label="Start Time" name="startTime" />
       <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
-      {/* Show recurrence builder: on create, or "all"/"following" scope edits (not "this" — single occurrence) */}
-      {(!isEdit || editScope === "all" || editScope === "following") && (
+      {/* Show recurrence builder: on create, scope edits for "all"/"following", or editing a series parent directly */}
+      {(!isEdit ||
+        editScope === "all" ||
+        editScope === "following" ||
+        (!editScope && !!initialValues?.recurrenceRule)) && (
         <form.Field name="rrule">
           {(field) => (
             <RecurrenceBuilder

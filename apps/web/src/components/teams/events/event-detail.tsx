@@ -15,7 +15,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -45,14 +45,6 @@ import { ShowInterestDialog } from "./show-interest-dialog";
 
 const TRAILING_SLASH = /\/$/;
 
-/** Shift an epoch-ms timestamp to a different date, preserving time-of-day. */
-function shiftToDate(epochMs: number, isoDate: string): number {
-  const d = new Date(epochMs);
-  const [y = 0, m = 1, day] = isoDate.split("-").map(Number);
-  d.setFullYear(y, m - 1, day);
-  return d.getTime();
-}
-
 function buildCancelMutation(
   zero: ReturnType<typeof useZero>,
   event: EventRow,
@@ -62,7 +54,9 @@ function buildCancelMutation(
 ) {
   const mode = cancelScope;
   if (mode && isRecurring) {
-    // "this" targets the event itself; "following"/"all" target the series parent
+    // For "this": pass event.id — for virtual occurrences this is the series parent ID,
+    // and the mutator creates a cancelled exception via originalDate.
+    // For "following"/"all": target the series parent directly.
     const targetId = mode === "this" ? event.id : (event.seriesId ?? event.id);
     return zero.mutate(
       mutators.teamEvent.cancelSeries({
@@ -384,14 +378,20 @@ export function EventDetail({
 
   // --- Cancel scope state ---
   const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
-  const [cancelScope, setCancelScope] = useState<EditScope | null>(null);
+  const cancelScopeRef = useRef<EditScope | null>(null);
 
   const cancelAction = useConfirmAction({
     onConfirm: () =>
-      buildCancelMutation(zero, event, cancelScope, isRecurring, scopeOccDate),
+      buildCancelMutation(
+        zero,
+        event,
+        cancelScopeRef.current,
+        isRecurring,
+        scopeOccDate
+      ),
     onSuccess: () => {
       toast.success("Event cancelled");
-      setCancelScope(null);
+      cancelScopeRef.current = null;
       navigate({ to: "/teams/$id", params: { id: event.teamId } });
     },
     onError: (msg) => {
@@ -402,7 +402,7 @@ export function EventDetail({
         error: msg ?? "unknown",
       });
       toast.error("Failed to cancel event");
-      setCancelScope(null);
+      cancelScopeRef.current = null;
     },
   });
 
@@ -413,7 +413,7 @@ export function EventDetail({
   const handleCancelScopeSelect = useCallback(
     (scope: EditScope) => {
       setCancelScopeDialogOpen(false);
-      setCancelScope(scope);
+      cancelScopeRef.current = scope;
       cancelAction.trigger();
     },
     [cancelAction]
@@ -628,13 +628,8 @@ export function EventDetail({
           name: event.name,
           description: event.description,
           location: event.location,
-          startTime: occDate
-            ? shiftToDate(event.startTime, occDate)
-            : event.startTime,
-          endTime:
-            occDate && event.endTime
-              ? shiftToDate(event.endTime, occDate)
-              : event.endTime,
+          startTime: event.startTime,
+          endTime: event.endTime,
           isPublic: !!event.isPublic,
           whatsappGroupId: event.whatsappGroupId,
           seriesId: event.seriesId,

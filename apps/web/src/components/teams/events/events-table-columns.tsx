@@ -177,7 +177,7 @@ export function createEventsTableColumns({
           | undefined;
         const label = getRecurrenceLabel(rule);
         return (
-          <Badge variant={label === "One-time" ? "secondary" : "default"}>
+          <Badge variant={label === "One-time" ? "secondary" : "outline"}>
             {label}
           </Badge>
         );

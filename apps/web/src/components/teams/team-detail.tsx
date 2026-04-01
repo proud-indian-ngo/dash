@@ -19,7 +19,7 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -173,7 +173,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   );
 
   // --- Cancel scope state ---
-  const [cancelScope, setCancelScope] = useState<EditScope | null>(null);
+  const cancelScopeRef = useRef<EditScope | null>(null);
   const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
   const [cancelScopeRow, setCancelScopeRow] = useState<EventDisplayRow | null>(
     null
@@ -181,7 +181,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
   const cancelEvent = useConfirmAction<EventDisplayRow>({
     onConfirm: (row) => {
-      const mode = cancelScope;
+      const mode = cancelScopeRef.current;
       if (mode && row.seriesId) {
         // "this" targets the event itself; "following"/"all" target the series parent
         const targetId = mode === "this" ? row.eventId : row.seriesId;
@@ -201,7 +201,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     },
     onSuccess: () => {
       toast.success("Event cancelled");
-      setCancelScope(null);
+      cancelScopeRef.current = null;
       setCancelScopeRow(null);
     },
     onError: (msg) => {
@@ -211,7 +211,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         error: msg ?? "unknown",
       });
       toast.error("Failed to cancel event");
-      setCancelScope(null);
+      cancelScopeRef.current = null;
       setCancelScopeRow(null);
     },
   });
@@ -231,7 +231,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   const handleCancelScopeSelect = useCallback(
     (scope: EditScope) => {
       setCancelScopeDialogOpen(false);
-      setCancelScope(scope);
+      cancelScopeRef.current = scope;
       if (cancelScopeRow) {
         cancelEvent.trigger(cancelScopeRow);
       }

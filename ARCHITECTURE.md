@@ -150,6 +150,47 @@ The default role for new users and null-role fallbacks is `unoriented_volunteer`
 
 `toBetterAuthRole()` maps custom roles to `admin` or `volunteer` for Better Auth's admin plugin, which expects one of those two values. Custom roles with admin-level permissions map to `admin`; all others map to `volunteer`.
 
+## Recurring Events (RRULE)
+
+### Data Model
+
+Recurring events use an RFC 5545 RRULE-based model. The `teamEvent` table has three columns for recurrence:
+
+| Column | Type | Purpose |
+|---|---|---|
+| `recurrenceRule` | `jsonb` | `{ rrule: string, exdates?: string[] }` on the series parent; null for standalone events and exceptions |
+| `seriesId` | `text` | FK to the series parent; null for standalone events and series parents themselves |
+| `originalDate` | `text` | ISO date (YYYY-MM-DD) identifying which occurrence this exception replaces |
+
+A **series parent** has `recurrenceRule` set and `seriesId: null`. An **exception** (materialized occurrence) has `seriesId` set and `originalDate` set. A **standalone event** has all three null.
+
+### Client-Side Expansion
+
+Virtual occurrences are expanded client-side using `expandSeries()` from `@pi-dash/zero/rrule-utils`. The expansion takes a date range and produces `VirtualOccurrence[]` — no DB rows exist for these. Only when a user modifies a specific occurrence (edit, cancel, add member) does it "materialize" into an exception row via the `materialize` mutator.
+
+Zero queries filter `seriesId IS NULL` so only series parents and standalone events are synced. Exceptions are fetched via the `exceptions` relation on the series parent.
+
+### Edit/Cancel Scope
+
+Edit and cancel operations on recurring events use Google Calendar-style scope selection ("This event" / "This and following" / "All events"):
+
+| Mode | Edit behavior | Cancel behavior |
+|---|---|---|
+| `this` | Creates/updates exception row | Creates cancelled exception (exdate) |
+| `following` | Truncates original series UNTIL, creates new series | Truncates original series UNTIL, cancels exceptions on/after date |
+| `all` | Updates series parent directly | Cancels series parent + all exceptions |
+
+Mutators: `teamEvent.updateSeries`, `teamEvent.cancelSeries`, `teamEvent.materialize`.
+
+### RRULE Utilities
+
+`packages/zero/src/lib/rrule-utils.ts` (exported as `@pi-dash/zero/rrule-utils`) provides:
+
+- `expandSeries()` — expand RRULE into virtual occurrences within a date range
+- `rruleToFormState()` / `formStateToRRule()` — convert between RRULE strings and UI form state
+- `rruleToLabel()` — human-readable RRULE description
+- `toISODate()` — date formatting helper
+
 ## Vendor Payment Lifecycle
 
 Vendor payments follow a two-phase approval flow: payment approval, then invoice approval.

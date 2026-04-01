@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_app/")({
     context.zero?.preload(queries.advancePayment.all());
     context.zero?.preload(queries.user.all());
     context.zero?.preload(queries.team.byCurrentUser());
-    context.zero?.preload(queries.teamEvent.byCurrentUser());
+    context.zero?.preload(queries.teamEvent.allAccessible());
     context.zero?.preload(queries.vendorPayment.all());
   },
   component: DashboardHome,
@@ -271,7 +271,7 @@ function OrientedDashboard() {
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
   const [users] = useQuery(queries.user.all());
   const [teams] = useQuery(queries.team.byCurrentUser());
-  const [events] = useQuery(queries.teamEvent.byCurrentUser());
+  const [events] = useQuery(queries.teamEvent.allAccessible());
   const [vendorPayments] = useQuery(queries.vendorPayment.all());
   // Skeleton only on first load — once Zero has cached data, it stays during re-sync
   const isLoading =
