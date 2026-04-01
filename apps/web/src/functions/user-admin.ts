@@ -8,19 +8,9 @@ import {
 } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import { role } from "@pi-dash/db/schema/permission";
-import {
-  notifyPasswordReset,
-  notifyRoleChanged,
-  notifyUserBanned,
-  notifyUserDeactivated,
-  notifyUserDeleted,
-  notifyUserReactivated,
-  notifyUserUnbanned,
-  notifyUserWelcome,
-  syncCourierUser,
-} from "@pi-dash/notifications";
+import { enqueue } from "@pi-dash/jobs";
+import { notifyUserDeleted } from "@pi-dash/notifications";
 import { withFireAndForgetLog } from "@pi-dash/observability";
-import { manageOrientationGroupMembership } from "@pi-dash/whatsapp";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -215,30 +205,28 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       .set({ role: data.role })
       .where(eq(user.id, created.user.id));
 
-    // Fire-and-forget: sync user to Courier, then send welcome notification
-    // (welcome must wait for sync so the email channel is registered)
+    // Welcome handler syncs user to Courier before sending notification
     withFireAndForgetLog(
-      {
-        handler: "createUser",
-        userId: created.user.id,
-        email: normalizedEmail,
-        name: data.name,
-      },
-      () =>
-        syncCourierUser({
+      { handler: "createUser:welcome", userId: created.user.id },
+      async () => {
+        await enqueue("notify-user-welcome", {
           userId: created.user.id,
           email: normalizedEmail,
           name: data.name,
-        }).then(() =>
-          notifyUserWelcome({ userId: created.user.id, name: data.name })
-        )
+        });
+      }
     );
 
-    // Fire-and-forget: add new user to orientation WhatsApp group if not yet oriented
+    // Enqueue orientation WhatsApp group membership
     if (!data.attendedOrientation) {
       withFireAndForgetLog(
-        { handler: "createUser", userId: created.user.id, role: data.role },
-        () => manageOrientationGroupMembership(created.user.id, false)
+        { handler: "createUser:orientation", userId: created.user.id },
+        async () => {
+          await enqueue("whatsapp-manage-orientation", {
+            userId: created.user.id,
+            attendedOrientation: false,
+          });
+        }
       );
     }
 
@@ -288,16 +276,20 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       headers: context.headers,
     });
 
-    // Notify user if their account was deactivated or reactivated
+    // Enqueue notification if account was deactivated or reactivated
     if (data.isActive === false && previousIsActive !== false) {
       withFireAndForgetLog(
         { handler: "updateUser:deactivated", userId: data.userId },
-        () => notifyUserDeactivated({ userId: data.userId })
+        async () => {
+          await enqueue("notify-user-deactivated", { userId: data.userId });
+        }
       );
     } else if (data.isActive === true && previousIsActive === false) {
       withFireAndForgetLog(
         { handler: "updateUser:reactivated", userId: data.userId },
-        () => notifyUserReactivated({ userId: data.userId })
+        async () => {
+          await enqueue("notify-user-reactivated", { userId: data.userId });
+        }
       );
     }
 
@@ -333,45 +325,56 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         .then((rows) => rows[0]);
       const roleName = roleRecord?.name ?? newRole;
 
-      // Fire-and-forget: notify role change
+      // Enqueue role change notification
       withFireAndForgetLog(
-        { handler: "updateUser", userId: data.userId, newRole: roleName },
-        () => notifyRoleChanged({ userId: data.userId, newRole: roleName })
+        {
+          handler: "updateUser:roleChanged",
+          userId: data.userId,
+          newRole: roleName,
+        },
+        async () => {
+          await enqueue("notify-role-changed", {
+            userId: data.userId,
+            newRole: roleName,
+          });
+        }
       );
     }
 
-    // Fire-and-forget: sync updated profile to Courier
+    // Enqueue Courier profile sync
     withFireAndForgetLog(
       {
-        handler: "updateUser",
+        handler: "updateUser:courierSync",
         userId: data.userId,
         email: normalizedEmail,
         name: data.name,
       },
-      () =>
-        syncCourierUser({
+      async () => {
+        await enqueue("sync-courier-user", {
           userId: data.userId,
           email: normalizedEmail,
           name: data.name,
-        })
+        });
+      }
     );
 
-    // Fire-and-forget: manage WhatsApp group membership on orientation change
+    // Enqueue WhatsApp group membership change on orientation update
     if (
       data.attendedOrientation !== undefined &&
       data.attendedOrientation !== previousAttendedOrientation
     ) {
       withFireAndForgetLog(
         {
-          handler: "updateUser",
+          handler: "updateUser:orientation",
           userId: data.userId,
           attendedOrientation: data.attendedOrientation,
         },
-        () =>
-          manageOrientationGroupMembership(
-            data.userId,
-            data.attendedOrientation as boolean
-          )
+        async () => {
+          await enqueue("whatsapp-manage-orientation", {
+            userId: data.userId,
+            attendedOrientation: data.attendedOrientation as boolean,
+          });
+        }
       );
     }
 
@@ -393,8 +396,10 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
     });
 
     withFireAndForgetLog(
-      { handler: "setUserPasswordAdmin", userId: data.userId },
-      () => notifyPasswordReset({ userId: data.userId })
+      { handler: "setUserPassword:notify", userId: data.userId },
+      async () => {
+        await enqueue("notify-password-reset", { userId: data.userId });
+      }
     );
 
     return data.userId;
@@ -410,7 +415,8 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
       throw new Error("You cannot delete your own account");
     }
 
-    // Notify user before deletion (Courier needs user to exist)
+    // Called directly (not enqueued) — Courier needs the user to exist when the
+    // notification is sent, but the user is deleted immediately after.
     try {
       await notifyUserDeleted({ userId: data.userId });
     } catch {
@@ -445,21 +451,27 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
       banExpires: data.banExpires,
     });
 
-    // Fire-and-forget: notify ban/unban
+    // Enqueue ban/unban notification
     if (data.banned) {
       withFireAndForgetLog(
         {
-          handler: "setUserBan",
+          handler: "setUserBan:banned",
           userId: data.userId,
-          banned: true,
           banReason: data.banReason,
         },
-        () => notifyUserBanned({ userId: data.userId, reason: data.banReason })
+        async () => {
+          await enqueue("notify-user-banned", {
+            userId: data.userId,
+            reason: data.banReason,
+          });
+        }
       );
     } else {
       withFireAndForgetLog(
-        { handler: "setUserBan", userId: data.userId, banned: false },
-        () => notifyUserUnbanned({ userId: data.userId })
+        { handler: "setUserBan:unbanned", userId: data.userId },
+        async () => {
+          await enqueue("notify-user-unbanned", { userId: data.userId });
+        }
       );
     }
 

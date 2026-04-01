@@ -3,7 +3,7 @@ import { appConfig } from "@pi-dash/db/schema/app-config";
 import { user } from "@pi-dash/db/schema/auth";
 import { team } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
 
@@ -154,7 +154,10 @@ async function getGroupJidByConfigKey(
   const rows = await db
     .select({ jid: whatsappGroup.jid })
     .from(appConfig)
-    .innerJoin(whatsappGroup, eq(whatsappGroup.id, appConfig.value))
+    .innerJoin(
+      whatsappGroup,
+      eq(whatsappGroup.id, sql`${appConfig.value}::uuid`)
+    )
     .where(eq(appConfig.key, configKey))
     .limit(1);
   return rows[0]?.jid ?? null;

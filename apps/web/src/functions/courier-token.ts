@@ -1,4 +1,5 @@
-import { generateCourierJwt, syncCourierUser } from "@pi-dash/notifications";
+import { enqueue } from "@pi-dash/jobs";
+import { generateCourierJwt } from "@pi-dash/notifications";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";
@@ -26,7 +27,9 @@ export const getCourierToken = createServerFn({ method: "GET" })
 
     withFireAndForgetLog(
       { handler: "getCourierToken", userId: id, email, name },
-      () => syncCourierUser({ userId: id, email, name })
+      async () => {
+        await enqueue("sync-courier-user", { userId: id, email, name });
+      }
     );
 
     return { token };

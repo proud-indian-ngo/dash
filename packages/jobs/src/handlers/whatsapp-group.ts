@@ -5,6 +5,7 @@ import type {
   WhatsAppAddMembersPayload,
   WhatsAppAddMemberTeamPayload,
   WhatsAppCreateGroupPayload,
+  WhatsAppManageOrientationPayload,
   WhatsAppRemoveMemberPayload,
   WhatsAppRemoveMemberTeamPayload,
 } from "../enqueue";
@@ -201,6 +202,27 @@ export async function handleWhatsAppRemoveMemberTeam(
         await removeFromWhatsAppGroup(jid, phone);
       }
     }
+
+    log.set({ event: "job_complete" });
+    log.emit();
+  }
+}
+
+export async function handleWhatsAppManageOrientation(
+  jobs: Job<WhatsAppManageOrientationPayload>[]
+): Promise<void> {
+  for (const job of jobs) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "whatsapp-manage-orientation",
+    });
+    const { userId, attendedOrientation } = job.data;
+    log.set({ jobId: job.id, userId, attendedOrientation });
+
+    const { manageOrientationGroupMembership } = await import(
+      "@pi-dash/whatsapp"
+    );
+    await manageOrientationGroupMembership(userId, attendedOrientation);
 
     log.set({ event: "job_complete" });
     log.emit();

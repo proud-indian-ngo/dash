@@ -58,8 +58,8 @@ Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `
 - DO NOT: Pass custom fields to `createRequestLogger()` — it only accepts `{ method?, path?, requestId? }`. Use `log.set({ ... })` for context.
 - DO NOT: Pass raw `unknown` to `log.error()` — use `error instanceof Error ? error : String(error)`.
 - DO: Add maximum context to every `log.set()` call — include all available closure variables (IDs, names, counts, flags, timestamps) so logs are self-contained and debuggable without cross-referencing.
-- DO: Use `enqueue()` from `@pi-dash/jobs` for mutator async tasks (notifications, WhatsApp, etc.) — pg-boss handles persistence and retries.
-- DO: Use `withFireAndForgetLog()` from `@pi-dash/observability` for fire-and-forget promises that don't go through pg-boss — it logs success/failure without re-throwing.
+- DO: Use `enqueue()` from `@pi-dash/jobs` for all async side-effects — notifications (`notifyX`), Courier sync (`syncCourierUser`), WhatsApp operations (`syncWhatsAppStatus`, `manageOrientationGroupMembership`). Never call these functions directly from server functions, auth hooks, or mutators. Direct calls bypass pg-boss (no retry, no visibility in jobs dashboard). The only exception is `notifyUserDeleted`, which must run synchronously before user deletion.
+- DO: Wrap `enqueue()` calls in `withFireAndForgetLog()` when the enqueue is a side-effect of a primary operation (e.g., role change, ban, user update). A pg-boss failure must never block the primary operation or surface an error to the user. Only `await enqueue()` directly if the enqueue IS the primary operation.
 - DO: Use `withTaskLog()` from `@pi-dash/observability` only for tasks that need in-process retry (not for pg-boss enqueue calls — pg-boss handles retries).
 - DO: Use `log.error()` from `evlog` in client-side catch blocks — never use `console.error`. Include component name, action, entity IDs, and error message.
 - DO: Use `handleMutationResult()` from `@/lib/mutation-result` for Zero mutation server results instead of inline `if (res.type === "error") { toast.error(...) }`.

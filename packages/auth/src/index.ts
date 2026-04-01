@@ -3,12 +3,8 @@ import { db } from "@pi-dash/db";
 import * as schema from "@pi-dash/db/schema/auth";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
-import { notifyUserWelcome, syncCourierUser } from "@pi-dash/notifications";
+import { enqueue } from "@pi-dash/jobs";
 import { withFireAndForgetLog } from "@pi-dash/observability";
-import {
-  manageOrientationGroupMembership,
-  syncWhatsAppStatus,
-} from "@pi-dash/whatsapp";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -47,10 +43,12 @@ export const auth = betterAuth({
       update: {
         // biome-ignore lint/suspicious/useAwait: better-auth requires async return type
         after: async (user) => {
-          const phone = typeof user.phone === "string" ? user.phone : undefined;
+          const phone = typeof user.phone === "string" ? user.phone : null;
           withFireAndForgetLog(
             { hook: "afterUserUpdate", userId: user.id, phone },
-            () => syncWhatsAppStatus(user.id, phone)
+            async () => {
+              await enqueue("sync-whatsapp-status", { userId: user.id, phone });
+            }
           );
         },
       },
@@ -87,37 +85,27 @@ export const auth = betterAuth({
         return;
       }
 
-      try {
-        withFireAndForgetLog(
-          {
-            hook: "afterSignUp",
-            userId: user.id,
-            email: user.email,
-            name: user.name,
-          },
-          () =>
-            syncCourierUser({
-              userId: user.id as string,
-              email: user.email ?? "",
-              name: user.name ?? "",
-            }).then(() =>
-              notifyUserWelcome({
-                userId: user.id as string,
-                name: user.name ?? "",
-              })
-            )
-        );
+      // Welcome handler syncs user to Courier before sending notification
+      withFireAndForgetLog(
+        { hook: "afterSignUp", userId: user.id },
+        async () => {
+          await enqueue("notify-user-welcome", {
+            userId: user.id as string,
+            email: user.email ?? "",
+            name: user.name ?? "",
+          });
+        }
+      );
 
-        withFireAndForgetLog(
-          { hook: "afterSignUp", userId: user.id, action: "orientationGroup" },
-          () => manageOrientationGroupMembership(user.id as string, false)
-        );
-      } catch (err) {
-        const log = createRequestLogger();
-        log.set({ hook: "afterSignUp", userId: user.id, email: user.email });
-        log.error(err instanceof Error ? err : String(err));
-        log.emit();
-      }
+      withFireAndForgetLog(
+        { hook: "afterSignUp", userId: user.id, action: "orientationGroup" },
+        async () => {
+          await enqueue("whatsapp-manage-orientation", {
+            userId: user.id as string,
+            attendedOrientation: false,
+          });
+        }
+      );
     }),
   },
   trustedOrigins: [env.CORS_ORIGIN],

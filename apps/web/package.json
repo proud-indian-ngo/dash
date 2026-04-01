@@ -23,7 +23,6 @@
     "@pi-dash/jobs": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
     "@pi-dash/observability": "workspace:*",
-    "@pi-dash/whatsapp": "workspace:*",
     "@pi-dash/zero": "workspace:*",
     "@platejs/basic-nodes": "catalog:",
     "@platejs/caption": "catalog:",

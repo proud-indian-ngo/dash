@@ -195,13 +195,19 @@ Vendor payment attachments have a `purpose` field: `"quotation"` (uploaded at cr
 ### Architecture
 
 ```
-Zero mutator (server) → ctx.asyncTasks.push({ fn, meta })
-    → /api/zero/mutate handler awaits tasks after commit
-        → withTaskLog (retry + evlog)
-            → packages/notifications/src/send/*.ts
-                → sendMessage / sendBulkMessage
-                    → Courier (inbox + email) + WhatsApp (optional)
+Server function / Zero mutator / auth hook
+    → enqueue("notify-*" | "sync-*" | "whatsapp-*", payload)
+        → packages/jobs/src/handlers/       # pg-boss picks up job
+            → packages/notifications/src/   # notifications
+            → packages/whatsapp/src/        # WhatsApp group ops
+            → Courier API                   # user profile sync
 ```
+
+All async side-effects (notifications, Courier sync, WhatsApp group management) go through pg-boss `enqueue()` from `@pi-dash/jobs` — never call these functions directly from server functions, auth hooks, or mutators. pg-boss provides persistence, retry (3 attempts with backoff), dead-letter queue, and visibility in the jobs dashboard.
+
+**Exceptions**: `notifyUserDeleted` must run synchronously before user deletion (Courier needs the user to exist).
+
+Enqueue calls for side-effects should be wrapped in `withFireAndForgetLog` so that a pg-boss failure doesn't block the primary operation.
 
 ### Channels
 

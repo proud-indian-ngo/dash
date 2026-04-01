@@ -304,16 +304,44 @@ export interface NotifyVptCascadeRejectedPayload {
 }
 
 // User Admin
+export interface NotifyRoleChangedPayload {
+  newRole: string;
+  userId: string;
+}
+export interface NotifyUserWelcomePayload {
+  email: string;
+  name: string;
+  userId: string;
+}
+export interface NotifyUserBannedPayload {
+  reason?: string;
+  userId: string;
+}
+export interface NotifyUserUnbannedPayload {
+  userId: string;
+}
 export interface NotifyPasswordResetPayload {
   userId: string;
 }
 export interface NotifyUserDeactivatedPayload {
   userId: string;
 }
-export interface NotifyUserDeletedPayload {
+export interface NotifyUserReactivatedPayload {
   userId: string;
 }
-export interface NotifyUserReactivatedPayload {
+
+// User Sync
+export interface SyncCourierUserPayload {
+  email: string;
+  name: string;
+  userId: string;
+}
+export interface SyncWhatsAppStatusPayload {
+  phone: string | null;
+  userId: string;
+}
+export interface WhatsAppManageOrientationPayload {
+  attendedOrientation: boolean;
   userId: string;
 }
 
@@ -389,12 +417,15 @@ export interface JobPayloads {
   "notify-reimbursement-submitted": NotifyReimbursementSubmittedPayload;
   "notify-removed-from-event": NotifyRemovedFromEventPayload;
   "notify-removed-from-team": NotifyRemovedFromTeamPayload;
+  "notify-role-changed": NotifyRoleChangedPayload;
   "notify-team-deleted": NotifyTeamDeletedPayload;
   "notify-team-role-changed": NotifyTeamRoleChangedPayload;
   "notify-team-updated": NotifyTeamUpdatedPayload;
+  "notify-user-banned": NotifyUserBannedPayload;
   "notify-user-deactivated": NotifyUserDeactivatedPayload;
-  "notify-user-deleted": NotifyUserDeletedPayload;
   "notify-user-reactivated": NotifyUserReactivatedPayload;
+  "notify-user-unbanned": NotifyUserUnbannedPayload;
+  "notify-user-welcome": NotifyUserWelcomePayload;
   "notify-users-added-to-event": NotifyUsersAddedToEventPayload;
   "notify-vendor-approved": NotifyVendorApprovedPayload;
   "notify-vendor-auto-approved": NotifyVendorAutoApprovedPayload;
@@ -417,10 +448,13 @@ export interface JobPayloads {
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
   "send-whatsapp": WhatsAppPayload;
+  "sync-courier-user": SyncCourierUserPayload;
+  "sync-whatsapp-status": SyncWhatsAppStatusPayload;
   "whatsapp-add-member": WhatsAppAddMemberPayload;
   "whatsapp-add-member-team": WhatsAppAddMemberTeamPayload;
   "whatsapp-add-members": WhatsAppAddMembersPayload;
   "whatsapp-create-group": WhatsAppCreateGroupPayload;
+  "whatsapp-manage-orientation": WhatsAppManageOrientationPayload;
   "whatsapp-remove-member": WhatsAppRemoveMemberPayload;
   "whatsapp-remove-member-team": WhatsAppRemoveMemberTeamPayload;
 }
@@ -428,61 +462,67 @@ export interface JobPayloads {
 export type JobName = keyof JobPayloads;
 
 export const QUEUE_NAMES: JobName[] = [
-  "send-notification",
-  "send-bulk-notification",
-  "send-whatsapp",
   "create-recurring-events",
-  "send-scheduled-message",
-  "notify-reimbursement-submitted",
-  "notify-reimbursement-approved",
-  "notify-reimbursement-rejected",
-  "notify-advance-payment-submitted",
+  "notify-added-to-event",
+  "notify-added-to-team",
   "notify-advance-payment-approved",
   "notify-advance-payment-rejected",
-  "notify-vendor-payment-submitted",
-  "notify-vendor-payment-approved",
-  "notify-vendor-payment-rejected",
-  "notify-vp-invoice-submitted",
-  "notify-vp-invoice-approved",
-  "notify-vp-invoice-rejected",
-  "notify-vpt-submitted",
-  "notify-vpt-approved",
-  "notify-vpt-rejected",
-  "notify-vpt-cascade-rejected",
-  "notify-vendor-approved",
-  "notify-vendor-unapproved",
-  "notify-vendor-auto-approved",
-  "notify-vp-fully-paid",
-  "notify-password-reset",
-  "notify-user-deactivated",
-  "notify-user-deleted",
-  "notify-user-reactivated",
-  "notify-team-role-changed",
-  "remind-stale-requests",
-  "remind-feedback-deadline",
-  "remind-photo-approval",
-  "notify-team-updated",
-  "notify-team-deleted",
-  "notify-added-to-team",
-  "notify-removed-from-team",
-  "notify-event-created",
-  "notify-event-updated",
+  "notify-advance-payment-submitted",
   "notify-event-cancelled",
-  "notify-added-to-event",
-  "notify-users-added-to-event",
-  "notify-removed-from-event",
-  "notify-event-interest-received",
+  "notify-event-created",
+  "notify-event-feedback-open",
   "notify-event-interest-approved",
+  "notify-event-interest-received",
   "notify-event-interest-rejected",
+  "notify-event-update-posted",
+  "notify-event-updated",
+  "notify-password-reset",
   "notify-photo-approved",
   "notify-photo-rejected",
-  "notify-event-update-posted",
-  "notify-event-feedback-open",
-  "whatsapp-create-group",
+  "notify-reimbursement-approved",
+  "notify-reimbursement-rejected",
+  "notify-reimbursement-submitted",
+  "notify-removed-from-event",
+  "notify-removed-from-team",
+  "notify-role-changed",
+  "notify-team-deleted",
+  "notify-team-role-changed",
+  "notify-team-updated",
+  "notify-user-banned",
+  "notify-user-deactivated",
+  "notify-user-reactivated",
+  "notify-user-unbanned",
+  "notify-user-welcome",
+  "notify-users-added-to-event",
+  "notify-vendor-approved",
+  "notify-vendor-auto-approved",
+  "notify-vendor-payment-approved",
+  "notify-vendor-payment-rejected",
+  "notify-vendor-payment-submitted",
+  "notify-vendor-unapproved",
+  "notify-vp-fully-paid",
+  "notify-vp-invoice-approved",
+  "notify-vp-invoice-rejected",
+  "notify-vp-invoice-submitted",
+  "notify-vpt-approved",
+  "notify-vpt-cascade-rejected",
+  "notify-vpt-rejected",
+  "notify-vpt-submitted",
+  "remind-feedback-deadline",
+  "remind-photo-approval",
+  "remind-stale-requests",
+  "send-bulk-notification",
+  "send-notification",
+  "send-scheduled-message",
+  "send-whatsapp",
+  "sync-courier-user",
+  "sync-whatsapp-status",
   "whatsapp-add-member",
-  "whatsapp-add-members",
-  "whatsapp-remove-member",
   "whatsapp-add-member-team",
+  "whatsapp-add-members",
+  "whatsapp-create-group",
+  "whatsapp-manage-orientation",
+  "whatsapp-remove-member",
   "whatsapp-remove-member-team",
 ];
 

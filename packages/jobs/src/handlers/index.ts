@@ -39,9 +39,12 @@ import {
 } from "./notify-team-event";
 import {
   handleNotifyPasswordReset,
+  handleNotifyRoleChanged,
+  handleNotifyUserBanned,
   handleNotifyUserDeactivated,
-  handleNotifyUserDeleted,
   handleNotifyUserReactivated,
+  handleNotifyUserUnbanned,
+  handleNotifyUserWelcome,
 } from "./notify-user-admin";
 import {
   handleNotifyVendorApproved,
@@ -70,11 +73,13 @@ import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
 import { handleSendWhatsApp } from "./send-whatsapp";
+import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
 import {
   handleWhatsAppAddMember,
   handleWhatsAppAddMembers,
   handleWhatsAppAddMemberTeam,
   handleWhatsAppCreateGroup,
+  handleWhatsAppManageOrientation,
   handleWhatsAppRemoveMember,
   handleWhatsAppRemoveMemberTeam,
 } from "./whatsapp-group";
@@ -214,6 +219,14 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     handleNotifyVendorAutoApproved
   );
 
+  await boss.work("notify-role-changed", NOTIFY_POLL, handleNotifyRoleChanged);
+  await boss.work("notify-user-welcome", NOTIFY_POLL, handleNotifyUserWelcome);
+  await boss.work("notify-user-banned", NOTIFY_POLL, handleNotifyUserBanned);
+  await boss.work(
+    "notify-user-unbanned",
+    NOTIFY_POLL,
+    handleNotifyUserUnbanned
+  );
   await boss.work(
     "notify-password-reset",
     NOTIFY_POLL,
@@ -224,7 +237,6 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     NOTIFY_POLL,
     handleNotifyUserDeactivated
   );
-  await boss.work("notify-user-deleted", NOTIFY_POLL, handleNotifyUserDeleted);
   await boss.work(
     "notify-user-reactivated",
     NOTIFY_POLL,
@@ -331,6 +343,14 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     handleRemindPhotoApproval
   );
 
+  // User sync handlers (5s polling — external API)
+  await boss.work("sync-courier-user", NOTIFY_POLL, handleSyncCourierUser);
+  await boss.work(
+    "sync-whatsapp-status",
+    NOTIFY_POLL,
+    handleSyncWhatsAppStatus
+  );
+
   // WhatsApp group management (default 2s polling — external API)
   await boss.work("whatsapp-create-group", handleWhatsAppCreateGroup);
   await boss.work("whatsapp-add-member", handleWhatsAppAddMember);
@@ -340,5 +360,10 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work(
     "whatsapp-remove-member-team",
     handleWhatsAppRemoveMemberTeam
+  );
+  await boss.work(
+    "whatsapp-manage-orientation",
+    NOTIFY_POLL,
+    handleWhatsAppManageOrientation
   );
 }
