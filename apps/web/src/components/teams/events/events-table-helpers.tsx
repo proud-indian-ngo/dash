@@ -1,4 +1,5 @@
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import type {
   TeamEvent,
   TeamEventMember,
@@ -31,24 +32,7 @@ export function getRecurrenceLabel(
   if (!rule) {
     return "One-time";
   }
-  // TODO: Parse RRULE string into human-readable label (Step 2)
-  const rrule = rule.rrule.toUpperCase();
-  if (rrule.includes("FREQ=DAILY")) {
-    return "Daily";
-  }
-  if (rrule.includes("FREQ=WEEKLY")) {
-    if (rrule.includes("INTERVAL=2")) {
-      return "Biweekly";
-    }
-    return "Weekly";
-  }
-  if (rrule.includes("FREQ=MONTHLY")) {
-    return "Monthly";
-  }
-  if (rrule.includes("FREQ=YEARLY")) {
-    return "Yearly";
-  }
-  return "Recurring";
+  return rruleToLabel(rule.rrule);
 }
 
 export function searchEvent(row: EventRow, query: string): boolean {

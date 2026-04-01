@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import { format } from "date-fns";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import type { EventRow } from "./events-table";
@@ -82,7 +83,7 @@ export function EventDetailsCard({ event }: { event: EventRow }) {
 
         {recurrence?.rrule ? (
           <PropertyRow icon={RepeatIcon} label="Recurrence">
-            {recurrence.rrule}
+            {rruleToLabel(recurrence.rrule)}
           </PropertyRow>
         ) : null}
 
