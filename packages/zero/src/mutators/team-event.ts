@@ -48,8 +48,8 @@ function buildUpdateFields(args: UpdateArgs) {
 
 const recurrenceRuleSchema = z
   .object({
-    frequency: z.enum(["weekly", "biweekly", "monthly"]),
-    endDate: z.string().optional(),
+    rrule: z.string(),
+    exdates: z.array(z.string()).optional(),
   })
   .optional();
 
@@ -67,7 +67,6 @@ export const teamEventMutators = {
       recurrenceRule: recurrenceRuleSchema,
       whatsappGroupId: z.string().optional(),
       createWhatsAppGroup: z.boolean().optional(),
-      copyAllMembers: z.boolean().optional(),
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
       now: z.number(),
@@ -96,11 +95,11 @@ export const teamEventMutators = {
         endTime: args.endTime ?? null,
         isPublic: args.isPublic ?? false,
         recurrenceRule: args.recurrenceRule ?? null,
-        copyAllMembers: args.copyAllMembers ?? false,
         feedbackEnabled: args.feedbackEnabled ?? false,
         feedbackDeadline: args.feedbackDeadline ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
-        parentEventId: null,
+        seriesId: null,
+        originalDate: null,
         cancelledAt: null,
         createdBy: ctx.userId,
         createdAt: args.now,

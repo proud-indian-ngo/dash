@@ -327,7 +327,7 @@ export function EventDetail({
   });
 
   const recurrence = event.recurrenceRule as
-    | { frequency: "weekly" | "biweekly" | "monthly"; endDate?: string }
+    | { rrule: string; exdates?: string[] }
     | null
     | undefined;
 
@@ -447,7 +447,7 @@ export function EventDetail({
           endTime: event.endTime,
           isPublic: !!event.isPublic,
           whatsappGroupId: event.whatsappGroupId,
-          parentEventId: event.parentEventId,
+          seriesId: event.seriesId,
           recurrenceRule: recurrence ?? null,
           feedbackEnabled: !!event.feedbackEnabled,
           feedbackDeadline: event.feedbackDeadline,

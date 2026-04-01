@@ -45,7 +45,7 @@ function PropertyRow({
 
 export function EventDetailsCard({ event }: { event: EventRow }) {
   const recurrence = event.recurrenceRule as
-    | { frequency: string; endDate?: string }
+    | { rrule: string; exdates?: string[] }
     | null
     | undefined;
 
@@ -80,15 +80,13 @@ export function EventDetailsCard({ event }: { event: EventRow }) {
           </Badge>
         </PropertyRow>
 
-        {recurrence?.frequency ? (
+        {recurrence?.rrule ? (
           <PropertyRow icon={RepeatIcon} label="Recurrence">
-            {recurrence.frequency.charAt(0).toUpperCase() +
-              recurrence.frequency.slice(1)}
-            {recurrence.endDate ? ` until ${recurrence.endDate}` : null}
+            {recurrence.rrule}
           </PropertyRow>
         ) : null}
 
-        {event.parentEventId ? (
+        {event.seriesId ? (
           <PropertyRow icon={RepeatIcon} label="Series">
             Part of a recurring event
           </PropertyRow>

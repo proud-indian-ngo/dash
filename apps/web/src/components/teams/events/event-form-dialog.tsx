@@ -31,9 +31,7 @@ const eventFormSchema = z.object({
     .refine((d): d is Date => d != null, "Start time is required"),
   endTime: z.date().optional(),
   isPublic: z.boolean(),
-  frequency: z.enum(["", "weekly", "biweekly", "monthly"]),
-  recurrenceEndDate: z.string().optional(),
-  copyAllMembers: z.boolean(),
+  rrule: z.string().optional(),
   whatsappGroupId: z.string().optional(),
   createWaGroup: z.boolean(),
   feedbackEnabled: z.boolean(),
@@ -68,11 +66,11 @@ interface InitialValues {
   isPublic: boolean;
   location: string | null;
   name: string;
-  parentEventId: string | null;
   recurrenceRule: {
-    frequency: "weekly" | "biweekly" | "monthly";
-    endDate?: string;
+    rrule: string;
+    exdates?: string[];
   } | null;
+  seriesId: string | null;
   startTime: number;
   whatsappGroupId: string | null;
 }
@@ -94,9 +92,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
       ? new Date(initialValues.endTime)
       : undefined,
     isPublic: initialValues?.isPublic ?? false,
-    frequency: initialValues?.recurrenceRule?.frequency ?? "",
-    recurrenceEndDate: initialValues?.recurrenceRule?.endDate ?? "",
-    copyAllMembers: false,
+    rrule: initialValues?.recurrenceRule?.rrule ?? "",
     whatsappGroupId: initialValues?.whatsappGroupId ?? "",
     createWaGroup: false,
     feedbackEnabled: initialValues?.feedbackEnabled ?? false,
@@ -130,14 +126,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
 }
 
 function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
-  const recurrenceRule = value.frequency
-    ? {
-        frequency: value.frequency as "weekly" | "biweekly" | "monthly",
-        ...(value.recurrenceEndDate
-          ? { endDate: value.recurrenceEndDate }
-          : {}),
-      }
-    : undefined;
+  const recurrenceRule = value.rrule ? { rrule: value.rrule } : undefined;
 
   return {
     id: crypto.randomUUID(),
@@ -150,7 +139,6 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     isPublic: value.isPublic,
     whatsappGroupId: value.whatsappGroupId || undefined,
     createWhatsAppGroup: value.createWaGroup || undefined,
-    copyAllMembers: value.copyAllMembers || undefined,
     now: Date.now(),
     recurrenceRule,
     feedbackEnabled: value.feedbackEnabled,
@@ -233,37 +221,13 @@ function EventFormContent({
       <DateTimeField isRequired label="Start Time" name="startTime" />
       <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
+      {/* TODO: Rich recurrence builder (Step 6) */}
       {!isEdit && (
-        <>
-          <SelectField
-            label="Recurrence"
-            name="frequency"
-            options={[
-              { label: "None", value: "" },
-              { label: "Weekly", value: "weekly" },
-              { label: "Biweekly", value: "biweekly" },
-              { label: "Monthly", value: "monthly" },
-            ]}
-            placeholder="None"
-          />
-          <form.Subscribe selector={(state) => state.values.frequency}>
-            {(frequency) =>
-              frequency ? (
-                <>
-                  <InputField
-                    label="Recurrence End Date"
-                    name="recurrenceEndDate"
-                    type="date"
-                  />
-                  <CheckboxField
-                    label="Copy all members to recurring events"
-                    name="copyAllMembers"
-                  />
-                </>
-              ) : null
-            }
-          </form.Subscribe>
-        </>
+        <InputField
+          label="RRULE (e.g. FREQ=WEEKLY;BYDAY=SA)"
+          name="rrule"
+          placeholder="Leave empty for one-time event"
+        />
       )}
       <SelectField
         label="WhatsApp Group"

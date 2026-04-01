@@ -1,17 +1,10 @@
-import { AddSquareIcon, MinusSignSquareIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
-import { OccurrencesSubTable } from "@/components/teams/events/event-occurrences-subtable";
-import type {
-  EventRow,
-  ParentEventRow,
-} from "@/components/teams/events/events-table-helpers";
+import type { EventRow } from "@/components/teams/events/events-table-helpers";
 import {
   getEventStatus,
   getRecurrenceLabel,
@@ -35,53 +28,10 @@ export function createEventsTableColumns({
   onCancelEvent,
   onEditEvent,
   onSelectEvent,
-}: ColumnCallbacks): (ColumnDef<ParentEventRow> & {
+}: ColumnCallbacks): (ColumnDef<EventRow> & {
   enableColumnOrdering?: boolean;
 })[] {
   return [
-    {
-      id: "expand",
-      header: "",
-      cell: ({ row }) =>
-        row.getCanExpand() ? (
-          <Button
-            aria-label={
-              row.getIsExpanded()
-                ? "Collapse occurrences"
-                : "Expand occurrences"
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              row.toggleExpanded();
-            }}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={row.getIsExpanded() ? MinusSignSquareIcon : AddSquareIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null,
-      size: 40,
-      minSize: 40,
-      enableSorting: false,
-      enableHiding: false,
-      enableResizing: false,
-      enableColumnOrdering: false,
-      meta: {
-        expandedContent: (data: ParentEventRow) => (
-          <OccurrencesSubTable
-            canManage={canManage}
-            occurrences={data.occurrences}
-            onCancelEvent={onCancelEvent}
-            onEditEvent={onEditEvent}
-            onSelectEvent={onSelectEvent}
-          />
-        ),
-      },
-    },
     {
       id: "name",
       accessorFn: (row) => row.name,
@@ -212,7 +162,7 @@ export function createEventsTableColumns({
       ),
       cell: ({ row }) => {
         const rule = row.original.recurrenceRule as
-          | { frequency: string }
+          | { rrule: string }
           | null
           | undefined;
         const label = getRecurrenceLabel(rule);

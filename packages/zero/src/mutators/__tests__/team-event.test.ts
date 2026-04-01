@@ -3,8 +3,8 @@ import z from "zod";
 
 const recurrenceRuleSchema = z
   .object({
-    frequency: z.enum(["weekly", "biweekly", "monthly"]),
-    endDate: z.string().optional(),
+    rrule: z.string(),
+    exdates: z.array(z.string()).optional(),
   })
   .optional();
 
@@ -20,7 +20,6 @@ const createSchema = z.object({
   recurrenceRule: recurrenceRuleSchema,
   whatsappGroupId: z.string().optional(),
   createWhatsAppGroup: z.boolean().optional(),
-  copyAllMembers: z.boolean().optional(),
   now: z.number(),
 });
 
@@ -68,7 +67,7 @@ describe("teamEvent mutator schemas", () => {
         startTime: 1_700_000_000_000,
         endTime: 1_700_003_600_000,
         isPublic: true,
-        recurrenceRule: { frequency: "weekly" },
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO" },
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
@@ -122,19 +121,19 @@ describe("teamEvent mutator schemas", () => {
         teamId: "team-1",
         name: "Recurring",
         startTime: 1_700_000_000_000,
-        recurrenceRule: { frequency: "monthly", endDate: "2026-12-31" },
+        recurrenceRule: { rrule: "FREQ=MONTHLY;BYDAY=1SA;UNTIL=20261231" },
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
     });
 
-    it("rejects invalid recurrence frequency", () => {
+    it("rejects invalid recurrence rule", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
         teamId: "team-1",
         name: "Recurring",
         startTime: 1_700_000_000_000,
-        recurrenceRule: { frequency: "daily" },
+        recurrenceRule: { rrule: 123 },
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(false);

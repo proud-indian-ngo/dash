@@ -319,10 +319,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               endTime: editEventData.event.endTime,
               isPublic: editEventData.event.isPublic ?? false,
               location: editEventData.event.location,
-              parentEventId: editEventData.event.parentEventId,
+              seriesId: editEventData.event.seriesId,
               recurrenceRule: editEventData.event.recurrenceRule as {
-                frequency: "weekly" | "biweekly" | "monthly";
-                endDate?: string;
+                rrule: string;
+                exdates?: string[];
               } | null,
               startTime: editEventData.event.startTime,
               whatsappGroupId: editEventData.event.whatsappGroupId,

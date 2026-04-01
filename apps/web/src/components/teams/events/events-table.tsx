@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
-import type {
-  EventRow,
-  ParentEventRow,
-} from "@/components/teams/events/events-table-helpers";
+import type { EventRow } from "@/components/teams/events/events-table-helpers";
 import { searchEvent } from "@/components/teams/events/events-table-helpers";
 
 export type { EventRow } from "@/components/teams/events/events-table-helpers";
@@ -28,25 +25,8 @@ export function EventsTable({
   onCancelEvent,
   toolbarActions,
 }: EventsTableProps) {
-  const parentRows = (() => {
-    const parents: EventRow[] = [];
-    const ocMap = new Map<string, EventRow[]>();
-
-    for (const event of events) {
-      if (event.parentEventId) {
-        const list = ocMap.get(event.parentEventId) ?? [];
-        list.push(event);
-        ocMap.set(event.parentEventId, list);
-      } else {
-        parents.push(event);
-      }
-    }
-
-    return parents.map<ParentEventRow>((p) => ({
-      ...p,
-      occurrences: ocMap.get(p.id) ?? [],
-    }));
-  })();
+  // Filter to series parents + standalone events (no exceptions shown in main table for now)
+  const rows = events.filter((e) => !e.seriesId);
 
   const columns = createEventsTableColumns({
     canManage,
@@ -56,17 +36,16 @@ export function EventsTable({
   });
 
   return (
-    <DataTableWrapper<ParentEventRow>
+    <DataTableWrapper<EventRow>
       columns={columns}
-      data={parentRows}
-      defaultColumnPinning={{ left: ["expand"], right: ["actions"] }}
+      data={rows}
+      defaultColumnPinning={{ right: ["actions"] }}
       emptyMessage="No events found."
-      getRowCanExpand={(row) => row.original.occurrences.length > 0}
       getRowId={(row) => row.id}
       isLoading={isLoading}
       searchFn={searchEvent}
       searchPlaceholder="Search events..."
-      storageKey="events_table_state_v1"
+      storageKey="events_table_state_v2"
       tableLayout={{
         columnsResizable: true,
         columnsDraggable: true,

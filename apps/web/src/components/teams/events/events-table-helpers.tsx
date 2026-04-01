@@ -11,10 +11,6 @@ export type EventRow = TeamEvent & {
   whatsappGroup: WhatsappGroup | undefined;
 };
 
-export type ParentEventRow = EventRow & {
-  occurrences: EventRow[];
-};
-
 export function getEventStatus(event: EventRow): {
   label: string;
   variant: "destructive" | "outline" | "secondary" | "success-outline";
@@ -30,24 +26,32 @@ export function getEventStatus(event: EventRow): {
 }
 
 export function getRecurrenceLabel(
-  rule: { frequency: string } | null | undefined
+  rule: { rrule: string } | null | undefined
 ): string {
   if (!rule) {
     return "One-time";
   }
-  switch (rule.frequency) {
-    case "weekly":
-      return "Weekly";
-    case "biweekly":
-      return "Biweekly";
-    case "monthly":
-      return "Monthly";
-    default:
-      return "One-time";
+  // TODO: Parse RRULE string into human-readable label (Step 2)
+  const rrule = rule.rrule.toUpperCase();
+  if (rrule.includes("FREQ=DAILY")) {
+    return "Daily";
   }
+  if (rrule.includes("FREQ=WEEKLY")) {
+    if (rrule.includes("INTERVAL=2")) {
+      return "Biweekly";
+    }
+    return "Weekly";
+  }
+  if (rrule.includes("FREQ=MONTHLY")) {
+    return "Monthly";
+  }
+  if (rrule.includes("FREQ=YEARLY")) {
+    return "Yearly";
+  }
+  return "Recurring";
 }
 
-export function searchEvent(row: ParentEventRow, query: string): boolean {
+export function searchEvent(row: EventRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;
