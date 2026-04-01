@@ -9,8 +9,12 @@ import {
 import { user } from "@pi-dash/db/schema/auth";
 import { role } from "@pi-dash/db/schema/permission";
 import {
+  notifyPasswordReset,
   notifyRoleChanged,
   notifyUserBanned,
+  notifyUserDeactivated,
+  notifyUserDeleted,
+  notifyUserReactivated,
   notifyUserUnbanned,
   notifyUserWelcome,
   syncCourierUser,
@@ -261,6 +265,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       throw new Error("User not found");
     }
     const previousRole = currentUser.role;
+    const previousIsActive = (currentUser as { isActive?: boolean }).isActive;
     const previousAttendedOrientation = (
       currentUser as { attendedOrientation?: boolean }
     ).attendedOrientation;
@@ -282,6 +287,19 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       },
       headers: context.headers,
     });
+
+    // Notify user if their account was deactivated or reactivated
+    if (data.isActive === false && previousIsActive !== false) {
+      withFireAndForgetLog(
+        { handler: "updateUser:deactivated", userId: data.userId },
+        () => notifyUserDeactivated({ userId: data.userId })
+      );
+    } else if (data.isActive === true && previousIsActive === false) {
+      withFireAndForgetLog(
+        { handler: "updateUser:reactivated", userId: data.userId },
+        () => notifyUserReactivated({ userId: data.userId })
+      );
+    }
 
     if (data.role && data.role !== previousRole) {
       const newRole = data.role;
@@ -374,6 +392,11 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
       headers: context.headers,
     });
 
+    withFireAndForgetLog(
+      { handler: "setUserPasswordAdmin", userId: data.userId },
+      () => notifyPasswordReset({ userId: data.userId })
+    );
+
     return data.userId;
   });
 
@@ -385,6 +408,13 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
 
     if (authed.session.user.id === data.userId) {
       throw new Error("You cannot delete your own account");
+    }
+
+    // Notify user before deletion (Courier needs user to exist)
+    try {
+      await notifyUserDeleted({ userId: data.userId });
+    } catch {
+      // Best-effort: don't block deletion if notification fails
     }
 
     await auth.api.removeUser({

@@ -86,3 +86,27 @@ export async function notifyRemovedFromTeam({
     topic: TOPICS.TEAMS,
   });
 }
+
+interface TeamRoleChangedOptions {
+  newRole: string;
+  teamId: string;
+  teamName: string;
+  userId: string;
+}
+
+export async function notifyTeamRoleChanged({
+  userId,
+  teamId,
+  teamName,
+  newRole,
+}: TeamRoleChangedOptions): Promise<void> {
+  const label = newRole === "lead" ? "promoted to lead" : "changed to member";
+  await sendMessage({
+    to: userId,
+    title: "Team Role Updated",
+    body: `You have been ${label} in ${teamName}.`,
+    clickAction: `/teams/${teamId}`,
+    idempotencyKey: `team-role-changed-${teamId}-${userId}-${newRole}`,
+    topic: TOPICS.TEAMS,
+  });
+}

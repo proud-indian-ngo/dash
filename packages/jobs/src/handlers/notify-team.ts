@@ -2,6 +2,7 @@ import type {
   NotifyAddedToTeamPayload,
   NotifyRemovedFromTeamPayload,
   NotifyTeamDeletedPayload,
+  NotifyTeamRoleChangedPayload,
   NotifyTeamUpdatedPayload,
 } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
@@ -28,4 +29,10 @@ export const handleNotifyRemovedFromTeam =
   createNotifyHandler<NotifyRemovedFromTeamPayload>(
     "notify-removed-from-team",
     async () => (await import("@pi-dash/notifications")).notifyRemovedFromTeam
+  );
+
+export const handleNotifyTeamRoleChanged =
+  createNotifyHandler<NotifyTeamRoleChangedPayload>(
+    "notify-team-role-changed",
+    async () => (await import("@pi-dash/notifications")).notifyTeamRoleChanged
   );

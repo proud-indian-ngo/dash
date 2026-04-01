@@ -296,6 +296,31 @@ export const teamMutators = {
         id: args.memberId,
         role: args.role,
       });
+
+      if (tx.location === "server") {
+        const memberId = args.memberId;
+        const newRole = args.role;
+        const targetUserId = member.userId as string;
+        const teamId = member.teamId as string;
+        ctx.asyncTasks?.push({
+          meta: { mutator: "setMemberRole", memberId, newRole },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs");
+            const team = await (
+              await import("@pi-dash/db")
+            ).db.query.team.findFirst({
+              columns: { name: true },
+              where: (t, { eq }) => eq(t.id, teamId),
+            });
+            await enqueue("notify-team-role-changed", {
+              userId: targetUserId,
+              teamId,
+              teamName: team?.name ?? "Unknown",
+              newRole,
+            });
+          },
+        });
+      }
     }
   ),
 };

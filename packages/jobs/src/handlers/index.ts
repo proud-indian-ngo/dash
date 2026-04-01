@@ -26,6 +26,7 @@ import {
   handleNotifyAddedToTeam,
   handleNotifyRemovedFromTeam,
   handleNotifyTeamDeleted,
+  handleNotifyTeamRoleChanged,
   handleNotifyTeamUpdated,
 } from "./notify-team";
 import {
@@ -37,18 +38,34 @@ import {
   handleNotifyUsersAddedToEvent,
 } from "./notify-team-event";
 import {
+  handleNotifyPasswordReset,
+  handleNotifyUserDeactivated,
+  handleNotifyUserDeleted,
+  handleNotifyUserReactivated,
+} from "./notify-user-admin";
+import {
+  handleNotifyVendorApproved,
+  handleNotifyVendorAutoApproved,
+  handleNotifyVendorUnapproved,
+} from "./notify-vendor";
+import {
   handleNotifyVendorPaymentApproved,
   handleNotifyVendorPaymentRejected,
   handleNotifyVendorPaymentSubmitted,
+  handleNotifyVpFullyPaid,
   handleNotifyVpInvoiceApproved,
   handleNotifyVpInvoiceRejected,
   handleNotifyVpInvoiceSubmitted,
+  handleNotifyVptCascadeRejected,
 } from "./notify-vendor-payment";
 import {
   handleNotifyVptApproved,
   handleNotifyVptRejected,
   handleNotifyVptSubmitted,
 } from "./notify-vendor-payment-transaction";
+import { handleRemindFeedbackDeadline } from "./remind-feedback-deadline";
+import { handleRemindPhotoApproval } from "./remind-photo-approval";
+import { handleRemindStaleRequests } from "./remind-stale-requests";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
@@ -174,10 +191,54 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   );
   await boss.work("notify-vpt-approved", NOTIFY_POLL, handleNotifyVptApproved);
   await boss.work("notify-vpt-rejected", NOTIFY_POLL, handleNotifyVptRejected);
+  await boss.work(
+    "notify-vpt-cascade-rejected",
+    NOTIFY_POLL,
+    handleNotifyVptCascadeRejected
+  );
+  await boss.work("notify-vp-fully-paid", NOTIFY_POLL, handleNotifyVpFullyPaid);
+
+  await boss.work(
+    "notify-vendor-approved",
+    NOTIFY_POLL,
+    handleNotifyVendorApproved
+  );
+  await boss.work(
+    "notify-vendor-unapproved",
+    NOTIFY_POLL,
+    handleNotifyVendorUnapproved
+  );
+  await boss.work(
+    "notify-vendor-auto-approved",
+    NOTIFY_POLL,
+    handleNotifyVendorAutoApproved
+  );
+
+  await boss.work(
+    "notify-password-reset",
+    NOTIFY_POLL,
+    handleNotifyPasswordReset
+  );
+  await boss.work(
+    "notify-user-deactivated",
+    NOTIFY_POLL,
+    handleNotifyUserDeactivated
+  );
+  await boss.work("notify-user-deleted", NOTIFY_POLL, handleNotifyUserDeleted);
+  await boss.work(
+    "notify-user-reactivated",
+    NOTIFY_POLL,
+    handleNotifyUserReactivated
+  );
 
   await boss.work("notify-team-updated", NOTIFY_POLL, handleNotifyTeamUpdated);
   await boss.work("notify-team-deleted", NOTIFY_POLL, handleNotifyTeamDeleted);
   await boss.work("notify-added-to-team", NOTIFY_POLL, handleNotifyAddedToTeam);
+  await boss.work(
+    "notify-team-role-changed",
+    NOTIFY_POLL,
+    handleNotifyTeamRoleChanged
+  );
   await boss.work(
     "notify-removed-from-team",
     NOTIFY_POLL,
@@ -251,6 +312,23 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-event-feedback-open",
     NOTIFY_POLL,
     handleNotifyEventFeedbackOpen
+  );
+
+  // Scheduled reminder handlers (cron-triggered)
+  await boss.work(
+    "remind-stale-requests",
+    NOTIFY_POLL,
+    handleRemindStaleRequests
+  );
+  await boss.work(
+    "remind-feedback-deadline",
+    NOTIFY_POLL,
+    handleRemindFeedbackDeadline
+  );
+  await boss.work(
+    "remind-photo-approval",
+    NOTIFY_POLL,
+    handleRemindPhotoApproval
   );
 
   // WhatsApp group management (default 2s polling — external API)

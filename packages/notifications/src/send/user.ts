@@ -76,3 +76,68 @@ export async function notifyUserUnbanned({
     topic: TOPICS.ACCOUNT,
   });
 }
+
+interface PasswordResetOptions {
+  userId: string;
+}
+
+interface UserDeactivatedOptions {
+  userId: string;
+}
+
+interface UserDeletedOptions {
+  userId: string;
+}
+
+interface UserReactivatedOptions {
+  userId: string;
+}
+
+export async function notifyPasswordReset({
+  userId,
+}: PasswordResetOptions): Promise<void> {
+  await sendMessage({
+    to: userId,
+    title: "Password Reset by Admin",
+    body: "Your password has been reset by an administrator. If this was unexpected, contact your admin immediately.",
+    idempotencyKey: `password-reset-admin-${userId}`,
+    topic: TOPICS.ACCOUNT,
+  });
+}
+
+export async function notifyUserDeactivated({
+  userId,
+}: UserDeactivatedOptions): Promise<void> {
+  await sendMessage({
+    to: userId,
+    title: "Account Deactivated",
+    body: "Your account has been deactivated. Contact your administrator for more information.",
+    idempotencyKey: `user-deactivated-${userId}`,
+    topic: TOPICS.ACCOUNT,
+  });
+}
+
+export async function notifyUserDeleted({
+  userId,
+}: UserDeletedOptions): Promise<void> {
+  await sendMessage({
+    to: userId,
+    title: "Account Deleted",
+    body: "Your account is being deleted by an administrator. All your data will be removed.",
+    idempotencyKey: `user-deleted-${userId}`,
+    topic: TOPICS.ACCOUNT,
+  });
+}
+
+export async function notifyUserReactivated({
+  userId,
+}: UserReactivatedOptions): Promise<void> {
+  await sendMessage({
+    to: userId,
+    title: "Account Reactivated",
+    body: "Your account has been reactivated. You can now access the platform.",
+    clickAction: "/",
+    idempotencyKey: `user-reactivated-${userId}`,
+    topic: TOPICS.ACCOUNT,
+  });
+}

@@ -190,7 +190,8 @@ export const vendorPaymentMutators = {
       const vendor = await tx.run(
         zql.vendor.where("id", entity.vendorId).one()
       );
-      if (vendor && vendor.status === "pending") {
+      const vendorWasPending = vendor && vendor.status === "pending";
+      if (vendorWasPending) {
         await tx.mutate.vendor.update({
           id: vendor.id,
           status: "approved",
@@ -226,6 +227,30 @@ export const vendorPaymentMutators = {
             });
           },
         });
+
+        // Notify vendor creator if vendor was auto-approved
+        if (vendorWasPending && vendor) {
+          const vendorId = vendor.id;
+          const vendorName = vendor.name;
+          const vendorCreatorId = vendor.createdBy as string;
+          const vpTitle = title;
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "approveVendorPayment:autoApproveVendor",
+              vendorId,
+              vendorCreatorId,
+            },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-vendor-auto-approved", {
+                vendorId,
+                vendorName,
+                creatorId: vendorCreatorId,
+                vendorPaymentTitle: vpTitle,
+              });
+            },
+          });
+        }
       }
     }
   ),
@@ -329,6 +354,28 @@ export const vendorPaymentMutators = {
             });
           },
         });
+
+        // Notify about cascade-rejected transactions
+        if (pendingTransactions.length > 0) {
+          const cascadeCount = pendingTransactions.length;
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "rejectVendorPayment:cascadeReject",
+              vendorPaymentId: id,
+              cascadeCount,
+            },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-vpt-cascade-rejected", {
+                vendorPaymentId: id,
+                title,
+                submitterId: ownerId,
+                transactionCount: cascadeCount,
+                rejectionReason: reason,
+              });
+            },
+          });
+        }
       }
     }
   ),

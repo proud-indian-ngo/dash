@@ -39,7 +39,7 @@ async function recalculateParentStatus(
   tx: any,
   vendorPaymentId: string,
   now: number
-) {
+): Promise<string | null> {
   const transactions = await tx.run(
     zql.vendorPaymentTransaction.where("vendorPaymentId", vendorPaymentId)
   );
@@ -73,7 +73,9 @@ async function recalculateParentStatus(
       status: newStatus,
       updatedAt: now,
     });
+    return newStatus;
   }
+  return null;
 }
 
 export const vendorPaymentTransactionMutators = {
@@ -139,21 +141,44 @@ export const vendorPaymentTransactionMutators = {
       ...fk(args.id),
     });
 
+    let newVpStatus: string | null = null;
     if (isApprover) {
       await tx.mutate.vendorPaymentTransactionHistory.insert({
         ...buildHistoryInsert(userId, "approved", now),
         ...fk(args.id),
       });
-      await recalculateParentStatus(tx, args.vendorPaymentId, now);
+      newVpStatus = await recalculateParentStatus(
+        tx,
+        args.vendorPaymentId,
+        now
+      );
     }
 
     if (tx.location === "server") {
       const transactionId = args.id;
       const vpId = args.vendorPaymentId;
       const vpTitle = vendorPayment.title;
+      const vpOwnerId = vendorPayment.userId as string;
 
       if (isApprover) {
         // Admin auto-approved their own transaction — no need to notify themselves
+        // But notify if VP is fully paid
+        if (newVpStatus === "paid") {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "createVendorPaymentTransaction:vpFullyPaid",
+              vendorPaymentId: vpId,
+            },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-vp-fully-paid", {
+                vendorPaymentId: vpId,
+                title: vpTitle,
+                submitterId: vpOwnerId,
+              });
+            },
+          });
+        }
       } else {
         ctx.asyncTasks?.push({
           meta: {
@@ -275,12 +300,13 @@ export const vendorPaymentTransactionMutators = {
       });
 
       // Recalculate parent VP payment status
-      await recalculateParentStatus(tx, vpId, now);
+      const newVpStatus = await recalculateParentStatus(tx, vpId, now);
 
       if (tx.location === "server") {
         const transactionId = args.id;
         const submitterId = entity.userId as string;
         const vpTitle = vendorPayment.title as string;
+        const vpOwnerId = vendorPayment.userId as string;
         ctx.asyncTasks?.push({
           meta: {
             mutator: "approveVendorPaymentTransaction",
@@ -299,6 +325,24 @@ export const vendorPaymentTransactionMutators = {
             });
           },
         });
+
+        // Notify VP submitter when all payments are received
+        if (newVpStatus === "paid") {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "approveVendorPaymentTransaction:vpFullyPaid",
+              vendorPaymentId: vpId,
+            },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs");
+              await enqueue("notify-vp-fully-paid", {
+                vendorPaymentId: vpId,
+                title: vpTitle,
+                submitterId: vpOwnerId,
+              });
+            },
+          });
+        }
       }
     }
   ),

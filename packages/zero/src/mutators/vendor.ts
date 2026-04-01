@@ -109,6 +109,23 @@ export const vendorMutators = {
         status: "approved",
         updatedAt: Date.now(),
       });
+
+      if (tx.location === "server") {
+        const vendorId = args.id;
+        const vendorName = vendor.name;
+        const creatorId = vendor.createdBy as string;
+        ctx.asyncTasks?.push({
+          meta: { mutator: "approveVendor", vendorId, creatorId },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-vendor-approved", {
+              vendorId,
+              vendorName,
+              creatorId,
+            });
+          },
+        });
+      }
     }
   ),
 
@@ -138,6 +155,23 @@ export const vendorMutators = {
         status: "pending",
         updatedAt: Date.now(),
       });
+
+      if (tx.location === "server") {
+        const vendorId = args.id;
+        const vendorName = vendor.name;
+        const creatorId = vendor.createdBy as string;
+        ctx.asyncTasks?.push({
+          meta: { mutator: "unapproveVendor", vendorId, creatorId },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs");
+            await enqueue("notify-vendor-unapproved", {
+              vendorId,
+              vendorName,
+              creatorId,
+            });
+          },
+        });
+      }
     }
   ),
 

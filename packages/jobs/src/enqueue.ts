@@ -271,6 +271,71 @@ export interface NotifyEventFeedbackOpenPayload {
   memberUserIds: string[];
 }
 
+// Vendor
+export interface NotifyVendorApprovedPayload {
+  creatorId: string;
+  vendorId: string;
+  vendorName: string;
+}
+export interface NotifyVendorUnapprovedPayload {
+  creatorId: string;
+  vendorId: string;
+  vendorName: string;
+}
+export interface NotifyVendorAutoApprovedPayload {
+  creatorId: string;
+  vendorId: string;
+  vendorName: string;
+  vendorPaymentTitle: string;
+}
+
+// Vendor Payment (additional)
+export interface NotifyVpFullyPaidPayload {
+  submitterId: string;
+  title: string;
+  vendorPaymentId: string;
+}
+export interface NotifyVptCascadeRejectedPayload {
+  rejectionReason: string;
+  submitterId: string;
+  title: string;
+  transactionCount: number;
+  vendorPaymentId: string;
+}
+
+// User Admin
+export interface NotifyPasswordResetPayload {
+  userId: string;
+}
+export interface NotifyUserDeactivatedPayload {
+  userId: string;
+}
+export interface NotifyUserDeletedPayload {
+  userId: string;
+}
+export interface NotifyUserReactivatedPayload {
+  userId: string;
+}
+
+// Team (additional)
+export interface NotifyTeamRoleChangedPayload {
+  newRole: string;
+  teamId: string;
+  teamName: string;
+  userId: string;
+}
+
+// Scheduled Reminders
+export interface RemindStaleRequestsPayload {
+  triggeredAt: string;
+}
+export interface RemindFeedbackDeadlinePayload {
+  triggeredAt: string;
+}
+export interface RemindPhotoApprovalPayload {
+  triggeredAt: string;
+}
+
 // WhatsApp group management
 export interface WhatsAppCreateGroupPayload {
   creatorUserId: string;
@@ -316,6 +381,7 @@ export interface JobPayloads {
   "notify-event-interest-rejected": NotifyEventInterestRejectedPayload;
   "notify-event-update-posted": NotifyEventUpdatePostedPayload;
   "notify-event-updated": NotifyEventUpdatedPayload;
+  "notify-password-reset": NotifyPasswordResetPayload;
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;
   "notify-reimbursement-approved": NotifyReimbursementApprovedPayload;
@@ -324,17 +390,29 @@ export interface JobPayloads {
   "notify-removed-from-event": NotifyRemovedFromEventPayload;
   "notify-removed-from-team": NotifyRemovedFromTeamPayload;
   "notify-team-deleted": NotifyTeamDeletedPayload;
+  "notify-team-role-changed": NotifyTeamRoleChangedPayload;
   "notify-team-updated": NotifyTeamUpdatedPayload;
+  "notify-user-deactivated": NotifyUserDeactivatedPayload;
+  "notify-user-deleted": NotifyUserDeletedPayload;
+  "notify-user-reactivated": NotifyUserReactivatedPayload;
   "notify-users-added-to-event": NotifyUsersAddedToEventPayload;
+  "notify-vendor-approved": NotifyVendorApprovedPayload;
+  "notify-vendor-auto-approved": NotifyVendorAutoApprovedPayload;
   "notify-vendor-payment-approved": NotifyVendorPaymentApprovedPayload;
   "notify-vendor-payment-rejected": NotifyVendorPaymentRejectedPayload;
   "notify-vendor-payment-submitted": NotifyVendorPaymentSubmittedPayload;
+  "notify-vendor-unapproved": NotifyVendorUnapprovedPayload;
+  "notify-vp-fully-paid": NotifyVpFullyPaidPayload;
   "notify-vp-invoice-approved": NotifyVpInvoiceApprovedPayload;
   "notify-vp-invoice-rejected": NotifyVpInvoiceRejectedPayload;
   "notify-vp-invoice-submitted": NotifyVpInvoiceSubmittedPayload;
   "notify-vpt-approved": NotifyVptApprovedPayload;
+  "notify-vpt-cascade-rejected": NotifyVptCascadeRejectedPayload;
   "notify-vpt-rejected": NotifyVptRejectedPayload;
   "notify-vpt-submitted": NotifyVptSubmittedPayload;
+  "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
+  "remind-photo-approval": RemindPhotoApprovalPayload;
+  "remind-stale-requests": RemindStaleRequestsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
@@ -370,6 +448,19 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-vpt-submitted",
   "notify-vpt-approved",
   "notify-vpt-rejected",
+  "notify-vpt-cascade-rejected",
+  "notify-vendor-approved",
+  "notify-vendor-unapproved",
+  "notify-vendor-auto-approved",
+  "notify-vp-fully-paid",
+  "notify-password-reset",
+  "notify-user-deactivated",
+  "notify-user-deleted",
+  "notify-user-reactivated",
+  "notify-team-role-changed",
+  "remind-stale-requests",
+  "remind-feedback-deadline",
+  "remind-photo-approval",
   "notify-team-updated",
   "notify-team-deleted",
   "notify-added-to-team",

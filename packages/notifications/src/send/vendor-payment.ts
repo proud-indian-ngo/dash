@@ -121,3 +121,35 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
+
+export async function notifyVpFullyPaid(options: {
+  submitterId: string;
+  title: string;
+  vendorPaymentId: string;
+}): Promise<void> {
+  await sendMessage({
+    to: options.submitterId,
+    title: "Payment Fully Completed",
+    body: `All payments for "${options.title}" have been received.`,
+    clickAction: `/requests/${options.vendorPaymentId}`,
+    idempotencyKey: `vp-fully-paid-${options.vendorPaymentId}`,
+    topic: TOPICS.REQUESTS_STATUS,
+  });
+}
+
+export async function notifyVptCascadeRejected(options: {
+  rejectionReason: string;
+  submitterId: string;
+  title: string;
+  transactionCount: number;
+  vendorPaymentId: string;
+}): Promise<void> {
+  await sendMessage({
+    to: options.submitterId,
+    title: "Transactions Rejected",
+    body: `${options.transactionCount} pending transaction(s) for "${options.title}" were automatically rejected: ${options.rejectionReason}`,
+    clickAction: `/requests/${options.vendorPaymentId}`,
+    idempotencyKey: `vpt-cascade-rejected-${options.vendorPaymentId}`,
+    topic: TOPICS.REQUESTS_STATUS,
+  });
+}

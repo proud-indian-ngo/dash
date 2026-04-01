@@ -30,9 +30,15 @@ export {
   notifyReimbursementSubmitted,
 } from "./send/reimbursement";
 export {
+  notifyFeedbackDeadline,
+  notifyPhotoApprovalReminder,
+  notifyStaleRequests,
+} from "./send/reminders";
+export {
   notifyAddedToTeam,
   notifyRemovedFromTeam,
   notifyTeamDeleted,
+  notifyTeamRoleChanged,
   notifyTeamUpdated,
 } from "./send/team";
 export {
@@ -44,11 +50,20 @@ export {
   notifyUsersAddedToEvent,
 } from "./send/team-event";
 export {
+  notifyPasswordReset,
   notifyRoleChanged,
   notifyUserBanned,
+  notifyUserDeactivated,
+  notifyUserDeleted,
+  notifyUserReactivated,
   notifyUserUnbanned,
   notifyUserWelcome,
 } from "./send/user";
+export {
+  notifyVendorApproved,
+  notifyVendorAutoApproved,
+  notifyVendorUnapproved,
+} from "./send/vendor";
 export {
   notifyVendorPaymentApproved,
   notifyVendorPaymentInvoiceApproved,
@@ -56,6 +71,8 @@ export {
   notifyVendorPaymentInvoiceSubmitted,
   notifyVendorPaymentRejected,
   notifyVendorPaymentSubmitted,
+  notifyVpFullyPaid,
+  notifyVptCascadeRejected,
 } from "./send/vendor-payment";
 export {
   notifyVendorPaymentTransactionApproved,

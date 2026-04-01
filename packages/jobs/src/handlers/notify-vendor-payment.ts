@@ -2,9 +2,11 @@ import type {
   NotifyVendorPaymentApprovedPayload,
   NotifyVendorPaymentRejectedPayload,
   NotifyVendorPaymentSubmittedPayload,
+  NotifyVpFullyPaidPayload,
   NotifyVpInvoiceApprovedPayload,
   NotifyVpInvoiceRejectedPayload,
   NotifyVpInvoiceSubmittedPayload,
+  NotifyVptCascadeRejectedPayload,
 } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 
@@ -51,4 +53,17 @@ export const handleNotifyVpInvoiceRejected =
     async () =>
       (await import("@pi-dash/notifications"))
         .notifyVendorPaymentInvoiceRejected
+  );
+
+export const handleNotifyVpFullyPaid =
+  createNotifyHandler<NotifyVpFullyPaidPayload>(
+    "notify-vp-fully-paid",
+    async () => (await import("@pi-dash/notifications")).notifyVpFullyPaid
+  );
+
+export const handleNotifyVptCascadeRejected =
+  createNotifyHandler<NotifyVptCascadeRejectedPayload>(
+    "notify-vpt-cascade-rejected",
+    async () =>
+      (await import("@pi-dash/notifications")).notifyVptCascadeRejected
   );
