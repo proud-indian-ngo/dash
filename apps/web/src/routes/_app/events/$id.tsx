@@ -3,6 +3,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { Loader } from "@/components/loader";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
@@ -11,6 +12,9 @@ import { useApp } from "@/context/app-context";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/$id")({
+  validateSearch: z.object({
+    occDate: z.string().optional(),
+  }),
   head: () => ({
     meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -33,8 +37,29 @@ export const Route = createFileRoute("/_app/events/$id")({
   component: EventDetailRouteComponent,
 });
 
+/** Apply occurrence date to the series parent's start/end times, preserving time-of-day. */
+function applyOccurrenceDate(
+  event: EventRow,
+  occDate: string
+): { startTime: number; endTime: number | null } {
+  const seriesStart = new Date(event.startTime);
+  const occStart = new Date(occDate);
+  occStart.setHours(
+    seriesStart.getHours(),
+    seriesStart.getMinutes(),
+    seriesStart.getSeconds(),
+    seriesStart.getMilliseconds()
+  );
+  const startTime = occStart.getTime();
+  const duration =
+    event.endTime == null ? null : event.endTime - event.startTime;
+  const endTime = duration == null ? null : startTime + duration;
+  return { startTime, endTime };
+}
+
 function EventDetailRouteComponent() {
   const { id } = Route.useParams();
+  const { occDate } = Route.useSearch();
   const { session } = Route.useRouteContext();
   const { hasPermission } = useApp();
 
@@ -78,6 +103,12 @@ function EventDetailRouteComponent() {
   );
   const isMember = event.members.some((m) => m.userId === session.user.id);
 
+  // For virtual occurrences, override the displayed start/end with the occurrence date
+  const displayEvent =
+    occDate && event.recurrenceRule
+      ? { ...event, ...applyOccurrenceDate(event, occDate) }
+      : event;
+
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
@@ -86,7 +117,7 @@ function EventDetailRouteComponent() {
         canManageFeedback={canManageFeedback}
         canManageVolunteers={canManage}
         currentUserId={session.user.id}
-        event={event}
+        event={displayEvent}
         interests={
           interests as readonly (EventInterest & {
             user: User | undefined;

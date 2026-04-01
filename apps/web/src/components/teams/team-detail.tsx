@@ -187,9 +187,11 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   };
 
   const handleSelectEvent = (row: EventDisplayRow) => {
-    // For virtual occurrences, navigate to the series parent for now
-    const id = row.isVirtual ? row.event.id : row.event.id;
-    navigate({ to: "/events/$id", params: { id } });
+    navigate({
+      to: "/events/$id",
+      params: { id: row.event.id },
+      search: row.originalDate ? { occDate: row.originalDate } : {},
+    });
   };
 
   const editEventData = dialog.getData("editEvent");

@@ -30,6 +30,7 @@ interface PublicDisplayRow {
   location: string | null;
   members: readonly TeamEventMember[];
   name: string;
+  occDate: string | null;
   startTime: number;
   team: { id: string; name: string } | undefined;
   teamId: string;
@@ -62,8 +63,7 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
     };
 
     if (!rule) {
-      // Standalone events: always include (no range filter)
-      rows.push({ ...base, startTime: event.startTime });
+      rows.push({ ...base, startTime: event.startTime, occDate: null });
       continue;
     }
 
@@ -83,7 +83,7 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
       exceptionDates
     );
     for (const occ of occs) {
-      rows.push({ ...base, startTime: occ.startTime });
+      rows.push({ ...base, startTime: occ.startTime, occDate: occ.date });
     }
 
     for (const exc of event.exceptions) {
@@ -92,7 +92,12 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
         exc.startTime >= now &&
         exc.startTime <= rangeEnd
       ) {
-        rows.push({ ...base, startTime: exc.startTime, members: exc.members });
+        rows.push({
+          ...base,
+          startTime: exc.startTime,
+          members: exc.members,
+          occDate: exc.originalDate,
+        });
       }
     }
   }
@@ -237,6 +242,7 @@ export function PublicEventsTable({
         <Link
           className="truncate font-medium text-sm hover:underline"
           params={{ id: row.original.eventId }}
+          search={row.original.occDate ? { occDate: row.original.occDate } : {}}
           to="/events/$id"
         >
           {row.original.name}
