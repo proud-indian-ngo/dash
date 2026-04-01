@@ -3,6 +3,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
+import { expandSeries, type RecurrenceRule } from "@pi-dash/zero/rrule-utils";
 import type {
   EventInterest,
   TeamEvent,
@@ -11,15 +12,28 @@ import type {
 import { useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { addWeeks, format } from "date-fns";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export type PublicEventRow = TeamEvent & {
+  exceptions: readonly (TeamEvent & { members: readonly TeamEventMember[] })[];
   members: readonly TeamEventMember[];
   team: { id: string; name: string } | undefined;
 };
+
+interface PublicDisplayRow {
+  eventId: string;
+  isPublic: boolean | null;
+  location: string | null;
+  members: readonly TeamEventMember[];
+  name: string;
+  startTime: number;
+  team: { id: string; name: string } | undefined;
+  teamId: string;
+}
 
 interface PublicEventsTableProps {
   data: PublicEventRow[];
@@ -30,7 +44,63 @@ interface PublicEventsTableProps {
   userId: string;
 }
 
-function searchEvent(row: PublicEventRow, query: string): boolean {
+function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
+  const now = Date.now();
+  const rangeEnd = addWeeks(new Date(), 8).getTime();
+  const rows: PublicDisplayRow[] = [];
+
+  for (const event of data) {
+    const rule = event.recurrenceRule as RecurrenceRule | null;
+    const base = {
+      eventId: event.id,
+      isPublic: event.isPublic,
+      name: event.name,
+      location: event.location,
+      members: event.members,
+      team: event.team,
+      teamId: event.teamId,
+    };
+
+    if (!rule) {
+      rows.push({ ...base, startTime: event.startTime });
+      continue;
+    }
+
+    const exceptionDates = new Set<string>();
+    for (const exc of event.exceptions) {
+      if (exc.originalDate) {
+        exceptionDates.add(exc.originalDate);
+      }
+    }
+
+    const occs = expandSeries(
+      rule,
+      event.startTime,
+      event.endTime,
+      now,
+      rangeEnd,
+      exceptionDates
+    );
+    for (const occ of occs) {
+      rows.push({ ...base, startTime: occ.startTime });
+    }
+
+    for (const exc of event.exceptions) {
+      if (
+        !exc.cancelledAt &&
+        exc.startTime >= now &&
+        exc.startTime <= rangeEnd
+      ) {
+        rows.push({ ...base, startTime: exc.startTime, members: exc.members });
+      }
+    }
+  }
+
+  rows.sort((a, b) => a.startTime - b.startTime);
+  return rows;
+}
+
+function searchDisplayRow(row: PublicDisplayRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;
@@ -139,8 +209,9 @@ export function PublicEventsTable({
   userId,
 }: PublicEventsTableProps) {
   const navigate = useNavigate();
+  const displayRows = useMemo(() => buildPublicDisplayRows(data), [data]);
 
-  const columns: ColumnDef<PublicEventRow>[] = [
+  const columns: ColumnDef<PublicDisplayRow>[] = [
     {
       id: "name",
       accessorFn: (row) => row.name,
@@ -150,7 +221,7 @@ export function PublicEventsTable({
       cell: ({ row }) => (
         <Link
           className="truncate font-medium text-sm hover:underline"
-          params={{ id: row.original.id }}
+          params={{ id: row.original.eventId }}
           to="/events/$id"
         >
           {row.original.name}
@@ -227,7 +298,7 @@ export function PublicEventsTable({
       header: "",
       cell: ({ row }) => (
         <InterestCell
-          eventId={row.original.id}
+          eventId={row.original.eventId}
           members={row.original.members}
           myInterests={myInterests}
           myTeamIds={myTeamIds}
@@ -248,16 +319,16 @@ export function PublicEventsTable({
   ];
 
   return (
-    <DataTableWrapper<PublicEventRow>
+    <DataTableWrapper<PublicDisplayRow>
       columns={columns}
-      data={data}
+      data={displayRows}
       defaultColumnPinning={{ right: ["actions"] }}
       emptyMessage="No public events found."
-      getRowId={(row) => row.id}
+      getRowId={(row) => `${row.eventId}-${row.startTime}`}
       isLoading={isLoading}
-      searchFn={searchEvent}
+      searchFn={searchDisplayRow}
       searchPlaceholder="Search events..."
-      storageKey="public_events_table_v1"
+      storageKey="public_events_table_v2"
       tableLayout={{
         columnsResizable: true,
         columnsDraggable: true,
