@@ -12,6 +12,7 @@ import type {
   WhatsappGroup,
 } from "@pi-dash/zero/schema";
 import { addWeeks } from "date-fns";
+import upperFirst from "lodash/upperFirst";
 
 export type EventRow = TeamEvent & {
   exceptions: ReadonlyArray<
@@ -183,7 +184,7 @@ export function getRecurrenceLabel(
   if (!rule) {
     return "One-time";
   }
-  return rruleToLabel(rule.rrule);
+  return upperFirst(rruleToLabel(rule.rrule));
 }
 
 export function searchDisplayRow(row: EventDisplayRow, query: string): boolean {

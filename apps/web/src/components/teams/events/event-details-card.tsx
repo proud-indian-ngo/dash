@@ -17,6 +17,7 @@ import {
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
+import upperFirst from "lodash/upperFirst";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import type { EventRow } from "./events-table";
 
@@ -85,7 +86,7 @@ export function EventDetailsCard({ event }: { event: EventRow }) {
 
         {recurrence?.rrule ? (
           <PropertyRow icon={RepeatIcon} label="Recurrence">
-            {rruleToLabel(recurrence.rrule)}
+            {upperFirst(rruleToLabel(recurrence.rrule))}
           </PropertyRow>
         ) : null}
 
