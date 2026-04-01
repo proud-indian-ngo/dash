@@ -3,7 +3,6 @@ import {
   type AnyPgColumn,
   boolean,
   check,
-  date,
   index,
   jsonb,
   pgEnum,
@@ -48,7 +47,7 @@ export const teamEvent = pgTable(
     seriesId: uuid("series_id").references((): AnyPgColumn => teamEvent.id, {
       onDelete: "cascade",
     }),
-    originalDate: date("original_date"),
+    originalDate: text("original_date"),
     cancelledAt: timestamp("cancelled_at"),
     feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
     feedbackDeadline: timestamp("feedback_deadline"),

@@ -2760,7 +2760,7 @@
         },
         "original_date": {
           "name": "original_date",
-          "type": "date",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

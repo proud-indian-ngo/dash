@@ -11,11 +11,6 @@ import { zql } from "../schema";
 const UNTIL_RE = /UNTIL=[^;]+/;
 const DASH_RE = /-/g;
 
-/** Convert an ISO date string (YYYY-MM-DD) to epoch ms (midnight UTC). */
-function isoDateToEpoch(isoDate: string): number {
-  return new Date(`${isoDate}T00:00:00Z`).getTime();
-}
-
 /** Build a truncated RRULE string with UNTIL set to the day before splitDate. */
 function buildTruncatedRRule(rruleStr: string, splitIsoDate: string): string {
   const splitDate = new Date(`${splitIsoDate}T00:00:00Z`);
@@ -60,7 +55,7 @@ function buildExceptionInsert(
     isPublic: overrides.isPublic ?? series.isPublic,
     recurrenceRule: null,
     seriesId: series.id,
-    originalDate: isoDateToEpoch(originalDate),
+    originalDate,
     cancelledAt: overrides.cancelledAt ?? null,
     feedbackEnabled: overrides.feedbackEnabled ?? series.feedbackEnabled,
     feedbackDeadline:
@@ -414,13 +409,11 @@ export const teamEventMutators = {
       ));
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
 
-      const dateEpoch = isoDateToEpoch(args.originalDate);
-
       // Check if already materialized
       const existing = (await tx.run(
         zql.teamEvent
           .where("seriesId", args.seriesId)
-          .where("originalDate", dateEpoch)
+          .where("originalDate", args.originalDate)
           .one()
       )) as TeamEvent | undefined;
       if (existing) {
@@ -438,7 +431,7 @@ export const teamEventMutators = {
         isPublic: series.isPublic,
         recurrenceRule: null,
         seriesId: args.seriesId,
-        originalDate: dateEpoch,
+        originalDate: args.originalDate,
         cancelledAt: null,
         feedbackEnabled: series.feedbackEnabled,
         feedbackDeadline: series.feedbackDeadline,
@@ -657,14 +650,13 @@ export const teamEventMutators = {
           },
           updatedAt: now,
         });
-        const splitEpoch = isoDateToEpoch(args.originalDate);
         const exceptions = (await tx.run(
           zql.teamEvent.where("seriesId", args.id)
         )) as TeamEvent[];
         for (const exc of exceptions) {
           if (
             exc.originalDate &&
-            exc.originalDate >= splitEpoch &&
+            exc.originalDate >= args.originalDate &&
             !exc.cancelledAt
           ) {
             await tx.mutate.teamEvent.update({
