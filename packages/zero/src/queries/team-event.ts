@@ -7,7 +7,10 @@ function withRelated(q: typeof zql.teamEvent) {
   return q
     .related("members", (m) => m.related("user"))
     .related("whatsappGroup")
-    .related("interests", (i) => i.related("user"));
+    .related("interests", (i) => i.related("user"))
+    .related("exceptions", (e) =>
+      e.related("members", (m) => m.related("user")).related("whatsappGroup")
+    );
 }
 
 export const teamEventQueries = {
@@ -18,10 +21,12 @@ export const teamEventQueries = {
         ? withRelated(zql.teamEvent)
             .where("teamId", teamId)
             .where("cancelledAt", "IS", null)
+            .where("seriesId", "IS", null)
             .orderBy("startTime", "desc")
         : withRelated(zql.teamEvent)
             .where("teamId", teamId)
             .where("cancelledAt", "IS", null)
+            .where("seriesId", "IS", null)
             .where(({ or, cmp, exists }) =>
               or(
                 cmp("isPublic", true),
@@ -47,8 +52,10 @@ export const teamEventQueries = {
     zql.teamEvent
       .where("isPublic", true)
       .where("cancelledAt", "IS", null)
+      .where("seriesId", "IS", null)
       .related("members")
       .related("team")
+      .related("exceptions", (e) => e.related("members"))
       .orderBy("startTime", "desc")
   ),
   byCurrentUser: defineQuery(({ ctx }) =>
@@ -56,6 +63,7 @@ export const teamEventQueries = {
       .related("team")
       .whereExists("members", (m) => m.where("userId", ctx?.userId))
       .where("cancelledAt", "IS", null)
+      .where("seriesId", "IS", null)
       .orderBy("startTime", "desc")
   ),
 };
