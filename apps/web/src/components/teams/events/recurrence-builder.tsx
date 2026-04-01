@@ -15,7 +15,7 @@ import {
   rruleToFormState,
 } from "@pi-dash/zero/rrule-utils";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 
 const WEEKDAY_LABELS = [
@@ -293,17 +293,21 @@ export function RecurrenceBuilder({
   );
   const [frequency, setFrequency] = useState(value ? state.frequency : "");
 
+  // Use ref to avoid onChange in effect deps (it's a new closure each render from TanStack Form)
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   useEffect(() => {
     if (!frequency) {
-      onChange("");
+      onChangeRef.current("");
       return;
     }
     const rrule = formStateToRRule(
       { ...state, frequency: frequency as RRuleFormState["frequency"] },
       startTime
     );
-    onChange(rrule);
-  }, [state, frequency, startTime, onChange]);
+    onChangeRef.current(rrule);
+  }, [state, frequency, startTime]);
 
   const updateState = (patch: Partial<RRuleFormState>) => {
     setState((prev) => ({ ...prev, ...patch }));
