@@ -1,6 +1,7 @@
 import {
   BankIcon,
   NotificationIcon,
+  Settings01Icon,
   ShieldIcon,
   SmartPhone01Icon,
   Tag01Icon,
@@ -43,11 +44,18 @@ import { type Section, useApp } from "@/context/app-context";
 import { AccountSection } from "./sections/account-section";
 import { BankingSection } from "./sections/banking-section";
 import { ExpenseCategoriesSection } from "./sections/expense-categories-section";
+import { GeneralSection } from "./sections/general-section";
 import { NotificationsSection } from "./sections/notifications-section";
 import { ProfileSection } from "./sections/profile-section";
 import { WhatsAppGroupsSection } from "./sections/whatsapp-groups-section";
 
 const NAV_ITEMS_BASE = [
+  {
+    id: "general" as Section,
+    label: "General",
+    icon: Settings01Icon,
+    permission: "settings.app_config" as PermissionId,
+  },
   {
     id: "profile" as Section,
     label: "Profile",
@@ -83,6 +91,7 @@ const NAV_ITEMS_BASE = [
 ];
 
 const SECTION_CONTENT: Record<Section, React.ReactNode> = {
+  general: <GeneralSection />,
   profile: <ProfileSection />,
   account: <AccountSection />,
   notifications: <NotificationsSection />,

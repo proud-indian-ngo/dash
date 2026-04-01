@@ -8,6 +8,7 @@ import {
 } from "@/lib/nav-items";
 
 export type Section =
+  | "general"
   | "profile"
   | "account"
   | "notifications"

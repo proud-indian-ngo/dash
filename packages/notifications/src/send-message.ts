@@ -7,6 +7,7 @@ import {
 } from "@pi-dash/whatsapp";
 import { createRequestLogger } from "evlog";
 import { courier } from "./client";
+import { isNotificationsDisabled } from "./kill-switch";
 import { getCourierTopicId } from "./preferences";
 import type { Topic } from "./topics";
 
@@ -31,6 +32,19 @@ export async function sendMessage({
   imageUrl,
   topic,
 }: SendMessageOptions): Promise<void> {
+  if (await isNotificationsDisabled()) {
+    const log = createRequestLogger();
+    log.set({
+      handler: "sendMessage",
+      event: "suppressed_by_kill_switch",
+      userId: to,
+      title,
+      topic,
+    });
+    log.emit();
+    return;
+  }
+
   const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
 
   const inboxPromise = courier
@@ -128,6 +142,19 @@ export async function sendBulkMessage({
   topic,
 }: SendBulkMessageOptions): Promise<void> {
   if (userIds.length === 0) {
+    return;
+  }
+
+  if (await isNotificationsDisabled()) {
+    const log = createRequestLogger();
+    log.set({
+      handler: "sendBulkMessage",
+      event: "suppressed_by_kill_switch",
+      userCount: userIds.length,
+      title,
+      topic,
+    });
+    log.emit();
     return;
   }
 
