@@ -1,3 +1,4 @@
+import { sendWhatsAppMessage } from "@pi-dash/whatsapp";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { WhatsAppPayload } from "../enqueue";
@@ -14,8 +15,6 @@ export async function handleSendWhatsApp(
       jobId: job.id,
       phone,
     });
-
-    const { sendWhatsAppMessage } = await import("@pi-dash/whatsapp");
 
     await sendWhatsAppMessage(phone, message);
 

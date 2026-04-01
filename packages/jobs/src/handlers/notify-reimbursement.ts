@@ -1,3 +1,8 @@
+import {
+  notifyReimbursementApproved,
+  notifyReimbursementRejected,
+  notifyReimbursementSubmitted,
+} from "@pi-dash/notifications";
 import type {
   NotifyReimbursementApprovedPayload,
   NotifyReimbursementRejectedPayload,
@@ -8,20 +13,17 @@ import { createNotifyHandler } from "./create-handler";
 export const handleNotifyReimbursementSubmitted =
   createNotifyHandler<NotifyReimbursementSubmittedPayload>(
     "notify-reimbursement-submitted",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyReimbursementSubmitted
+    async () => notifyReimbursementSubmitted
   );
 
 export const handleNotifyReimbursementApproved =
   createNotifyHandler<NotifyReimbursementApprovedPayload>(
     "notify-reimbursement-approved",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyReimbursementApproved
+    async () => notifyReimbursementApproved
   );
 
 export const handleNotifyReimbursementRejected =
   createNotifyHandler<NotifyReimbursementRejectedPayload>(
     "notify-reimbursement-rejected",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyReimbursementRejected
+    async () => notifyReimbursementRejected
   );

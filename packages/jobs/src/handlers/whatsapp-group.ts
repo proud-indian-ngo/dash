@@ -1,3 +1,18 @@
+import { db } from "@pi-dash/db";
+import { team } from "@pi-dash/db/schema/team";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import {
+  addToWhatsAppGroup,
+  addUsersToWhatsAppGroup,
+  createWhatsAppGroup,
+  getTeamWhatsAppGroupJid,
+  getUserPhone,
+  getUserPhones,
+  manageOrientationGroupMembership,
+  removeFromWhatsAppGroup,
+} from "@pi-dash/whatsapp";
+import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type {
@@ -21,12 +36,6 @@ export async function handleWhatsAppCreateGroup(
     const { entityType, entityId, groupName, creatorUserId } = job.data;
     log.set({ jobId: job.id, entityType, entityId, groupName, creatorUserId });
 
-    const { createWhatsAppGroup, getUserPhone } = await import(
-      "@pi-dash/whatsapp"
-    );
-    const { db } = await import("@pi-dash/db");
-    const { whatsappGroup } = await import("@pi-dash/db/schema/whatsapp-group");
-
     const creatorPhone = await getUserPhone(creatorUserId);
     const participants = creatorPhone ? [creatorPhone] : [];
     const { jid } = await createWhatsAppGroup(groupName, participants);
@@ -42,15 +51,12 @@ export async function handleWhatsAppCreateGroup(
     });
 
     // Link the group to the entity
-    const { eq } = await import("drizzle-orm");
     if (entityType === "team") {
-      const { team } = await import("@pi-dash/db/schema/team");
       await db
         .update(team)
         .set({ whatsappGroupId: groupId })
         .where(eq(team.id, entityId));
     } else {
-      const { teamEvent } = await import("@pi-dash/db/schema/team-event");
       await db
         .update(teamEvent)
         .set({ whatsappGroupId: groupId })
@@ -72,11 +78,6 @@ export async function handleWhatsAppAddMember(
     });
     const { groupId, userId } = job.data;
     log.set({ jobId: job.id, groupId, userId });
-
-    const { addToWhatsAppGroup, getUserPhone } = await import(
-      "@pi-dash/whatsapp"
-    );
-    const { db } = await import("@pi-dash/db");
 
     const group = await db.query.whatsappGroup.findFirst({
       where: (t, { eq }) => eq(t.id, groupId),
@@ -104,11 +105,6 @@ export async function handleWhatsAppAddMembers(
     const { groupId, userIds } = job.data;
     log.set({ jobId: job.id, groupId, userCount: userIds.length });
 
-    const { addUsersToWhatsAppGroup, getUserPhones } = await import(
-      "@pi-dash/whatsapp"
-    );
-    const { db } = await import("@pi-dash/db");
-
     const group = await db.query.whatsappGroup.findFirst({
       where: (t, { eq }) => eq(t.id, groupId),
     });
@@ -133,11 +129,6 @@ export async function handleWhatsAppRemoveMember(
     });
     const { groupId, userId } = job.data;
     log.set({ jobId: job.id, groupId, userId });
-
-    const { getUserPhone, removeFromWhatsAppGroup } = await import(
-      "@pi-dash/whatsapp"
-    );
-    const { db } = await import("@pi-dash/db");
 
     const group = await db.query.whatsappGroup.findFirst({
       where: (t, { eq }) => eq(t.id, groupId),
@@ -165,9 +156,6 @@ export async function handleWhatsAppAddMemberTeam(
     const { teamId, userId } = job.data;
     log.set({ jobId: job.id, teamId, userId });
 
-    const { addToWhatsAppGroup, getTeamWhatsAppGroupJid, getUserPhone } =
-      await import("@pi-dash/whatsapp");
-
     const jid = await getTeamWhatsAppGroupJid(teamId);
     if (jid) {
       const phone = await getUserPhone(userId);
@@ -191,9 +179,6 @@ export async function handleWhatsAppRemoveMemberTeam(
     });
     const { teamId, userId } = job.data;
     log.set({ jobId: job.id, teamId, userId });
-
-    const { getTeamWhatsAppGroupJid, getUserPhone, removeFromWhatsAppGroup } =
-      await import("@pi-dash/whatsapp");
 
     const jid = await getTeamWhatsAppGroupJid(teamId);
     if (jid) {
@@ -219,9 +204,6 @@ export async function handleWhatsAppManageOrientation(
     const { userId, isOriented } = job.data;
     log.set({ jobId: job.id, userId, isOriented });
 
-    const { manageOrientationGroupMembership } = await import(
-      "@pi-dash/whatsapp"
-    );
     await manageOrientationGroupMembership(userId, isOriented);
 
     log.set({ event: "job_complete" });

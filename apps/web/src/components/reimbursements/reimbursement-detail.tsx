@@ -16,6 +16,7 @@ import { RejectDialog } from "@/components/form/reject-dialog";
 import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { deleteUploadedAsset } from "@/functions/attachments";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -74,7 +75,6 @@ export function ReimbursementDetail({
       errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
     });
     if (res.type === "error" && screenshotKey) {
-      const { deleteUploadedAsset } = await import("@/functions/attachments");
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
       }).catch((error) => {

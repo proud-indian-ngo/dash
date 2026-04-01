@@ -1,59 +1,19 @@
+import { db } from "@pi-dash/db";
+import { teamMember } from "@pi-dash/db/schema/team";
 import type { teamEvent as teamEventTable } from "@pi-dash/db/schema/team-event";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
+import { uuidv7 } from "uuidv7";
 import type { RecurringEventsPayload } from "../enqueue";
+import { getNextOccurrenceDate } from "../lib/recurrence";
 
 type ParentEvent = typeof teamEventTable.$inferSelect;
 
 const MAX_CATCHUP_ITERATIONS = 52;
 
-async function loadDeps() {
-  const [
-    { db },
-    { teamEvent, teamEventMember },
-    { teamMember },
-    { getNextOccurrenceDate },
-    drizzle,
-    { uuidv7 },
-  ] = await Promise.all([
-    import("@pi-dash/db"),
-    import("@pi-dash/db/schema/team-event"),
-    import("@pi-dash/db/schema/team"),
-    import("../lib/recurrence"),
-    import("drizzle-orm"),
-    import("uuidv7"),
-  ]);
-  return {
-    db,
-    teamEvent,
-    teamEventMember,
-    teamMember,
-    getNextOccurrenceDate,
-    and: drizzle.and,
-    desc: drizzle.desc,
-    eq: drizzle.eq,
-    uuidv7,
-  };
-}
-
-type Deps = Awaited<ReturnType<typeof loadDeps>>;
-
-async function createNextOccurrence(
-  parent: ParentEvent,
-  deps: Deps
-): Promise<number> {
-  const {
-    db,
-    teamEvent,
-    teamEventMember,
-    teamMember,
-    getNextOccurrenceDate,
-    and,
-    desc,
-    eq,
-    uuidv7,
-  } = deps;
-
+async function createNextOccurrence(parent: ParentEvent): Promise<number> {
   const rule = parent.recurrenceRule as {
     frequency: "weekly" | "biweekly" | "monthly";
     endDate?: string;
@@ -193,15 +153,11 @@ export async function handleCreateRecurringEvents(
       triggeredAt: job.data.triggeredAt,
     });
 
-    const deps = await loadDeps();
-    const { db, teamEvent } = deps;
-    const { isNotNull, isNull } = await import("drizzle-orm");
-
     const parentEvents = await db
       .select()
       .from(teamEvent)
       .where(
-        deps.and(
+        and(
           isNull(teamEvent.parentEventId),
           isNotNull(teamEvent.recurrenceRule),
           isNull(teamEvent.cancelledAt)
@@ -211,7 +167,7 @@ export async function handleCreateRecurringEvents(
     let createdCount = 0;
 
     for (const parent of parentEvents) {
-      createdCount += await createNextOccurrence(parent, deps);
+      createdCount += await createNextOccurrence(parent);
     }
 
     log.set({ event: "job_complete", eventsCreated: createdCount });

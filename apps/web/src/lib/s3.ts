@@ -1,7 +1,7 @@
 import { env } from "@pi-dash/env/server";
+import { S3Client } from "bun";
 
-export async function getS3() {
-  const { S3Client } = await import("bun");
+export function getS3() {
   return new S3Client({
     endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     accessKeyId: env.R2_ACCESS_KEY,

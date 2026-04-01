@@ -1,3 +1,5 @@
+import { TOPICS } from "@pi-dash/notifications";
+import { sendBulkMessage } from "@pi-dash/notifications/send-message";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { BulkNotificationPayload } from "../enqueue";
@@ -28,11 +30,6 @@ export async function handleSendBulkNotification(
       topicId,
       idempotencyKey,
     });
-
-    const { sendBulkMessage } = await import(
-      "@pi-dash/notifications/send-message"
-    );
-    const { TOPICS } = await import("@pi-dash/notifications");
 
     const topic = Object.values(TOPICS).find((t) => t === topicId);
     if (!topic) {

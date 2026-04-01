@@ -1,3 +1,5 @@
+import { TOPICS } from "@pi-dash/notifications";
+import { sendMessage } from "@pi-dash/notifications/send-message";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { ScheduledMessagePayload } from "../enqueue";
@@ -19,9 +21,6 @@ export async function handleSendScheduledMessage(
       title,
       topicId,
     });
-
-    const { sendMessage } = await import("@pi-dash/notifications/send-message");
-    const { TOPICS } = await import("@pi-dash/notifications");
 
     const topic = Object.values(TOPICS).find((t) => t === topicId);
     if (!topic) {

@@ -1,3 +1,13 @@
+import {
+  notifyVendorPaymentApproved,
+  notifyVendorPaymentInvoiceApproved,
+  notifyVendorPaymentInvoiceRejected,
+  notifyVendorPaymentInvoiceSubmitted,
+  notifyVendorPaymentRejected,
+  notifyVendorPaymentSubmitted,
+  notifyVpFullyPaid,
+  notifyVptCascadeRejected,
+} from "@pi-dash/notifications";
 import type {
   NotifyVendorPaymentApprovedPayload,
   NotifyVendorPaymentRejectedPayload,
@@ -13,57 +23,47 @@ import { createNotifyHandler } from "./create-handler";
 export const handleNotifyVendorPaymentSubmitted =
   createNotifyHandler<NotifyVendorPaymentSubmittedPayload>(
     "notify-vendor-payment-submitted",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyVendorPaymentSubmitted
+    async () => notifyVendorPaymentSubmitted
   );
 
 export const handleNotifyVendorPaymentApproved =
   createNotifyHandler<NotifyVendorPaymentApprovedPayload>(
     "notify-vendor-payment-approved",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyVendorPaymentApproved
+    async () => notifyVendorPaymentApproved
   );
 
 export const handleNotifyVendorPaymentRejected =
   createNotifyHandler<NotifyVendorPaymentRejectedPayload>(
     "notify-vendor-payment-rejected",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyVendorPaymentRejected
+    async () => notifyVendorPaymentRejected
   );
 
 export const handleNotifyVpInvoiceSubmitted =
   createNotifyHandler<NotifyVpInvoiceSubmittedPayload>(
     "notify-vp-invoice-submitted",
-    async () =>
-      (await import("@pi-dash/notifications"))
-        .notifyVendorPaymentInvoiceSubmitted
+    async () => notifyVendorPaymentInvoiceSubmitted
   );
 
 export const handleNotifyVpInvoiceApproved =
   createNotifyHandler<NotifyVpInvoiceApprovedPayload>(
     "notify-vp-invoice-approved",
-    async () =>
-      (await import("@pi-dash/notifications"))
-        .notifyVendorPaymentInvoiceApproved
+    async () => notifyVendorPaymentInvoiceApproved
   );
 
 export const handleNotifyVpInvoiceRejected =
   createNotifyHandler<NotifyVpInvoiceRejectedPayload>(
     "notify-vp-invoice-rejected",
-    async () =>
-      (await import("@pi-dash/notifications"))
-        .notifyVendorPaymentInvoiceRejected
+    async () => notifyVendorPaymentInvoiceRejected
   );
 
 export const handleNotifyVpFullyPaid =
   createNotifyHandler<NotifyVpFullyPaidPayload>(
     "notify-vp-fully-paid",
-    async () => (await import("@pi-dash/notifications")).notifyVpFullyPaid
+    async () => notifyVpFullyPaid
   );
 
 export const handleNotifyVptCascadeRejected =
   createNotifyHandler<NotifyVptCascadeRejectedPayload>(
     "notify-vpt-cascade-rejected",
-    async () =>
-      (await import("@pi-dash/notifications")).notifyVptCascadeRejected
+    async () => notifyVptCascadeRejected
   );

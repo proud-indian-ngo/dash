@@ -1,3 +1,10 @@
+import {
+  notifyAddedToTeam,
+  notifyRemovedFromTeam,
+  notifyTeamDeleted,
+  notifyTeamRoleChanged,
+  notifyTeamUpdated,
+} from "@pi-dash/notifications";
 import type {
   NotifyAddedToTeamPayload,
   NotifyRemovedFromTeamPayload,
@@ -10,29 +17,29 @@ import { createNotifyHandler } from "./create-handler";
 export const handleNotifyTeamUpdated =
   createNotifyHandler<NotifyTeamUpdatedPayload>(
     "notify-team-updated",
-    async () => (await import("@pi-dash/notifications")).notifyTeamUpdated
+    async () => notifyTeamUpdated
   );
 
 export const handleNotifyTeamDeleted =
   createNotifyHandler<NotifyTeamDeletedPayload>(
     "notify-team-deleted",
-    async () => (await import("@pi-dash/notifications")).notifyTeamDeleted
+    async () => notifyTeamDeleted
   );
 
 export const handleNotifyAddedToTeam =
   createNotifyHandler<NotifyAddedToTeamPayload>(
     "notify-added-to-team",
-    async () => (await import("@pi-dash/notifications")).notifyAddedToTeam
+    async () => notifyAddedToTeam
   );
 
 export const handleNotifyRemovedFromTeam =
   createNotifyHandler<NotifyRemovedFromTeamPayload>(
     "notify-removed-from-team",
-    async () => (await import("@pi-dash/notifications")).notifyRemovedFromTeam
+    async () => notifyRemovedFromTeam
   );
 
 export const handleNotifyTeamRoleChanged =
   createNotifyHandler<NotifyTeamRoleChangedPayload>(
     "notify-team-role-changed",
-    async () => (await import("@pi-dash/notifications")).notifyTeamRoleChanged
+    async () => notifyTeamRoleChanged
   );

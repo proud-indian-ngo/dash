@@ -1,3 +1,8 @@
+import {
+  notifyVendorPaymentTransactionApproved,
+  notifyVendorPaymentTransactionRejected,
+  notifyVendorPaymentTransactionSubmitted,
+} from "@pi-dash/notifications";
 import type {
   NotifyVptApprovedPayload,
   NotifyVptRejectedPayload,
@@ -8,23 +13,17 @@ import { createNotifyHandler } from "./create-handler";
 export const handleNotifyVptSubmitted =
   createNotifyHandler<NotifyVptSubmittedPayload>(
     "notify-vpt-submitted",
-    async () =>
-      (await import("@pi-dash/notifications"))
-        .notifyVendorPaymentTransactionSubmitted
+    async () => notifyVendorPaymentTransactionSubmitted
   );
 
 export const handleNotifyVptApproved =
   createNotifyHandler<NotifyVptApprovedPayload>(
     "notify-vpt-approved",
-    async () =>
-      (await import("@pi-dash/notifications"))
-        .notifyVendorPaymentTransactionApproved
+    async () => notifyVendorPaymentTransactionApproved
   );
 
 export const handleNotifyVptRejected =
   createNotifyHandler<NotifyVptRejectedPayload>(
     "notify-vpt-rejected",
-    async () =>
-      (await import("@pi-dash/notifications"))
-        .notifyVendorPaymentTransactionRejected
+    async () => notifyVendorPaymentTransactionRejected
   );

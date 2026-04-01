@@ -1,32 +1,15 @@
+import { db } from "@pi-dash/db";
+import { eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { teamMember } from "@pi-dash/db/schema/team";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
+import {
+  getUserIdsWithPermission,
+  notifyPhotoApprovalReminder,
+} from "@pi-dash/notifications";
+import { count, countDistinct, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { RemindPhotoApprovalPayload } from "../enqueue";
-
-async function loadDeps() {
-  const [
-    { db },
-    { eventPhoto },
-    { teamEvent },
-    { teamMember },
-    { eq, sql, count, countDistinct },
-  ] = await Promise.all([
-    import("@pi-dash/db"),
-    import("@pi-dash/db/schema/event-photo"),
-    import("@pi-dash/db/schema/team-event"),
-    import("@pi-dash/db/schema/team"),
-    import("drizzle-orm"),
-  ]);
-  return {
-    db,
-    eventPhoto,
-    teamEvent,
-    teamMember,
-    eq,
-    sql,
-    count,
-    countDistinct,
-  };
-}
 
 export async function handleRemindPhotoApproval(
   _jobs: Job<RemindPhotoApprovalPayload>[]
@@ -35,19 +18,6 @@ export async function handleRemindPhotoApproval(
     method: "JOB",
     path: "remind-photo-approval",
   });
-
-  const {
-    db,
-    eventPhoto,
-    teamEvent,
-    teamMember,
-    eq,
-    sql,
-    count,
-    countDistinct,
-  } = await loadDeps();
-  const { getUserIdsWithPermission, notifyPhotoApprovalReminder } =
-    await import("@pi-dash/notifications");
 
   // Count pending photos and distinct events
   const stats = await db

@@ -1,29 +1,11 @@
+import { db } from "@pi-dash/db";
+import { eventFeedbackSubmission } from "@pi-dash/db/schema/event-feedback";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
+import { notifyFeedbackDeadline } from "@pi-dash/notifications";
+import { and, between, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { RemindFeedbackDeadlinePayload } from "../enqueue";
-
-async function loadDeps() {
-  const [
-    { db },
-    { teamEvent, teamEventMember },
-    { eventFeedbackSubmission },
-    { eq, and, between },
-  ] = await Promise.all([
-    import("@pi-dash/db"),
-    import("@pi-dash/db/schema/team-event"),
-    import("@pi-dash/db/schema/event-feedback"),
-    import("drizzle-orm"),
-  ]);
-  return {
-    db,
-    teamEvent,
-    teamEventMember,
-    eventFeedbackSubmission,
-    eq,
-    and,
-    between,
-  };
-}
 
 export async function handleRemindFeedbackDeadline(
   _jobs: Job<RemindFeedbackDeadlinePayload>[]
@@ -32,17 +14,6 @@ export async function handleRemindFeedbackDeadline(
     method: "JOB",
     path: "remind-feedback-deadline",
   });
-
-  const {
-    db,
-    teamEvent,
-    teamEventMember,
-    eventFeedbackSubmission,
-    eq,
-    and,
-    between,
-  } = await loadDeps();
-  const { notifyFeedbackDeadline } = await import("@pi-dash/notifications");
 
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);

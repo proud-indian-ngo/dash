@@ -1,3 +1,7 @@
+import { db } from "@pi-dash/db";
+import { eventImmichAlbum } from "@pi-dash/db/schema/event-photo";
+import { env } from "@pi-dash/env/server";
+import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 interface ImmichConfig {
@@ -5,8 +9,7 @@ interface ImmichConfig {
   url: string;
 }
 
-export async function getImmichConfig(): Promise<ImmichConfig | null> {
-  const { env } = await import("@pi-dash/env/server");
+export function getImmichConfig(): ImmichConfig | null {
   const url = env.VITE_IMMICH_URL;
   const key = env.IMMICH_API_KEY;
   if (!(url && key)) {
@@ -25,12 +28,8 @@ export async function ensureImmichAlbum(
   eventId: string,
   eventName: string
 ): Promise<string> {
-  const { db } = await import("@pi-dash/db");
-  const { eventImmichAlbum } = await import("@pi-dash/db/schema/event-photo");
-  const { eq: eqOp } = await import("drizzle-orm");
-
   const existing = await db.query.eventImmichAlbum.findFirst({
-    where: eqOp(eventImmichAlbum.eventId, eventId),
+    where: eq(eventImmichAlbum.eventId, eventId),
   });
   if (existing) {
     return existing.immichAlbumId;
@@ -67,7 +66,7 @@ export async function ensureImmichAlbum(
   // If conflict, another task already created the row — use that album ID
   if (inserted.length === 0) {
     const conflicted = await db.query.eventImmichAlbum.findFirst({
-      where: eqOp(eventImmichAlbum.eventId, eventId),
+      where: eq(eventImmichAlbum.eventId, eventId),
     });
     if (conflicted) {
       albumId = conflicted.immichAlbumId;
