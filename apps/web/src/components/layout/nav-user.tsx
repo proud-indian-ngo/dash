@@ -182,7 +182,7 @@ export function NavUser() {
                     <span className="fade-in-0 zoom-in-0 ml-auto inline-flex size-5 animate-in transition-all duration-150 ease-(--ease-out-expo)">
                       <span
                         className={cn(
-                          "inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px] text-primary-foreground",
+                          "!text-white inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px]",
                           hasPulsed && "animate-badge-pulse"
                         )}
                         key={`menu-badge-${badgePulseToken}`}
