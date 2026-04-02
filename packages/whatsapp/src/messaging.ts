@@ -134,12 +134,14 @@ export interface WhatsAppMediaAttachment {
   url: string;
 }
 
+const WAPI_IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
+
 export async function sendWhatsAppMedia(
   phone: string,
   attachment: WhatsAppMediaAttachment,
   caption?: string
 ): Promise<void> {
-  if (attachment.mimeType.startsWith("image/")) {
+  if (WAPI_IMAGE_TYPES.has(attachment.mimeType)) {
     await sendWhatsAppImage(phone, attachment.url, caption);
   } else if (attachment.mimeType.startsWith("video/")) {
     await sendWhatsAppVideo(phone, attachment.url, caption);
