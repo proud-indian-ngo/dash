@@ -60,7 +60,7 @@ export default function VerificationEmail({
         </Head>
         <Preview>Verify your email for {appName}</Preview>
         <Body className="m-0 bg-bg p-0 font-body">
-          <Container className="mx-auto my-10 max-w-[520px] px-4">
+          <Container className="mx-auto my-10 max-w-130 px-4">
             <Section className="border border-border border-t-2 border-t-primary border-solid bg-surface">
               {/* ── Logo ── */}
               <Section className="px-8 py-6 text-center">
@@ -87,7 +87,7 @@ export default function VerificationEmail({
                   Verify your email
                 </Heading>
 
-                <Text className="mt-3 mb-0 text-[14px] text-muted-fg leading-[22px]">
+                <Text className="mt-3 mb-0 text-[14px] text-muted-fg leading-5.5">
                   Click the button below to verify your email address. This link
                   expires in 24 hours.
                 </Text>
