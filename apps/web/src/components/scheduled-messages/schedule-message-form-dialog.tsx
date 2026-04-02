@@ -1,14 +1,14 @@
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import type { ScheduledMessage } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
-import { format } from "date-fns";
+import { addHours, startOfHour } from "date-fns";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
-import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import {
   type MediaAttachment,
@@ -33,12 +33,9 @@ const attachmentSchema = z.object({
 
 const formSchema = z.object({
   message: z.string().min(1, "Message is required"),
-  scheduledAt: z
-    .string()
-    .min(1, "Scheduled time is required")
-    .refine((val) => new Date(val).getTime() > Date.now(), {
-      message: "Must be in the future",
-    }),
+  scheduledAt: z.date().refine((val) => val.getTime() > Date.now(), {
+    message: "Must be in the future",
+  }),
   recipients: z
     .array(recipientSchema)
     .min(1, "At least one recipient is required")
@@ -46,26 +43,14 @@ const formSchema = z.object({
   attachments: z.array(attachmentSchema).max(5),
 });
 
-type FormValues = z.infer<typeof formSchema>;
-
-function toDatetimeLocal(ts: number): string {
-  return format(new Date(ts), "yyyy-MM-dd'T'HH:mm");
-}
-
-function defaultScheduledAt(): string {
-  const d = new Date();
-  d.setHours(d.getHours() + 1, 0, 0, 0);
-  return format(d, "yyyy-MM-dd'T'HH:mm");
-}
-
 interface ScheduleMessageFormDialogProps {
   initialValues?: ScheduledMessage;
   onClose: () => void;
   onSubmit: (values: {
-    message: string;
-    scheduledAt: number;
-    recipients: Recipient[];
     attachments?: MediaAttachment[];
+    message: string;
+    recipients: Recipient[];
+    scheduledAt: number;
   }) => Promise<void>;
   open: boolean;
 }
@@ -83,15 +68,15 @@ export function ScheduleMessageFormDialog({
     defaultValues: {
       message: initialValues?.message ?? "",
       scheduledAt: initialValues
-        ? toDatetimeLocal(initialValues.scheduledAt)
-        : defaultScheduledAt(),
+        ? new Date(initialValues.scheduledAt)
+        : addHours(startOfHour(new Date()), 1),
       recipients: (initialValues?.recipients ?? []) as Recipient[],
       attachments: (initialValues?.attachments ?? []) as MediaAttachment[],
-    } satisfies FormValues,
+    },
     onSubmit: async ({ value }) => {
       await onSubmit({
         message: value.message,
-        scheduledAt: new Date(value.scheduledAt).getTime(),
+        scheduledAt: value.scheduledAt.getTime(),
         recipients: value.recipients,
         attachments:
           value.attachments.length > 0 ? value.attachments : undefined,
@@ -125,11 +110,12 @@ export function ScheduleMessageFormDialog({
           rows={4}
         />
 
-        <InputField
+        <DateTimeField
           isRequired
           label="Scheduled at"
+          minDate={new Date()}
           name="scheduledAt"
-          type="datetime-local"
+          placeholder="Pick date and time"
         />
 
         <div className="flex flex-col gap-1.5">
