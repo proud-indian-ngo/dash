@@ -75,7 +75,10 @@ import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
-import { handleSendScheduledWhatsApp } from "./send-scheduled-whatsapp";
+import {
+  handleDeadLetterScheduledWhatsApp,
+  handleSendScheduledWhatsApp,
+} from "./send-scheduled-whatsapp";
 import { handleSendWhatsApp } from "./send-whatsapp";
 import { handleSyncCourierPreference } from "./sync-courier-preference";
 import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
@@ -114,6 +117,13 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   // Dead letter queue first (other queues reference it) — no deadLetter on itself
   const { deadLetter: _, ...deadLetterDefaults } = QUEUE_DEFAULTS;
   await boss.createQueue(DEAD_LETTER_QUEUE, deadLetterDefaults);
+
+  // Dead letter handler — updates scheduled_message status on final failure
+  await boss.work(
+    DEAD_LETTER_QUEUE,
+    NOTIFY_POLL,
+    handleDeadLetterScheduledWhatsApp
+  );
 
   // Create all application queues
   for (const name of QUEUE_NAMES) {

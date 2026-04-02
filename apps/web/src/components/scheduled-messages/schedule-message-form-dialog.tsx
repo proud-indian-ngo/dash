@@ -28,6 +28,8 @@ const recipientSchema = z.object({
 const ALLOWED_MEDIA_TYPES = [
   "image/jpeg",
   "image/png",
+  "image/heic",
+  "image/heif",
   "video/mp4",
   "application/pdf",
   "application/msword",

@@ -37,6 +37,7 @@ export async function startWorker(): Promise<void> {
         path: "jobs/error",
       });
       errLog.error(error instanceof Error ? error : String(error));
+      errLog.emit();
     });
 
     await boss.start();

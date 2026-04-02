@@ -19,9 +19,9 @@ import {
 
 const MAX_MEDIA_FILES = 5;
 const MAX_MEDIA_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
-// WAPI supported: images (jpeg/png only for /send/image), video (mp4), documents (any via /send/document)
-const MEDIA_ACCEPT =
-  "image/jpeg,image/png,video/mp4,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+// useFileUpload accept="*" skips client-side type validation (HEIC compat).
+// Server-side presigned URL validates against ALLOWED_MIME_TYPES.
+const MEDIA_ACCEPT = "*";
 
 async function uploadSingleFile(
   file: File,
