@@ -6,6 +6,8 @@ export {
   getTeamWhatsAppGroupJid,
   getUserPhone,
   getUserPhones,
+  isWhatsAppConfigured,
+  listJoinedGroups,
   manageOrientationGroupMembership,
   removeFromWhatsAppGroup,
 } from "./groups";

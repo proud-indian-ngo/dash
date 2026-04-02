@@ -112,6 +112,46 @@ export async function removeFromWhatsAppGroup(
   }
 }
 
+export function isWhatsAppConfigured(): boolean {
+  return !!getWhatsAppApiUrl();
+}
+
+export async function listJoinedGroups(): Promise<
+  { jid: string; name: string; participantCount: number }[]
+> {
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    return [];
+  }
+
+  const response = await fetch(`${apiUrl}/user/my/groups`, {
+    method: "GET",
+    headers: getWhatsAppHeaders(),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`WhatsApp list groups error ${response.status}: ${text}`);
+  }
+
+  const data = (await response.json()) as {
+    results?: {
+      data?: Array<{
+        JID?: string;
+        Name?: string;
+        Participants?: unknown[];
+      }>;
+    };
+  };
+
+  const groups = data.results?.data ?? [];
+  return groups.map((g) => ({
+    jid: g.JID ?? "",
+    name: g.Name ?? "",
+    participantCount: g.Participants?.length ?? 0,
+  }));
+}
+
 export async function createWhatsAppGroup(
   name: string,
   participants: string[] = []
