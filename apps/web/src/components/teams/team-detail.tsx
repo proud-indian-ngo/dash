@@ -19,10 +19,12 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
+import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
@@ -33,6 +35,7 @@ import type {
   EventRow,
 } from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
+import { getEventStatusKey } from "@/components/teams/events/events-table-helpers";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamMembersSection } from "@/components/teams/team-members-section";
 import { useApp } from "@/context/app-context";
@@ -98,6 +101,49 @@ function TeamHeaderActions({
   );
 }
 
+const EVENT_STATUS_OPTIONS = [
+  { label: "Upcoming", value: "upcoming" },
+  { label: "Past", value: "past" },
+  { label: "Cancelled", value: "cancelled" },
+];
+const EVENT_VISIBILITY_OPTIONS = [
+  { label: "Public", value: "public" },
+  { label: "Private", value: "private" },
+];
+const EVENT_RECURRENCE_OPTIONS = [
+  { label: "One-time", value: "one-time" },
+  { label: "Recurring", value: "recurring" },
+];
+
+function matchesEventFilters(
+  row: EventDisplayRow,
+  statusFilter: string,
+  visFilter: string,
+  recFilter: string
+): boolean {
+  if (statusFilter && getEventStatusKey(row) !== statusFilter) {
+    return false;
+  }
+  if (visFilter) {
+    if (visFilter === "public" && !row.event.isPublic) {
+      return false;
+    }
+    if (visFilter === "private" && row.event.isPublic) {
+      return false;
+    }
+  }
+  if (recFilter) {
+    const hasRule = !!row.event.recurrenceRule;
+    if (recFilter === "recurring" && !hasRule) {
+      return false;
+    }
+    if (recFilter === "one-time" && hasRule) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function TeamDetail({ team, userId }: TeamDetailProps) {
   const zero = useZero();
   const navigate = useNavigate();
@@ -106,6 +152,25 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   const canDelete = hasPermission("teams.delete");
   const canManageMembers = hasPermission("teams.manage_members");
   const canManage = canManageMembers || isTeamLead(team.members, userId);
+
+  const [evStatusFilter, setEvStatusFilter] = useQueryState(
+    "evStatus",
+    parseAsString.withDefault("")
+  );
+  const [evVisFilter, setEvVisFilter] = useQueryState(
+    "evVis",
+    parseAsString.withDefault("")
+  );
+  const [evRecFilter, setEvRecFilter] = useQueryState(
+    "evRec",
+    parseAsString.withDefault("")
+  );
+
+  const eventDisplayRowFilter = useCallback(
+    (row: EventDisplayRow) =>
+      matchesEventFilters(row, evStatusFilter, evVisFilter, evRecFilter),
+    [evStatusFilter, evVisFilter, evRecFilter]
+  );
 
   const dialog = useDialogManager<TeamDialog>();
 
@@ -346,8 +411,15 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
           <EventsTable
             canManage={canManage}
+            displayRowFilter={eventDisplayRowFilter}
             events={(events as EventRow[]) ?? []}
+            hasActiveFilters={!!(evStatusFilter || evVisFilter || evRecFilter)}
             onCancelEvent={handleCancelEvent}
+            onClearFilters={() => {
+              setEvStatusFilter("");
+              setEvVisFilter("");
+              setEvRecFilter("");
+            }}
             onEditEvent={handleEditEvent}
             onSelectEvent={handleSelectEvent}
             toolbarActions={
@@ -365,6 +437,28 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
                   Create Event
                 </Button>
               ) : undefined
+            }
+            toolbarFilters={
+              <>
+                <TableFilterSelect
+                  label="Status"
+                  onChange={setEvStatusFilter}
+                  options={EVENT_STATUS_OPTIONS}
+                  value={evStatusFilter}
+                />
+                <TableFilterSelect
+                  label="Visibility"
+                  onChange={setEvVisFilter}
+                  options={EVENT_VISIBILITY_OPTIONS}
+                  value={evVisFilter}
+                />
+                <TableFilterSelect
+                  label="Recurrence"
+                  onChange={setEvRecFilter}
+                  options={EVENT_RECURRENCE_OPTIONS}
+                  value={evRecFilter}
+                />
+              </>
             }
           />
         </div>

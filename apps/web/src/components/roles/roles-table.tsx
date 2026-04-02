@@ -94,12 +94,15 @@ function searchRole(row: RoleListItem, query: string): boolean {
 
 interface RolesTableProps {
   data: RoleListItem[];
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
+  onClearFilters?: () => void;
   onDelete: (payload: {
     id: string;
     name: string;
   }) => Promise<{ type: "success" | "error"; error?: { message?: string } }>;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 export function RolesTable({
@@ -107,6 +110,9 @@ export function RolesTable({
   isLoading,
   onDelete,
   toolbarActions,
+  toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: RolesTableProps) {
   const deleteAction = useConfirmAction<{ id: string; name: string }>({
     onConfirm: (payload) => onDelete(payload),
@@ -232,7 +238,9 @@ export function RolesTable({
         data={data}
         emptyMessage="No roles found."
         getRowId={(row) => row.id}
+        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
+        onClearFilters={onClearFilters}
         searchFn={searchRole}
         searchPlaceholder="Search roles..."
         storageKey="roles_table_state_v1"
@@ -244,6 +252,7 @@ export function RolesTable({
           columnsPinnable: true,
         }}
         toolbarActions={toolbarActions}
+        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete role"

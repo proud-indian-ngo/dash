@@ -49,7 +49,9 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
 
 interface VendorPaymentsTableProps {
   data: VendorPaymentWithRelations[];
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
+  onClearFilters?: () => void;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
@@ -61,6 +63,8 @@ export function VendorPaymentsTable({
   onNavigate,
   toolbarActions,
   toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: VendorPaymentsTableProps) {
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {
@@ -226,7 +230,9 @@ export function VendorPaymentsTable({
       data={data}
       emptyMessage="No vendor payments found."
       getRowId={(row) => row.id as string}
+      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
+      onClearFilters={onClearFilters}
       searchFn={searchFn}
       searchPlaceholder="Search vendor payments..."
       storageKey="vendor_payments_table_state_v1"

@@ -34,12 +34,14 @@ type RowFormAction = {
 } | null;
 
 interface UsersTableProps {
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
   onBanUser: (
     userId: string,
     banReason: string,
     banExpires?: string
   ) => Promise<void>;
+  onClearFilters?: () => void;
   onDelete: (userId: string) => Promise<void>;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUnbanUser: (userId: string) => Promise<void>;
@@ -402,6 +404,8 @@ export function UsersTable({
   roleOptions,
   toolbarActions,
   toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
   users,
 }: UsersTableProps) {
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
@@ -443,7 +447,9 @@ export function UsersTable({
       defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
       emptyMessage="No users found."
       getRowId={(user) => user.id}
+      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
+      onClearFilters={onClearFilters}
       onFilteredDataChange={handleFilteredDataChange}
       paginationSizes={[10, 20, 50]}
       searchFn={searchUser}

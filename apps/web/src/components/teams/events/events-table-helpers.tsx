@@ -177,18 +177,36 @@ export function getDefaultDateRange(): { start: Date; end: Date } {
   return { start, end: addWeeks(start, 4) };
 }
 
+export type EventStatusKey = "upcoming" | "past" | "cancelled";
+
+export function getEventStatusKey(row: EventDisplayRow): EventStatusKey {
+  if (row.event.cancelledAt) {
+    return "cancelled";
+  }
+  const eventEnd = row.endTime ?? row.startTime;
+  if (new Date(eventEnd) < new Date()) {
+    return "past";
+  }
+  return "upcoming";
+}
+
+const EVENT_STATUS_MAP: Record<
+  EventStatusKey,
+  {
+    label: string;
+    variant: "destructive" | "outline" | "secondary" | "success-outline";
+  }
+> = {
+  cancelled: { label: "Cancelled", variant: "destructive" },
+  past: { label: "Past", variant: "secondary" },
+  upcoming: { label: "Upcoming", variant: "success-outline" },
+};
+
 export function getEventStatus(row: EventDisplayRow): {
   label: string;
   variant: "destructive" | "outline" | "secondary" | "success-outline";
 } {
-  if (row.event.cancelledAt) {
-    return { label: "Cancelled", variant: "destructive" };
-  }
-  const eventEnd = row.endTime ?? row.startTime;
-  if (new Date(eventEnd) < new Date()) {
-    return { label: "Past", variant: "secondary" };
-  }
-  return { label: "Upcoming", variant: "success-outline" };
+  return EVENT_STATUS_MAP[getEventStatusKey(row)];
 }
 
 export function getRecurrenceLabel(

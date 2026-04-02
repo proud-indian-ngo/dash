@@ -63,7 +63,9 @@ function VendorPaymentsRouteComponent() {
         />
         <VendorPaymentsTable
           data={filtered}
+          hasActiveFilters={!!statusFilter}
           isLoading={isLoading}
+          onClearFilters={() => setStatusFilter(null)}
           onNavigate={(id) => {
             navigate({ to: "/vendor-payments/$id", params: { id } });
           }}

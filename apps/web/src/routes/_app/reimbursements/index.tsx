@@ -137,7 +137,12 @@ function ReimbursementsRouteComponent() {
         />
         <ReimbursementsTable
           data={filteredData}
+          hasActiveFilters={!!(statusFilter || typeFilter)}
           isLoading={isLoading}
+          onClearFilters={() => {
+            setStatusFilter("");
+            setTypeFilter("");
+          }}
           onDelete={handleDelete}
           onNavigate={(id) => {
             navigate({ to: "/reimbursements/$id", params: { id } });

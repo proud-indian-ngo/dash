@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
 import type {
@@ -19,27 +18,37 @@ export type {
 
 interface EventsTableProps {
   canManage: boolean;
+  displayRowFilter?: (row: EventDisplayRow) => boolean;
   events: EventRow[];
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
   onCancelEvent: (row: EventDisplayRow) => void;
+  onClearFilters?: () => void;
   onEditEvent: (row: EventDisplayRow) => void;
   onSelectEvent: (row: EventDisplayRow) => void;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 export function EventsTable({
   events,
   canManage,
+  displayRowFilter,
   isLoading,
   onSelectEvent,
   onEditEvent,
   onCancelEvent,
   toolbarActions,
+  toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: EventsTableProps) {
-  const displayRows = useMemo(() => {
-    const { start, end } = getDefaultDateRange();
-    return buildEventDisplayRows(events, start, end);
-  }, [events]);
+  const { start, end } = getDefaultDateRange();
+  const allDisplayRows = buildEventDisplayRows(events, start, end);
+
+  const displayRows = displayRowFilter
+    ? allDisplayRows.filter(displayRowFilter)
+    : allDisplayRows;
 
   const columns = createEventsTableColumns({
     canManage,
@@ -55,7 +64,9 @@ export function EventsTable({
       defaultColumnPinning={{ right: ["actions"] }}
       emptyMessage="No events found."
       getRowId={(row) => row.key}
+      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
+      onClearFilters={onClearFilters}
       searchFn={searchDisplayRow}
       searchPlaceholder="Search events..."
       storageKey="events_table_state_v2"
@@ -66,6 +77,7 @@ export function EventsTable({
         columnsPinnable: true,
       }}
       toolbarActions={toolbarActions}
+      toolbarFilters={toolbarFilters}
     />
   );
 }

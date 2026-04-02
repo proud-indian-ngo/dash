@@ -205,9 +205,11 @@ function createJobColumns(
 }
 
 interface JobsTableProps {
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
   jobs: JobRow[];
   onCancel: (job: JobRow) => void;
+  onClearFilters?: () => void;
   onRetry: (job: JobRow) => void;
   onView: (job: JobRow) => void;
   toolbarActions?: ReactNode;
@@ -222,6 +224,8 @@ export function JobsTable({
   onView,
   toolbarActions,
   toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: JobsTableProps) {
   const columns = createJobColumns(onView, onCancel, onRetry);
 
@@ -231,7 +235,9 @@ export function JobsTable({
       data={jobs}
       emptyMessage="No jobs found."
       getRowId={(row) => row.id}
+      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
+      onClearFilters={onClearFilters}
       onRowClick={onView}
       searchFn={searchJob}
       searchPlaceholder="Search jobs..."

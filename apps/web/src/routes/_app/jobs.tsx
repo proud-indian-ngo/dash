@@ -8,6 +8,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
+import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
@@ -51,13 +52,20 @@ async function safeJson(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
-function fetchJobsData(stateFilter: string, offset: number) {
+function fetchJobsData(
+  stateFilter: string,
+  queueFilter: string,
+  offset: number
+) {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(offset),
   });
   if (stateFilter) {
     params.set("state", stateFilter);
+  }
+  if (queueFilter) {
+    params.set("queue", queueFilter);
   }
   return fetch(`/api/jobs?${params.toString()}`).then(async (res) => {
     if (!res.ok) {
@@ -92,7 +100,14 @@ function JobsRouteComponent() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [stateFilter, setStateFilter] = useState("");
+  const [stateFilter, setStateFilter] = useQueryState(
+    "state",
+    parseAsString.withDefault("")
+  );
+  const [queueFilter, setQueueFilter] = useQueryState(
+    "queue",
+    parseAsString.withDefault("")
+  );
   const [page, setPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<JobRow | null>(null);
@@ -108,7 +123,10 @@ function JobsRouteComponent() {
       if (document.hidden) {
         return;
       }
-      Promise.all([fetchJobsData(stateFilter, offset), fetchStatsData()])
+      Promise.all([
+        fetchJobsData(stateFilter, queueFilter, offset),
+        fetchStatsData(),
+      ])
         .then(([jobsResult, statsResult]) => {
           if (cancelled) {
             return;
@@ -140,12 +158,21 @@ function JobsRouteComponent() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [stateFilter, page, refreshKey]);
+  }, [stateFilter, queueFilter, page, refreshKey]);
+
+  const queueOptions = queues
+    .map((q) => ({ label: q.queue, value: q.queue }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   // Reset page when filter changes
   const handleFilterChange = (value: string) => {
     setPage(0);
     setStateFilter(value);
+  };
+
+  const handleQueueFilterChange = (value: string) => {
+    setPage(0);
+    setQueueFilter(value);
   };
 
   const handleRefresh = () => {
@@ -240,9 +267,14 @@ function JobsRouteComponent() {
           items={computeJobStats(queues, stateCounts)}
         />
         <JobsTable
+          hasActiveFilters={!!(stateFilter || queueFilter)}
           isLoading={isLoading}
           jobs={jobs}
           onCancel={handleCancelRequest}
+          onClearFilters={() => {
+            handleFilterChange("");
+            handleQueueFilterChange("");
+          }}
           onRetry={handleRetryRequest}
           onView={handleView}
           toolbarActions={
@@ -256,12 +288,20 @@ function JobsRouteComponent() {
             </Button>
           }
           toolbarFilters={
-            <TableFilterSelect
-              label="State"
-              onChange={handleFilterChange}
-              options={STATE_OPTIONS}
-              value={stateFilter}
-            />
+            <>
+              <TableFilterSelect
+                label="State"
+                onChange={handleFilterChange}
+                options={STATE_OPTIONS}
+                value={stateFilter}
+              />
+              <TableFilterSelect
+                label="Queue"
+                onChange={handleQueueFilterChange}
+                options={queueOptions}
+                value={queueFilter}
+              />
+            </>
           }
         />
         {totalPages > 1 && (

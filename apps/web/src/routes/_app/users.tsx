@@ -52,6 +52,18 @@ const ACTIVE_OPTIONS = [
   { label: "Active", value: "yes" },
   { label: "Inactive", value: "no" },
 ];
+const GENDER_OPTIONS = [
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
+];
+const BANNED_OPTIONS = [
+  { label: "Banned", value: "yes" },
+  { label: "Not Banned", value: "no" },
+];
+const WHATSAPP_OPTIONS = [
+  { label: "On WhatsApp", value: "yes" },
+  { label: "Not on WhatsApp", value: "no" },
+];
 
 function UsersRouteComponent() {
   const createUser = useServerFn(createUserAdmin);
@@ -95,6 +107,18 @@ function UsersRouteComponent() {
     "active",
     parseAsString.withDefault("")
   );
+  const [genderFilter, setGenderFilter] = useQueryState(
+    "gender",
+    parseAsString.withDefault("")
+  );
+  const [bannedFilter, setBannedFilter] = useQueryState(
+    "banned",
+    parseAsString.withDefault("")
+  );
+  const [whatsappFilter, setWhatsappFilter] = useQueryState(
+    "whatsapp",
+    parseAsString.withDefault("")
+  );
 
   const users = (() => {
     let filtered = allUsers;
@@ -106,8 +130,37 @@ function UsersRouteComponent() {
         activeFilter === "yes" ? u.isActive : !u.isActive
       );
     }
+    if (genderFilter) {
+      filtered = filtered.filter((u) => u.gender === genderFilter);
+    }
+    if (bannedFilter) {
+      filtered = filtered.filter((u) =>
+        bannedFilter === "yes" ? u.banned : !u.banned
+      );
+    }
+    if (whatsappFilter) {
+      filtered = filtered.filter((u) =>
+        whatsappFilter === "yes" ? u.isOnWhatsapp : !u.isOnWhatsapp
+      );
+    }
     return filtered;
   })();
+
+  const hasActiveFilters = !!(
+    roleFilter ||
+    activeFilter ||
+    genderFilter ||
+    bannedFilter ||
+    whatsappFilter
+  );
+
+  const clearFilters = () => {
+    setRoleFilter("");
+    setActiveFilter("");
+    setGenderFilter("");
+    setBannedFilter("");
+    setWhatsappFilter("");
+  };
 
   const handleCreateUser = async (value: CreateUserFormValues) => {
     try {
@@ -239,8 +292,10 @@ function UsersRouteComponent() {
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
         <UsersTable
+          hasActiveFilters={hasActiveFilters}
           isLoading={isLoading}
           onBanUser={handleBanUser}
+          onClearFilters={clearFilters}
           onDelete={handleDeleteUser}
           onSetPassword={handleResetPassword}
           onUnbanUser={handleUnbanUser}
@@ -275,6 +330,24 @@ function UsersRouteComponent() {
                 onChange={setActiveFilter}
                 options={ACTIVE_OPTIONS}
                 value={activeFilter}
+              />
+              <TableFilterSelect
+                label="Gender"
+                onChange={setGenderFilter}
+                options={GENDER_OPTIONS}
+                value={genderFilter}
+              />
+              <TableFilterSelect
+                label="Banned"
+                onChange={setBannedFilter}
+                options={BANNED_OPTIONS}
+                value={bannedFilter}
+              />
+              <TableFilterSelect
+                label="WhatsApp"
+                onChange={setWhatsappFilter}
+                options={WHATSAPP_OPTIONS}
+                value={whatsappFilter}
               />
             </>
           }

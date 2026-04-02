@@ -66,7 +66,9 @@ export interface DataTableWrapperProps<TData extends object> {
   enableRowSelection?: boolean;
   getRowCanExpand?: (row: Row<TData>) => boolean;
   getRowId: (row: TData) => string;
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
+  onClearFilters?: () => void;
   onFilteredDataChange?: (filteredData: TData[]) => void;
   onRowClick?: (row: TData) => void;
   paginationSizes?: number[];
@@ -112,6 +114,8 @@ export function DataTableWrapper<TData extends object>({
   tableLayout,
   toolbarActions,
   toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: DataTableWrapperProps<TData>) {
   const initialColumnOrder = columns
     .map((column) => column.id)
@@ -335,6 +339,21 @@ export function DataTableWrapper<TData extends object>({
                   ) : null}
                 </InputGroup>
                 {toolbarFilters}
+                {hasActiveFilters && onClearFilters ? (
+                  <Button
+                    className="h-8 text-xs"
+                    onClick={onClearFilters}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <HugeiconsIcon
+                      className="size-3.5"
+                      icon={Cancel01Icon}
+                      strokeWidth={2}
+                    />
+                    Clear filters
+                  </Button>
+                ) : null}
               </div>
 
               <CardAction className="justify-self-start! @lg/card-header:justify-self-end! col-auto! @lg/card-header:col-start-2! @lg/card-header:row-span-2! row-auto! @lg/card-header:row-start-1! flex flex-wrap items-center gap-1">

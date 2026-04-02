@@ -6,9 +6,11 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
+import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
@@ -42,6 +44,11 @@ const createRoleFormSchema = z.object({
 
 type CreateRoleFormValues = z.infer<typeof createRoleFormSchema>;
 
+const TYPE_OPTIONS = [
+  { label: "System", value: "system" },
+  { label: "Custom", value: "custom" },
+];
+
 const defaultValues: CreateRoleFormValues = {
   id: "",
   name: "",
@@ -56,6 +63,10 @@ function RolesPage() {
   const [roles, setRoles] = useState<RoleListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useQueryState(
+    "type",
+    parseAsString.withDefault("")
+  );
 
   const loadRoles = useCallback(async () => {
     try {
@@ -128,8 +139,16 @@ function RolesPage() {
       </h1>
       <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
         <RolesTable
-          data={roles}
+          data={
+            typeFilter
+              ? roles.filter((r) =>
+                  typeFilter === "system" ? r.isSystem : !r.isSystem
+                )
+              : roles
+          }
+          hasActiveFilters={!!typeFilter}
           isLoading={loading}
+          onClearFilters={() => setTypeFilter("")}
           onDelete={handleDelete}
           toolbarActions={
             <Button onClick={() => setCreateOpen(true)} size="sm" type="button">
@@ -140,6 +159,14 @@ function RolesPage() {
               />
               Add role
             </Button>
+          }
+          toolbarFilters={
+            <TableFilterSelect
+              label="Type"
+              onChange={setTypeFilter}
+              options={TYPE_OPTIONS}
+              value={typeFilter}
+            />
           }
         />
       </div>

@@ -7,7 +7,9 @@ import { queries } from "@pi-dash/zero/queries";
 import type { Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
@@ -15,6 +17,11 @@ import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
+
+const VENDOR_STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Approved", value: "approved" },
+];
 
 export const Route = createFileRoute("/_app/vendors/")({
   head: () => ({
@@ -42,6 +49,15 @@ function VendorsRouteComponent() {
     vendorPayments ?? []
   );
   const stats = computeVendorPaymentStats(vendorPayments ?? []);
+
+  const [statusFilter, setStatusFilter] = useQueryState(
+    "status",
+    parseAsString.withDefault("")
+  );
+
+  const filteredVendorRows = statusFilter
+    ? vendorRows.filter((v) => v.status === statusFilter)
+    : vendorRows;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
@@ -100,9 +116,11 @@ function VendorsRouteComponent() {
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={stats} />
         <VendorsTable
-          data={vendorRows}
+          data={filteredVendorRows}
+          hasActiveFilters={!!statusFilter}
           isLoading={isLoading}
           onApprove={handleApprove}
+          onClearFilters={() => setStatusFilter("")}
           onDelete={handleDelete}
           onEdit={handleEdit}
           onUnapprove={handleUnapprove}
@@ -123,6 +141,14 @@ function VendorsRouteComponent() {
               />
               Add vendor
             </Button>
+          }
+          toolbarFilters={
+            <TableFilterSelect
+              label="Status"
+              onChange={setStatusFilter}
+              options={VENDOR_STATUS_OPTIONS}
+              value={statusFilter}
+            />
           }
         />
       </div>

@@ -52,7 +52,9 @@ const SKELETON_TYPE = <Skeleton className="h-6 w-24" />;
 
 interface ReimbursementsTableProps {
   data: RequestRow[];
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
+  onClearFilters?: () => void;
   onDelete: (row: RequestRow) => Promise<void>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
@@ -129,6 +131,8 @@ export function ReimbursementsTable({
   onNavigate,
   toolbarActions,
   toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: ReimbursementsTableProps) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
@@ -349,7 +353,9 @@ export function ReimbursementsTable({
         data={data}
         emptyMessage="No reimbursements found."
         getRowId={(row) => row.id}
+        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
+        onClearFilters={onClearFilters}
         searchFn={searchReimbursement}
         searchPlaceholder="Search reimbursements..."
         storageKey="reimbursements_table_state_v1"

@@ -103,13 +103,16 @@ function searchVendor(row: VendorRow, query: string): boolean {
 
 interface VendorsTableProps {
   data: VendorRow[];
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
   onApprove?: (vendor: VendorRow) => void;
+  onClearFilters?: () => void;
   onDelete: (id: string) => Promise<{ type: string }>;
   onEdit: (vendor: VendorRow) => void;
   onUnapprove?: (vendor: VendorRow) => void;
   onView: (vendor: VendorRow) => void;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 export function VendorsTable({
@@ -121,6 +124,9 @@ export function VendorsTable({
   onUnapprove,
   onView,
   toolbarActions,
+  toolbarFilters,
+  hasActiveFilters,
+  onClearFilters,
 }: VendorsTableProps) {
   const deleteAction = useConfirmAction<string>({
     onConfirm: async (id) => {
@@ -395,7 +401,9 @@ export function VendorsTable({
         }}
         emptyMessage="No vendors found."
         getRowId={(row) => row.id}
+        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
+        onClearFilters={onClearFilters}
         onRowClick={onView}
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
@@ -407,6 +415,7 @@ export function VendorsTable({
           columnsPinnable: true,
         }}
         toolbarActions={toolbarActions}
+        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete"
