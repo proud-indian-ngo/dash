@@ -19,121 +19,156 @@ async function openWhatsAppGroups(page: import("@playwright/test").Page) {
 
 // Only admin can access WhatsApp Groups, so volunteer project ignores this via testIgnore
 test.describe("WhatsApp Groups (admin)", () => {
-  test("shows empty state when no groups exist", async ({ page }, testInfo) => {
+  test("shows section with empty state or group list", async ({
+    page,
+  }, testInfo) => {
     if (testInfo.project.name !== "admin") {
       test.skip();
     }
 
     const dialog = await openWhatsAppGroups(page);
-    // Either shows groups or "No WhatsApp groups yet."
-    const addButton = dialog.getByRole("button", { name: "Add group" });
-    await expect(addButton).toBeVisible();
+    // Section renders — shows either groups or empty state text
+    await expect(
+      dialog
+        .getByText("No WhatsApp groups yet.")
+        .or(dialog.getByRole("button", { name: "Edit group" }).first())
+    ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("can open create group form", async ({ page }, testInfo) => {
+  test("shows add group button", async ({ page }, testInfo) => {
     if (testInfo.project.name !== "admin") {
       test.skip();
     }
 
     const dialog = await openWhatsAppGroups(page);
-    await dialog.getByRole("button", { name: "Add group" }).click();
-    await expect(dialog.getByText("Add Group", { exact: true })).toBeVisible();
-    await expect(dialog.getByLabel("Name")).toBeVisible();
-    await expect(dialog.getByLabel("JID")).toBeVisible();
-    await expect(dialog.getByLabel("Description")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Add group" })).toBeVisible(
+      { timeout: 10_000 }
+    );
   });
 
-  test("create form validates required fields", async ({ page }, testInfo) => {
+  test("can open and cancel picker dialog", async ({ page }, testInfo) => {
     if (testInfo.project.name !== "admin") {
       test.skip();
     }
 
     const dialog = await openWhatsAppGroups(page);
-    await dialog.getByRole("button", { name: "Add group" }).click();
+    await dialog
+      .getByRole("button", { name: "Add group" })
+      .click({ timeout: 10_000 });
 
-    // Type and clear to trigger onChange validation, then blur to display errors
-    await dialog.getByLabel("Name").fill("x");
-    await dialog.getByLabel("Name").fill("");
-    await dialog.getByLabel("Name").blur();
-    await dialog.getByLabel("JID").fill("x");
-    await dialog.getByLabel("JID").fill("");
-    await dialog.getByLabel("JID").blur();
+    const pickerDialog = page.getByRole("dialog").filter({
+      hasText: "Add WhatsApp Groups",
+    });
+    await expect(pickerDialog).toBeVisible();
 
-    // Validation errors should appear
-    await expect(dialog.getByText("Name is required")).toBeVisible();
-    await expect(dialog.getByText("JID is required")).toBeVisible();
+    // Picker shows either groups (with search), an error message, or "all added" text
+    await expect(
+      pickerDialog
+        .getByPlaceholder("Search groups...")
+        .or(pickerDialog.getByText("Failed to fetch"))
+        .or(
+          pickerDialog.getByText("All WhatsApp groups have already been added")
+        )
+        .or(pickerDialog.getByText("No WhatsApp groups found"))
+    ).toBeVisible({ timeout: 15_000 });
+
+    // "Add selected" button should be disabled when nothing is selected
+    const addSelectedBtn = pickerDialog.getByRole("button", {
+      name: /Add selected/,
+    });
+    await expect(addSelectedBtn).toBeDisabled();
+
+    // Cancel closes the dialog
+    await pickerDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(pickerDialog.getByText("Add WhatsApp Groups")).toBeHidden();
   });
 
-  test("can cancel create form", async ({ page }, testInfo) => {
+  test("can add group from picker, edit, and delete", async ({
+    page,
+  }, testInfo) => {
     if (testInfo.project.name !== "admin") {
       test.skip();
     }
+    test.slow();
 
-    const dialog = await openWhatsAppGroups(page);
-    await dialog.getByRole("button", { name: "Add group" }).click();
-    await expect(dialog.getByText("Add Group", { exact: true })).toBeVisible();
+    const settingsDialog = await openWhatsAppGroups(page);
 
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog.getByText("Add Group", { exact: true })).toBeHidden();
-  });
+    // Open picker and wait for groups to load
+    await settingsDialog
+      .getByRole("button", { name: "Add group" })
+      .click({ timeout: 10_000 });
+    const pickerDialog = page.getByRole("dialog").filter({
+      hasText: "Add WhatsApp Groups",
+    });
+    await expect(pickerDialog).toBeVisible();
 
-  test("can create, edit, and delete a group", async ({ page }, testInfo) => {
-    if (testInfo.project.name !== "admin") {
-      test.skip();
+    // Wait for groups to load — if the API errors or returns no groups, skip this test
+    const searchInput = pickerDialog.getByPlaceholder("Search groups...");
+    try {
+      await searchInput.waitFor({ state: "visible", timeout: 15_000 });
+    } catch {
+      // API may be rate-limited or return no available groups — skip CRUD test
+      test.skip(
+        true,
+        "WhatsApp API unavailable or no groups to add — skipping CRUD test"
+      );
+      return;
     }
-    test.slow(); // create + edit + delete in one test needs extra time
 
-    const dialog = await openWhatsAppGroups(page);
-    const groupName = `E2E Test Group ${Date.now()}`;
-    const groupJid = `e2e-test-${Date.now()}@g.us`;
+    // Select the first available group
+    const firstGroupBtn = pickerDialog
+      .locator("button")
+      .filter({ has: page.locator("[role='checkbox']") })
+      .first();
+    await expect(firstGroupBtn).toBeVisible();
+    const groupName = await firstGroupBtn
+      .locator(".font-medium.text-sm")
+      .textContent();
+    await firstGroupBtn.click();
 
-    // Create
-    await dialog.getByRole("button", { name: "Add group" }).click();
-    await dialog.getByLabel("Name").fill(groupName);
-    await dialog.getByLabel("JID").fill(groupJid);
-    await dialog.getByLabel("Description").fill("Test description");
-    await dialog.getByRole("button", { name: "Save" }).click();
+    // Add selected
+    await pickerDialog.getByRole("button", { name: /Add selected/ }).click();
 
-    // Verify created
-    await expect(dialog.getByText(groupName)).toBeVisible({ timeout: 10_000 });
-    await expect(dialog.getByText(groupJid)).toBeVisible();
+    // Verify group appears in the settings list
+    await expect(settingsDialog.getByText(groupName!)).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Edit
-    const groupRow = dialog
+    const groupRow = settingsDialog
       .locator("[class*='border']")
-      .filter({ hasText: groupName });
+      .filter({ hasText: groupName! });
     await groupRow.getByRole("button", { name: "Edit group" }).click();
-    await expect(dialog.getByText("Edit Group", { exact: true })).toBeVisible();
+    await expect(
+      settingsDialog.getByText("Edit Group", { exact: true })
+    ).toBeVisible();
 
     const updatedName = `${groupName} Updated`;
-    // Wait for form population then fill — retry if Zero re-sync detaches the DOM
-    await expect(dialog.getByLabel("Name")).toHaveValue(groupName, {
+    await expect(settingsDialog.getByLabel("Name")).toHaveValue(groupName!, {
       timeout: 10_000,
     });
     await expect(async () => {
-      await dialog.getByLabel("Name").fill(updatedName);
+      await settingsDialog.getByLabel("Name").fill(updatedName);
     }).toPass({ timeout: 15_000 });
-    await dialog
+    await settingsDialog
       .getByRole("button", { name: "Save" })
       .click({ timeout: 10_000 });
 
-    await expect(dialog.getByText(updatedName)).toBeVisible({
+    await expect(settingsDialog.getByText(updatedName)).toBeVisible({
       timeout: 10_000,
     });
 
     // Delete
-    const updatedRow = dialog
+    const updatedRow = settingsDialog
       .locator("[class*='border']")
       .filter({ hasText: updatedName });
     await updatedRow.getByRole("button", { name: "Delete group" }).click();
 
-    // Confirm deletion dialog
     const alertDialog = page.getByRole("alertdialog");
     await expect(alertDialog.getByText("Delete group?")).toBeVisible();
     await alertDialog.getByRole("button", { name: "Delete" }).click();
 
-    // Verify deleted
-    await expect(dialog.getByText(updatedName)).toBeHidden({
+    await expect(settingsDialog.getByText(updatedName)).toBeHidden({
       timeout: 10_000,
     });
   });

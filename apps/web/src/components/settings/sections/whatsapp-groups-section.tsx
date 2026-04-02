@@ -55,7 +55,9 @@ export function WhatsAppGroupsSection() {
           action: "checkWapiConfig",
           error: error instanceof Error ? error.message : String(error),
         });
-        setWapiConfigured(false);
+        // An API error (e.g. 429 rate-limit) doesn't mean WhatsApp isn't configured —
+        // keep the button visible so the user can retry via the picker dialog.
+        setWapiConfigured(true);
       });
   }, [canManageGroups]);
 
