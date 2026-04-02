@@ -7,6 +7,8 @@
     "node_modules",
     "./apps/web/dist",
     ".worktrees",
-    ".claude/worktrees"
+    ".claude/worktrees",
+    "packages/e2e/playwright-report",
+    "commitlint.config.js"
   ]
 }
