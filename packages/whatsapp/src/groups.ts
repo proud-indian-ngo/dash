@@ -3,9 +3,12 @@ import { appConfig } from "@pi-dash/db/schema/app-config";
 import { team } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { eq, sql } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
 import { getUserPhone } from "./users";
+
+const WHATSAPP_JID_SUFFIX = /@s\.whatsapp\.net$/;
 
 export async function addToWhatsAppGroup(
   groupJid: string,
@@ -157,10 +160,68 @@ export async function createWhatsAppGroup(
   return { jid: groupId };
 }
 
+export async function getGroupParticipants(
+  groupJid: string
+): Promise<string[]> {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "getGroupParticipants",
+  });
+  log.set({ groupJid });
+
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    log.set({ event: "whatsapp_not_configured" });
+    log.emit();
+    return [];
+  }
+
+  const url = new URL(`${apiUrl}/group/info`);
+  url.searchParams.set("group_id", groupJid);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: getWhatsAppHeaders(),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    log.error(
+      new Error(`WhatsApp group participants error ${response.status}: ${text}`)
+    );
+    log.emit();
+    throw new Error(
+      `WhatsApp group participants error ${response.status}: ${text}`
+    );
+  }
+
+  const data = (await response.json()) as {
+    results?: {
+      Participants?: Array<{ PhoneNumber?: string }>;
+    };
+  };
+
+  const participants = data.results?.Participants ?? [];
+  const phones = participants
+    .filter((p) => (p.PhoneNumber ?? "").endsWith("@s.whatsapp.net"))
+    .map((p) => (p.PhoneNumber ?? "").replace(WHATSAPP_JID_SUFFIX, ""))
+    .filter(Boolean);
+
+  log.set({
+    event: "participants_fetched",
+    totalParticipants: participants.length,
+    validPhones: phones.length,
+    skippedNonWhatsApp: participants.length - phones.length,
+  });
+  log.emit();
+
+  return phones;
+}
+
 const ORIENTATION_GROUP_ID = "orientation_group_id";
 const ALL_VOLUNTEERS_GROUP_ID = "all_volunteers_group_id";
 
-async function getGroupJidByConfigKey(
+export async function getGroupJidByConfigKey(
   configKey: string
 ): Promise<string | null> {
   const rows = await db
@@ -173,6 +234,21 @@ async function getGroupJidByConfigKey(
     .where(eq(appConfig.key, configKey))
     .limit(1);
   return rows[0]?.jid ?? null;
+}
+
+export async function getGroupInfoByConfigKey(
+  configKey: string
+): Promise<{ jid: string; name: string } | null> {
+  const rows = await db
+    .select({ jid: whatsappGroup.jid, name: whatsappGroup.name })
+    .from(appConfig)
+    .innerJoin(
+      whatsappGroup,
+      eq(whatsappGroup.id, sql`${appConfig.value}::uuid`)
+    )
+    .where(eq(appConfig.key, configKey))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function getTeamWhatsAppGroupJid(

@@ -168,7 +168,7 @@ describe("expandSeries", () => {
   });
 
   it("returns empty array for range with no occurrences", () => {
-    const rangeStart = new Date(2026, 3, 5).getTime(); // Sunday
+    const rangeStart = new Date(2026, 3, 6).getTime(); // Monday
     const rangeEnd = new Date(2026, 3, 10).getTime(); // Friday
 
     const result = expandSeries(

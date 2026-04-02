@@ -359,6 +359,9 @@ export interface RemindFeedbackDeadlinePayload {
 export interface RemindPhotoApprovalPayload {
   triggeredAt: string;
 }
+export interface ScanWhatsAppGroupsPayload {
+  triggeredAt: string;
+}
 
 // WhatsApp group management
 export interface WhatsAppCreateGroupPayload {
@@ -466,6 +469,7 @@ export interface JobPayloads {
   "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
+  "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
@@ -536,6 +540,7 @@ export const QUEUE_NAMES: JobName[] = [
   "remind-feedback-deadline",
   "remind-photo-approval",
   "remind-stale-requests",
+  "scan-whatsapp-groups",
   "send-bulk-notification",
   "send-notification",
   "send-scheduled-message",

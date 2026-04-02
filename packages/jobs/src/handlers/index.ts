@@ -71,6 +71,7 @@ import {
 import { handleRemindFeedbackDeadline } from "./remind-feedback-deadline";
 import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
+import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
@@ -343,6 +344,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "remind-photo-approval",
     NOTIFY_POLL,
     handleRemindPhotoApproval
+  );
+  await boss.work(
+    "scan-whatsapp-groups",
+    NOTIFY_POLL,
+    handleScanWhatsAppGroups
   );
 
   // Immich + R2 handlers (5s polling — external API + object storage)

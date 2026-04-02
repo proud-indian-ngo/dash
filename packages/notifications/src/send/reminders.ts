@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { createRequestLogger } from "evlog";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -88,6 +89,116 @@ export async function notifyFeedbackDeadline({
     idempotencyKey: `feedback-deadline-${eventId}-${dateKey}`,
     topic: TOPICS.EVENTS_FEEDBACK,
   });
+}
+
+interface UnregisteredGroup {
+  groupName: string;
+  phones: string[];
+}
+
+interface WhatsAppScanResultsOptions {
+  deactivatedUsers: Array<{ name: string; phone: string }>;
+  reactivatedUsers: Array<{ name: string; phone: string }>;
+  scannedGroups: string[];
+  unregisteredByGroup: UnregisteredGroup[];
+  userIds: string[];
+}
+
+export async function notifyWhatsAppScanResults({
+  userIds,
+  deactivatedUsers,
+  reactivatedUsers,
+  unregisteredByGroup,
+  scannedGroups,
+}: WhatsAppScanResultsOptions): Promise<void> {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "notifyWhatsAppScanResults",
+  });
+  const totalUnregistered = unregisteredByGroup.reduce(
+    (sum, g) => sum + g.phones.length,
+    0
+  );
+  log.set({
+    recipientCount: userIds.length,
+    deactivatedCount: deactivatedUsers.length,
+    reactivatedCount: reactivatedUsers.length,
+    unregisteredCount: totalUnregistered,
+    scannedGroups,
+  });
+
+  if (userIds.length === 0) {
+    log.set({ event: "no_recipients" });
+    log.emit();
+    return;
+  }
+  if (
+    deactivatedUsers.length === 0 &&
+    reactivatedUsers.length === 0 &&
+    totalUnregistered === 0
+  ) {
+    log.set({ event: "no_changes" });
+    log.emit();
+    return;
+  }
+
+  const groupList = scannedGroups.join(", ");
+  const parts: string[] = [`Scanned groups: ${groupList}`];
+
+  if (deactivatedUsers.length > 0) {
+    parts.push(
+      `Auto-deactivated ${deactivatedUsers.length} user(s) not found in any scanned group:\n${deactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
+    );
+  }
+
+  if (reactivatedUsers.length > 0) {
+    parts.push(
+      `Auto-reactivated ${reactivatedUsers.length} user(s) found in scanned groups:\n${reactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
+    );
+  }
+
+  for (const group of unregisteredByGroup) {
+    parts.push(
+      `${group.phones.length} unregistered phone(s) in "${group.groupName}":\n${group.phones.map((p) => `  - ${p}`).join("\n")}`
+    );
+  }
+
+  const body = parts.join("\n\n");
+  const dateKey = new Date().toISOString().slice(0, 10);
+
+  // Short summary for in-app inbox
+  const summaryParts: string[] = [];
+  if (deactivatedUsers.length > 0) {
+    summaryParts.push(`${deactivatedUsers.length} deactivated`);
+  }
+  if (reactivatedUsers.length > 0) {
+    summaryParts.push(`${reactivatedUsers.length} reactivated`);
+  }
+  if (totalUnregistered > 0) {
+    summaryParts.push(`${totalUnregistered} unregistered`);
+  }
+  const inboxBody = `${groupList}: ${summaryParts.join(", ")}`;
+
+  const emailHtml = await renderNotificationEmail({
+    heading: "WhatsApp Group Scan Results",
+    paragraphs: parts,
+    ctaUrl: `${env.APP_URL}/users`,
+    ctaLabel: "Manage Users",
+  });
+
+  await sendBulkMessage({
+    userIds,
+    title: "WhatsApp Group Scan Results",
+    body,
+    emailHtml,
+    clickAction: "/users",
+    idempotencyKey: `whatsapp-scan-${dateKey}-${Date.now()}`,
+    inboxBody,
+    topic: TOPICS.ACCOUNT,
+  });
+
+  log.set({ event: "notification_sent" });
+  log.emit();
 }
 
 export async function notifyPhotoApprovalReminder({

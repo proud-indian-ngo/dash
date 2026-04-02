@@ -68,7 +68,8 @@ export function expandSeries(
   const occurrences: VirtualOccurrence[] = [];
 
   for (const date of dates) {
-    const isoDate = toISODate(date);
+    // rrule generates UTC dates — use UTC formatting for consistent day boundaries
+    const isoDate = toISODateUTC(date);
 
     // Skip excluded dates (from exdates array)
     if (exdateSet.has(isoDate)) {
@@ -80,9 +81,9 @@ export function expandSeries(
       continue;
     }
 
-    // Apply the series time-of-day to this date
+    // Apply the series time-of-day (local) to this UTC date
     const occStart = new Date(date);
-    occStart.setHours(
+    occStart.setUTCHours(
       seriesDate.getHours(),
       seriesDate.getMinutes(),
       seriesDate.getSeconds(),

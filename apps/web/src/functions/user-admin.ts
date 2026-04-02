@@ -13,6 +13,7 @@ import { notifyUserDeleted } from "@pi-dash/notifications/send/user";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { authMiddleware } from "@/middleware/auth";
@@ -250,7 +251,6 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       throw new Error("User not found");
     }
     const previousRole = currentUser.role;
-    const previousIsActive = (currentUser as { isActive?: boolean }).isActive;
 
     const normalizedEmail = data.email.toLowerCase();
     await auth.api.adminUpdateUser({
@@ -268,23 +268,6 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       },
       headers: context.headers,
     });
-
-    // Enqueue notification if account was deactivated or reactivated
-    if (data.isActive === false && previousIsActive !== false) {
-      withFireAndForgetLog(
-        { handler: "updateUser:deactivated", userId: data.userId },
-        async () => {
-          await enqueue("notify-user-deactivated", { userId: data.userId });
-        }
-      );
-    } else if (data.isActive === true && previousIsActive === false) {
-      withFireAndForgetLog(
-        { handler: "updateUser:reactivated", userId: data.userId },
-        async () => {
-          await enqueue("notify-user-reactivated", { userId: data.userId });
-        }
-      );
-    }
 
     if (data.role && data.role !== previousRole) {
       const newRole = data.role;
@@ -482,4 +465,26 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
     }
 
     return data.userId;
+  });
+
+export const triggerWhatsAppGroupScan = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const ctx = await ensurePermission(context, "users.create");
+    const log = createRequestLogger({
+      method: "POST",
+      path: "triggerWhatsAppGroupScan",
+    });
+    log.set({ userId: ctx.session.user.id });
+    try {
+      await enqueue("scan-whatsapp-groups", {
+        triggeredAt: new Date().toISOString(),
+      });
+      log.set({ event: "scan_enqueued" });
+      log.emit();
+    } catch (error) {
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
+      throw error;
+    }
   });

@@ -17,6 +17,14 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { retryLimit: 2, expireInSeconds: 600 }
   );
 
+  // Weekly on Monday at 6:00 AM UTC — scan WhatsApp group membership
+  await boss.schedule(
+    "scan-whatsapp-groups",
+    "0 6 * * 1",
+    {},
+    { retryLimit: 2, expireInSeconds: 600 }
+  );
+
   // Daily at 10:00 AM UTC — remind team leads about pending photo approvals
   await boss.schedule(
     "remind-photo-approval",

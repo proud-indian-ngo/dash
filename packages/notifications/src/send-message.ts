@@ -138,6 +138,7 @@ interface SendBulkMessageOptions {
   clickAction?: string;
   emailHtml?: string;
   idempotencyKey: string;
+  inboxBody?: string;
   title: string;
   topic: Topic;
   userIds: string[];
@@ -150,6 +151,7 @@ export async function sendBulkMessage({
   emailHtml,
   clickAction,
   idempotencyKey,
+  inboxBody,
   topic,
 }: SendBulkMessageOptions): Promise<void> {
   if (userIds.length === 0) {
@@ -177,7 +179,7 @@ export async function sendBulkMessage({
         {
           message: {
             to: recipients,
-            content: { title, body },
+            content: { title, body: inboxBody ?? body },
             ...(clickAction && { data: { clickAction } }),
             routing: {
               method: "all",
