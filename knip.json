@@ -31,6 +31,13 @@
     "packages/jobs": {
       "ignoreDependencies": ["@pi-dash/observability"]
     },
+    "packages/email": {
+      "ignoreFiles": [
+        "src/templates/notification-approval-with-image.tsx",
+        "src/templates/notification-minimal.tsx",
+        "src/templates/notification-with-line-items.tsx"
+      ]
+    },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],
       "ignoreDependencies": ["@tailwindcss/.*"]

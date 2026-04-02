@@ -1,3 +1,5 @@
+import { renderNotificationEmail } from "@pi-dash/email";
+import { env } from "@pi-dash/env/server";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -45,10 +47,18 @@ export async function notifyStaleRequests({
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
+  const body = `You have ${parts.join(", ")} pending review for more than 3 days.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Pending Requests Reminder",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/requests`,
+    ctaLabel: "View Requests",
+  });
   await sendMessage({
     to: userId,
     title: "Pending Requests Reminder",
-    body: `You have ${parts.join(", ")} pending review for more than 3 days.`,
+    body,
+    emailHtml,
     clickAction: "/requests",
     idempotencyKey: `stale-requests-reminder-${userId}-${dateKey}`,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
@@ -62,10 +72,18 @@ export async function notifyFeedbackDeadline({
 }: FeedbackDeadlineOptions): Promise<void> {
   const dateKey = new Date().toISOString().slice(0, 10);
 
+  const body = `Feedback for "${eventName}" closes tomorrow. Share your thoughts before the deadline.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Feedback Deadline Tomorrow",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "Share Feedback",
+  });
   await sendMessage({
     to: userId,
     title: "Feedback Deadline Tomorrow",
-    body: `Feedback for "${eventName}" closes tomorrow. Share your thoughts before the deadline.`,
+    body,
+    emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `feedback-deadline-${eventId}-${dateKey}`,
     topic: TOPICS.EVENTS_FEEDBACK,
@@ -83,10 +101,18 @@ export async function notifyPhotoApprovalReminder({
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
+  const body = `${pendingCount} photo(s) across ${eventCount} event(s) need your review.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Photos Pending Review",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events`,
+    ctaLabel: "Review Photos",
+  });
   await sendBulkMessage({
     userIds,
     title: "Photos Pending Review",
-    body: `${pendingCount} photo(s) across ${eventCount} event(s) need your review.`,
+    body,
+    emailHtml,
     clickAction: "/events",
     idempotencyKey: `photo-approval-reminder-${dateKey}`,
     topic: TOPICS.EVENTS_PHOTOS,

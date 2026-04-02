@@ -1,3 +1,4 @@
+import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import type { LineItemDetail } from "../helpers";
 import { getUserIdsWithPermission } from "../helpers";
@@ -8,23 +9,6 @@ const currencyFormat = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
 });
-
-function formatLineItemsBlock(items: LineItemDetail[]): string {
-  if (items.length === 0) {
-    return "";
-  }
-
-  const lines = items.map((item) => {
-    const label = item.description
-      ? `${item.categoryName}: ${item.description}`
-      : item.categoryName;
-    return `- ${label} — ${currencyFormat.format(Number(item.amount))}`;
-  });
-
-  const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
-
-  return `\n\nItems:\n${lines.join("\n")}\n\nTotal: ${currencyFormat.format(total)}`;
-}
 
 function computeTotal(items: LineItemDetail[]): number {
   return items.reduce((sum, item) => sum + Number(item.amount), 0);
@@ -90,11 +74,18 @@ export function createSubmissionNotifier({
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `${submitterName} submitted "${title}" for review.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
+      const emailHtml = await renderNotificationEmail({
+        heading: `New ${entityLabel} Submitted`,
+        paragraphs: [baseMessage],
+        lineItems,
+        ctaUrl: fullUrl,
+        ctaLabel: `View ${entityLabel}`,
+      });
       await sendBulkMessage({
         userIds: approverIds,
         title: `New ${entityLabel} Submitted`,
         body: `${baseMessage}${totalSuffix}`,
-        emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
+        emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
         topic: submittedTopic,
@@ -111,16 +102,21 @@ export function createSubmissionNotifier({
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved.`;
-      const noteSuffix = note ? `\n\nMessage: ${note}` : "";
-      const screenshotSuffix = screenshotUrl
-        ? `\n\nPayment proof: ${screenshotUrl}`
-        : "";
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
+      const emailHtml = await renderNotificationEmail({
+        heading: `${entityLabel} Approved`,
+        paragraphs: [baseMessage],
+        lineItems,
+        note: note ?? undefined,
+        imageUrl: screenshotUrl,
+        ctaUrl: fullUrl,
+        ctaLabel: `View ${entityLabel}`,
+      });
       await sendMessage({
         to: submitterId,
         title: `${entityLabel} Approved`,
-        body: `${baseMessage}${totalSuffix}${noteSuffix}`,
-        emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}${noteSuffix}${screenshotSuffix}\n\nView: ${fullUrl}`,
+        body: `${baseMessage}${totalSuffix}${note ? `\n\nMessage: ${note}` : ""}`,
+        emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
         imageUrl: screenshotUrl,
@@ -131,13 +127,20 @@ export function createSubmissionNotifier({
     async notifyRejected({ entityId, title, submitterId, reason }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
-      const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" was rejected: ${reason}`;
+      const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" was rejected.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
+      const emailHtml = await renderNotificationEmail({
+        heading: `${entityLabel} Rejected`,
+        paragraphs: [baseMessage, `Reason: ${reason}`],
+        lineItems,
+        ctaUrl: fullUrl,
+        ctaLabel: `View ${entityLabel}`,
+      });
       await sendMessage({
         to: submitterId,
         title: `${entityLabel} Rejected`,
-        body: `${baseMessage}${totalSuffix}`,
-        emailBody: `${baseMessage}${formatLineItemsBlock(lineItems)}\n\nView: ${fullUrl}`,
+        body: `${baseMessage} ${reason}${totalSuffix}`,
+        emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
         idempotencyKey: `${idempotencyPrefix}-rejected-${entityId}-${submitterId}`,
         topic: statusTopic,

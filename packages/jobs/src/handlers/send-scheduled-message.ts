@@ -12,7 +12,7 @@ export async function handleSendScheduledMessage(
       method: "JOB",
       path: "send-scheduled-message",
     });
-    const { userId, title, topicId, body, clickAction, emailBody } = job.data;
+    const { userId, title, topicId, body, clickAction, emailHtml } = job.data;
 
     log.set({
       event: "job_start",
@@ -36,7 +36,7 @@ export async function handleSendScheduledMessage(
       to: userId,
       title,
       body,
-      emailBody,
+      emailHtml,
       idempotencyKey,
       clickAction,
       topic,

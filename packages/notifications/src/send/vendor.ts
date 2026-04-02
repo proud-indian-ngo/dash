@@ -1,3 +1,5 @@
+import { renderNotificationEmail } from "@pi-dash/email";
+import { env } from "@pi-dash/env/server";
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -19,10 +21,18 @@ export async function notifyVendorApproved({
   vendorName,
   creatorId,
 }: VendorApprovedOptions): Promise<void> {
+  const body = `Your vendor "${vendorName}" has been approved.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Vendor Approved",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
+    ctaLabel: "View Vendor",
+  });
   await sendMessage({
     to: creatorId,
     title: "Vendor Approved",
-    body: `Your vendor "${vendorName}" has been approved.`,
+    body,
+    emailHtml,
     clickAction: `/vendors/${vendorId}`,
     idempotencyKey: `vendor-approved-${vendorId}`,
     topic: TOPICS.REQUESTS_STATUS,
@@ -40,10 +50,18 @@ export async function notifyVendorUnapproved({
   vendorName,
   creatorId,
 }: VendorUnapprovedOptions): Promise<void> {
+  const body = `Your vendor "${vendorName}" has been sent back for review.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Vendor Sent Back for Review",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
+    ctaLabel: "View Vendor",
+  });
   await sendMessage({
     to: creatorId,
     title: "Vendor Sent Back for Review",
-    body: `Your vendor "${vendorName}" has been sent back for review.`,
+    body,
+    emailHtml,
     clickAction: `/vendors/${vendorId}`,
     idempotencyKey: `vendor-unapproved-${vendorId}`,
     topic: TOPICS.REQUESTS_STATUS,
@@ -56,10 +74,18 @@ export async function notifyVendorAutoApproved({
   creatorId,
   vendorPaymentTitle,
 }: VendorAutoApprovedOptions): Promise<void> {
+  const body = `Your vendor "${vendorName}" was automatically approved with vendor payment "${vendorPaymentTitle}".`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Vendor Auto-Approved",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
+    ctaLabel: "View Vendor",
+  });
   await sendMessage({
     to: creatorId,
     title: "Vendor Auto-Approved",
-    body: `Your vendor "${vendorName}" was automatically approved with vendor payment "${vendorPaymentTitle}".`,
+    body,
+    emailHtml,
     clickAction: `/vendors/${vendorId}`,
     idempotencyKey: `vendor-auto-approved-${vendorId}`,
     topic: TOPICS.REQUESTS_STATUS,

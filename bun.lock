@@ -34,6 +34,7 @@
         "@pi-dash/jobs": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/observability": "workspace:*",
+        "@pi-dash/whatsapp": "workspace:*",
         "@pi-dash/zero": "workspace:*",
         "@platejs/basic-nodes": "catalog:",
         "@platejs/caption": "catalog:",
@@ -109,6 +110,7 @@
       "name": "@pi-dash/db",
       "dependencies": {
         "@pi-dash/env": "workspace:*",
+        "@pi-dash/shared": "workspace:*",
         "drizzle-orm": "catalog:",
         "uuidv7": "catalog:",
       },
@@ -228,6 +230,7 @@
       "name": "@pi-dash/notifications",
       "dependencies": {
         "@pi-dash/db": "workspace:*",
+        "@pi-dash/email": "workspace:*",
         "@pi-dash/env": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
         "@trycourier/courier": "^7.8.0",
@@ -246,6 +249,14 @@
         "evlog": "catalog:",
         "p-retry": "^8.0.0",
       },
+      "devDependencies": {
+        "@pi-dash/config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/shared": {
+      "name": "@pi-dash/shared",
+      "version": "0.0.0",
       "devDependencies": {
         "@pi-dash/config": "workspace:*",
         "typescript": "catalog:",
@@ -271,6 +282,7 @@
         "@pi-dash/env": "workspace:*",
         "@pi-dash/jobs": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
+        "@pi-dash/shared": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "drizzle-orm": "catalog:",
         "drizzle-zero": "^0.18.0",
@@ -906,6 +918,8 @@
     "@pi-dash/notifications": ["@pi-dash/notifications@workspace:packages/notifications"],
 
     "@pi-dash/observability": ["@pi-dash/observability@workspace:packages/observability"],
+
+    "@pi-dash/shared": ["@pi-dash/shared@workspace:packages/shared"],
 
     "@pi-dash/whatsapp": ["@pi-dash/whatsapp@workspace:packages/whatsapp"],
 

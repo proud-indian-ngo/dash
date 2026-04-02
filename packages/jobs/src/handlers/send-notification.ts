@@ -19,7 +19,7 @@ export async function handleSendNotification(
       idempotencyKey,
       body,
       clickAction,
-      emailBody,
+      emailHtml,
       imageUrl,
     } = job.data;
 
@@ -43,7 +43,7 @@ export async function handleSendNotification(
       to: userId,
       title,
       body,
-      emailBody,
+      emailHtml,
       idempotencyKey,
       clickAction,
       imageUrl,

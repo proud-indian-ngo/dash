@@ -6,7 +6,7 @@ import { ensureBossReady, getBoss } from "./boss";
 export interface NotificationPayload {
   body: string;
   clickAction?: string;
-  emailBody?: string;
+  emailHtml?: string;
   idempotencyKey: string;
   imageUrl?: string;
   title: string;
@@ -17,7 +17,7 @@ export interface NotificationPayload {
 export interface BulkNotificationPayload {
   body: string;
   clickAction?: string;
-  emailBody?: string;
+  emailHtml?: string;
   idempotencyKey: string;
   title: string;
   topicId: string;
@@ -33,7 +33,7 @@ export interface WhatsAppPayload {
 export interface ScheduledMessagePayload {
   body: string;
   clickAction?: string;
-  emailBody?: string;
+  emailHtml?: string;
   title: string;
   topicId: string;
   userId: string;

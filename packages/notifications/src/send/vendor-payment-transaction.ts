@@ -1,3 +1,4 @@
+import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
@@ -19,11 +20,17 @@ export async function notifyVendorPaymentTransactionSubmitted(options: {
   const formatted = currencyFormat.format(options.amount);
   const baseMessage = `${options.submitterName} recorded a payment of ${formatted} against "${options.vendorPaymentTitle}".`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "New Payment Recorded",
+    paragraphs: [baseMessage],
+    ctaUrl: fullUrl,
+    ctaLabel: "View Payment",
+  });
   await sendBulkMessage({
     userIds: approverIds,
     title: "New Payment Recorded",
     body: baseMessage,
-    emailBody: `${baseMessage}\n\nView: ${fullUrl}`,
+    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     idempotencyKey: `vpt-submitted-${options.transactionId}`,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
@@ -40,13 +47,19 @@ export async function notifyVendorPaymentTransactionApproved(options: {
 }): Promise<void> {
   const formatted = currencyFormat.format(options.amount);
   const baseMessage = `Your payment of ${formatted} for "${options.vendorPaymentTitle}" has been approved.`;
-  const noteSuffix = options.note ? `\n\nMessage: ${options.note}` : "";
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Payment Approved",
+    paragraphs: [baseMessage],
+    note: options.note,
+    ctaUrl: fullUrl,
+    ctaLabel: "View Payment",
+  });
   await sendMessage({
     to: options.submitterId,
     title: "Payment Approved",
-    body: `${baseMessage}${noteSuffix}`,
-    emailBody: `${baseMessage}${noteSuffix}\n\nView: ${fullUrl}`,
+    body: `${baseMessage}${options.note ? `\n\nMessage: ${options.note}` : ""}`,
+    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     idempotencyKey: `vpt-approved-${options.transactionId}-${options.submitterId}`,
     topic: TOPICS.REQUESTS_STATUS,
@@ -64,11 +77,17 @@ export async function notifyVendorPaymentTransactionRejected(options: {
   const formatted = currencyFormat.format(options.amount);
   const baseMessage = `Your payment of ${formatted} for "${options.vendorPaymentTitle}" was rejected: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Payment Rejected",
+    paragraphs: [baseMessage],
+    ctaUrl: fullUrl,
+    ctaLabel: "View Payment",
+  });
   await sendMessage({
     to: options.submitterId,
     title: "Payment Rejected",
     body: baseMessage,
-    emailBody: `${baseMessage}\n\nView: ${fullUrl}`,
+    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     idempotencyKey: `vpt-rejected-${options.transactionId}-${options.submitterId}`,
     topic: TOPICS.REQUESTS_STATUS,

@@ -1,3 +1,5 @@
+import { renderNotificationEmail } from "@pi-dash/email";
+import { env } from "@pi-dash/env/server";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -79,10 +81,19 @@ export async function notifyAddedToEvent({
   teamId,
   eventId,
 }: AddedToEventOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "Added to Event",
+    paragraphs: [
+      `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    ],
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaLabel: "View Event",
+  });
   await sendMessage({
     to: userId,
     title: "Added to Event",
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-added-${eventId}-${userId}`,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -97,10 +108,19 @@ export async function notifyUsersAddedToEvent({
   teamId,
   eventId,
 }: UsersAddedToEventOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "Added to Event",
+    paragraphs: [
+      `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    ],
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaLabel: "View Event",
+  });
   await sendBulkMessage({
     userIds,
     title: "Added to Event",
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-added-${eventId}`,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -113,10 +133,17 @@ export async function notifyRemovedFromEvent({
   teamId,
   eventId,
 }: RemovedFromEventOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "Removed from Event",
+    paragraphs: [`You've been removed from ${eventName}.`],
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaLabel: "View Event",
+  });
   await sendMessage({
     to: userId,
     title: "Removed from Event",
     body: `You've been removed from ${eventName}.`,
+    emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-removed-${eventId}-${userId}`,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -131,10 +158,19 @@ export async function notifyEventCreated({
   teamId,
   eventId,
 }: EventCreatedOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "New Event",
+    paragraphs: [
+      `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
+    ],
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaLabel: "View Event",
+  });
   await sendBulkMessage({
     userIds: teamMemberIds,
     title: "New Event",
     body: `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
+    emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-created-${eventId}`,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -150,10 +186,19 @@ export async function notifyEventUpdated({
   eventId,
   updatedAt,
 }: EventUpdatedOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "Event Updated",
+    paragraphs: [
+      `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
+    ],
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaLabel: "View Event",
+  });
   await sendBulkMessage({
     userIds: eventMemberIds,
     title: "Event Updated",
     body: `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
+    emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-updated-${eventId}-${updatedAt}`,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -167,10 +212,17 @@ export async function notifyEventCancelled({
   eventId,
   cancelledAt,
 }: EventCancelledOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "Event Cancelled",
+    paragraphs: [`${eventName} has been cancelled.`],
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaLabel: "View Event",
+  });
   await sendBulkMessage({
     userIds: eventMemberIds,
     title: "Event Cancelled",
     body: `${eventName} has been cancelled.`,
+    emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-cancelled-${eventId}-${cancelledAt}`,
     topic: TOPICS.EVENTS_SCHEDULE,

@@ -8,65 +8,107 @@ import {
   Html,
   Img,
   Preview,
+  pixelBasedPreset,
   Section,
   Tailwind,
   Text,
 } from "@react-email/components";
+import { EmailFooterBar } from "./email-footer";
+
+const DEFAULT_APP_NAME = "Proud Indian Dashboard";
+const DEFAULT_APP_URL = "https://dash.proudindian.ngo";
 
 interface ResetPasswordEmailProps {
+  appName?: string;
+  appUrl?: string;
   url: string;
 }
 
-export default function ResetPasswordEmail({ url }: ResetPasswordEmailProps) {
+const tailwindConfig = {
+  presets: [pixelBasedPreset],
+  theme: {
+    extend: {
+      colors: {
+        bg: "#faf9fb",
+        surface: "#ffffff",
+        fg: "#0c090c",
+        primary: "#0086a1",
+        "muted-fg": "#79697b",
+        border: "#e7e4e7",
+        subtle: "#a8999e",
+      },
+      fontFamily: {
+        display: ["Geist", "Inter", "sans-serif"],
+        body: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+      },
+    },
+  },
+};
+
+export default function ResetPasswordEmail({
+  appName = DEFAULT_APP_NAME,
+  appUrl = DEFAULT_APP_URL,
+  url,
+}: ResetPasswordEmailProps) {
   return (
     <Html lang="en">
-      <Tailwind>
-        <Head />
-        <Preview>Reset your password for Proud Indian Dashboard</Preview>
-        <Body className="bg-[#f6f9fc] font-sans">
-          <Container className="mx-auto my-10 max-w-[480px]">
-            {/* Header */}
-            <Section className="rounded-t-[12px] bg-[#007595] px-8 py-8 text-center">
-              <Img
-                alt="Proud Indian"
-                className="mx-auto mb-3 rounded-[10px]"
-                height="48"
-                src="https://dashboard.proudindian.ngo/apple-touch-icon.png"
-                width="48"
-              />
-              <Text className="m-0 font-semibold text-[15px] text-white/90 tracking-wide">
-                Proud Indian Dashboard
-              </Text>
-            </Section>
-
-            {/* Content */}
-            <Section className="rounded-b-[12px] border border-[#e5e7eb] border-t-0 bg-white px-10 py-10">
-              <Heading className="mt-0 mb-2 font-bold text-[#111827] text-[22px]">
-                Reset your password
-              </Heading>
-              <Text className="mt-0 mb-8 text-[#6b7280] text-[15px] leading-6">
-                We received a request to reset your password. Click the button
-                below to choose a new one. This link will expire in 1 hour.
-              </Text>
-              <Section className="mb-8 text-center">
-                <Button
-                  className="rounded-[8px] bg-[#007595] px-8 py-3 font-semibold text-[15px] text-white no-underline shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
-                  href={url}
-                >
-                  Reset Password
-                </Button>
+      <Tailwind config={tailwindConfig}>
+        <Head>
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500&display=swap');
+          `}</style>
+        </Head>
+        <Preview>Reset your password for {appName}</Preview>
+        <Body className="m-0 bg-bg p-0 font-body">
+          <Container className="mx-auto my-10 max-w-[520px] px-4">
+            <Section className="border border-border border-t-2 border-t-primary border-solid bg-surface">
+              {/* ── Logo ── */}
+              <Section className="px-8 py-6 text-center">
+                <Img
+                  alt={appName}
+                  className="inline-block"
+                  height="48"
+                  src={`${appUrl}/full-logo-dark.png`}
+                />
               </Section>
-              <Hr className="my-0 border-[#e5e7eb]" />
-              <Text className="mt-6 mb-0 text-[#9ca3af] text-[13px] leading-5">
-                If you didn't request a password reset, you can safely ignore
-                this email. Your password will remain unchanged.
-              </Text>
-            </Section>
+              <Hr
+                className="m-0"
+                style={{
+                  borderTop: "1px solid #e7e4e7",
+                  borderBottom: "none",
+                  borderLeft: "none",
+                  borderRight: "none",
+                }}
+              />
 
-            {/* Footer */}
-            <Text className="mt-6 text-center text-[#9ca3af] text-[12px] leading-4">
-              Proud Indian NGO
-            </Text>
+              {/* ── Body ── */}
+              <Section className="px-8 pt-7 pb-8">
+                <Heading className="m-0 mb-1 font-display font-semibold text-[20px] text-fg leading-7 tracking-tight">
+                  Reset your password
+                </Heading>
+
+                <Text className="mt-3 mb-0 text-[14px] text-muted-fg leading-[22px]">
+                  We received a request to reset your password. Click the button
+                  below to choose a new one. This link expires in 1 hour.
+                </Text>
+
+                <Section className="mt-6">
+                  <Button
+                    className="box-border inline-block bg-primary px-5 py-2.5 font-display font-semibold text-[13px] text-white tracking-wide no-underline"
+                    href={url}
+                  >
+                    Reset Password
+                  </Button>
+                </Section>
+
+                <Text className="mt-5 mb-0 text-[13px] text-subtle leading-5">
+                  If you didn't request a password reset, you can safely ignore
+                  this email.
+                </Text>
+              </Section>
+
+              <EmailFooterBar />
+            </Section>
           </Container>
         </Body>
       </Tailwind>

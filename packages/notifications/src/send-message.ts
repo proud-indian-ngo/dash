@@ -14,7 +14,7 @@ import type { Topic } from "./topics";
 interface SendMessageOptions {
   body: string;
   clickAction?: string;
-  emailBody?: string;
+  emailHtml?: string;
   idempotencyKey: string;
   imageUrl?: string;
   title: string;
@@ -26,7 +26,7 @@ export async function sendMessage({
   to,
   title,
   body,
-  emailBody,
+  emailHtml,
   idempotencyKey,
   clickAction,
   imageUrl,
@@ -72,7 +72,18 @@ export async function sendMessage({
         {
           message: {
             to: { user_id: to },
-            content: { title, body: emailBody ?? body },
+            content: emailHtml
+              ? {
+                  version: "2022-01-01",
+                  elements: [
+                    {
+                      type: "channel" as const,
+                      channel: "email",
+                      raw: { html: emailHtml, subject: title },
+                    },
+                  ],
+                }
+              : { title, body },
             routing: {
               method: "all",
               channels: ["email"],
@@ -125,7 +136,7 @@ export async function sendMessage({
 interface SendBulkMessageOptions {
   body: string;
   clickAction?: string;
-  emailBody?: string;
+  emailHtml?: string;
   idempotencyKey: string;
   title: string;
   topic: Topic;
@@ -136,7 +147,7 @@ export async function sendBulkMessage({
   userIds,
   title,
   body,
-  emailBody,
+  emailHtml,
   clickAction,
   idempotencyKey,
   topic,
@@ -186,7 +197,18 @@ export async function sendBulkMessage({
         {
           message: {
             to: recipients,
-            content: { title, body: emailBody ?? body },
+            content: emailHtml
+              ? {
+                  version: "2022-01-01",
+                  elements: [
+                    {
+                      type: "channel" as const,
+                      channel: "email",
+                      raw: { html: emailHtml, subject: title },
+                    },
+                  ],
+                }
+              : { title, body },
             routing: {
               method: "all",
               channels: ["email"],

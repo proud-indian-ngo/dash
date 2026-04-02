@@ -19,7 +19,7 @@ export async function handleSendBulkNotification(
       idempotencyKey,
       body,
       clickAction,
-      emailBody,
+      emailHtml,
     } = job.data;
 
     log.set({
@@ -42,7 +42,7 @@ export async function handleSendBulkNotification(
       userIds,
       title,
       body,
-      emailBody,
+      emailHtml,
       clickAction,
       idempotencyKey,
       topic,

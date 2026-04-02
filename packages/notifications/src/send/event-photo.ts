@@ -1,3 +1,5 @@
+import { renderNotificationEmail } from "@pi-dash/email";
+import { env } from "@pi-dash/env/server";
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -21,10 +23,18 @@ export async function notifyPhotoApproved({
   eventName,
   uploaderId,
 }: PhotoApprovedOptions): Promise<void> {
+  const body = `Your photo for ${eventName} has been approved.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Photo Approved",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "View Event",
+  });
   await sendMessage({
     to: uploaderId,
     title: "Photo Approved",
-    body: `Your photo for ${eventName} has been approved.`,
+    body,
+    emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `photo-approved-${photoId}`,
     topic: TOPICS.EVENTS_PHOTOS,
@@ -37,10 +47,18 @@ export async function notifyPhotoRejected({
   eventName,
   uploaderId,
 }: PhotoRejectedOptions): Promise<void> {
+  const body = `Your photo for ${eventName} was rejected.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Photo Rejected",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "View Event",
+  });
   await sendMessage({
     to: uploaderId,
     title: "Photo Rejected",
-    body: `Your photo for ${eventName} was rejected.`,
+    body,
+    emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `photo-rejected-${photoId}`,
     topic: TOPICS.EVENTS_PHOTOS,
@@ -62,10 +80,18 @@ export async function notifyPhotosApproved({
   idempotencyKey,
   uploaderId,
 }: PhotosBatchOptions): Promise<void> {
+  const body = `${count} of your photos for ${eventName} have been approved.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Photos Approved",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "View Event",
+  });
   await sendMessage({
     to: uploaderId,
     title: "Photos Approved",
-    body: `${count} of your photos for ${eventName} have been approved.`,
+    body,
+    emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey,
     topic: TOPICS.EVENTS_PHOTOS,
@@ -79,10 +105,18 @@ export async function notifyPhotosRejected({
   idempotencyKey,
   uploaderId,
 }: PhotosBatchOptions): Promise<void> {
+  const body = `${count} of your photos for ${eventName} were rejected.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Photos Rejected",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "View Event",
+  });
   await sendMessage({
     to: uploaderId,
     title: "Photos Rejected",
-    body: `${count} of your photos for ${eventName} were rejected.`,
+    body,
+    emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey,
     topic: TOPICS.EVENTS_PHOTOS,

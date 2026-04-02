@@ -1,3 +1,5 @@
+import { renderNotificationEmail } from "@pi-dash/email";
+import { env } from "@pi-dash/env/server";
 import { sendBulkMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -16,10 +18,19 @@ export async function notifyEventFeedbackOpen({
     return;
   }
 
+  const emailHtml = await renderNotificationEmail({
+    heading: "Share Your Feedback",
+    paragraphs: [
+      `Anonymous feedback is now open for ${eventName}. Your response is completely anonymous.`,
+    ],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "Share Feedback",
+  });
   await sendBulkMessage({
     userIds: memberUserIds,
     title: "Share Your Feedback",
     body: `Anonymous feedback is now open for ${eventName}. Your response is completely anonymous.`,
+    emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-feedback-open-${eventId}`,
     topic: TOPICS.EVENTS_FEEDBACK,
