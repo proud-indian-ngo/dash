@@ -105,7 +105,7 @@ export const eventInterestMutators = {
             volunteerUserId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-interest-received", {
               eventId,
               eventName,
@@ -180,7 +180,7 @@ export const eventInterestMutators = {
               whatsappGroupId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("whatsapp-add-member", {
                 groupId: whatsappGroupId,
                 userId,
@@ -197,7 +197,7 @@ export const eventInterestMutators = {
             userId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-interest-approved", {
               eventId,
               eventName,
@@ -260,7 +260,7 @@ export const eventInterestMutators = {
             userId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-interest-rejected", {
               eventId,
               eventName,

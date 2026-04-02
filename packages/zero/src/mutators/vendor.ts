@@ -117,7 +117,7 @@ export const vendorMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "approveVendor", vendorId, creatorId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vendor-approved", {
               vendorId,
               vendorName,
@@ -163,7 +163,7 @@ export const vendorMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "unapproveVendor", vendorId, creatorId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vendor-unapproved", {
               vendorId,
               vendorName,

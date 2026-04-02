@@ -1,8 +1,6 @@
 import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
 import type { PgBoss } from "pg-boss";
-import { registerHandlers } from "./handlers/index";
-import { registerSchedules } from "./schedules";
 
 // Use globalThis to share across Vite SSR module scopes
 // (Nitro plugins and API routes may get different module instances in dev)
@@ -99,7 +97,10 @@ export async function startWorker(): Promise<void> {
     log.set({ event: "pg_boss_started" });
     log.emit();
 
-    // Register handlers and cron schedules after start
+    // Register handlers and cron schedules after start (dynamic import to
+    // keep the enqueue subpath free of handler dependencies for client bundles)
+    const { registerHandlers } = await import("./handlers/index");
+    const { registerSchedules } = await import("./schedules");
     await registerHandlers(boss);
     await registerSchedules(boss);
   })();

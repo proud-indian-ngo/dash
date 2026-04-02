@@ -388,9 +388,36 @@ export interface WhatsAppRemoveMemberTeamPayload {
   userId: string;
 }
 
+// -- Infrastructure job payloads -----------------------------------------------
+
+export interface ImmichSyncPhotoPayload {
+  eventId: string;
+  eventName: string;
+  photoId: string;
+  r2Key: string;
+}
+
+export interface ImmichDeleteAssetPayload {
+  immichAssetId: string;
+}
+
+export interface DeleteR2ObjectPayload {
+  r2Key: string;
+}
+
+export interface SyncCourierPreferencePayload {
+  enabled: boolean;
+  previousEmailEnabled: boolean;
+  topicId: string;
+  userId: string;
+}
+
 // -- Payload map ---------------------------------------------------------------
 
 export interface JobPayloads {
+  "delete-r2-object": DeleteR2ObjectPayload;
+  "immich-delete-asset": ImmichDeleteAssetPayload;
+  "immich-sync-photo": ImmichSyncPhotoPayload;
   "notify-added-to-event": NotifyAddedToEventPayload;
   "notify-added-to-team": NotifyAddedToTeamPayload;
   "notify-advance-payment-approved": NotifyAdvancePaymentApprovedPayload;
@@ -443,6 +470,7 @@ export interface JobPayloads {
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
   "send-whatsapp": WhatsAppPayload;
+  "sync-courier-preference": SyncCourierPreferencePayload;
   "sync-courier-user": SyncCourierUserPayload;
   "sync-whatsapp-status": SyncWhatsAppStatusPayload;
   "whatsapp-add-member": WhatsAppAddMemberPayload;
@@ -457,6 +485,9 @@ export interface JobPayloads {
 export type JobName = keyof JobPayloads;
 
 export const QUEUE_NAMES: JobName[] = [
+  "delete-r2-object",
+  "immich-delete-asset",
+  "immich-sync-photo",
   "notify-added-to-event",
   "notify-added-to-team",
   "notify-advance-payment-approved",
@@ -509,6 +540,7 @@ export const QUEUE_NAMES: JobName[] = [
   "send-notification",
   "send-scheduled-message",
   "send-whatsapp",
+  "sync-courier-preference",
   "sync-courier-user",
   "sync-whatsapp-status",
   "whatsapp-add-member",

@@ -79,6 +79,7 @@ async function recalculateParentStatus(
 }
 
 export const vendorPaymentTransactionMutators = {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: notification branching after tx.run adds 1 point over limit
   create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.record_payment");
@@ -161,8 +162,6 @@ export const vendorPaymentTransactionMutators = {
       const vpOwnerId = vendorPayment.userId as string;
 
       if (isApprover) {
-        // Admin auto-approved their own transaction — no need to notify themselves
-        // But notify if VP is fully paid
         if (newVpStatus === "paid") {
           ctx.asyncTasks?.push({
             meta: {
@@ -170,7 +169,7 @@ export const vendorPaymentTransactionMutators = {
               vendorPaymentId: vpId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-vp-fully-paid", {
                 vendorPaymentId: vpId,
                 title: vpTitle,
@@ -180,6 +179,8 @@ export const vendorPaymentTransactionMutators = {
           });
         }
       } else {
+        const submitter = await tx.run(zql.user.where("id", userId).one());
+        const submitterName = submitter?.name ?? "Unknown";
         ctx.asyncTasks?.push({
           meta: {
             mutator: "createVendorPaymentTransaction",
@@ -188,9 +189,7 @@ export const vendorPaymentTransactionMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
-            const { getUserName } = await import("@pi-dash/notifications");
-            const submitterName = (await getUserName(userId)) ?? "Unknown";
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vpt-submitted", {
               transactionId,
               vendorPaymentId: vpId,
@@ -314,7 +313,7 @@ export const vendorPaymentTransactionMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vpt-approved", {
               transactionId,
               vendorPaymentId: vpId,
@@ -334,7 +333,7 @@ export const vendorPaymentTransactionMutators = {
               vendorPaymentId: vpId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-vp-fully-paid", {
                 vendorPaymentId: vpId,
                 title: vpTitle,
@@ -392,7 +391,7 @@ export const vendorPaymentTransactionMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vpt-rejected", {
               transactionId,
               vendorPaymentId: vpId,

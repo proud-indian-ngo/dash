@@ -41,7 +41,7 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "createTeam", teamId, teamName },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("whatsapp-create-group", {
               entityType: "team",
               entityId: teamId,
@@ -85,7 +85,7 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "updateTeam", teamId, teamName },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-team-updated", {
               memberIds,
               teamId,
@@ -126,7 +126,7 @@ export const teamMutators = {
             memberCount: memberUserIds.length,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-team-deleted", {
               deletedAt,
               memberIds: memberUserIds,
@@ -180,7 +180,7 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "addTeamMember", teamId, userId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("whatsapp-add-member-team", { teamId, userId });
           },
         });
@@ -191,7 +191,7 @@ export const teamMutators = {
           ctx.asyncTasks?.push({
             meta: { mutator: "addTeamMember", teamId, teamName, userId },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-added-to-team", {
                 userId,
                 teamName,
@@ -241,7 +241,7 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "removeTeamMember", teamId, memberUserId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("whatsapp-remove-member-team", {
               teamId,
               userId: memberUserId,
@@ -254,7 +254,7 @@ export const teamMutators = {
           ctx.asyncTasks?.push({
             meta: { mutator: "removeTeamMember", memberUserId, teamName },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-removed-from-team", {
                 removedAt,
                 userId: memberUserId,
@@ -303,7 +303,7 @@ export const teamMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "setMemberRole", memberId, newRole },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-team-role-changed", {
               userId: targetUserId,
               teamId,

@@ -244,7 +244,9 @@ Server function / Zero mutator / auth hook
             → Courier API                   # user profile sync
 ```
 
-All async side-effects (notifications, Courier sync, WhatsApp group management) go through pg-boss `enqueue()` from `@pi-dash/jobs` — never call these functions directly from server functions, auth hooks, or mutators. pg-boss provides persistence, retry (3 attempts with backoff), dead-letter queue, and visibility in the jobs dashboard.
+All async side-effects (notifications, Courier sync, WhatsApp group management, Immich photo sync, R2 object cleanup) go through pg-boss `enqueue()` from `@pi-dash/jobs/enqueue` — never call these functions directly from server functions, auth hooks, or mutators. pg-boss provides persistence, retry (3 attempts with backoff), dead-letter queue, and visibility in the jobs dashboard.
+
+**Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point containing only typed payload interfaces and the `enqueue()` function — no handler dependencies. This keeps the client bundle free of server-only code when mutators dynamically import it. `@pi-dash/jobs` (barrel) re-exports everything including `boss.ts` and is only used in server-only code.
 
 **Exceptions**: `notifyUserDeleted` must run synchronously before user deletion (Courier needs the user to exist).
 
@@ -262,7 +264,7 @@ Enqueue calls for side-effects should be wrapped in `withFireAndForgetLog` so th
 
 Notification topics defined in `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (email + WhatsApp) stored in the `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: both channels enabled (no row = enabled).
 
-**Storage model**: Local DB is source of truth. Email preferences sync one-way to Courier via `syncCourierAndRevertOnFailure` in the Zero mutator's async task. WhatsApp preferences are checked at send-time from the local DB (`isWhatsAppTopicEnabled`), not via Courier.
+**Storage model**: Local DB is source of truth. Email preferences sync one-way to Courier via the `sync-courier-preference` pg-boss job (enqueued from the Zero mutator's async task). The job reverts the DB on Courier failure only if the preference hasn't been changed since the job was enqueued. WhatsApp preferences are checked at send-time from the local DB (`isWhatsAppTopicEnabled`), not via Courier.
 
 **UI**: Users manage preferences via settings (`NotificationsSection`). Admins can edit any user's preferences (`UserNotificationsForm`). Both use Zero queries/mutators — no server functions.
 
@@ -283,11 +285,13 @@ R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
 
 Optional integration for photo album management (`IMMICH_API_KEY` + `VITE_IMMICH_URL`).
 
-1. Member uploads photo → stored as event photo record
-2. Lead/admin approves → server uploads to Immich, creates/reuses album per event
-3. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`
+1. Member uploads photo → stored as event photo record with R2 key
+2. Lead/admin approves → `immich-sync-photo` pg-boss job enqueued (with `singletonKey: photoId` to prevent duplicate processing)
+3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → deletes R2 object (best-effort)
+4. Photo deletion enqueues `immich-delete-asset` and/or `delete-r2-object` jobs as needed
+5. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`
 
-Implementation: `apps/web/src/lib/immich.ts`, `apps/web/src/functions/immich-upload.ts`.
+Implementation: mutator at `packages/zero/src/mutators/event-photo.ts`, handlers at `packages/jobs/src/handlers/immich-sync-photo.ts`, `immich-delete-asset.ts`, `delete-r2-object.ts`. Shared R2 client at `packages/jobs/src/handlers/r2.ts`.
 
 ## Observability
 

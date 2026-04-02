@@ -59,6 +59,8 @@ export const eventUpdateMutators = {
           .filter((id) => id !== ctx.userId);
 
         if (eventMemberIds.length > 0) {
+          const author = await tx.run(zql.user.where("id", ctx.userId).one());
+          const authorName = author?.name ?? "Someone";
           ctx.asyncTasks?.push({
             meta: {
               mutator: "createEventUpdate",
@@ -67,9 +69,7 @@ export const eventUpdateMutators = {
               eventName: event.name,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
-              const { getUserName } = await import("@pi-dash/notifications");
-              const authorName = (await getUserName(ctx.userId)) ?? "Someone";
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-event-update-posted", {
                 eventId: args.eventId,
                 eventName: event.name,

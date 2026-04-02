@@ -221,6 +221,7 @@
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
         "pg-boss": "^12.15.0",
+        "uuidv7": "catalog:",
       },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",

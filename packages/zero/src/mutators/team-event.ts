@@ -179,7 +179,7 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "createTeamEvent", eventId, eventName },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("whatsapp-create-group", {
               entityType: "event",
               entityId: eventId,
@@ -208,7 +208,7 @@ export const teamEventMutators = {
             location,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-created", {
               eventId,
               eventName,
@@ -280,7 +280,7 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "updateTeamEvent", eventId, eventName, teamId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-updated", {
               eventId,
               eventMemberIds,
@@ -307,7 +307,7 @@ export const teamEventMutators = {
               eventId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-event-feedback-open", {
                 eventId,
                 eventName,
@@ -363,7 +363,7 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "cancelTeamEvent", eventId, eventName, teamId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-cancelled", {
               cancelledAt,
               eventId,
@@ -678,7 +678,7 @@ export const teamEventMutators = {
         ctx.asyncTasks?.push({
           meta: { mutator: "cancelSeriesEvent", eventId, eventName, teamId },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-event-cancelled", {
               cancelledAt,
               eventId,
@@ -745,7 +745,7 @@ export const teamEventMutators = {
               whatsappGroupId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("whatsapp-add-member", {
                 groupId: whatsappGroupId,
                 userId,
@@ -768,7 +768,7 @@ export const teamEventMutators = {
             teamId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-added-to-event", {
               eventId,
               eventName,
@@ -834,7 +834,7 @@ export const teamEventMutators = {
               userCount: userIds.length,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("whatsapp-add-members", {
                 groupId: whatsappGroupId,
                 userIds,
@@ -857,7 +857,7 @@ export const teamEventMutators = {
             userCount: userIds.length,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-users-added-to-event", {
               userIds,
               eventId,
@@ -1005,7 +1005,7 @@ export const teamEventMutators = {
               whatsappGroupId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("whatsapp-remove-member", {
                 groupId: whatsappGroupId,
                 userId: memberUserId,
@@ -1026,7 +1026,7 @@ export const teamEventMutators = {
             userId: memberUserId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-removed-from-event", {
               eventId,
               eventName,

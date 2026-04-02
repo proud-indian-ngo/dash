@@ -84,6 +84,8 @@ export const vendorPaymentMutators = {
     if (tx.location === "server") {
       const vendorPaymentId = args.id;
       const title = args.title;
+      const submitter = await tx.run(zql.user.where("id", userId).one());
+      const submitterName = submitter?.name ?? "Unknown";
       ctx.asyncTasks?.push({
         meta: {
           mutator: "createVendorPayment",
@@ -92,9 +94,7 @@ export const vendorPaymentMutators = {
           title,
         },
         fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs");
-          const { getUserName } = await import("@pi-dash/notifications");
-          const submitterName = (await getUserName(userId)) ?? "Unknown";
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
           await enqueue("notify-vendor-payment-submitted", {
             vendorPaymentId,
             title,
@@ -217,7 +217,7 @@ export const vendorPaymentMutators = {
             submitterId: ownerId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vendor-payment-approved", {
               vendorPaymentId: id,
               title,
@@ -241,7 +241,7 @@ export const vendorPaymentMutators = {
               vendorCreatorId,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-vendor-auto-approved", {
                 vendorId,
                 vendorName,
@@ -345,7 +345,7 @@ export const vendorPaymentMutators = {
             reason,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vendor-payment-rejected", {
               vendorPaymentId: id,
               title,
@@ -365,7 +365,7 @@ export const vendorPaymentMutators = {
               cascadeCount,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue("notify-vpt-cascade-rejected", {
                 vendorPaymentId: id,
                 title,
@@ -442,15 +442,15 @@ export const vendorPaymentMutators = {
         const vpId = args.id;
         const vpTitle = entity.title as string;
         const ts = now;
+        const submitter = await tx.run(zql.user.where("id", userId).one());
+        const submitterName = submitter?.name ?? "Unknown";
         ctx.asyncTasks?.push({
           meta: {
             mutator: "submitVendorPaymentInvoice",
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
-            const { getUserName } = await import("@pi-dash/notifications");
-            const submitterName = (await getUserName(userId)) ?? "Unknown";
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vp-invoice-submitted", {
               vendorPaymentId: vpId,
               vendorPaymentTitle: vpTitle,
@@ -566,7 +566,7 @@ export const vendorPaymentMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vp-invoice-approved", {
               vendorPaymentId: vpId,
               vendorPaymentTitle: vpTitle,
@@ -621,7 +621,7 @@ export const vendorPaymentMutators = {
             vendorPaymentId: vpId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-vp-invoice-rejected", {
               vendorPaymentId: vpId,
               vendorPaymentTitle: vpTitle,

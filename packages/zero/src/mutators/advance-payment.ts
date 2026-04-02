@@ -78,6 +78,8 @@ export const advancePaymentMutators = {
     if (tx.location === "server") {
       const advancePaymentId = args.id;
       const title = args.title;
+      const submitter = await tx.run(zql.user.where("id", userId).one());
+      const submitterName = submitter?.name ?? "Unknown";
       ctx.asyncTasks?.push({
         meta: {
           mutator: "createAdvancePayment",
@@ -86,9 +88,7 @@ export const advancePaymentMutators = {
           title,
         },
         fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs");
-          const { getUserName } = await import("@pi-dash/notifications");
-          const submitterName = (await getUserName(userId)) ?? "Unknown";
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
           await enqueue("notify-advance-payment-submitted", {
             advancePaymentId,
             title,
@@ -188,7 +188,7 @@ export const advancePaymentMutators = {
             submitterId: ownerId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-advance-payment-approved", {
               advancePaymentId: id,
               title,
@@ -272,7 +272,7 @@ export const advancePaymentMutators = {
             reason,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-advance-payment-rejected", {
               advancePaymentId: id,
               title,

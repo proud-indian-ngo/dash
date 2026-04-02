@@ -82,6 +82,8 @@ export const reimbursementMutators = {
     if (tx.location === "server") {
       const reimbursementId = args.id;
       const title = args.title;
+      const submitter = await tx.run(zql.user.where("id", userId).one());
+      const submitterName = submitter?.name ?? "Unknown";
       ctx.asyncTasks?.push({
         meta: {
           mutator: "createReimbursement",
@@ -90,9 +92,7 @@ export const reimbursementMutators = {
           title,
         },
         fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs");
-          const { getUserName } = await import("@pi-dash/notifications");
-          const submitterName = (await getUserName(userId)) ?? "Unknown";
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
           await enqueue("notify-reimbursement-submitted", {
             reimbursementId,
             title,
@@ -188,7 +188,7 @@ export const reimbursementMutators = {
             submitterId: ownerId,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-reimbursement-approved", {
               reimbursementId: id,
               title,
@@ -266,7 +266,7 @@ export const reimbursementMutators = {
             reason,
           },
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs");
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue("notify-reimbursement-rejected", {
               reimbursementId: id,
               title,

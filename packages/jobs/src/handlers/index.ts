@@ -1,5 +1,8 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
+import { handleDeleteR2Object } from "./delete-r2-object";
+import { handleImmichDeleteAsset } from "./immich-delete-asset";
+import { handleImmichSyncPhoto } from "./immich-sync-photo";
 import {
   handleNotifyAdvancePaymentApproved,
   handleNotifyAdvancePaymentRejected,
@@ -72,6 +75,7 @@ import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
 import { handleSendWhatsApp } from "./send-whatsapp";
+import { handleSyncCourierPreference } from "./sync-courier-preference";
 import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
 import {
   handleWhatsAppAddMember,
@@ -97,6 +101,7 @@ const QUEUE_DEFAULTS: Omit<Queue, "name"> = {
 const QUEUE_OVERRIDES: Partial<
   Record<JobName | typeof DEAD_LETTER_QUEUE, Partial<Omit<Queue, "name">>>
 > = {
+  "immich-sync-photo": { expireInSeconds: 1800 },
   "whatsapp-create-group": { expireInSeconds: 1800 },
 };
 
@@ -340,7 +345,17 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     handleRemindPhotoApproval
   );
 
+  // Immich + R2 handlers (5s polling — external API + object storage)
+  await boss.work("immich-sync-photo", NOTIFY_POLL, handleImmichSyncPhoto);
+  await boss.work("immich-delete-asset", NOTIFY_POLL, handleImmichDeleteAsset);
+  await boss.work("delete-r2-object", NOTIFY_POLL, handleDeleteR2Object);
+
   // User sync handlers (5s polling — external API)
+  await boss.work(
+    "sync-courier-preference",
+    NOTIFY_POLL,
+    handleSyncCourierPreference
+  );
   await boss.work("sync-courier-user", NOTIFY_POLL, handleSyncCourierUser);
   await boss.work(
     "sync-whatsapp-status",

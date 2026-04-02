@@ -1,5 +1,5 @@
 import { enqueue } from "@pi-dash/jobs";
-import { generateCourierJwt } from "@pi-dash/notifications";
+import { generateCourierJwt } from "@pi-dash/notifications/jwt";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";

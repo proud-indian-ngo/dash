@@ -1,7 +1,5 @@
 import { defineMutator } from "@rocicorp/zero";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
-import type { Context } from "../context";
 import "../context";
 import {
   assertHasPermissionOrTeamLead,
@@ -10,212 +8,6 @@ import {
 } from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
-
-// Opaque module name prevents Vite's import-analysis from resolving at dev time.
-// S3Client only runs inside server-side async tasks, never on the client.
-const _bun = "bun";
-async function getS3Client(
-  accountId: string,
-  keyId: string,
-  secretKey: string,
-  bucket: string
-) {
-  const { S3Client } = await import(/* @vite-ignore */ _bun);
-  return new S3Client({
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    accessKeyId: keyId,
-    secretAccessKey: secretKey,
-    bucket,
-  });
-}
-
-function pushImmichUploadTask(
-  ctx: Context,
-  meta: { mutator: string; [key: string]: unknown },
-  photoId: string,
-  eventId: string,
-  eventName: string,
-  r2Key: string
-) {
-  ctx.asyncTasks?.push({
-    meta,
-    fn: async () => {
-      const { env } = await import("@pi-dash/env/server");
-      const immichUrl = env.VITE_IMMICH_URL;
-      const immichKey = env.IMMICH_API_KEY;
-      if (!(immichUrl && immichKey)) {
-        return;
-      }
-
-      const { db } = await import("@pi-dash/db");
-      const { eventImmichAlbum } = await import(
-        "@pi-dash/db/schema/event-photo"
-      );
-      const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
-      const { eq: eqOp } = await import("drizzle-orm");
-
-      // Check/create album for this event
-      const existingAlbum = await db.query.eventImmichAlbum.findFirst({
-        where: (t, { eq }) => eq(t.eventId, eventId),
-      });
-
-      let albumId: string;
-      if (existingAlbum) {
-        albumId = existingAlbum.immichAlbumId;
-      } else {
-        const albumRes = await fetch(`${immichUrl}/api/albums`, {
-          method: "POST",
-          headers: {
-            "x-api-key": immichKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ albumName: eventName }),
-        });
-        if (!albumRes.ok) {
-          throw new Error(
-            `Immich createAlbum failed: ${albumRes.status} ${await albumRes.text()}`
-          );
-        }
-        const albumData = (await albumRes.json()) as { id: string };
-        albumId = albumData.id;
-
-        const inserted = await db
-          .insert(eventImmichAlbum)
-          .values({
-            id: uuidv7(),
-            eventId,
-            immichAlbumId: albumId,
-            createdAt: new Date(),
-          })
-          .onConflictDoNothing({ target: eventImmichAlbum.eventId })
-          .returning({ immichAlbumId: eventImmichAlbum.immichAlbumId });
-
-        if (inserted.length === 0) {
-          const existing = await db.query.eventImmichAlbum.findFirst({
-            where: (t, { eq }) => eq(t.eventId, eventId),
-          });
-          if (existing) {
-            albumId = existing.immichAlbumId;
-          }
-        }
-      }
-
-      // Download from R2
-      const s3 = await getS3Client(
-        env.R2_ACCOUNT_ID,
-        env.R2_ACCESS_KEY,
-        env.R2_SECRET_ACCESS_KEY,
-        env.R2_BUCKET_NAME
-      );
-      const file = s3.file(r2Key);
-      const buffer = await file.arrayBuffer();
-      const blob = new Blob([buffer]);
-
-      // Upload to Immich
-      const filename = r2Key.split("/").pop() ?? r2Key;
-      const formData = new FormData();
-      formData.append("assetData", blob, filename);
-      formData.append("deviceAssetId", `pi-dash-${r2Key}`);
-      formData.append("deviceId", "pi-dash");
-      const nowIso = new Date().toISOString();
-      formData.append("fileCreatedAt", nowIso);
-      formData.append("fileModifiedAt", nowIso);
-
-      const uploadRes = await fetch(`${immichUrl}/api/assets`, {
-        method: "POST",
-        headers: { "x-api-key": immichKey },
-        body: formData,
-      });
-      if (!uploadRes.ok) {
-        throw new Error(
-          `Immich upload failed: ${uploadRes.status} ${await uploadRes.text()}`
-        );
-      }
-      const uploadData = (await uploadRes.json()) as { id: string };
-      const assetId = uploadData.id;
-
-      // Add to album
-      const addRes = await fetch(`${immichUrl}/api/albums/${albumId}/assets`, {
-        method: "PUT",
-        headers: {
-          "x-api-key": immichKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ids: [assetId] }),
-      });
-      if (!addRes.ok) {
-        throw new Error(
-          `Immich addToAlbum failed: ${addRes.status} ${await addRes.text()}`
-        );
-      }
-
-      // Update photo record: set Immich asset ID and clear R2 key
-      await db
-        .update(eventPhoto)
-        .set({ immichAssetId: assetId, r2Key: null })
-        .where(eqOp(eventPhoto.id, photoId));
-
-      // Clean up R2 object — best-effort, don't throw
-      try {
-        await s3.delete(r2Key);
-      } catch {
-        // R2 object orphaned but photo still works via Immich
-      }
-    },
-  });
-}
-
-function pushR2DeleteTask(
-  ctx: Context,
-  meta: { mutator: string; [key: string]: unknown },
-  r2Key: string
-) {
-  ctx.asyncTasks?.push({
-    meta,
-    fn: async () => {
-      const { env } = await import("@pi-dash/env/server");
-      const s3 = await getS3Client(
-        env.R2_ACCOUNT_ID,
-        env.R2_ACCESS_KEY,
-        env.R2_SECRET_ACCESS_KEY,
-        env.R2_BUCKET_NAME
-      );
-      await s3.delete(r2Key);
-    },
-  });
-}
-
-function pushImmichDeleteTask(
-  ctx: Context,
-  meta: { mutator: string; [key: string]: unknown },
-  immichAssetId: string
-) {
-  ctx.asyncTasks?.push({
-    meta,
-    fn: async () => {
-      const { env } = await import("@pi-dash/env/server");
-      const immichUrl = env.VITE_IMMICH_URL;
-      const immichKey = env.IMMICH_API_KEY;
-      if (!(immichUrl && immichKey)) {
-        return;
-      }
-
-      const res = await fetch(`${immichUrl}/api/assets`, {
-        method: "DELETE",
-        headers: {
-          "x-api-key": immichKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ids: [immichAssetId], force: true }),
-      });
-      if (!res.ok) {
-        throw new Error(
-          `Immich deleteAsset failed: ${res.status} ${await res.text()}`
-        );
-      }
-    },
-  });
-}
 
 export const eventPhotoMutators = {
   upload: defineMutator(
@@ -283,28 +75,30 @@ export const eventPhotoMutators = {
         createdAt: args.now,
       });
 
-      // Only push Immich upload task for R2-backed photos that are auto-approved
+      // Enqueue Immich sync for R2-backed photos that are auto-approved
       if (
         status === "approved" &&
         args.r2Key &&
         !args.immichAssetId &&
         tx.location === "server"
       ) {
-        pushImmichUploadTask(
-          ctx,
-          {
-            mutator: "uploadEventPhoto",
-            photoId: args.id,
-            eventId: args.eventId,
-            r2Key: args.r2Key,
-            eventName: event.name,
-            status,
+        const r2Key = args.r2Key;
+        ctx.asyncTasks?.push({
+          meta: { mutator: "uploadEventPhoto", photoId: args.id },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "immich-sync-photo",
+              {
+                photoId: args.id,
+                eventId: args.eventId,
+                eventName: event.name,
+                r2Key,
+              },
+              { singletonKey: args.id }
+            );
           },
-          args.id,
-          args.eventId,
-          event.name,
-          args.r2Key
-        );
+        });
       }
     }
   ),
@@ -349,20 +143,23 @@ export const eventPhotoMutators = {
 
       if (tx.location === "server") {
         if (photo.r2Key) {
-          pushImmichUploadTask(
-            ctx,
-            {
-              mutator: "approveEventPhoto",
-              photoId: args.id,
-              eventId: photo.eventId,
-              r2Key: photo.r2Key,
-              eventName: event.name,
+          const r2Key = photo.r2Key;
+          ctx.asyncTasks?.push({
+            meta: { mutator: "approveEventPhoto", photoId: args.id },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "immich-sync-photo",
+                {
+                  photoId: args.id,
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  r2Key,
+                },
+                { singletonKey: args.id }
+              );
             },
-            args.id,
-            photo.eventId,
-            event.name,
-            photo.r2Key
-          );
+          });
         }
 
         if (photo.uploadedBy !== ctx.userId) {
@@ -374,7 +171,7 @@ export const eventPhotoMutators = {
               uploadedBy: photo.uploadedBy,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               const { env } = await import("@pi-dash/env/server");
               await enqueue(
                 "notify-photo-approved",
@@ -436,20 +233,25 @@ export const eventPhotoMutators = {
 
         if (tx.location === "server") {
           if (photo.r2Key) {
-            pushImmichUploadTask(
-              ctx,
-              {
-                mutator: "approveEventPhotoBatch",
-                photoId: id,
-                eventId: photo.eventId,
-                r2Key: photo.r2Key,
-                eventName: event.name,
+            const r2Key = photo.r2Key;
+            const eventId = photo.eventId;
+            const eventName = event.name;
+            ctx.asyncTasks?.push({
+              meta: { mutator: "approveEventPhotoBatch", photoId: id },
+              fn: async () => {
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                await enqueue(
+                  "immich-sync-photo",
+                  {
+                    photoId: id,
+                    eventId,
+                    eventName,
+                    r2Key,
+                  },
+                  { singletonKey: id }
+                );
               },
-              id,
-              photo.eventId,
-              event.name,
-              photo.r2Key
-            );
+            });
           }
 
           if (photo.uploadedBy !== ctx.userId) {
@@ -461,7 +263,7 @@ export const eventPhotoMutators = {
                 uploadedBy: photo.uploadedBy,
               },
               fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs");
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
                 const { env } = await import("@pi-dash/env/server");
                 await enqueue(
                   "notify-photo-approved",
@@ -523,16 +325,14 @@ export const eventPhotoMutators = {
 
       if (tx.location === "server") {
         if (photo.r2Key) {
-          pushR2DeleteTask(
-            ctx,
-            {
-              mutator: "rejectEventPhoto",
-              photoId: args.id,
-              eventId: photo.eventId,
-              r2Key: photo.r2Key,
+          const r2Key = photo.r2Key;
+          ctx.asyncTasks?.push({
+            meta: { mutator: "rejectEventPhoto", photoId: args.id },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue("delete-r2-object", { r2Key });
             },
-            photo.r2Key
-          );
+          });
         }
 
         if (photo.uploadedBy !== ctx.userId) {
@@ -544,7 +344,7 @@ export const eventPhotoMutators = {
               uploadedBy: photo.uploadedBy,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs");
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
               const { env } = await import("@pi-dash/env/server");
               await enqueue(
                 "notify-photo-rejected",
@@ -602,20 +402,26 @@ export const eventPhotoMutators = {
       await tx.mutate.eventPhoto.delete({ id: args.id });
 
       if (tx.location === "server") {
-        const taskMeta = {
-          mutator: "deleteEventPhoto",
-          photoId: args.id,
-          eventId: photo.eventId,
-          r2Key: photo.r2Key,
-          immichAssetId: photo.immichAssetId,
-        };
-
         if (photo.r2Key) {
-          pushR2DeleteTask(ctx, taskMeta, photo.r2Key);
+          const r2Key = photo.r2Key;
+          ctx.asyncTasks?.push({
+            meta: { mutator: "deleteEventPhoto", photoId: args.id },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue("delete-r2-object", { r2Key });
+            },
+          });
         }
 
         if (photo.immichAssetId) {
-          pushImmichDeleteTask(ctx, taskMeta, photo.immichAssetId);
+          const immichAssetId = photo.immichAssetId;
+          ctx.asyncTasks?.push({
+            meta: { mutator: "deleteEventPhoto", photoId: args.id },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue("immich-delete-asset", { immichAssetId });
+            },
+          });
         }
       }
     }

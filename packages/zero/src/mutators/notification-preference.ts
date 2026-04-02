@@ -19,43 +19,6 @@ const adminUpsertSchema = upsertSchema.extend({
   userId: z.string().min(1),
 });
 
-async function syncCourierAndRevertOnFailure(
-  userId: string,
-  topicId: string,
-  enabled: boolean,
-  previousEmailEnabled: boolean
-) {
-  const { updateUserTopicPreference } = await import("@pi-dash/notifications");
-  try {
-    await updateUserTopicPreference({
-      userId,
-      topicId,
-      status: enabled ? "OPTED_IN" : "OPTED_OUT",
-    });
-  } catch (error) {
-    // Revert local DB on Courier failure
-    const { db } = await import("@pi-dash/db");
-    const { notificationTopicPreference } = await import(
-      "@pi-dash/db/schema/auth"
-    );
-    const { and, eq } = await import("drizzle-orm");
-    await db
-      .update(notificationTopicPreference)
-      .set({ emailEnabled: previousEmailEnabled })
-      .where(
-        and(
-          eq(notificationTopicPreference.userId, userId),
-          eq(notificationTopicPreference.topicId, topicId)
-        )
-      );
-    const message = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    throw new Error(
-      `Courier sync failed for topic "${topicId}" (reverted DB). Cause: ${message}${stack ? `\n${stack}` : ""}`
-    );
-  }
-}
-
 export const notificationPreferenceMutators = {
   upsert: defineMutator(upsertSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
@@ -100,13 +63,15 @@ export const notificationPreferenceMutators = {
           topicId: args.topicId,
           enabled: args.enabled,
         },
-        fn: () =>
-          syncCourierAndRevertOnFailure(
+        fn: async () => {
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          await enqueue("sync-courier-preference", {
             userId,
-            args.topicId,
-            args.enabled,
-            previousEmailEnabled
-          ),
+            topicId: args.topicId,
+            enabled: args.enabled,
+            previousEmailEnabled,
+          });
+        },
       });
     }
   }),
@@ -154,13 +119,15 @@ export const notificationPreferenceMutators = {
           topicId: args.topicId,
           enabled: args.enabled,
         },
-        fn: () =>
-          syncCourierAndRevertOnFailure(
-            args.userId,
-            args.topicId,
-            args.enabled,
-            previousEmailEnabled
-          ),
+        fn: async () => {
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          await enqueue("sync-courier-preference", {
+            userId: args.userId,
+            topicId: args.topicId,
+            enabled: args.enabled,
+            previousEmailEnabled,
+          });
+        },
       });
     }
   }),
