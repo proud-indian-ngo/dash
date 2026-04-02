@@ -60,10 +60,6 @@ const BANNED_OPTIONS = [
   { label: "Banned", value: "yes" },
   { label: "Not Banned", value: "no" },
 ];
-const WHATSAPP_OPTIONS = [
-  { label: "On WhatsApp", value: "yes" },
-  { label: "Not on WhatsApp", value: "no" },
-];
 
 function UsersRouteComponent() {
   const createUser = useServerFn(createUserAdmin);
@@ -115,10 +111,6 @@ function UsersRouteComponent() {
     "banned",
     parseAsString.withDefault("")
   );
-  const [whatsappFilter, setWhatsappFilter] = useQueryState(
-    "whatsapp",
-    parseAsString.withDefault("")
-  );
 
   const users = (() => {
     let filtered = allUsers;
@@ -138,11 +130,6 @@ function UsersRouteComponent() {
         bannedFilter === "yes" ? u.banned : !u.banned
       );
     }
-    if (whatsappFilter) {
-      filtered = filtered.filter((u) =>
-        whatsappFilter === "yes" ? u.isOnWhatsapp : !u.isOnWhatsapp
-      );
-    }
     return filtered;
   })();
 
@@ -150,8 +137,7 @@ function UsersRouteComponent() {
     roleFilter ||
     activeFilter ||
     genderFilter ||
-    bannedFilter ||
-    whatsappFilter
+    bannedFilter
   );
 
   const clearFilters = () => {
@@ -159,7 +145,6 @@ function UsersRouteComponent() {
     setActiveFilter("");
     setGenderFilter("");
     setBannedFilter("");
-    setWhatsappFilter("");
   };
 
   const handleCreateUser = async (value: CreateUserFormValues) => {
@@ -342,12 +327,6 @@ function UsersRouteComponent() {
                 onChange={setBannedFilter}
                 options={BANNED_OPTIONS}
                 value={bannedFilter}
-              />
-              <TableFilterSelect
-                label="WhatsApp"
-                onChange={setWhatsappFilter}
-                options={WHATSAPP_OPTIONS}
-                value={whatsappFilter}
               />
             </>
           }
