@@ -198,6 +198,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
+| `packages/shared/` | Client-safe constants and types shared across packages (e.g., `cityValues`, `attachmentTypeValues`, `historyActionValues`) — no heavy dependencies |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
 | `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
 | `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory) |

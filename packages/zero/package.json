@@ -21,6 +21,7 @@
     "@pi-dash/env": "workspace:*",
     "@pi-dash/jobs": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
+    "@pi-dash/shared": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zero": "^0.18.0",

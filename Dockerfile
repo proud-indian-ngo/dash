@@ -12,6 +12,7 @@ COPY packages/env/package.json packages/env/
 COPY packages/jobs/package.json packages/jobs/
 COPY packages/notifications/package.json packages/notifications/
 COPY packages/observability/package.json packages/observability/
+COPY packages/shared/package.json packages/shared/
 COPY packages/whatsapp/package.json packages/whatsapp/
 COPY packages/e2e/package.json packages/e2e/
 COPY packages/zero/package.json packages/zero/

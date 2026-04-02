@@ -196,6 +196,8 @@ export const teamEventMutators = {
         const startTime = args.startTime;
         const location = args.location;
         const teamId = args.teamId;
+        const members = await tx.run(zql.teamMember.where("teamId", teamId));
+        const teamMemberIds = members.map((m) => m.userId);
         ctx.asyncTasks?.push({
           meta: {
             mutator: "createTeamEvent",
@@ -207,14 +209,6 @@ export const teamEventMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs");
-            const { db } = await import("@pi-dash/db");
-
-            const members = await db.query.teamMember.findMany({
-              columns: { userId: true },
-              where: (t, { eq }) => eq(t.teamId, teamId),
-            });
-            const teamMemberIds = members.map((m) => m.userId);
-
             await enqueue("notify-event-created", {
               eventId,
               eventName,

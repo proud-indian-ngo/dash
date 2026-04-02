@@ -100,6 +100,7 @@ export function TeamFormDialog({
             name: trimmedName,
             description: description.trim() || undefined,
             whatsappGroupId: whatsappGroupId || undefined,
+            now: Date.now(),
           })
         )
       : zero.mutate(

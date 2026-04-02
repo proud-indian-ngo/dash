@@ -60,6 +60,7 @@ export const teamMutators = {
       name: z.string().min(1),
       description: z.string().optional(),
       whatsappGroupId: z.string().optional(),
+      now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.edit");
@@ -72,26 +73,21 @@ export const teamMutators = {
         name: args.name,
         description: args.description ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
-        updatedAt: Date.now(),
+        updatedAt: args.now,
       });
 
       if (tx.location === "server") {
         const teamId = args.id;
         const teamName = args.name;
-        const updatedAt = Date.now();
+        const updatedAt = args.now;
+        const members = await tx.run(zql.teamMember.where("teamId", teamId));
+        const memberIds = members.map((m) => m.userId);
         ctx.asyncTasks?.push({
           meta: { mutator: "updateTeam", teamId, teamName },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs");
-            const { db } = await import("@pi-dash/db");
-
-            const members = await db.query.teamMember.findMany({
-              columns: { userId: true },
-              where: (t, { eq }) => eq(t.teamId, teamId),
-            });
-
             await enqueue("notify-team-updated", {
-              memberIds: members.map((m) => m.userId),
+              memberIds,
               teamId,
               teamName,
               updatedAt,
@@ -302,20 +298,16 @@ export const teamMutators = {
         const newRole = args.role;
         const targetUserId = member.userId as string;
         const teamId = member.teamId as string;
+        const team = await tx.run(zql.team.where("id", teamId).one());
+        const teamName = team?.name ?? "Unknown";
         ctx.asyncTasks?.push({
           meta: { mutator: "setMemberRole", memberId, newRole },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs");
-            const team = await (
-              await import("@pi-dash/db")
-            ).db.query.team.findFirst({
-              columns: { name: true },
-              where: (t, { eq }) => eq(t.id, teamId),
-            });
             await enqueue("notify-team-role-changed", {
               userId: targetUserId,
               teamId,
-              teamName: team?.name ?? "Unknown",
+              teamName,
               newRole,
             });
           },

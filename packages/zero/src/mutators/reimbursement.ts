@@ -1,4 +1,4 @@
-import { cityValues } from "@pi-dash/db/schema/shared";
+import { cityValues } from "@pi-dash/shared";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";

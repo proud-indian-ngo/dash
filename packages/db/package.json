@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",
+    "@pi-dash/shared": "workspace:*",
     "drizzle-orm": "catalog:",
     "uuidv7": "catalog:"
   },

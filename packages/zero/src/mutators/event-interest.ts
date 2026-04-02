@@ -88,6 +88,14 @@ export const eventInterestMutators = {
         const eventName = event.name;
         const teamId = event.teamId;
         const volunteerUserId = ctx.userId;
+        const leads = await tx.run(
+          zql.teamMember.where("teamId", teamId).where("role", "lead")
+        );
+        const leadUserIds = leads.map((l) => l.userId);
+        const volunteer = await tx.run(
+          zql.user.where("id", volunteerUserId).one()
+        );
+        const volunteerName = volunteer?.name ?? "A volunteer";
         ctx.asyncTasks?.push({
           meta: {
             mutator: "createEventInterest",
@@ -98,23 +106,10 @@ export const eventInterestMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs");
-            const { db } = await import("@pi-dash/db");
-
-            const leads = await db.query.teamMember.findMany({
-              columns: { userId: true },
-              where: (t, { eq, and }) =>
-                and(eq(t.teamId, teamId), eq(t.role, "lead")),
-            });
-
-            const volunteer = await db.query.user.findFirst({
-              where: (t, { eq }) => eq(t.id, volunteerUserId),
-            });
-            const volunteerName = volunteer?.name ?? "A volunteer";
-
             await enqueue("notify-event-interest-received", {
               eventId,
               eventName,
-              leadUserIds: leads.map((l) => l.userId),
+              leadUserIds,
               teamId,
               volunteerName,
             });

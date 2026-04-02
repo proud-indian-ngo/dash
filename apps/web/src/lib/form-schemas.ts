@@ -1,7 +1,7 @@
+import { cityValues } from "@pi-dash/shared";
 import capitalize from "lodash/capitalize";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
-import { cityValues } from "@/lib/db-enums";
 
 export const MAX_ATTACHMENT_FILES = 10;
 export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
