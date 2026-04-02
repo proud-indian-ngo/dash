@@ -39,6 +39,15 @@ export interface ScheduledMessagePayload {
   userId: string;
 }
 
+export interface SendScheduledWhatsAppPayload {
+  attachments?: Array<{ fileName: string; mimeType: string; r2Key: string }>;
+  enqueuedAt: number;
+  message: string;
+  recipientType: "group" | "user";
+  scheduledMessageId: string;
+  targetAddress: string;
+}
+
 // -- Domain-specific notification payloads ------------------------------------
 
 // Reimbursement
@@ -473,6 +482,7 @@ export interface JobPayloads {
   "send-bulk-notification": BulkNotificationPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
+  "send-scheduled-whatsapp": SendScheduledWhatsAppPayload;
   "send-whatsapp": WhatsAppPayload;
   "sync-courier-preference": SyncCourierPreferencePayload;
   "sync-courier-user": SyncCourierUserPayload;
@@ -544,6 +554,7 @@ export const QUEUE_NAMES: JobName[] = [
   "send-bulk-notification",
   "send-notification",
   "send-scheduled-message",
+  "send-scheduled-whatsapp",
   "send-whatsapp",
   "sync-courier-preference",
   "sync-courier-user",

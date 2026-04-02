@@ -75,6 +75,7 @@ import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
+import { handleSendScheduledWhatsApp } from "./send-scheduled-whatsapp";
 import { handleSendWhatsApp } from "./send-whatsapp";
 import { handleSyncCourierPreference } from "./sync-courier-preference";
 import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
@@ -127,6 +128,7 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work("send-bulk-notification", handleSendBulkNotification);
   await boss.work("send-whatsapp", handleSendWhatsApp);
   await boss.work("send-scheduled-message", handleSendScheduledMessage);
+  await boss.work("send-scheduled-whatsapp", handleSendScheduledWhatsApp);
 
   // Notification handlers (5s polling — burst traffic, not continuous)
   await boss.work(
