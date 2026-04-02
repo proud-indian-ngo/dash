@@ -2,10 +2,8 @@ import { db } from "@pi-dash/db";
 import { advancePayment } from "@pi-dash/db/schema/advance-payment";
 import { reimbursement } from "@pi-dash/db/schema/reimbursement";
 import { vendorPayment } from "@pi-dash/db/schema/vendor";
-import {
-  getUserIdsWithPermission,
-  notifyStaleRequests,
-} from "@pi-dash/notifications";
+import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
+import { notifyStaleRequests } from "@pi-dash/notifications/send/reminders";
 import { count, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";

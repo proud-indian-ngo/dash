@@ -1,6 +1,6 @@
 import { db } from "@pi-dash/db";
 import { notificationTopicPreference } from "@pi-dash/db/schema/auth";
-import { updateUserTopicPreference } from "@pi-dash/notifications";
+import { updateUserTopicPreference } from "@pi-dash/notifications/preferences";
 import { and, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { SyncCourierPreferencePayload } from "../enqueue";

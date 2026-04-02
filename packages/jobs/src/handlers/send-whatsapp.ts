@@ -1,4 +1,4 @@
-import { sendWhatsAppMessage } from "@pi-dash/whatsapp";
+import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { WhatsAppPayload } from "../enqueue";

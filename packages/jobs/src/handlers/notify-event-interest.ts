@@ -2,7 +2,7 @@ import {
   notifyEventInterestApproved,
   notifyEventInterestReceived,
   notifyEventInterestRejected,
-} from "@pi-dash/notifications";
+} from "@pi-dash/notifications/send/event-interest";
 import type {
   NotifyEventInterestApprovedPayload,
   NotifyEventInterestReceivedPayload,

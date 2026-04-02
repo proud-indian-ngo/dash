@@ -1,4 +1,4 @@
-import { cityValues } from "@pi-dash/shared";
+import { cityValues } from "@pi-dash/shared/constants";
 import capitalize from "lodash/capitalize";
 import { uuidv7 } from "uuidv7";
 import z from "zod";

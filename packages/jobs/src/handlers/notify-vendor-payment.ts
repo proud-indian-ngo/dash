@@ -7,7 +7,7 @@ import {
   notifyVendorPaymentSubmitted,
   notifyVpFullyPaid,
   notifyVptCascadeRejected,
-} from "@pi-dash/notifications";
+} from "@pi-dash/notifications/send/vendor-payment";
 import type {
   NotifyVendorPaymentApprovedPayload,
   NotifyVendorPaymentRejectedPayload,

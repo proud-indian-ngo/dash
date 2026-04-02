@@ -1,4 +1,4 @@
-import { notifyEventFeedbackOpen } from "@pi-dash/notifications";
+import { notifyEventFeedbackOpen } from "@pi-dash/notifications/send/event-feedback";
 import type { NotifyEventFeedbackOpenPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 

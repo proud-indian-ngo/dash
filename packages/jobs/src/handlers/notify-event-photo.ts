@@ -4,7 +4,7 @@ import {
   notifyPhotoRejected,
   notifyPhotosApproved,
   notifyPhotosRejected,
-} from "@pi-dash/notifications";
+} from "@pi-dash/notifications/send/event-photo";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type {

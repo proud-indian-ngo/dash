@@ -2,10 +2,8 @@ import { db } from "@pi-dash/db";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
-import {
-  getUserIdsWithPermission,
-  notifyPhotoApprovalReminder,
-} from "@pi-dash/notifications";
+import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
+import { notifyPhotoApprovalReminder } from "@pi-dash/notifications/send/reminders";
 import { count, countDistinct, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";

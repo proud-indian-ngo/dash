@@ -1,7 +1,7 @@
 import { db } from "@pi-dash/db";
 import { eventFeedbackSubmission } from "@pi-dash/db/schema/event-feedback";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
-import { notifyFeedbackDeadline } from "@pi-dash/notifications";
+import { notifyFeedbackDeadline } from "@pi-dash/notifications/send/reminders";
 import { and, between, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";

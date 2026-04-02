@@ -5,7 +5,7 @@ import {
   notifyEventUpdated,
   notifyRemovedFromEvent,
   notifyUsersAddedToEvent,
-} from "@pi-dash/notifications";
+} from "@pi-dash/notifications/send/team-event";
 import type {
   NotifyAddedToEventPayload,
   NotifyEventCancelledPayload,

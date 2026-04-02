@@ -1,5 +1,5 @@
-import { syncCourierUser } from "@pi-dash/notifications";
-import { syncWhatsAppStatus } from "@pi-dash/whatsapp";
+import { syncCourierUser } from "@pi-dash/notifications/helpers";
+import { syncWhatsAppStatus } from "@pi-dash/whatsapp/status";
 import type {
   SyncCourierUserPayload,
   SyncWhatsAppStatusPayload,

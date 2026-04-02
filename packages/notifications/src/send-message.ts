@@ -1,10 +1,10 @@
 import { env } from "@pi-dash/env/server";
+import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
 import {
   getEnabledUserPhonesForTopic,
-  getUserPhone,
   isWhatsAppTopicEnabled,
-  sendWhatsAppMessage,
-} from "@pi-dash/whatsapp";
+} from "@pi-dash/whatsapp/preferences";
+import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createRequestLogger } from "evlog";
 import { courier } from "./client";
 import { isNotificationsDisabled } from "./kill-switch";

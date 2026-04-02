@@ -1,4 +1,7 @@
-import { isWhatsAppConfigured, listJoinedGroups } from "@pi-dash/whatsapp";
+import {
+  isWhatsAppConfigured,
+  listJoinedGroups,
+} from "@pi-dash/whatsapp/groups";
 import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission } from "@/lib/api-auth";

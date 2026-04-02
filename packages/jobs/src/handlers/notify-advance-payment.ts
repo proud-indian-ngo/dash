@@ -2,7 +2,7 @@ import {
   notifyAdvancePaymentApproved,
   notifyAdvancePaymentRejected,
   notifyAdvancePaymentSubmitted,
-} from "@pi-dash/notifications";
+} from "@pi-dash/notifications/send/advance-payment";
 import type {
   NotifyAdvancePaymentApprovedPayload,
   NotifyAdvancePaymentRejectedPayload,

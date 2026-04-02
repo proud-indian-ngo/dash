@@ -2,7 +2,7 @@ import {
   attachmentTypeValues,
   cityValues,
   historyActionValues,
-} from "@pi-dash/shared";
+} from "@pi-dash/shared/constants";
 import { pgEnum } from "drizzle-orm/pg-core";
 
 // Shared Postgres enums

@@ -1,4 +1,4 @@
-import { notifyEventUpdatePosted } from "@pi-dash/notifications";
+import { notifyEventUpdatePosted } from "@pi-dash/notifications/send/event-update";
 import type { NotifyEventUpdatePostedPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 

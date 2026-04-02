@@ -7,11 +7,10 @@ import {
   addUsersToWhatsAppGroup,
   createWhatsAppGroup,
   getTeamWhatsAppGroupJid,
-  getUserPhone,
-  getUserPhones,
   manageOrientationGroupMembership,
   removeFromWhatsAppGroup,
-} from "@pi-dash/whatsapp";
+} from "@pi-dash/whatsapp/groups";
+import { getUserPhone, getUserPhones } from "@pi-dash/whatsapp/users";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
