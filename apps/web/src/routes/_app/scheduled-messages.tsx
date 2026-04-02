@@ -10,11 +10,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+import type { MediaAttachment } from "@/components/scheduled-messages/media-upload";
 import type { Recipient } from "@/components/scheduled-messages/recipient-picker";
-import {
-  type MessageAttachment,
-  ScheduleMessageFormDialog,
-} from "@/components/scheduled-messages/schedule-message-form-dialog";
+import { ScheduleMessageFormDialog } from "@/components/scheduled-messages/schedule-message-form-dialog";
 import { ScheduledMessageDetailSheet } from "@/components/scheduled-messages/scheduled-message-detail-sheet";
 import {
   type ScheduledMessageRow,
@@ -80,7 +78,7 @@ function ScheduledMessagesPage() {
     message: string;
     scheduledAt: number;
     recipients: Recipient[];
-    attachments?: MessageAttachment[];
+    attachments?: MediaAttachment[];
   }) => {
     if (dialogMode?.kind === "edit") {
       const res = await zero.mutate(

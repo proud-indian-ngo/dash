@@ -2,12 +2,18 @@ import { Label } from "@pi-dash/design-system/components/ui/label";
 import type { ScheduledMessage } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
+import { useState } from "react";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import {
+  type MediaAttachment,
+  MediaUpload,
+} from "@/components/scheduled-messages/media-upload";
 import {
   type Recipient,
   RecipientPicker,
@@ -25,11 +31,14 @@ const attachmentSchema = z.object({
   r2Key: z.string(),
 });
 
-export type MessageAttachment = z.infer<typeof attachmentSchema>;
-
 const formSchema = z.object({
   message: z.string().min(1, "Message is required"),
-  scheduledAt: z.string().min(1, "Scheduled time is required"),
+  scheduledAt: z
+    .string()
+    .min(1, "Scheduled time is required")
+    .refine((val) => new Date(val).getTime() > Date.now(), {
+      message: "Must be in the future",
+    }),
   recipients: z
     .array(recipientSchema)
     .min(1, "At least one recipient is required")
@@ -56,7 +65,7 @@ interface ScheduleMessageFormDialogProps {
     message: string;
     scheduledAt: number;
     recipients: Recipient[];
-    attachments?: MessageAttachment[];
+    attachments?: MediaAttachment[];
   }) => Promise<void>;
   open: boolean;
 }
@@ -68,6 +77,7 @@ export function ScheduleMessageFormDialog({
   open,
 }: ScheduleMessageFormDialogProps) {
   const isEdit = !!initialValues;
+  const [entityId] = useState(() => initialValues?.id ?? uuidv7());
 
   const form = useForm({
     defaultValues: {
@@ -76,7 +86,7 @@ export function ScheduleMessageFormDialog({
         ? toDatetimeLocal(initialValues.scheduledAt)
         : defaultScheduledAt(),
       recipients: (initialValues?.recipients ?? []) as Recipient[],
-      attachments: (initialValues?.attachments ?? []) as MessageAttachment[],
+      attachments: (initialValues?.attachments ?? []) as MediaAttachment[],
     } satisfies FormValues,
     onSubmit: async ({ value }) => {
       await onSubmit({
@@ -135,6 +145,16 @@ export function ScheduleMessageFormDialog({
             )}
           </form.Field>
         </div>
+
+        <form.Field name="attachments">
+          {(field) => (
+            <MediaUpload
+              entityId={entityId}
+              onChange={(val) => field.handleChange(val)}
+              value={field.state.value}
+            />
+          )}
+        </form.Field>
 
         <FormActions
           onCancel={onClose}
