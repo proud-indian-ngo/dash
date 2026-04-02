@@ -20,6 +20,7 @@ import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
@@ -105,6 +106,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppScheduledMessagesRoute = AppScheduledMessagesRouteImport.update({
+  id: '/scheduled-messages',
+  path: '/scheduled-messages',
   getParentRoute: () => AppRoute,
 } as any)
 const AppJobsRoute = AppJobsRouteImport.update({
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
+  '/scheduled-messages': typeof AppScheduledMessagesRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
+  '/scheduled-messages': typeof AppScheduledMessagesRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/_app/export': typeof AppExportRoute
   '/_app/jobs': typeof AppJobsRoute
+  '/_app/scheduled-messages': typeof AppScheduledMessagesRoute
   '/_app/users': typeof AppUsersRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -413,6 +422,7 @@ export interface FileRouteTypes {
     | '/vendors'
     | '/export'
     | '/jobs'
+    | '/scheduled-messages'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -452,6 +462,7 @@ export interface FileRouteTypes {
     | '/'
     | '/export'
     | '/jobs'
+    | '/scheduled-messages'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -496,6 +507,7 @@ export interface FileRouteTypes {
     | '/_app/vendors'
     | '/_app/export'
     | '/_app/jobs'
+    | '/_app/scheduled-messages'
     | '/_app/users'
     | '/_auth/forgot-password'
     | '/_auth/login'
@@ -627,6 +639,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/scheduled-messages': {
+      id: '/_app/scheduled-messages'
+      path: '/scheduled-messages'
+      fullPath: '/scheduled-messages'
+      preLoaderRoute: typeof AppScheduledMessagesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/jobs': {
@@ -962,6 +981,7 @@ interface AppRouteChildren {
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
   AppExportRoute: typeof AppExportRoute
   AppJobsRoute: typeof AppJobsRoute
+  AppScheduledMessagesRoute: typeof AppScheduledMessagesRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
@@ -975,6 +995,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
   AppExportRoute: AppExportRoute,
   AppJobsRoute: AppJobsRoute,
+  AppScheduledMessagesRoute: AppScheduledMessagesRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
@@ -1033,12 +1054,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -3,6 +3,7 @@ import {
   FileExportIcon,
   HomeIcon,
   Invoice01Icon,
+  Message01Icon,
   SecurityLockIcon,
   Store01Icon,
   TaskDaily02Icon,
@@ -97,6 +98,12 @@ const jobsNavItem: NavItem = {
   icon: TaskDaily02Icon,
 };
 
+const scheduledMessagesNavItem: NavItem = {
+  title: "Messages",
+  url: "/scheduled-messages",
+  icon: Message01Icon,
+};
+
 const eventsNavItem: NavItem = {
   title: "Events",
   url: "/events",
@@ -140,6 +147,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   }
   if (has(permissions, "jobs.manage")) {
     items.push(jobsNavItem);
+  }
+  if (has(permissions, "messages.schedule")) {
+    items.push(scheduledMessagesNavItem);
   }
 
   return items;
@@ -197,6 +207,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (has(permissions, "jobs.manage")) {
     adminItems.push(jobsNavItem);
+  }
+  if (has(permissions, "messages.schedule")) {
+    adminItems.push(scheduledMessagesNavItem);
   }
   if (adminItems.length > 0) {
     groups.push({ label: "Admin", items: adminItems });

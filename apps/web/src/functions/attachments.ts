@@ -19,6 +19,8 @@ export const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/plain",
   "text/csv",
+  "video/mp4",
+  "video/quicktime",
 ] as const;
 
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
@@ -28,6 +30,7 @@ const R2_SUBFOLDERS = {
   approvalScreenshots: "approval-screenshots",
   avatars: "avatars",
   photos: "photos",
+  scheduledMessages: "scheduled-messages",
   updates: "updates",
 } as const;
 
@@ -58,6 +61,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       subfolder: z.enum([
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.scheduledMessages,
         R2_SUBFOLDERS.updates,
         R2_SUBFOLDERS.approvalScreenshots,
       ]),
@@ -88,6 +92,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.approvalScreenshots,
         R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.scheduledMessages,
         R2_SUBFOLDERS.updates,
       ]),
     })
@@ -154,6 +159,7 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.approvalScreenshots,
         R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.scheduledMessages,
         R2_SUBFOLDERS.updates,
       ]),
     })
