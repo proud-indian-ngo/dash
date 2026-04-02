@@ -9,6 +9,7 @@ services:
       dockerfile: Dockerfile
       target: migrator
     environment:
+      TZ: Asia/Kolkata
       DATABASE_URL: *db-url
     depends_on:
       postgres:
@@ -54,6 +55,7 @@ services:
       APP_URL: ${APP_URL:-}
       IMMICH_API_KEY: ${IMMICH_API_KEY:-}
       VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
+      TZ: Asia/Kolkata
       NODE_ENV: production
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r=>r.json()).then(d=>process.exit(d.status==='ok'?0:1)).catch(()=>process.exit(1))"]
@@ -109,6 +111,7 @@ services:
   postgres:
     image: postgres:17
     environment:
+      TZ: Asia/Kolkata
       POSTGRES_DB: ${POSTGRES_DB:-pi-dash}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -146,6 +149,7 @@ services:
     ports:
       - "${ZERO_CACHE_PORT:-4848}:4848"
     environment:
+      TZ: Asia/Kolkata
       ZERO_UPSTREAM_DB: *db-url
       ZERO_CVR_DB: *db-url
       ZERO_CHANGE_DB: *db-url
