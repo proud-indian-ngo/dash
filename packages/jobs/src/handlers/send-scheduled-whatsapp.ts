@@ -66,52 +66,39 @@ export async function handleSendScheduledWhatsApp(
       return;
     }
 
-    try {
+    // Send message — let errors propagate to pg-boss for retry
+    if (attachments && attachments.length > 0) {
+      const cdnUrl = env.VITE_CDN_URL;
+      const mediaAttachments: WhatsAppMediaAttachment[] = attachments.map(
+        (a) => ({
+          fileName: a.fileName,
+          mimeType: a.mimeType,
+          url: `${cdnUrl}/${a.r2Key}`,
+        })
+      );
+
+      // Send all but last without caption
+      for (const attachment of mediaAttachments.slice(0, -1)) {
+        await sendWhatsAppMedia(targetAddress, attachment);
+      }
+      // Send last with message as caption
+      const lastAttachment = mediaAttachments.at(-1) as WhatsAppMediaAttachment;
+      await sendWhatsAppMedia(targetAddress, lastAttachment, message);
+    } else {
       const sendText =
         recipientType === "group"
-          ? (msg: string) => sendWhatsAppGroupMessage(targetAddress, msg)
-          : (msg: string) => sendWhatsAppMessage(targetAddress, msg);
-
-      if (attachments && attachments.length > 0) {
-        const cdnUrl = env.VITE_CDN_URL;
-        const mediaAttachments: WhatsAppMediaAttachment[] = attachments.map(
-          (a) => ({
-            fileName: a.fileName,
-            mimeType: a.mimeType,
-            url: `${cdnUrl}/${a.r2Key}`,
-          })
-        );
-
-        // Send all but last without caption
-        for (const attachment of mediaAttachments.slice(0, -1)) {
-          await sendWhatsAppMedia(targetAddress, attachment);
-        }
-        // Send last with message as caption
-        const lastAttachment = mediaAttachments.at(
-          -1
-        ) as WhatsAppMediaAttachment;
-        await sendWhatsAppMedia(targetAddress, lastAttachment, message);
-      } else {
-        await sendText(message);
-      }
-
-      // Update status to sent (only if still pending)
-      await db
-        .update(scheduledMessage)
-        .set({ status: "sent", updatedAt: new Date() })
-        .where(eq(scheduledMessage.id, scheduledMessageId));
-
-      log.set({ event: "job_complete" });
-      log.emit();
-    } catch (error) {
-      await db
-        .update(scheduledMessage)
-        .set({ status: "failed", updatedAt: new Date() })
-        .where(eq(scheduledMessage.id, scheduledMessageId));
-
-      log.error(error instanceof Error ? error : String(error));
-      log.emit();
-      throw error; // re-throw for pg-boss retry
+          ? sendWhatsAppGroupMessage
+          : sendWhatsAppMessage;
+      await sendText(targetAddress, message);
     }
+
+    // Only reached on success — update status
+    await db
+      .update(scheduledMessage)
+      .set({ status: "sent", updatedAt: new Date() })
+      .where(eq(scheduledMessage.id, scheduledMessageId));
+
+    log.set({ event: "job_complete" });
+    log.emit();
   }
 }
