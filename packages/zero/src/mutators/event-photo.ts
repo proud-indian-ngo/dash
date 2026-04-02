@@ -171,8 +171,8 @@ export const eventPhotoMutators = {
               uploadedBy: photo.uploadedBy,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              const { env } = await import("@pi-dash/env/server");
+              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
+                await import("@pi-dash/jobs/enqueue");
               await enqueue(
                 "notify-photo-approved",
                 {
@@ -182,7 +182,7 @@ export const eventPhotoMutators = {
                   uploaderId: photo.uploadedBy,
                 },
                 {
-                  startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
                 }
               );
             },
@@ -263,8 +263,8 @@ export const eventPhotoMutators = {
                 uploadedBy: photo.uploadedBy,
               },
               fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                const { env } = await import("@pi-dash/env/server");
+                const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
+                  await import("@pi-dash/jobs/enqueue");
                 await enqueue(
                   "notify-photo-approved",
                   {
@@ -274,7 +274,7 @@ export const eventPhotoMutators = {
                     uploaderId: photo.uploadedBy,
                   },
                   {
-                    startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                    startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
                   }
                 );
               },
@@ -344,8 +344,8 @@ export const eventPhotoMutators = {
               uploadedBy: photo.uploadedBy,
             },
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              const { env } = await import("@pi-dash/env/server");
+              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
+                await import("@pi-dash/jobs/enqueue");
               await enqueue(
                 "notify-photo-rejected",
                 {
@@ -355,7 +355,7 @@ export const eventPhotoMutators = {
                   uploaderId: photo.uploadedBy,
                 },
                 {
-                  startAfter: `${env.PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
                 }
               );
             },

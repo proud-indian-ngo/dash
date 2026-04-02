@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@pi-dash/db": "workspace:*",
-    "@pi-dash/env": "workspace:*",
     "@pi-dash/jobs": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
     "@pi-dash/shared": "workspace:*",

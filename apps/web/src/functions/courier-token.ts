@@ -1,4 +1,4 @@
-import { enqueue } from "@pi-dash/jobs";
+import { enqueue } from "@pi-dash/jobs/enqueue";
 import { generateCourierJwt } from "@pi-dash/notifications/jwt";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";

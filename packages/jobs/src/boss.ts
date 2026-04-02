@@ -1,64 +1,11 @@
 import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
-import type { PgBoss } from "pg-boss";
-
-// Use globalThis to share across Vite SSR module scopes
-// (Nitro plugins and API routes may get different module instances in dev)
-const BOSS_KEY = "__pgboss_instance__";
-const READY_KEY = "__pgboss_ready__";
-
-function getBossInstance(): PgBoss | undefined {
-  return (globalThis as Record<string, unknown>)[BOSS_KEY] as
-    | PgBoss
-    | undefined;
-}
-
-function getReadyPromise(): Promise<void> | undefined {
-  return (globalThis as Record<string, unknown>)[READY_KEY] as
-    | Promise<void>
-    | undefined;
-}
-
-function setBossInstance(boss: PgBoss | undefined) {
-  (globalThis as Record<string, unknown>)[BOSS_KEY] = boss;
-}
-
-function setReadyPromise(promise: Promise<void> | undefined) {
-  (globalThis as Record<string, unknown>)[READY_KEY] = promise;
-}
-
-export function getBoss(): PgBoss {
-  const instance = getBossInstance();
-  if (!instance) {
-    throw new Error("pg-boss not initialized — call startWorker() first");
-  }
-  return instance;
-}
-
-/** Wait for pg-boss startup to complete. Use in API routes to avoid race conditions. */
-export async function ensureBossReady(): Promise<PgBoss> {
-  const instance = getBossInstance();
-  if (instance) {
-    return instance;
-  }
-  const ready = getReadyPromise();
-  if (ready) {
-    await Promise.race([
-      ready,
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("pg-boss startup timed out after 10s")),
-          10_000
-        )
-      ),
-    ]);
-  }
-  const boss = getBossInstance();
-  if (!boss) {
-    throw new Error("pg-boss not available");
-  }
-  return boss;
-}
+import {
+  getBossInstance,
+  getReadyPromise,
+  setBossInstance,
+  setReadyPromise,
+} from "./boss-instance";
 
 export async function startWorker(): Promise<void> {
   // Skip if already started (prevents duplicate pools on Vite SSR HMR re-evaluations).

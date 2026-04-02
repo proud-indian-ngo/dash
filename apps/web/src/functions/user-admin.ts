@@ -8,7 +8,7 @@ import {
 } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import { role } from "@pi-dash/db/schema/permission";
-import { enqueue } from "@pi-dash/jobs";
+import { enqueue } from "@pi-dash/jobs/enqueue";
 import { notifyUserDeleted } from "@pi-dash/notifications/send/user";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";

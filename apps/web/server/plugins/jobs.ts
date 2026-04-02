@@ -1,4 +1,4 @@
-import { startWorker, stopWorker } from "@pi-dash/jobs";
+import { startWorker, stopWorker } from "@pi-dash/jobs/boss";
 import { createRequestLogger } from "evlog";
 import { definePlugin } from "nitro";
 

@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
-import { ensureBossReady, QUEUE_NAMES } from "@pi-dash/jobs";
+import { ensureBossReady } from "@pi-dash/jobs/boss-instance";
+import { QUEUE_NAMES } from "@pi-dash/jobs/enqueue";
 import { createFileRoute } from "@tanstack/react-router";
 import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";

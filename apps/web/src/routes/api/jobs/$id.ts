@@ -1,5 +1,5 @@
 import { db } from "@pi-dash/db";
-import { QUEUE_NAMES } from "@pi-dash/jobs";
+import { QUEUE_NAMES } from "@pi-dash/jobs/enqueue";
 import { createFileRoute } from "@tanstack/react-router";
 import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";

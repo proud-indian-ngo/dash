@@ -3,7 +3,7 @@ import { db } from "@pi-dash/db";
 import * as schema from "@pi-dash/db/schema/auth";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
-import { enqueue } from "@pi-dash/jobs";
+import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

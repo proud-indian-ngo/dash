@@ -1,5 +1,5 @@
 import type { PgBoss, SendOptions } from "pg-boss";
-import { ensureBossReady, getBoss } from "./boss";
+import { ensureBossReady, getBoss } from "./boss-instance";
 
 // -- Low-level payload types ---------------------------------------------------
 
@@ -551,6 +551,11 @@ export const QUEUE_NAMES: JobName[] = [
   "whatsapp-remove-member",
   "whatsapp-remove-member-team",
 ];
+
+// -- Constants (read from process.env to avoid importing @pi-dash/env/server) --
+
+export const PHOTO_NOTIFICATION_DELAY_SECONDS =
+  Number(process.env.PHOTO_NOTIFICATION_DELAY_SECONDS) || 120;
 
 // -- Enqueue -------------------------------------------------------------------
 
