@@ -100,10 +100,9 @@ export async function sendWhatsAppVideo(
   }
 }
 
-export async function sendWhatsAppDocument(
+export async function sendWhatsAppFile(
   phone: string,
-  documentUrl: string,
-  fileName: string,
+  fileUrl: string,
   caption?: string
 ): Promise<void> {
   const apiUrl = getWhatsAppApiUrl();
@@ -111,20 +110,19 @@ export async function sendWhatsAppDocument(
     return;
   }
 
-  const response = await fetch(`${apiUrl}/send/document`, {
+  const response = await fetch(`${apiUrl}/send/file`, {
     method: "POST",
     headers: getWhatsAppHeaders(),
     body: JSON.stringify({
       phone,
-      document: { url: documentUrl },
-      fileName,
+      file: { url: fileUrl },
       ...(caption && { caption }),
     }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`WhatsApp document error ${response.status}: ${text}`);
+    throw new Error(`WhatsApp file error ${response.status}: ${text}`);
   }
 }
 
@@ -146,11 +144,6 @@ export async function sendWhatsAppMedia(
   } else if (attachment.mimeType.startsWith("video/")) {
     await sendWhatsAppVideo(phone, attachment.url, caption);
   } else {
-    await sendWhatsAppDocument(
-      phone,
-      attachment.url,
-      attachment.fileName,
-      caption
-    );
+    await sendWhatsAppFile(phone, attachment.url, caption);
   }
 }
