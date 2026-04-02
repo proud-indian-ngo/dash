@@ -232,6 +232,13 @@
       "when": 1775046546362,
       "tag": "0032_loose_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1775127990194,
+      "tag": "0033_open_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

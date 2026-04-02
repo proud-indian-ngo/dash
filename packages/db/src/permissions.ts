@@ -273,6 +273,14 @@ export const PERMISSIONS = [
     description: "Delete any user's event updates",
   },
 
+  // ── Messages ──
+  {
+    id: "messages.schedule",
+    name: "Schedule WhatsApp Messages",
+    category: "messages",
+    description: "Create, edit, and manage scheduled WhatsApp messages",
+  },
+
   // ── Settings ──
   {
     id: "settings.expense_categories",
