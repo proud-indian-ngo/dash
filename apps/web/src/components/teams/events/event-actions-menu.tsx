@@ -30,6 +30,7 @@ export function EventActionsMenu({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
+            onClick={(e) => e.stopPropagation()}
             size="icon"
             type="button"
             variant="ghost"
