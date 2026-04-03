@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   expandSeries,
   formStateToRRule,
+  parseRecurrenceRule,
   rruleToFormState,
   rruleToLabel,
   toISODate,
@@ -294,6 +295,37 @@ describe("rruleToLabel", () => {
   it("returns fallback for invalid input", () => {
     const label = rruleToLabel("NOT_A_RULE");
     expect(label).toBe("Recurring");
+  });
+});
+
+describe("parseRecurrenceRule", () => {
+  it("returns null for null/undefined", () => {
+    expect(parseRecurrenceRule(null)).toBeNull();
+    expect(parseRecurrenceRule(undefined)).toBeNull();
+  });
+
+  it("returns the rule for a valid object with rrule string", () => {
+    const rule = { rrule: "FREQ=WEEKLY;BYDAY=SA" };
+    expect(parseRecurrenceRule(rule)).toBe(rule);
+  });
+
+  it("returns the rule when exdates are present", () => {
+    const rule = { rrule: "FREQ=WEEKLY", exdates: ["2026-04-11"] };
+    expect(parseRecurrenceRule(rule)).toBe(rule);
+  });
+
+  it("returns null for non-object values", () => {
+    expect(parseRecurrenceRule("not-an-object")).toBeNull();
+    expect(parseRecurrenceRule(42)).toBeNull();
+    expect(parseRecurrenceRule(true)).toBeNull();
+  });
+
+  it("returns null for objects without rrule", () => {
+    expect(parseRecurrenceRule({ other: "field" })).toBeNull();
+  });
+
+  it("returns null for objects where rrule is not a string", () => {
+    expect(parseRecurrenceRule({ rrule: 123 })).toBeNull();
   });
 });
 

@@ -28,6 +28,13 @@ export const ALLOWED_MIME_TYPES = [
 
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
+export function toAllowedMimeType(value: string): AllowedMimeType {
+  if (!ALLOWED_MIME_TYPES.includes(value as AllowedMimeType)) {
+    throw new Error(`Unsupported file type: ${value}`);
+  }
+  return value as AllowedMimeType;
+}
+
 const R2_SUBFOLDERS = {
   attachments: "attachments",
   approvalScreenshots: "approval-screenshots",

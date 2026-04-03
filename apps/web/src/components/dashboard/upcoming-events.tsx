@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { expandSeries, type RecurrenceRule } from "@pi-dash/zero/rrule-utils";
+import { expandSeries, parseRecurrenceRule } from "@pi-dash/zero/rrule-utils";
 import { Link } from "@tanstack/react-router";
 import { addWeeks, format } from "date-fns";
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
@@ -157,7 +157,7 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
   const items: UpcomingItem[] = [];
 
   for (const event of events) {
-    const rule = event.recurrenceRule as RecurrenceRule | null;
+    const rule = parseRecurrenceRule(event.recurrenceRule);
     const base = {
       eventId: event.id,
       isPublic: event.isPublic,

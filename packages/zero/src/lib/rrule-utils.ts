@@ -21,6 +21,21 @@ export interface VirtualOccurrence {
 
 const RRULE_PREFIX_RE = /^RRULE:/;
 
+/** Narrow an `unknown` JSON column value to `RecurrenceRule | null`. */
+export function parseRecurrenceRule(value: unknown): RecurrenceRule | null {
+  if (value == null) {
+    return null;
+  }
+  if (
+    typeof value === "object" &&
+    "rrule" in value &&
+    typeof (value as RecurrenceRule).rrule === "string"
+  ) {
+    return value as RecurrenceRule;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Parsing
 // ---------------------------------------------------------------------------

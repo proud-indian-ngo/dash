@@ -55,15 +55,16 @@ export function useConfirmAction<TPayload = void>(
     // mid-flight, overwriting optionsRef.current with stale derived values
     // (e.g. successMsg built from pendingPhotos.length which becomes 0).
     const snapshot = optionsRef.current;
+    const typedPayload = payload as TPayload;
     setIsLoading(true);
-    const res = await snapshot.onConfirm(payload as TPayload);
+    const res = await snapshot.onConfirm(typedPayload);
     setIsLoading(false);
 
     const { mutationMeta } = snapshot;
     if (mutationMeta) {
       const entityId =
         typeof mutationMeta.entityId === "function"
-          ? mutationMeta.entityId(payload as TPayload)
+          ? mutationMeta.entityId(typedPayload)
           : mutationMeta.entityId;
       handleMutationResult(res, {
         mutation: mutationMeta.mutation,

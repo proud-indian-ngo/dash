@@ -226,78 +226,73 @@ function createColumns(
         const isPending = deriveMessageStatus(msg.recipients) === "pending";
 
         return (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper
-          // biome-ignore lint/a11y/noStaticElementInteractions: same
-          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: same
-          <div onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    aria-label="Row actions"
-                    className="size-8"
-                    data-testid="row-actions"
-                    onClick={(e) => e.stopPropagation()}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <HugeiconsIcon
-                      className="size-4"
-                      icon={MoreVerticalIcon}
-                      strokeWidth={2}
-                    />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => onView(msg)}>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="Row actions"
+                  className="size-8"
+                  data-testid="row-actions"
+                  onClick={(e) => e.stopPropagation()}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
                   <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={ViewIcon}
+                    className="size-4"
+                    icon={MoreVerticalIcon}
                     strokeWidth={2}
                   />
-                  View details
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => onView(msg)}>
+                <HugeiconsIcon
+                  className="mr-2 size-4"
+                  icon={ViewIcon}
+                  strokeWidth={2}
+                />
+                View details
+              </DropdownMenuItem>
+              {isPending && (
+                <DropdownMenuItem onClick={() => onEdit(msg)}>
+                  <HugeiconsIcon
+                    className="mr-2 size-4"
+                    icon={PencilEdit01Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
                 </DropdownMenuItem>
-                {isPending && (
-                  <DropdownMenuItem onClick={() => onEdit(msg)}>
-                    <HugeiconsIcon
-                      className="mr-2 size-4"
-                      icon={PencilEdit01Icon}
-                      strokeWidth={2}
-                    />
-                    Edit
-                  </DropdownMenuItem>
-                )}
-                {isPending && (
-                  <DropdownMenuItem
-                    onClick={() => onCancel(msg)}
-                    variant="destructive"
-                  >
-                    <HugeiconsIcon
-                      className="mr-2 size-4"
-                      icon={Cancel01Icon}
-                      strokeWidth={2}
-                    />
-                    Cancel
-                  </DropdownMenuItem>
-                )}
-                {!isPending && (
-                  <DropdownMenuItem
-                    onClick={() => onDelete(msg)}
-                    variant="destructive"
-                  >
-                    <HugeiconsIcon
-                      className="mr-2 size-4"
-                      icon={Delete02Icon}
-                      strokeWidth={2}
-                    />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              )}
+              {isPending && (
+                <DropdownMenuItem
+                  onClick={() => onCancel(msg)}
+                  variant="destructive"
+                >
+                  <HugeiconsIcon
+                    className="mr-2 size-4"
+                    icon={Cancel01Icon}
+                    strokeWidth={2}
+                  />
+                  Cancel
+                </DropdownMenuItem>
+              )}
+              {!isPending && (
+                <DropdownMenuItem
+                  onClick={() => onDelete(msg)}
+                  variant="destructive"
+                >
+                  <HugeiconsIcon
+                    className="mr-2 size-4"
+                    icon={Delete02Icon}
+                    strokeWidth={2}
+                  />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       },
       enableColumnOrdering: false,

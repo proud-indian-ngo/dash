@@ -1,6 +1,7 @@
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
   expandSeries,
+  parseRecurrenceRule,
   type RecurrenceRule,
   rruleToLabel,
   type VirtualOccurrence,
@@ -130,7 +131,7 @@ export function buildEventDisplayRows(
   const rangeEndMs = rangeEnd.getTime();
 
   for (const event of events) {
-    const rule = event.recurrenceRule as RecurrenceRule | null;
+    const rule = parseRecurrenceRule(event.recurrenceRule);
 
     if (!rule) {
       // Standalone events: always include (no range filter — let the table sort handle visibility)

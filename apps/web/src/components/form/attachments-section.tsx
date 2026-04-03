@@ -21,8 +21,8 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { AddUrlRow } from "@/components/form/add-url-row";
 import {
-  type AllowedMimeType,
   getPresignedUploadUrl,
+  toAllowedMimeType,
 } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
 import {
@@ -56,7 +56,7 @@ const uploadSingleFile = async (
     data: {
       fileName: file.name,
       fileSize: file.size,
-      mimeType: file.type as AllowedMimeType,
+      mimeType: toAllowedMimeType(file.type),
       subfolder: "attachments",
       entityId,
     },

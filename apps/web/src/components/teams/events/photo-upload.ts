@@ -1,8 +1,8 @@
 import type { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import type {
-  AllowedMimeType,
-  getPresignedUploadUrl,
+import {
+  type getPresignedUploadUrl,
+  toAllowedMimeType,
 } from "@/functions/attachments";
 
 const IMAGE_MIME_TYPES = [
@@ -46,7 +46,7 @@ export async function uploadFileToR2(
     data: {
       fileName: file.name,
       fileSize: file.size,
-      mimeType: file.type as AllowedMimeType,
+      mimeType: toAllowedMimeType(file.type),
       subfolder: "photos",
       entityId,
     },

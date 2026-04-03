@@ -18,6 +18,7 @@ import {
   type AllowedMimeType,
   deleteUploadedAsset,
   getPresignedUploadUrl,
+  toAllowedMimeType,
 } from "@/functions/attachments";
 
 const ALLOWED_IMAGE_TYPES = [
@@ -92,7 +93,7 @@ export function ApproveDialog({
       );
       return;
     }
-    const mimeType = file.type as AllowedMimeType;
+    const mimeType = toAllowedMimeType(file.type);
     if (file.size > MAX_SCREENSHOT_SIZE) {
       toast.error("File too large. Maximum size is 10 MB.");
       return;

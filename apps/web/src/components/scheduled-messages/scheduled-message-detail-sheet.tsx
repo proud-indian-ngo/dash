@@ -37,6 +37,22 @@ interface Attachment {
   r2Key: string;
 }
 
+function parseAttachments(value: unknown): Attachment[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const first = value[0];
+  if (
+    typeof first !== "object" ||
+    first === null ||
+    !("r2Key" in first) ||
+    !("fileName" in first)
+  ) {
+    return null;
+  }
+  return value as Attachment[];
+}
+
 function getStatusBadge(status: ScheduledMessageDerivedStatus) {
   switch (status) {
     case "sent":
@@ -91,6 +107,7 @@ export function ScheduledMessageDetailSheet({
   const status = message ? deriveMessageStatus(message.recipients) : null;
   const isPending = status === "pending";
   const badge = status ? getStatusBadge(status) : null;
+  const attachments = message ? parseAttachments(message.attachments) : null;
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
@@ -146,13 +163,13 @@ export function ScheduledMessageDetailSheet({
                 />
               </div>
 
-              {(message.attachments as Attachment[] | null)?.length ? (
+              {attachments?.length ? (
                 <div className="grid gap-4">
                   <h3 className="font-medium text-sm">
-                    Attachments ({(message.attachments as Attachment[]).length})
+                    Attachments ({attachments.length})
                   </h3>
                   <div className="flex flex-col gap-1.5">
-                    {(message.attachments as Attachment[]).map((a) => (
+                    {attachments.map((a) => (
                       <a
                         className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
                         download={a.fileName}

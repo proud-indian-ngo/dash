@@ -129,65 +129,60 @@ function createJobColumns(
         const canRetry = job.state === "failed";
 
         return (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper prevents row click when interacting with actions
-          // biome-ignore lint/a11y/noStaticElementInteractions: same as above
-          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: same as above
-          <div onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    aria-label="Row actions"
-                    className="size-8"
-                    data-testid="row-actions"
-                    onClick={(e) => e.stopPropagation()}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <HugeiconsIcon
-                      className="size-4"
-                      icon={MoreVerticalIcon}
-                      strokeWidth={2}
-                    />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => onView(job)}>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="Row actions"
+                  className="size-8"
+                  data-testid="row-actions"
+                  onClick={(e) => e.stopPropagation()}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
                   <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={ViewIcon}
+                    className="size-4"
+                    icon={MoreVerticalIcon}
                     strokeWidth={2}
                   />
-                  View details
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => onView(job)}>
+                <HugeiconsIcon
+                  className="mr-2 size-4"
+                  icon={ViewIcon}
+                  strokeWidth={2}
+                />
+                View details
+              </DropdownMenuItem>
+              {canCancel && (
+                <DropdownMenuItem
+                  onClick={() => onCancel(job)}
+                  variant="destructive"
+                >
+                  <HugeiconsIcon
+                    className="mr-2 size-4"
+                    icon={Cancel01Icon}
+                    strokeWidth={2}
+                  />
+                  Cancel
                 </DropdownMenuItem>
-                {canCancel && (
-                  <DropdownMenuItem
-                    onClick={() => onCancel(job)}
-                    variant="destructive"
-                  >
-                    <HugeiconsIcon
-                      className="mr-2 size-4"
-                      icon={Cancel01Icon}
-                      strokeWidth={2}
-                    />
-                    Cancel
-                  </DropdownMenuItem>
-                )}
-                {canRetry && (
-                  <DropdownMenuItem onClick={() => onRetry(job)}>
-                    <HugeiconsIcon
-                      className="mr-2 size-4"
-                      icon={RepeatIcon}
-                      strokeWidth={2}
-                    />
-                    Retry
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              )}
+              {canRetry && (
+                <DropdownMenuItem onClick={() => onRetry(job)}>
+                  <HugeiconsIcon
+                    className="mr-2 size-4"
+                    icon={RepeatIcon}
+                    strokeWidth={2}
+                  />
+                  Retry
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       },
       enableColumnOrdering: false,

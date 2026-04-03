@@ -49,44 +49,51 @@ import { NotificationsSection } from "./sections/notifications-section";
 import { ProfileSection } from "./sections/profile-section";
 import { WhatsAppGroupsSection } from "./sections/whatsapp-groups-section";
 
-const NAV_ITEMS_BASE = [
+interface NavItem {
+  icon: typeof Settings01Icon;
+  id: Section;
+  label: string;
+  permission?: PermissionId;
+}
+
+const NAV_ITEMS_BASE: NavItem[] = [
   {
-    id: "general" as Section,
+    id: "general",
     label: "General",
     icon: Settings01Icon,
-    permission: "settings.app_config" as PermissionId,
+    permission: "settings.app_config",
   },
   {
-    id: "profile" as Section,
+    id: "profile",
     label: "Profile",
     icon: UserIcon,
   },
   {
-    id: "account" as Section,
+    id: "account",
     label: "Account",
     icon: ShieldIcon,
   },
   {
-    id: "notifications" as Section,
+    id: "notifications",
     label: "Notifications",
     icon: NotificationIcon,
   },
   {
-    id: "banking" as Section,
+    id: "banking",
     label: "Banking",
     icon: BankIcon,
   },
   {
-    id: "expense-categories" as Section,
+    id: "expense-categories",
     label: "Expense Categories",
     icon: Tag01Icon,
-    permission: "settings.expense_categories" as PermissionId,
+    permission: "settings.expense_categories",
   },
   {
-    id: "whatsapp-groups" as Section,
+    id: "whatsapp-groups",
     label: "WhatsApp Groups",
     icon: SmartPhone01Icon,
-    permission: "settings.whatsapp_groups" as PermissionId,
+    permission: "settings.whatsapp_groups",
   },
 ];
 

@@ -3,7 +3,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
-import { expandSeries, type RecurrenceRule } from "@pi-dash/zero/rrule-utils";
+import { expandSeries, parseRecurrenceRule } from "@pi-dash/zero/rrule-utils";
 import type {
   EventInterest,
   TeamEvent,
@@ -51,7 +51,7 @@ function buildPublicDisplayRows(data: PublicEventRow[]): PublicDisplayRow[] {
   const rows: PublicDisplayRow[] = [];
 
   for (const event of data) {
-    const rule = event.recurrenceRule as RecurrenceRule | null;
+    const rule = parseRecurrenceRule(event.recurrenceRule);
     const base = {
       eventId: event.id,
       isPublic: event.isPublic,

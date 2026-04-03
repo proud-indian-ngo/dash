@@ -35,6 +35,20 @@ interface SubFieldApi {
   };
 }
 
+// TanStack Form's Field render callback types the argument as `unknown`.
+// These helpers centralize the cast so callers don't repeat it inline.
+function asSubField(raw: unknown): SubFieldApi {
+  return raw as SubFieldApi;
+}
+
+function asArrayField(raw: unknown): ArrayFieldApi {
+  return raw as ArrayFieldApi;
+}
+
+function selectLineItems(state: unknown, name: string): LineItem[] {
+  return (state as { values: Record<string, LineItem[]> }).values[name] ?? [];
+}
+
 interface LineItemsEditorProps {
   categories: ExpenseCategory[];
   form?: FormInstance;
@@ -79,7 +93,7 @@ function LineItemRow({
     <div className="fade-in-0 grid animate-in grid-cols-[1fr_100px_32px] items-start gap-2 duration-150 ease-(--ease-out-expo) sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
         {(rawField: unknown) => {
-          const field = rawField as SubFieldApi;
+          const field = asSubField(rawField);
           const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
             <div className="col-span-3 min-w-0 sm:col-span-1">
@@ -133,7 +147,7 @@ function LineItemRow({
 
       <form.Field name={`${name}[${index}].description`}>
         {(rawField: unknown) => {
-          const field = rawField as SubFieldApi;
+          const field = asSubField(rawField);
           const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
             <div className="min-w-0">
@@ -162,7 +176,7 @@ function LineItemRow({
 
       <form.Field name={`${name}[${index}].amount`}>
         {(rawField: unknown) => {
-          const field = rawField as SubFieldApi;
+          const field = asSubField(rawField);
           const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
             <div className="min-w-0">
@@ -221,12 +235,8 @@ export function LineItemsEditor({
   return (
     <>
       <form.Subscribe
-        selector={(state) =>
-          computeRunningTotal(
-            (state as unknown as { values: Record<string, LineItem[]> }).values[
-              name
-            ] ?? []
-          )
+        selector={(state: unknown) =>
+          computeRunningTotal(selectLineItems(state, name))
         }
       >
         {(total: number) => (
@@ -243,7 +253,7 @@ export function LineItemsEditor({
       </form.Subscribe>
       <form.Field mode="array" name={name}>
         {(rawField: unknown) => {
-          const arrayField = rawField as ArrayFieldApi;
+          const arrayField = asArrayField(rawField);
 
           return (
             <div className="flex flex-col gap-3">

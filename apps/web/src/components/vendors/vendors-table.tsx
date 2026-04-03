@@ -360,21 +360,16 @@ export function VendorsTable({
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper prevents row click when interacting with actions
-        // biome-ignore lint/a11y/noStaticElementInteractions: same as above
-        // biome-ignore lint/a11y/noNoninteractiveElementInteractions: same as above
-        <div onClick={(e) => e.stopPropagation()}>
-          <RowActions
-            onApprove={onApprove ? () => onApprove(row.original) : undefined}
-            onEdit={() => onEdit(row.original)}
-            onRequestDelete={() => deleteAction.trigger(row.original.id)}
-            onUnapprove={
-              onUnapprove ? () => onUnapprove(row.original) : undefined
-            }
-            onView={() => onView(row.original)}
-            status={row.original.status ?? "pending"}
-          />
-        </div>
+        <RowActions
+          onApprove={onApprove ? () => onApprove(row.original) : undefined}
+          onEdit={() => onEdit(row.original)}
+          onRequestDelete={() => deleteAction.trigger(row.original.id)}
+          onUnapprove={
+            onUnapprove ? () => onUnapprove(row.original) : undefined
+          }
+          onView={() => onView(row.original)}
+          status={row.original.status ?? "pending"}
+        />
       ),
       enableHiding: false,
       enableResizing: false,

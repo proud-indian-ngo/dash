@@ -108,6 +108,241 @@ function buildUpdateFields(args: UpdateArgs) {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// ---------------------------------------------------------------------------
+// updateSeries per-mode helpers
+// ---------------------------------------------------------------------------
+
+// Structural type for the tx parameter from defineMutator.
+// Catches typos (tx.mutat) while avoiding dependency on Zero's deep internal types.
+interface Tx {
+  location: string;
+  mutate: {
+    teamEvent: {
+      delete: (args: { id: string }) => Promise<void>;
+      // biome-ignore lint/suspicious/noExplicitAny: row shapes vary per call and can't be expressed without Zero's generic
+      insert: (args: any) => Promise<void>;
+      // biome-ignore lint/suspicious/noExplicitAny: same as above
+      update: (args: any) => Promise<void>;
+    };
+  };
+  // biome-ignore lint/suspicious/noExplicitAny: Zero's Query type is deeply generic
+  run: (query: any) => Promise<unknown>;
+}
+
+async function updateSeriesAll(
+  tx: Tx,
+  args: { id: string; now: number; recurrenceRule?: RecurrenceRuleValue },
+  updateFields: ReturnType<typeof buildUpdateFields>
+) {
+  await tx.mutate.teamEvent.update({
+    ...updateFields,
+    ...(args.recurrenceRule !== undefined && {
+      recurrenceRule: args.recurrenceRule ?? null,
+    }),
+  });
+}
+
+async function updateSeriesThis(
+  tx: Tx,
+  args: {
+    id: string;
+    now: number;
+    originalDate?: string;
+    newExceptionId?: string;
+    name?: string;
+    description?: string;
+    location?: string;
+    startTime?: number;
+    endTime?: number;
+    isPublic?: boolean;
+    feedbackEnabled?: boolean;
+    feedbackDeadline?: number | null;
+    whatsappGroupId?: string;
+  },
+  existing: TeamEvent,
+  userId: string
+) {
+  if (existing.seriesId) {
+    await tx.mutate.teamEvent.update(buildUpdateFields(args));
+  } else if (
+    existing.recurrenceRule &&
+    args.originalDate &&
+    args.newExceptionId
+  ) {
+    await tx.mutate.teamEvent.insert(
+      buildExceptionInsert(
+        args.newExceptionId,
+        existing,
+        args.originalDate,
+        userId,
+        args.now,
+        {
+          name: args.name,
+          description: args.description,
+          location: args.location,
+          startTime: args.startTime,
+          endTime: args.endTime,
+          isPublic: args.isPublic,
+          feedbackEnabled: args.feedbackEnabled,
+          feedbackDeadline: args.feedbackDeadline ?? undefined,
+          whatsappGroupId: args.whatsappGroupId,
+        }
+      )
+    );
+  }
+}
+
+async function updateSeriesFollowing(
+  tx: Tx,
+  args: {
+    id: string;
+    now: number;
+    originalDate: string;
+    newSeriesId: string;
+    name?: string;
+    description?: string;
+    location?: string;
+    startTime?: number;
+    endTime?: number;
+    isPublic?: boolean;
+    feedbackEnabled?: boolean;
+    feedbackDeadline?: number | null;
+    whatsappGroupId?: string;
+    recurrenceRule?: RecurrenceRuleValue;
+  },
+  existing: TeamEvent,
+  userId: string
+) {
+  if (!existing.recurrenceRule) {
+    throw new Error("Cannot split a non-recurring event");
+  }
+  const rule = existing.recurrenceRule as RecurrenceRuleValue & {
+    rrule: string;
+  };
+  await tx.mutate.teamEvent.update({
+    id: args.id,
+    recurrenceRule: {
+      ...rule,
+      rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
+    },
+    updatedAt: args.now,
+  });
+  const newRule = args.recurrenceRule ?? { rrule: rule.rrule };
+  await tx.mutate.teamEvent.insert({
+    id: args.newSeriesId,
+    teamId: existing.teamId,
+    name: args.name ?? existing.name,
+    description: args.description ?? existing.description ?? null,
+    location: args.location ?? existing.location ?? null,
+    startTime: args.startTime ?? existing.startTime,
+    endTime: args.endTime ?? existing.endTime ?? null,
+    isPublic: args.isPublic ?? existing.isPublic,
+    recurrenceRule: newRule,
+    seriesId: null,
+    originalDate: null,
+    cancelledAt: null,
+    feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
+    feedbackDeadline:
+      args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
+    whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
+    createdBy: userId,
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// cancelSeries per-mode helpers
+// ---------------------------------------------------------------------------
+
+async function cancelSeriesAll(tx: Tx, args: { id: string; now: number }) {
+  await tx.mutate.teamEvent.update({
+    id: args.id,
+    cancelledAt: args.now,
+    updatedAt: args.now,
+  });
+  const exceptions = (await tx.run(
+    zql.teamEvent.where("seriesId", args.id)
+  )) as TeamEvent[];
+  for (const exc of exceptions) {
+    if (!exc.cancelledAt) {
+      await tx.mutate.teamEvent.update({
+        id: exc.id,
+        cancelledAt: args.now,
+        updatedAt: args.now,
+      });
+    }
+  }
+}
+
+async function cancelSeriesThis(
+  tx: Tx,
+  args: {
+    id: string;
+    now: number;
+    originalDate?: string;
+    newExceptionId?: string;
+  },
+  existing: TeamEvent,
+  userId: string
+) {
+  if (existing.seriesId || !existing.recurrenceRule) {
+    await tx.mutate.teamEvent.update({
+      id: args.id,
+      cancelledAt: args.now,
+      updatedAt: args.now,
+    });
+  } else if (args.originalDate && args.newExceptionId) {
+    await tx.mutate.teamEvent.insert(
+      buildExceptionInsert(
+        args.newExceptionId,
+        existing,
+        args.originalDate,
+        userId,
+        args.now,
+        { cancelledAt: args.now }
+      )
+    );
+  }
+}
+
+async function cancelSeriesFollowing(
+  tx: Tx,
+  args: { id: string; now: number; originalDate: string },
+  existing: TeamEvent
+) {
+  if (!existing.recurrenceRule) {
+    throw new Error("Cannot truncate a non-recurring event");
+  }
+  const rule = existing.recurrenceRule as RecurrenceRuleValue & {
+    rrule: string;
+  };
+  await tx.mutate.teamEvent.update({
+    id: args.id,
+    recurrenceRule: {
+      ...rule,
+      rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
+    },
+    updatedAt: args.now,
+  });
+  const exceptions = (await tx.run(
+    zql.teamEvent.where("seriesId", args.id)
+  )) as TeamEvent[];
+  for (const exc of exceptions) {
+    if (
+      exc.originalDate &&
+      exc.originalDate >= args.originalDate &&
+      !exc.cancelledAt
+    ) {
+      await tx.mutate.teamEvent.update({
+        id: exc.id,
+        cancelledAt: args.now,
+        updatedAt: args.now,
+      });
+    }
+  }
+}
+
 const recurrenceRuleSchema = z
   .object({
     rrule: z.string(),
@@ -459,7 +694,6 @@ export const teamEventMutators = {
       feedbackDeadline: z.number().nullable().optional(),
       whatsappGroupId: z.string().optional(),
     }),
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 3-mode dispatch (this/following/all) with auth is inherently branchy
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const existing = (await tx.run(
@@ -478,85 +712,24 @@ export const teamEventMutators = {
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
 
       if (args.mode === "all") {
-        await tx.mutate.teamEvent.update({
-          ...buildUpdateFields(args),
-          ...(args.recurrenceRule !== undefined && {
-            recurrenceRule: args.recurrenceRule ?? null,
-          }),
-        });
-        return;
-      }
-
-      if (args.mode === "this") {
-        if (existing.seriesId) {
-          await tx.mutate.teamEvent.update(buildUpdateFields(args));
-        } else if (
-          existing.recurrenceRule &&
-          args.originalDate &&
-          args.newExceptionId
-        ) {
-          await tx.mutate.teamEvent.insert(
-            buildExceptionInsert(
-              args.newExceptionId,
-              existing,
-              args.originalDate,
-              ctx.userId,
-              args.now,
-              {
-                name: args.name,
-                description: args.description,
-                location: args.location,
-                startTime: args.startTime,
-                endTime: args.endTime,
-                isPublic: args.isPublic,
-                feedbackEnabled: args.feedbackEnabled,
-                feedbackDeadline: args.feedbackDeadline ?? undefined,
-                whatsappGroupId: args.whatsappGroupId,
-              }
-            )
-          );
-        }
-        return;
-      }
-
-      if (args.mode === "following" && args.originalDate && args.newSeriesId) {
-        if (!existing.recurrenceRule) {
-          throw new Error("Cannot split a non-recurring event");
-        }
-        const rule = existing.recurrenceRule as RecurrenceRuleValue & {
-          rrule: string;
-        };
-        await tx.mutate.teamEvent.update({
-          id: args.id,
-          recurrenceRule: {
-            ...rule,
-            rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
+        await updateSeriesAll(tx, args, buildUpdateFields(args));
+      } else if (args.mode === "this") {
+        await updateSeriesThis(tx, args, existing, ctx.userId);
+      } else if (
+        args.mode === "following" &&
+        args.originalDate &&
+        args.newSeriesId
+      ) {
+        await updateSeriesFollowing(
+          tx,
+          {
+            ...args,
+            originalDate: args.originalDate,
+            newSeriesId: args.newSeriesId,
           },
-          updatedAt: args.now,
-        });
-        const newRule = args.recurrenceRule ?? { rrule: rule.rrule };
-        await tx.mutate.teamEvent.insert({
-          id: args.newSeriesId,
-          teamId: existing.teamId,
-          name: args.name ?? existing.name,
-          description: args.description ?? existing.description ?? null,
-          location: args.location ?? existing.location ?? null,
-          startTime: args.startTime ?? existing.startTime,
-          endTime: args.endTime ?? existing.endTime ?? null,
-          isPublic: args.isPublic ?? existing.isPublic,
-          recurrenceRule: newRule,
-          seriesId: null,
-          originalDate: null,
-          cancelledAt: null,
-          feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
-          feedbackDeadline:
-            args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
-          whatsappGroupId:
-            args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
-          createdBy: ctx.userId,
-          createdAt: args.now,
-          updatedAt: args.now,
-        });
+          existing,
+          ctx.userId
+        );
       }
     }
   ),
@@ -570,7 +743,6 @@ export const teamEventMutators = {
       newExceptionId: z.string().optional(),
       now: z.number(),
     }),
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 3-mode dispatch (this/following/all) with auth and notifications is inherently branchy
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const existing = (await tx.run(
@@ -588,80 +760,16 @@ export const teamEventMutators = {
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
 
-      const now = args.now;
-
       if (args.mode === "all") {
-        await tx.mutate.teamEvent.update({
-          id: args.id,
-          cancelledAt: now,
-          updatedAt: now,
-        });
-        const exceptions = (await tx.run(
-          zql.teamEvent.where("seriesId", args.id)
-        )) as TeamEvent[];
-        for (const exc of exceptions) {
-          if (!exc.cancelledAt) {
-            await tx.mutate.teamEvent.update({
-              id: exc.id,
-              cancelledAt: now,
-              updatedAt: now,
-            });
-          }
-        }
-      }
-
-      if (args.mode === "this") {
-        if (existing.seriesId || !existing.recurrenceRule) {
-          await tx.mutate.teamEvent.update({
-            id: args.id,
-            cancelledAt: now,
-            updatedAt: now,
-          });
-        } else if (args.originalDate && args.newExceptionId) {
-          await tx.mutate.teamEvent.insert(
-            buildExceptionInsert(
-              args.newExceptionId,
-              existing,
-              args.originalDate,
-              ctx.userId,
-              now,
-              { cancelledAt: now }
-            )
-          );
-        }
-      }
-
-      if (args.mode === "following" && args.originalDate) {
-        if (!existing.recurrenceRule) {
-          throw new Error("Cannot truncate a non-recurring event");
-        }
-        const rule = existing.recurrenceRule as RecurrenceRuleValue & {
-          rrule: string;
-        };
-        await tx.mutate.teamEvent.update({
-          id: args.id,
-          recurrenceRule: {
-            ...rule,
-            rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
-          },
-          updatedAt: now,
-        });
-        const exceptions = (await tx.run(
-          zql.teamEvent.where("seriesId", args.id)
-        )) as TeamEvent[];
-        for (const exc of exceptions) {
-          if (
-            exc.originalDate &&
-            exc.originalDate >= args.originalDate &&
-            !exc.cancelledAt
-          ) {
-            await tx.mutate.teamEvent.update({
-              id: exc.id,
-              cancelledAt: now,
-              updatedAt: now,
-            });
-          }
-        }
+        await cancelSeriesAll(tx, args);
+      } else if (args.mode === "this") {
+        await cancelSeriesThis(tx, args, existing, ctx.userId);
+      } else if (args.mode === "following" && args.originalDate) {
+        await cancelSeriesFollowing(
+          tx,
+          { ...args, originalDate: args.originalDate },
+          existing
+        );
       }
 
       // Notification for cancel (all modes)
@@ -669,7 +777,7 @@ export const teamEventMutators = {
         const eventId = args.id;
         const eventName = existing.name;
         const teamId = existing.teamId;
-        const cancelledAt = now;
+        const cancelledAt = args.now;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
