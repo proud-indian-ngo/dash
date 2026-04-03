@@ -1,14 +1,16 @@
-import {
-  ArrowLeft02Icon,
-  ArrowReloadHorizontalIcon,
-  ArrowRight02Icon,
-} from "@hugeicons/core-free-icons";
+import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
-import { parseAsString, useQueryState } from "nuqs";
+import {
+  parseAsIndex,
+  parseAsInteger,
+  parseAsString,
+  useQueryState,
+  useQueryStates,
+} from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
@@ -25,7 +27,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
 
 const POLL_INTERVAL_MS = 10_000;
-const PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 10;
 
 const STATE_OPTIONS = [
   { label: "Created", value: "created" },
@@ -55,10 +57,11 @@ async function safeJson(res: Response): Promise<Record<string, unknown>> {
 function fetchJobsData(
   stateFilter: string,
   queueFilter: string,
-  offset: number
+  offset: number,
+  limit: number
 ) {
   const params = new URLSearchParams({
-    limit: String(PAGE_SIZE),
+    limit: String(limit),
     offset: String(offset),
   });
   if (stateFilter) {
@@ -108,7 +111,14 @@ function JobsRouteComponent() {
     "queue",
     parseAsString.withDefault("")
   );
-  const [page, setPage] = useState(0);
+  // Read pagination from URL — shared with DataTableWrapper via useTableState
+  const [{ pageIndex, pageSize }, setPagination] = useQueryStates(
+    {
+      pageIndex: parseAsIndex.withDefault(0),
+      pageSize: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
+    },
+    { urlKeys: { pageIndex: "page", pageSize: "size" } }
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<JobRow | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -118,13 +128,13 @@ function JobsRouteComponent() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is intentionally in deps to allow imperative re-fetch without being read in the effect body
   useEffect(() => {
     let cancelled = false;
-    const offset = page * PAGE_SIZE;
+    const offset = pageIndex * pageSize;
     const load = () => {
       if (document.hidden) {
         return;
       }
       Promise.all([
-        fetchJobsData(stateFilter, queueFilter, offset),
+        fetchJobsData(stateFilter, queueFilter, offset, pageSize),
         fetchStatsData(),
       ])
         .then(([jobsResult, statsResult]) => {
@@ -158,7 +168,7 @@ function JobsRouteComponent() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [stateFilter, queueFilter, page, refreshKey]);
+  }, [stateFilter, queueFilter, pageIndex, pageSize, refreshKey]);
 
   const queueOptions = queues
     .map((q) => ({ label: q.queue, value: q.queue }))
@@ -166,12 +176,12 @@ function JobsRouteComponent() {
 
   // Reset page when filter changes
   const handleFilterChange = (value: string) => {
-    setPage(0);
+    setPagination({ pageIndex: 0 });
     setStateFilter(value);
   };
 
   const handleQueueFilterChange = (value: string) => {
-    setPage(0);
+    setPagination({ pageIndex: 0 });
     setQueueFilter(value);
   };
 
@@ -253,8 +263,6 @@ function JobsRouteComponent() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
@@ -270,6 +278,7 @@ function JobsRouteComponent() {
           hasActiveFilters={!!(stateFilter || queueFilter)}
           isLoading={isLoading}
           jobs={jobs}
+          manualPagination
           onCancel={handleCancelRequest}
           onClearFilters={() => {
             handleFilterChange("");
@@ -277,6 +286,7 @@ function JobsRouteComponent() {
           }}
           onRetry={handleRetryRequest}
           onView={handleView}
+          rowCount={total}
           toolbarActions={
             <Button onClick={handleRefresh} size="sm" variant="outline">
               <HugeiconsIcon
@@ -304,43 +314,6 @@ function JobsRouteComponent() {
             </>
           }
         />
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between text-muted-foreground text-sm">
-            <span>
-              Showing {page * PAGE_SIZE + 1}\u2013
-              {Math.min((page + 1) * PAGE_SIZE, total)} of {total}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
-                size="icon"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={ArrowLeft02Icon}
-                  strokeWidth={2}
-                />
-              </Button>
-              <span className="px-2 text-foreground text-sm">
-                {page + 1} / {totalPages}
-              </span>
-              <Button
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => p + 1)}
-                size="icon"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={ArrowRight02Icon}
-                  strokeWidth={2}
-                />
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       <JobDetailSheet

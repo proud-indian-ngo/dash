@@ -208,10 +208,12 @@ interface JobsTableProps {
   hasActiveFilters?: boolean;
   isLoading?: boolean;
   jobs: JobRow[];
+  manualPagination?: boolean;
   onCancel: (job: JobRow) => void;
   onClearFilters?: () => void;
   onRetry: (job: JobRow) => void;
   onView: (job: JobRow) => void;
+  rowCount?: number;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
 }
@@ -219,9 +221,11 @@ interface JobsTableProps {
 export function JobsTable({
   isLoading,
   jobs,
+  manualPagination,
   onCancel,
   onRetry,
   onView,
+  rowCount,
   toolbarActions,
   toolbarFilters,
   hasActiveFilters,
@@ -237,8 +241,10 @@ export function JobsTable({
       getRowId={(row) => row.id}
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
+      manualPagination={manualPagination}
       onClearFilters={onClearFilters}
       onRowClick={onView}
+      rowCount={rowCount}
       searchFn={searchJob}
       searchPlaceholder="Search jobs..."
       storageKey="jobs_table_state_v1"

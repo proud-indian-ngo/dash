@@ -68,10 +68,14 @@ export interface DataTableWrapperProps<TData extends object> {
   getRowId: (row: TData) => string;
   hasActiveFilters?: boolean;
   isLoading?: boolean;
+  /** Server-side pagination: delegates page slicing to the caller */
+  manualPagination?: boolean;
   onClearFilters?: () => void;
   onFilteredDataChange?: (filteredData: TData[]) => void;
   onRowClick?: (row: TData) => void;
   paginationSizes?: number[];
+  /** Total row count for server-side pagination */
+  rowCount?: number;
   searchFn: (row: TData, searchQuery: string) => boolean;
   searchPlaceholder?: string;
   searchQueryKey?: string;
@@ -105,9 +109,11 @@ export function DataTableWrapper<TData extends object>({
   getRowCanExpand,
   getRowId,
   isLoading,
+  manualPagination,
   onFilteredDataChange,
   onRowClick,
   paginationSizes = [10, 20, 50],
+  rowCount,
   searchFn,
   searchPlaceholder = "Search...",
   searchQueryKey = "search",
@@ -235,11 +241,15 @@ export function DataTableWrapper<TData extends object>({
     onRowSelectionChange: setRowSelection,
     onSortingChange,
     enableRowSelection,
+    manualPagination,
+    ...(rowCount != null && { rowCount }),
     ...(getRowCanExpand && { getRowCanExpand }),
     getCoreRowModel: getCoreRowModel(),
     ...(getRowCanExpand && { getExpandedRowModel: getExpandedRowModel() }),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(!manualPagination && {
+      getPaginationRowModel: getPaginationRowModel(),
+    }),
     getSortedRowModel: getSortedRowModel(),
   });
 
@@ -271,6 +281,8 @@ export function DataTableWrapper<TData extends object>({
 
   const filteredRows = table.getFilteredRowModel().rows;
   const filteredData = filteredRows.map((row) => row.original);
+  const displayCount =
+    manualPagination && rowCount != null ? rowCount : filteredRows.length;
 
   useEffect(() => {
     onFilteredDataChange?.(filteredData);
@@ -280,15 +292,13 @@ export function DataTableWrapper<TData extends object>({
     <AppErrorBoundary level="section">
       <div aria-busy={isLoading}>
         <span aria-atomic="true" aria-live="polite" className="sr-only">
-          {isLoading
-            ? "Loading…"
-            : `${table.getFilteredRowModel().rows.length} results`}
+          {isLoading ? "Loading…" : `${displayCount} results`}
         </span>
         <DataGrid
           emptyMessage={emptyMessage}
           isLoading={isLoading}
           onRowClick={onRowClick}
-          recordCount={table.getFilteredRowModel().rows.length}
+          recordCount={displayCount}
           table={table}
           tableLayout={tableLayout}
         >
