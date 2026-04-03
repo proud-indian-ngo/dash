@@ -43,7 +43,11 @@ export function EventActionsMenu({
           </Button>
         }
       />
-      <DropdownMenuContent align="end" className="w-32">
+      <DropdownMenuContent
+        align="end"
+        className="w-32"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DropdownMenuItem onClick={onSelectEvent}>View</DropdownMenuItem>
         {canManage && (
           <>
