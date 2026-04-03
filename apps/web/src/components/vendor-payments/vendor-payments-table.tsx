@@ -221,11 +221,7 @@ export function VendorPaymentsTable({
               </Button>
             }
           />
-          <DropdownMenuContent
-            align="end"
-            className="w-32"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <DropdownMenuContent align="end" className="w-32">
             <DropdownMenuItem
               onClick={() => onNavigate(row.original.id as string)}
             >
@@ -254,7 +250,7 @@ export function VendorPaymentsTable({
       enableResizing: false,
       enableSorting: false,
       enableColumnOrdering: false,
-      meta: { cellClassName: "text-center" },
+      meta: { cellClassName: "text-center", stopRowClick: true },
       size: 52,
       minSize: 52,
     },

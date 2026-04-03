@@ -82,7 +82,10 @@ function UsersRouteComponent() {
   const isLoading = usersData.length === 0 && queryResult.type !== "complete";
 
   const allUsers = (usersData ?? []) as User[];
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const selectedUser = selectedUserId
+    ? (allUsers.find((u) => u.id === selectedUserId) ?? null)
+    : null;
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleSelectOptions, setRoleSelectOptions] = useState<
     { label: string; value: string }[]
@@ -312,7 +315,7 @@ function UsersRouteComponent() {
           onBanUser={handleBanUser}
           onClearFilters={clearFilters}
           onDelete={handleDeleteUser}
-          onRowClick={(user) => setSelectedUser(user)}
+          onRowClick={(user) => setSelectedUserId(user.id)}
           onSetPassword={handleResetPassword}
           onUnbanUser={handleUnbanUser}
           onUpdateUser={handleUpdateUser}
@@ -384,7 +387,7 @@ function UsersRouteComponent() {
         <UserDetailSheet
           onOpenChange={(open) => {
             if (!open) {
-              setSelectedUser(null);
+              setSelectedUserId(null);
             }
           }}
           open={!!selectedUser}

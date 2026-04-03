@@ -57,11 +57,7 @@ function RowActions({
           </Button>
         }
       />
-      <DropdownMenuContent
-        align="end"
-        className="w-32"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem
           onClick={() =>
             navigate({
@@ -229,6 +225,7 @@ export function RolesTable({
         headerTitle: "",
         skeleton: SKELETON_ACTIONS,
         cellClassName: "text-center",
+        stopRowClick: true,
       },
       size: 52,
       minSize: 52,

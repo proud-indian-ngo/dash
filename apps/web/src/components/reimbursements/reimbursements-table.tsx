@@ -93,11 +93,7 @@ function RowActions({
           </Button>
         }
       />
-      <DropdownMenuContent
-        align="end"
-        className="w-32"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -334,7 +330,7 @@ export function ReimbursementsTable({
       enableResizing: false,
       enableSorting: false,
       enableColumnOrdering: false,
-      meta: { cellClassName: "text-center" },
+      meta: { cellClassName: "text-center", stopRowClick: true },
       size: 52,
       minSize: 52,
     },

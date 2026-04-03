@@ -303,6 +303,7 @@ export function createUserColumns(
       enableColumnOrdering: false,
       meta: {
         cellClassName: "text-center",
+        stopRowClick: true,
       },
       size: 52,
       minSize: 52,

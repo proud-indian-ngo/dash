@@ -61,7 +61,10 @@ function VendorsRouteComponent() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [viewingVendor, setViewingVendor] = useState<VendorRow | null>(null);
+  const [viewingVendorId, setViewingVendorId] = useState<string | null>(null);
+  const viewingVendor = viewingVendorId
+    ? (vendorRows.find((v) => v.id === viewingVendorId) ?? null)
+    : null;
 
   const handleDelete = async (id: string) => {
     const res = await zero.mutate(mutators.vendor.delete({ id })).server;
@@ -104,7 +107,7 @@ function VendorsRouteComponent() {
   };
 
   const handleView = (vendor: VendorRow) => {
-    setViewingVendor(vendor);
+    setViewingVendorId(vendor.id);
   };
 
   return (
@@ -167,7 +170,7 @@ function VendorsRouteComponent() {
       <VendorDetailSheet
         onOpenChange={(open) => {
           if (!open) {
-            setViewingVendor(null);
+            setViewingVendorId(null);
           }
         }}
         open={!!viewingVendor}

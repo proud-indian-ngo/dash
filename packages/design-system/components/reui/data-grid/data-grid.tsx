@@ -18,6 +18,7 @@ declare module "@tanstack/react-table" {
     cellClassName?: string
     skeleton?: ReactNode
     expandedContent?: (row: TData) => ReactNode
+    stopRowClick?: boolean
   }
 }
 

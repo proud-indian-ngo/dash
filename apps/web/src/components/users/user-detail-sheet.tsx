@@ -2,6 +2,7 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
@@ -34,13 +35,16 @@ export function UserDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
-        {user && (
+        {user ? (
           <>
             <SheetHeader>
               <div className="flex items-center gap-3">
                 <UserAvatar className="size-10" user={user} />
                 <div>
                   <SheetTitle>{user.name}</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    User profile details
+                  </SheetDescription>
                   <p className="text-muted-foreground text-sm">{user.email}</p>
                 </div>
               </div>
@@ -123,6 +127,13 @@ export function UserDetailSheet({
               </div>
             </div>
           </>
+        ) : (
+          <SheetHeader>
+            <SheetTitle>User</SheetTitle>
+            <SheetDescription className="sr-only">
+              User profile details
+            </SheetDescription>
+          </SheetHeader>
         )}
       </SheetContent>
     </Sheet>

@@ -128,11 +128,7 @@ function UserActionsMenu({
           </Button>
         }
       />
-      <DropdownMenuContent
-        align="end"
-        className="w-40"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuItem
           onClick={() => {
             onOpenForm("edit");
