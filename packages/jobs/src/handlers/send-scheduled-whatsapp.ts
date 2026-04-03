@@ -13,6 +13,10 @@ import type { Job } from "pg-boss";
 import type { SendScheduledWhatsAppPayload } from "../enqueue";
 
 async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "send-scheduled-whatsapp",
+  });
   const {
     attachments,
     enqueuedAt,
@@ -21,6 +25,13 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     scheduledMessageId,
     targetAddress,
   } = job.data;
+
+  log.set({
+    jobId: job.id,
+    recipientType,
+    scheduledMessageId,
+    targetAddress,
+  });
 
   const [parent] = await db
     .select({
@@ -32,16 +43,24 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     .limit(1);
 
   if (!parent) {
+    log.set({ event: "job_skip", reason: "parent_not_found" });
+    log.emit();
     return;
   }
 
   if (parent.status === "cancelled") {
+    log.set({ event: "job_skip", reason: "cancelled" });
+    log.emit();
     return;
   }
 
   if (parent.updatedAt && parent.updatedAt.getTime() > enqueuedAt) {
+    log.set({ event: "job_skip", reason: "stale_after_edit" });
+    log.emit();
     return;
   }
+
+  log.set({ attachmentCount: attachments?.length ?? 0 });
 
   if (attachments && attachments.length > 0) {
     const cdnUrl = env.VITE_CDN_URL;
@@ -70,6 +89,9 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     .update(scheduledMessage)
     .set({ status: "sent", updatedAt: new Date() })
     .where(eq(scheduledMessage.id, scheduledMessageId));
+
+  log.set({ event: "job_complete" });
+  log.emit();
 }
 
 /** Dead letter handler — updates scheduled_message.status when all retries exhaust. */
@@ -77,14 +99,26 @@ export async function handleDeadLetterScheduledWhatsApp(
   jobs: Job<{ scheduledMessageId?: string }>[]
 ): Promise<void> {
   for (const job of jobs) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "dead-letter/scheduled-whatsapp",
+    });
     const { scheduledMessageId } = job.data;
+    log.set({ jobId: job.id, scheduledMessageId });
+
     if (!scheduledMessageId) {
+      log.set({ event: "job_skip", reason: "no_scheduled_message_id" });
+      log.emit();
       continue;
     }
+
     await db
       .update(scheduledMessage)
       .set({ status: "failed", updatedAt: new Date() })
       .where(eq(scheduledMessage.id, scheduledMessageId));
+
+    log.set({ event: "status_set_failed" });
+    log.emit();
   }
 }
 
@@ -95,28 +129,9 @@ export async function handleSendScheduledWhatsApp(
   if (!job) {
     return;
   }
-  const log = createRequestLogger({
-    method: "JOB",
-    path: "send-scheduled-whatsapp",
-  });
-  log.set({
-    event: "job_start",
-    jobId: job.id,
-    recipientType: job.data.recipientType,
-    scheduledMessageId: job.data.scheduledMessageId,
-    targetAddress: job.data.targetAddress,
-  });
-  let failed = false;
-  try {
-    await processJob(job);
-  } catch (error) {
-    failed = true;
-    log.error(error instanceof Error ? error : String(error));
-    throw error;
-  } finally {
-    if (!failed) {
-      log.set({ event: "job_complete" });
-    }
-    log.emit();
-  }
+  // No try/catch wrapping processJob — Bun/pg-boss compat requires
+  // errors to propagate directly for pg-boss retry/fail detection.
+  // Logging is handled inside processJob (success/skip paths) and
+  // by the individual WAPI send functions (error paths with log.error + log.emit).
+  await processJob(job);
 }

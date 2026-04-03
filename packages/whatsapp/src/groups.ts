@@ -164,7 +164,7 @@ export async function getGroupParticipants(
   groupJid: string
 ): Promise<string[]> {
   const log = createRequestLogger({
-    method: "JOB",
+    method: "GET",
     path: "getGroupParticipants",
   });
   log.set({ groupJid });

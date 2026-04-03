@@ -25,23 +25,9 @@ const recipientSchema = z.object({
   type: z.enum(["group", "user"]),
 });
 
-const ALLOWED_MEDIA_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/heic",
-  "image/heif",
-  "video/mp4",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-] as const;
-
 const attachmentSchema = z.object({
   fileName: z.string(),
-  mimeType: z.enum(ALLOWED_MEDIA_TYPES, {
-    message: "Unsupported file type",
-  }),
+  mimeType: z.string(),
   r2Key: z.string(),
 });
 

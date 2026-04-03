@@ -1,3 +1,4 @@
+import { createRequestLogger } from "evlog";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
 
@@ -5,8 +6,16 @@ export async function sendWhatsAppMessage(
   phone: string,
   message: string
 ): Promise<void> {
+  const log = createRequestLogger({
+    method: "POST",
+    path: "sendWhatsAppMessage",
+  });
+  log.set({ phone });
+
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    log.set({ event: "whatsapp_not_configured" });
+    log.emit();
     return;
   }
 
@@ -15,24 +24,35 @@ export async function sendWhatsAppMessage(
   const response = await fetch(`${apiUrl}/send/message`, {
     method: "POST",
     headers: getWhatsAppHeaders(),
-    body: JSON.stringify({
-      phone: formatted,
-      message,
-    }),
+    body: JSON.stringify({ phone: formatted, message }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`WhatsApp API error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp API error ${response.status}: ${text}`);
+    log.error(error);
+    log.emit();
+    throw error;
   }
+
+  log.set({ event: "message_sent" });
+  log.emit();
 }
 
 export async function sendWhatsAppGroupMessage(
   groupJid: string,
   message: string
 ): Promise<void> {
+  const log = createRequestLogger({
+    method: "POST",
+    path: "sendWhatsAppGroupMessage",
+  });
+  log.set({ groupJid });
+
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    log.set({ event: "whatsapp_not_configured" });
+    log.emit();
     return;
   }
 
@@ -44,8 +64,16 @@ export async function sendWhatsAppGroupMessage(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`WhatsApp group message error ${response.status}: ${text}`);
+    const error = new Error(
+      `WhatsApp group message error ${response.status}: ${text}`
+    );
+    log.error(error);
+    log.emit();
+    throw error;
   }
+
+  log.set({ event: "message_sent" });
+  log.emit();
 }
 
 export async function sendWhatsAppImage(
@@ -53,8 +81,16 @@ export async function sendWhatsAppImage(
   imageUrl: string,
   caption?: string
 ): Promise<void> {
+  const log = createRequestLogger({
+    method: "POST",
+    path: "sendWhatsAppImage",
+  });
+  log.set({ phone, imageUrl });
+
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    log.set({ event: "whatsapp_not_configured" });
+    log.emit();
     return;
   }
 
@@ -70,8 +106,14 @@ export async function sendWhatsAppImage(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`WhatsApp image error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp image error ${response.status}: ${text}`);
+    log.error(error);
+    log.emit();
+    throw error;
   }
+
+  log.set({ event: "image_sent" });
+  log.emit();
 }
 
 export async function sendWhatsAppVideo(
@@ -79,8 +121,16 @@ export async function sendWhatsAppVideo(
   videoUrl: string,
   caption?: string
 ): Promise<void> {
+  const log = createRequestLogger({
+    method: "POST",
+    path: "sendWhatsAppVideo",
+  });
+  log.set({ phone, videoUrl });
+
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    log.set({ event: "whatsapp_not_configured" });
+    log.emit();
     return;
   }
 
@@ -96,8 +146,14 @@ export async function sendWhatsAppVideo(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`WhatsApp video error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp video error ${response.status}: ${text}`);
+    log.error(error);
+    log.emit();
+    throw error;
   }
+
+  log.set({ event: "video_sent" });
+  log.emit();
 }
 
 export async function sendWhatsAppFile(
@@ -105,8 +161,13 @@ export async function sendWhatsAppFile(
   fileUrl: string,
   caption?: string
 ): Promise<void> {
+  const log = createRequestLogger({ method: "POST", path: "sendWhatsAppFile" });
+  log.set({ phone, fileUrl });
+
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    log.set({ event: "whatsapp_not_configured" });
+    log.emit();
     return;
   }
 
@@ -122,8 +183,14 @@ export async function sendWhatsAppFile(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`WhatsApp file error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp file error ${response.status}: ${text}`);
+    log.error(error);
+    log.emit();
+    throw error;
   }
+
+  log.set({ event: "file_sent" });
+  log.emit();
 }
 
 export interface WhatsAppMediaAttachment {

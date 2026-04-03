@@ -166,8 +166,13 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
           <p className="text-muted-foreground text-xs">
             {isUploading
               ? "Uploading..."
-              : `Images, videos, PDFs \u2022 Max ${formatBytes(MAX_MEDIA_FILE_SIZE)}`}
+              : `Any file up to ${formatBytes(MAX_MEDIA_FILE_SIZE)}`}
           </p>
+          {!isUploading && (
+            <p className="text-muted-foreground/60 text-xs">
+              JPG, PNG sent as images. MP4 sent as video. Others sent as files.
+            </p>
+          )}
         </div>
       </button>
 

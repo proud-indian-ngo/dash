@@ -59,7 +59,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
     z.object({
       fileName: z.string().min(1),
       fileSize: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE_BYTES),
-      mimeType: z.enum(ALLOWED_MIME_TYPES),
+      mimeType: z.string().min(1),
       subfolder: z.enum([
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.photos,
