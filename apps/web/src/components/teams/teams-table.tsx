@@ -215,6 +215,7 @@ export function TeamsTable({
         emptyMessage="No teams found."
         getRowId={(row) => row.id}
         isLoading={isLoading}
+        onRowClick={(row) => onNavigate(row.id)}
         searchFn={searchTeam}
         searchPlaceholder="Search teams..."
         storageKey="teams_table_state_v1"

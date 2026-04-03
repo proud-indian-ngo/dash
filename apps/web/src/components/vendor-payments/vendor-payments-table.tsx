@@ -233,6 +233,7 @@ export function VendorPaymentsTable({
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       onClearFilters={onClearFilters}
+      onRowClick={(row) => onNavigate(row.id as string)}
       searchFn={searchFn}
       searchPlaceholder="Search vendor payments..."
       storageKey="vendor_payments_table_state_v1"

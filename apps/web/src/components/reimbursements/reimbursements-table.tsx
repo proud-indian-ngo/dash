@@ -354,6 +354,7 @@ export function ReimbursementsTable({
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
+        onRowClick={(row) => onNavigate(row.id)}
         searchFn={searchReimbursement}
         searchPlaceholder="Search reimbursements..."
         storageKey="reimbursements_table_state_v1"

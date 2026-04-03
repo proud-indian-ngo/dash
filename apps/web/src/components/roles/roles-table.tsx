@@ -114,6 +114,7 @@ export function RolesTable({
   hasActiveFilters,
   onClearFilters,
 }: RolesTableProps) {
+  const navigate = useNavigate();
   const deleteAction = useConfirmAction<{ id: string; name: string }>({
     onConfirm: (payload) => onDelete(payload),
     onSuccess: () => toast.success("Role deleted"),
@@ -241,6 +242,12 @@ export function RolesTable({
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
+        onRowClick={(row) =>
+          navigate({
+            to: "/settings/roles/$roleId",
+            params: { roleId: row.id },
+          })
+        }
         searchFn={searchRole}
         searchPlaceholder="Search roles..."
         storageKey="roles_table_state_v1"

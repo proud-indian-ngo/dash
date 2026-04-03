@@ -67,6 +67,7 @@ export function EventsTable({
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       onClearFilters={onClearFilters}
+      onRowClick={onSelectEvent}
       searchFn={searchDisplayRow}
       searchPlaceholder="Search events..."
       storageKey="events_table_state_v2"
