@@ -664,7 +664,7 @@ async function seedReimbursements(
       userId: leadId,
       title: "Venue booking deposit",
       city: "mumbai" as const,
-      status: "draft" as const,
+      status: "pending" as const,
       expenseDate: past(2),
       items: [
         { cat: suppliesCat, desc: "Community hall deposit", amount: "5000.00" },
@@ -699,7 +699,7 @@ async function seedReimbursements(
       bankAccountIfscCode: "SBIN0001234",
       reviewedBy: r.reviewedBy,
       reviewedAt: r.reviewedBy ? past(1) : undefined,
-      submittedAt: r.status === "draft" ? undefined : subDays(r.expenseDate, 1),
+      submittedAt: subDays(r.expenseDate, 1),
       createdAt: subDays(r.expenseDate, 2),
       updatedAt: now,
     });
@@ -726,15 +726,13 @@ async function seedReimbursements(
       createdAt: subDays(r.expenseDate, 2),
     });
 
-    if (r.status !== "draft") {
-      await db.insert(reimbursementHistory).values({
-        id: uuidv7(),
-        reimbursementId: id,
-        actorId: r.userId,
-        action: "submitted",
-        createdAt: subDays(r.expenseDate, 1),
-      });
-    }
+    await db.insert(reimbursementHistory).values({
+      id: uuidv7(),
+      reimbursementId: id,
+      actorId: r.userId,
+      action: "submitted",
+      createdAt: subDays(r.expenseDate, 1),
+    });
 
     if (r.status === "approved" || r.status === "rejected") {
       await db.insert(reimbursementHistory).values({

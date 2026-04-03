@@ -320,9 +320,7 @@ export function ReimbursementsTable({
       cell: ({ row }) => {
         const r = row.original;
         const isOwner = r.userId === currentUserId;
-        const canDelete =
-          canDeleteAll ||
-          (isOwner && (r.status === "pending" || r.status === "draft"));
+        const canDelete = canDeleteAll || (isOwner && r.status === "pending");
         return (
           <RowActions
             canDelete={canDelete}

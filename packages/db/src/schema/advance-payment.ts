@@ -15,12 +15,7 @@ import { expenseCategory } from "./expense-category";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 
 // Advance-payment-specific enums
-const advancePaymentStatusValues = [
-  "draft",
-  "pending",
-  "approved",
-  "rejected",
-] as const;
+const advancePaymentStatusValues = ["pending", "approved", "rejected"] as const;
 
 export type AdvancePaymentStatus = (typeof advancePaymentStatusValues)[number];
 
@@ -39,7 +34,7 @@ export const advancePayment = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     city: cityEnum("city"),
-    status: advancePaymentStatusEnum("status").default("draft").notNull(),
+    status: advancePaymentStatusEnum("status").default("pending").notNull(),
     rejectionReason: text("rejection_reason"),
     bankAccountName: text("bank_account_name"),
     bankAccountNumber: text("bank_account_number"),

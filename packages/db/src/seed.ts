@@ -882,7 +882,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       userId: leadId,
       title: "Venue booking deposit",
       city: "mumbai" as const,
-      status: "draft" as const,
+      status: "pending" as const,
       expenseDate: past(2),
       items: [
         {
@@ -931,7 +931,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
         bankAccountIfscCode: "SBIN0001234",
         reviewedBy: r.reviewedBy ?? null,
         reviewedAt: r.reviewedBy ? past(1) : null,
-        submittedAt: r.status === "draft" ? null : subDays(r.expenseDate, 1),
+        submittedAt: subDays(r.expenseDate, 1),
         createdAt: subDays(r.expenseDate, 2),
         updatedAt: now,
       })
@@ -974,7 +974,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       },
     ];
 
-    if (r.status !== "draft" && r.historyIds[1]) {
+    if (r.historyIds[1]) {
       historyEntries.push({
         id: r.historyIds[1],
         action: "submitted",

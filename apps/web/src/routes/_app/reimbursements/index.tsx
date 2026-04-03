@@ -21,7 +21,6 @@ import {
 } from "@/lib/reimbursement-types";
 
 const STATUS_OPTIONS = [
-  { label: "Draft", value: "draft" },
   { label: "Pending", value: "pending" },
   { label: "Approved", value: "approved" },
   { label: "Rejected", value: "rejected" },

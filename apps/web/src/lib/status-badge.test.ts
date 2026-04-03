@@ -2,13 +2,6 @@ import { describe, expect, it } from "vitest";
 import { getStatusBadge } from "./status-badge";
 
 describe("getStatusBadge", () => {
-  it('maps draft to "Draft" label with "secondary" variant', () => {
-    expect(getStatusBadge("draft")).toEqual({
-      label: "Draft",
-      variant: "secondary",
-    });
-  });
-
   it('maps pending to "Pending" label with "warning-outline" variant', () => {
     expect(getStatusBadge("pending")).toEqual({
       label: "Pending",
@@ -53,7 +46,14 @@ describe("getStatusBadge", () => {
 
   it("returns fallback for null", () => {
     expect(getStatusBadge(null)).toEqual({
-      label: "Draft",
+      label: "Unknown",
+      variant: "secondary",
+    });
+  });
+
+  it("returns fallback for empty string", () => {
+    expect(getStatusBadge("")).toEqual({
+      label: "Unknown",
       variant: "secondary",
     });
   });

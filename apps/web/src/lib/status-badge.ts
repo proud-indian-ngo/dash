@@ -13,7 +13,6 @@ const STATUS_BADGE_ENTRIES: Record<
   string,
   { label: string; variant: StatusBadgeVariant }
 > = {
-  draft: { label: "Draft", variant: "secondary" },
   pending: { label: "Pending", variant: "warning-outline" },
   approved: { label: "Approved", variant: "success-outline" },
   rejected: { label: "Rejected", variant: "destructive-outline" },
@@ -27,5 +26,5 @@ export function getStatusBadge(status: string | null): {
   label: string;
   variant: StatusBadgeVariant;
 } {
-  return STATUS_BADGE_ENTRIES[status ?? "draft"] ?? FALLBACK_BADGE;
+  return (status ? STATUS_BADGE_ENTRIES[status] : null) ?? FALLBACK_BADGE;
 }

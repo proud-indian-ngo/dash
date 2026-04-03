@@ -17,12 +17,7 @@ import { expenseCategory } from "./expense-category";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 
 // Reimbursement-specific enums
-const reimbursementStatusValues = [
-  "draft",
-  "pending",
-  "approved",
-  "rejected",
-] as const;
+const reimbursementStatusValues = ["pending", "approved", "rejected"] as const;
 
 export type ReimbursementStatus = (typeof reimbursementStatusValues)[number];
 
@@ -42,7 +37,7 @@ export const reimbursement = pgTable(
     title: text("title").notNull(),
     city: cityEnum("city"),
     expenseDate: date("expense_date", { mode: "string" }).notNull(),
-    status: reimbursementStatusEnum("status").default("draft").notNull(),
+    status: reimbursementStatusEnum("status").default("pending").notNull(),
     rejectionReason: text("rejection_reason"),
     bankAccountName: text("bank_account_name"),
     bankAccountNumber: text("bank_account_number"),

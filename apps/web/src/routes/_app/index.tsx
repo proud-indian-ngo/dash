@@ -183,14 +183,12 @@ function WelcomeDashboard() {
 
 function PendingActions({
   canApprove,
-  draftCount,
   pendingCount,
 }: {
   canApprove: boolean;
-  draftCount: number;
   pendingCount: number;
 }) {
-  if (pendingCount === 0 && draftCount === 0) {
+  if (pendingCount === 0) {
     return null;
   }
 
@@ -226,36 +224,6 @@ function PendingActions({
           </Button>
         </Link>
       )}
-      {draftCount > 0 && (
-        <Link
-          className="flex items-center gap-3 border-muted-foreground/30 border-l-2 bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/50"
-          search={{ status: "draft" }}
-          to="/reimbursements"
-        >
-          <HugeiconsIcon
-            className="size-4 shrink-0 text-muted-foreground"
-            icon={Invoice01Icon}
-            strokeWidth={2}
-          />
-          <span className="flex-1 text-muted-foreground text-sm">
-            <span className="font-display font-semibold text-foreground text-lg tracking-tight">
-              {draftCount}
-            </span>{" "}
-            draft {draftCount === 1 ? "reimbursement" : "reimbursements"} to
-            complete
-          </span>
-          <Button
-            className="shrink-0"
-            nativeButton={false}
-            render={<span />}
-            size="xs"
-            variant="outline"
-          >
-            Continue
-            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
-          </Button>
-        </Link>
-      )}
     </div>
   );
 }
@@ -284,10 +252,6 @@ function OrientedDashboard() {
     byStatus(reimbursements, "pending").length +
     byStatus(advancePayments, "pending").length +
     byStatus(vendorPayments, "pending").length;
-
-  const draftCount =
-    byStatus(reimbursements, "draft").length +
-    byStatus(advancePayments, "draft").length;
 
   const stats = computeDashboardStats({
     reimbursements,
@@ -319,11 +283,7 @@ function OrientedDashboard() {
         </Button>
       </div>
 
-      <PendingActions
-        canApprove={canApprove}
-        draftCount={draftCount}
-        pendingCount={pendingCount}
-      />
+      <PendingActions canApprove={canApprove} pendingCount={pendingCount} />
 
       <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />
