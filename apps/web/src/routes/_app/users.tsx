@@ -18,6 +18,7 @@ import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StatsCards } from "@/components/stats/stats-cards";
+import { UserDetailSheet } from "@/components/users/user-detail-sheet";
 import {
   type CreateUserFormValues,
   defaultCreateUserFormValues,
@@ -81,6 +82,7 @@ function UsersRouteComponent() {
   const isLoading = usersData.length === 0 && queryResult.type !== "complete";
 
   const allUsers = (usersData ?? []) as User[];
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleSelectOptions, setRoleSelectOptions] = useState<
     { label: string; value: string }[]
@@ -310,6 +312,7 @@ function UsersRouteComponent() {
           onBanUser={handleBanUser}
           onClearFilters={clearFilters}
           onDelete={handleDeleteUser}
+          onRowClick={(user) => setSelectedUser(user)}
           onSetPassword={handleResetPassword}
           onUnbanUser={handleUnbanUser}
           onUpdateUser={handleUpdateUser}
@@ -377,6 +380,15 @@ function UsersRouteComponent() {
             </>
           }
           users={users}
+        />
+        <UserDetailSheet
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedUser(null);
+            }
+          }}
+          open={!!selectedUser}
+          user={selectedUser}
         />
       </div>
 

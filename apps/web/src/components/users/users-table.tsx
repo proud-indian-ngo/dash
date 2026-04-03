@@ -43,6 +43,7 @@ interface UsersTableProps {
   ) => Promise<void>;
   onClearFilters?: () => void;
   onDelete: (userId: string) => Promise<void>;
+  onRowClick?: (user: User) => void;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUnbanUser: (userId: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
@@ -398,6 +399,7 @@ export function UsersTable({
   isLoading,
   onBanUser,
   onDelete,
+  onRowClick,
   onSetPassword,
   onUnbanUser,
   onUpdateUser,
@@ -451,6 +453,7 @@ export function UsersTable({
       isLoading={isLoading}
       onClearFilters={onClearFilters}
       onFilteredDataChange={handleFilteredDataChange}
+      onRowClick={onRowClick}
       paginationSizes={[10, 20, 50]}
       searchFn={searchUser}
       searchPlaceholder="Search users..."
