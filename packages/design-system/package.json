@@ -44,7 +44,7 @@
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "shadcn": "^4.1.1",
+    "shadcn": "^4.1.2",
     "typescript": "catalog:"
   }
 }

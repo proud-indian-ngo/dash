@@ -13,7 +13,7 @@
     "@pi-dash/email": "workspace:*",
     "@pi-dash/env": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
-    "@trycourier/courier": "^7.8.0",
+    "@trycourier/courier": "^7.9.0",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:"
   },
