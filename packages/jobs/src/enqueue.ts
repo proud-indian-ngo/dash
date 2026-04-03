@@ -43,6 +43,7 @@ export interface SendScheduledWhatsAppPayload {
   attachments?: Array<{ fileName: string; mimeType: string; r2Key: string }>;
   enqueuedAt: number;
   message: string;
+  recipientRowId: string;
   recipientType: "group" | "user";
   scheduledMessageId: string;
   targetAddress: string;
@@ -359,6 +360,10 @@ export interface NotifyTeamRoleChangedPayload {
 }
 
 // Scheduled Reminders
+export interface CleanupStaleScheduledRecipientsPayload {
+  triggeredAt: string;
+}
+
 export interface RemindStaleRequestsPayload {
   triggeredAt: string;
 }
@@ -427,6 +432,7 @@ export interface SyncCourierPreferencePayload {
 // -- Payload map ---------------------------------------------------------------
 
 export interface JobPayloads {
+  "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;
   "immich-sync-photo": ImmichSyncPhotoPayload;
@@ -499,6 +505,7 @@ export interface JobPayloads {
 export type JobName = keyof JobPayloads;
 
 export const QUEUE_NAMES: JobName[] = [
+  "cleanup-stale-scheduled-recipients",
   "delete-r2-object",
   "immich-delete-asset",
   "immich-sync-photo",

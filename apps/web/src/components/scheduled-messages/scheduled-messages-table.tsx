@@ -1,4 +1,6 @@
 import {
+  ArrowDown01Icon,
+  ArrowRight01Icon,
   Cancel01Icon,
   Delete02Icon,
   MoreVerticalIcon,
@@ -17,28 +19,26 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@pi-dash/design-system/components/ui/tooltip";
-import type { ScheduledMessage } from "@pi-dash/zero/schema";
+  deriveMessageStatus,
+  type ScheduledMessageDerivedStatus,
+} from "@pi-dash/shared/scheduled-message";
+import type {
+  ScheduledMessage,
+  ScheduledMessageRecipient,
+} from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
-
-interface Recipient {
-  id: string;
-  label: string;
-  type: "group" | "user";
-}
 
 type ScheduledMessageRow = ScheduledMessage & {
   creator?: { name: string } | null;
+  recipients: ScheduledMessageRecipient[];
 };
 
-function getStatusBadge(status: string | null) {
+function getStatusBadge(status: ScheduledMessageDerivedStatus) {
   switch (status) {
     case "sent":
       return { label: "Sent", variant: "success" as const };
@@ -46,11 +46,14 @@ function getStatusBadge(status: string | null) {
       return { label: "Failed", variant: "destructive" as const };
     case "cancelled":
       return { label: "Cancelled", variant: "warning" as const };
+    case "partial":
+      return { label: "Partial", variant: "secondary" as const };
     default:
       return { label: "Pending", variant: "outline" as const };
   }
 }
 
+const SKELETON_EXPAND = <Skeleton className="size-6" />;
 const SKELETON_MSG = <Skeleton className="h-4 w-48" />;
 const SKELETON_DATE = <Skeleton className="h-4 w-28" />;
 const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
@@ -71,7 +74,8 @@ function searchMessage(row: ScheduledMessageRow, query: string): boolean {
   if (!q) {
     return true;
   }
-  return [row.message, row.status, row.creator?.name]
+  const derivedStatus = deriveMessageStatus(row.recipients);
+  return [row.message, derivedStatus, row.creator?.name]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
@@ -82,9 +86,45 @@ function createColumns(
   onView: (row: ScheduledMessageRow) => void,
   onEdit: (row: ScheduledMessageRow) => void,
   onCancel: (row: ScheduledMessageRow) => void,
-  onDelete: (row: ScheduledMessageRow) => void
+  onDelete: (row: ScheduledMessageRow) => void,
+  onRetry: (recipientId: string) => void
 ): ColumnDef<ScheduledMessageRow>[] {
   return [
+    {
+      id: "expand",
+      header: "",
+      cell: ({ row }) => (
+        <Button
+          aria-label={row.getIsExpanded() ? "Collapse" : "Expand"}
+          className="size-7"
+          onClick={(e) => {
+            e.stopPropagation();
+            row.toggleExpanded();
+          }}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={row.getIsExpanded() ? ArrowDown01Icon : ArrowRight01Icon}
+            strokeWidth={2}
+          />
+        </Button>
+      ),
+      meta: {
+        skeleton: SKELETON_EXPAND,
+        expandedContent: (row: ScheduledMessageRow) => (
+          <RecipientSubTable onRetry={onRetry} recipients={row.recipients} />
+        ),
+      },
+      enableColumnOrdering: false,
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      size: 40,
+      minSize: 40,
+    },
     {
       id: "message",
       accessorFn: (row) => row.message,
@@ -123,7 +163,7 @@ function createColumns(
     },
     {
       id: "status",
-      accessorFn: (row) => row.status,
+      accessorFn: (row) => deriveMessageStatus(row.recipients),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -132,7 +172,8 @@ function createColumns(
         />
       ),
       cell: ({ row }) => {
-        const badge = getStatusBadge(row.original.status);
+        const status = deriveMessageStatus(row.original.recipients);
+        const badge = getStatusBadge(status);
         return <Badge variant={badge.variant}>{badge.label}</Badge>;
       },
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
@@ -140,7 +181,7 @@ function createColumns(
     },
     {
       id: "recipients",
-      accessorFn: (row) => (row.recipients as Recipient[]).length,
+      accessorFn: (row) => row.recipients.length,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -149,28 +190,11 @@ function createColumns(
         />
       ),
       cell: ({ row }) => {
-        const recipients = row.original.recipients as Recipient[];
+        const count = row.original.recipients.length;
         return (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span className="cursor-default text-sm">
-                  {recipients.length} recipient
-                  {recipients.length === 1 ? "" : "s"}
-                </span>
-              }
-            />
-            <TooltipContent>
-              <div className="flex flex-col gap-0.5">
-                {recipients.map((r) => (
-                  <span key={r.id}>
-                    {r.type === "group" ? "Group: " : "User: "}
-                    {r.label}
-                  </span>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
+          <span className="text-sm">
+            {count} recipient{count === 1 ? "" : "s"}
+          </span>
         );
       },
       meta: { headerTitle: "Recipients", skeleton: SKELETON_RECIPIENTS },
@@ -199,7 +223,7 @@ function createColumns(
       header: "",
       cell: ({ row }) => {
         const msg = row.original;
-        const isPending = msg.status === "pending";
+        const isPending = deriveMessageStatus(msg.recipients) === "pending";
 
         return (
           // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper
@@ -288,35 +312,46 @@ function createColumns(
 }
 
 interface ScheduledMessagesTableProps {
+  hasActiveFilters?: boolean;
   isLoading?: boolean;
   messages: ScheduledMessageRow[];
   onCancel: (row: ScheduledMessageRow) => void;
+  onClearFilters?: () => void;
   onDelete: (row: ScheduledMessageRow) => void;
   onEdit: (row: ScheduledMessageRow) => void;
+  onRetry: (recipientId: string) => void;
   onView: (row: ScheduledMessageRow) => void;
   toolbarActions?: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 export type { ScheduledMessageRow };
 
 export function ScheduledMessagesTable({
+  hasActiveFilters,
   isLoading,
   messages,
   onCancel,
+  onClearFilters,
   onDelete,
   onEdit,
+  onRetry,
   onView,
   toolbarActions,
+  toolbarFilters,
 }: ScheduledMessagesTableProps) {
-  const columns = createColumns(onView, onEdit, onCancel, onDelete);
+  const columns = createColumns(onView, onEdit, onCancel, onDelete, onRetry);
 
   return (
     <DataTableWrapper<ScheduledMessageRow>
       columns={columns}
       data={messages}
       emptyMessage="No scheduled messages."
+      getRowCanExpand={() => true}
       getRowId={(row) => row.id}
+      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
+      onClearFilters={onClearFilters}
       onRowClick={onView}
       searchFn={searchMessage}
       searchPlaceholder="Search messages..."
@@ -329,6 +364,7 @@ export function ScheduledMessagesTable({
         columnsPinnable: true,
       }}
       toolbarActions={toolbarActions}
+      toolbarFilters={toolbarFilters}
     />
   );
 }

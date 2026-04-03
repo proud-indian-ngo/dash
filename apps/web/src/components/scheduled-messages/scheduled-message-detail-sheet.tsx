@@ -2,8 +2,6 @@ import {
   Cancel01Icon,
   Delete02Icon,
   PencilEdit01Icon,
-  UserGroupIcon,
-  UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
@@ -15,19 +13,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
-import type { ScheduledMessage } from "@pi-dash/zero/schema";
+import {
+  deriveMessageStatus,
+  type ScheduledMessageDerivedStatus,
+} from "@pi-dash/shared/scheduled-message";
+import type {
+  ScheduledMessage,
+  ScheduledMessageRecipient,
+} from "@pi-dash/zero/schema";
 import { format } from "date-fns";
+import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
 type ScheduledMessageWithCreator = ScheduledMessage & {
   creator?: { name: string } | null;
+  recipients: ScheduledMessageRecipient[];
 };
-
-interface Recipient {
-  id: string;
-  label: string;
-  type: "group" | "user";
-}
 
 interface Attachment {
   fileName: string;
@@ -35,12 +36,20 @@ interface Attachment {
   r2Key: string;
 }
 
-const STATUS_BADGE_MAP = {
-  pending: { label: "Pending", variant: "outline" as const },
-  sent: { label: "Sent", variant: "success" as const },
-  failed: { label: "Failed", variant: "destructive" as const },
-  cancelled: { label: "Cancelled", variant: "warning" as const },
-};
+function getStatusBadge(status: ScheduledMessageDerivedStatus) {
+  switch (status) {
+    case "sent":
+      return { label: "Sent", variant: "success" as const };
+    case "failed":
+      return { label: "Failed", variant: "destructive" as const };
+    case "cancelled":
+      return { label: "Cancelled", variant: "warning" as const };
+    case "partial":
+      return { label: "Partial", variant: "secondary" as const };
+    default:
+      return { label: "Pending", variant: "outline" as const };
+  }
+}
 
 function formatTs(ts: number): string {
   try {
@@ -65,6 +74,7 @@ interface ScheduledMessageDetailSheetProps {
   onDelete: () => void;
   onEdit: () => void;
   onOpenChange: (open: boolean) => void;
+  onRetry?: (recipientId: string) => void;
   open: boolean;
 }
 
@@ -74,13 +84,12 @@ export function ScheduledMessageDetailSheet({
   onDelete,
   onEdit,
   onOpenChange,
+  onRetry,
   open,
 }: ScheduledMessageDetailSheetProps) {
-  const isPending = message?.status === "pending";
-  const badge = message
-    ? (STATUS_BADGE_MAP[message.status ?? "pending"] ??
-      STATUS_BADGE_MAP.pending)
-    : null;
+  const status = message ? deriveMessageStatus(message.recipients) : null;
+  const isPending = status === "pending";
+  const badge = status ? getStatusBadge(status) : null;
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
@@ -128,20 +137,12 @@ export function ScheduledMessageDetailSheet({
 
               <div className="grid gap-4">
                 <h3 className="font-medium text-sm">
-                  Recipients ({(message.recipients as Recipient[]).length})
+                  Recipients ({message.recipients.length})
                 </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {(message.recipients as Recipient[]).map((r) => (
-                    <Badge className="gap-1" key={r.id} variant="secondary">
-                      <HugeiconsIcon
-                        className="size-3"
-                        icon={r.type === "group" ? UserGroupIcon : UserIcon}
-                        strokeWidth={2}
-                      />
-                      {r.label}
-                    </Badge>
-                  ))}
-                </div>
+                <RecipientSubTable
+                  onRetry={onRetry}
+                  recipients={message.recipients}
+                />
               </div>
 
               {(message.attachments as Attachment[] | null)?.length ? (

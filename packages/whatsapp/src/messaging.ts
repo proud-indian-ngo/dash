@@ -94,14 +94,17 @@ export async function sendWhatsAppImage(
     return;
   }
 
+  const formData = new FormData();
+  formData.append("phone", phone);
+  formData.append("image_url", imageUrl);
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
   const response = await fetch(`${apiUrl}/send/image`, {
     method: "POST",
-    headers: getWhatsAppHeaders(),
-    body: JSON.stringify({
-      phone,
-      image: { url: imageUrl },
-      ...(caption && { caption }),
-    }),
+    headers: getWhatsAppHeaders({ omitContentType: true }),
+    body: formData,
   });
 
   if (!response.ok) {
@@ -134,14 +137,17 @@ export async function sendWhatsAppVideo(
     return;
   }
 
+  const formData = new FormData();
+  formData.append("phone", phone);
+  formData.append("video_url", videoUrl);
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
   const response = await fetch(`${apiUrl}/send/video`, {
     method: "POST",
-    headers: getWhatsAppHeaders(),
-    body: JSON.stringify({
-      phone,
-      video: { url: videoUrl },
-      ...(caption && { caption }),
-    }),
+    headers: getWhatsAppHeaders({ omitContentType: true }),
+    body: formData,
   });
 
   if (!response.ok) {

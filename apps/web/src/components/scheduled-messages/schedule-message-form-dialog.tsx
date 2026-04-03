@@ -1,5 +1,8 @@
 import { Label } from "@pi-dash/design-system/components/ui/label";
-import type { ScheduledMessage } from "@pi-dash/zero/schema";
+import type {
+  ScheduledMessage,
+  ScheduledMessageRecipient,
+} from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
 import { addHours, startOfHour } from "date-fns";
 import { useState } from "react";
@@ -43,8 +46,12 @@ const formSchema = z.object({
   attachments: z.array(attachmentSchema).max(5),
 });
 
+type ScheduledMessageWithRecipients = ScheduledMessage & {
+  recipients: ScheduledMessageRecipient[];
+};
+
 interface ScheduleMessageFormDialogProps {
-  initialValues?: ScheduledMessage;
+  initialValues?: ScheduledMessageWithRecipients;
   onClose: () => void;
   onSubmit: (values: {
     attachments?: MediaAttachment[];
@@ -62,6 +69,7 @@ export function ScheduleMessageFormDialog({
   open,
 }: ScheduleMessageFormDialogProps) {
   const isEdit = !!initialValues;
+  const [formKey, setFormKey] = useState(0);
   const [entityId] = useState(() => initialValues?.id ?? uuidv7());
 
   const form = useForm({
@@ -70,7 +78,11 @@ export function ScheduleMessageFormDialog({
       scheduledAt: initialValues
         ? new Date(initialValues.scheduledAt)
         : addHours(startOfHour(new Date()), 1),
-      recipients: (initialValues?.recipients ?? []) as Recipient[],
+      recipients: (initialValues?.recipients ?? []).map((r) => ({
+        id: r.recipientId,
+        label: r.label,
+        type: r.type as "group" | "user",
+      })),
       attachments: (initialValues?.attachments ?? []) as MediaAttachment[],
     },
     onSubmit: async ({ value }) => {
@@ -94,14 +106,16 @@ export function ScheduleMessageFormDialog({
         isEdit ? "Edit the scheduled message" : "Schedule a WhatsApp message"
       }
       onOpenChange={(v) => {
-        if (!v) {
+        if (v) {
+          setFormKey((k) => k + 1);
+        } else {
           onClose();
         }
       }}
       open={open}
       title={isEdit ? "Edit scheduled message" : "Schedule message"}
     >
-      <FormLayout form={form} key={initialValues?.id ?? "create"}>
+      <FormLayout form={form} key={formKey}>
         <TextareaField
           isRequired
           label="Message"

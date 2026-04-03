@@ -1,5 +1,6 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
+import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
@@ -341,7 +342,12 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     handleNotifyEventFeedbackOpen
   );
 
-  // Scheduled reminder handlers (cron-triggered)
+  // Scheduled reminder/cleanup handlers (cron-triggered)
+  await boss.work(
+    "cleanup-stale-scheduled-recipients",
+    NOTIFY_POLL,
+    handleCleanupStaleScheduledRecipients
+  );
   await boss.work(
     "remind-stale-requests",
     NOTIFY_POLL,

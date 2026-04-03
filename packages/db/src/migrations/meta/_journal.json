@@ -239,6 +239,13 @@
       "when": 1775127990194,
       "tag": "0033_open_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1775185829836,
+      "tag": "0034_pale_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

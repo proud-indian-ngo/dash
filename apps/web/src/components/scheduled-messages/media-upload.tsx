@@ -45,7 +45,7 @@ async function uploadSingleFile(
   });
 
   if (!response.ok) {
-    throw new Error("Upload failed");
+    throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
   }
 
   return { r2Key: key, fileName: file.name, mimeType: file.type };
