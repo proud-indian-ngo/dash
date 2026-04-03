@@ -176,14 +176,9 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Title" visibility={true} />
       ),
       cell: ({ row }) => (
-        <button
-          className="truncate text-left font-medium text-sm hover:underline"
-          data-testid="row-title"
-          onClick={() => onNavigate(row.original.id)}
-          type="button"
-        >
+        <span className="truncate font-medium text-sm">
           {row.original.title}
-        </button>
+        </span>
       ),
       meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
       size: 240,
