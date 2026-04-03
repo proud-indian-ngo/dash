@@ -217,6 +217,7 @@
         "@pi-dash/env": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/observability": "workspace:*",
+        "@pi-dash/shared": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
@@ -281,7 +282,6 @@
       "name": "@pi-dash/zero",
       "dependencies": {
         "@pi-dash/db": "workspace:*",
-        "@pi-dash/env": "workspace:*",
         "@pi-dash/jobs": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/shared": "workspace:*",

@@ -84,6 +84,7 @@ All paths are relative to project root.
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
+| `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
@@ -201,10 +202,10 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/shared/` | Client-safe constants and types shared across packages (e.g., `cityValues`, `attachmentTypeValues`, `historyActionValues`) — no heavy dependencies |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
 | `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
-| `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/handlers/r2.ts` (shared R2 S3 client), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory). **Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point (payload types + `enqueue()` only, no handler deps) used by mutators; `@pi-dash/jobs` (barrel) is for server-only code. |
+| `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/handlers/r2.ts` (shared R2 S3 client), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory). `send-scheduled-whatsapp` uses a dedicated dead letter queue (`dead-letter-scheduled-whatsapp`) to avoid hijacking the shared `dead-letter` queue. **Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point (payload types + `enqueue()` only, no handler deps) used by mutators; `@pi-dash/jobs` (barrel) is for server-only code. |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, submission-helpers), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion — exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group, scheduled-message), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, scheduled-message, submission-helpers), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion — exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
@@ -249,6 +250,8 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `eventFeedback` | `packages/db/src/schema/event-feedback.ts` |
 | `eventFeedbackSubmission` | `packages/db/src/schema/event-feedback.ts` |
 | `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
+| `scheduledMessage` | `packages/db/src/schema/scheduled-message.ts` |
+| `scheduledMessageRecipient` | `packages/db/src/schema/scheduled-message.ts` |
 
 ## Notifications
 

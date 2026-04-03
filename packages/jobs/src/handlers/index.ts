@@ -1,5 +1,6 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
+import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
@@ -75,6 +76,10 @@ import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
+import {
+  handleDeadLetterScheduledWhatsApp,
+  handleSendScheduledWhatsApp,
+} from "./send-scheduled-whatsapp";
 import { handleSendWhatsApp } from "./send-whatsapp";
 import { handleSyncCourierPreference } from "./sync-courier-preference";
 import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
@@ -89,6 +94,7 @@ import {
 } from "./whatsapp-group";
 
 const DEAD_LETTER_QUEUE = "dead-letter";
+const DEAD_LETTER_SCHEDULED_WHATSAPP = "dead-letter-scheduled-whatsapp";
 
 const QUEUE_DEFAULTS: Omit<Queue, "name"> = {
   retryLimit: 3,
@@ -104,15 +110,24 @@ const QUEUE_OVERRIDES: Partial<
 > = {
   "immich-sync-photo": { expireInSeconds: 1800 },
   "whatsapp-create-group": { expireInSeconds: 1800 },
+  "send-scheduled-whatsapp": { deadLetter: DEAD_LETTER_SCHEDULED_WHATSAPP },
 };
 
 // Low-traffic notification queues poll less frequently to reduce DB load
 const NOTIFY_POLL: WorkOptions = { pollingIntervalSeconds: 5 };
 
 export async function registerHandlers(boss: PgBoss): Promise<void> {
-  // Dead letter queue first (other queues reference it) — no deadLetter on itself
+  // Dead letter queues first (other queues reference them) — no deadLetter on themselves
   const { deadLetter: _, ...deadLetterDefaults } = QUEUE_DEFAULTS;
   await boss.createQueue(DEAD_LETTER_QUEUE, deadLetterDefaults);
+  await boss.createQueue(DEAD_LETTER_SCHEDULED_WHATSAPP, deadLetterDefaults);
+
+  // Dead letter handler for scheduled WhatsApp — marks recipients as failed
+  await boss.work(
+    DEAD_LETTER_SCHEDULED_WHATSAPP,
+    NOTIFY_POLL,
+    handleDeadLetterScheduledWhatsApp
+  );
 
   // Create all application queues
   for (const name of QUEUE_NAMES) {
@@ -127,6 +142,7 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work("send-bulk-notification", handleSendBulkNotification);
   await boss.work("send-whatsapp", handleSendWhatsApp);
   await boss.work("send-scheduled-message", handleSendScheduledMessage);
+  await boss.work("send-scheduled-whatsapp", handleSendScheduledWhatsApp);
 
   // Notification handlers (5s polling — burst traffic, not continuous)
   await boss.work(
@@ -329,7 +345,12 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     handleNotifyEventFeedbackOpen
   );
 
-  // Scheduled reminder handlers (cron-triggered)
+  // Scheduled reminder/cleanup handlers (cron-triggered)
+  await boss.work(
+    "cleanup-stale-scheduled-recipients",
+    NOTIFY_POLL,
+    handleCleanupStaleScheduledRecipients
+  );
   await boss.work(
     "remind-stale-requests",
     NOTIFY_POLL,

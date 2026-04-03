@@ -10,6 +10,7 @@ export * from "./event-update";
 export * from "./expense-category";
 export * from "./permission";
 export * from "./reimbursement";
+export * from "./scheduled-message";
 export * from "./shared";
 export * from "./team";
 export * from "./team-event";

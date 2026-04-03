@@ -9,4 +9,9 @@ export const userQueries = {
       ? zql.user.orderBy("createdAt", "desc")
       : zql.user.where("id", ctx?.userId)
   ),
+  whatsappUsers: defineQuery(({ ctx }) =>
+    ctx != null && can(ctx, "users.view")
+      ? zql.user.where("isOnWhatsapp", true).orderBy("name", "asc")
+      : zql.user.where("id", ctx?.userId).where("isOnWhatsapp", true)
+  ),
 };

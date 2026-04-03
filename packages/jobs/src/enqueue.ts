@@ -39,6 +39,16 @@ export interface ScheduledMessagePayload {
   userId: string;
 }
 
+export interface SendScheduledWhatsAppPayload {
+  attachments?: Array<{ fileName: string; mimeType: string; r2Key: string }>;
+  enqueuedAt: number;
+  message: string;
+  recipientRowId: string;
+  recipientType: "group" | "user";
+  scheduledMessageId: string;
+  targetAddress: string;
+}
+
 // -- Domain-specific notification payloads ------------------------------------
 
 // Reimbursement
@@ -350,6 +360,10 @@ export interface NotifyTeamRoleChangedPayload {
 }
 
 // Scheduled Reminders
+export interface CleanupStaleScheduledRecipientsPayload {
+  triggeredAt: string;
+}
+
 export interface RemindStaleRequestsPayload {
   triggeredAt: string;
 }
@@ -418,6 +432,7 @@ export interface SyncCourierPreferencePayload {
 // -- Payload map ---------------------------------------------------------------
 
 export interface JobPayloads {
+  "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;
   "immich-sync-photo": ImmichSyncPhotoPayload;
@@ -473,6 +488,7 @@ export interface JobPayloads {
   "send-bulk-notification": BulkNotificationPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
+  "send-scheduled-whatsapp": SendScheduledWhatsAppPayload;
   "send-whatsapp": WhatsAppPayload;
   "sync-courier-preference": SyncCourierPreferencePayload;
   "sync-courier-user": SyncCourierUserPayload;
@@ -489,6 +505,7 @@ export interface JobPayloads {
 export type JobName = keyof JobPayloads;
 
 export const QUEUE_NAMES: JobName[] = [
+  "cleanup-stale-scheduled-recipients",
   "delete-r2-object",
   "immich-delete-asset",
   "immich-sync-photo",
@@ -544,6 +561,7 @@ export const QUEUE_NAMES: JobName[] = [
   "send-bulk-notification",
   "send-notification",
   "send-scheduled-message",
+  "send-scheduled-whatsapp",
   "send-whatsapp",
   "sync-courier-preference",
   "sync-courier-user",

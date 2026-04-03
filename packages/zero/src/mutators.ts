@@ -9,6 +9,7 @@ import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
 import { reimbursementMutators } from "./mutators/reimbursement";
+import { scheduledMessageMutators } from "./mutators/scheduled-message";
 import { teamMutators } from "./mutators/team";
 import { teamEventMutators } from "./mutators/team-event";
 import { vendorMutators } from "./mutators/vendor";
@@ -21,6 +22,7 @@ export const mutators = defineMutators({
   bankAccount: bankAccountMutators,
   expenseCategory: expenseCategoryMutators,
   reimbursement: reimbursementMutators,
+  scheduledMessage: scheduledMessageMutators,
   advancePayment: advancePaymentMutators,
   appConfig: appConfigMutators,
   eventFeedback: eventFeedbackMutators,

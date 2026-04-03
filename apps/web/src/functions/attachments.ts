@@ -12,6 +12,8 @@ export const ALLOWED_MIME_TYPES = [
   "image/gif",
   "image/webp",
   "image/svg+xml",
+  "image/heic",
+  "image/heif",
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -19,6 +21,8 @@ export const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/plain",
   "text/csv",
+  "video/mp4",
+  "video/quicktime",
 ] as const;
 
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
@@ -28,6 +32,7 @@ const R2_SUBFOLDERS = {
   approvalScreenshots: "approval-screenshots",
   avatars: "avatars",
   photos: "photos",
+  scheduledMessages: "scheduled-messages",
   updates: "updates",
 } as const;
 
@@ -51,18 +56,33 @@ const sanitizeFileName = (fileName: string): string =>
 export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(
-    z.object({
-      fileName: z.string().min(1),
-      fileSize: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE_BYTES),
-      mimeType: z.enum(ALLOWED_MIME_TYPES),
-      subfolder: z.enum([
-        R2_SUBFOLDERS.attachments,
-        R2_SUBFOLDERS.photos,
-        R2_SUBFOLDERS.updates,
-        R2_SUBFOLDERS.approvalScreenshots,
-      ]),
-      entityId: z.string().min(1),
-    })
+    z
+      .object({
+        fileName: z.string().min(1),
+        fileSize: z
+          .number()
+          .int()
+          .positive()
+          .max(MAX_ATTACHMENT_FILE_SIZE_BYTES),
+        mimeType: z.string().min(1),
+        subfolder: z.enum([
+          R2_SUBFOLDERS.attachments,
+          R2_SUBFOLDERS.photos,
+          R2_SUBFOLDERS.scheduledMessages,
+          R2_SUBFOLDERS.updates,
+          R2_SUBFOLDERS.approvalScreenshots,
+        ]),
+        entityId: z.string().min(1),
+      })
+      .refine(
+        (data) =>
+          data.subfolder === R2_SUBFOLDERS.scheduledMessages ||
+          (ALLOWED_MIME_TYPES as readonly string[]).includes(data.mimeType),
+        {
+          message: "File type not allowed for this subfolder",
+          path: ["mimeType"],
+        }
+      )
   )
   .handler(async ({ data }) => {
     const s3 = await getS3();
@@ -88,6 +108,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.approvalScreenshots,
         R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.scheduledMessages,
         R2_SUBFOLDERS.updates,
       ]),
     })
@@ -154,6 +175,7 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.approvalScreenshots,
         R2_SUBFOLDERS.photos,
+        R2_SUBFOLDERS.scheduledMessages,
         R2_SUBFOLDERS.updates,
       ]),
     })

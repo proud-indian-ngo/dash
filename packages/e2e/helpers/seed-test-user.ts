@@ -4,6 +4,7 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
@@ -126,11 +127,34 @@ async function ensureBankAccount(userId: string): Promise<void> {
   }
 }
 
+const TEST_WHATSAPP_GROUP = {
+  name: "E2E Test Group",
+  jid: "e2e-test-group@g.us",
+};
+
+async function ensureWhatsAppGroup(): Promise<void> {
+  const existing = await db.query.whatsappGroup.findFirst({
+    where: (table, ops) => ops.eq(table.jid, TEST_WHATSAPP_GROUP.jid),
+  });
+  if (!existing) {
+    const now = new Date();
+    await db.insert(whatsappGroup).values({
+      id: uuidv7(),
+      name: TEST_WHATSAPP_GROUP.name,
+      jid: TEST_WHATSAPP_GROUP.jid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    log(`Created WhatsApp group: ${TEST_WHATSAPP_GROUP.name}`);
+  }
+}
+
 async function seed(): Promise<void> {
   await syncPermissions();
   log("Synced roles and permissions");
 
   await ensureExpenseCategories();
+  await ensureWhatsAppGroup();
 
   for (const testUser of TEST_USERS) {
     const userId = await ensureTestUser(testUser);

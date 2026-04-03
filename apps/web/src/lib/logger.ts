@@ -8,10 +8,4 @@ initLogger({
     environment: process.env.NODE_ENV ?? "development",
   },
   pretty: isDev,
-  sampling: isDev
-    ? {
-        rates: { info: 0 },
-        keep: [{ status: 400 }, { duration: 500 }],
-      }
-    : undefined,
 });
