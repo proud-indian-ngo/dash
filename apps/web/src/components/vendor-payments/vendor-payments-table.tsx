@@ -7,13 +7,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
@@ -48,24 +52,40 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
 }
 
 interface VendorPaymentsTableProps {
+  canDelete?: boolean;
   data: VendorPaymentWithRelations[];
   hasActiveFilters?: boolean;
   isLoading?: boolean;
   onClearFilters?: () => void;
+  onDelete?: (
+    id: string
+  ) => Promise<{ type: string; error?: { message?: string } }>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
 }
 
 export function VendorPaymentsTable({
+  canDelete,
   data,
   isLoading,
+  onDelete,
   onNavigate,
   toolbarActions,
   toolbarFilters,
   hasActiveFilters,
   onClearFilters,
 }: VendorPaymentsTableProps) {
+  const deleteAction = useConfirmAction<{ id: string; title: string }>({
+    onConfirm: (payload) =>
+      onDelete?.(payload.id) ??
+      Promise.resolve({
+        type: "error" as const,
+        error: { message: "No handler" },
+      }),
+    onSuccess: () => toast.success("Vendor payment deleted"),
+    onError: (msg) => toast.error(msg ?? "Failed to delete vendor payment"),
+  });
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {
       id: "title",
@@ -207,6 +227,22 @@ export function VendorPaymentsTable({
             >
               View
             </DropdownMenuItem>
+            {canDelete && onDelete ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() =>
+                    deleteAction.trigger({
+                      id: row.original.id as string,
+                      title: row.original.title,
+                    })
+                  }
+                  variant="destructive"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -221,26 +257,43 @@ export function VendorPaymentsTable({
   ];
 
   return (
-    <DataTableWrapper<VendorPaymentWithRelations>
-      columns={columns}
-      data={data}
-      emptyMessage="No vendor payments found."
-      getRowId={(row) => row.id as string}
-      hasActiveFilters={hasActiveFilters}
-      isLoading={isLoading}
-      onClearFilters={onClearFilters}
-      onRowClick={(row) => onNavigate(row.id as string)}
-      searchFn={searchFn}
-      searchPlaceholder="Search vendor payments..."
-      storageKey="vendor_payments_table_state_v1"
-      tableLayout={{
-        columnsResizable: true,
-        columnsDraggable: true,
-        columnsVisibility: true,
-        columnsPinnable: true,
-      }}
-      toolbarActions={toolbarActions}
-      toolbarFilters={toolbarFilters}
-    />
+    <>
+      <DataTableWrapper<VendorPaymentWithRelations>
+        columns={columns}
+        data={data}
+        emptyMessage="No vendor payments found."
+        getRowId={(row) => row.id as string}
+        hasActiveFilters={hasActiveFilters}
+        isLoading={isLoading}
+        onClearFilters={onClearFilters}
+        onRowClick={(row) => onNavigate(row.id as string)}
+        searchFn={searchFn}
+        searchPlaceholder="Search vendor payments..."
+        storageKey="vendor_payments_table_state_v1"
+        tableLayout={{
+          columnsResizable: true,
+          columnsDraggable: true,
+          columnsVisibility: true,
+          columnsPinnable: true,
+        }}
+        toolbarActions={toolbarActions}
+        toolbarFilters={toolbarFilters}
+      />
+      <ConfirmDialog
+        confirmLabel="Delete payment"
+        description={`This will permanently delete "${deleteAction.payload?.title ?? ""}". This action cannot be undone.`}
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAction.cancel();
+          }
+        }}
+        open={deleteAction.isOpen}
+        title="Delete vendor payment"
+        variant="destructive"
+      />
+    </>
   );
 }
