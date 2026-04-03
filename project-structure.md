@@ -29,7 +29,7 @@ All paths are relative to project root.
 | `bun run worktree:teardown` | Clean up worktree resources |
 | `bash scripts/worktree-smoke-test.sh` | End-to-end worktree validation |
 | `bash scripts/cloud-setup.sh` | Cloud environment setup (PG upgrade, schema push, seed) |
-| `bun run seed:dev` | Seed dev data for isolated DB worktrees |
+| `bun run seed` | Seed all dev data — idempotent, covers all models |
 
 ## Fast Lookup Map
 
@@ -194,7 +194,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 | Package | Key paths |
 |---|---|
-| `packages/auth/` | `src/index.ts` (auth config), seed-admin script |
+| `packages/auth/` | `src/index.ts` (auth config), `src/seed-admin.ts` (lightweight admin-only seed) |
 | `packages/db/` | `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
@@ -288,7 +288,8 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`, `consoleErrors`). The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
 - **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `RequestPage` for request feature tests — it composes `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`, parameterized by type (`"reimbursement"` or `"advance_payment"`). New feature test suites should follow this pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via direct API calls to `/api/zero/mutate`.
-- **Seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts. Extend this file when new seed data is needed.
+- **Dev seeding**: `packages/db/src/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
+- **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts for E2E tests.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
 - **Env**: Test credentials live in `packages/e2e/.env.test`. Do not commit real credentials.
 - DO: Add E2E tests for new major features covering the happy path and key error states.

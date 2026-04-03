@@ -21,7 +21,7 @@
     },
     "packages/db": {
       "ignoreFiles": ["scripts/**"],
-      "ignoreDependencies": ["uuidv7"]
+      "ignoreDependencies": ["uuidv7", "@pi-dash/auth"]
     },
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],

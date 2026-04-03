@@ -78,7 +78,7 @@
     "analyze": "turbo run --filter=web analyze",
     "worktree:setup": "bash scripts/worktree-setup.sh",
     "worktree:teardown": "bash scripts/worktree-teardown.sh",
-    "seed:dev": "cd packages/e2e && bun run helpers/seed-dev-data.ts"
+    "seed": "turbo run --filter=@pi-dash/db db:seed"
   },
   "dependencies": {},
   "devDependencies": {
