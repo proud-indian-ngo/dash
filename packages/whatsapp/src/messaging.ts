@@ -171,14 +171,30 @@ export async function sendWhatsAppFile(
     return;
   }
 
+  const fileResponse = await fetch(fileUrl);
+  if (!fileResponse.ok) {
+    const error = new Error(
+      `Failed to download file ${fileResponse.status}: ${fileUrl}`
+    );
+    log.error(error);
+    log.emit();
+    throw error;
+  }
+
+  const blob = await fileResponse.blob();
+  const fileName = fileUrl.split("/").pop() ?? "file";
+
+  const formData = new FormData();
+  formData.append("phone", phone);
+  formData.append("file", blob, fileName);
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
   const response = await fetch(`${apiUrl}/send/file`, {
     method: "POST",
-    headers: getWhatsAppHeaders(),
-    body: JSON.stringify({
-      phone,
-      file: { url: fileUrl },
-      ...(caption && { caption }),
-    }),
+    headers: getWhatsAppHeaders({ omitContentType: true }),
+    body: formData,
   });
 
   if (!response.ok) {
