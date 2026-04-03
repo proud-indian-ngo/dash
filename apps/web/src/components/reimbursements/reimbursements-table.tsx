@@ -80,6 +80,7 @@ function RowActions({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
+            onClick={(e) => e.stopPropagation()}
             size="icon"
             type="button"
             variant="ghost"
@@ -176,14 +177,9 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Title" visibility={true} />
       ),
       cell: ({ row }) => (
-        <button
-          className="truncate text-left font-medium text-sm hover:underline"
-          data-testid="row-title"
-          onClick={() => onNavigate(row.original.id)}
-          type="button"
-        >
+        <span className="truncate font-medium text-sm">
           {row.original.title}
-        </button>
+        </span>
       ),
       meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
       size: 240,
@@ -334,7 +330,7 @@ export function ReimbursementsTable({
       enableResizing: false,
       enableSorting: false,
       enableColumnOrdering: false,
-      meta: { cellClassName: "text-center" },
+      meta: { cellClassName: "text-center", stopRowClick: true },
       size: 52,
       minSize: 52,
     },
@@ -354,6 +350,7 @@ export function ReimbursementsTable({
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
+        onRowClick={(row) => onNavigate(row.id)}
         searchFn={searchReimbursement}
         searchPlaceholder="Search reimbursements..."
         storageKey="reimbursements_table_state_v1"

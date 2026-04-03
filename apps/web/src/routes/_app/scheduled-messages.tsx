@@ -64,8 +64,12 @@ function ScheduledMessagesPage() {
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedMessage, setSelectedMessage] =
-    useState<ScheduledMessageRow | null>(null);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    null
+  );
+  const selectedMessage = selectedMessageId
+    ? (allMessages.find((m) => m.id === selectedMessageId) ?? null)
+    : null;
   const [cancelTarget, setCancelTarget] = useState<ScheduledMessageRow | null>(
     null
   );
@@ -76,7 +80,7 @@ function ScheduledMessagesPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleView = (row: ScheduledMessageRow) => {
-    setSelectedMessage(row);
+    setSelectedMessageId(row.id);
     setSheetOpen(true);
   };
 

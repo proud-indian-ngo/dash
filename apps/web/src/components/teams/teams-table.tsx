@@ -53,6 +53,7 @@ function RowActions({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
+            onClick={(e) => e.stopPropagation()}
             size="icon"
             type="button"
             variant="ghost"
@@ -201,7 +202,7 @@ export function TeamsTable({
       enableResizing: false,
       enableSorting: false,
       enableColumnOrdering: false,
-      meta: { cellClassName: "text-center" },
+      meta: { cellClassName: "text-center", stopRowClick: true },
       size: 52,
       minSize: 52,
     },
@@ -215,6 +216,7 @@ export function TeamsTable({
         emptyMessage="No teams found."
         getRowId={(row) => row.id}
         isLoading={isLoading}
+        onRowClick={(row) => onNavigate(row.id)}
         searchFn={searchTeam}
         searchPlaceholder="Search teams..."
         storageKey="teams_table_state_v1"

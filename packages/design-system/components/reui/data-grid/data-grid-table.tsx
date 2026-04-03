@@ -317,6 +317,14 @@ function DataGridTableBodyRow<TData>({
           : undefined
       }
       onClick={() => props.onRowClick && props.onRowClick(row.original)}
+      onKeyDown={(e) => {
+        if (props.onRowClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault()
+          props.onRowClick(row.original)
+        }
+      }}
+      role={props.onRowClick ? "link" : undefined}
+      tabIndex={props.onRowClick ? 0 : undefined}
       className={cn(
         "hover:bg-muted/40 data-[state=selected]:bg-muted/50",
         props.onRowClick && "cursor-pointer",
@@ -381,6 +389,7 @@ function DataGridTableBodyRowCell<TData>({
       key={cell.id}
       ref={dndRef}
       {...(props.tableLayout?.columnsDraggable && !isPinned ? { cell } : {})}
+      onClick={cell.column.columnDef.meta?.stopRowClick ? (e) => e.stopPropagation() : undefined}
       style={{
         ...(props.tableLayout?.columnsResizable && {
           width: column.getSize(),

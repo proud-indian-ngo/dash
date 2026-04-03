@@ -2,8 +2,9 @@ import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
+import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import { useQuery } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { parseAsString, useQueryState } from "nuqs";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
@@ -35,7 +36,13 @@ export const Route = createFileRoute("/_app/vendor-payments/")({
 
 function VendorPaymentsRouteComponent() {
   const navigate = useNavigate();
+  const zero = useZero();
   const { hasPermission } = useApp();
+  const canDelete = hasPermission("requests.delete_all");
+
+  const handleDelete = async (id: string) => {
+    return await zero.mutate(mutators.vendorPayment.delete({ id })).server;
+  };
   const [vendorPayments, result] = useQuery(queries.vendorPayment.all());
   const [statusFilter, setStatusFilter] = useQueryState(
     "status",
@@ -62,10 +69,12 @@ function VendorPaymentsRouteComponent() {
           items={computeVendorPaymentStats(data)}
         />
         <VendorPaymentsTable
+          canDelete={canDelete}
           data={filtered}
           hasActiveFilters={!!statusFilter}
           isLoading={isLoading}
           onClearFilters={() => setStatusFilter(null)}
+          onDelete={handleDelete}
           onNavigate={(id) => {
             navigate({ to: "/vendor-payments/$id", params: { id } });
           }}
