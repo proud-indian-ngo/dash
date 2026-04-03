@@ -73,12 +73,16 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
-      if (files.length === 0 || remainingSlots <= 0) {
+      const currentRemaining = Math.max(
+        MAX_MEDIA_FILES - valueRef.current.length,
+        0
+      );
+      if (files.length === 0 || currentRemaining <= 0) {
         return;
       }
 
       setIsUploading(true);
-      const filesToUpload = files.slice(0, remainingSlots);
+      const filesToUpload = files.slice(0, currentRemaining);
       const uploaded: MediaAttachment[] = [];
 
       for (const file of filesToUpload) {
@@ -111,7 +115,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
 
       setIsUploading(false);
     },
-    [entityId, getUploadUrl, onChange, remainingSlots]
+    [entityId, getUploadUrl, onChange]
   );
 
   const [{ isDragging }, uploadActions] = useFileUpload({

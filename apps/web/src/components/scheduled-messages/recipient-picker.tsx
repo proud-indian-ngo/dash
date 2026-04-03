@@ -39,9 +39,9 @@ interface RecipientPickerProps {
 export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
   const [open, setOpen] = useState(false);
   const [groups] = useQuery(queries.whatsappGroup.all());
-  const [users] = useQuery(queries.user.all());
+  const [users] = useQuery(queries.user.whatsappUsers());
 
-  const whatsappUsers = (users ?? []).filter((u) => u.isOnWhatsapp);
+  const whatsappUsers = users ?? [];
   const selectedIds = new Set(value.map((r) => r.id));
 
   const handleSelect = (recipient: Recipient) => {

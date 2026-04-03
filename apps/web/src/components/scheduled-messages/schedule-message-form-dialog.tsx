@@ -1,11 +1,15 @@
-import { Label } from "@pi-dash/design-system/components/ui/label";
+import {
+  Field,
+  FieldError,
+  FieldLabel,
+} from "@pi-dash/design-system/components/ui/field";
 import type {
   ScheduledMessage,
   ScheduledMessageRecipient,
 } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
 import { addHours, startOfHour } from "date-fns";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { DateTimeField } from "@/components/form/date-time-field";
@@ -70,7 +74,10 @@ export function ScheduleMessageFormDialog({
 }: ScheduleMessageFormDialogProps) {
   const isEdit = !!initialValues;
   const [formKey, setFormKey] = useState(0);
-  const [entityId] = useState(() => initialValues?.id ?? uuidv7());
+  const entityId = useMemo(
+    () => initialValues?.id ?? uuidv7(),
+    [initialValues?.id]
+  );
 
   const form = useForm({
     defaultValues: {
@@ -106,9 +113,8 @@ export function ScheduleMessageFormDialog({
         isEdit ? "Edit the scheduled message" : "Schedule a WhatsApp message"
       }
       onOpenChange={(v) => {
-        if (v) {
+        if (!v) {
           setFormKey((k) => k + 1);
-        } else {
           onClose();
         }
       }}
@@ -132,19 +138,29 @@ export function ScheduleMessageFormDialog({
           placeholder="Pick date and time"
         />
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="font-medium text-sm">
-            Recipients <span className="text-destructive">*</span>
-          </Label>
-          <form.Field name="recipients">
-            {(field) => (
-              <RecipientPicker
-                onChange={(val) => field.handleChange(val)}
-                value={field.state.value}
-              />
-            )}
-          </form.Field>
-        </div>
+        <form.Field name="recipients">
+          {(field) => {
+            const submitted = form.state.submissionAttempts > 0;
+            const hasError =
+              (field.state.meta.isBlurred || submitted) &&
+              field.state.meta.errors.length > 0;
+            return (
+              <Field data-invalid={hasError || undefined}>
+                <FieldLabel htmlFor="recipients">
+                  Recipients{" "}
+                  <span aria-hidden="true" className="text-destructive">
+                    *
+                  </span>
+                </FieldLabel>
+                <RecipientPicker
+                  onChange={(val) => field.handleChange(val)}
+                  value={field.state.value}
+                />
+                {hasError && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            );
+          }}
+        </form.Field>
 
         <form.Field name="attachments">
           {(field) => (

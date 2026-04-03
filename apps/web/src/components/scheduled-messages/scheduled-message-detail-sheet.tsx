@@ -13,6 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
+import { env } from "@pi-dash/env/web";
 import {
   deriveMessageStatus,
   type ScheduledMessageDerivedStatus,
@@ -152,9 +153,13 @@ export function ScheduledMessageDetailSheet({
                   </h3>
                   <div className="flex flex-col gap-1.5">
                     {(message.attachments as Attachment[]).map((a) => (
-                      <div
-                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      <a
+                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
+                        download={a.fileName}
+                        href={`${env.VITE_CDN_URL}/${a.r2Key}`}
                         key={a.r2Key}
+                        rel="noopener noreferrer"
+                        target="_blank"
                       >
                         <span className="min-w-0 flex-1 truncate">
                           {a.fileName}
@@ -162,7 +167,7 @@ export function ScheduledMessageDetailSheet({
                         <span className="text-muted-foreground text-xs">
                           {a.mimeType}
                         </span>
-                      </div>
+                      </a>
                     ))}
                   </div>
                 </div>

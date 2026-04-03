@@ -154,6 +154,9 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
       })
     );
 
+    // NOTE: On retry, previously sent attachments may be re-delivered (duplicated).
+    // This is an accepted trade-off — tracking per-attachment send progress would add
+    // significant complexity for a rare edge case.
     for (const attachment of mediaAttachments.slice(0, -1)) {
       await sendWhatsAppMedia(targetAddress, attachment);
     }

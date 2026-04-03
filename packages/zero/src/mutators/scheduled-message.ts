@@ -1,3 +1,4 @@
+import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -330,9 +331,6 @@ export const scheduledMessageMutators = {
         throw new Error("Can only retry failed recipients");
       }
 
-      const { MAX_RECIPIENT_RETRIES } = await import(
-        "@pi-dash/shared/scheduled-message"
-      );
       const currentRetryCount = recipient.retryCount ?? 0;
       if (currentRetryCount >= MAX_RECIPIENT_RETRIES) {
         throw new Error("Maximum retries exceeded");
@@ -353,6 +351,33 @@ export const scheduledMessageMutators = {
         const recipientType = recipient.type;
         const scheduledMessageId = recipient.scheduledMessageId;
 
+        // Resolve data before pushing to asyncTasks — tx.run() may not work post-commit
+        const parent = await tx.run(
+          zql.scheduledMessage.where("id", scheduledMessageId).one()
+        );
+        if (!parent) {
+          throw new Error("Parent scheduled message not found");
+        }
+
+        let targetAddress: string;
+        if (recipientType === "group") {
+          const group = await tx.run(
+            zql.whatsappGroup.where("id", recipientRecipientId).one()
+          );
+          if (!group) {
+            throw new Error(`WhatsApp group ${recipientRecipientId} not found`);
+          }
+          targetAddress = group.jid;
+        } else {
+          const usr = await tx.run(
+            zql.user.where("id", recipientRecipientId).one()
+          );
+          if (!usr?.phone) {
+            throw new Error(`User ${recipientRecipientId} has no phone`);
+          }
+          targetAddress = usr.phone;
+        }
+
         ctx.asyncTasks?.push({
           meta: {
             mutator: "scheduledMessage.retryRecipient",
@@ -362,34 +387,6 @@ export const scheduledMessageMutators = {
           fn: async () => {
             try {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-
-              const parent = await tx.run(
-                zql.scheduledMessage.where("id", scheduledMessageId).one()
-              );
-              if (!parent) {
-                throw new Error("Parent scheduled message not found");
-              }
-
-              let targetAddress: string;
-              if (recipientType === "group") {
-                const group = await tx.run(
-                  zql.whatsappGroup.where("id", recipientRecipientId).one()
-                );
-                if (!group) {
-                  throw new Error(
-                    `WhatsApp group ${recipientRecipientId} not found`
-                  );
-                }
-                targetAddress = group.jid;
-              } else {
-                const usr = await tx.run(
-                  zql.user.where("id", recipientRecipientId).one()
-                );
-                if (!usr?.phone) {
-                  throw new Error(`User ${recipientRecipientId} has no phone`);
-                }
-                targetAddress = usr.phone;
-              }
 
               // 1-minute delay to prevent accidental double-sends
               const startAfter = new Date(Date.now() + 60_000).toISOString();

@@ -96,10 +96,3 @@ export const scheduledMessageRecipientRelations = relations(
     }),
   })
 );
-
-export type ScheduledMessageDerivedStatus =
-  | "pending"
-  | "sent"
-  | "failed"
-  | "cancelled"
-  | "partial";
