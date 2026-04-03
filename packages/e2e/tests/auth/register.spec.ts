@@ -45,7 +45,10 @@ test.describe("Register page", () => {
     await page.getByLabel("Email").fill("mismatch@example.com");
     await page.locator("#password").fill("Password123!");
     await page.getByLabel("Confirm password").fill("DifferentPassword123!");
-    await page.getByLabel("Phone").last().fill("+919876543210");
+    await page
+      .getByLabel("Phone")
+      .last()
+      .fill(`+9199${Date.now().toString().slice(-8)}`);
     await page.getByRole("button", { name: "Date of birth" }).click();
     await page
       .getByRole("dialog")
@@ -63,12 +66,14 @@ test.describe("Register page", () => {
   test("successful registration redirects to login with success toast", async ({
     page,
   }) => {
-    const uniqueEmail = `e2e-register-${Date.now()}@example.com`;
+    const uniqueSuffix = Date.now().toString();
+    const uniqueEmail = `e2e-register-${uniqueSuffix}@example.com`;
+    const uniquePhone = `+9199${uniqueSuffix.slice(-8)}`;
     await page.getByLabel("Name").fill("E2E Test User");
     await page.getByLabel("Email").fill(uniqueEmail);
     await page.locator("#password").fill("Password123!");
     await page.getByLabel("Confirm password").fill("Password123!");
-    await page.getByLabel("Phone").last().fill("+919876543210");
+    await page.getByLabel("Phone").last().fill(uniquePhone);
     await page.getByRole("button", { name: "Date of birth" }).click();
     await page
       .getByRole("dialog")
@@ -94,7 +99,10 @@ test.describe("Register page", () => {
     await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL!);
     await page.locator("#password").fill("Password123!");
     await page.getByLabel("Confirm password").fill("Password123!");
-    await page.getByLabel("Phone").last().fill("+919876543210");
+    await page
+      .getByLabel("Phone")
+      .last()
+      .fill(`+9199${Date.now().toString().slice(-8)}`);
     await page.getByRole("button", { name: "Date of birth" }).click();
     await page
       .getByRole("dialog")
