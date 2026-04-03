@@ -12,6 +12,7 @@ async function deleteImmichAsset(data: ImmichDeleteAssetPayload) {
       path: "immich-delete-asset",
     });
     log.set({ event: "immich_not_configured", assetId: data.immichAssetId });
+    log.warn("Immich not configured, skipping asset deletion");
     log.emit();
     return;
   }

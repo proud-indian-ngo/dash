@@ -418,6 +418,10 @@ export interface ImmichDeleteAssetPayload {
   immichAssetId: string;
 }
 
+export interface ImmichDeleteAlbumPayload {
+  immichAlbumId: string;
+}
+
 export interface DeleteR2ObjectPayload {
   r2Key: string;
 }
@@ -434,6 +438,7 @@ export interface SyncCourierPreferencePayload {
 export interface JobPayloads {
   "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
+  "immich-delete-album": ImmichDeleteAlbumPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;
   "immich-sync-photo": ImmichSyncPhotoPayload;
   "notify-added-to-event": NotifyAddedToEventPayload;
@@ -507,6 +512,7 @@ export type JobName = keyof JobPayloads;
 export const QUEUE_NAMES: JobName[] = [
   "cleanup-stale-scheduled-recipients",
   "delete-r2-object",
+  "immich-delete-album",
   "immich-delete-asset",
   "immich-sync-photo",
   "notify-added-to-event",

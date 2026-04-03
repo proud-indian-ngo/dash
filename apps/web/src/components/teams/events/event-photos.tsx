@@ -1,4 +1,5 @@
 import {
+  Delete02Icon,
   Image02Icon,
   ImageUpload01Icon,
   LinkSquare02Icon,
@@ -109,6 +110,11 @@ export function EventPhotos({
   const myPendingPhotos = canManage
     ? []
     : pendingPhotos.filter((p) => p.uploadedBy === currentUserId);
+
+  const showPendingSection = canManage && pendingPhotos.length > 0;
+  const showMyPendingSection = !canManage && myPendingPhotos.length > 0;
+  const isEmpty =
+    approvedPhotos.length === 0 && !showPendingSection && !showMyPendingSection;
 
   // Build unified slides array: pending → userPending → approved
   const slides = buildSlides(
@@ -258,6 +264,17 @@ export function EventPhotos({
     },
   });
 
+  const deleteAlbumAction = useConfirmAction({
+    onConfirm: () =>
+      zero.mutate(mutators.eventImmichAlbum.deleteAlbum({ eventId })).server,
+    mutationMeta: {
+      mutation: "eventImmichAlbum.deleteAlbum",
+      entityId: () => eventId,
+      successMsg: "Album and all photos deleted",
+      errorMsg: "Failed to delete album",
+    },
+  });
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header row */}
@@ -265,7 +282,7 @@ export function EventPhotos({
         {canUpload ? (
           <>
             <Button
-              disabled={isUploading}
+              disabled={isUploading || deleteAlbumAction.isLoading}
               onClick={() => fileInputRef.current?.click()}
               size="sm"
               variant="default"
@@ -288,24 +305,42 @@ export function EventPhotos({
           </>
         ) : null}
         {immichAlbumUrl ? (
-          <a
-            className="inline-flex h-7 items-center gap-1 border border-border bg-background px-2.5 font-medium text-xs hover:bg-muted hover:text-foreground"
-            href={immichAlbumUrl}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            <HugeiconsIcon
-              className="size-3.5"
-              icon={LinkSquare02Icon}
-              strokeWidth={2}
-            />
-            View Album
-          </a>
+          <>
+            <a
+              className="inline-flex h-7 items-center gap-1 border border-border bg-background px-2.5 font-medium text-xs hover:bg-muted hover:text-foreground"
+              href={immichAlbumUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <HugeiconsIcon
+                className="size-3.5"
+                icon={LinkSquare02Icon}
+                strokeWidth={2}
+              />
+              View Album
+            </a>
+            {canManage ? (
+              <Button
+                className="text-destructive"
+                disabled={deleteAlbumAction.isLoading}
+                onClick={() => deleteAlbumAction.trigger()}
+                size="sm"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  className="size-3.5"
+                  icon={Delete02Icon}
+                  strokeWidth={2}
+                />
+                Delete Album
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </div>
 
       {/* Pending photos: admins/leads see all, volunteers see own */}
-      {canManage && pendingPhotos.length > 0 ? (
+      {showPendingSection ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <p className="font-medium text-sm">
@@ -335,7 +370,7 @@ export function EventPhotos({
           </div>
         </div>
       ) : null}
-      {!canManage && myPendingPhotos.length > 0 ? (
+      {showMyPendingSection ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <p className="font-medium text-sm">
             Your Pending Photos ({myPendingPhotos.length})
@@ -376,10 +411,7 @@ export function EventPhotos({
       ) : null}
 
       {/* Empty state */}
-      {approvedPhotos.length === 0 &&
-      (canManage
-        ? pendingPhotos.length === 0
-        : myPendingPhotos.length === 0) ? (
+      {isEmpty ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <HugeiconsIcon
             className="size-8 text-muted-foreground"
@@ -453,6 +485,22 @@ export function EventPhotos({
         }}
         open={deleteAction.isOpen}
         title="Delete photo"
+      />
+
+      <ConfirmDialog
+        cancelLabel="Keep"
+        confirmLabel="Delete Album"
+        description="This will permanently delete the album and all photos for this event. This action cannot be undone."
+        loading={deleteAlbumAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAlbumAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAlbumAction.cancel();
+          }
+        }}
+        open={deleteAlbumAction.isOpen}
+        title="Delete album and all photos"
       />
     </div>
   );
