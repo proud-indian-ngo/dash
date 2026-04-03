@@ -14,7 +14,7 @@ export async function sendWhatsAppMessage(
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
-    log.set({ event: "whatsapp_not_configured" });
+    log.warn("whatsapp_not_configured");
     log.emit();
     return;
   }
@@ -51,7 +51,7 @@ export async function sendWhatsAppGroupMessage(
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
-    log.set({ event: "whatsapp_not_configured" });
+    log.warn("whatsapp_not_configured");
     log.emit();
     return;
   }
@@ -89,7 +89,7 @@ export async function sendWhatsAppImage(
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
-    log.set({ event: "whatsapp_not_configured" });
+    log.warn("whatsapp_not_configured");
     log.emit();
     return;
   }
@@ -132,7 +132,7 @@ export async function sendWhatsAppVideo(
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
-    log.set({ event: "whatsapp_not_configured" });
+    log.warn("whatsapp_not_configured");
     log.emit();
     return;
   }
@@ -172,7 +172,7 @@ export async function sendWhatsAppFile(
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
-    log.set({ event: "whatsapp_not_configured" });
+    log.warn("whatsapp_not_configured");
     log.emit();
     return;
   }

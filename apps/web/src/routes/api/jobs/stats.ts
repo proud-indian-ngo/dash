@@ -61,7 +61,9 @@ export const Route = createFileRoute("/api/jobs/stats")({
             method: "GET",
             path: "/api/jobs/stats",
           });
+          log.set({ userId: session.user.id });
           log.error(err instanceof Error ? err : String(err));
+          log.emit();
           return Response.json(
             { error: "Failed to fetch queue stats" },
             { status: 500 }

@@ -104,7 +104,9 @@ export const Route = createFileRoute("/api/jobs/")({
             method: "GET",
             path: "/api/jobs",
           });
+          log.set({ userId: session.user.id, queue, state });
           log.error(err instanceof Error ? err : String(err));
+          log.emit();
           return Response.json(
             { error: "Failed to fetch jobs" },
             { status: 500 }
@@ -162,7 +164,9 @@ export const Route = createFileRoute("/api/jobs/")({
             method: "POST",
             path: "/api/jobs",
           });
+          log.set({ userId: session.user.id, queue: body.queue });
           log.error(err instanceof Error ? err : String(err));
+          log.emit();
           return Response.json(
             { error: "Failed to create job" },
             { status: 500 }

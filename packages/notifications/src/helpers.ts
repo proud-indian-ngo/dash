@@ -6,6 +6,7 @@ import { rolePermission } from "@pi-dash/db/schema/permission";
 import { reimbursementLineItem } from "@pi-dash/db/schema/reimbursement";
 import { vendorPaymentLineItem } from "@pi-dash/db/schema/vendor";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 import { courier } from "./client";
 
 export interface LineItemDetail {
@@ -49,6 +50,13 @@ export async function syncCourierUser({
   name: string;
 }): Promise<void> {
   if (!courier) {
+    const log = createRequestLogger({
+      method: "POST",
+      path: "syncCourierUser",
+    });
+    log.set({ userId, email, name });
+    log.warn("courier_not_configured");
+    log.emit();
     return;
   }
   await courier.profiles.replace(userId, {

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createRequestLogger } from "evlog";
 import { requireSession } from "@/lib/api-auth";
 import { fetchImmichOriginal, getImmichConfig } from "@/lib/immich";
 
@@ -41,7 +42,14 @@ export const Route = createFileRoute("/api/immich/original/$id")({
           }
 
           return new Response(upstream.body, { status: 200, headers });
-        } catch {
+        } catch (error) {
+          const log = createRequestLogger({
+            method: "GET",
+            path: "/api/immich/original",
+          });
+          log.set({ assetId: id });
+          log.error(error instanceof Error ? error : String(error));
+          log.emit();
           return Response.json(
             { error: "Failed to fetch original image" },
             { status: 502 }

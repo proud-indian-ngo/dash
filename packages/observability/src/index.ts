@@ -43,6 +43,19 @@ export async function withTaskLog(
   }
 }
 
+/** For catch blocks in server functions / API routes. Logs the error with context, emits, and re-throws. */
+export function logErrorAndRethrow(
+  options: { method: string; path: string },
+  context: Record<string, unknown>,
+  error: unknown
+): never {
+  const log = createRequestLogger(options);
+  log.set(context);
+  log.error(coerceError(error));
+  log.emit();
+  throw error;
+}
+
 /** For fire-and-forget promises. Emits on both success and failure. */
 export function withFireAndForgetLog(
   context: Record<string, unknown>,

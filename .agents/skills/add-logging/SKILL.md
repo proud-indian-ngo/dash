@@ -68,6 +68,49 @@ Rules:
 - `log.error()` must not receive raw `unknown` — coerce with `error instanceof Error ? error : String(error)`
 - Call `log.emit()` on BOTH success and error paths
 
+## Warning Logs for Service-Not-Configured Bailouts
+
+When an optional service (WhatsApp, Courier, Immich) is not configured, use `log.warn()` instead of silently returning:
+
+```tsx
+const log = createRequestLogger({ method: "POST", path: "functionName" });
+log.set({ ...availableContext });
+log.warn("whatsapp_not_configured");
+log.emit();
+return;
+```
+
+`log.warn(message, context?)` sets the wide event level to `"warn"`, making these events filterable by severity in log aggregation.
+
+Available request logger methods by level:
+- `log.info(message, context?)` — informational operational events
+- `log.warn(message, context?)` — service unavailable, config missing, degraded operation
+- `log.error(error, context?)` — errors and exceptions
+- `log.set(context)` — accumulate context fields without setting level
+- `log.emit()` — flush the wide event to the drain
+
+## Enrichment Checklist
+
+Every log MUST include maximum context. Minimum fields per category:
+
+**Server functions:**
+- `handler` — function name (e.g., `"createRole"`)
+- `userId` — from `context.session?.user.id`
+- All input IDs, names, counts from `data`
+
+**API routes:**
+- `userId` — from `session.user.id`
+- Route params (e.g., `jobId: id`, `assetId: id`)
+- Relevant query params (e.g., `queue`, `state`)
+
+**Job handlers:**
+- `jobId` — from `job.id`
+- All payload fields relevant to the operation
+
+**Service bailouts:**
+- Function name (via `path` in `createRequestLogger`)
+- All available IDs (phone, userId, groupJid, topicId)
+
 ## Mutator Async Tasks
 
 Do NOT wrap task functions in `withTaskLog` inside mutators — `mutate.ts` already wraps them. Put rich context in the task `meta` object:
@@ -108,3 +151,6 @@ withFireAndForgetLog(
 - **Never** use `catch` without binding the error: use `catch (error)` not `catch {}`
 - **Never** wrap mutator async task fns in `withTaskLog` — `mutate.ts` does it
 - **Never** forget `log.emit()` on the success path when a logger is created
+- **Never** call `log.error()` without `log.emit()` — `log.error()` accumulates but doesn't flush
+- **Never** create `createRequestLogger` without `log.set()` context — error-only logs without context are undebuggable
+- **Never** silently return when an optional service is not configured — use `log.warn()` so operators know the service was skipped

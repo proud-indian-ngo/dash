@@ -16,6 +16,13 @@ export async function addToWhatsAppGroup(
 ): Promise<void> {
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    const log = createRequestLogger({
+      method: "POST",
+      path: "addToWhatsAppGroup",
+    });
+    log.set({ groupJid, phone });
+    log.warn("whatsapp_not_configured");
+    log.emit();
     return;
   }
 
@@ -44,6 +51,13 @@ export async function addUsersToWhatsAppGroup(
   }
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    const log = createRequestLogger({
+      method: "POST",
+      path: "addUsersToWhatsAppGroup",
+    });
+    log.set({ groupJid, phoneCount: phones.length });
+    log.warn("whatsapp_not_configured");
+    log.emit();
     return;
   }
 
@@ -68,6 +82,13 @@ export async function removeFromWhatsAppGroup(
 ): Promise<void> {
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    const log = createRequestLogger({
+      method: "POST",
+      path: "removeFromWhatsAppGroup",
+    });
+    log.set({ groupJid, phone });
+    log.warn("whatsapp_not_configured");
+    log.emit();
     return;
   }
 
@@ -96,6 +117,12 @@ export async function listJoinedGroups(): Promise<
 > {
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    const log = createRequestLogger({
+      method: "GET",
+      path: "listJoinedGroups",
+    });
+    log.warn("whatsapp_not_configured");
+    log.emit();
     return [];
   }
 
@@ -171,7 +198,7 @@ export async function getGroupParticipants(
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
-    log.set({ event: "whatsapp_not_configured" });
+    log.warn("whatsapp_not_configured");
     log.emit();
     return [];
   }

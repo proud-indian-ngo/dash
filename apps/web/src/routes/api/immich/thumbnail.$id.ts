@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createRequestLogger } from "evlog";
 import { requireSession } from "@/lib/api-auth";
 import { fetchImmichThumbnail, getImmichConfig } from "@/lib/immich";
 
@@ -39,7 +40,14 @@ export const Route = createFileRoute("/api/immich/thumbnail/$id")({
               "Content-Type": contentType,
             },
           });
-        } catch {
+        } catch (error) {
+          const log = createRequestLogger({
+            method: "GET",
+            path: "/api/immich/thumbnail",
+          });
+          log.set({ assetId: id });
+          log.error(error instanceof Error ? error : String(error));
+          log.emit();
           return Response.json(
             { error: "Failed to fetch thumbnail" },
             { status: 502 }

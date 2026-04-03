@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
+import { createRequestLogger } from "evlog";
 import { requireSession } from "@/lib/api-auth";
 
 const TRAILING_SLASHES_REGEX = /\/+$/;
@@ -174,7 +175,11 @@ const fetchProfileAvatarUrl = async (
 
     const payload = (await response.json()) as unknown;
     return extractAvatarUrl(payload);
-  } catch {
+  } catch (error) {
+    const log = createRequestLogger({ method: "GET", path: "/api/avatar" });
+    log.set({ profileIdentifier });
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
     return undefined;
   } finally {
     clearTimeout(timeoutHandle);

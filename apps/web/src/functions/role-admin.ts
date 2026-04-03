@@ -7,6 +7,7 @@ import {
   role,
   rolePermission,
 } from "@pi-dash/db/schema/permission";
+import { logErrorAndRethrow } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -27,24 +28,32 @@ export const getRoles = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureRolePermission(context.session);
 
-    const roles = await db
-      .select({
-        id: role.id,
-        name: role.name,
-        description: role.description,
-        isSystem: role.isSystem,
-        createdAt: role.createdAt,
-        permissionCount: sql<number>`(
-          select count(*)::int from role_permission rp where rp.role_id = ${role.id}
-        )`,
-        userCount: sql<number>`(
-          select count(*)::int from "user" u where u.role = ${role.id}
-        )`,
-      })
-      .from(role)
-      .orderBy(role.name);
+    try {
+      const roles = await db
+        .select({
+          id: role.id,
+          name: role.name,
+          description: role.description,
+          isSystem: role.isSystem,
+          createdAt: role.createdAt,
+          permissionCount: sql<number>`(
+            select count(*)::int from role_permission rp where rp.role_id = ${role.id}
+          )`,
+          userCount: sql<number>`(
+            select count(*)::int from "user" u where u.role = ${role.id}
+          )`,
+        })
+        .from(role)
+        .orderBy(role.name);
 
-    return roles;
+      return roles;
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "GET", path: "/fn/getRoles" },
+        { handler: "getRoles", userId: context.session?.user.id },
+        error
+      );
+    }
   });
 
 export type RoleListItem = Awaited<ReturnType<typeof getRoles>>[number];
@@ -80,30 +89,42 @@ export const getRoleById = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
-    const [found] = await db
-      .select({
-        id: role.id,
-        name: role.name,
-        description: role.description,
-        isSystem: role.isSystem,
-      })
-      .from(role)
-      .where(eq(role.id, data.roleId))
-      .limit(1);
+    try {
+      const [found] = await db
+        .select({
+          id: role.id,
+          name: role.name,
+          description: role.description,
+          isSystem: role.isSystem,
+        })
+        .from(role)
+        .where(eq(role.id, data.roleId))
+        .limit(1);
 
-    if (!found) {
-      throw new Error("Role not found");
+      if (!found) {
+        throw new Error("Role not found");
+      }
+
+      const perms = await db
+        .select({ permissionId: rolePermission.permissionId })
+        .from(rolePermission)
+        .where(eq(rolePermission.roleId, data.roleId));
+
+      return {
+        ...found,
+        permissionIds: perms.map((p) => p.permissionId),
+      };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "GET", path: "/fn/getRoleById" },
+        {
+          handler: "getRoleById",
+          userId: context.session?.user.id,
+          roleId: data.roleId,
+        },
+        error
+      );
     }
-
-    const perms = await db
-      .select({ permissionId: rolePermission.permissionId })
-      .from(rolePermission)
-      .where(eq(rolePermission.roleId, data.roleId));
-
-    return {
-      ...found,
-      permissionIds: perms.map((p) => p.permissionId),
-    };
   });
 
 // ── Get all permissions grouped by category ──
@@ -113,31 +134,39 @@ export const getAllPermissions = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureRolePermission(context.session);
 
-    const perms = await db
-      .select({
-        id: permission.id,
-        name: permission.name,
-        category: permission.category,
-        description: permission.description,
-      })
-      .from(permission)
-      .orderBy(permission.category, permission.name);
+    try {
+      const perms = await db
+        .select({
+          id: permission.id,
+          name: permission.name,
+          category: permission.category,
+          description: permission.description,
+        })
+        .from(permission)
+        .orderBy(permission.category, permission.name);
 
-    const grouped: Record<
-      string,
-      { id: string; name: string; description: string | null }[]
-    > = {};
-    for (const p of perms) {
-      const group = grouped[p.category] ?? [];
-      grouped[p.category] = group;
-      group.push({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-      });
+      const grouped: Record<
+        string,
+        { id: string; name: string; description: string | null }[]
+      > = {};
+      for (const p of perms) {
+        const group = grouped[p.category] ?? [];
+        grouped[p.category] = group;
+        group.push({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+        });
+      }
+
+      return grouped;
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "GET", path: "/fn/getAllPermissions" },
+        { handler: "getAllPermissions", userId: context.session?.user.id },
+        error
+      );
     }
-
-    return grouped;
   });
 
 // ── Create role ──
@@ -159,43 +188,57 @@ export const createRole = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
-    // Validate permission IDs
-    for (const pid of data.permissionIds) {
-      if (!PERMISSION_IDS.has(pid)) {
-        throw new Error(`Unknown permission: ${pid}`);
+    try {
+      // Validate permission IDs
+      for (const pid of data.permissionIds) {
+        if (!PERMISSION_IDS.has(pid)) {
+          throw new Error(`Unknown permission: ${pid}`);
+        }
       }
-    }
 
-    // Check ID uniqueness
-    const [existing] = await db
-      .select({ id: role.id })
-      .from(role)
-      .where(eq(role.id, data.id))
-      .limit(1);
+      // Check ID uniqueness
+      const [existing] = await db
+        .select({ id: role.id })
+        .from(role)
+        .where(eq(role.id, data.id))
+        .limit(1);
 
-    if (existing) {
-      throw new Error(`Role ID "${data.id}" already exists`);
-    }
+      if (existing) {
+        throw new Error(`Role ID "${data.id}" already exists`);
+      }
 
-    await db.transaction(async (tx) => {
-      await tx.insert(role).values({
-        id: data.id,
-        name: data.name,
-        description: data.description ?? null,
-        isSystem: false,
+      await db.transaction(async (tx) => {
+        await tx.insert(role).values({
+          id: data.id,
+          name: data.name,
+          description: data.description ?? null,
+          isSystem: false,
+        });
+
+        if (data.permissionIds.length > 0) {
+          await tx.insert(rolePermission).values(
+            data.permissionIds.map((permId) => ({
+              roleId: data.id,
+              permissionId: permId,
+            }))
+          );
+        }
       });
 
-      if (data.permissionIds.length > 0) {
-        await tx.insert(rolePermission).values(
-          data.permissionIds.map((permId) => ({
-            roleId: data.id,
-            permissionId: permId,
-          }))
-        );
-      }
-    });
-
-    return data.id;
+      return data.id;
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/createRole" },
+        {
+          handler: "createRole",
+          userId: context.session?.user.id,
+          roleId: data.id,
+          roleName: data.name,
+          permissionCount: data.permissionIds.length,
+        },
+        error
+      );
+    }
   });
 
 // ── Update role ──
@@ -213,51 +256,64 @@ export const updateRole = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
-    // Validate permission IDs
-    for (const pid of data.permissionIds) {
-      if (!PERMISSION_IDS.has(pid)) {
-        throw new Error(`Unknown permission: ${pid}`);
+    try {
+      // Validate permission IDs
+      for (const pid of data.permissionIds) {
+        if (!PERMISSION_IDS.has(pid)) {
+          throw new Error(`Unknown permission: ${pid}`);
+        }
       }
-    }
 
-    // Check role exists
-    const [found] = await db
-      .select({ id: role.id, isSystem: role.isSystem })
-      .from(role)
-      .where(eq(role.id, data.roleId))
-      .limit(1);
+      // Check role exists
+      const [found] = await db
+        .select({ id: role.id, isSystem: role.isSystem })
+        .from(role)
+        .where(eq(role.id, data.roleId))
+        .limit(1);
 
-    if (!found) {
-      throw new Error("Role not found");
-    }
-
-    if (found.isSystem && ADMIN_TIER_ROLES.has(found.id)) {
-      throw new Error("Cannot modify a system role");
-    }
-
-    await db.transaction(async (tx) => {
-      await tx
-        .update(role)
-        .set({ name: data.name, description: data.description ?? null })
-        .where(eq(role.id, data.roleId));
-
-      await tx
-        .delete(rolePermission)
-        .where(eq(rolePermission.roleId, data.roleId));
-
-      if (data.permissionIds.length > 0) {
-        await tx.insert(rolePermission).values(
-          data.permissionIds.map((permId) => ({
-            roleId: data.roleId,
-            permissionId: permId,
-          }))
-        );
+      if (!found) {
+        throw new Error("Role not found");
       }
-    });
 
-    invalidatePermissionCache(data.roleId);
+      if (found.isSystem && ADMIN_TIER_ROLES.has(found.id)) {
+        throw new Error("Cannot modify a system role");
+      }
 
-    return data.roleId;
+      await db.transaction(async (tx) => {
+        await tx
+          .update(role)
+          .set({ name: data.name, description: data.description ?? null })
+          .where(eq(role.id, data.roleId));
+
+        await tx
+          .delete(rolePermission)
+          .where(eq(rolePermission.roleId, data.roleId));
+
+        if (data.permissionIds.length > 0) {
+          await tx.insert(rolePermission).values(
+            data.permissionIds.map((permId) => ({
+              roleId: data.roleId,
+              permissionId: permId,
+            }))
+          );
+        }
+      });
+
+      invalidatePermissionCache(data.roleId);
+
+      return data.roleId;
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/updateRole" },
+        {
+          handler: "updateRole",
+          userId: context.session?.user.id,
+          roleId: data.roleId,
+          permissionCount: data.permissionIds.length,
+        },
+        error
+      );
+    }
   });
 
 // ── Delete role ──
@@ -272,34 +328,46 @@ export const deleteRole = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
-    const [found] = await db
-      .select({ id: role.id, isSystem: role.isSystem })
-      .from(role)
-      .where(eq(role.id, data.roleId))
-      .limit(1);
+    try {
+      const [found] = await db
+        .select({ id: role.id, isSystem: role.isSystem })
+        .from(role)
+        .where(eq(role.id, data.roleId))
+        .limit(1);
 
-    if (!found) {
-      throw new Error("Role not found");
-    }
-    if (found.isSystem) {
-      throw new Error("Cannot delete a system role");
-    }
+      if (!found) {
+        throw new Error("Role not found");
+      }
+      if (found.isSystem) {
+        throw new Error("Cannot delete a system role");
+      }
 
-    // Check no users assigned
-    const [result] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(user)
-      .where(eq(user.role, data.roleId));
+      // Check no users assigned
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(user)
+        .where(eq(user.role, data.roleId));
 
-    if (result && result.count > 0) {
-      throw new Error(
-        `Cannot delete role: ${result.count} user(s) are still assigned to it`
+      if (result && result.count > 0) {
+        throw new Error(
+          `Cannot delete role: ${result.count} user(s) are still assigned to it`
+        );
+      }
+
+      await db.delete(role).where(eq(role.id, data.roleId));
+
+      invalidatePermissionCache(data.roleId);
+
+      return data.roleId;
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/deleteRole" },
+        {
+          handler: "deleteRole",
+          userId: context.session?.user.id,
+          roleId: data.roleId,
+        },
+        error
       );
     }
-
-    await db.delete(role).where(eq(role.id, data.roleId));
-
-    invalidatePermissionCache(data.roleId);
-
-    return data.roleId;
   });

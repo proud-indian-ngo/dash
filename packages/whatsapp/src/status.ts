@@ -8,6 +8,13 @@ import { formatPhoneForWhatsApp } from "./phone";
 export async function checkIsOnWhatsApp(phone: string): Promise<boolean> {
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
+    const log = createRequestLogger({
+      method: "GET",
+      path: "checkIsOnWhatsApp",
+    });
+    log.set({ phone });
+    log.warn("whatsapp_not_configured");
+    log.emit();
     return false;
   }
 

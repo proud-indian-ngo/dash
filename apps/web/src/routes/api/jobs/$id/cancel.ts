@@ -51,7 +51,9 @@ export const Route = createFileRoute("/api/jobs/$id/cancel")({
             method: "POST",
             path: `/api/jobs/${id}/cancel`,
           });
+          log.set({ userId: session.user.id, jobId: id });
           log.error(err instanceof Error ? err : String(err));
+          log.emit();
           return Response.json(
             { error: "Failed to cancel job" },
             { status: 500 }

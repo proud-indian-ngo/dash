@@ -58,7 +58,9 @@ export const Route = createFileRoute("/api/jobs/$id/retry")({
             method: "POST",
             path: `/api/jobs/${id}/retry`,
           });
+          log.set({ userId: session.user.id, jobId: id });
           log.error(err instanceof Error ? err : String(err));
+          log.emit();
           return Response.json(
             { error: "Failed to retry job" },
             { status: 500 }

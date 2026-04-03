@@ -13,6 +13,12 @@ async function getCourierTopicIdMap(): Promise<Map<string, string>> {
     return courierTopicIdMap;
   }
   if (!courier) {
+    const log = createRequestLogger({
+      method: "GET",
+      path: "getCourierTopicIdMap",
+    });
+    log.warn("courier_not_configured");
+    log.emit();
     return new Map();
   }
   const log = createRequestLogger();
@@ -57,6 +63,13 @@ export async function updateUserTopicPreference({
   status,
 }: UpdateTopicPreferenceOptions): Promise<void> {
   if (!courier) {
+    const log = createRequestLogger({
+      method: "POST",
+      path: "updateUserTopicPreference",
+    });
+    log.set({ userId, topicId, preferenceStatus: status });
+    log.warn("courier_not_configured");
+    log.emit();
     return;
   }
   const topicMap = await getCourierTopicIdMap();

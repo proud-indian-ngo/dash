@@ -61,7 +61,9 @@ export const Route = createFileRoute("/api/jobs/$id")({
             method: "GET",
             path: `/api/jobs/${id}`,
           });
+          log.set({ userId: session.user.id, jobId: id });
           log.error(err instanceof Error ? err : String(err));
+          log.emit();
           return Response.json(
             { error: "Failed to fetch job" },
             { status: 500 }

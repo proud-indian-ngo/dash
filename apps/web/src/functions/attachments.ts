@@ -1,4 +1,5 @@
 import { env } from "@pi-dash/env/server";
+import { logErrorAndRethrow } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -84,19 +85,35 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
         }
       )
   )
-  .handler(async ({ data }) => {
-    const s3 = await getS3();
-    const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
-    // NOTE: Bun's S3.presign() does not support content-length conditions.
-    // fileSize is validated by Zod above but cannot be enforced at the storage layer.
-    // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
-    // createPresignedPost and a ["content-length-range", 1, MAX] condition.
-    const presignedUrl = s3.presign(key, {
-      method: "PUT",
-      expiresIn: 300,
-      type: data.mimeType,
-    });
-    return { presignedUrl, key };
+  .handler(async ({ data, context }) => {
+    try {
+      const s3 = await getS3();
+      const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      // NOTE: Bun's S3.presign() does not support content-length conditions.
+      // fileSize is validated by Zod above but cannot be enforced at the storage layer.
+      // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
+      // createPresignedPost and a ["content-length-range", 1, MAX] condition.
+      const presignedUrl = s3.presign(key, {
+        method: "PUT",
+        expiresIn: 300,
+        type: data.mimeType,
+      });
+      return { presignedUrl, key };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getPresignedUploadUrl" },
+        {
+          handler: "getPresignedUploadUrl",
+          userId: context.session?.user.id,
+          subfolder: data.subfolder,
+          entityId: data.entityId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          mimeType: data.mimeType,
+        },
+        error
+      );
+    }
   });
 
 export const deleteUploadedAsset = createServerFn({ method: "POST" })
@@ -113,14 +130,27 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
       ]),
     })
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
     if (!data.key.startsWith(expectedPrefix)) {
       throw new Error("Forbidden");
     }
-    const s3 = await getS3();
-    await s3.delete(data.key);
-    return { success: true };
+    try {
+      const s3 = await getS3();
+      await s3.delete(data.key);
+      return { success: true };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/deleteUploadedAsset" },
+        {
+          handler: "deleteUploadedAsset",
+          userId: context.session?.user.id,
+          key: data.key,
+          subfolder: data.subfolder,
+        },
+        error
+      );
+    }
   });
 
 export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
@@ -136,14 +166,28 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    const s3 = await getS3();
-    const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
-    const presignedUrl = s3.presign(key, {
-      method: "PUT",
-      expiresIn: 300,
-      type: data.mimeType,
-    });
-    return { presignedUrl, key };
+    try {
+      const s3 = await getS3();
+      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const presignedUrl = s3.presign(key, {
+        method: "PUT",
+        expiresIn: 300,
+        type: data.mimeType,
+      });
+      return { presignedUrl, key };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getProfilePictureUploadUrl" },
+        {
+          handler: "getProfilePictureUploadUrl",
+          userId: context.session.user.id,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          mimeType: data.mimeType,
+        },
+        error
+      );
+    }
   });
 
 export const deleteProfilePicture = createServerFn({ method: "POST" })
@@ -161,9 +205,21 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
     if (!data.key.startsWith(expectedPrefix)) {
       throw new Error("Forbidden");
     }
-    const s3 = await getS3();
-    await s3.delete(data.key);
-    return { success: true };
+    try {
+      const s3 = await getS3();
+      await s3.delete(data.key);
+      return { success: true };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/deleteProfilePicture" },
+        {
+          handler: "deleteProfilePicture",
+          userId: context.session.user.id,
+          key: data.key,
+        },
+        error
+      );
+    }
   });
 
 export const deleteUploadedAssets = createServerFn({ method: "POST" })
@@ -180,14 +236,27 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
       ]),
     })
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
     for (const key of data.keys) {
       if (!key.startsWith(expectedPrefix)) {
         throw new Error("Forbidden");
       }
     }
-    const s3 = await getS3();
-    await Promise.all(data.keys.map((key) => s3.delete(key)));
-    return { success: true };
+    try {
+      const s3 = await getS3();
+      await Promise.all(data.keys.map((key) => s3.delete(key)));
+      return { success: true };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/deleteUploadedAssets" },
+        {
+          handler: "deleteUploadedAssets",
+          userId: context.session?.user.id,
+          subfolder: data.subfolder,
+          keyCount: data.keys.length,
+        },
+        error
+      );
+    }
   });

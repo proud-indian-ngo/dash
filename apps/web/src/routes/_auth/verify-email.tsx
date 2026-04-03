@@ -2,6 +2,7 @@ import { auth } from "@pi-dash/auth";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { createRequestLogger } from "evlog";
 import { z } from "zod";
 
 import { LoginInfoPanel } from "@/components/login/auth-info-panel";
@@ -29,6 +30,10 @@ const verifyEmailToken = createServerFn({ method: "GET" })
       ) {
         return { error: null, alreadyVerified: true };
       }
+      const log = createRequestLogger();
+      log.set({ handler: "verifyEmailToken", token: data.token });
+      log.error(e instanceof Error ? e : String(e));
+      log.emit();
       return { error: "Verification failed. The link may have expired." };
     }
   });

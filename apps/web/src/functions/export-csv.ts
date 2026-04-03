@@ -10,6 +10,7 @@ import {
   reimbursementAttachment,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { logErrorAndRethrow } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -210,37 +211,51 @@ export const exportCsvData = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(exportCsvSchema)
   .handler(async ({ context, data }) => {
-    await assertServerPermission(context.session, "requests.export");
+    try {
+      await assertServerPermission(context.session, "requests.export");
 
-    const fyStartDate = new Date(data.fyStart, 3, 1); // April 1
-    const fyEndDate = new Date(data.fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31
-    const statusFilter =
-      data.statuses && data.statuses.length > 0 ? data.statuses : null;
+      const fyStartDate = new Date(data.fyStart, 3, 1); // April 1
+      const fyEndDate = new Date(data.fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31
+      const statusFilter =
+        data.statuses && data.statuses.length > 0 ? data.statuses : null;
 
-    const promises: Promise<ExportRow[]>[] = [];
+      const promises: Promise<ExportRow[]>[] = [];
 
-    if (data.types.includes("reimbursement")) {
-      promises.push(
-        queryExportRows(
-          reimbursementConfig,
-          fyStartDate,
-          fyEndDate,
-          statusFilter
-        )
+      if (data.types.includes("reimbursement")) {
+        promises.push(
+          queryExportRows(
+            reimbursementConfig,
+            fyStartDate,
+            fyEndDate,
+            statusFilter
+          )
+        );
+      }
+
+      if (data.types.includes("advancePayment")) {
+        promises.push(
+          queryExportRows(
+            advancePaymentConfig,
+            fyStartDate,
+            fyEndDate,
+            statusFilter
+          )
+        );
+      }
+
+      const results = await Promise.all(promises);
+      return { rows: results.flat() };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/exportCsvData" },
+        {
+          handler: "exportCsvData",
+          userId: context.session?.user.id,
+          types: data.types,
+          fyStart: data.fyStart,
+          statuses: data.statuses,
+        },
+        error
       );
     }
-
-    if (data.types.includes("advancePayment")) {
-      promises.push(
-        queryExportRows(
-          advancePaymentConfig,
-          fyStartDate,
-          fyEndDate,
-          statusFilter
-        )
-      );
-    }
-
-    const results = await Promise.all(promises);
-    return { rows: results.flat() };
   });

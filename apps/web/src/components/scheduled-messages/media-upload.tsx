@@ -127,7 +127,14 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
       const files = addedFiles
         .map((item) => item.file)
         .filter((f): f is File => f instanceof File);
-      uploadFiles(files).catch(() => undefined);
+      uploadFiles(files).catch((error: unknown) => {
+        log.error({
+          component: "MediaUpload",
+          action: "onFilesAdded",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Upload failed");
+      });
     },
   });
 
