@@ -288,7 +288,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`, `consoleErrors`). The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
 - **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `RequestPage` for request feature tests — it composes `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`, parameterized by type (`"reimbursement"` or `"advance_payment"`). New feature test suites should follow this pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via direct API calls to `/api/zero/mutate`.
-- **Dev seeding**: `packages/db/src/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
+- **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
 - **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts for E2E tests.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
 - **Env**: Test credentials live in `packages/e2e/.env.test`. Do not commit real credentials.

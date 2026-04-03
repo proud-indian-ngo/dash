@@ -4,6 +4,11 @@
   "workspaces": {
     "": {
       "name": "pi-dash",
+      "dependencies": {
+        "@pi-dash/auth": "workspace:*",
+        "@pi-dash/db": "workspace:*",
+        "drizzle-orm": "catalog:",
+      },
       "devDependencies": {
         "@biomejs/biome": "^2.4.10",
         "@commitlint/cli": "^20.5.0",

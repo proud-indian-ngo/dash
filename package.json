@@ -78,9 +78,13 @@
     "analyze": "turbo run --filter=web analyze",
     "worktree:setup": "bash scripts/worktree-setup.sh",
     "worktree:teardown": "bash scripts/worktree-teardown.sh",
-    "seed": "turbo run --filter=@pi-dash/db db:seed"
+    "seed": "bun --env-file=.env --env-file=.env.worktree run scripts/seed.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@pi-dash/auth": "workspace:*",
+    "@pi-dash/db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
     "@commitlint/cli": "^20.5.0",

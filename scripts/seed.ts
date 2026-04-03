@@ -4,7 +4,6 @@
  *
  * Usage:
  *   bun run seed          (from repo root)
- *   bun run db:seed       (from packages/db)
  *
  * Seeded tables:
  *   user, account (auto-created by auth.api.createUser), notificationTopicPreference,
@@ -20,51 +19,53 @@
  *   vendorPaymentTransaction, vendorPaymentTransactionAttachment, vendorPaymentTransactionHistory,
  *   scheduledMessage, scheduledMessageRecipient
  */
-import { eq, sql } from "drizzle-orm";
-import { db } from ".";
+
+import { auth } from "@pi-dash/auth";
+import { db } from "@pi-dash/db";
 import {
   advancePayment,
   advancePaymentAttachment,
   advancePaymentHistory,
   advancePaymentLineItem,
-} from "./schema/advance-payment";
-import { appConfig } from "./schema/app-config";
-import { notificationTopicPreference, user } from "./schema/auth";
-import { bankAccount } from "./schema/bank-account";
+} from "@pi-dash/db/schema/advance-payment";
+import { appConfig } from "@pi-dash/db/schema/app-config";
+import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
+import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import {
   eventFeedback,
   eventFeedbackSubmission,
-} from "./schema/event-feedback";
-import { eventInterest } from "./schema/event-interest";
-import { eventImmichAlbum, eventPhoto } from "./schema/event-photo";
-import { eventUpdate } from "./schema/event-update";
-import { expenseCategory } from "./schema/expense-category";
+} from "@pi-dash/db/schema/event-feedback";
+import { eventInterest } from "@pi-dash/db/schema/event-interest";
+import { eventImmichAlbum, eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { eventUpdate } from "@pi-dash/db/schema/event-update";
+import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
   reimbursement,
   reimbursementAttachment,
   reimbursementHistory,
   reimbursementLineItem,
-} from "./schema/reimbursement";
+} from "@pi-dash/db/schema/reimbursement";
 import {
   scheduledMessage,
   scheduledMessageRecipient,
-} from "./schema/scheduled-message";
-import { team, teamMember } from "./schema/team";
-import { teamEvent } from "./schema/team-event";
+} from "@pi-dash/db/schema/scheduled-message";
+import { team, teamMember } from "@pi-dash/db/schema/team";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
 import {
   vendor,
   vendorPayment,
   vendorPaymentAttachment,
   vendorPaymentHistory,
   vendorPaymentLineItem,
-} from "./schema/vendor";
+} from "@pi-dash/db/schema/vendor";
 import {
   vendorPaymentTransaction,
   vendorPaymentTransactionAttachment,
   vendorPaymentTransactionHistory,
-} from "./schema/vendor-payment-transaction";
-import { whatsappGroup } from "./schema/whatsapp-group";
-import { syncPermissions } from "./sync-permissions";
+} from "@pi-dash/db/schema/vendor-payment-transaction";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { eq, sql } from "drizzle-orm";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -292,9 +293,6 @@ const USERS: SeedUser[] = [
 
 async function seedUsers(): Promise<Map<string, string>> {
   log("Seeding users...");
-  // Dynamic import to avoid circular dependency in the package graph
-  // (packages/db -> packages/auth -> packages/db)
-  const { auth } = await import("@pi-dash/auth");
   const userMap = new Map<string, string>();
 
   for (const u of USERS) {

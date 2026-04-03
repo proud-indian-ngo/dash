@@ -181,7 +181,7 @@ if [ "$ISOLATED_DB" = true ]; then
 
   # Seed dev data
   echo "Seeding dev data..."
-  (cd "$REPO_ROOT/packages/db" && DATABASE_URL="$ISOLATED_DB_URL" SKIP_VALIDATION=true bun run db:seed)
+  (cd "$REPO_ROOT" && DATABASE_URL="$ISOLATED_DB_URL" SKIP_VALIDATION=true bun run seed)
   echo "✓ Dev data seeded"
 fi
 

@@ -20,7 +20,6 @@
     "db:down": "docker compose down",
     "whatsapp:start": "bun --env-file=../../.env --env-file=../../.env.worktree run docker compose up -d whatsapp",
     "whatsapp:stop": "docker compose stop whatsapp",
-    "db:seed": "bun --env-file=../../.env --env-file=../../.env.worktree run src/seed.ts",
     "check:types": "tsc --noEmit"
   },
   "dependencies": {
