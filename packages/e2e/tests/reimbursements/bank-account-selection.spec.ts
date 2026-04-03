@@ -1,10 +1,11 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.slow();
 
 async function openSettings(page: import("@playwright/test").Page) {
   await page.goto("/");
+  await waitForZeroReady(page);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   const sidebar = page.locator("[data-sidebar='sidebar']");

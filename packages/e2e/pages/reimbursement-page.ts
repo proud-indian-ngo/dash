@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { waitForZeroReady } from "../fixtures/test";
 import { ApprovalDetailPage } from "./approval-detail-page";
 import { ListPage } from "./list-page";
 import { RequestFormPage } from "./request-form-page";
@@ -22,6 +23,7 @@ export class ReimbursementPage {
 
   async navigateToList(): Promise<void> {
     await this.page.goto("/reimbursements");
+    await waitForZeroReady(this.page);
     await expect(
       this.page.getByRole("heading", { name: "Reimbursements" })
     ).toBeVisible();
@@ -29,6 +31,7 @@ export class ReimbursementPage {
 
   async navigateToNew(): Promise<void> {
     await this.page.goto("/reimbursements/new");
+    await waitForZeroReady(this.page);
     await expect(
       this.page.getByRole("heading", { name: "New Reimbursement" })
     ).toBeVisible();

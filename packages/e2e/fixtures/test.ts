@@ -1,11 +1,19 @@
 import path from "node:path";
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 import dotenv from "dotenv";
 
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../.env.test"),
   quiet: true,
 });
+
+/**
+ * Wait for Zero's initial WebSocket connection to be established.
+ * The app sets `data-zero-ready` on `#main` once connected.
+ */
+export async function waitForZeroReady(page: Page, timeout = 30_000) {
+  await page.locator("#main[data-zero-ready]").waitFor({ timeout });
+}
 
 export const test = base.extend<{
   adminEmail: string;

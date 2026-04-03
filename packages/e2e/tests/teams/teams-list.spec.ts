@@ -1,8 +1,9 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 test.describe("Teams list (admin)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/teams");
+    await waitForZeroReady(page);
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
   });
 

@@ -15,7 +15,7 @@ import {
 import { useCourier } from "@trycourier/courier-react";
 import { log } from "evlog";
 import debounce from "lodash/debounce";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -83,7 +83,7 @@ function extractReason(state: { reason?: unknown }): string {
     : JSON.stringify(state.reason ?? "unknown");
 }
 
-function ZeroConnectionMonitor() {
+function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
   const state = useConnectionState();
   const prevName = useRef(state.name);
   const navigate = useNavigate();
@@ -93,7 +93,9 @@ function ZeroConnectionMonitor() {
       return;
     }
 
-    if (state.name === "needs-auth") {
+    if (state.name === "connected") {
+      onConnected();
+    } else if (state.name === "needs-auth") {
       log.error({
         component: "ZeroConnectionMonitor",
         message: "Zero connection: needs-auth",
@@ -113,7 +115,7 @@ function ZeroConnectionMonitor() {
     }
 
     prevName.current = state.name;
-  }, [state, navigate]);
+  }, [state, navigate, onConnected]);
 
   return null;
 }
@@ -121,14 +123,21 @@ function ZeroConnectionMonitor() {
 function AppLayout() {
   const isMobile = useIsMobile();
   const { permissions, session } = Route.useRouteContext();
+  const [zeroConnected, setZeroConnected] = useState(false);
+  const handleConnected = useCallback(() => setZeroConnected(true), []);
 
   return (
     <AppProvider permissions={permissions} user={session.user}>
       <SidebarProvider>
-        <ZeroConnectionMonitor />
+        <ZeroConnectionMonitor onConnected={handleConnected} />
         <CourierAuth />
         <AppSidebar />
-        <SidebarInset className="min-w-0" id="main" tabIndex={-1}>
+        <SidebarInset
+          className="min-w-0"
+          data-zero-ready={zeroConnected || undefined}
+          id="main"
+          tabIndex={-1}
+        >
           <header className="flex h-16 shrink-0 items-center transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
             <div className="flex h-full flex-1 items-center justify-between px-4">
               <div className="flex items-center gap-2">

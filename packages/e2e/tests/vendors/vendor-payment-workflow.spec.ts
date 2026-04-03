@@ -1,4 +1,4 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 test.describe("Vendor payment workflow (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -12,6 +12,7 @@ test.describe("Vendor payment workflow (admin)", () => {
     const title = `E2E VP ${titleSuffix} ${Date.now()}`;
 
     await page.goto("/vendor-payments/new");
+    await waitForZeroReady(page);
     await expect(
       page.getByRole("heading", { name: "New Vendor Payment" })
     ).toBeVisible();
@@ -265,6 +266,7 @@ test.describe("Vendor payment workflow (volunteer)", () => {
 
     const title = `E2E VP Volunteer ${Date.now()}`;
     await page.goto("/vendor-payments/new");
+    await waitForZeroReady(page);
     await expect(
       page.getByRole("heading", { name: "New Vendor Payment" })
     ).toBeVisible();
