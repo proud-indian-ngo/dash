@@ -238,10 +238,6 @@ jobs:
           echo "Merged durations: $(node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('/tmp/merged-durations.json','utf8'))).length)") tests"
           mkdir -p packages/e2e
           cp /tmp/merged-durations.json packages/e2e/.test-durations.json
-      - uses: actions/checkout@v6
-        if: needs.e2e.result == 'success'
-        with:
-          sparse-checkout: packages/e2e
       - name: Save durations cache
         if: needs.e2e.result == 'success'
         uses: actions/cache/save@v5
