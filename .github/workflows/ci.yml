@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TURBO_TELEMETRY_DISABLED: "1"
+      TURBO_API: "https://turbo.ducktors.dev"
+      TURBO_TOKEN: "turbotokenoss"
+      TURBO_TEAM: "pi-dash"
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -32,9 +35,59 @@ jobs:
       - name: Unit tests
         run: bun run test:unit
 
-  e2e:
+  prepare-shards:
     runs-on: ubuntu-latest
     needs: [checks]
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+      SKIP_VALIDATION: "true"
+      BASE_URL: "http://localhost:3099"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Restore test durations cache
+        uses: actions/cache/restore@v5
+        with:
+          path: packages/e2e/.test-durations.json
+          key: e2e-durations-${{ github.ref_name }}
+          restore-keys: |
+            e2e-durations-master
+            e2e-durations-
+      - name: Generate shard lists
+        run: bun run packages/e2e/shard-by-duration.ts 4
+      - name: Upload shard lists
+        uses: actions/upload-artifact@v7
+        with:
+          name: shard-lists
+          path: packages/e2e/shard-lists/
+          retention-days: 1
+      - name: Build web app
+        env:
+          BETTER_AUTH_URL: http://localhost:3099
+          BETTER_AUTH_SECRET: ci-test-secret-value-at-least-32-chars-long
+          CORS_ORIGIN: http://localhost:3099
+          VITE_ZERO_URL: http://localhost:4848
+          VITE_CDN_URL: http://localhost:3099
+        run: cd apps/web && bun run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-build
+          path: apps/web/.output/
+          include-hidden-files: true
+          retention-days: 1
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [prepare-shards]
     strategy:
       fail-fast: false
       matrix:
@@ -95,8 +148,24 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
 
+      - name: Restore Playwright cache
+        id: playwright-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
+      - name: Install Playwright system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+      - name: Save Playwright cache
+        if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Push schema to test database
         run: cd packages/db && bunx drizzle-kit push
@@ -104,9 +173,26 @@ jobs:
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
-      - name: Build web app
-        run: cd apps/web && bun run build
+      - name: Download build artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: web-build
+          path: apps/web/.output/
 
+      - name: Cache zero-cache image
+        id: zero-cache-image
+        uses: actions/cache@v5
+        with:
+          path: /tmp/zero-cache-image.tar
+          key: zero-cache-${{ runner.os }}-1.1.1
+      - name: Load or pull zero-cache image
+        run: |
+          if [ -f /tmp/zero-cache-image.tar ]; then
+            docker load -i /tmp/zero-cache-image.tar
+          else
+            docker pull rocicorp/zero:1.1.1
+            docker save rocicorp/zero:1.1.1 -o /tmp/zero-cache-image.tar
+          fi
       - name: Start zero-cache
         run: |
           docker run -d --name zero-cache --network host \
@@ -133,16 +219,31 @@ jobs:
           docker logs zero-cache
           exit 1
 
+      - name: Download shard lists
+        uses: actions/download-artifact@v7
+        with:
+          name: shard-lists
+          path: packages/e2e/shard-lists/
+
       - name: Run Playwright tests
-        run: bunx playwright test --config packages/e2e/playwright.config.ts --shard=${{ matrix.shard }}/4
+        run: bunx playwright test --config packages/e2e/playwright.config.ts --test-list=packages/e2e/shard-lists/shard-${{ matrix.shard }}.txt
+
+      - name: Upload test durations
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-durations-${{ matrix.shard }}
+          path: packages/e2e/.test-durations.json
+          include-hidden-files: true
+          retention-days: 1
 
       - name: Zero-cache logs
-        if: ${{ !cancelled() }}
+        if: failure()
         run: |
           echo "=== zero-cache container status ==="
           docker inspect zero-cache --format 'status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' 2>/dev/null || echo "container not found"
-          echo "=== zero-cache logs (with timestamps) ==="
-          docker logs --timestamps zero-cache 2>&1 || echo "no logs available"
+          echo "=== zero-cache logs (last 100 lines) ==="
+          docker logs --tail 100 zero-cache 2>&1 || echo "no logs available"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
@@ -163,3 +264,34 @@ jobs:
             echo "E2E tests failed (result: ${{ needs.e2e.result }})"
             exit 1
           fi
+      - name: Download all duration artifacts
+        if: needs.e2e.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          pattern: test-durations-*
+          path: /tmp/durations
+      - name: Merge and cache durations
+        if: needs.e2e.result == 'success'
+        run: |
+          # Merge all shard duration files into one
+          echo '{}' > /tmp/merged-durations.json
+          for f in /tmp/durations/*/; do
+            if [ -f "${f}.test-durations.json" ]; then
+              # Merge using jq-like approach with node
+              node -e "
+                const a = JSON.parse(require('fs').readFileSync('/tmp/merged-durations.json', 'utf8'));
+                const b = JSON.parse(require('fs').readFileSync('${f}.test-durations.json', 'utf8'));
+                Object.assign(a, b);
+                require('fs').writeFileSync('/tmp/merged-durations.json', JSON.stringify(a, null, 2));
+              "
+            fi
+          done
+          echo "Merged durations: $(node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('/tmp/merged-durations.json','utf8'))).length)") tests"
+          mkdir -p packages/e2e
+          cp /tmp/merged-durations.json packages/e2e/.test-durations.json
+      - name: Save durations cache
+        if: needs.e2e.result == 'success'
+        uses: actions/cache/save@v5
+        with:
+          path: packages/e2e/.test-durations.json
+          key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}
