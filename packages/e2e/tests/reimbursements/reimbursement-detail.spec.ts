@@ -1,4 +1,4 @@
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.describe("Reimbursement detail (reimbursement)", () => {
@@ -135,13 +135,16 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
 
-    const firstRow = reimbursements.list.getRows().nth(1);
-    const hasRows = (await firstRow.count()) > 0;
+    // Use a row with actual data (filter by status badge text to skip header rows)
+    const dataRow = page
+      .getByRole("row")
+      .filter({ hasText: /pending|approved|rejected|submitted/i })
+      .first();
+    const hasRows = (await dataRow.count()) > 0;
     test.skip(!hasRows, "No reimbursements available");
 
-    await firstRow.click();
-    await page.waitForURL(/\/reimbursements\//, { timeout: 10_000 });
-    await waitForZeroReady(page);
+    await dataRow.click();
+    await page.waitForURL(/\/reimbursements\/[a-z0-9-]/, { timeout: 10_000 });
 
     await expect(page.getByText("Line items")).toBeVisible({
       timeout: 10_000,
