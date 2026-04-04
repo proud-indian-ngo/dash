@@ -27,6 +27,8 @@ const RE_DATE = /node_modules[\\/](date-fns|react-day-picker)\//;
 const RE_AUTH = /node_modules[\\/]better-auth\//;
 const RE_DRIZZLE = /node_modules[\\/]drizzle-orm\//;
 const RE_ZOD = /node_modules[\\/]zod\//;
+const RE_RECHARTS =
+  /node_modules[\\/](recharts|react-redux|@reduxjs[\\/]toolkit|redux|redux-thunk|reselect|immer|use-sync-external-store|victory-vendor|decimal\.js-light|eventemitter3)\//;
 const RE_VENDOR = /node_modules/;
 
 export default defineConfig(({ mode }) => ({
@@ -74,6 +76,7 @@ export default defineConfig(({ mode }) => ({
                 { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
                 { name: "vendor-icons", test: RE_ICONS, priority: 20 },
                 { name: "vendor-phone", test: RE_PHONE, priority: 20 },
+                { name: "vendor-recharts", test: RE_RECHARTS, priority: 20 },
                 { name: "vendor-date", test: RE_DATE, priority: 15 },
                 { name: "vendor-auth", test: RE_AUTH, priority: 15 },
                 { name: "vendor-drizzle", test: RE_DRIZZLE, priority: 15 },

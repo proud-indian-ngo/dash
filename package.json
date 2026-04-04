@@ -50,7 +50,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
+    "build": "bun run --env-file .env -- turbo run build",
     "check:types": "bun run --env-file .env -- turbo run check:types",
     "dev:web": "turbo run --filter=web dev",
     "db:push": "turbo run --filter=@pi-dash/db db:push",
