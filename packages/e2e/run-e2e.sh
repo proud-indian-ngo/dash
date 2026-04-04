@@ -138,6 +138,7 @@ export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
 export VITE_E2E=true
+export ZERO_APP_ID=zero
 
 # Disable external notification services during E2E tests
 unset COURIER_API_KEY
