@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [checks]
     strategy:
-      fail-fast: true
+      fail-fast: false  # temporarily disabled for diagnostics
       matrix:
         shard: [1, 2, 3, 4]
     services:
@@ -135,6 +135,14 @@ jobs:
 
       - name: Run Playwright tests
         run: bunx playwright test --config packages/e2e/playwright.config.ts --shard=${{ matrix.shard }}/4
+
+      - name: Zero-cache logs
+        if: ${{ !cancelled() }}
+        run: |
+          echo "=== zero-cache container status ==="
+          docker inspect zero-cache --format '{{.State.Status}} (exit={{.State.ExitCode}})' 2>/dev/null || echo "container not found"
+          echo "=== zero-cache logs (last 50 lines) ==="
+          docker logs --tail 50 zero-cache 2>&1 || echo "no logs available"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
