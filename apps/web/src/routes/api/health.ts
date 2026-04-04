@@ -22,12 +22,16 @@ export const Route = createFileRoute("/api/health")({
           // DB unreachable or timed out — report as degraded
         }
 
-        return Response.json({
-          status: dbConnected ? "ok" : "degraded",
-          uptime: Math.round(process.uptime()),
-          db: { connected: dbConnected },
-          timestamp: new Date().toISOString(),
-        });
+        const status = dbConnected ? "ok" : "degraded";
+        return Response.json(
+          {
+            status,
+            uptime: Math.round(process.uptime()),
+            db: { connected: dbConnected },
+            timestamp: new Date().toISOString(),
+          },
+          { status: dbConnected ? 200 : 503 }
+        );
       },
     },
   },
