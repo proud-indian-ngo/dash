@@ -135,14 +135,19 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
 
-    // Use a row with actual data (filter by status badge text to skip header rows)
-    const dataRow = page
-      .getByRole("row")
-      .filter({ hasText: /pending|approved|rejected|submitted/i })
-      .first();
-    const hasRows = (await dataRow.count()) > 0;
-    test.skip(!hasRows, "No reimbursements available");
+    // Skip if table is empty
+    const emptyMsg = page.getByText("No reimbursements found");
+    if (await emptyMsg.isVisible({ timeout: 3000 }).catch(() => false)) {
+      test.skip(true, "No reimbursements in test DB");
+      return;
+    }
 
+    // Click first data row (tbody rows, not thead)
+    const dataRow = reimbursements.list
+      .getTable()
+      .locator("tbody")
+      .getByRole("row")
+      .first();
     await dataRow.click();
     await page.waitForURL(/\/reimbursements\/[a-z0-9-]/, { timeout: 10_000 });
 

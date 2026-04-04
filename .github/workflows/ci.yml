@@ -179,6 +179,20 @@ jobs:
           name: web-build
           path: apps/web/.output/
 
+      - name: Cache zero-cache image
+        id: zero-cache-image
+        uses: actions/cache@v5
+        with:
+          path: /tmp/zero-cache-image.tar
+          key: zero-cache-${{ runner.os }}-1.1.1
+      - name: Load or pull zero-cache image
+        run: |
+          if [ -f /tmp/zero-cache-image.tar ]; then
+            docker load -i /tmp/zero-cache-image.tar
+          else
+            docker pull rocicorp/zero:1.1.1
+            docker save rocicorp/zero:1.1.1 -o /tmp/zero-cache-image.tar
+          fi
       - name: Start zero-cache
         run: |
           docker run -d --name zero-cache --network host \
