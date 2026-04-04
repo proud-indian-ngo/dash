@@ -64,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: shard-lists
-          path: packages/e2e/.shard-lists/
+          path: packages/e2e/shard-lists/
           retention-days: 1
 
   e2e:
@@ -172,10 +172,10 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: shard-lists
-          path: packages/e2e/.shard-lists/
+          path: packages/e2e/shard-lists/
 
       - name: Run Playwright tests
-        run: bunx playwright test --config packages/e2e/playwright.config.ts --test-list=packages/e2e/.shard-lists/shard-${{ matrix.shard }}.txt
+        run: bunx playwright test --config packages/e2e/playwright.config.ts --test-list=packages/e2e/shard-lists/shard-${{ matrix.shard }}.txt
 
       - name: Upload test durations
         uses: actions/upload-artifact@v7

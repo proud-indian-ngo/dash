@@ -19,7 +19,7 @@ const DURATIONS_FILE = path.resolve(
   import.meta.dirname,
   ".test-durations.json"
 );
-const OUTPUT_DIR = path.resolve(import.meta.dirname, ".shard-lists");
+const OUTPUT_DIR = path.resolve(import.meta.dirname, "shard-lists");
 const DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
 
 const totalShards = Number.parseInt(process.argv[2] ?? "4", 10);
