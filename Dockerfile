@@ -41,8 +41,8 @@ FROM oven/bun:1.3.11-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
-# SSR chunks use runtime require("react") that Nitro can't statically bundle
-COPY --from=build /app/node_modules/react node_modules/react
+# SSR chunks use runtime require("react") via CJS interop (use-sync-external-store)
+RUN bun add react@19
 EXPOSE 3000
 ENV NODE_ENV=production
 CMD ["bun", "run", ".output/server/index.mjs"]
