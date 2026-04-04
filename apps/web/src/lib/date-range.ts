@@ -1,4 +1,11 @@
-import { endOfMonth, startOfMonth, subDays, subMonths } from "date-fns";
+import {
+  endOfMonth,
+  isValid,
+  parseISO,
+  startOfMonth,
+  subDays,
+  subMonths,
+} from "date-fns";
 import { parseAsString } from "nuqs";
 
 function fiscalYearStart(): Date {
@@ -13,7 +20,8 @@ export type PresetKey =
   | "this_month"
   | "3m"
   | "fiscal_year"
-  | "all";
+  | "all"
+  | "custom";
 
 export interface DateRange {
   from: Date | null;
@@ -74,7 +82,12 @@ export function resolveDateRange(
   toStr: string
 ): DateRange {
   if (rangeKey === "custom" && fromStr && toStr) {
-    return { from: new Date(fromStr), to: new Date(toStr) };
+    const from = parseISO(fromStr);
+    const to = parseISO(toStr);
+    if (isValid(from) && isValid(to)) {
+      return { from, to };
+    }
+    return { from: null, to: null };
   }
   const preset = DATE_PRESETS.find((p) => p.key === rangeKey);
   return preset ? preset.getRange() : { from: null, to: null };
@@ -83,8 +96,7 @@ export function resolveDateRange(
 export function filterByDateRange<T>(
   items: readonly T[],
   range: DateRange,
-  dateAccessor: (item: T) => number | null = (item) =>
-    (item as Record<string, unknown>).createdAt as number | null
+  dateAccessor: (item: T) => number | null
 ): T[] {
   const { from, to } = range;
   if (!(from || to)) {

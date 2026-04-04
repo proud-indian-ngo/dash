@@ -1,4 +1,5 @@
 import {
+  AnalyticsUpIcon,
   Calendar03Icon,
   FileExportIcon,
   HomeIcon,
@@ -92,6 +93,12 @@ const teamsNavItem: NavItem = {
   subItems: [{ title: "Team Details", url: "/teams/$id", isHidden: true }],
 };
 
+const analyticsNavItem: NavItem = {
+  title: "Analytics",
+  url: "/analytics",
+  icon: AnalyticsUpIcon,
+};
+
 const jobsNavItem: NavItem = {
   title: "Jobs",
   url: "/jobs",
@@ -138,6 +145,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   }
   if (has(permissions, "users.view")) {
     items.push(usersNavItem);
+  }
+  if (has(permissions, "requests.view_all")) {
+    items.push(analyticsNavItem);
   }
   if (has(permissions, "requests.export")) {
     items.push(exportNavItem);
@@ -196,6 +206,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
 
   // Admin group
   const adminItems: NavItem[] = [];
+  if (has(permissions, "requests.view_all")) {
+    adminItems.push(analyticsNavItem);
+  }
   if (has(permissions, "users.view")) {
     adminItems.push(usersNavItem);
   }

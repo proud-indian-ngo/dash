@@ -262,14 +262,29 @@ function OrientedDashboard() {
     dateParams.to
   );
 
-  const filteredReimbursements = filterByDateRange(reimbursements, dateRange);
-  const filteredAdvancePayments = filterByDateRange(advancePayments, dateRange);
-  const filteredVendorPayments = filterByDateRange(vendorPayments, dateRange);
+  const createdAtAccessor = (item: { createdAt: number | null }) =>
+    item.createdAt;
+  const filteredReimbursements = filterByDateRange(
+    reimbursements,
+    dateRange,
+    createdAtAccessor
+  );
+  const filteredAdvancePayments = filterByDateRange(
+    advancePayments,
+    dateRange,
+    createdAtAccessor
+  );
+  const filteredVendorPayments = filterByDateRange(
+    vendorPayments,
+    dateRange,
+    createdAtAccessor
+  );
 
+  // Pending count uses unfiltered data — pending items are actionable regardless of age
   const pendingCount =
-    byStatus(filteredReimbursements, "pending").length +
-    byStatus(filteredAdvancePayments, "pending").length +
-    byStatus(filteredVendorPayments, "pending").length;
+    byStatus(reimbursements, "pending").length +
+    byStatus(advancePayments, "pending").length +
+    byStatus(vendorPayments, "pending").length;
 
   const stats = computeDashboardStats({
     reimbursements: filteredReimbursements,

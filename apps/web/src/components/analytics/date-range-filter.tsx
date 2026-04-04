@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
 import { useState } from "react";
 import { ISO_DATE } from "@/lib/date-formats";
@@ -25,9 +25,39 @@ interface RangeSelection {
   to?: Date | undefined;
 }
 
+function parseUrlDate(str: string): Date | undefined {
+  if (!str) {
+    return undefined;
+  }
+  const d = parseISO(str);
+  return isValid(d) ? d : undefined;
+}
+
+function formatRangeLabel(fromStr: string, toStr: string, includeYear = false) {
+  const from = parseUrlDate(fromStr);
+  const to = parseUrlDate(toStr);
+  if (!(from && to)) {
+    return null;
+  }
+  const toFormat = includeYear ? "MMM d, yyyy" : "MMM d";
+  return `${format(from, "MMM d")} \u2013 ${format(to, toFormat)}`;
+}
+
 export function DateRangeFilter() {
   const [params, setParams] = useQueryStates(dateRangeSearchParams);
-  const [customRange, setCustomRange] = useState<RangeSelection | undefined>();
+  const [customRange, setCustomRange] = useState<RangeSelection | undefined>(
+    () => {
+      if (params.range !== "custom") {
+        return undefined;
+      }
+      const from = parseUrlDate(params.from);
+      const to = parseUrlDate(params.to);
+      if (from) {
+        return { from, to };
+      }
+      return undefined;
+    }
+  );
 
   function handlePresetChange(value: string | null) {
     if (!value) {
@@ -56,10 +86,7 @@ export function DateRangeFilter() {
 
   function getDisplayLabel() {
     if (isCustom) {
-      if (params.from && params.to) {
-        return `${format(new Date(params.from), "MMM d")} \u2013 ${format(new Date(params.to), "MMM d, yyyy")}`;
-      }
-      return "Custom range";
+      return formatRangeLabel(params.from, params.to, true) ?? "Custom range";
     }
     return activePreset?.label ?? "All time";
   }
@@ -92,9 +119,7 @@ export function DateRangeFilter() {
           <PopoverTrigger
             render={
               <Button size="sm" variant="outline">
-                {params.from && params.to
-                  ? `${format(new Date(params.from), "MMM d")} \u2013 ${format(new Date(params.to), "MMM d")}`
-                  : "Pick dates"}
+                {formatRangeLabel(params.from, params.to) ?? "Pick dates"}
               </Button>
             }
           />

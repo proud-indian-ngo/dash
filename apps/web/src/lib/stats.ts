@@ -127,7 +127,11 @@ export function computeTrendData(
     return [];
   }
 
-  const start = from ?? new Date(Math.min(...timestamps));
+  const start =
+    from ??
+    new Date(
+      timestamps.reduce((min, t) => Math.min(min, t), Number.POSITIVE_INFINITY)
+    );
   const end = to ?? new Date();
 
   const useWeeks = differenceInMonths(end, start) <= 3;
@@ -139,7 +143,7 @@ export function computeTrendData(
       const weekItems = items.filter((item) => {
         const ts = item.createdAt;
         return (
-          ts != null && ts >= weekStart.getTime() && ts <= weekEnd.getTime()
+          ts != null && ts >= weekStart.getTime() && ts < weekEnd.getTime()
         );
       });
       return {
@@ -156,7 +160,7 @@ export function computeTrendData(
     const monthItems = items.filter((item) => {
       const ts = item.createdAt;
       return (
-        ts != null && ts >= monthStart.getTime() && ts <= monthEnd.getTime()
+        ts != null && ts >= monthStart.getTime() && ts < monthEnd.getTime()
       );
     });
     return {

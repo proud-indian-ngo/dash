@@ -62,6 +62,9 @@ function AnalyticsPage() {
     r2.type !== "complete" &&
     r3.type !== "complete";
 
+  const anyComplete =
+    r1.type === "complete" || r2.type === "complete" || r3.type === "complete";
+
   const [dateParams] = useQueryStates(dateRangeSearchParams);
   const dateRange = resolveDateRange(
     dateParams.range,
@@ -69,10 +72,12 @@ function AnalyticsPage() {
     dateParams.to
   );
 
+  const createdAtAccessor = (item: { createdAt: number | null }) =>
+    item.createdAt;
   const allFiltered = [
-    ...filterByDateRange(reimbursements, dateRange),
-    ...filterByDateRange(advancePayments, dateRange),
-    ...filterByDateRange(vendorPayments, dateRange),
+    ...filterByDateRange(reimbursements, dateRange, createdAtAccessor),
+    ...filterByDateRange(advancePayments, dateRange, createdAtAccessor),
+    ...filterByDateRange(vendorPayments, dateRange, createdAtAccessor),
   ];
 
   const stats = computeSubmissionStats(allFiltered, Invoice01Icon);
@@ -102,15 +107,26 @@ function AnalyticsPage() {
         <StatsCards isLoading={isLoading} items={stats} />
       </div>
 
-      <Suspense>
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <SubmissionTrendsChart data={trendData} />
-          <CategoryBreakdownChart data={categoryData} />
-        </div>
+      <Suspense
+        fallback={
+          <div className="mt-6 grid animate-pulse gap-6 lg:grid-cols-2">
+            <div className="h-[380px] rounded-none bg-muted/50" />
+            <div className="h-[380px] rounded-none bg-muted/50" />
+          </div>
+        }
+      >
+        {anyComplete && (
+          <>
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <SubmissionTrendsChart data={trendData} />
+              <CategoryBreakdownChart data={categoryData} />
+            </div>
 
-        <div className="mt-6">
-          <TopSubmittersChart data={submitterData} />
-        </div>
+            <div className="mt-6">
+              <TopSubmittersChart data={submitterData} />
+            </div>
+          </>
+        )}
       </Suspense>
     </div>
   );
