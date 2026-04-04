@@ -33,9 +33,9 @@ test.describe("Vendor payment approval (admin)", () => {
     } else {
       // Create vendor inline — close the combobox and wait for overlay to dismiss
       await page.keyboard.press("Escape");
-      await expect(page.locator("[data-base-ui-inert]")).toBeHidden({
-        timeout: 5000,
-      });
+      await expect(
+        page.locator('div[role="presentation"][data-base-ui-inert]')
+      ).toBeHidden({ timeout: 5000 });
       await page.getByRole("button", { name: "Add new vendor" }).click();
       const dialog = page.getByRole("dialog", { name: /vendor/i });
       await expect(dialog).toBeVisible({ timeout: 5000 });
