@@ -29,6 +29,7 @@ if (totalShards < 2) {
 }
 
 // 1. Get full test list from Playwright
+// Set BASE_URL to prevent Playwright from trying to start a web server
 const listOutput = execFileSync(
   "bunx",
   [
@@ -38,7 +39,11 @@ const listOutput = execFileSync(
     "packages/e2e/playwright.config.ts",
     "--list",
   ],
-  { encoding: "utf-8", cwd: path.resolve(import.meta.dirname, "../..") }
+  {
+    encoding: "utf-8",
+    cwd: path.resolve(import.meta.dirname, "../.."),
+    env: { ...process.env, BASE_URL: "http://localhost:3099" },
+  }
 );
 
 const testLines = listOutput
