@@ -30,21 +30,36 @@ if (totalShards < 2) {
 
 // 1. Get full test list from Playwright
 // Set BASE_URL to prevent Playwright from trying to start a web server
-const listOutput = execFileSync(
-  "bunx",
-  [
-    "playwright",
-    "test",
-    "--config",
-    "packages/e2e/playwright.config.ts",
-    "--list",
-  ],
-  {
-    encoding: "utf-8",
-    cwd: path.resolve(import.meta.dirname, "../.."),
-    env: { ...process.env, BASE_URL: "http://localhost:3099" },
-  }
-);
+let listOutput: string;
+try {
+  listOutput = execFileSync(
+    "bunx",
+    [
+      "playwright",
+      "test",
+      "--config",
+      "packages/e2e/playwright.config.ts",
+      "--list",
+    ],
+    {
+      encoding: "utf-8",
+      cwd: path.resolve(import.meta.dirname, "../.."),
+      env: { ...process.env, BASE_URL: "http://localhost:3099" },
+      stdio: ["pipe", "pipe", "pipe"],
+    }
+  );
+} catch (error: unknown) {
+  const err = error as { stdout?: string; stderr?: string; status?: number };
+  console.error("playwright --list failed with exit code:", err.status);
+  console.error("stdout:", err.stdout?.slice(0, 500) ?? "(empty)");
+  console.error("stderr:", err.stderr?.slice(0, 500) ?? "(empty)");
+  process.exit(1);
+}
+
+if (!listOutput.trim()) {
+  console.error("playwright --list returned empty output");
+  process.exit(1);
+}
 
 const testLines = listOutput
   .split("\n")
@@ -54,7 +69,8 @@ const testLines = listOutput
   .filter((l) => !l.startsWith("[setup]"));
 
 if (testLines.length === 0) {
-  console.error("No tests found from --list output");
+  console.error("No tests found from --list output. Raw output:");
+  console.error(listOutput.slice(0, 500));
   process.exit(1);
 }
 
