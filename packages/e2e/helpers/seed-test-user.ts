@@ -4,6 +4,10 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import {
+  reimbursement,
+  reimbursementLineItem,
+} from "@pi-dash/db/schema/reimbursement";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import dotenv from "dotenv";
@@ -149,6 +153,60 @@ async function ensureWhatsAppGroup(): Promise<void> {
   }
 }
 
+const SEED_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
+
+async function ensureReimbursement(userId: string): Promise<void> {
+  const existing = await db.query.reimbursement.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_REIMBURSEMENT_ID),
+  });
+  if (existing) {
+    return;
+  }
+
+  const category = await db.query.expenseCategory.findFirst();
+  if (!category) {
+    log("Skipping reimbursement seed — no expense categories found");
+    return;
+  }
+
+  const now = new Date();
+  await db.insert(reimbursement).values({
+    id: SEED_REIMBURSEMENT_ID,
+    userId,
+    title: "E2E Seed Reimbursement",
+    city: "bangalore",
+    expenseDate: "2026-01-15",
+    status: "pending",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db.insert(reimbursementLineItem).values([
+    {
+      id: uuidv7(),
+      reimbursementId: SEED_REIMBURSEMENT_ID,
+      categoryId: category.id,
+      description: "Bus fare",
+      amount: "250.00",
+      sortOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: uuidv7(),
+      reimbursementId: SEED_REIMBURSEMENT_ID,
+      categoryId: category.id,
+      description: "Lunch",
+      amount: "150.00",
+      sortOrder: 1,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+
+  log("Created seed reimbursement with 2 line items");
+}
+
 async function seed(): Promise<void> {
   await syncPermissions();
   log("Synced roles and permissions");
@@ -156,10 +214,16 @@ async function seed(): Promise<void> {
   await ensureExpenseCategories();
   await ensureWhatsAppGroup();
 
+  let adminUserId = "";
   for (const testUser of TEST_USERS) {
     const userId = await ensureTestUser(testUser);
     await ensureBankAccount(userId);
+    if (testUser.role === "super_admin") {
+      adminUserId = userId;
+    }
   }
+
+  await ensureReimbursement(adminUserId);
 }
 
 seed().catch((error: unknown) => {

@@ -135,20 +135,13 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
 
-    // Skip if table is empty
-    const emptyMsg = page.getByText("No reimbursements found");
-    if (await emptyMsg.isVisible({ timeout: 3000 }).catch(() => false)) {
-      test.skip(true, "No reimbursements in test DB");
-      return;
-    }
-
-    // Click first data row (tbody rows, not thead)
-    const dataRow = reimbursements.list
+    // Click the seeded reimbursement row
+    const seedRow = reimbursements.list
       .getTable()
-      .locator("tbody")
       .getByRole("row")
-      .first();
-    await dataRow.click();
+      .filter({ hasText: "E2E Seed Reimbursement" });
+    await expect(seedRow).toBeVisible({ timeout: 10_000 });
+    await seedRow.click();
     await page.waitForURL(/\/reimbursements\/[a-z0-9-]/, { timeout: 10_000 });
 
     await expect(page.getByText("Line items")).toBeVisible({
