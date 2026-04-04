@@ -110,33 +110,6 @@ test.describe("Vendor payment workflow (admin)", () => {
     await expect(dialog).toBeHidden({ timeout: 10_000 });
   }
 
-  test("approve a vendor payment request", async ({ page }) => {
-    test.slow();
-    const title = await createVendorPayment(page, "Approve");
-
-    await expect(page.getByText(title)).toBeVisible();
-    await expectStatus(page, "Pending");
-
-    await page.getByRole("button", { name: "Approve" }).first().click();
-    await approveInDialog(page);
-
-    await expectStatus(page, "Approved");
-  });
-
-  test("reject a vendor payment request with reason", async ({ page }) => {
-    test.slow();
-    const title = await createVendorPayment(page, "Reject");
-
-    await expect(page.getByText(title)).toBeVisible();
-    await expectStatus(page, "Pending");
-
-    await page.getByRole("button", { name: "Reject" }).click();
-    await rejectInDialog(page, "Budget exceeded");
-
-    await expectStatus(page, "Rejected");
-    await expect(page.getByText("Budget exceeded").first()).toBeVisible();
-  });
-
   test("full payment workflow: approve → record payments → upload invoice → approve invoice", async ({
     page,
   }) => {

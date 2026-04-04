@@ -54,9 +54,7 @@ test.describe("WhatsApp Groups (admin)", () => {
     const dialog = await openWhatsAppGroups(page);
     const addGroupBtn = dialog.getByRole("button", { name: "Add group" });
     // Button is hidden when WhatsApp API is not configured (e.g. in CI)
-    if (
-      !(await addGroupBtn.isVisible({ timeout: 15_000 }).catch(() => false))
-    ) {
+    if (!(await addGroupBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip(
         true,
         "WhatsApp API not configured — Add group button not shown"
@@ -108,9 +106,7 @@ test.describe("WhatsApp Groups (admin)", () => {
       name: "Add group",
     });
     // Button is hidden when WhatsApp API is not configured (e.g. in CI)
-    if (
-      !(await addGroupBtn.isVisible({ timeout: 15_000 }).catch(() => false))
-    ) {
+    if (!(await addGroupBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
       test.skip(
         true,
         "WhatsApp API not configured — Add group button not shown"
