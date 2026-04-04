@@ -71,15 +71,13 @@ function makeItem(overrides: {
     lineItems: [
       {
         amount: overrides.amount ?? 100,
-        category: overrides.category ? [{ name: overrides.category }] : null,
+        category: overrides.category ? { name: overrides.category } : undefined,
       },
     ],
-    user: [
-      {
-        email: overrides.email ?? "test@example.com",
-        name: overrides.name ?? "Test User",
-      },
-    ],
+    user: {
+      email: overrides.email ?? "test@example.com",
+      name: overrides.name ?? "Test User",
+    },
   };
 }
 
@@ -195,7 +193,7 @@ describe("computeSubmitterData", () => {
 
   it("skips items with no user", () => {
     const item = makeItem({ amount: 100 });
-    (item as { user: unknown[] }).user = [];
+    (item as { user: unknown }).user = undefined;
     expect(computeSubmitterData([item])).toEqual([]);
   });
 });

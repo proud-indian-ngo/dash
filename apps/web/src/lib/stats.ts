@@ -110,9 +110,9 @@ interface WithAnalyticsData extends WithStatusAndLineItems {
   createdAt: number | null;
   lineItems: readonly {
     amount: string | number;
-    category: readonly { name: string }[] | null;
+    category: { name: string } | undefined;
   }[];
-  user: readonly { email: string; name: string | null }[];
+  user: { email: string; name: string | null } | undefined;
 }
 
 export function computeTrendData(
@@ -178,7 +178,7 @@ export function computeCategoryData(
 
   for (const item of items) {
     for (const li of item.lineItems) {
-      const name = li.category?.[0]?.name ?? "Uncategorized";
+      const name = li.category?.name ?? "Uncategorized";
       const existing = map.get(name) ?? { amount: 0, count: 0 };
       existing.amount += Number(li.amount);
       existing.count += 1;
@@ -217,7 +217,7 @@ export function computeSubmitterData(
   >();
 
   for (const item of items) {
-    const user = item.user[0];
+    const user = item.user;
     if (!user) {
       continue;
     }
