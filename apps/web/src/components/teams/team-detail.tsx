@@ -533,6 +533,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               whatsappGroupId: editEventData.event.event.whatsappGroupId,
               feedbackEnabled: !!editEventData.event.event.feedbackEnabled,
               feedbackDeadline: editEventData.event.event.feedbackDeadline,
+              reminderIntervals:
+                (editEventData.event.event.reminderIntervals as
+                  | number[]
+                  | null) ?? null,
             }}
             onOpenChange={(open) => {
               dialog.onOpenChange(open);

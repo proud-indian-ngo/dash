@@ -40,4 +40,28 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     {},
     { retryLimit: 2, expireInSeconds: 600 }
   );
+
+  // Every 15 minutes — process pre-event reminders (configurable per event)
+  await boss.schedule(
+    "process-event-reminders",
+    "*/15 * * * *",
+    {},
+    { retryLimit: 2, expireInSeconds: 600 }
+  );
+
+  // Hourly — post-event reminders (feedback nudge, attendance, photo upload)
+  await boss.schedule(
+    "process-post-event-reminders",
+    "0 * * * *",
+    {},
+    { retryLimit: 2, expireInSeconds: 600 }
+  );
+
+  // Monday at 7:00 AM UTC — weekly upcoming events digest
+  await boss.schedule(
+    "send-weekly-events-digest",
+    "0 7 * * 1",
+    {},
+    { retryLimit: 2, expireInSeconds: 600 }
+  );
 }

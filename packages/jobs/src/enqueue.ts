@@ -373,6 +373,18 @@ export interface RemindFeedbackDeadlinePayload {
 export interface RemindPhotoApprovalPayload {
   triggeredAt: string;
 }
+
+export interface ProcessEventRemindersPayload {
+  triggeredAt: string;
+}
+
+export interface ProcessPostEventRemindersPayload {
+  triggeredAt: string;
+}
+
+export interface SendWeeklyEventsDigestPayload {
+  triggeredAt: string;
+}
 export interface ScanWhatsAppGroupsPayload {
   triggeredAt: string;
 }
@@ -486,6 +498,8 @@ export interface JobPayloads {
   "notify-vpt-cascade-rejected": NotifyVptCascadeRejectedPayload;
   "notify-vpt-rejected": NotifyVptRejectedPayload;
   "notify-vpt-submitted": NotifyVptSubmittedPayload;
+  "process-event-reminders": ProcessEventRemindersPayload;
+  "process-post-event-reminders": ProcessPostEventRemindersPayload;
   "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
@@ -494,6 +508,7 @@ export interface JobPayloads {
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
   "send-scheduled-whatsapp": SendScheduledWhatsAppPayload;
+  "send-weekly-events-digest": SendWeeklyEventsDigestPayload;
   "send-whatsapp": WhatsAppPayload;
   "sync-courier-preference": SyncCourierPreferencePayload;
   "sync-courier-user": SyncCourierUserPayload;
@@ -560,6 +575,8 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-vpt-cascade-rejected",
   "notify-vpt-rejected",
   "notify-vpt-submitted",
+  "process-event-reminders",
+  "process-post-event-reminders",
   "remind-feedback-deadline",
   "remind-photo-approval",
   "remind-stale-requests",
@@ -568,6 +585,7 @@ export const QUEUE_NAMES: JobName[] = [
   "send-notification",
   "send-scheduled-message",
   "send-scheduled-whatsapp",
+  "send-weekly-events-digest",
   "send-whatsapp",
   "sync-courier-preference",
   "sync-courier-user",

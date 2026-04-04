@@ -520,7 +520,7 @@ export function EventDetail({
 
         {/* Mobile-only details card (above tabs) */}
         <div className="lg:hidden">
-          <EventDetailsCard event={event} />
+          <EventDetailsCard canManage={canManage} event={event} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -561,7 +561,7 @@ export function EventDetail({
           <aside className="lg:col-span-2 lg:col-start-4 lg:row-start-1">
             <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:overflow-x-hidden">
               <div className="hidden -space-y-px lg:flex lg:flex-col">
-                <EventDetailsCard event={event} />
+                <EventDetailsCard canManage={canManage} event={event} />
                 {canManage ? (
                   <EventQuickStats
                     feedbackCount={feedback.length}
@@ -636,6 +636,8 @@ export function EventDetail({
           recurrenceRule: recurrence ?? null,
           feedbackEnabled: !!event.feedbackEnabled,
           feedbackDeadline: event.feedbackDeadline,
+          reminderIntervals:
+            (event.reminderIntervals as number[] | null) ?? null,
         }}
         onOpenChange={(open) => {
           dialog.onOpenChange(open);

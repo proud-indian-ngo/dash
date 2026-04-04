@@ -23,6 +23,7 @@ import { TextareaField } from "@/components/form/textarea-field";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { EditScope } from "./edit-scope-dialog";
 import { RecurrenceBuilder } from "./recurrence-builder";
+import { ReminderIntervalsField } from "./reminder-intervals-field";
 
 const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,6 +40,7 @@ const eventFormSchema = z.object({
   createWaGroup: z.boolean(),
   feedbackEnabled: z.boolean(),
   feedbackDeadline: z.date().optional(),
+  reminderIntervals: z.array(z.number()),
 });
 
 const endTimeAfterStartTime = (data: EventFormValues) =>
@@ -73,6 +75,7 @@ interface InitialValues {
     rrule: string;
     exdates?: string[];
   } | null;
+  reminderIntervals: number[] | null;
   seriesId: string | null;
   startTime: number;
   whatsappGroupId: string | null;
@@ -104,6 +107,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     feedbackDeadline: initialValues?.feedbackDeadline
       ? new Date(initialValues.feedbackDeadline)
       : undefined,
+    reminderIntervals: initialValues?.reminderIntervals ?? [],
   };
 }
 
@@ -127,6 +131,9 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     whatsappGroupId: value.whatsappGroupId || undefined,
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    reminderIntervals: value.reminderIntervals.length
+      ? value.reminderIntervals
+      : null,
   };
 }
 
@@ -149,6 +156,9 @@ function buildUpdateSeriesArgs(
     whatsappGroupId: value.whatsappGroupId || undefined,
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    reminderIntervals: value.reminderIntervals.length
+      ? value.reminderIntervals
+      : null,
     recurrenceRule: value.rrule ? { rrule: value.rrule } : undefined,
   };
   if (editScope === "this") {
@@ -178,6 +188,9 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     recurrenceRule,
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    reminderIntervals: value.reminderIntervals.length
+      ? value.reminderIntervals
+      : null,
   };
 }
 
@@ -350,6 +363,14 @@ function EventFormContent({
           ) : null
         }
       </form.Subscribe>
+      <form.Field name="reminderIntervals">
+        {(field) => (
+          <ReminderIntervalsField
+            onChange={(v) => field.handleChange(v)}
+            value={field.state.value}
+          />
+        )}
+      </form.Field>
       <FormActions
         onCancel={() => onOpenChange(false)}
         submitLabel={isEdit ? "Save" : "Create"}

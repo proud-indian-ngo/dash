@@ -1,40 +1,6 @@
 import { RRule, rrulestr } from "rrule";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface RecurrenceRule {
-  exdates?: string[];
-  rrule: string;
-}
-
-/** A virtual occurrence computed from RRULE expansion (no DB row). */
-export interface VirtualOccurrence {
-  /** ISO date string (YYYY-MM-DD) identifying this occurrence. */
-  date: string;
-  /** Epoch ms end time (preserving series duration), or null. */
-  endTime: number | null;
-  /** Epoch ms start time (series time-of-day applied to this date). */
-  startTime: number;
-}
-
 const RRULE_PREFIX_RE = /^RRULE:/;
-
-/** Narrow an `unknown` JSON column value to `RecurrenceRule | null`. */
-export function parseRecurrenceRule(value: unknown): RecurrenceRule | null {
-  if (value == null) {
-    return null;
-  }
-  if (
-    typeof value === "object" &&
-    "rrule" in value &&
-    typeof (value as RecurrenceRule).rrule === "string"
-  ) {
-    return value as RecurrenceRule;
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------------------
 // Parsing
@@ -42,76 +8,6 @@ export function parseRecurrenceRule(value: unknown): RecurrenceRule | null {
 
 export function parseRRule(rruleString: string): RRule {
   return rrulestr(rruleString) as RRule;
-}
-
-// ---------------------------------------------------------------------------
-// Expansion
-// ---------------------------------------------------------------------------
-
-/**
- * Expand a series RRULE into virtual occurrences within [rangeStart, rangeEnd].
- *
- * @param rule       The recurrence rule from the series parent.
- * @param seriesStart  The series parent's startTime (epoch ms) — used for time-of-day.
- * @param seriesEnd    The series parent's endTime (epoch ms | null) — used for duration.
- * @param rangeStart   Expand from this date (inclusive, epoch ms).
- * @param rangeEnd     Expand until this date (inclusive, epoch ms).
- * @param exceptionDates  Set of ISO date strings that have materialized exception rows.
- */
-export function expandSeries(
-  rule: RecurrenceRule,
-  seriesStart: number,
-  seriesEnd: number | null,
-  rangeStart: number,
-  rangeEnd: number,
-  exceptionDates: ReadonlySet<string> = new Set()
-): VirtualOccurrence[] {
-  const rrule = parseRRule(rule.rrule);
-  const exdateSet = new Set(rule.exdates ?? []);
-
-  // rrule.between expects Date objects. Use UTC to avoid timezone issues.
-  const dates = rrule.between(
-    new Date(rangeStart),
-    new Date(rangeEnd),
-    true // inclusive
-  );
-
-  const duration = seriesEnd == null ? null : seriesEnd - seriesStart;
-
-  const seriesDate = new Date(seriesStart);
-
-  const occurrences: VirtualOccurrence[] = [];
-
-  for (const date of dates) {
-    // rrule generates UTC dates — use UTC formatting for consistent day boundaries
-    const isoDate = toISODateUTC(date);
-
-    // Skip excluded dates (from exdates array)
-    if (exdateSet.has(isoDate)) {
-      continue;
-    }
-
-    // Skip dates that have materialized exception rows
-    if (exceptionDates.has(isoDate)) {
-      continue;
-    }
-
-    // Apply the series time-of-day (local) to this UTC date
-    const occStart = new Date(date);
-    occStart.setUTCHours(
-      seriesDate.getHours(),
-      seriesDate.getMinutes(),
-      seriesDate.getSeconds(),
-      seriesDate.getMilliseconds()
-    );
-
-    const startTime = occStart.getTime();
-    const endTime = duration == null ? null : startTime + duration;
-
-    occurrences.push({ date: isoDate, startTime, endTime });
-  }
-
-  return occurrences;
 }
 
 // ---------------------------------------------------------------------------

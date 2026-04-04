@@ -7,7 +7,11 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "rrule": "^2.8.1"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

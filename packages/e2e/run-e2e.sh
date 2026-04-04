@@ -119,9 +119,9 @@ until docker exec "$TEST_CONTAINER" pg_isready -U postgres 2>/dev/null; do
   fi
 done
 
-# Push schema (run from packages/db so relative schema path resolves)
-echo "Pushing schema to test database..."
-(cd packages/db && DATABASE_URL="$TEST_DB_URL" SKIP_VALIDATION=true bunx drizzle-kit push)
+# Migrate schema (run from packages/db so relative config path resolves)
+echo "Migrating test database..."
+(cd packages/db && DATABASE_URL="$TEST_DB_URL" SKIP_VALIDATION=true bunx drizzle-kit migrate)
 
 # Seed test users (run from e2e package for workspace dep resolution)
 echo "Seeding test users..."

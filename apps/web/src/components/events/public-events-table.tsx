@@ -2,8 +2,11 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import {
+  expandSeries,
+  parseRecurrenceRule,
+} from "@pi-dash/shared/rrule-expand";
 import { mutators } from "@pi-dash/zero/mutators";
-import { expandSeries, parseRecurrenceRule } from "@pi-dash/zero/rrule-utils";
 import type {
   EventInterest,
   TeamEvent,

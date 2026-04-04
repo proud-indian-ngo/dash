@@ -70,6 +70,8 @@ import {
   handleNotifyVptRejected,
   handleNotifyVptSubmitted,
 } from "./notify-vendor-payment-transaction";
+import { handleProcessEventReminders } from "./process-event-reminders";
+import { handleProcessPostEventReminders } from "./process-post-event-reminders";
 import { handleRemindFeedbackDeadline } from "./remind-feedback-deadline";
 import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
@@ -81,6 +83,7 @@ import {
   handleDeadLetterScheduledWhatsApp,
   handleSendScheduledWhatsApp,
 } from "./send-scheduled-whatsapp";
+import { handleSendWeeklyEventsDigest } from "./send-weekly-events-digest";
 import { handleSendWhatsApp } from "./send-whatsapp";
 import { handleSyncCourierPreference } from "./sync-courier-preference";
 import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
@@ -371,6 +374,21 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "scan-whatsapp-groups",
     NOTIFY_POLL,
     handleScanWhatsAppGroups
+  );
+  await boss.work(
+    "process-event-reminders",
+    NOTIFY_POLL,
+    handleProcessEventReminders
+  );
+  await boss.work(
+    "process-post-event-reminders",
+    NOTIFY_POLL,
+    handleProcessPostEventReminders
+  );
+  await boss.work(
+    "send-weekly-events-digest",
+    NOTIFY_POLL,
+    handleSendWeeklyEventsDigest
   );
 
   // Immich + R2 handlers (5s polling — external API + object storage)

@@ -8,8 +8,8 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@pi-dash/design-system/components/ui/select";
+import { expandSeries } from "@pi-dash/shared/rrule-expand";
 import {
-  expandSeries,
   formStateToRRule,
   type RRuleFormState,
   rruleToFormState,

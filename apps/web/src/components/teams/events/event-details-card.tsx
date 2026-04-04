@@ -1,6 +1,7 @@
 import {
   Calendar03Icon,
   Location01Icon,
+  NotificationIcon,
   RepeatIcon,
   ViewIcon,
   ViewOffSlashIcon,
@@ -14,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -46,8 +48,15 @@ function PropertyRow({
   );
 }
 
-export function EventDetailsCard({ event }: { event: EventRow }) {
+export function EventDetailsCard({
+  canManage,
+  event,
+}: {
+  canManage?: boolean;
+  event: EventRow;
+}) {
   const navigate = useNavigate();
+  const reminderIntervals = (event.reminderIntervals as number[] | null) ?? [];
   const recurrence = event.recurrenceRule as
     | { rrule: string; exdates?: string[] }
     | null
@@ -110,6 +119,20 @@ export function EventDetailsCard({ event }: { event: EventRow }) {
         {event.whatsappGroup ? (
           <PropertyRow icon={WhatsappIcon} label="WhatsApp">
             {event.whatsappGroup.name}
+          </PropertyRow>
+        ) : null}
+
+        {canManage && reminderIntervals.length > 0 ? (
+          <PropertyRow icon={NotificationIcon} label="Reminders">
+            <div className="flex flex-wrap gap-1">
+              {reminderIntervals
+                .sort((a, b) => b - a)
+                .map((m) => (
+                  <Badge key={m} size="xs" variant="secondary">
+                    {formatReminderInterval(m)}
+                  </Badge>
+                ))}
+            </div>
           </PropertyRow>
         ) : null}
       </CardContent>

@@ -224,6 +224,7 @@
         "@pi-dash/observability": "workspace:*",
         "@pi-dash/shared": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
+        "date-fns": "catalog:",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
         "pg-boss": "^12.15.0",
@@ -240,6 +241,7 @@
         "@pi-dash/db": "workspace:*",
         "@pi-dash/email": "workspace:*",
         "@pi-dash/env": "workspace:*",
+        "@pi-dash/shared": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
         "@trycourier/courier": "^7.9.0",
         "drizzle-orm": "catalog:",
@@ -265,6 +267,9 @@
     "packages/shared": {
       "name": "@pi-dash/shared",
       "version": "0.0.0",
+      "dependencies": {
+        "rrule": "^2.8.1",
+      },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",
         "typescript": "catalog:",

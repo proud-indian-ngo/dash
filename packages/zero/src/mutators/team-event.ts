@@ -1,3 +1,4 @@
+import { REMINDER_PRESET_MINUTES } from "@pi-dash/shared/event-reminders";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -7,6 +8,11 @@ import {
 } from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+
+const reminderIntervalsSchema = z
+  .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
+  .nullable()
+  .optional();
 
 const UNTIL_RE = /UNTIL=[^;]+/;
 const DASH_RE = /-/g;
@@ -40,6 +46,7 @@ function buildExceptionInsert(
     isPublic: boolean;
     feedbackEnabled: boolean;
     feedbackDeadline: number | null;
+    reminderIntervals: number[] | null;
     whatsappGroupId: string;
     cancelledAt: number | null;
   }> = {}
@@ -60,6 +67,8 @@ function buildExceptionInsert(
     feedbackEnabled: overrides.feedbackEnabled ?? series.feedbackEnabled,
     feedbackDeadline:
       overrides.feedbackDeadline ?? series.feedbackDeadline ?? null,
+    reminderIntervals:
+      overrides.reminderIntervals ?? series.reminderIntervals ?? null,
     whatsappGroupId:
       overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
     createdBy,
@@ -78,6 +87,7 @@ interface UpdateArgs {
   location?: string;
   name?: string;
   now: number;
+  reminderIntervals?: number[] | null;
   startTime?: number;
   whatsappGroupId?: string;
 }
@@ -98,6 +108,9 @@ function buildUpdateFields(args: UpdateArgs) {
     }),
     ...(args.feedbackDeadline !== undefined && {
       feedbackDeadline: args.feedbackDeadline ?? null,
+    }),
+    ...(args.reminderIntervals !== undefined && {
+      reminderIntervals: args.reminderIntervals ?? null,
     }),
     ...(args.whatsappGroupId !== undefined && {
       whatsappGroupId: args.whatsappGroupId || null,
@@ -157,6 +170,7 @@ async function updateSeriesThis(
     isPublic?: boolean;
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
+    reminderIntervals?: number[] | null;
     whatsappGroupId?: string;
   },
   existing: TeamEvent,
@@ -185,6 +199,7 @@ async function updateSeriesThis(
           isPublic: args.isPublic,
           feedbackEnabled: args.feedbackEnabled,
           feedbackDeadline: args.feedbackDeadline ?? undefined,
+          reminderIntervals: args.reminderIntervals ?? undefined,
           whatsappGroupId: args.whatsappGroupId,
         }
       )
@@ -207,6 +222,7 @@ async function updateSeriesFollowing(
     isPublic?: boolean;
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
+    reminderIntervals?: number[] | null;
     whatsappGroupId?: string;
     recurrenceRule?: RecurrenceRuleValue;
   },
@@ -244,6 +260,8 @@ async function updateSeriesFollowing(
     feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
     feedbackDeadline:
       args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
+    reminderIntervals:
+      args.reminderIntervals ?? existing.reminderIntervals ?? null,
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
     createdBy: userId,
     createdAt: args.now,
@@ -366,6 +384,7 @@ export const teamEventMutators = {
       createWhatsAppGroup: z.boolean().optional(),
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
+      reminderIntervals: reminderIntervalsSchema,
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -394,6 +413,7 @@ export const teamEventMutators = {
         recurrenceRule: args.recurrenceRule ?? null,
         feedbackEnabled: args.feedbackEnabled ?? false,
         feedbackDeadline: args.feedbackDeadline ?? null,
+        reminderIntervals: args.reminderIntervals ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
         seriesId: null,
         originalDate: null,
@@ -470,6 +490,7 @@ export const teamEventMutators = {
       isPublic: z.boolean().optional(),
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
+      reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -666,6 +687,7 @@ export const teamEventMutators = {
         cancelledAt: null,
         feedbackEnabled: series.feedbackEnabled,
         feedbackDeadline: series.feedbackDeadline,
+        reminderIntervals: series.reminderIntervals,
         whatsappGroupId: series.whatsappGroupId,
         createdBy: ctx.userId,
         createdAt: args.now,
@@ -692,6 +714,7 @@ export const teamEventMutators = {
       recurrenceRule: recurrenceRuleSchema,
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
+      reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {

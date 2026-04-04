@@ -3,9 +3,9 @@ import {
   expandSeries,
   parseRecurrenceRule,
   type RecurrenceRule,
-  rruleToLabel,
   type VirtualOccurrence,
-} from "@pi-dash/zero/rrule-utils";
+} from "@pi-dash/shared/rrule-expand";
+import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import type {
   TeamEvent,
   TeamEventMember,

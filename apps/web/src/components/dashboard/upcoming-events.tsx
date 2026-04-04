@@ -8,7 +8,10 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { expandSeries, parseRecurrenceRule } from "@pi-dash/zero/rrule-utils";
+import {
+  expandSeries,
+  parseRecurrenceRule,
+} from "@pi-dash/shared/rrule-expand";
 import { Link } from "@tanstack/react-router";
 import { addWeeks, format } from "date-fns";
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";

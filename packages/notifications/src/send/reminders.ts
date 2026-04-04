@@ -1,8 +1,20 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
+import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { createRequestLogger } from "evlog";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
+
+const eventTimeFmt = new Intl.DateTimeFormat("en-IN", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Kolkata",
+});
+
+function formatEventTime(epochMs: number): string {
+  return eventTimeFmt.format(new Date(epochMs));
+}
 
 interface StaleRequestsOptions {
   counts: {
@@ -226,6 +238,174 @@ export async function notifyPhotoApprovalReminder({
     emailHtml,
     clickAction: "/events",
     idempotencyKey: `photo-approval-reminder-${dateKey}`,
+    topic: TOPICS.EVENTS_PHOTOS,
+  });
+}
+
+// ── Event Reminders ─────────────────────────────────────────────────────────
+
+interface EventReminderOptions {
+  eventId: string;
+  eventName: string;
+  intervalMinutes: number;
+  location: string | null;
+  startTime: number;
+  userId: string;
+}
+
+export async function notifyEventReminder({
+  userId,
+  eventName,
+  eventId,
+  intervalMinutes,
+  location,
+  startTime,
+}: EventReminderOptions): Promise<void> {
+  const label = formatReminderInterval(intervalMinutes);
+  const when = formatEventTime(startTime);
+  const body = `"${eventName}" starts in ${label} (${when}).${location ? ` Location: ${location}` : ""}`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Event Reminder",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "View Event",
+  });
+  await sendMessage({
+    to: userId,
+    title: "Event Reminder",
+    body,
+    emailHtml,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `event-reminder-${eventId}-${intervalMinutes}-${userId}`,
+    topic: TOPICS.EVENTS_SCHEDULE,
+  });
+}
+
+interface EventReminderGroupOptions {
+  eventId: string;
+  eventName: string;
+  groupJid: string;
+  intervalMinutes: number;
+  location: string | null;
+  startTime: number;
+}
+
+export async function notifyEventReminderGroup({
+  eventName,
+  eventId,
+  groupJid,
+  intervalMinutes,
+  location,
+  startTime,
+}: EventReminderGroupOptions): Promise<void> {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "notifyEventReminderGroup",
+  });
+  log.set({ eventId, groupJid, intervalMinutes });
+
+  const label = formatReminderInterval(intervalMinutes);
+  const when = formatEventTime(startTime);
+  const lines = [
+    `*Event Reminder: ${eventName}*`,
+    `Starting in ${label} (${when})`,
+  ];
+  if (location) {
+    lines.push(`Location: ${location}`);
+  }
+  lines.push(`\nView: ${env.APP_URL}/events/${eventId}`);
+
+  await sendWhatsAppGroupMessage(groupJid, lines.join("\n"));
+  log.set({ event: "group_reminder_sent" });
+  log.emit();
+}
+
+interface FeedbackNudgeOptions {
+  eventId: string;
+  eventName: string;
+  userId: string;
+}
+
+export async function notifyFeedbackNudge({
+  userId,
+  eventName,
+  eventId,
+}: FeedbackNudgeOptions): Promise<void> {
+  const body = `How was "${eventName}"? Share your feedback while it's still fresh.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Share Your Feedback",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "Share Feedback",
+  });
+  await sendMessage({
+    to: userId,
+    title: "Share Your Feedback",
+    body,
+    emailHtml,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `feedback-nudge-${eventId}-${userId}`,
+    topic: TOPICS.EVENTS_FEEDBACK,
+  });
+}
+
+interface AttendanceNotMarkedOptions {
+  eventId: string;
+  eventName: string;
+  userId: string;
+}
+
+export async function notifyAttendanceNotMarked({
+  userId,
+  eventName,
+  eventId,
+}: AttendanceNotMarkedOptions): Promise<void> {
+  const body = `Attendance for "${eventName}" hasn't been marked yet. Please update it when you can.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Attendance Not Marked",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "Mark Attendance",
+  });
+  await sendMessage({
+    to: userId,
+    title: "Attendance Not Marked",
+    body,
+    emailHtml,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `attendance-reminder-${eventId}-${userId}`,
+    topic: TOPICS.EVENTS_SCHEDULE,
+  });
+}
+
+interface PhotoUploadNudgeOptions {
+  eventId: string;
+  eventName: string;
+  userIds: string[];
+}
+
+export async function notifyPhotoUploadNudge({
+  userIds,
+  eventName,
+  eventId,
+}: PhotoUploadNudgeOptions): Promise<void> {
+  if (userIds.length === 0) {
+    return;
+  }
+  const body = `Got any photos from "${eventName}"? Upload them so the team can see!`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Share Your Photos",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "Upload Photos",
+  });
+  await sendBulkMessage({
+    userIds,
+    title: "Share Your Photos",
+    body,
+    emailHtml,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `photo-nudge-${eventId}`,
     topic: TOPICS.EVENTS_PHOTOS,
   });
 }

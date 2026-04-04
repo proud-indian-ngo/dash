@@ -6,6 +6,7 @@ export * from "./bank-account";
 export * from "./event-feedback";
 export * from "./event-interest";
 export * from "./event-photo";
+export * from "./event-reminder";
 export * from "./event-update";
 export * from "./expense-category";
 export * from "./permission";

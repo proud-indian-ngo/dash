@@ -37,6 +37,7 @@ import {
 } from "@pi-dash/db/schema/event-feedback";
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventImmichAlbum, eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
@@ -137,6 +138,9 @@ const ID = {
   eiaPlanning: "019d52c2-7261-7dce-b0ee-e221103892e4",
   euPlanning: "019d52c2-7261-7dce-b0ee-e2221e6385fa",
   euOutreach: "019d52c2-7261-7dce-b0ee-e223abc37f66",
+  // Event reminders sent
+  ers01: "019d52c2-7261-7dce-b0ee-e260a1b2c3d4",
+  ers02: "019d52c2-7261-7dce-b0ee-e261b2c3d4e5",
   // Expense categories
   catTravel: "019d52c2-7261-7dce-b0ee-e2240bbad6ff",
   catFood: "019d52c2-7261-7dce-b0ee-e2250fe72d32",
@@ -616,6 +620,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       feedbackEnabled: true,
       location: "Cubbon Park, Bangalore",
       members: [adminId, leadId, v2],
+      reminderIntervals: [4320, 1440, 120],
     },
     {
       id: ID.evPlanning,
@@ -638,6 +643,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       creator: v1,
       location: "Wholesale Market",
       members: [v1, v2],
+      reminderIntervals: [1440, 120],
     },
   ];
 
@@ -655,6 +661,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
         isPublic: e.isPublic,
         feedbackEnabled: e.feedbackEnabled ?? false,
         feedbackDeadline: e.feedbackEnabled ? future(3) : undefined,
+        reminderIntervals: e.reminderIntervals ?? null,
         createdBy: e.creator,
         createdAt: subDays(e.start, 5),
         updatedAt: subDays(e.start, 5),
@@ -812,6 +819,28 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
       createdBy: adminId,
       createdAt: past(1),
       updatedAt: past(1),
+    })
+    .onConflictDoNothing();
+
+  // Event reminder tracking (past events that already had reminders sent)
+  await db
+    .insert(eventReminderSent)
+    .values({
+      id: ID.ers01,
+      eventId: ID.evTeaching,
+      instanceDate: null,
+      intervalMinutes: 1440,
+      sentAt: subDays(past(7), 1),
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(eventReminderSent)
+    .values({
+      id: ID.ers02,
+      eventId: ID.evTeaching,
+      instanceDate: null,
+      intervalMinutes: 120,
+      sentAt: addHours(subDays(past(7), 0), -2),
     })
     .onConflictDoNothing();
 

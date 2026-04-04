@@ -253,6 +253,13 @@
       "when": 1775224605528,
       "tag": "0035_lucky_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1775238823517,
+      "tag": "0036_glorious_hydra",
+      "breakpoints": true
     }
   ]
 }
