@@ -11,8 +11,10 @@ if (envPath) {
 }
 
 // Layer 1: Explicit .env.worktree overrides (from worktree:setup script)
+// Skip when VITE_E2E is set — run-e2e.sh already exported correct port overrides
+// and .env.worktree contains dev ports that would clobber the E2E values.
 const worktreeEnvPath = findUp(".env.worktree", process.cwd());
-if (worktreeEnvPath) {
+if (worktreeEnvPath && !process.env.VITE_E2E) {
   expand(config({ path: worktreeEnvPath, override: true, quiet: true }));
 } else if (!process.env.WORKTREE_ID) {
   // Layer 2: Auto-detect git worktree and compute ports from path hash.
