@@ -29,7 +29,6 @@ RUN cd apps/web && bunx --bun vite build
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.3.11-slim AS migrator
-ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/packages/db packages/db
@@ -38,7 +37,6 @@ CMD ["bun", "run", "packages/db/scripts/migrate.ts"]
 
 # Stage 3: Production
 FROM oven/bun:1.3.11-slim AS production
-ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
 EXPOSE 3000
