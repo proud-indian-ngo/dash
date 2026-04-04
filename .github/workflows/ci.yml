@@ -183,6 +183,7 @@ jobs:
         with:
           name: test-durations-${{ matrix.shard }}
           path: packages/e2e/.test-durations.json
+          include-hidden-files: true
           retention-days: 1
 
       - name: Zero-cache logs
