@@ -8,7 +8,7 @@ const webServerPort =
 
 export default defineConfig({
   testDir: "./tests",
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 1,
   workers: undefined,

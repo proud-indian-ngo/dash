@@ -151,3 +151,15 @@ jobs:
           name: playwright-report-${{ matrix.shard }}
           path: packages/e2e/playwright-report/
           retention-days: 14
+
+  e2e-status:
+    if: always()
+    needs: [e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check E2E results
+        run: |
+          if [ "${{ needs.e2e.result }}" != "success" ]; then
+            echo "E2E tests failed (result: ${{ needs.e2e.result }})"
+            exit 1
+          fi
