@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TURBO_TELEMETRY_DISABLED: "1"
+      TURBO_API: "https://turbo.ducktors.dev"
+      TURBO_TOKEN: "turbotokenoss"
+      TURBO_TEAM: "pi-dash"
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
