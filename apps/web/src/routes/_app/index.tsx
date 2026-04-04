@@ -315,7 +315,7 @@ function OrientedDashboard() {
           <Button
             className="text-muted-foreground"
             nativeButton={false}
-            render={<Link to={"/analytics" as string} />}
+            render={<Link to="/analytics" />}
             size="xs"
             variant="ghost"
           >
