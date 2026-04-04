@@ -42,19 +42,11 @@
 - DO NOT: Remove `useMemo`/`useCallback` from shared hooks or third-party component prop boundaries during React Compiler cleanup.
 - INSTEAD: For router tree changes, edit route source files and regenerate through app workflow.
 - INSTEAD: For Zero schema changes, edit Drizzle schema then run `bun run zero:generate`.
-
-## Zero Query Patterns
-
-Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `"unknown"` — it causes skeleton/content flash cycles.
-
-- DO: Derive loading state from **data emptiness + type**: `const isLoading = data.length === 0 && result.type !== "complete"`. This shows skeleton only on first load; once data is cached it persists through re-sync.
-- DO: For singular queries (`.byId`): `const isLoading = !item && result.type !== "complete"`.
-- DO: Always compute derived data (stats, counts, filters) from the live query data — never gate computation on `isLoading`. This prevents values flashing to 0 during re-sync.
-- DO NOT: Check `result.type === "unknown"` to show loading UI — Zero returns cached data during `"unknown"`, so it's never truly empty after first load.
-- DO NOT: Use per-query error hooks — connection errors are handled globally by `ZeroConnectionMonitor` in `_app.tsx` via `useConnectionState()`.
-- DO NOT: Pass unstable object references (e.g., `session` from `authClient.useSession()`) as `useMemo` dependencies for ZeroProvider props — extract stable primitives (`userId`, `role`) instead. Unstable refs cause ZeroProvider to reinitialize and remount the entire app.
-- INSTEAD: For DB schema changes, run `bun run db:generate` then `bun run db:migrate`.
-- DO: When merging branches that both created Drizzle migrations at the same index, resolve by: (1) keep master's migrations as-is, (2) renumber yours to the next index (e.g., `0028_`), (3) rename the `.sql` file and its snapshot in `meta/`, (4) update `_journal.json` with the new idx, tag, **and a `when` timestamp that is greater than the latest existing migration's `when`**. Drizzle uses timestamps — not filenames — to determine execution order. A migration with an older `when` than the last applied migration will be silently skipped.
+- DO: Follow this search chain for code discovery:
+  1. `grepai_search` first (semantic, intent-based — best for "how does X work?" questions)
+  2. Dedicated `Grep` tool if GrepAI misses or you need exact literal matches
+  3. `bash` with grep/rg only as last resort (piped commands, complex shell patterns)
+- DO NOT: Skip straight to bash grep/rg for code search — try GrepAI and Grep tool first.
 - DO: Use `createRequestLogger()` + `log.set()` / `log.error()` / `log.warn()` / `log.emit()` from `evlog` for server-side error logging. Never use `console.error` on the server.
 - DO NOT: Pass custom fields to `createRequestLogger()` — it only accepts `{ method?, path?, requestId? }`. Use `log.set({ ... })` for context.
 - DO NOT: Pass raw `unknown` to `log.error()` — use `error instanceof Error ? error : String(error)`.
@@ -75,24 +67,6 @@ Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `
 - DO: Use `React.lazy(() => import(...))` for heavy third-party libraries that aren't needed on initial render (Plate editor, Courier inbox, phone input).
 - DO NOT: Use dynamic `import()` in server functions (`createServerFn`), API routes (`routes/api/`), or server-only packages (`packages/jobs/`, `packages/auth/`, `packages/notifications/`) — TanStack Start and Nitro already exclude these from the client bundle. Use static imports instead.
 - DO NOT: Use dynamic `import()` for `createServerFn` exports in client components — TanStack Start replaces them with RPC stubs in the client bundle automatically.
-
-## E2E Testing
-
-- **When to write**: Major features (new route/page, new CRUD workflow, new role-gated capability). Not for minor UI tweaks or refactors.
-- **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
-- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for authenticated tests. The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
-- **Page objects**: Use page objects from `packages/e2e/pages/` for request and user tests (`RequestPage`, `ListPage`). Compose `ListPage`, `RequestFormPage`, and `ApprovalDetailPage` for new domains.
-- DO: Add E2E tests for new major features covering the happy path and key error states.
-- DO: Place tests in the appropriate feature subdirectory under `packages/e2e/tests/`.
-- DO: Use page objects from `packages/e2e/pages/` when testing requests.
-- DO: Test both admin and volunteer perspectives when the feature is role-gated.
-- DO NOT: Write E2E tests for trivial UI changes or refactors.
-- DO NOT: Place API authorization tests in `tests/auth/` — use `tests/authorization/` to avoid the volunteer project's `testIgnore` filter.
-- DO: Use `ListPage.openRowActionAndClick(row, menuItemName)` for dropdown menu interactions — it retries the full open+click atomically to handle Zero sync re-renders.
-- DO: Wait for form population (`await expect(input).toHaveValue(expected)`) before editing inputs in Zero-synced forms to avoid DOM detachment errors.
-- DO: Use `test.slow()` for multi-step CRUD tests (create + edit + delete) that need extra timeout.
-
-For E2E structure details (projects, auth state, seeding, env), see `project-structure.md`.
 
 ## Validation and Done
 
@@ -151,125 +125,15 @@ For deployment and production setup, read `DEPLOYMENT.md`.
 - Use parallel search and read variants when multiple sources are needed for speed and coverage.
 - For library documentation, use Context7 MCP with library IDs listed in `project-structure.md` § Documentation References.
 
-## Consistency Standards (see skills for detailed guidance)
-
-### Forms
-- Always use TanStack Form + Zod schema. Never raw `useState` for form state.
-- Use form field components (`InputField`, `SelectField`, etc.) — never raw `<Label>` + `<Input>`.
-- Use `FormLayout` + `FormActions`. Use `formKey` remount for dialog reset.
-- Use `validators: { onChange: schema, onSubmit: schema }` at the form level. Error display is gated on `isBlurred || submitted` in `getFieldErrorState`, so errors only appear after a field loses focus but clear instantly as the user types a valid value.
-- Use `await mutation.server` + `handleMutationResult()` — never `.then()` chains.
-- Use `DateField` for date-only inputs, native `<InputField type="datetime-local">` for datetime.
-- Invoke the `create-form` skill when creating or modifying forms.
-
-### Data Tables
-- Use `DataTableWrapper`. Use `useConfirmAction` for delete confirmations.
-- Include `data-testid="row-actions"`, `meta.skeleton`, `visibility={true}`.
-- Name storage keys as `{entity}_table_state_v1`.
-- Use `formatINR` from `@/lib/form-schemas` for currency formatting.
-- Invoke the `create-data-table` skill when creating or modifying tables.
-
-### UI/UX
-- Every dialog needs `DialogDescription` (even `sr-only`).
-- Use `Loader` component for detail loading. Use `STATUS_BADGE_MAP` for badges.
-- Toolbar buttons: "Add {entity}" sentence case + `PlusSignIcon`.
-- HugeIcons: always `strokeWidth={2}`. Imports: always `@/` alias. Exports: always named.
-- Use `variant="outline"` for secondary/toggle action buttons. Use `gap-6` for detail sections.
-- Invoke the `create-dialog` skill when creating dialogs.
-
-### Logging
-- Every client `catch` must call `log.error()` — never silent swallow.
-- Don't double-wrap with `withTaskLog` in mutators — `mutate.ts` already wraps.
-- `log.emit()` on both success and error paths. Maximize `log.set()` context.
-- Invoke the `add-logging` skill when adding error handling or server tasks.
-
-## Design Context
-
-### Users
-Both admins and volunteers use pi-dash daily. Admins manage volunteers, finances, events, and approvals — they need efficiency and at-a-glance clarity. Volunteers check assignments, submit requests, and track status — they need simplicity and speed. Design for both: dense-enough for power users, clear-enough for occasional visitors.
-
-### Brand Personality
-**Modern, efficient, sharp.** The interface should feel like a well-crafted productivity tool — intentional, fast, and precise. Not corporate, not playful. Every element earns its place.
-
-### Emotional Goals
-- **Confidence & trust**: Users feel in control and trust the data they see.
-- **Ease & calm**: Nothing feels overwhelming — tasks flow naturally.
-
-### Aesthetic Direction
-**Minimal & precise** — inspired by Linear and Vercel. Clean lines, generous whitespace, typography-driven hierarchy. OKLch color palette with mauve base tones. Inter Variable font. Cyan accent (#4fc3f7) as brand color.
-
-**Anti-references** (what pi-dash must NOT resemble):
-- Cluttered enterprise UIs (SAP/Salesforce density)
-- Playful/whimsical designs (cartoonish illustrations, bubbly shapes)
-- Generic Bootstrap templates (default-looking, unintentional)
-- Dark/techy hacker aesthetics (terminal vibes, developer-focused)
-
-### Design Principles
-1. **Precision over decoration** — Every pixel serves a purpose. No ornamental elements, drop shadows for show, or gratuitous color. If it doesn't aid comprehension or interaction, remove it.
-2. **Quiet confidence** — The UI recedes so content and data lead. Subtle transitions, muted chrome, strong typography hierarchy. The interface feels assured, not loud.
-3. **Keyboard-first, touch-ready** — Design interactions for keyboard power users first, then ensure touch targets meet accessibility standards (min 44px). All actions reachable without a mouse.
-4. **Progressive density** — Show essentials by default, reveal detail on demand. Admins get dense views when they need them; volunteers see clean, focused screens.
-5. **Motion with purpose** — Animations only to convey state changes, spatial relationships, or direct attention. Respect `prefers-reduced-motion`. No decorative motion.
-
-### Accessibility
-- WCAG AA compliance (4.5:1 contrast minimum)
-- Full keyboard navigation with visible focus indicators
-- Screen reader support via semantic HTML and ARIA
-- `prefers-reduced-motion` respected — all animations disabled or reduced
-- Touch targets minimum 44px effective area
-
-## Worktree Development
-
-This project supports parallel development via git worktrees with automatic port isolation.
-
-### Quick Start
-
-```bash
-# Create a worktree and set it up
-git worktree add .worktrees/my-feature -b my-feature
-cd .worktrees/my-feature
-bun run worktree:setup 1          # ID 1-9, assigns unique ports
-bun run dev                        # Starts on :3011 (ID=1)
-
-# For schema-changing work (separate Postgres)
-bun run worktree:setup 2 --isolated-db
-
-# Teardown
-bun run worktree:teardown
-cd ../..
-git worktree remove .worktrees/my-feature
-```
-
-### Auto-detection (for AI agents)
-
-When using `claude --worktree` or `isolation: "worktree"`, ports are auto-computed from a hash of the worktree path — no manual setup needed. The `packages/env/src/index.ts` loader detects the worktree and injects port overrides into `process.env`.
-
-### Port Allocation (base + ID × 10)
-
-| Service         | ID=0 (main) | ID=1 | ID=2 |
-|-----------------|-------------|------|------|
-| Vite dev        | 3001        | 3011 | 3021 |
-| Zero cache      | 4848        | 4858 | 4868 |
-| E2E web         | 3099        | 3109 | 3119 |
-| E2E Zero        | 4870        | 4880 | 4890 |
-| E2E test DB     | 5433        | 5443 | 5453 |
-
-### Key Files
-
-- `scripts/worktree-setup.sh` — generates `.env.worktree` with port overrides
-- `scripts/worktree-teardown.sh` — cleans up worktree resources
-- `scripts/worktree-ports.sh` — shared port computation (sourced by other scripts)
-- `packages/env/src/index.ts` — auto-detects worktree and injects port overrides
-- `.worktreeinclude` — tells Claude Code to copy `.env` into new worktrees
-- `lefthook.yml` `post-checkout` hook — copies `.env` + runs `ruler:apply` for any agent
-
-### Shared vs Isolated DB
-
-- Default: All worktrees share the dev Postgres on port 5432 (fine for non-schema work)
-- `--isolated-db` flag: Creates a dedicated Postgres for schema-changing branches
-
 ## Skills Policy
 
-- Trigger by explicit request or strong task match.
-- Do not inline full skill inventory.
+- DO: Check available skills BEFORE starting any form, table, dialog, logging, Zero query, E2E test, design, or worktree task.
+- DO: Invoke the matching skill when creating/modifying: forms (`create-form`), data tables (`create-data-table`), dialogs (`create-dialog`), error handling (`add-logging`), Zero queries (`zero-patterns`), E2E tests (`e2e-testing`), UI design (`design-context`), worktrees (`worktree-dev`).
+- DO NOT: Create forms, tables, dialogs, or Zero query hooks without first invoking the corresponding skill.
+- These skills contain project-specific patterns that MUST be followed.
 - Discovery pointers: `skills-lock.json`, `.agents/skills`, `.claude/skills`.
+
+## Compact instructions
+
+When compacting, preserve: file paths, code changes, architectural decisions, test results, webfetch content summaries.
+Discard: exploration output, intermediate search results, verbose tool output.
