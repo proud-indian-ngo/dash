@@ -34,10 +34,15 @@ export default class DurationReporter implements Reporter {
 
   onTestEnd(test: TestCase, result: TestResult): void {
     if (result.status === "passed" || result.status === "flaky") {
-      // Build key matching the `playwright test --list` output format:
+      // Build key matching the `playwright test --list --reporter=list` output:
       // [project] › relative/path.spec.ts:line:col › Suite › test name
+      // Paths in --list are relative to testDir (packages/e2e/tests/)
       const project = test.parent.project()?.name ?? "";
-      const location = `${test.location.file}:${test.location.line}:${test.location.column}`;
+      const testDir = test.parent.project()?.testDir ?? "";
+      const relFile = testDir
+        ? path.relative(testDir, test.location.file)
+        : test.location.file;
+      const location = `${relFile}:${test.location.line}:${test.location.column}`;
       const titles = test.titlePath().slice(3); // skip root, project, file
       const key = `[${project}] › ${location} › ${titles.join(" › ")}`;
       this.durations[key] = result.duration;
