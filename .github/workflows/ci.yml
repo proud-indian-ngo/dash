@@ -121,9 +121,9 @@ jobs:
             -e ZERO_ADMIN_PASSWORD=ci-test-admin \
             -e ZERO_LOG_LEVEL=info \
             rocicorp/zero:1.1.1
-          # Wait for zero-cache to be ready
-          for _ in $(seq 1 30); do
-            if curl -sf http://localhost:4848/keepalive >/dev/null 2>&1; then
+          # Wait for zero-cache to be ready (use root path, not /keepalive)
+          for _ in $(seq 1 60); do
+            if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
               exit 0
             fi
