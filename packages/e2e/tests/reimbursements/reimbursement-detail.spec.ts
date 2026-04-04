@@ -1,4 +1,4 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.describe("Reimbursement detail (reimbursement)", () => {
@@ -140,8 +140,12 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     test.skip(!hasRows, "No reimbursements available");
 
     await firstRow.click();
+    await page.waitForURL(/\/reimbursements\//, { timeout: 10_000 });
+    await waitForZeroReady(page);
 
-    await expect(page.getByText("Line items")).toBeVisible();
+    await expect(page.getByText("Line items")).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(
       page.getByRole("columnheader", { name: /Category/ })
     ).toBeVisible();

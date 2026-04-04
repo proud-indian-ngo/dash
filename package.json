@@ -51,7 +51,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "check:types": "turbo run check:types",
+    "check:types": "bun run --env-file .env -- turbo run check:types",
     "dev:web": "turbo run --filter=web dev",
     "db:push": "turbo run --filter=@pi-dash/db db:push",
     "db:studio": "turbo run --filter=@pi-dash/db db:studio",
