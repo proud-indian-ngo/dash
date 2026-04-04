@@ -25,7 +25,7 @@
     },
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],
-      "entry": ["helpers/seed-dev-data.ts"],
+      "entry": ["helpers/seed-dev-data.ts", "shard-by-duration.ts"],
       "ignoreDependencies": ["better-auth"]
     },
     "packages/jobs": {

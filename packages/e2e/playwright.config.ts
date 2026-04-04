@@ -8,11 +8,13 @@ const webServerPort =
 
 export default defineConfig({
   testDir: "./tests",
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 1,
   workers: undefined,
-  reporter: isCI ? [["github"], ["html"]] : "html",
+  reporter: isCI
+    ? [["github"], ["html"], ["./duration-reporter.ts"]]
+    : [["html"], ["./duration-reporter.ts"]],
   timeout: 45_000,
   expect: {
     timeout: 10_000,

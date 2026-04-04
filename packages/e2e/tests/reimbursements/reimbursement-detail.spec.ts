@@ -135,13 +135,18 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
 
-    const firstRow = reimbursements.list.getRows().nth(1);
-    const hasRows = (await firstRow.count()) > 0;
-    test.skip(!hasRows, "No reimbursements available");
+    // Click the seeded reimbursement row
+    const seedRow = reimbursements.list
+      .getTable()
+      .getByRole("row")
+      .filter({ hasText: "E2E Seed Reimbursement" });
+    await expect(seedRow).toBeVisible({ timeout: 10_000 });
+    await seedRow.click();
+    await page.waitForURL(/\/reimbursements\/[a-z0-9-]/, { timeout: 10_000 });
 
-    await firstRow.click();
-
-    await expect(page.getByText("Line items")).toBeVisible();
+    await expect(page.getByText("Line items")).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(
       page.getByRole("columnheader", { name: /Category/ })
     ).toBeVisible();

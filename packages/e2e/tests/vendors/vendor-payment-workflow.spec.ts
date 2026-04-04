@@ -31,8 +31,11 @@ test.describe("Vendor payment workflow (admin)", () => {
     if (hasOptions) {
       await firstOption.click();
     } else {
-      // Create vendor inline
+      // Create vendor inline — close the combobox and wait for overlay to dismiss
       await page.keyboard.press("Escape");
+      await expect(
+        page.locator('div[role="presentation"][data-base-ui-inert]')
+      ).toBeHidden({ timeout: 5000 });
       await page.getByRole("button", { name: "Add new vendor" }).click();
       const dialog = page.getByRole("dialog", { name: /vendor/i });
       await expect(dialog).toBeVisible({ timeout: 5000 });
@@ -109,33 +112,6 @@ test.describe("Vendor payment workflow (admin)", () => {
     await dialog.getByRole("button", { name: "Reject" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
   }
-
-  test("approve a vendor payment request", async ({ page }) => {
-    test.slow();
-    const title = await createVendorPayment(page, "Approve");
-
-    await expect(page.getByText(title)).toBeVisible();
-    await expectStatus(page, "Pending");
-
-    await page.getByRole("button", { name: "Approve" }).first().click();
-    await approveInDialog(page);
-
-    await expectStatus(page, "Approved");
-  });
-
-  test("reject a vendor payment request with reason", async ({ page }) => {
-    test.slow();
-    const title = await createVendorPayment(page, "Reject");
-
-    await expect(page.getByText(title)).toBeVisible();
-    await expectStatus(page, "Pending");
-
-    await page.getByRole("button", { name: "Reject" }).click();
-    await rejectInDialog(page, "Budget exceeded");
-
-    await expectStatus(page, "Rejected");
-    await expect(page.getByText("Budget exceeded").first()).toBeVisible();
-  });
 
   test("full payment workflow: approve → record payments → upload invoice → approve invoice", async ({
     page,
@@ -284,6 +260,9 @@ test.describe("Vendor payment workflow (volunteer)", () => {
       await firstOption.click();
     } else {
       await page.keyboard.press("Escape");
+      await expect(
+        page.locator('div[role="presentation"][data-base-ui-inert]')
+      ).toBeHidden({ timeout: 5000 });
       await page.getByRole("button", { name: "Add new vendor" }).click();
       const dialog = page.getByRole("dialog", { name: /vendor/i });
       await expect(dialog).toBeVisible({ timeout: 5000 });

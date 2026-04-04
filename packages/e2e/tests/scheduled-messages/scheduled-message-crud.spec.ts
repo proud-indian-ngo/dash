@@ -84,7 +84,7 @@ test.describe("Scheduled messages (admin)", () => {
 
     // Create a message first
     await page.getByRole("button", { name: "Schedule message" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Schedule message" });
     await dialog.getByRole("textbox", { name: "Message" }).fill(messageText);
     await dialog.getByRole("button", { name: "Add recipients..." }).click();
     await page.getByRole("option", { name: /E2E Test Group/ }).click();

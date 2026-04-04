@@ -115,9 +115,8 @@ const buildFallbackAvatarUrl = (
   normalizedEmail: string,
   gender?: "female" | "male"
 ): string => {
-  const fallbackSeed = hashSha256(
-    `${env.AVATAR_FALLBACK_SEED}:${normalizedEmail}`
-  );
+  const seed = env.AVATAR_FALLBACK_SEED ?? "pi-dash-fallback";
+  const fallbackSeed = hashSha256(`${seed}:${normalizedEmail}`);
   const url = new URL("https://api.dicebear.com/9.x/notionists/png");
   url.searchParams.set("seed", fallbackSeed);
 
@@ -154,10 +153,14 @@ const buildProfileEndpointUrl = (profileIdentifier: string): string => {
 const fetchProfileAvatarUrl = async (
   profileIdentifier: string
 ): Promise<string | undefined> => {
+  if (!(env.GRAVATAR_API_BASE_URL && env.GRAVATAR_API_KEY)) {
+    return undefined;
+  }
+
   const controller = new AbortController();
   const timeoutHandle = setTimeout(
     () => controller.abort(),
-    env.GRAVATAR_TIMEOUT_MS
+    env.GRAVATAR_TIMEOUT_MS ?? 5000
   );
 
   try {
