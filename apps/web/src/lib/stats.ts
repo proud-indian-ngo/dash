@@ -106,6 +106,12 @@ export interface SubmitterDataPoint {
   name: string;
 }
 
+export interface VendorDataPoint {
+  amount: number;
+  count: number;
+  name: string;
+}
+
 interface WithAnalyticsData extends WithStatusAndLineItems {
   createdAt: number | null;
   lineItems: readonly {
@@ -227,6 +233,33 @@ export function computeSubmitterData(
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;
     map.set(email, existing);
+  }
+
+  return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
+}
+
+interface WithVendorData extends WithStatusAndLineItems {
+  vendor: { name: string } | undefined;
+}
+
+export function computeVendorData(
+  items: readonly WithVendorData[]
+): VendorDataPoint[] {
+  const map = new Map<
+    string,
+    { name: string; amount: number; count: number }
+  >();
+
+  for (const item of items) {
+    const vendor = item.vendor;
+    if (!vendor) {
+      continue;
+    }
+    const { name } = vendor;
+    const existing = map.get(name) ?? { name, amount: 0, count: 0 };
+    existing.amount += sumAmounts(item.lineItems);
+    existing.count += 1;
+    map.set(name, existing);
   }
 
   return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);

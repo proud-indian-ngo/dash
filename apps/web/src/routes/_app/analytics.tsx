@@ -18,6 +18,7 @@ import {
   computeSubmissionStats,
   computeSubmitterData,
   computeTrendData,
+  computeVendorData,
 } from "@/lib/stats";
 
 const SubmissionTrendsChart = lazy(() =>
@@ -33,6 +34,11 @@ const CategoryBreakdownChart = lazy(() =>
 const TopSubmittersChart = lazy(() =>
   import("@/components/analytics/top-submitters-chart").then((m) => ({
     default: m.TopSubmittersChart,
+  }))
+);
+const TopVendorsChart = lazy(() =>
+  import("@/components/analytics/top-vendors-chart").then((m) => ({
+    default: m.TopVendorsChart,
   }))
 );
 
@@ -93,6 +99,14 @@ function AnalyticsPage() {
   );
   const categoryData = computeCategoryData(analyticsData);
   const submitterData = computeSubmitterData(analyticsData);
+  const filteredVendorPayments = filterByDateRange(
+    vendorPayments,
+    dateRange,
+    createdAtAccessor
+  );
+  const vendorData = computeVendorData(
+    filteredVendorPayments as unknown as Parameters<typeof computeVendorData>[0]
+  );
 
   return (
     <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
@@ -109,9 +123,15 @@ function AnalyticsPage() {
 
       <Suspense
         fallback={
-          <div className="mt-6 grid animate-pulse gap-6 lg:grid-cols-2">
-            <div className="h-[380px] rounded-none bg-muted/50" />
-            <div className="h-[380px] rounded-none bg-muted/50" />
+          <div className="mt-6 animate-pulse space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="h-[380px] rounded-none bg-muted/50" />
+              <div className="h-[380px] rounded-none bg-muted/50" />
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="h-[380px] rounded-none bg-muted/50" />
+              <div className="h-[380px] rounded-none bg-muted/50" />
+            </div>
           </div>
         }
       >
@@ -122,8 +142,9 @@ function AnalyticsPage() {
               <CategoryBreakdownChart data={categoryData} />
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <TopSubmittersChart data={submitterData} />
+              <TopVendorsChart data={vendorData} />
             </div>
           </>
         )}
