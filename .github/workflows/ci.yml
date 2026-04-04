@@ -67,6 +67,12 @@ jobs:
           path: packages/e2e/shard-lists/
           retention-days: 1
       - name: Build web app
+        env:
+          BETTER_AUTH_URL: http://localhost:3099
+          BETTER_AUTH_SECRET: ci-test-secret-value-at-least-32-chars-long
+          CORS_ORIGIN: http://localhost:3099
+          VITE_ZERO_URL: http://localhost:4848
+          VITE_CDN_URL: http://localhost:3099
         run: cd apps/web && bun run build
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
