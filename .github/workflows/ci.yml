@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [checks]
     strategy:
-      fail-fast: false  # temporarily disabled for diagnostics
+      fail-fast: true
       matrix:
         shard: [1, 2, 3, 4]
     services:
@@ -120,7 +120,7 @@ jobs:
             -e ZERO_QUERY_FORWARD_COOKIES=true \
             -e ZERO_ADMIN_PASSWORD=ci-test-admin \
             -e ZERO_LOG_LEVEL=info \
-            rocicorp/zero:0.26.1
+            rocicorp/zero:1.1.1
           # Wait for zero-cache to be ready
           for _ in $(seq 1 30); do
             if curl -sf http://localhost:4848/keepalive >/dev/null 2>&1; then
