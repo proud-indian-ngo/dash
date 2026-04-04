@@ -1,4 +1,3 @@
-import "@/lib/logger";
 import {
   createStartHandler,
   defaultStreamHandler,

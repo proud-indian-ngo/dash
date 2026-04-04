@@ -1,4 +1,3 @@
-import "@/lib/logger";
 import { createRequestLogger } from "evlog";
 import { defineMiddleware } from "nitro/h3";
 import { uuidv7 } from "uuidv7";
