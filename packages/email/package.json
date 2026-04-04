@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
-    "@types/nodemailer": "^7.0.11",
+    "@types/nodemailer": "^8.0.0",
     "@types/react": "catalog:",
     "react-email": "^5.2.10",
     "typescript": "catalog:"
