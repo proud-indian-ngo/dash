@@ -52,9 +52,9 @@ test.describe("WhatsApp Groups (admin)", () => {
     }
 
     const dialog = await openWhatsAppGroups(page);
-    await dialog
-      .getByRole("button", { name: "Add group" })
-      .click({ timeout: 10_000 });
+    const addGroupBtn = dialog.getByRole("button", { name: "Add group" });
+    await expect(addGroupBtn).toBeEnabled({ timeout: 15_000 });
+    await addGroupBtn.click();
 
     const pickerDialog = page.getByRole("dialog").filter({
       hasText: "Add WhatsApp Groups",
@@ -94,9 +94,11 @@ test.describe("WhatsApp Groups (admin)", () => {
     const settingsDialog = await openWhatsAppGroups(page);
 
     // Open picker and wait for groups to load
-    await settingsDialog
-      .getByRole("button", { name: "Add group" })
-      .click({ timeout: 10_000 });
+    const addGroupBtn = settingsDialog.getByRole("button", {
+      name: "Add group",
+    });
+    await expect(addGroupBtn).toBeEnabled({ timeout: 15_000 });
+    await addGroupBtn.click();
     const pickerDialog = page.getByRole("dialog").filter({
       hasText: "Add WhatsApp Groups",
     });

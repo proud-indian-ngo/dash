@@ -192,6 +192,7 @@ function createJobColumns(
       meta: {
         cellClassName: "text-center",
         skeleton: SKELETON_ACTIONS,
+        stopRowClick: true,
       },
       size: 52,
       minSize: 52,

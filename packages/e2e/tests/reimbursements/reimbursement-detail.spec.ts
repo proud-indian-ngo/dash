@@ -20,7 +20,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     const hasPending = (await pendingRow.count()) > 0;
     test.skip(!hasPending, "No pending reimbursements available");
 
-    await pendingRow.getByTestId("row-title").click();
+    await pendingRow.click();
 
     await expect(reimbursements.detail.getApproveButton()).toBeVisible();
     await expect(reimbursements.detail.getRejectButton()).toBeVisible();
@@ -38,10 +38,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     const hasRows = (await firstRow.count()) > 0;
     test.skip(!hasRows, "No reimbursements available");
 
-    const titleButton = firstRow.getByTestId("row-title");
-    const hasTitle = (await titleButton.count()) > 0;
-    test.skip(!hasTitle, "No reimbursement title button");
-    await titleButton.click();
+    await firstRow.click();
 
     await expect(reimbursements.detail.getApproveButton()).toBeHidden();
     await expect(reimbursements.detail.getRejectButton()).toBeHidden();
@@ -93,7 +90,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     const hasPending = (await pendingRow.count()) > 0;
     test.skip(!hasPending, "No pending reimbursements available");
 
-    await pendingRow.getByTestId("row-title").click();
+    await pendingRow.click();
 
     await reimbursements.detail.editSubmission();
 
@@ -115,7 +112,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     const hasPending = (await pendingRow.count()) > 0;
     test.skip(!hasPending, "No pending reimbursements available");
 
-    await pendingRow.getByTestId("row-title").click();
+    await pendingRow.click();
     await reimbursements.detail.editSubmission();
     await expect(page.getByRole("heading", { name: /Edit/ })).toBeVisible();
 
@@ -142,10 +139,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     const hasRows = (await firstRow.count()) > 0;
     test.skip(!hasRows, "No reimbursements available");
 
-    const titleButton = firstRow.getByTestId("row-title");
-    const hasTitle = (await titleButton.count()) > 0;
-    test.skip(!hasTitle, "No reimbursement title button");
-    await titleButton.click();
+    await firstRow.click();
 
     await expect(page.getByText("Line items")).toBeVisible();
     await expect(

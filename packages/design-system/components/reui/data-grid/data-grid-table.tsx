@@ -323,7 +323,6 @@ function DataGridTableBodyRow<TData>({
           props.onRowClick(row.original)
         }
       }}
-      role={props.onRowClick ? "link" : undefined}
       tabIndex={props.onRowClick ? 0 : undefined}
       className={cn(
         "hover:bg-muted/40 data-[state=selected]:bg-muted/50",

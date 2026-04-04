@@ -299,7 +299,11 @@ function createColumns(
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      meta: { cellClassName: "text-center", skeleton: SKELETON_ACTIONS },
+      meta: {
+        cellClassName: "text-center",
+        skeleton: SKELETON_ACTIONS,
+        stopRowClick: true,
+      },
       size: 52,
       minSize: 52,
     },

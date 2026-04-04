@@ -375,7 +375,7 @@ export function VendorsTable({
       enableResizing: false,
       enableSorting: false,
       enableColumnOrdering: false,
-      meta: { cellClassName: "text-center" },
+      meta: { cellClassName: "text-center", stopRowClick: true },
       size: 52,
       minSize: 52,
     },
