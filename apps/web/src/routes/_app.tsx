@@ -85,7 +85,7 @@ function extractReason(state: { reason?: unknown }): string {
 
 function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
   const state = useConnectionState();
-  const prevName = useRef(state.name);
+  const prevName = useRef<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
