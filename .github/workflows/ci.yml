@@ -140,9 +140,9 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           echo "=== zero-cache container status ==="
-          docker inspect zero-cache --format '{{.State.Status}} (exit={{.State.ExitCode}})' 2>/dev/null || echo "container not found"
-          echo "=== zero-cache logs (last 50 lines) ==="
-          docker logs --tail 50 zero-cache 2>&1 || echo "no logs available"
+          docker inspect zero-cache --format 'status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' 2>/dev/null || echo "container not found"
+          echo "=== zero-cache logs (with timestamps) ==="
+          docker logs --timestamps zero-cache 2>&1 || echo "no logs available"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
