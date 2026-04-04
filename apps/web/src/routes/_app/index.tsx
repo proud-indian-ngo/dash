@@ -20,12 +20,19 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryStates } from "nuqs";
+import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { MyTeams } from "@/components/dashboard/my-teams";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
 import type { StatItem } from "@/components/stats/stats-cards";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
+import {
+  dateRangeSearchParams,
+  filterByDateRange,
+  resolveDateRange,
+} from "@/lib/date-range";
 import { formatINR } from "@/lib/form-schemas";
 import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 
@@ -248,18 +255,44 @@ function OrientedDashboard() {
     r1.type !== "complete" &&
     r2.type !== "complete";
 
+  const [dateParams] = useQueryStates(dateRangeSearchParams);
+  const dateRange = resolveDateRange(
+    dateParams.range,
+    dateParams.from,
+    dateParams.to
+  );
+
+  const createdAtAccessor = (item: { createdAt: number | null }) =>
+    item.createdAt;
+  const filteredReimbursements = filterByDateRange(
+    reimbursements,
+    dateRange,
+    createdAtAccessor
+  );
+  const filteredAdvancePayments = filterByDateRange(
+    advancePayments,
+    dateRange,
+    createdAtAccessor
+  );
+  const filteredVendorPayments = filterByDateRange(
+    vendorPayments,
+    dateRange,
+    createdAtAccessor
+  );
+
+  // Pending count uses unfiltered data — pending items are actionable regardless of age
   const pendingCount =
     byStatus(reimbursements, "pending").length +
     byStatus(advancePayments, "pending").length +
     byStatus(vendorPayments, "pending").length;
 
   const stats = computeDashboardStats({
-    reimbursements,
-    advancePayments,
+    reimbursements: filteredReimbursements,
+    advancePayments: filteredAdvancePayments,
     users,
     teams,
     events,
-    vendorPayments,
+    vendorPayments: filteredVendorPayments,
     canViewAllRequests,
     canApprove,
     canViewUsers,
@@ -273,14 +306,17 @@ function OrientedDashboard() {
         <h1 className="font-display font-semibold text-2xl tracking-tight">
           Dashboard
         </h1>
-        <Button
-          nativeButton={false}
-          render={<Link to="/reimbursements/new" />}
-          size="sm"
-        >
-          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-          New Reimbursement
-        </Button>
+        <div className="flex items-center gap-2">
+          <DateRangeFilter />
+          <Button
+            nativeButton={false}
+            render={<Link to="/reimbursements/new" />}
+            size="sm"
+          >
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+            New Reimbursement
+          </Button>
+        </div>
       </div>
 
       <PendingActions canApprove={canApprove} pendingCount={pendingCount} />
@@ -288,6 +324,21 @@ function OrientedDashboard() {
       <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />
       </div>
+
+      {canViewAllRequests && (
+        <div className="mt-2 flex justify-end">
+          <Button
+            className="text-muted-foreground"
+            nativeButton={false}
+            render={<Link to="/analytics" />}
+            size="xs"
+            variant="ghost"
+          >
+            View Analytics
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
+          </Button>
+        </div>
+      )}
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <div className="space-y-6">

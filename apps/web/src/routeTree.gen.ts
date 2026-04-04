@@ -23,6 +23,7 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
@@ -121,6 +122,11 @@ const AppJobsRoute = AppJobsRouteImport.update({
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => AppRoute,
 } as any)
 const AppVendorsRouteRoute = AppVendorsRouteRouteImport.update({
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
+  '/analytics': typeof AppAnalyticsRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -372,6 +380,7 @@ export interface FileRoutesById {
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
+  '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/export': typeof AppExportRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -420,6 +429,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
+    | '/analytics'
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
@@ -460,6 +470,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analytics'
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
@@ -505,6 +516,7 @@ export interface FileRouteTypes {
     | '/_app/teams'
     | '/_app/vendor-payments'
     | '/_app/vendors'
+    | '/_app/analytics'
     | '/_app/export'
     | '/_app/jobs'
     | '/_app/scheduled-messages'
@@ -660,6 +672,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof AppExportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/analytics': {
+      id: '/_app/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AppAnalyticsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/vendors': {
@@ -979,6 +998,7 @@ interface AppRouteChildren {
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
+  AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppExportRoute: typeof AppExportRoute
   AppJobsRoute: typeof AppJobsRoute
   AppScheduledMessagesRoute: typeof AppScheduledMessagesRoute
@@ -993,6 +1013,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
+  AppAnalyticsRoute: AppAnalyticsRoute,
   AppExportRoute: AppExportRoute,
   AppJobsRoute: AppJobsRoute,
   AppScheduledMessagesRoute: AppScheduledMessagesRoute,
@@ -1054,12 +1075,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
