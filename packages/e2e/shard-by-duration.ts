@@ -40,6 +40,7 @@ try {
       "--config",
       "packages/e2e/playwright.config.ts",
       "--list",
+      "--reporter=list",
     ],
     {
       encoding: "utf-8",
