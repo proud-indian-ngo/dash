@@ -73,6 +73,7 @@ jobs:
         with:
           name: web-build
           path: apps/web/.output/
+          include-hidden-files: true
           retention-days: 1
 
   e2e:
