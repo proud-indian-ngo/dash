@@ -22,11 +22,50 @@ function uniqueAccountNumber(suffix: string) {
 }
 
 test.describe("Banking settings — bank account management", () => {
+  test.afterEach(async ({ page }) => {
+    // Best-effort cleanup: restore default to seeded "Test Savings" and delete E2E accounts
+    try {
+      const dialog = await openBankingSettings(page);
+      // Restore seeded account as default if it was changed
+      const seededCard = dialog
+        .locator(".rounded-md.border")
+        .filter({ hasText: "Test Savings" });
+      const restoreBtn = seededCard.getByRole("button", {
+        name: "Set default",
+      });
+      if (await restoreBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await restoreBtn.click();
+        await expect(
+          seededCard.getByText("Default", { exact: true })
+        ).toBeVisible({
+          timeout: 10_000,
+        });
+      }
+      // Delete all E2E test accounts
+      for (let i = 0; i < 5; i++) {
+        const e2eCard = dialog
+          .locator(".rounded-md.border")
+          .filter({ hasText: /^E2E / })
+          .first();
+        if (!(await e2eCard.isVisible({ timeout: 1000 }).catch(() => false))) {
+          break;
+        }
+        await e2eCard.getByRole("button", { name: "Delete account" }).click();
+        await page
+          .getByRole("alertdialog")
+          .getByRole("button", { name: "Delete" })
+          .click({ timeout: 5000 });
+        await expect(e2eCard).toBeHidden({ timeout: 10_000 });
+      }
+    } catch {
+      // Best-effort — don't fail the test
+    }
+  });
+
   test("shows existing seeded bank account", async ({ page }) => {
     const dialog = await openBankingSettings(page);
 
-    // Seeded account ends in 7890 (seed-test-user.ts) — use first() since previous
-    // runs may have accumulated additional accounts.
+    // Seeded account ends in 7890. Use first() in case previous runs left extra accounts.
     await expect(dialog.getByText(/••••\d{4}/).first()).toBeVisible({
       timeout: 10_000,
     });
