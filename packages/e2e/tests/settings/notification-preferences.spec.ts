@@ -36,11 +36,20 @@ test.describe("Notification preferences settings", () => {
   test("toggling a switch updates the preference state", async ({ page }) => {
     const dialog = await openNotificationSettings(page);
 
-    // Find the first WhatsApp switch that is currently checked (default is on)
-    const firstWaSwitch = dialog
-      .getByRole("switch", { name: /WhatsApp/i })
-      .first();
-    await expect(firstWaSwitch).toBeVisible({ timeout: 10_000 });
+    // Find the first non-disabled WhatsApp switch (required topics are aria-disabled)
+    const allWaSwitches = dialog.getByRole("switch", { name: /WhatsApp/i });
+    await expect(allWaSwitches.first()).toBeVisible({ timeout: 10_000 });
+
+    const count = await allWaSwitches.count();
+    let firstWaSwitch = allWaSwitches.first();
+    for (let i = 0; i < count; i++) {
+      const sw = allWaSwitches.nth(i);
+      const disabled = await sw.getAttribute("aria-disabled");
+      if (disabled !== "true") {
+        firstWaSwitch = sw;
+        break;
+      }
+    }
 
     const wasChecked = await firstWaSwitch.isChecked();
 

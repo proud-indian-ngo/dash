@@ -13,10 +13,10 @@ test.describe("Role management (admin)", () => {
   test("roles list renders with system roles", async ({ page }) => {
     // System roles should always be present
     await expect(
-      page.getByRole("cell", { name: "super_admin", exact: true })
+      page.getByRole("cell").filter({ hasText: "super_admin" }).first()
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("cell", { name: "volunteer", exact: true })
+      page.getByRole("cell").filter({ hasText: "volunteer" }).first()
     ).toBeVisible({ timeout: 10_000 });
 
     // Add role button is visible
@@ -55,7 +55,7 @@ test.describe("Role management (admin)", () => {
 
     // Click the role row to navigate to detail
     const roleRow = page.getByRole("row").filter({ hasText: roleName });
-    await roleRow.getByRole("link").click();
+    await roleRow.click();
     await page.waitForURL(/\/settings\/roles\//, { timeout: 10_000 });
 
     await expect(page.getByRole("heading", { name: roleName })).toBeVisible({
@@ -79,7 +79,7 @@ test.describe("Role management (admin)", () => {
 
     // Navigate to detail
     const roleRow = page.getByRole("row").filter({ hasText: roleName });
-    await roleRow.getByRole("link").click();
+    await roleRow.click();
     await page.waitForURL(/\/settings\/roles\//, { timeout: 10_000 });
 
     // Expand a permission group (click a CollapsibleTrigger)

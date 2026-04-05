@@ -115,8 +115,8 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     baseURL,
   }) => {
     await assertUnauthorized(page, baseURL, "team.removeMember", {
-      id: FAKE_ID,
       teamId: FAKE_ID,
+      memberId: FAKE_ID,
     });
   });
 

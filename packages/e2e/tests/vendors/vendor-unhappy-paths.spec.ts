@@ -107,9 +107,9 @@ test.describe("Vendor unhappy paths (admin)", () => {
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
     await confirmDialog.getByRole("button", { name: "Delete" }).click();
-    await expect(confirmDialog).toBeHidden({ timeout: 10_000 });
 
     // Should show an error toast about existing payment requests
+    // (dialog stays open on error — useConfirmAction only closes on success)
     await expect(
       page.getByText(/existing payment|payment requests|cannot delete/i)
     ).toBeVisible({ timeout: 10_000 });

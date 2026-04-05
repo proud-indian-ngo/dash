@@ -7,9 +7,7 @@ test.describe("Reset password page (unauthenticated)", () => {
     await page.goto("/reset-password");
     await page.waitForURL("/forgot-password", { timeout: 10_000 });
     await expect(
-      page
-        .getByRole("heading", { name: /Forgot/i })
-        .or(page.getByText(/forgot/i))
+      page.getByRole("heading", { name: "Forgot your password?" })
     ).toBeVisible({ timeout: 5000 });
   });
 

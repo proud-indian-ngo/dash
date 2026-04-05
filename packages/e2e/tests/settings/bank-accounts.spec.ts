@@ -66,7 +66,11 @@ test.describe("Banking settings — bank account management", () => {
     await newAccountRow.getByRole("button", { name: "Set default" }).click();
 
     // New account should show "Default" badge
-    await expect(newAccountRow.getByText("Default")).toBeVisible({
+    await expect(
+      newAccountRow
+        .locator('[data-slot="badge"]')
+        .getByText("Default", { exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
