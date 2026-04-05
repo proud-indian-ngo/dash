@@ -100,6 +100,12 @@ cleanup() {
   rm -f "$E2E_COMPOSE_FILE"
 }
 
+# Ensure a clean slate: remove any leftover container and volume from a previous run
+echo "Cleaning up any previous test environment..."
+docker compose -f "$E2E_COMPOSE_FILE" stop postgres-test 2>/dev/null || true
+docker compose -f "$E2E_COMPOSE_FILE" rm -f postgres-test 2>/dev/null || true
+docker volume rm "$TEST_VOLUME" 2>/dev/null || true
+
 # Start test DB
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
