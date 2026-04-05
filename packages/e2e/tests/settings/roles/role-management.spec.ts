@@ -11,13 +11,21 @@ test.describe("Role management (admin)", () => {
   });
 
   test("roles list renders with system roles", async ({ page }) => {
-    // System roles should always be present
+    // Use search to surface system roles (they may be off-screen if many E2E roles accumulated)
+    const searchInput = page.getByPlaceholder("Search roles...");
+    await expect(searchInput).toBeVisible({ timeout: 10_000 });
+
+    await searchInput.fill("super_admin");
     await expect(
-      page.getByRole("cell").filter({ hasText: "super_admin" }).first()
+      page.getByRole("row").filter({ hasText: "super_admin" })
     ).toBeVisible({ timeout: 10_000 });
+
+    await searchInput.clear();
+    await searchInput.fill("volunteer");
     await expect(
-      page.getByRole("cell").filter({ hasText: "volunteer" }).first()
+      page.getByRole("row").filter({ hasText: "volunteer" })
     ).toBeVisible({ timeout: 10_000 });
+    await searchInput.clear();
 
     // Add role button is visible
     await expect(page.getByRole("button", { name: "Add role" })).toBeVisible();
