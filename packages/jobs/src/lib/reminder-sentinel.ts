@@ -1,6 +1,6 @@
 import { db } from "@pi-dash/db";
 import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
-import { sql } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 
 /**
  * Attempt to insert an idempotency row into `event_reminder_sent`.
@@ -14,7 +14,7 @@ export async function tryInsertReminderSent(
 ): Promise<boolean> {
   try {
     await db.insert(eventReminderSent).values({
-      id: sql`gen_random_uuid()`,
+      id: uuidv7(),
       eventId,
       instanceDate,
       intervalMinutes,

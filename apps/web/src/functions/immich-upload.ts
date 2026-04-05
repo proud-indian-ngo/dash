@@ -4,6 +4,7 @@ import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import { uuidv7 } from "uuidv7";
 import {
   addAssetToAlbum,
   ensureImmichAlbum,
@@ -106,7 +107,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       const albumId = await ensureImmichAlbum(config, eventId, event.name);
       log.set({ albumId });
 
-      const deviceAssetId = `pi-dash-direct-${crypto.randomUUID()}`;
+      const deviceAssetId = `pi-dash-direct-${uuidv7()}`;
       const assetId = await uploadAssetToImmich(
         config,
         file,

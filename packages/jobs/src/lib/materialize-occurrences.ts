@@ -4,8 +4,9 @@ import {
   expandSeries,
   parseRecurrenceRule,
 } from "@pi-dash/shared/rrule-expand";
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import { uuidv7 } from "uuidv7";
 
 type SeriesParent = Awaited<ReturnType<typeof querySeriesParents>>[number];
 
@@ -64,7 +65,7 @@ async function materializeOccurrence(
   const inserted = await db
     .insert(teamEvent)
     .values({
-      id: sql`gen_random_uuid()`,
+      id: uuidv7(),
       teamId: parent.teamId,
       name: parent.name,
       description: parent.description,
@@ -106,7 +107,7 @@ async function materializeOccurrence(
     await db
       .insert(teamEventMember)
       .values({
-        id: sql`gen_random_uuid()`,
+        id: uuidv7(),
         eventId: newEventId.id,
         userId: member.userId,
         addedAt: member.addedAt,

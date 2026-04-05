@@ -14,6 +14,7 @@ import { getUserPhone, getUserPhones } from "@pi-dash/whatsapp/users";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
+import { uuidv7 } from "uuidv7";
 import type {
   WhatsAppAddMemberPayload,
   WhatsAppAddMembersPayload,
@@ -38,7 +39,7 @@ export async function handleWhatsAppCreateGroup(
     const creatorPhone = await getUserPhone(creatorUserId);
     const participants = creatorPhone ? [creatorPhone] : [];
     const { jid } = await createWhatsAppGroup(groupName, participants);
-    const groupId = crypto.randomUUID();
+    const groupId = uuidv7();
     const timestamp = new Date();
 
     await db.insert(whatsappGroup).values({

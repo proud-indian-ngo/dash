@@ -67,6 +67,7 @@ import {
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { eq, sql } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -673,14 +674,14 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       if (isPast) {
         await db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at, attendance, attendance_marked_at, attendance_marked_by)
-          VALUES (gen_random_uuid(), ${e.id}, ${uid}, ${subDays(e.start, 3).toISOString()},
+          VALUES (${uuidv7()}, ${e.id}, ${uid}, ${subDays(e.start, 3).toISOString()},
             'present'::attendance_status, ${e.end.toISOString()}, ${e.creator})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
       } else {
         await db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at)
-          VALUES (gen_random_uuid(), ${e.id}, ${uid}, ${past(3).toISOString()})
+          VALUES (${uuidv7()}, ${e.id}, ${uid}, ${past(3).toISOString()})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
       }

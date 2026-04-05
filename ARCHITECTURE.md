@@ -21,6 +21,10 @@ Turborepo monorepo with Bun as package manager.
 
 ## Data Layer (Zero + Drizzle)
 
+### ID Generation
+
+All entity primary keys use **UUIDv7** via the `uuidv7` npm package. IDs are generated application-side (not database-side) before insert. UUIDv7 embeds a millisecond timestamp, producing time-ordered values that cluster in B-tree indexes — reducing page splits and fragmentation compared to random UUIDv4. Never use `crypto.randomUUID()` or PostgreSQL's `gen_random_uuid()`.
+
 ### Schema Generation
 
 Drizzle is the source of truth for the database schema. Zero's client-side schema is **generated** from Drizzle:

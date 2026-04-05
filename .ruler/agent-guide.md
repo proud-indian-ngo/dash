@@ -37,6 +37,7 @@
 - DO NOT: Perform broad refactors during focused tasks.
 - DO NOT: Add backwards-compatibility shims (re-exports, type aliases, renamed `_vars`, `// removed` comments). This is a new app with no external consumers — delete old code outright.
 - DO NOT: Use `Date.now()` in notification idempotency keys — it defeats deduplication. Pass a deterministic timestamp from the mutator instead.
+- DO: Use `uuidv7()` from the `uuidv7` package for all ID generation — never use `crypto.randomUUID()` (UUIDv4) or `gen_random_uuid()` (PostgreSQL). UUIDv7 is time-ordered, which benefits database index performance.
 - DO: Keep `useMemo`/`useCallback` for values passed as props to third-party components that use them as internal effect deps (e.g., `ZeroProvider` context/init). React Compiler cannot optimize inside third-party code.
 - DO: Keep `useCallback` on shared hook return values (`useConfirmAction`, `useDialogManager`, etc.) to guarantee stable references for consumers.
 - DO NOT: Remove `useMemo`/`useCallback` from shared hooks or third-party component prop boundaries during React Compiler cleanup.

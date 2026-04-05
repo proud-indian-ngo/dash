@@ -18,6 +18,7 @@ import "yet-another-react-lightbox/plugins/thumbnails.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { getPresignedUploadUrl } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
@@ -176,7 +177,7 @@ export function EventPhotos({
           }
           await zero.mutate(
             mutators.eventPhoto.upload({
-              id: crypto.randomUUID(),
+              id: uuidv7(),
               eventId,
               immichAssetId: result.immichAssetId,
               now,
@@ -187,7 +188,7 @@ export function EventPhotos({
           const key = await uploadFileToR2(file, eventId, getUploadUrl);
           await zero.mutate(
             mutators.eventPhoto.upload({
-              id: crypto.randomUUID(),
+              id: uuidv7(),
               eventId,
               r2Key: key,
               now,

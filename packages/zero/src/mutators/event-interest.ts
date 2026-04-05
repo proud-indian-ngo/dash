@@ -1,4 +1,5 @@
 import { defineMutator } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import "../context";
 import {
@@ -157,7 +158,7 @@ export const eventInterestMutators = {
         reviewedAt: args.now,
       });
 
-      const memberId = crypto.randomUUID();
+      const memberId = uuidv7();
       await tx.mutate.teamEventMember.insert({
         id: memberId,
         eventId: interest.eventId,

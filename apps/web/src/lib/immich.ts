@@ -3,6 +3,7 @@ import { eventImmichAlbum } from "@pi-dash/db/schema/event-photo";
 import { env } from "@pi-dash/env/server";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import { uuidv7 } from "uuidv7";
 
 interface ImmichConfig {
   key: string;
@@ -55,7 +56,7 @@ export async function ensureImmichAlbum(
   const inserted = await db
     .insert(eventImmichAlbum)
     .values({
-      id: crypto.randomUUID(),
+      id: uuidv7(),
       eventId,
       immichAlbumId: albumId,
       createdAt: new Date(),

@@ -23,6 +23,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { type FormEvent, useEffect, useState } from "react";
+import { uuidv7 } from "uuidv7";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 function getTeamSuccessMsg(isEdit: boolean, createWaGroup: boolean): string {
@@ -105,7 +106,7 @@ export function TeamFormDialog({
         )
       : zero.mutate(
           mutators.team.create({
-            id: crypto.randomUUID(),
+            id: uuidv7(),
             name: trimmedName,
             description: description.trim() || undefined,
             whatsappGroupId: whatsappGroupId || undefined,

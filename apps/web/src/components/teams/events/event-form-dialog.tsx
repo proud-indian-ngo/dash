@@ -175,7 +175,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
   const recurrenceRule = value.rrule ? { rrule: value.rrule } : undefined;
 
   return {
-    id: crypto.randomUUID(),
+    id: uuidv7(),
     teamId,
     name: value.name.trim(),
     description: value.description?.trim() || undefined,
