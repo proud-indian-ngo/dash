@@ -108,11 +108,11 @@ test.describe("Vendor unhappy paths (admin)", () => {
     await expect(confirmDialog).toBeVisible();
     await confirmDialog.getByRole("button", { name: "Delete" }).click();
 
-    // Should show an error toast about existing payment requests
+    // Should show a generic error toast (onError: toast.error("Failed to delete vendor"))
     // (dialog stays open on error — useConfirmAction only closes on success)
-    await expect(
-      page.getByText(/existing payment|payment requests|cannot delete/i)
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Failed to delete vendor")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Vendor should still be in the table
     await expect(page.getByText(vendorName)).toBeVisible({ timeout: 5000 });

@@ -26,10 +26,12 @@ test.describe("Banking settings — bank account management", () => {
     // Best-effort cleanup: restore default to seeded "Test Savings" and delete E2E accounts
     try {
       const dialog = await openBankingSettings(page);
-      // Restore seeded account as default if it was changed
+      // Restore seeded account as default if it was changed.
+      // Use masked number ••••7890 (not name "Test Savings") to uniquely identify the
+      // seeded account — bank-account-selection.spec.ts also adds a "Test Savings" account.
       const seededCard = dialog
         .locator(".rounded-md.border")
-        .filter({ hasText: "Test Savings" });
+        .filter({ hasText: "••••7890" });
       const restoreBtn = seededCard.getByRole("button", {
         name: "Set default",
       });

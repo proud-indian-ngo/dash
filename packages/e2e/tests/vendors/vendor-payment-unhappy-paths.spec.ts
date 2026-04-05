@@ -113,10 +113,8 @@ test.describe("Vendor payment unhappy paths (admin)", () => {
       attachments: [
         {
           id: `att-${Date.now()}`,
-          name: "invoice.pdf",
+          type: "url",
           url: "https://example.com/invoice.pdf",
-          mimeType: "application/pdf",
-          size: 1024,
         },
       ],
     });

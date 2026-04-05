@@ -23,6 +23,11 @@ async function createAndNavigateToTeam(
   await expect(createDialog).toBeHidden({ timeout: 10_000 });
   await expect(page.getByText("Team created")).toBeVisible();
 
+  // Reload to force a fresh Zero sync — mutation is server-confirmed but Zero client
+  // view can lag. A reload + waitForZeroReady guarantees the new team is in the view.
+  await page.reload();
+  await waitForZeroReady(page);
+
   // Navigate to the team detail page by clicking the team row link
   const teamRow = page.getByRole("row").filter({ hasText: teamName });
   await expect(teamRow).toBeVisible({ timeout: 20_000 });
