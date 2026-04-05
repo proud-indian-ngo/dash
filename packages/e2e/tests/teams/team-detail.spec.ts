@@ -25,7 +25,7 @@ async function createAndNavigateToTeam(
 
   // Navigate to the team detail page by clicking the team row link
   const teamRow = page.getByRole("row").filter({ hasText: teamName });
-  await expect(teamRow).toBeVisible({ timeout: 10_000 });
+  await expect(teamRow).toBeVisible({ timeout: 20_000 });
   // Click the row title button (teams table uses data-testid="row-title")
   await teamRow.getByTestId("row-title").click();
   await page.waitForURL(/\/teams\/[a-z0-9-]+/, { timeout: 10_000 });

@@ -13,7 +13,7 @@ test.describe("Reset password page (unauthenticated)", () => {
 
   test("shows error message when error param is present", async ({ page }) => {
     await page.goto("/reset-password?error=Invalid+or+expired+link");
-    await expect(page.getByText(/Invalid|expired|reset link/i)).toBeVisible({
+    await expect(page.getByText("Invalid or expired link")).toBeVisible({
       timeout: 10_000,
     });
     await expect(

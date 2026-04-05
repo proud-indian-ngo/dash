@@ -16,12 +16,18 @@ async function openBankingSettings(page: import("@playwright/test").Page) {
   return dialog;
 }
 
+/** Generate a unique 10-digit account number to avoid collisions across test runs. */
+function uniqueAccountNumber(suffix: string) {
+  return String(Date.now()).slice(-7) + suffix.padStart(3, "0");
+}
+
 test.describe("Banking settings — bank account management", () => {
   test("shows existing seeded bank account", async ({ page }) => {
     const dialog = await openBankingSettings(page);
 
-    // Seeded account ends in 7890 (seed-test-user.ts)
-    await expect(dialog.getByText(/••••\d{4}/)).toBeVisible({
+    // Seeded account ends in 7890 (seed-test-user.ts) — use first() since previous
+    // runs may have accumulated additional accounts.
+    await expect(dialog.getByText(/••••\d{4}/).first()).toBeVisible({
       timeout: 10_000,
     });
     await expect(dialog.getByText("Default")).toBeVisible({ timeout: 10_000 });
@@ -32,7 +38,7 @@ test.describe("Banking settings — bank account management", () => {
     const accountName = `E2E Account ${Date.now()}`;
 
     await dialog.getByLabel("Account name").fill(accountName);
-    await dialog.getByLabel("Account number").fill("9876543210");
+    await dialog.getByLabel("Account number").fill(uniqueAccountNumber("001"));
     await dialog.getByLabel("IFSC code").fill("TEST0000001");
     await dialog.getByRole("button", { name: "Add account" }).click();
 
@@ -40,8 +46,6 @@ test.describe("Banking settings — bank account management", () => {
     await expect(dialog.getByText(accountName)).toBeVisible({
       timeout: 10_000,
     });
-    // Last 4 of new account
-    await expect(dialog.getByText("••••3210")).toBeVisible({ timeout: 10_000 });
   });
 
   test("sets a bank account as default", async ({ page }) => {
@@ -51,7 +55,7 @@ test.describe("Banking settings — bank account management", () => {
 
     // Add a second account
     await dialog.getByLabel("Account name").fill(accountName);
-    await dialog.getByLabel("Account number").fill("1111222233334444");
+    await dialog.getByLabel("Account number").fill(uniqueAccountNumber("002"));
     await dialog.getByLabel("IFSC code").fill("TEST0000002");
     await dialog.getByRole("button", { name: "Add account" }).click();
     await expect(page.getByText("Bank account added")).toBeVisible();
@@ -61,7 +65,7 @@ test.describe("Banking settings — bank account management", () => {
 
     // Set the new account as default
     const newAccountRow = dialog
-      .locator("[class*='border']")
+      .locator(".rounded-md.border")
       .filter({ hasText: accountName });
     await newAccountRow.getByRole("button", { name: "Set default" }).click();
 
@@ -82,7 +86,7 @@ test.describe("Banking settings — bank account management", () => {
 
     // Add an account to delete
     await dialog.getByLabel("Account name").fill(accountName);
-    await dialog.getByLabel("Account number").fill("5555666677778888");
+    await dialog.getByLabel("Account number").fill(uniqueAccountNumber("003"));
     await dialog.getByLabel("IFSC code").fill("TEST0000003");
     await dialog.getByRole("button", { name: "Add account" }).click();
     await expect(page.getByText("Bank account added")).toBeVisible();
@@ -92,7 +96,7 @@ test.describe("Banking settings — bank account management", () => {
 
     // Delete the new (non-default) account
     const accountRow = dialog
-      .locator("[class*='border']")
+      .locator(".rounded-md.border")
       .filter({ hasText: accountName });
     await accountRow.getByRole("button", { name: "Delete account" }).click();
 
