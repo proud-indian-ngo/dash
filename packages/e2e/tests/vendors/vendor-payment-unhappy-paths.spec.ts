@@ -87,7 +87,8 @@ async function createPendingVP(
   await page.getByLabel("Amount for line item 1").fill("1000");
 
   await page.getByRole("button", { name: "Submit" }).click();
-  await page.waitForURL(/\/vendor-payments\/[a-z0-9-]+$/, { timeout: 15_000 });
+  // Require UUID pattern (8+ hex chars + dash) to exclude /vendor-payments/new
+  await page.waitForURL(/\/vendor-payments\/[0-9a-f]{8}-/, { timeout: 15_000 });
 
   const url = page.url();
   const id = url.split("/vendor-payments/")[1];

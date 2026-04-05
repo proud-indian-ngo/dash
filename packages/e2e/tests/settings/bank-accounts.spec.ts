@@ -23,27 +23,10 @@ function uniqueAccountNumber(suffix: string) {
 
 test.describe("Banking settings — bank account management", () => {
   test.afterEach(async ({ page }) => {
-    // Best-effort cleanup: restore default to seeded "Test Savings" and delete E2E accounts
+    // Delete E2E accounts to prevent pollution of bank-account-selection.spec.ts
+    // (which expects exactly 2 combobox options).
     try {
       const dialog = await openBankingSettings(page);
-      // Restore seeded account as default if it was changed.
-      // Use masked number ••••7890 (not name "Test Savings") to uniquely identify the
-      // seeded account — bank-account-selection.spec.ts also adds a "Test Savings" account.
-      const seededCard = dialog
-        .locator(".rounded-md.border")
-        .filter({ hasText: "••••7890" });
-      const restoreBtn = seededCard.getByRole("button", {
-        name: "Set default",
-      });
-      if (await restoreBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await restoreBtn.click();
-        await expect(
-          seededCard.getByText("Default", { exact: true })
-        ).toBeVisible({
-          timeout: 10_000,
-        });
-      }
-      // Delete all E2E test accounts
       for (let i = 0; i < 5; i++) {
         const e2eCard = dialog
           .locator(".rounded-md.border")
@@ -52,15 +35,28 @@ test.describe("Banking settings — bank account management", () => {
         if (!(await e2eCard.isVisible({ timeout: 1000 }).catch(() => false))) {
           break;
         }
-        await e2eCard.getByRole("button", { name: "Delete account" }).click();
+        // If this E2E account is the default, restore seeded account first
+        const setDefaultBtn = dialog
+          .locator(".rounded-md.border")
+          .filter({ hasText: "••••7890" })
+          .getByRole("button", { name: "Set default" });
+        if (
+          await setDefaultBtn.isVisible({ timeout: 500 }).catch(() => false)
+        ) {
+          await setDefaultBtn.click();
+          await page.waitForTimeout(1000);
+        }
+        await e2eCard
+          .getByRole("button", { name: "Delete account" })
+          .click({ timeout: 3000 });
         await page
           .getByRole("alertdialog")
           .getByRole("button", { name: "Delete" })
-          .click({ timeout: 5000 });
-        await expect(e2eCard).toBeHidden({ timeout: 10_000 });
+          .click({ timeout: 3000 });
+        await expect(e2eCard).toBeHidden({ timeout: 5000 });
       }
     } catch {
-      // Best-effort — don't fail the test
+      // Best-effort
     }
   });
 
@@ -71,7 +67,10 @@ test.describe("Banking settings — bank account management", () => {
     await expect(dialog.getByText(/••••\d{4}/).first()).toBeVisible({
       timeout: 10_000,
     });
-    await expect(dialog.getByText("Default")).toBeVisible({ timeout: 10_000 });
+    // exact: true avoids matching "Set default" button (getByText is case-insensitive)
+    await expect(dialog.getByText("Default", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("adds a new bank account", async ({ page }) => {

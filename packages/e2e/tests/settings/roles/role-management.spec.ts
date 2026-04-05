@@ -21,9 +21,10 @@ test.describe("Role management (admin)", () => {
     ).toBeVisible({ timeout: 10_000 });
 
     await searchInput.clear();
+    // Search for exact slug to avoid matching "Unoriented Volunteer" row too
     await searchInput.fill("volunteer");
     await expect(
-      page.getByRole("row").filter({ hasText: "volunteer" })
+      page.getByRole("row", { name: /^Volunteer volunteer/ })
     ).toBeVisible({ timeout: 10_000 });
     await searchInput.clear();
 

@@ -20,9 +20,8 @@ export class TeamDetailPage {
   }
 
   getMemberRow(nameOrEmail: string): Locator {
-    return this.page
-      .locator("[class*='border']")
-      .filter({ hasText: nameOrEmail });
+    // Target inner member row (border-b), not the outer wrapper (rounded-md border)
+    return this.page.locator("div.border-b").filter({ hasText: nameOrEmail });
   }
 
   getMemberRoleBadge(nameOrEmail: string): Locator {
@@ -58,15 +57,20 @@ export class TeamDetailPage {
    */
   async promoteMember(nameOrEmail: string): Promise<void> {
     const memberRow = this.getMemberRow(nameOrEmail);
-    await memberRow.getByRole("button", { name: "Promote" }).click();
+    const btn = memberRow.getByRole("button", { name: "Promote" });
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
   }
 
   /**
    * Demotes a lead (Lead → Member) by clicking their Demote button.
+   * Waits for the button to re-render from "Promote" → "Demote" after a prior role change.
    */
   async demoteMember(nameOrEmail: string): Promise<void> {
     const memberRow = this.getMemberRow(nameOrEmail);
-    await memberRow.getByRole("button", { name: "Demote" }).click();
+    const btn = memberRow.getByRole("button", { name: "Demote" });
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
   }
 
   /**

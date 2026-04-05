@@ -1,6 +1,9 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { TeamDetailPage } from "../../pages/team-detail-page";
 
+// Member cards display the user's NAME, not email — use the seeded volunteer name
+const VOLUNTEER_NAME = "Test Volunteer";
+
 /**
  * Creates a new team and navigates to its detail page.
  * Returns the team name.
@@ -70,10 +73,10 @@ test.describe("Team detail — member management (admin)", () => {
       timeout: 10_000,
     });
     // Member row should appear with "Member" role badge
-    await expect(teamDetail.getMemberRow(volunteerEmail)).toBeVisible({
+    await expect(teamDetail.getMemberRow(VOLUNTEER_NAME)).toBeVisible({
       timeout: 10_000,
     });
-    await expect(teamDetail.getMemberRoleBadge(volunteerEmail)).toContainText(
+    await expect(teamDetail.getMemberRoleBadge(VOLUNTEER_NAME)).toContainText(
       "Member",
       { timeout: 5000 }
     );
@@ -89,44 +92,50 @@ test.describe("Team detail — member management (admin)", () => {
     await expect(page.getByText("Member added")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(teamDetail.getMemberRow(volunteerEmail)).toBeVisible({
+    await expect(teamDetail.getMemberRow(VOLUNTEER_NAME)).toBeVisible({
       timeout: 10_000,
     });
 
     // Promote to lead
-    await teamDetail.promoteMember(volunteerEmail);
+    await teamDetail.promoteMember(VOLUNTEER_NAME);
 
     // Badge should change to "Lead"
-    await expect(teamDetail.getMemberRoleBadge(volunteerEmail)).toContainText(
+    await expect(teamDetail.getMemberRoleBadge(VOLUNTEER_NAME)).toContainText(
       "Lead",
       { timeout: 10_000 }
     );
   });
 
-  test("demotes a lead to member", async ({ page, volunteerEmail }) => {
+  test("cannot demote sole lead — shows warning", async ({
+    page,
+    volunteerEmail,
+  }) => {
     test.slow();
     await createAndNavigateToTeam(page);
     const teamDetail = new TeamDetailPage(page);
 
-    // Add as member, promote to lead
+    // Add as member, promote to lead (sole lead)
     await teamDetail.addMember(volunteerEmail);
     await expect(page.getByText("Member added")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(teamDetail.getMemberRow(volunteerEmail)).toBeVisible({
+    await expect(teamDetail.getMemberRow(VOLUNTEER_NAME)).toBeVisible({
       timeout: 10_000,
     });
-    await teamDetail.promoteMember(volunteerEmail);
-    await expect(teamDetail.getMemberRoleBadge(volunteerEmail)).toContainText(
+    await teamDetail.promoteMember(VOLUNTEER_NAME);
+    await expect(teamDetail.getMemberRoleBadge(VOLUNTEER_NAME)).toContainText(
       "Lead",
       { timeout: 10_000 }
     );
 
-    // Demote back to member
-    await teamDetail.demoteMember(volunteerEmail);
-    await expect(teamDetail.getMemberRoleBadge(volunteerEmail)).toContainText(
-      "Member",
-      { timeout: 10_000 }
+    // Try to demote — blocked because they're the only lead
+    await teamDetail.demoteMember(VOLUNTEER_NAME);
+    await expect(page.getByText(/Cannot demote the last lead/i)).toBeVisible({
+      timeout: 5000,
+    });
+    // Badge should still be "Lead"
+    await expect(teamDetail.getMemberRoleBadge(VOLUNTEER_NAME)).toContainText(
+      "Lead"
     );
   });
 
@@ -141,16 +150,11 @@ test.describe("Team detail — member management (admin)", () => {
       timeout: 10_000,
     });
 
-    // Find the user's display name from the member row
-    const memberRow = teamDetail.getMemberRow(volunteerEmail);
+    // Verify member row visible then remove
+    const memberRow = teamDetail.getMemberRow(VOLUNTEER_NAME);
     await expect(memberRow).toBeVisible({ timeout: 10_000 });
-    const userName = await memberRow
-      .locator(".font-medium.text-sm")
-      .first()
-      .textContent();
 
-    // Remove member
-    await teamDetail.removeMember(userName ?? volunteerEmail);
+    await teamDetail.removeMember(VOLUNTEER_NAME);
 
     // Member row should disappear
     await expect(memberRow).toBeHidden({ timeout: 10_000 });
