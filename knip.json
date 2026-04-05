@@ -12,12 +12,7 @@
   "workspaces": {
     ".": {},
     "apps/web": {
-      "ignoreFiles": [
-        "src/entry-server.ts",
-        "server/**",
-        "src/lib/logger.ts",
-        "src/stubs/**"
-      ]
+      "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },
     "packages/db": {
       "ignoreFiles": ["scripts/**"],
