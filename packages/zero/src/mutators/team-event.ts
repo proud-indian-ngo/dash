@@ -5,6 +5,7 @@ import "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
+  can,
 } from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
@@ -401,6 +402,14 @@ export const teamEventMutators = {
       ));
       assertHasPermissionOrTeamLead(ctx, "events.create", isTeamLead);
 
+      const isBackdated =
+        tx.location === "server"
+          ? args.startTime < Date.now()
+          : args.startTime < args.now;
+      if (isBackdated && !can(ctx, "events.create_backdated")) {
+        throw new Error("Start time must be in the future");
+      }
+
       await tx.mutate.teamEvent.insert({
         id: args.id,
         teamId: args.teamId,
@@ -445,7 +454,7 @@ export const teamEventMutators = {
         });
       }
 
-      if (tx.location === "server") {
+      if (tx.location === "server" && !isBackdated) {
         const eventId = args.id;
         const eventName = args.name;
         const startTime = args.startTime;

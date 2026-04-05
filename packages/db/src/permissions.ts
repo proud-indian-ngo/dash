@@ -196,6 +196,12 @@ export const PERMISSIONS = [
     description: "Create team events (also granted to team leads)",
   },
   {
+    id: "events.create_backdated",
+    name: "Create Backdated Events",
+    category: "events",
+    description: "Create events with a start time in the past",
+  },
+  {
     id: "events.edit",
     name: "Edit Events",
     category: "events",

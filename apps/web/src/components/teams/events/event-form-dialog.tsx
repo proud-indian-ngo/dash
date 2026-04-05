@@ -20,6 +20,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { EditScope } from "./edit-scope-dialog";
 import { RecurrenceBuilder } from "./recurrence-builder";
@@ -46,12 +47,12 @@ const eventFormSchema = z.object({
 const endTimeAfterStartTime = (data: EventFormValues) =>
   !(data.endTime && data.startTime) || data.endTime > data.startTime;
 
-function createEventFormSchema(isEdit: boolean) {
+function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
   const withEndTimeCheck = eventFormSchema.refine(endTimeAfterStartTime, {
     message: "End time must be after start time",
     path: ["endTime"],
   });
-  if (isEdit) {
+  if (isEdit || canBackdate) {
     return withEndTimeCheck;
   }
   return withEndTimeCheck.refine(
@@ -255,6 +256,8 @@ function EventFormContent({
   waGroupOptions: { label: string; value: string }[];
 }) {
   const zero = useZero();
+  const { hasPermission } = useApp();
+  const canBackdate = hasPermission("events.create_backdated");
 
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
@@ -288,7 +291,7 @@ function EventFormContent({
     },
     validators: {
       onBlur: eventFormSchema,
-      onSubmit: createEventFormSchema(isEdit),
+      onSubmit: createEventFormSchema(isEdit, canBackdate),
     },
   });
 
@@ -312,7 +315,20 @@ function EventFormContent({
         name="location"
         placeholder="https://meet.google.com/..."
       />
-      <DateTimeField isRequired label="Start Time" name="startTime" />
+      <form.Subscribe selector={(state) => state.values.startTime}>
+        {(startTime) => (
+          <DateTimeField
+            description={
+              canBackdate && startTime && startTime < new Date()
+                ? "Past dates allowed — team won't be notified"
+                : undefined
+            }
+            isRequired
+            label="Start Time"
+            name="startTime"
+          />
+        )}
+      </form.Subscribe>
       <DateTimeField label="End Time" name="endTime" />
       <CheckboxField label="Public" name="isPublic" />
       {/* Show recurrence builder: on create, scope edits for "all"/"following", or editing a series parent directly */}
