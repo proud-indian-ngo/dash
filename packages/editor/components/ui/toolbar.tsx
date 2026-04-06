@@ -6,7 +6,6 @@ import {
   DropdownMenuSeparator,
 } from "@pi-dash/components/ui/dropdown-menu";
 import { Separator } from "@pi-dash/components/ui/separator";
-import { Tooltip, TooltipTrigger } from "@pi-dash/components/ui/tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import * as ToolbarPrimitive from "@radix-ui/react-toolbar";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -288,10 +287,13 @@ type TooltipProps<T extends React.ElementType> = {
     "children"
   >;
   tooltipProps?: Omit<
-    React.ComponentPropsWithoutRef<typeof Tooltip>,
+    React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root>,
     "children"
   >;
-  tooltipTriggerProps?: React.ComponentPropsWithoutRef<typeof TooltipTrigger>;
+  tooltipTriggerProps?: Omit<
+    React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger>,
+    "children"
+  >;
 } & React.ComponentProps<T>;
 
 function withTooltip<T extends React.ElementType>(Component: T) {
@@ -312,11 +314,14 @@ function withTooltip<T extends React.ElementType>(Component: T) {
 
     if (tooltip && mounted) {
       return (
-        <Tooltip {...tooltipProps}>
-          <TooltipTrigger {...tooltipTriggerProps}>{component}</TooltipTrigger>
-
-          <TooltipContent {...tooltipContentProps}>{tooltip}</TooltipContent>
-        </Tooltip>
+        <TooltipPrimitive.Provider>
+          <TooltipPrimitive.Root {...tooltipProps}>
+            <TooltipPrimitive.Trigger asChild {...tooltipTriggerProps}>
+              {component}
+            </TooltipPrimitive.Trigger>
+            <TooltipContent {...tooltipContentProps}>{tooltip}</TooltipContent>
+          </TooltipPrimitive.Root>
+        </TooltipPrimitive.Provider>
       );
     }
 
