@@ -14,7 +14,9 @@ import {
 } from "@/lib/date-range";
 import { assertPermission } from "@/lib/route-guards";
 import {
+  computeApprovalTimeData,
   computeCategoryData,
+  computeEventData,
   computeSubmissionStats,
   computeSubmitterData,
   computeTrendData,
@@ -39,6 +41,16 @@ const TopSubmittersChart = lazy(() =>
 const TopVendorsChart = lazy(() =>
   import("@/components/analytics/top-vendors-chart").then((m) => ({
     default: m.TopVendorsChart,
+  }))
+);
+const EventSpendingChart = lazy(() =>
+  import("@/components/analytics/event-spending-chart").then((m) => ({
+    default: m.EventSpendingChart,
+  }))
+);
+const ApprovalTimeChart = lazy(() =>
+  import("@/components/analytics/approval-time-chart").then((m) => ({
+    default: m.ApprovalTimeChart,
   }))
 );
 
@@ -107,6 +119,12 @@ function AnalyticsPage() {
   const vendorData = computeVendorData(
     filteredVendorPayments as unknown as Parameters<typeof computeVendorData>[0]
   );
+  const eventData = computeEventData(
+    allFiltered as unknown as Parameters<typeof computeEventData>[0]
+  );
+  const approvalTimeData = computeApprovalTimeData(
+    allFiltered as unknown as Parameters<typeof computeApprovalTimeData>[0]
+  );
 
   return (
     <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
@@ -132,6 +150,10 @@ function AnalyticsPage() {
               <div className="h-[380px] rounded-none bg-muted/50" />
               <div className="h-[380px] rounded-none bg-muted/50" />
             </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="h-[380px] rounded-none bg-muted/50" />
+              <div className="h-[380px] rounded-none bg-muted/50" />
+            </div>
           </div>
         }
       >
@@ -145,6 +167,11 @@ function AnalyticsPage() {
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <TopSubmittersChart data={submitterData} />
               <TopVendorsChart data={vendorData} />
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <EventSpendingChart data={eventData} />
+              <ApprovalTimeChart data={approvalTimeData} />
             </div>
           </>
         )}

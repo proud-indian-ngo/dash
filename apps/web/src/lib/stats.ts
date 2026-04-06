@@ -238,6 +238,95 @@ export function computeSubmitterData(
   return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
 }
 
+export interface EventDataPoint {
+  amount: number;
+  count: number;
+  eventId: string;
+  name: string;
+}
+
+interface WithEventData {
+  event?: { id: string; name: string } | null;
+  lineItems: readonly { amount: string | number }[];
+}
+
+export function computeEventData(
+  items: readonly WithEventData[]
+): EventDataPoint[] {
+  const map = new Map<
+    string,
+    { name: string; amount: number; count: number }
+  >();
+
+  for (const item of items) {
+    if (!item.event) {
+      continue;
+    }
+    const { id: eventId, name } = item.event;
+    const existing = map.get(eventId) ?? { name, amount: 0, count: 0 };
+    existing.amount += sumAmounts(item.lineItems);
+    existing.count += 1;
+    map.set(eventId, existing);
+  }
+
+  return [...map.entries()]
+    .map(([eventId, data]) => ({ eventId, ...data }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 10);
+}
+
+export interface ApprovalTimeBucket {
+  count: number;
+  label: string;
+}
+
+interface WithApprovalData {
+  reviewedAt: number | null;
+  status: string | null;
+  submittedAt: number | null;
+}
+
+// Integer day thresholds: bucket index = first threshold that `days` does NOT exceed.
+// e.g. days=0 → idx 0, days=1 → idx 1, days=3 → idx 2, days=7 → idx 3 …
+const APPROVAL_BUCKETS = [
+  { label: "< 1 day", maxDays: 1 },
+  { label: "1–3 days", maxDays: 3 },
+  { label: "3–7 days", maxDays: 7 },
+  { label: "7–14 days", maxDays: 14 },
+  { label: "14–30 days", maxDays: 30 },
+  { label: "> 30 days", maxDays: Number.POSITIVE_INFINITY },
+];
+
+export function computeApprovalTimeData(
+  items: readonly WithApprovalData[]
+): ApprovalTimeBucket[] {
+  const counts = APPROVAL_BUCKETS.map(() => 0);
+
+  for (const item of items) {
+    if (
+      !(item.reviewedAt && item.submittedAt) ||
+      (item.status !== "approved" && item.status !== "rejected")
+    ) {
+      continue;
+    }
+    const days = Math.floor(
+      (item.reviewedAt - item.submittedAt) / (1000 * 60 * 60 * 24)
+    );
+    if (days < 0) {
+      continue;
+    }
+    const idx = APPROVAL_BUCKETS.findIndex((b) => days < b.maxDays);
+    if (idx >= 0 && counts[idx] !== undefined) {
+      counts[idx]++;
+    }
+  }
+
+  return APPROVAL_BUCKETS.map((b, i) => ({
+    label: b.label,
+    count: counts[i] ?? 0,
+  }));
+}
+
 interface WithVendorData extends WithStatusAndLineItems {
   vendor: { name: string } | undefined;
 }

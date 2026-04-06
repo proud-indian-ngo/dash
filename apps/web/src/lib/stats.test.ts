@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   byStatus,
+  computeApprovalTimeData,
   computeCategoryData,
+  computeEventData,
   computeSubmitterData,
   computeTrendData,
   sumAmounts,
@@ -195,5 +197,128 @@ describe("computeSubmitterData", () => {
     const item = makeItem({ amount: 100 });
     (item as { user: unknown }).user = undefined;
     expect(computeSubmitterData([item])).toEqual([]);
+  });
+});
+
+describe("computeEventData", () => {
+  function makeEventItem(eventId: string | null, amount: number) {
+    return {
+      event: eventId ? { id: eventId, name: `Event ${eventId}` } : null,
+      lineItems: [{ amount }],
+    };
+  }
+
+  it("returns empty for items with no event", () => {
+    expect(computeEventData([makeEventItem(null, 100)])).toEqual([]);
+  });
+
+  it("returns empty for empty input", () => {
+    expect(computeEventData([])).toEqual([]);
+  });
+
+  it("groups and sums by event", () => {
+    const items = [
+      makeEventItem("evt1", 100),
+      makeEventItem("evt1", 200),
+      makeEventItem("evt2", 50),
+    ];
+    const result = computeEventData(items);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ eventId: "evt1", amount: 300, count: 2 });
+    expect(result[1]).toMatchObject({ eventId: "evt2", amount: 50, count: 1 });
+  });
+
+  it("sorts by amount descending", () => {
+    const items = [makeEventItem("small", 10), makeEventItem("big", 9999)];
+    const result = computeEventData(items);
+    expect(result[0]?.eventId).toBe("big");
+  });
+
+  it("limits to top 10", () => {
+    const items = Array.from({ length: 15 }, (_, i) =>
+      makeEventItem(`evt${i}`, 100)
+    );
+    expect(computeEventData(items)).toHaveLength(10);
+  });
+
+  it("skips items with undefined event", () => {
+    const item = { event: undefined, lineItems: [{ amount: 100 }] };
+    expect(computeEventData([item])).toEqual([]);
+  });
+});
+
+describe("computeApprovalTimeData", () => {
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const base = new Date("2026-01-01").getTime();
+
+  function makeApprovalItem(daysElapsed: number, status = "approved") {
+    return {
+      submittedAt: base,
+      reviewedAt: base + Math.floor(daysElapsed * MS_PER_DAY),
+      status,
+    };
+  }
+
+  it("returns all 6 buckets with zero counts for empty input", () => {
+    const result = computeApprovalTimeData([]);
+    expect(result).toHaveLength(6);
+    expect(result.every((b) => b.count === 0)).toBe(true);
+  });
+
+  it("skips pending items", () => {
+    const result = computeApprovalTimeData([makeApprovalItem(1, "pending")]);
+    expect(result.every((b) => b.count === 0)).toBe(true);
+  });
+
+  it("skips items with missing timestamps", () => {
+    const result = computeApprovalTimeData([
+      { submittedAt: null, reviewedAt: base, status: "approved" },
+      { submittedAt: base, reviewedAt: null, status: "approved" },
+    ]);
+    expect(result.every((b) => b.count === 0)).toBe(true);
+  });
+
+  it("bins < 1 day (0 elapsed days) into first bucket", () => {
+    const result = computeApprovalTimeData([makeApprovalItem(0.5)]);
+    expect(result[0]).toMatchObject({ label: "< 1 day", count: 1 });
+  });
+
+  it("bins exactly 1 day into '1–3 days' bucket", () => {
+    const result = computeApprovalTimeData([makeApprovalItem(1)]);
+    expect(result[1]).toMatchObject({ label: "1–3 days", count: 1 });
+  });
+
+  it("bins exactly 3 days into '3–7 days' bucket", () => {
+    const result = computeApprovalTimeData([makeApprovalItem(3)]);
+    expect(result[2]).toMatchObject({ label: "3–7 days", count: 1 });
+  });
+
+  it("bins exactly 7 days into '7–14 days' bucket", () => {
+    const result = computeApprovalTimeData([makeApprovalItem(7)]);
+    expect(result[3]).toMatchObject({ label: "7–14 days", count: 1 });
+  });
+
+  it("bins exactly 30 days into '> 30 days' bucket", () => {
+    const result = computeApprovalTimeData([makeApprovalItem(30)]);
+    expect(result[5]).toMatchObject({ label: "> 30 days", count: 1 });
+  });
+
+  it("counts both approved and rejected", () => {
+    const items = [
+      makeApprovalItem(1, "approved"),
+      makeApprovalItem(1, "rejected"),
+    ];
+    const result = computeApprovalTimeData(items);
+    expect(result[1]?.count).toBe(2);
+  });
+
+  it("silently ignores negative deltas (reviewedAt < submittedAt)", () => {
+    const item = {
+      submittedAt: base,
+      reviewedAt: base - MS_PER_DAY,
+      status: "approved",
+    };
+    const result = computeApprovalTimeData([item]);
+    expect(result.every((b) => b.count === 0)).toBe(true);
   });
 });
