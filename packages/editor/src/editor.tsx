@@ -189,7 +189,7 @@ export function PlateEditor({
   return (
     <div className={className}>
       <Plate editor={editor}>
-        <div className="rounded-md border focus-within:ring-1 focus-within:ring-ring">
+        <div className="border focus-within:ring-1 focus-within:ring-ring">
           <FixedToolbar
             aria-label="Editor formatting"
             className="flex-wrap gap-0.5 border-x-0 border-t-0 p-1"
