@@ -6,7 +6,11 @@
     "src/generated/**": ["exports", "types"],
     "**/*.generated.ts": ["exports", "types"],
     "packages/design-system/components/**": ["exports", "types"],
-    "packages/zero/src/schema.ts": ["duplicates"]
+    "packages/editor/components/**": ["exports", "types", "unlisted"],
+    "packages/zero/src/schema.ts": ["duplicates", "exports", "types"],
+    "packages/db/src/schema/auth.ts": ["exports", "types"],
+    "packages/shared/src/constants.ts": ["types"],
+    "packages/shared/src/event-reminders.ts": ["types"]
   },
   "ignoreExportsUsedInFile": true,
   "workspaces": {
@@ -24,8 +28,13 @@
       "ignoreDependencies": ["better-auth"]
     },
     "packages/jobs": {
-      "ignoreDependencies": ["@pi-dash/observability"]
+      "ignoreDependencies": ["@pi-dash/observability"],
+      "entry": ["src/*.ts", "src/handlers/*.ts", "src/lib/*.ts"]
     },
+    "packages/notifications": {
+      "entry": ["src/*.ts", "src/send/*.ts"]
+    },
+    "packages/whatsapp": {},
     "packages/email": {
       "ignoreFiles": [
         "src/templates/notification-approval-with-image.tsx",
@@ -36,6 +45,10 @@
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],
       "ignoreDependencies": ["@tailwindcss/.*"]
+    },
+    "packages/editor": {
+      "entry": ["src/*.tsx"],
+      "ignoreFiles": ["components/**"]
     }
   }
 }

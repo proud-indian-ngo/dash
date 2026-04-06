@@ -8,6 +8,7 @@
       "!.claude/**/*",
       "!.worktrees/**/*",
       "!packages/design-system/components",
+      "!packages/editor/components/**/*",
       "!packages/design-system/lib/utils.ts",
       "!packages/design-system/hooks/use-mobile.ts",
       "!packages/design-system/styles.css",

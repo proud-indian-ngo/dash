@@ -21,7 +21,9 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@pi-dash/design-system/*": ["../../packages/design-system/*"]
+      "@pi-dash/design-system/*": ["../../packages/design-system/*"],
+      "@pi-dash/editor/*": ["../../packages/editor/*"],
+      "@pi-dash/components/*": ["../../packages/editor/components/*"]
     }
   }
 }
