@@ -270,12 +270,8 @@ export function PlateEditor({
             </ToolbarGroup>
           </FixedToolbar>
 
-          <EditorContainer>
-            <Editor
-              className="min-h-64 px-4 py-3 text-sm"
-              placeholder={placeholder}
-              variant="none"
-            />
+          <EditorContainer className="min-h-64">
+            <Editor placeholder={placeholder} />
           </EditorContainer>
         </div>
       </Plate>
