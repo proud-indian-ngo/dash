@@ -30,6 +30,13 @@ import { MentionKit } from "../components/editor/plugins/mention-kit";
 import { SlashKit } from "../components/editor/plugins/slash-kit";
 import { TableKit } from "../components/editor/plugins/table-kit";
 import { ToggleKit } from "../components/editor/plugins/toggle-kit";
+import {
+  BlockquoteToolbarButton,
+  CodeBlockToolbarButton,
+  H1ToolbarButton,
+  H2ToolbarButton,
+  H3ToolbarButton,
+} from "../components/ui/block-type-toolbar-button";
 import { Editor, EditorContainer } from "../components/ui/editor";
 import { EmojiToolbarButton } from "../components/ui/emoji-toolbar-button";
 import { FixedToolbar } from "../components/ui/fixed-toolbar";
@@ -192,6 +199,14 @@ export function PlateEditor({
             className="flex-wrap gap-0.5 border-x-0 border-t-0 p-1"
           >
             <ToolbarGroup>
+              <H1ToolbarButton />
+              <H2ToolbarButton />
+              <H3ToolbarButton />
+            </ToolbarGroup>
+
+            <ToolbarSeparator />
+
+            <ToolbarGroup>
               <MarkToolbarButton nodeType={KEYS.bold} tooltip="Bold (⌘B)">
                 <HugeiconsIcon icon={TextBoldIcon} size={16} />
               </MarkToolbarButton>
@@ -212,6 +227,8 @@ export function PlateEditor({
               <ListToolbarButton nodeType={KEYS.ulClassic} />
               <ListToolbarButton nodeType={KEYS.olClassic} />
               <ToggleToolbarButton />
+              <BlockquoteToolbarButton />
+              <CodeBlockToolbarButton />
             </ToolbarGroup>
 
             <ToolbarSeparator />
@@ -255,8 +272,9 @@ export function PlateEditor({
 
           <EditorContainer>
             <Editor
-              className="prose prose-sm min-h-64 p-3"
+              className="min-h-64 px-4 py-3 text-sm"
               placeholder={placeholder}
+              variant="none"
             />
           </EditorContainer>
         </div>

@@ -1,5 +1,6 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -337,7 +338,7 @@ function EventFeedbackParticipant({
   // Editing existing feedback
   if (myFeedback && editing) {
     return (
-      <Suspense>
+      <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
           content={myFeedback.content}
           entityId={eventId}
@@ -364,7 +365,7 @@ function EventFeedbackParticipant({
           </p>
         ) : null}
       </div>
-      <Suspense>
+      <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
           entityId={eventId}
           key="create"
@@ -384,7 +385,7 @@ function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
   const isEdited = feedback.updatedAt !== feedback.createdAt;
   return (
     <div className="rounded-lg border p-4">
-      <Suspense>
+      <Suspense fallback={<RendererSkeleton />}>
         <PlateRenderer content={feedback.content} />
       </Suspense>
       <span className="mt-2 block text-muted-foreground text-xs">
@@ -394,6 +395,38 @@ function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
         })}
         {isEdited ? " (edited)" : ""}
       </span>
+    </div>
+  );
+}
+
+function EditorSkeleton() {
+  return (
+    <div className="rounded-md border">
+      <div className="flex gap-1 border-b p-1">
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+      </div>
+      <div className="space-y-2 p-4">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    </div>
+  );
+}
+
+function RendererSkeleton() {
+  return (
+    <div className="space-y-2 py-1">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-1/2" />
     </div>
   );
 }

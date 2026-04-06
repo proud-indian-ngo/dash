@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -111,7 +112,7 @@ export function EventUpdates({
   return (
     <div className="flex flex-col gap-4">
       {canManage ? (
-        <Suspense>
+        <Suspense fallback={<EditorSkeleton />}>
           <PlateEditor
             entityId={eventId}
             key="create"
@@ -204,7 +205,15 @@ export function EventUpdates({
                       ) : null}
                     </div>
 
-                    <Suspense>
+                    <Suspense
+                      fallback={
+                        editingId === update.id ? (
+                          <EditorSkeleton />
+                        ) : (
+                          <RendererSkeleton />
+                        )
+                      }
+                    >
                       {editingId === update.id ? (
                         <PlateEditor
                           content={update.content}
@@ -244,6 +253,38 @@ export function EventUpdates({
         open={deleteAction.isOpen}
         title="Delete update"
       />
+    </div>
+  );
+}
+
+function EditorSkeleton() {
+  return (
+    <div className="rounded-md border">
+      <div className="flex gap-1 border-b p-1">
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+      </div>
+      <div className="space-y-2 p-4">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    </div>
+  );
+}
+
+function RendererSkeleton() {
+  return (
+    <div className="space-y-2 py-1">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-1/2" />
     </div>
   );
 }
