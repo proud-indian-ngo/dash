@@ -23,7 +23,11 @@ import {
   type UseEmojiPickerType,
   useEmojiDropdownMenuState,
 } from "@platejs/emoji/react";
-import * as Popover from "@radix-ui/react-popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@pi-dash/components/ui/popover";
 import {
   AppleIcon,
   ClockIcon,
@@ -80,13 +84,10 @@ export function EmojiPopover({
   setIsOpen: (open: boolean) => void;
 }) {
   return (
-    <Popover.Root onOpenChange={setIsOpen} open={isOpen}>
-      <Popover.Trigger>{control}</Popover.Trigger>
-
-      <Popover.Portal>
-        <Popover.Content className="z-100">{children}</Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <Popover onOpenChange={setIsOpen} open={isOpen}>
+      <PopoverTrigger render={control as React.ReactElement} />
+      <PopoverContent className="z-[100]">{children}</PopoverContent>
+    </Popover>
   );
 }
 
