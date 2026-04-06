@@ -2,7 +2,6 @@
 
 import {
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
 } from "@pi-dash/components/ui/dropdown-menu";
@@ -340,9 +339,9 @@ export function ToolbarMenuGroup({
   );
 
   const labelElement = label ? (
-    <DropdownMenuLabel className="select-none font-semibold text-muted-foreground text-xs">
+    <div className="select-none px-2 py-2 font-semibold text-muted-foreground text-xs">
       {label}
-    </DropdownMenuLabel>
+    </div>
   ) : null;
 
   const isRadio = "value" in props;
