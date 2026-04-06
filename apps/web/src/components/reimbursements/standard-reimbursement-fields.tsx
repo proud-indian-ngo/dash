@@ -20,6 +20,7 @@ import {
 } from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
+import type { SelectOption } from "@/components/form/select-field";
 import { SelectField } from "@/components/form/select-field";
 import { useApp } from "@/context/app-context";
 import type { Attachment } from "@/lib/form-schemas";
@@ -33,6 +34,7 @@ interface StandardReimbursementFieldsProps {
   categoryList: ExpenseCategory[];
   disableBankAccountSelection: boolean;
   entityId: string;
+  eventOptions: SelectOption[];
   form: FormWithField;
   isEdit: boolean;
   onBankAccountSelected: (account: BankAccount) => void;
@@ -47,6 +49,7 @@ export function StandardReimbursementFields({
   categoryList,
   disableBankAccountSelection,
   entityId,
+  eventOptions,
   form,
   onBankAccountSelected,
   isEdit,
@@ -170,6 +173,41 @@ export function StandardReimbursementFields({
             maxDate={new Date()}
             name="expenseDate"
           />
+        ) : null}
+        {requestType === "reimbursement" ? (
+          <CustomField<string | undefined> label="Event" name="eventId">
+            {(field) => (
+              <Select
+                onOpenChange={(open) => {
+                  if (!open) {
+                    field.handleBlur();
+                  }
+                }}
+                onValueChange={(val) =>
+                  field.handleChange(val === "" ? undefined : val)
+                }
+                value={field.state.value ?? ""}
+              >
+                <SelectTrigger className="w-full" id={field.name}>
+                  <span
+                    className="flex flex-1 items-center text-left"
+                    data-slot="select-value"
+                  >
+                    {eventOptions.find((o) => o.value === field.state.value)
+                      ?.label ?? "No event"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No event</SelectItem>
+                  {eventOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </CustomField>
         ) : null}
         {renderBankAccountField()}
       </div>

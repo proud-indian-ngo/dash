@@ -25,6 +25,7 @@ const createSchema = z.object({
   id: z.string(),
   vendorId: z.string(),
   title: z.string().min(1),
+  eventId: z.string().optional(),
   lineItems: z.array(lineItemSchema),
   attachments: z.array(attachmentSchema),
 });
@@ -48,6 +49,7 @@ export const vendorPaymentMutators = {
       userId,
       vendorId: args.vendorId,
       title: args.title,
+      eventId: args.eventId ?? null,
       invoiceNumber: null,
       invoiceDate: null,
       status: "pending",
@@ -130,6 +132,7 @@ export const vendorPaymentMutators = {
       id: args.id,
       vendorId: args.vendorId,
       title: args.title,
+      eventId: args.eventId ?? null,
       updatedAt: now,
     });
 

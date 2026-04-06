@@ -30,6 +30,7 @@ import type { EditScope } from "./edit-scope-dialog";
 import { EditScopeDialog } from "./edit-scope-dialog";
 import { EventAttendanceSection } from "./event-attendance-section";
 import { EventDetailsCard } from "./event-details-card";
+import { EventExpenses } from "./event-expenses";
 import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
 import {
@@ -256,14 +257,19 @@ function EventTabs({
 }: EventTabsProps) {
   const [tab, setTab] = useQueryState(
     "tab",
-    parseAsStringLiteral(["updates", "photos", "feedback"]).withDefault(
-      "updates"
-    )
+    parseAsStringLiteral([
+      "updates",
+      "photos",
+      "feedback",
+      "expenses",
+    ]).withDefault("updates")
   );
 
   return (
     <Tabs
-      onValueChange={(v) => setTab(v as "updates" | "photos" | "feedback")}
+      onValueChange={(v) =>
+        setTab(v as "updates" | "photos" | "feedback" | "expenses")
+      }
       value={tab}
     >
       <TabsList>
@@ -285,6 +291,9 @@ function EventTabs({
             Feedback
             {feedback.length > 0 ? ` (${feedback.length})` : ""}
           </TabsTrigger>
+        ) : null}
+        {canManage ? (
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
         ) : null}
       </TabsList>
       <TabsContent value="updates">
@@ -317,6 +326,11 @@ function EventTabs({
           />
         </TabsContent>
       ) : null}
+      {canManage ? (
+        <TabsContent value="expenses">
+          <EventExpenses eventId={event.id} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }
@@ -325,10 +339,10 @@ export function EventDetail({
   canManage,
   canManageAttendance,
   canManageFeedback,
+  canManageVolunteers: canManageVolunteersProp,
   currentUserId,
   event,
   interests,
-  canManageVolunteers: canManageVolunteersProp,
   isMember,
   myInterest,
   occDate,
@@ -479,6 +493,22 @@ export function EventDetail({
     queries.eventFeedback.byEvent({ eventId: event.id })
   );
 
+  const [eventReimbursements] = useQuery(
+    queries.reimbursement.byEvent({ eventId: event.id })
+  );
+  const [eventVendorPayments] = useQuery(
+    queries.vendorPayment.byEvent({ eventId: event.id })
+  );
+
+  const totalExpenses = [
+    ...(eventReimbursements ?? []),
+    ...(eventVendorPayments ?? []),
+  ].reduce(
+    (sum, expense) =>
+      sum + expense.lineItems.reduce((s, li) => s + li.amount, 0),
+    0
+  );
+
   const feedbackDeadlinePassed =
     !!event.feedbackDeadline && new Date(event.feedbackDeadline) < new Date();
 
@@ -580,6 +610,7 @@ export function EventDetail({
                     memberCount={event.members.length}
                     photoCount={approvedPhotos.length}
                     presentCount={presentCount}
+                    totalExpenses={totalExpenses}
                   />
                 ) : null}
               </div>

@@ -1,11 +1,13 @@
 import {
   Camera01Icon,
   CheckmarkCircle02Icon,
+  Invoice01Icon,
   Message01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Card, CardContent } from "@pi-dash/design-system/components/ui/card";
+import { formatINR } from "@/lib/form-schemas";
 
 function StatItem({
   icon,
@@ -37,6 +39,7 @@ interface EventQuickStatsProps {
   memberCount: number;
   photoCount: number;
   presentCount: number;
+  totalExpenses: number;
 }
 
 export function EventQuickStats({
@@ -45,6 +48,7 @@ export function EventQuickStats({
   memberCount,
   photoCount,
   presentCount,
+  totalExpenses,
 }: EventQuickStatsProps) {
   return (
     <Card size="sm">
@@ -65,6 +69,13 @@ export function EventQuickStats({
             icon={Message01Icon}
             label="Feedback"
             value={feedbackCount}
+          />
+        ) : null}
+        {totalExpenses > 0 ? (
+          <StatItem
+            icon={Invoice01Icon}
+            label="Expenses"
+            value={formatINR(totalExpenses)}
           />
         ) : null}
       </CardContent>

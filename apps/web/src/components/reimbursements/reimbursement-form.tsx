@@ -1,7 +1,12 @@
 import { queries } from "@pi-dash/zero/queries";
-import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
+import type {
+  BankAccount,
+  ExpenseCategory,
+  TeamEvent,
+} from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { format } from "date-fns";
 import { useEffect, useRef } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -67,6 +72,7 @@ function ReimbursementFormInner({
   const [bankAccounts, bankAccountsResult] = useQuery(
     queries.bankAccount.bankAccountsByCurrentUser()
   );
+  const [events] = useQuery(queries.teamEvent.allAccessible());
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
@@ -74,6 +80,11 @@ function ReimbursementFormInner({
 
   const categoryList = (categories ?? []) as ExpenseCategory[];
   const bankAccountList = (bankAccounts ?? []) as BankAccount[];
+  const eventList = (events ?? []) as TeamEvent[];
+  const eventOptions = eventList.map((e) => ({
+    label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
+    value: e.id,
+  }));
 
   const bankAccountOptions = bankAccountList.map((account) => ({
     label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
@@ -181,6 +192,7 @@ function ReimbursementFormInner({
         categoryList={categoryList}
         disableBankAccountSelection={disableBankAccountSelection}
         entityId={entityId}
+        eventOptions={eventOptions}
         form={form}
         isEdit={isEdit}
         onBankAccountSelected={(account) => {

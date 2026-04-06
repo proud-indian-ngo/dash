@@ -10,10 +10,23 @@ function withRelated(q: typeof zql.reimbursement) {
     )
     .related("attachments", (a) => a.orderBy("createdAt", "asc"))
     .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user");
+    .related("user")
+    .related("event");
 }
 
 export const reimbursementQueries = {
+  byEvent: defineQuery(
+    z.object({ eventId: z.string() }),
+    ({ args: { eventId }, ctx }) =>
+      ctx != null && can(ctx, "requests.view_all")
+        ? withRelated(zql.reimbursement)
+            .where("eventId", eventId)
+            .orderBy("createdAt", "desc")
+        : withRelated(zql.reimbursement)
+            .where("eventId", eventId)
+            .where("userId", ctx?.userId)
+            .orderBy("createdAt", "desc")
+  ),
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.reimbursement)
       .where("userId", ctx?.userId)

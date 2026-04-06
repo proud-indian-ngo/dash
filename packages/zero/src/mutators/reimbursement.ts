@@ -26,6 +26,7 @@ export const createSchema = z.object({
   expenseDate: z
     .number()
     .refine((n) => n <= Date.now(), "Expense date cannot be in the future"),
+  eventId: z.string().optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   bankAccountIfscCode: z.string().optional(),
@@ -38,6 +39,7 @@ const fk = (id: string) => ({ reimbursementId: id });
 const entityFields = (args: z.infer<typeof createSchema>) => ({
   city: args.city ?? null,
   expenseDate: args.expenseDate,
+  eventId: args.eventId ?? null,
   bankAccountName: args.bankAccountName ?? null,
   bankAccountNumber: args.bankAccountNumber ?? null,
   bankAccountIfscCode: args.bankAccountIfscCode ?? null,

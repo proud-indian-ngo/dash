@@ -1,8 +1,9 @@
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import type { ExpenseCategory, Vendor } from "@pi-dash/zero/schema";
+import type { ExpenseCategory, TeamEvent, Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { format } from "date-fns";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -31,6 +32,7 @@ export function VendorPaymentForm({
   const [categories] = useQuery(queries.expenseCategory.all());
   const [vendors] = useQuery(queries.vendor.approved());
   const [pendingVendors] = useQuery(queries.vendor.pendingByCurrentUser());
+  const [events] = useQuery(queries.teamEvent.allAccessible());
 
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
@@ -47,6 +49,12 @@ export function VendorPaymentForm({
   const vendorOptions = vendorList.map((v) => ({
     label: v.status === "pending" ? `${v.name} (pending approval)` : v.name,
     value: v.id,
+  }));
+
+  const eventList = (events ?? []) as TeamEvent[];
+  const eventOptions = eventList.map((e) => ({
+    label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
+    value: e.id,
   }));
 
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
@@ -72,6 +80,7 @@ export function VendorPaymentForm({
         id,
         vendorId: value.vendorId,
         title: value.title,
+        eventId: value.eventId ?? undefined,
         lineItems,
         attachments: value.attachments,
       };
@@ -103,6 +112,7 @@ export function VendorPaymentForm({
         <VendorPaymentFields
           categoryList={categoryList}
           entityId={entityId}
+          eventOptions={eventOptions}
           isEdit={isEdit}
           onCancel={onCancel}
           onVendorCreated={(id) => form.setFieldValue("vendorId", id)}

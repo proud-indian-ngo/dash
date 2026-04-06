@@ -7,6 +7,7 @@ import {
 
 const vendorPaymentBaseFields = {
   title: z.string().min(1, "Title is required"),
+  eventId: z.string().optional(),
   lineItems: z
     .array(lineItemSchema)
     .min(1, "At least one line item is required"),
@@ -23,6 +24,7 @@ export type VendorPaymentFormValues = z.infer<typeof vendorPaymentFormSchema>;
 export function getVendorPaymentDefaultValues(): VendorPaymentFormValues {
   return {
     title: "",
+    eventId: undefined,
     lineItems: [newLineItem()],
     attachments: [],
     vendorId: "",

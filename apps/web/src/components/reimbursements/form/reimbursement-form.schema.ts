@@ -16,6 +16,7 @@ const baseFields = {
     .refine((value): value is "bangalore" | "mumbai" => value !== undefined, {
       message: "City is required",
     }),
+  eventId: z.string().optional(),
   bankAccountName: z.string().min(1, "Bank account is required"),
   bankAccountNumber: z.string().min(1, "Bank account number is required"),
   bankAccountIfscCode: z.string().optional(),

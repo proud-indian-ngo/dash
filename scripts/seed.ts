@@ -895,6 +895,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       city: "bangalore" as const,
       status: "approved" as const,
       expenseDate: past(10),
+      eventId: ID.evTeaching,
       reviewedBy: adminId,
       items: [
         {
@@ -919,6 +920,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       city: "bangalore" as const,
       status: "pending" as const,
       expenseDate: past(5),
+      eventId: ID.evKitchen,
       items: [
         {
           id: ID.rli03,
@@ -984,6 +986,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
         expenseDate: r.expenseDate.toISOString().slice(0, 10),
         status: r.status,
         rejectionReason: r.rejectionReason ?? null,
+        eventId: r.eventId ?? null,
         bankAccountName: "Savings Account",
         bankAccountNumber: "1234567890",
         bankAccountIfscCode: "SBIN0001234",
@@ -1245,6 +1248,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
       vendorId: ID2.vendor01,
       title: "Banner printing for outreach event",
       status: "partially_paid",
+      eventId: ID.evOutreach,
       reviewedBy: adminId,
       reviewedAt: past(12),
       submittedAt: past(14),

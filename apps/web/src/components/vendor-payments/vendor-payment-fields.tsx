@@ -18,12 +18,14 @@ import {
 } from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
+import type { SelectOption } from "@/components/form/select-field";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import type { Attachment } from "@/lib/form-schemas";
 
 interface VendorPaymentFieldsProps {
   categoryList: ExpenseCategory[];
   entityId: string;
+  eventOptions: SelectOption[];
   isEdit: boolean;
   onCancel: () => void;
   onVendorCreated: (vendorId: string) => void;
@@ -35,6 +37,7 @@ interface VendorPaymentFieldsProps {
 export function VendorPaymentFields({
   categoryList,
   entityId,
+  eventOptions,
   isEdit,
   onCancel,
   onVendorCreated,
@@ -98,6 +101,39 @@ export function VendorPaymentFields({
               </div>
             );
           }}
+        </CustomField>
+        <CustomField<string | undefined> label="Event" name="eventId">
+          {(field) => (
+            <Select
+              onOpenChange={(open) => {
+                if (!open) {
+                  field.handleBlur();
+                }
+              }}
+              onValueChange={(val) =>
+                field.handleChange(val === "" ? undefined : val)
+              }
+              value={field.state.value ?? ""}
+            >
+              <SelectTrigger className="w-full" id={field.name}>
+                <span
+                  className="flex flex-1 items-center text-left"
+                  data-slot="select-value"
+                >
+                  {eventOptions.find((o) => o.value === field.state.value)
+                    ?.label ?? "No event"}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No event</SelectItem>
+                {eventOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </CustomField>
       </div>
 

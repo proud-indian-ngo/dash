@@ -15,6 +15,7 @@ import {
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
+import { teamEvent } from "./team-event";
 
 // Reimbursement-specific enums
 const reimbursementStatusValues = ["pending", "approved", "rejected"] as const;
@@ -47,6 +48,9 @@ export const reimbursement = pgTable(
       onDelete: "set null",
     }),
     reviewedAt: timestamp("reviewed_at"),
+    eventId: uuid("event_id").references(() => teamEvent.id, {
+      onDelete: "set null",
+    }),
     submittedAt: timestamp("submitted_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -54,6 +58,7 @@ export const reimbursement = pgTable(
   (table) => [
     index("reimbursement_userId_idx").on(table.userId),
     index("reimbursement_status_idx").on(table.status),
+    index("reimbursement_eventId_idx").on(table.eventId),
     check(
       "reimbursement_rejection_reason_chk",
       sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
@@ -139,6 +144,10 @@ export const reimbursementRelations = relations(
       fields: [reimbursement.reviewedBy],
       references: [user.id],
       relationName: "reimbursement_reviewer",
+    }),
+    event: one(teamEvent, {
+      fields: [reimbursement.eventId],
+      references: [teamEvent.id],
     }),
     lineItems: many(reimbursementLineItem),
     attachments: many(reimbursementAttachment),

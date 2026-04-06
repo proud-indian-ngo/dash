@@ -13,6 +13,7 @@ function withRelated(q: typeof zql.vendorPayment) {
     .related("user")
     .related("vendor")
     .related("invoiceReviewer")
+    .related("event")
     .related("transactions", (t) =>
       t
         .orderBy("createdAt", "desc")
@@ -23,6 +24,18 @@ function withRelated(q: typeof zql.vendorPayment) {
 }
 
 export const vendorPaymentQueries = {
+  byEvent: defineQuery(
+    z.object({ eventId: z.string() }),
+    ({ args: { eventId }, ctx }) =>
+      ctx != null && can(ctx, "requests.view_all")
+        ? withRelated(zql.vendorPayment)
+            .where("eventId", eventId)
+            .orderBy("createdAt", "desc")
+        : withRelated(zql.vendorPayment)
+            .where("eventId", eventId)
+            .where("userId", ctx?.userId)
+            .orderBy("createdAt", "desc")
+  ),
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.vendorPayment)
       .where("userId", ctx?.userId)

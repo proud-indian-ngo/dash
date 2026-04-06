@@ -66,6 +66,49 @@ export const teamEventQueries = {
       .where("seriesId", "IS", null)
       .orderBy("startTime", "desc")
   ),
+  byIdWithExpenses: defineQuery(
+    z.object({ id: z.string() }),
+    ({ args: { id }, ctx }) =>
+      ctx != null && can(ctx, "events.view_all")
+        ? withRelated(zql.teamEvent)
+            .where("id", id)
+            .related("reimbursements", (r) =>
+              r
+                .related("lineItems", (li) => li.orderBy("sortOrder", "asc"))
+                .related("user")
+                .orderBy("createdAt", "desc")
+            )
+            .related("vendorPayments", (vp) =>
+              vp
+                .related("lineItems", (li) => li.orderBy("sortOrder", "asc"))
+                .related("user")
+                .related("vendor")
+                .orderBy("createdAt", "desc")
+            )
+            .one()
+        : withRelated(zql.teamEvent)
+            .where("id", id)
+            .where(({ or, cmp, exists }) =>
+              or(
+                cmp("isPublic", true),
+                exists("members", (m) => m.where("userId", ctx?.userId))
+              )
+            )
+            .related("reimbursements", (r) =>
+              r
+                .related("lineItems", (li) => li.orderBy("sortOrder", "asc"))
+                .related("user")
+                .orderBy("createdAt", "desc")
+            )
+            .related("vendorPayments", (vp) =>
+              vp
+                .related("lineItems", (li) => li.orderBy("sortOrder", "asc"))
+                .related("user")
+                .related("vendor")
+                .orderBy("createdAt", "desc")
+            )
+            .one()
+  ),
   /** All events the current user can access: public + private from their teams. */
   allAccessible: defineQuery(({ ctx }) =>
     ctx != null && can(ctx, "events.view_all")

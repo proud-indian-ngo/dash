@@ -15,7 +15,9 @@ import {
 import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
+import { reimbursement } from "./reimbursement";
 import { team } from "./team";
+import { vendorPayment } from "./vendor";
 import { whatsappGroup } from "./whatsapp-group";
 
 export const attendanceStatusEnum = pgEnum("attendance_status", [
@@ -124,6 +126,8 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
     fields: [teamEvent.createdBy],
     references: [user.id],
   }),
+  reimbursements: many(reimbursement),
+  vendorPayments: many(vendorPayment),
 }));
 
 export const teamEventMemberRelations = relations(

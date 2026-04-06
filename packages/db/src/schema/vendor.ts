@@ -15,6 +15,7 @@ import {
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
 import { attachmentTypeEnum, historyActionEnum } from "./shared";
+import { teamEvent } from "./team-event";
 import { vendorPaymentTransaction } from "./vendor-payment-transaction";
 
 // Vendor-specific enums
@@ -101,6 +102,9 @@ export const vendorPayment = pgTable(
     }),
     invoiceReviewedAt: timestamp("invoice_reviewed_at"),
     invoiceRejectionReason: text("invoice_rejection_reason"),
+    eventId: uuid("event_id").references(() => teamEvent.id, {
+      onDelete: "set null",
+    }),
     submittedAt: timestamp("submitted_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -109,6 +113,7 @@ export const vendorPayment = pgTable(
     index("vendor_payment_userId_idx").on(table.userId),
     index("vendor_payment_vendorId_idx").on(table.vendorId),
     index("vendor_payment_status_idx").on(table.status),
+    index("vendor_payment_eventId_idx").on(table.eventId),
     check(
       "vendor_payment_rejection_reason_chk",
       sql`((status = 'rejected'::vendor_payment_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::vendor_payment_status) AND (rejection_reason IS NULL))`
@@ -212,6 +217,10 @@ export const vendorPaymentRelations = relations(
       fields: [vendorPayment.invoiceReviewedBy],
       references: [user.id],
       relationName: "vendor_payment_invoice_reviewer",
+    }),
+    event: one(teamEvent, {
+      fields: [vendorPayment.eventId],
+      references: [teamEvent.id],
     }),
     lineItems: many(vendorPaymentLineItem),
     attachments: many(vendorPaymentAttachment),

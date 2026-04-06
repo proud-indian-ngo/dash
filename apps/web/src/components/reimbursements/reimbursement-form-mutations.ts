@@ -43,6 +43,7 @@ export function buildMutation(
   if (value.type === "reimbursement") {
     const reimbPayload = {
       ...basePayload,
+      eventId: value.eventId ?? undefined,
       expenseDate: requireDate(value.expenseDate, "expenseDate"),
     };
     return existingId
