@@ -118,7 +118,7 @@ export function EmojiPicker({
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl bg-popover text-popover-foreground",
+        "flex flex-col rounded-none bg-popover text-popover-foreground",
         "h-[23rem] w-80 border shadow-md"
       )}
     >

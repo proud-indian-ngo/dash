@@ -401,16 +401,16 @@ function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
 
 function EditorSkeleton() {
   return (
-    <div className="rounded-md border">
+    <div className="border">
       <div className="flex gap-1 border-b p-1">
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
       </div>
       <div className="space-y-2 p-4">
         <Skeleton className="h-4 w-3/4" />

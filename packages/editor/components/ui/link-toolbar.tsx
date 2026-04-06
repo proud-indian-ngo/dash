@@ -30,11 +30,11 @@ import {
 import * as React from "react";
 
 const popoverVariants = cva(
-  "z-50 w-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-hidden"
+  "z-50 w-auto rounded-none border bg-popover p-1 text-popover-foreground shadow-md outline-hidden"
 );
 
 const inputVariants = cva(
-  "flex h-[28px] w-full rounded-md border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-transparent md:text-sm"
+  "flex h-[28px] w-full rounded-none border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-transparent md:text-sm"
 );
 
 export function LinkFloatingToolbar({
