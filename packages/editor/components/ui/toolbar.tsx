@@ -6,9 +6,14 @@ import {
   DropdownMenuSeparator,
 } from "@pi-dash/components/ui/dropdown-menu";
 import { Separator } from "@pi-dash/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@pi-dash/components/ui/tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import * as ToolbarPrimitive from "@radix-ui/react-toolbar";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
@@ -286,14 +291,8 @@ type TooltipProps<T extends React.ElementType> = {
     React.ComponentPropsWithoutRef<typeof TooltipContent>,
     "children"
   >;
-  tooltipProps?: Omit<
-    React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root>,
-    "children"
-  >;
-  tooltipTriggerProps?: Omit<
-    React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger>,
-    "children"
-  >;
+  tooltipProps?: React.ComponentPropsWithoutRef<typeof Tooltip>;
+  tooltipTriggerProps?: React.ComponentPropsWithoutRef<typeof TooltipTrigger>;
 } & React.ComponentProps<T>;
 
 function withTooltip<T extends React.ElementType>(Component: T) {
@@ -314,45 +313,17 @@ function withTooltip<T extends React.ElementType>(Component: T) {
 
     if (tooltip && mounted) {
       return (
-        <TooltipPrimitive.Provider>
-          <TooltipPrimitive.Root {...tooltipProps}>
-            <TooltipPrimitive.Trigger asChild {...tooltipTriggerProps}>
-              {component}
-            </TooltipPrimitive.Trigger>
+        <TooltipProvider>
+          <Tooltip {...tooltipProps}>
+            <TooltipTrigger render={component} {...tooltipTriggerProps} />
             <TooltipContent {...tooltipContentProps}>{tooltip}</TooltipContent>
-          </TooltipPrimitive.Root>
-        </TooltipPrimitive.Provider>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
 
     return component;
   };
-}
-
-function TooltipContent({
-  children,
-  className,
-  // CHANGE
-  sideOffset = 4,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content
-        className={cn(
-          "z-50 w-fit origin-(--radix-tooltip-content-transform-origin) text-balance rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-xs",
-          className
-        )}
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        {...props}
-      >
-        {children}
-        {/* CHANGE */}
-        {/* <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-primary fill-primary" /> */}
-      </TooltipPrimitive.Content>
-    </TooltipPrimitive.Portal>
-  );
 }
 
 export function ToolbarMenuGroup({
