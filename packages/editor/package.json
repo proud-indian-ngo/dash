@@ -16,6 +16,7 @@
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
     "@pi-dash/design-system": "workspace:*",
+    "@pi-dash/shared": "workspace:*",
     "@platejs/autoformat": "catalog:",
     "@platejs/basic-nodes": "catalog:",
     "@platejs/caption": "catalog:",

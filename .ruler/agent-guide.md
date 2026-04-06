@@ -134,6 +134,16 @@ For deployment and production setup, read `DEPLOYMENT.md`.
 - These skills contain project-specific patterns that MUST be followed.
 - Discovery pointers: `skills-lock.json`, `.agents/skills`, `.claude/skills`.
 
+## Editor Patterns
+
+- `@pi-dash/editor` exports two surfaces: `@pi-dash/editor/editor` (`PlateEditor`) and `@pi-dash/editor/renderer` (`PlateRenderer`).
+- `onImageUpload` is a callback `(file: File) => Promise<{ url: string } | undefined>`. Validation (type, size) is done inside the editor; the adapter only handles transport (presign + PUT).
+- Image MIME type list lives in `packages/shared/src/constants.ts` as `ALLOWED_IMAGE_TYPES`. Import from there — never redefine inline.
+- `PlateRenderer` is read-only. Use it wherever you need to display Plate JSON content without edit capability.
+- Plugin composition: `packages/editor/src/editor.tsx` assembles all editor plugins; `packages/editor/src/renderer.tsx` uses a minimal read-only subset. Do not add editor-only plugins to the renderer.
+- The web adapter (`apps/web/src/components/editor/plate-editor.tsx`) wraps `@pi-dash/editor` with S3 presign upload. `entityId` lives in the adapter, not in the editor package.
+- Lazy-load the editor in consumers: `React.lazy(() => import("@pi-dash/editor/editor"))`.
+
 ## Compact instructions
 
 When compacting, preserve: file paths, code changes, architectural decisions, test results, webfetch content summaries.

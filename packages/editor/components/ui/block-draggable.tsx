@@ -8,10 +8,9 @@ import {
 } from "@pi-dash/components/ui/tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { DndPlugin, useDraggable, useDropLine } from "@platejs/dnd";
-import { expandListItemsWithChildren } from "@platejs/list";
 import { BlockSelectionPlugin } from "@platejs/selection/react";
 import { GripVertical } from "lucide-react";
-import { getPluginByType, isType, KEYS, type TElement } from "platejs";
+import { getPluginByType, isType, KEYS, type NodeEntry, type TElement } from "platejs";
 import {
   MemoizedChildren,
   type PlateEditor,
@@ -271,11 +270,9 @@ const DragHandle = React.memo(function DragHandle({
                 selectionNodes = [[element, editor.api.findPath(element)!]];
               }
 
-              // Process selection nodes to include list children
-              const blocks = expandListItemsWithChildren(
-                editor,
-                selectionNodes
-              ).map(([node]) => node);
+              const blocks = selectionNodes.map(
+                ([node]: NodeEntry<TElement>) => node
+              );
 
               if (blockSelection.length === 0) {
                 editor.tf.blur();
@@ -311,17 +308,13 @@ const DragHandle = React.memo(function DragHandle({
                 selectedBlocks = [[element, editor.api.findPath(element)!]];
               }
 
-              // Process selection to include list children
-              const processedBlocks = expandListItemsWithChildren(
-                editor,
-                selectedBlocks
-              );
+              const processedBlocks = selectedBlocks as NodeEntry<TElement>[];
 
-              const ids = processedBlocks.map((block) => block[0].id as string);
+              const ids = processedBlocks.map(([block]) => block.id as string);
 
               if (ids.length > 1 && ids.includes(element.id as string)) {
                 const previewTop = calculatePreviewTop(editor, {
-                  blocks: processedBlocks.map((block) => block[0]),
+                  blocks: processedBlocks.map(([block]) => block),
                   element,
                 });
                 setPreviewTop(previewTop);

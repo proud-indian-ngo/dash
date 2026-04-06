@@ -1,6 +1,14 @@
 export const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 export const MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
+export const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+export type AllowedImageMimeType = (typeof ALLOWED_IMAGE_TYPES)[number];
+
 export const cityValues = ["bangalore", "mumbai"] as const;
 export type City = (typeof cityValues)[number];
 

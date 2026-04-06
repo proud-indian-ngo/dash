@@ -19,6 +19,7 @@ import {
   NumberedListPlugin,
 } from "@platejs/list-classic/react";
 import { Image, ImagePlugin } from "@platejs/media/react";
+import { log } from "evlog";
 import type { TImageElement, TLinkElement, Value } from "platejs";
 import type { PlateElementProps } from "platejs/react";
 import {
@@ -108,8 +109,12 @@ export function PlateRenderer({ content, className }: RendererProps) {
   try {
     const value = JSON.parse(content);
     parsed = Array.isArray(value) ? value : undefined;
-  } catch {
-    // fallback below
+  } catch (error) {
+    log.error({
+      component: "PlateRenderer",
+      action: "parseContent",
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const editor = usePlateEditor({

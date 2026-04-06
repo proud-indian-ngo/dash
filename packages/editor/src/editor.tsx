@@ -8,13 +8,14 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { ALLOWED_IMAGE_TYPES } from "@pi-dash/shared/constants";
 import { CaptionPlugin } from "@platejs/caption/react";
 import { ImagePlugin } from "@platejs/media/react";
 import { log } from "evlog";
 import type { TImageElement, Value } from "platejs";
 import { KEYS } from "platejs";
 import { Plate, usePlateEditor } from "platejs/react";
-import { type ChangeEvent, type MouseEvent, useRef } from "react";
+import { type ChangeEvent, type MouseEvent, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { AutoformatKit } from "../components/editor/plugins/autoformat-classic-kit";
 import { BasicBlocksKit } from "../components/editor/plugins/basic-blocks-kit";
@@ -47,13 +48,6 @@ import {
   ToolbarGroup,
   ToolbarSeparator,
 } from "../components/ui/toolbar";
-
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -106,6 +100,12 @@ export function PlateEditor({
   className,
 }: EditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const editor = usePlateEditor({
     plugins: editorPlugins,
@@ -135,6 +135,10 @@ export function PlateEditor({
     try {
       const result = await onImageUpload(file);
 
+      if (!mountedRef.current) {
+        return;
+      }
+
       if (!result) {
         toast.error("Failed to upload image. Please try again.");
         return;
@@ -149,6 +153,9 @@ export function PlateEditor({
       };
       editor.tf.insertNodes(imageNode);
     } catch (error) {
+      if (!mountedRef.current) {
+        return;
+      }
       log.error({
         component: "PlateEditor",
         action: "imageUpload",
@@ -167,10 +174,14 @@ export function PlateEditor({
   }
 
   function handleSave() {
-    onSave(JSON.stringify(editor.children));
+    const children = editor.children;
+    if (!Array.isArray(children) || children.length === 0) {
+      return;
+    }
+    onSave(JSON.stringify(children));
   }
 
-  const preventFocus = (e: MouseEvent) => e.preventDefault();
+  const preventToolbarFocus = (e: MouseEvent) => e.preventDefault();
 
   return (
     <div className={className}>
@@ -211,7 +222,7 @@ export function PlateEditor({
                 <>
                   <ToolbarButton
                     onClick={() => fileInputRef.current?.click()}
-                    onMouseDown={preventFocus}
+                    onMouseDown={preventToolbarFocus}
                     tooltip="Upload image"
                   >
                     <HugeiconsIcon icon={ImageUpload01Icon} size={16} />
@@ -244,7 +255,7 @@ export function PlateEditor({
 
           <EditorContainer>
             <Editor
-              className="prose prose-sm min-h-32 p-3"
+              className="prose prose-sm min-h-64 p-3"
               placeholder={placeholder}
             />
           </EditorContainer>
