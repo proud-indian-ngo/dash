@@ -1,17 +1,18 @@
 "use client";
 
-import {
-  ImageUpload01Icon,
-  TextBoldIcon,
-  TextItalicIcon,
-  TextUnderlineIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { ALLOWED_IMAGE_TYPES } from "@pi-dash/shared/constants";
 import { CaptionPlugin } from "@platejs/caption/react";
 import { ImagePlugin } from "@platejs/media/react";
 import { log } from "evlog";
+import {
+  BoldIcon,
+  Code2Icon,
+  ImageIcon,
+  ItalicIcon,
+  StrikethroughIcon,
+  UnderlineIcon,
+} from "lucide-react";
 import type { TImageElement, Value } from "platejs";
 import { KEYS } from "platejs";
 import { Plate, usePlateEditor } from "platejs/react";
@@ -30,31 +31,26 @@ import { MentionKit } from "../components/editor/plugins/mention-kit";
 import { SlashKit } from "../components/editor/plugins/slash-kit";
 import { TableKit } from "../components/editor/plugins/table-kit";
 import { ToggleKit } from "../components/editor/plugins/toggle-kit";
-import {
-  BlockquoteToolbarButton,
-  CodeBlockToolbarButton,
-  H1ToolbarButton,
-  H2ToolbarButton,
-  H3ToolbarButton,
-} from "../components/ui/block-type-toolbar-button";
 import { Editor, EditorContainer } from "../components/ui/editor";
 import { EmojiToolbarButton } from "../components/ui/emoji-toolbar-button";
 import { FixedToolbar } from "../components/ui/fixed-toolbar";
 import {
+  RedoToolbarButton,
+  UndoToolbarButton,
+} from "../components/ui/history-toolbar-button";
+import {
   IndentToolbarButton,
   OutdentToolbarButton,
 } from "../components/ui/indent-toolbar-button";
+import { InsertToolbarButton } from "../components/ui/insert-toolbar-button";
 import { LinkToolbarButton } from "../components/ui/link-toolbar-button";
 import { ListToolbarButton } from "../components/ui/list-classic-toolbar-button";
 import { MarkToolbarButton } from "../components/ui/mark-toolbar-button";
 import { ImageElement } from "../components/ui/media-image-node";
 import { TableToolbarButton } from "../components/ui/table-toolbar-button";
 import { ToggleToolbarButton } from "../components/ui/toggle-toolbar-button";
-import {
-  ToolbarButton,
-  ToolbarGroup,
-  ToolbarSeparator,
-} from "../components/ui/toolbar";
+import { ToolbarButton, ToolbarGroup } from "../components/ui/toolbar";
+import { TurnIntoToolbarButton } from "../components/ui/turn-into-toolbar-button";
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -199,42 +195,52 @@ export function PlateEditor({
             className="flex-wrap gap-0.5 border-x-0 border-t-0 p-1"
           >
             <ToolbarGroup>
-              <H1ToolbarButton />
-              <H2ToolbarButton />
-              <H3ToolbarButton />
+              <UndoToolbarButton />
+              <RedoToolbarButton />
             </ToolbarGroup>
 
-            <ToolbarSeparator />
+            <ToolbarGroup>
+              <InsertToolbarButton />
+              <TurnIntoToolbarButton />
+            </ToolbarGroup>
 
             <ToolbarGroup>
-              <MarkToolbarButton nodeType={KEYS.bold} tooltip="Bold (⌘B)">
-                <HugeiconsIcon icon={TextBoldIcon} size={16} />
+              <MarkToolbarButton nodeType={KEYS.bold} tooltip="Bold (⌘+B)">
+                <BoldIcon />
               </MarkToolbarButton>
-              <MarkToolbarButton nodeType={KEYS.italic} tooltip="Italic (⌘I)">
-                <HugeiconsIcon icon={TextItalicIcon} size={16} />
+              <MarkToolbarButton nodeType={KEYS.italic} tooltip="Italic (⌘+I)">
+                <ItalicIcon />
               </MarkToolbarButton>
               <MarkToolbarButton
                 nodeType={KEYS.underline}
-                tooltip="Underline (⌘U)"
+                tooltip="Underline (⌘+U)"
               >
-                <HugeiconsIcon icon={TextUnderlineIcon} size={16} />
+                <UnderlineIcon />
+              </MarkToolbarButton>
+              <MarkToolbarButton
+                nodeType={KEYS.strikethrough}
+                tooltip="Strikethrough (⌘+⇧+M)"
+              >
+                <StrikethroughIcon />
+              </MarkToolbarButton>
+              <MarkToolbarButton nodeType={KEYS.code} tooltip="Code (⌘+E)">
+                <Code2Icon />
               </MarkToolbarButton>
             </ToolbarGroup>
-
-            <ToolbarSeparator />
 
             <ToolbarGroup>
               <ListToolbarButton nodeType={KEYS.ulClassic} />
               <ListToolbarButton nodeType={KEYS.olClassic} />
               <ToggleToolbarButton />
-              <BlockquoteToolbarButton />
-              <CodeBlockToolbarButton />
             </ToolbarGroup>
-
-            <ToolbarSeparator />
 
             <ToolbarGroup>
               <LinkToolbarButton />
+              <TableToolbarButton />
+              <EmojiToolbarButton />
+            </ToolbarGroup>
+
+            <ToolbarGroup>
               {onImageUpload && (
                 <>
                   <ToolbarButton
@@ -242,7 +248,7 @@ export function PlateEditor({
                     onMouseDown={preventToolbarFocus}
                     tooltip="Upload image"
                   >
-                    <HugeiconsIcon icon={ImageUpload01Icon} size={16} />
+                    <ImageIcon />
                   </ToolbarButton>
                   <input
                     accept="image/jpeg,image/png,image/gif,image/webp"
@@ -254,15 +260,6 @@ export function PlateEditor({
                 </>
               )}
             </ToolbarGroup>
-
-            <ToolbarSeparator />
-
-            <ToolbarGroup>
-              <TableToolbarButton />
-              <EmojiToolbarButton />
-            </ToolbarGroup>
-
-            <ToolbarSeparator />
 
             <ToolbarGroup>
               <OutdentToolbarButton />
