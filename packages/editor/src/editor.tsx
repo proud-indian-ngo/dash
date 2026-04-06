@@ -269,7 +269,7 @@ export function PlateEditor({
 
           <EditorContainer className="min-h-64">
             <Editor
-              className="px-4 py-3 text-base"
+              className="px-6 py-3 text-base"
               placeholder={placeholder}
               variant="none"
             />
