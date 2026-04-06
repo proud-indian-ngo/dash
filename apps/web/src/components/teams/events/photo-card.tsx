@@ -2,13 +2,14 @@ import {
   Cancel01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
+  PlayIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { getPhotoThumbnailUrl } from "./photo-utils";
+import { getPhotoThumbnailUrl, isVideoPhoto } from "./photo-utils";
 
 type PhotoWithUploader = EventPhoto & { uploader: User | undefined };
 
@@ -31,6 +32,9 @@ export function PhotoCard({
   photo,
   pending,
 }: PhotoCardProps) {
+  const thumbnailUrl = getPhotoThumbnailUrl(photo);
+  const isVideo = isVideoPhoto(photo);
+
   return (
     <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
       <button
@@ -38,14 +42,32 @@ export function PhotoCard({
         onClick={onClick}
         type="button"
       >
-        <img
-          alt={photo.caption ?? "Event photo"}
-          className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) [@media(hover:hover)]:group-hover:scale-[1.02]"
-          height={320}
-          loading="lazy"
-          src={getPhotoThumbnailUrl(photo)}
-          width={320}
-        />
+        {thumbnailUrl ? (
+          <img
+            alt={photo.caption ?? (isVideo ? "Event video" : "Event photo")}
+            className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) [@media(hover:hover)]:group-hover:scale-[1.02]"
+            height={320}
+            loading="lazy"
+            src={thumbnailUrl}
+            width={320}
+          />
+        ) : (
+          // Placeholder for R2-only videos awaiting Immich sync
+          <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted-foreground/10">
+            <span className="text-muted-foreground text-xs">Processing…</span>
+          </div>
+        )}
+        {isVideo ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex size-10 items-center justify-center rounded-full bg-black/50">
+              <HugeiconsIcon
+                className="size-5 text-white"
+                icon={PlayIcon}
+                strokeWidth={2}
+              />
+            </div>
+          </div>
+        ) : null}
       </button>
 
       {/* Bottom gradient overlay with uploader info */}
@@ -76,7 +98,7 @@ export function PhotoCard({
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
         {onApprove ? (
           <Button
-            aria-label="Approve photo"
+            aria-label="Approve"
             onClick={onApprove}
             size="icon-sm"
             variant="secondary"
@@ -90,7 +112,7 @@ export function PhotoCard({
         ) : null}
         {onReject ? (
           <Button
-            aria-label="Reject photo"
+            aria-label="Reject"
             onClick={onReject}
             size="icon-sm"
             variant="secondary"
@@ -104,7 +126,7 @@ export function PhotoCard({
         ) : null}
         {canDelete ? (
           <Button
-            aria-label="Delete photo"
+            aria-label="Delete"
             onClick={onDelete}
             size="icon-sm"
             variant="secondary"

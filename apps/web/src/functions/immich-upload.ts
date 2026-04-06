@@ -1,6 +1,10 @@
 import { db } from "@pi-dash/db";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import {
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -13,13 +17,15 @@ import {
 } from "@/lib/immich";
 import { authMiddleware } from "@/middleware/auth";
 
-const IMAGE_MIME_TYPES = new Set([
+const MEDIA_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
+  "video/mp4",
+  "video/quicktime",
 ]);
-const MAX_PHOTO_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/quicktime"]);
 
 export const uploadPhotoToImmich = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -36,11 +42,15 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     }
     const mime = typeof mimeType === "string" ? mimeType : file.type;
     const size = typeof fileSize === "string" ? Number(fileSize) : file.size;
-    if (!IMAGE_MIME_TYPES.has(mime)) {
+    if (!MEDIA_MIME_TYPES.has(mime)) {
       throw new Error("Unsupported file type");
     }
-    if (size > MAX_PHOTO_SIZE_BYTES) {
-      throw new Error("File exceeds 20 MB limit");
+    const maxSize = VIDEO_MIME_TYPES.has(mime)
+      ? MAX_VIDEO_SIZE_BYTES
+      : MAX_IMAGE_SIZE_BYTES;
+    if (size > maxSize) {
+      const limit = VIDEO_MIME_TYPES.has(mime) ? "100 MB" : "20 MB";
+      throw new Error(`File exceeds ${limit} limit`);
     }
     return { file, eventId, mimeType: mime };
   })

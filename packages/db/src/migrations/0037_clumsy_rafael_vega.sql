@@ -1,0 +1,1 @@
+ALTER TABLE "event_photo" ADD COLUMN "mime_type" text;

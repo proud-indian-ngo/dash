@@ -135,6 +135,8 @@ const ID = {
   efsTeachingV3: "019d52c2-7261-7dce-b0ee-e21d5ea9516c",
   epTeaching1: "019d52c2-7261-7dce-b0ee-e21ea1a161f6",
   epTeaching2: "019d52c2-7261-7dce-b0ee-e21f8e48bc04",
+  epTeachingVid1: "019d52c2-7261-7dce-b0ee-e21fa2b3c4d5",
+  epTeachingVid2: "019d52c2-7261-7dce-b0ee-e21fb3c4d5e6",
   eiaTeaching: "019d52c2-7261-7dce-b0ee-e220a48dfee3",
   eiaPlanning: "019d52c2-7261-7dce-b0ee-e221103892e4",
   euPlanning: "019d52c2-7261-7dce-b0ee-e2221e6385fa",
@@ -774,6 +776,34 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
       status: "pending",
       uploadedBy: v3,
       createdAt: past(5),
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(eventPhoto)
+    .values({
+      id: ID.epTeachingVid1,
+      eventId: ID.evTeaching,
+      r2Key: "dev/events/teaching-highlight.mp4",
+      mimeType: "video/mp4",
+      caption: "Highlights from the session",
+      status: "approved",
+      uploadedBy: leadId,
+      reviewedBy: adminId,
+      reviewedAt: past(5),
+      createdAt: past(5),
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(eventPhoto)
+    .values({
+      id: ID.epTeachingVid2,
+      eventId: ID.evTeaching,
+      r2Key: "dev/events/teaching-intro.mp4",
+      mimeType: "video/mp4",
+      caption: "Opening introduction",
+      status: "pending",
+      uploadedBy: v3,
+      createdAt: past(4),
     })
     .onConflictDoNothing();
 

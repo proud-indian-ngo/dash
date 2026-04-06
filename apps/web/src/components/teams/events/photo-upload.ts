@@ -1,3 +1,7 @@
+import {
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import type { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -12,24 +16,35 @@ const IMAGE_MIME_TYPES = [
   "image/webp",
 ] as const;
 
-export const IMAGE_ACCEPT = IMAGE_MIME_TYPES.join(",");
-const MAX_PHOTO_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+const VIDEO_MIME_TYPES = ["video/mp4", "video/quicktime"] as const;
 
-export function isAllowedImageType(
+const MEDIA_MIME_TYPES = [...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES] as const;
+
+export const MEDIA_ACCEPT = MEDIA_MIME_TYPES.join(",");
+
+export function isAllowedMediaType(
   mime: string
-): mime is (typeof IMAGE_MIME_TYPES)[number] {
-  return (IMAGE_MIME_TYPES as readonly string[]).includes(mime);
+): mime is (typeof MEDIA_MIME_TYPES)[number] {
+  return (MEDIA_MIME_TYPES as readonly string[]).includes(mime);
+}
+
+export function isVideoMimeType(mime: string): boolean {
+  return (VIDEO_MIME_TYPES as readonly string[]).includes(mime);
 }
 
 export function validateFiles(files: FileList): File[] {
   const valid: File[] = [];
   for (const file of Array.from(files)) {
-    if (!isAllowedImageType(file.type)) {
+    if (!isAllowedMediaType(file.type)) {
       toast.error(`${file.name}: unsupported file type`);
       continue;
     }
-    if (file.size > MAX_PHOTO_SIZE_BYTES) {
-      toast.error(`${file.name}: exceeds 20 MB limit`);
+    const maxSize = isVideoMimeType(file.type)
+      ? MAX_VIDEO_SIZE_BYTES
+      : MAX_IMAGE_SIZE_BYTES;
+    if (file.size > maxSize) {
+      const limit = isVideoMimeType(file.type) ? "100 MB" : "20 MB";
+      toast.error(`${file.name}: exceeds ${limit} limit`);
       continue;
     }
     valid.push(file);
@@ -71,16 +86,14 @@ export function showUploadResultToasts(
 ): void {
   if (uploadedCount > 0) {
     toast.success(
-      uploadedCount === 1
-        ? "Photo uploaded"
-        : `${uploadedCount} photos uploaded`
+      uploadedCount === 1 ? "File uploaded" : `${uploadedCount} files uploaded`
     );
   }
   if (failedCount > 0) {
     toast.error(
       failedCount === 1
-        ? "1 photo failed to upload"
-        : `${failedCount} photos failed to upload`
+        ? "1 file failed to upload"
+        : `${failedCount} files failed to upload`
     );
   }
 }

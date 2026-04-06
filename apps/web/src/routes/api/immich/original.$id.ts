@@ -29,19 +29,33 @@ export const Route = createFileRoute("/api/immich/original/$id")({
         }
 
         try {
-          const upstream = await fetchImmichOriginal(config, id);
+          const rangeHeader = request.headers.get("Range");
+          const upstream = await fetchImmichOriginal(config, id, rangeHeader);
           const contentType =
-            upstream.headers.get("content-type") ?? "image/jpeg";
+            upstream.headers.get("content-type") ?? "application/octet-stream";
           const headers: HeadersInit = {
-            "Cache-Control": "private, max-age=86400",
             "Content-Type": contentType,
+            "Accept-Ranges": "bytes",
           };
+
+          // Only cache non-range responses; range responses are partial and shouldn't be cached broadly
+          if (!rangeHeader) {
+            headers["Cache-Control"] = "private, max-age=86400";
+          }
+
           const contentLength = upstream.headers.get("content-length");
           if (contentLength) {
             headers["Content-Length"] = contentLength;
           }
+          const contentRange = upstream.headers.get("content-range");
+          if (contentRange) {
+            headers["Content-Range"] = contentRange;
+          }
 
-          return new Response(upstream.body, { status: 200, headers });
+          return new Response(upstream.body, {
+            status: upstream.status,
+            headers,
+          });
         } catch (error) {
           const log = createRequestLogger({
             method: "GET",

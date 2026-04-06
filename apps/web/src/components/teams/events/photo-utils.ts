@@ -16,6 +16,10 @@ export const immichBase = env.VITE_IMMICH_URL?.replace(TRAILING_SLASH, "");
 const EMPTY_PIXEL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+export function isVideoPhoto(photo: EventPhoto): boolean {
+  return !!photo.mimeType?.startsWith("video/");
+}
+
 export function getR2ThumbnailUrl(r2Key: string): string {
   const directUrl = `${cdnBase}/${r2Key}`;
   if (
@@ -27,11 +31,18 @@ export function getR2ThumbnailUrl(r2Key: string): string {
   return `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${directUrl}`;
 }
 
-export function getPhotoThumbnailUrl(photo: EventPhoto): string {
+/**
+ * Returns the thumbnail URL for a photo/video.
+ * Returns null for R2-only videos (Cloudflare image resizing doesn't process video).
+ */
+export function getPhotoThumbnailUrl(photo: EventPhoto): string | null {
   if (photo.immichAssetId) {
     return `/api/immich/thumbnail/${photo.immichAssetId}`;
   }
   if (photo.r2Key) {
+    if (isVideoPhoto(photo)) {
+      return null;
+    }
     return getR2ThumbnailUrl(photo.r2Key);
   }
   return EMPTY_PIXEL;
@@ -51,9 +62,30 @@ export function toPhotoSlide(
   photo: PhotoWithUploader,
   permissions: { canApprove: boolean; canReject: boolean; canDelete: boolean }
 ): PhotoSlide {
+  const thumbnailSrc = getPhotoThumbnailUrl(photo) ?? EMPTY_PIXEL;
+  if (isVideoPhoto(photo)) {
+    return {
+      type: "video" as const,
+      sources: [
+        {
+          src: getPhotoLightboxUrl(photo),
+          type: photo.mimeType ?? "video/mp4",
+        },
+      ],
+      poster: thumbnailSrc,
+      thumbnailSrc,
+      photoId: photo.id,
+      caption: photo.caption ?? null,
+      uploader: photo.uploader,
+      canApprove: permissions.canApprove,
+      canReject: permissions.canReject,
+      canDelete: permissions.canDelete,
+    };
+  }
   return {
+    type: "image" as const,
     src: getPhotoLightboxUrl(photo),
-    thumbnailSrc: getPhotoThumbnailUrl(photo),
+    thumbnailSrc,
     photoId: photo.id,
     caption: photo.caption ?? null,
     uploader: photo.uploader,

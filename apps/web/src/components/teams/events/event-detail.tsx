@@ -15,6 +15,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
@@ -253,15 +254,25 @@ function EventTabs({
   pendingPhotos,
   updates,
 }: EventTabsProps) {
+  const [tab, setTab] = useQueryState(
+    "tab",
+    parseAsStringLiteral(["updates", "photos", "feedback"]).withDefault(
+      "updates"
+    )
+  );
+
   return (
-    <Tabs defaultValue="updates">
+    <Tabs
+      onValueChange={(v) => setTab(v as "updates" | "photos" | "feedback")}
+      value={tab}
+    >
       <TabsList>
         <TabsTrigger value="updates">
           Updates
           {updates.length > 0 ? ` (${updates.length})` : ""}
         </TabsTrigger>
         <TabsTrigger value="photos">
-          Photos
+          Photos &amp; Videos
           {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
           {canManage && pendingPhotos.length > 0 ? (
             <Badge size="xs" variant="warning">

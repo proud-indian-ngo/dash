@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import Lightbox, { type Slide } from "yet-another-react-lightbox";
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
 import "yet-another-react-lightbox/plugins/thumbnails.css";
+import Video from "yet-another-react-lightbox/plugins/video";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
 import { PhotoCard } from "./photo-card";
 import {
-  IMAGE_ACCEPT,
+  MEDIA_ACCEPT,
   showUploadResultToasts,
   uploadFileToR2,
   validateFiles,
@@ -180,6 +181,7 @@ export function EventPhotos({
               id: uuidv7(),
               eventId,
               immichAssetId: result.immichAssetId,
+              mimeType: file.type,
               now,
             })
           ).server;
@@ -191,6 +193,7 @@ export function EventPhotos({
               id: uuidv7(),
               eventId,
               r2Key: key,
+              mimeType: file.type,
               now,
             })
           ).server;
@@ -218,8 +221,8 @@ export function EventPhotos({
     mutationMeta: {
       mutation: "eventPhoto.approveBatch",
       entityId: () => eventId,
-      successMsg: `${pendingPhotos.length} photo${pendingPhotos.length > 1 ? "s" : ""} approved`,
-      errorMsg: "Failed to approve photos",
+      successMsg: `${pendingPhotos.length} media item${pendingPhotos.length > 1 ? "s" : ""} approved`,
+      errorMsg: "Failed to approve media",
     },
   });
 
@@ -227,7 +230,7 @@ export function EventPhotos({
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.approve({ id, now })).server;
-      toast.success("Photo approved");
+      toast.success("Approved");
     } catch (error) {
       log.error({
         component: "EventPhotos",
@@ -235,7 +238,7 @@ export function EventPhotos({
         photoId: id,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to approve photo");
+      toast.error("Failed to approve");
     }
   };
 
@@ -243,7 +246,7 @@ export function EventPhotos({
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.reject({ id, now })).server;
-      toast.success("Photo rejected");
+      toast.success("Rejected");
     } catch (error) {
       log.error({
         component: "EventPhotos",
@@ -251,7 +254,7 @@ export function EventPhotos({
         photoId: id,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to reject photo");
+      toast.error("Failed to reject");
     }
   };
 
@@ -260,8 +263,8 @@ export function EventPhotos({
     mutationMeta: {
       mutation: "eventPhoto.delete",
       entityId: (id) => id,
-      successMsg: "Photo deleted",
-      errorMsg: "Failed to delete photo",
+      successMsg: "Deleted",
+      errorMsg: "Failed to delete",
     },
   });
 
@@ -293,10 +296,13 @@ export function EventPhotos({
                 icon={ImageUpload01Icon}
                 strokeWidth={2}
               />
-              {isUploading ? "Uploading..." : "Upload Photos"}
+              {isUploading ? "Uploading..." : "Upload Photos & Videos"}
             </Button>
+            <span className="text-muted-foreground text-xs">
+              JPEG, PNG, MP4, MOV · 20 MB / 100 MB
+            </span>
             <input
-              accept={IMAGE_ACCEPT}
+              accept={MEDIA_ACCEPT}
               className="hidden"
               multiple
               onChange={(e) => handleUpload(e.target.files)}
@@ -374,7 +380,7 @@ export function EventPhotos({
       {showMyPendingSection ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <p className="font-medium text-sm">
-            Your Pending Photos ({myPendingPhotos.length})
+            Your Pending Media ({myPendingPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {myPendingPhotos.map((photo, i) => (
@@ -419,7 +425,9 @@ export function EventPhotos({
             icon={Image02Icon}
             strokeWidth={1.5}
           />
-          <p className="text-muted-foreground text-sm">No photos yet.</p>
+          <p className="text-muted-foreground text-sm">
+            No photos or videos yet.
+          </p>
         </div>
       ) : null}
 
@@ -428,7 +436,7 @@ export function EventPhotos({
         index={lightboxIndex}
         on={{ view: ({ index }) => setLightboxIndex(index) }}
         open={lightboxOpen}
-        plugins={[Zoom, Thumbnails]}
+        plugins={[Zoom, Thumbnails, Video]}
         render={{
           slideFooter: ({ slide }) =>
             isPhotoSlide(slide) ? (
@@ -439,15 +447,16 @@ export function EventPhotos({
                 slide={slide}
               />
             ) : null,
-          thumbnail: ({ slide }) => (
-            <img
-              alt=""
-              className="size-full object-cover"
-              height={64}
-              src={isPhotoSlide(slide) ? slide.thumbnailSrc : (slide.src ?? "")}
-              width={64}
-            />
-          ),
+          thumbnail: ({ slide }) =>
+            isPhotoSlide(slide) ? (
+              <img
+                alt=""
+                className="size-full object-cover"
+                height={64}
+                src={slide.thumbnailSrc}
+                width={64}
+              />
+            ) : null,
         }}
         slides={slides}
         styles={{
@@ -459,7 +468,7 @@ export function EventPhotos({
 
       <ConfirmDialog
         confirmLabel="Approve All"
-        description={`Approve all ${pendingPhotos.length} pending photo${pendingPhotos.length > 1 ? "s" : ""}?`}
+        description={`Approve all ${pendingPhotos.length} pending media item${pendingPhotos.length > 1 ? "s" : ""}?`}
         loading={approveAllAction.isLoading}
         loadingLabel="Approving..."
         onConfirm={approveAllAction.confirm}
@@ -469,13 +478,13 @@ export function EventPhotos({
           }
         }}
         open={approveAllAction.isOpen}
-        title="Approve all photos"
+        title="Approve all"
       />
 
       <ConfirmDialog
         cancelLabel="Keep"
         confirmLabel="Delete"
-        description="Are you sure you want to delete this photo? This action cannot be undone."
+        description="Are you sure you want to delete this? This action cannot be undone."
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
@@ -485,13 +494,13 @@ export function EventPhotos({
           }
         }}
         open={deleteAction.isOpen}
-        title="Delete photo"
+        title="Delete"
       />
 
       <ConfirmDialog
         cancelLabel="Keep"
         confirmLabel="Delete Album"
-        description="This will permanently delete the album and all photos for this event. This action cannot be undone."
+        description="This will permanently delete the album and all media for this event. This action cannot be undone."
         loading={deleteAlbumAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAlbumAction.confirm}
@@ -501,7 +510,7 @@ export function EventPhotos({
           }
         }}
         open={deleteAlbumAction.isOpen}
-        title="Delete album and all photos"
+        title="Delete album and all media"
       />
     </div>
   );

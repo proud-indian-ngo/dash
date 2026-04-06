@@ -130,23 +130,31 @@ export async function addAssetToAlbum(
 }
 
 /**
- * Fetches the original (full-size) image for an Immich asset.
+ * Fetches the original (full-size) asset from Immich.
+ * Accepts an optional Range header to support video streaming (HTTP 206).
  */
 export async function fetchImmichOriginal(
   config: ImmichConfig,
-  assetId: string
+  assetId: string,
+  rangeHeader?: string | null
 ): Promise<Response> {
   const log = createRequestLogger({
     method: "GET",
     path: `/api/immich/original/${assetId}`,
   });
-  log.set({ assetId });
+  log.set({ assetId, hasRange: !!rangeHeader });
 
+  const headers: Record<string, string> = { "x-api-key": config.key };
+  if (rangeHeader) {
+    headers.Range = rangeHeader;
+  }
+
+  const timeout = rangeHeader ? 120_000 : 30_000;
   const res = await fetch(`${config.url}/api/assets/${assetId}/original`, {
-    headers: { "x-api-key": config.key },
-    signal: AbortSignal.timeout(30_000),
+    headers,
+    signal: AbortSignal.timeout(timeout),
   });
-  if (res.ok) {
+  if (res.ok || res.status === 206) {
     log.emit();
     return res;
   }

@@ -17,6 +17,7 @@ export const eventPhotoMutators = {
         eventId: z.string(),
         r2Key: z.string().optional(),
         immichAssetId: z.string().optional(),
+        mimeType: z.string().optional(),
         caption: z.string().optional(),
         now: z.number(),
       })
@@ -67,6 +68,7 @@ export const eventPhotoMutators = {
         eventId: args.eventId,
         r2Key: args.r2Key ?? null,
         immichAssetId: args.immichAssetId ?? null,
+        mimeType: args.mimeType ?? null,
         caption: args.caption ?? null,
         status,
         uploadedBy: ctx.userId,

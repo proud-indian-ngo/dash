@@ -1,5 +1,6 @@
 import { env } from "@pi-dash/env/server";
 import { logErrorAndRethrow } from "@pi-dash/observability";
+import { MAX_VIDEO_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -67,11 +68,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
     z
       .object({
         fileName: z.string().min(1),
-        fileSize: z
-          .number()
-          .int()
-          .positive()
-          .max(MAX_ATTACHMENT_FILE_SIZE_BYTES),
+        fileSize: z.number().int().positive(),
         mimeType: z.string().min(1),
         subfolder: z.enum([
           R2_SUBFOLDERS.attachments,
@@ -91,6 +88,20 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
           path: ["mimeType"],
         }
       )
+      .superRefine((data, ctx) => {
+        const maxBytes = data.mimeType.startsWith("video/")
+          ? MAX_VIDEO_SIZE_BYTES
+          : MAX_ATTACHMENT_FILE_SIZE_BYTES;
+        if (data.fileSize > maxBytes) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: data.mimeType.startsWith("video/")
+              ? `Video exceeds ${MAX_VIDEO_SIZE_BYTES / 1024 / 1024} MB limit`
+              : `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_BYTES / 1024 / 1024} MB limit`,
+            path: ["fileSize"],
+          });
+        }
+      })
   )
   .handler(async ({ data, context }) => {
     try {

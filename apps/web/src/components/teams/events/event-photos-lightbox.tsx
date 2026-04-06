@@ -8,7 +8,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { Slide } from "yet-another-react-lightbox";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
-export interface PhotoSlide extends Slide {
+interface PhotoSlideExtra {
   canApprove: boolean;
   canDelete: boolean;
   canReject: boolean;
@@ -19,6 +19,8 @@ export interface PhotoSlide extends Slide {
     | { name: string; email?: null | string; image?: null | string }
     | undefined;
 }
+
+export type PhotoSlide = Slide & PhotoSlideExtra;
 
 interface LightboxFooterProps {
   onApprove: (id: string) => void;
@@ -36,7 +38,7 @@ export function LightboxFooter({
   const hasActions = slide.canApprove || slide.canReject || slide.canDelete;
 
   return (
-    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 bg-black/60 px-4 py-3">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 bg-black/60 px-4 py-3">
       <div className="flex min-w-0 items-center gap-2">
         {slide.uploader ? (
           <>
@@ -58,10 +60,10 @@ export function LightboxFooter({
       </div>
 
       {hasActions ? (
-        <div className="flex shrink-0 gap-1">
+        <div className="pointer-events-auto flex shrink-0 gap-1">
           {slide.canApprove ? (
             <Button
-              aria-label="Approve photo"
+              aria-label="Approve"
               onClick={() => onApprove(slide.photoId)}
               size="icon-sm"
               variant="secondary"
@@ -75,7 +77,7 @@ export function LightboxFooter({
           ) : null}
           {slide.canReject ? (
             <Button
-              aria-label="Reject photo"
+              aria-label="Reject"
               onClick={() => onReject(slide.photoId)}
               size="icon-sm"
               variant="secondary"
@@ -89,7 +91,7 @@ export function LightboxFooter({
           ) : null}
           {slide.canDelete ? (
             <Button
-              aria-label="Delete photo"
+              aria-label="Delete"
               onClick={() => onDelete(slide.photoId)}
               size="icon-sm"
               variant="secondary"
