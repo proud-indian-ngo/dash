@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
@@ -332,6 +333,20 @@ export function ToolbarMenuGroup({
   label,
   ...props
 }: React.ComponentProps<typeof DropdownMenuRadioGroup> & { label?: string }) {
+  const groupClassName = cn(
+    "hidden",
+    "peer/menu-group group/menu-group my-1.5 has-[[role=menuitem]]:block has-[[role=menuitemradio]]:block has-[[role=option]]:block",
+    className
+  );
+
+  const labelElement = label ? (
+    <DropdownMenuLabel className="select-none font-semibold text-muted-foreground text-xs">
+      {label}
+    </DropdownMenuLabel>
+  ) : null;
+
+  const isRadio = "value" in props;
+
   return (
     <>
       <DropdownMenuSeparator
@@ -341,21 +356,17 @@ export function ToolbarMenuGroup({
         )}
       />
 
-      <DropdownMenuRadioGroup
-        {...props}
-        className={cn(
-          "hidden",
-          "peer/menu-group group/menu-group my-1.5 has-[[role=menuitem]]:block has-[[role=menuitemradio]]:block has-[[role=option]]:block",
-          className
-        )}
-      >
-        {label && (
-          <DropdownMenuLabel className="select-none font-semibold text-muted-foreground text-xs">
-            {label}
-          </DropdownMenuLabel>
-        )}
-        {children}
-      </DropdownMenuRadioGroup>
+      {isRadio ? (
+        <DropdownMenuRadioGroup {...props} className={groupClassName}>
+          {labelElement}
+          {children}
+        </DropdownMenuRadioGroup>
+      ) : (
+        <DropdownMenuGroup className={groupClassName}>
+          {labelElement}
+          {children}
+        </DropdownMenuGroup>
+      )}
     </>
   );
 }
