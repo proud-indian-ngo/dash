@@ -165,6 +165,7 @@
         "@pi-dash/auth": "workspace:*",
         "@pi-dash/db": "workspace:*",
         "better-auth": "catalog:",
+        "date-fns": "catalog:",
         "dotenv": "catalog:",
         "drizzle-orm": "catalog:",
         "uuidv7": "catalog:",

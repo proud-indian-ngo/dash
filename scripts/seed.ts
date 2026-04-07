@@ -835,7 +835,10 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
       eventId: ID.evPlanning,
       content:
         "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets.",
+      status: "approved",
       createdBy: adminId,
+      reviewedBy: adminId,
+      reviewedAt: past(13),
       createdAt: past(13),
       updatedAt: past(13),
     })
@@ -847,7 +850,10 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
       eventId: ID.evOutreach,
       content:
         "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM.",
+      status: "approved",
       createdBy: adminId,
+      reviewedBy: adminId,
+      reviewedAt: past(1),
       createdAt: past(1),
       updatedAt: past(1),
     })

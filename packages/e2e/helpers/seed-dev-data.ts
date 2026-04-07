@@ -600,7 +600,10 @@ async function seedEventExtras(
     eventId: planningId,
     content:
       "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets.",
+    status: "approved",
     createdBy: adminId,
+    reviewedBy: adminId,
+    reviewedAt: past(13),
     createdAt: past(13),
     updatedAt: past(13),
   });
@@ -609,7 +612,10 @@ async function seedEventExtras(
     eventId: outreachId,
     content:
       "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM.",
+    status: "approved",
     createdBy: adminId,
+    reviewedBy: adminId,
+    reviewedAt: past(1),
     createdAt: past(1),
     updatedAt: past(1),
   });

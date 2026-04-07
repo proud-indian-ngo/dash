@@ -270,6 +270,28 @@ export interface NotifyEventUpdatePostedPayload {
   updatedAt: number;
 }
 
+export interface NotifyEventUpdateApprovedPayload {
+  authorId: string;
+  eventId: string;
+  eventName: string;
+  eventUpdateId: string;
+}
+
+export interface NotifyEventUpdateRejectedPayload {
+  authorId: string;
+  eventId: string;
+  eventName: string;
+  eventUpdateId: string;
+}
+
+export interface NotifyEventUpdatePendingPayload {
+  authorName: string;
+  eventId: string;
+  eventName: string;
+  eventUpdateId: string;
+  teamId: string;
+}
+
 // Event Feedback
 export interface NotifyEventFeedbackOpenPayload {
   eventId: string;
@@ -464,7 +486,10 @@ export interface JobPayloads {
   "notify-event-interest-approved": NotifyEventInterestApprovedPayload;
   "notify-event-interest-received": NotifyEventInterestReceivedPayload;
   "notify-event-interest-rejected": NotifyEventInterestRejectedPayload;
+  "notify-event-update-approved": NotifyEventUpdateApprovedPayload;
+  "notify-event-update-pending": NotifyEventUpdatePendingPayload;
   "notify-event-update-posted": NotifyEventUpdatePostedPayload;
+  "notify-event-update-rejected": NotifyEventUpdateRejectedPayload;
   "notify-event-updated": NotifyEventUpdatedPayload;
   "notify-password-reset": NotifyPasswordResetPayload;
   "notify-photo-approved": NotifyPhotoApprovedPayload;
@@ -541,7 +566,10 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-event-interest-approved",
   "notify-event-interest-received",
   "notify-event-interest-rejected",
+  "notify-event-update-approved",
+  "notify-event-update-pending",
   "notify-event-update-posted",
+  "notify-event-update-rejected",
   "notify-event-updated",
   "notify-password-reset",
   "notify-photo-approved",

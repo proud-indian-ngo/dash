@@ -83,7 +83,6 @@ function buildSlides(
 interface EventPhotosProps {
   approvedPhotos: readonly PhotoWithUploader[];
   canManage: boolean;
-  currentUserId: string;
   eventId: string;
   immichAlbumUrl?: string | null;
   isMember: boolean;
@@ -92,7 +91,6 @@ interface EventPhotosProps {
 
 export function EventPhotos({
   canManage,
-  currentUserId,
   eventId,
   isMember,
   approvedPhotos,
@@ -109,9 +107,8 @@ export function EventPhotos({
 
   const canUpload = canManage || isMember;
   const useImmichDirect = canManage && !!immichBase;
-  const myPendingPhotos = canManage
-    ? []
-    : pendingPhotos.filter((p) => p.uploadedBy === currentUserId);
+  // Parent already splits: admins/leads get all pending, others get only own
+  const myPendingPhotos = canManage ? [] : pendingPhotos;
 
   const showPendingSection = canManage && pendingPhotos.length > 0;
   const showMyPendingSection = !canManage && myPendingPhotos.length > 0;

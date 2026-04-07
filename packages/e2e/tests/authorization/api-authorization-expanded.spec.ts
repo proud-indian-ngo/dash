@@ -143,6 +143,67 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     });
   });
 
+  // ── Event Updates ────────────────────────────────────────────────────────────
+
+  test("eventUpdate.create rejected for non-member volunteer", async ({
+    page,
+    baseURL,
+  }) => {
+    // Volunteer is not a member of this fake event → "Must be an event member"
+    // or "Event not found" — either way, blocked.
+    const body = buildMutateBody("eventUpdate.create", {
+      id: FAKE_ID,
+      eventId: FAKE_ID,
+      content: "test update",
+      now: Date.now(),
+    });
+    const response = await page.request.post(
+      `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+      { data: body }
+    );
+    expect(response.ok()).toBe(true);
+    const json = await response.json();
+    expect(json.mutations).toBeDefined();
+    expect(json.mutations[0].result.error).toBe("app");
+  });
+
+  test("eventUpdate.approve rejected for volunteer", async ({
+    page,
+    baseURL,
+  }) => {
+    // Volunteer lacks event_updates.approve permission and is not a team lead
+    const body = buildMutateBody("eventUpdate.approve", {
+      id: FAKE_ID,
+      now: Date.now(),
+    });
+    const response = await page.request.post(
+      `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+      { data: body }
+    );
+    expect(response.ok()).toBe(true);
+    const json = await response.json();
+    expect(json.mutations).toBeDefined();
+    expect(json.mutations[0].result.error).toBe("app");
+  });
+
+  test("eventUpdate.reject rejected for volunteer", async ({
+    page,
+    baseURL,
+  }) => {
+    const body = buildMutateBody("eventUpdate.reject", {
+      id: FAKE_ID,
+      now: Date.now(),
+    });
+    const response = await page.request.post(
+      `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+      { data: body }
+    );
+    expect(response.ok()).toBe(true);
+    const json = await response.json();
+    expect(json.mutations).toBeDefined();
+    expect(json.mutations[0].result.error).toBe("app");
+  });
+
   // ── Notification Preferences (admin) ────────────────────────────────────────
 
   test("notificationPreference.adminUpsert rejected for volunteer", async ({

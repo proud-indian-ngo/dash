@@ -3,13 +3,17 @@ import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
+import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
   reimbursement,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { team, teamMember } from "@pi-dash/db/schema/team";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { subDays } from "date-fns";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -207,6 +211,100 @@ async function ensureReimbursement(userId: string): Promise<void> {
   log("Created seed reimbursement with 2 line items");
 }
 
+const SEED_TEAM_NAME = "E2E Updates Team";
+const SEED_EVENT_NAME = "E2E Past Event With Pending Update";
+const SEED_PENDING_UPDATE_CONTENT =
+  "This is a pending update from a volunteer that needs admin approval.";
+
+async function ensureEventWithPendingUpdate(
+  adminUserId: string,
+  volunteerUserId: string
+): Promise<void> {
+  // Check if team already exists
+  const existingTeam = await db.query.team.findFirst({
+    where: (table, ops) => ops.eq(table.name, SEED_TEAM_NAME),
+  });
+  if (existingTeam) {
+    log("E2E Updates Team already exists — skipping");
+    return;
+  }
+
+  const now = new Date();
+  const yesterday = subDays(now, 1);
+
+  // Create team
+  const teamId = uuidv7();
+  await db.insert(team).values({
+    id: teamId,
+    name: SEED_TEAM_NAME,
+    description: "Team for E2E update approval tests",
+    createdBy: adminUserId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Add admin and volunteer as team members
+  await db.insert(teamMember).values([
+    {
+      id: uuidv7(),
+      teamId,
+      userId: adminUserId,
+      role: "lead",
+      joinedAt: now,
+    },
+    {
+      id: uuidv7(),
+      teamId,
+      userId: volunteerUserId,
+      role: "member",
+      joinedAt: now,
+    },
+  ]);
+
+  // Create a past event (started yesterday) so the Updates tab is visible
+  const eventId = uuidv7();
+  await db.insert(teamEvent).values({
+    id: eventId,
+    teamId,
+    name: SEED_EVENT_NAME,
+    description: "Past event with a pending update for E2E testing",
+    startTime: yesterday,
+    isPublic: true,
+    createdBy: adminUserId,
+    createdAt: subDays(now, 3),
+    updatedAt: subDays(now, 3),
+  });
+
+  // Add both users as event members
+  await db.insert(teamEventMember).values([
+    {
+      id: uuidv7(),
+      eventId,
+      userId: adminUserId,
+      addedAt: subDays(now, 3),
+    },
+    {
+      id: uuidv7(),
+      eventId,
+      userId: volunteerUserId,
+      addedAt: subDays(now, 3),
+    },
+  ]);
+
+  // Create a pending update from the volunteer
+  await db.insert(eventUpdate).values({
+    id: uuidv7(),
+    eventId,
+    content: SEED_PENDING_UPDATE_CONTENT,
+    status: "pending",
+    createdBy: volunteerUserId,
+    createdAt: yesterday,
+    updatedAt: yesterday,
+  });
+
+  log("Created E2E team, past event, and pending update");
+}
+
 async function seed(): Promise<void> {
   await syncPermissions();
   log("Synced roles and permissions");
@@ -215,15 +313,19 @@ async function seed(): Promise<void> {
   await ensureWhatsAppGroup();
 
   let adminUserId = "";
+  let volunteerUserId = "";
   for (const testUser of TEST_USERS) {
     const userId = await ensureTestUser(testUser);
     await ensureBankAccount(userId);
     if (testUser.role === "super_admin") {
       adminUserId = userId;
+    } else {
+      volunteerUserId = userId;
     }
   }
 
   await ensureReimbursement(adminUserId);
+  await ensureEventWithPendingUpdate(adminUserId, volunteerUserId);
 }
 
 seed().catch((error: unknown) => {

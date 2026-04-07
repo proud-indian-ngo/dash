@@ -115,11 +115,12 @@ function deriveAddMemberTarget(
 }
 
 interface EventDetailProps {
+  canApproveUpdates: boolean;
   canManage: boolean;
   canManageAttendance: boolean;
   canManageFeedback: boolean;
+  canManagePhotos: boolean;
   canManageVolunteers: boolean;
-  currentUserId: string;
   event: EventRow;
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
@@ -226,9 +227,11 @@ function EventHeader({
 
 interface EventTabsProps {
   approvedPhotos: Parameters<typeof EventPhotos>[0]["approvedPhotos"];
+  approvedUpdates: Parameters<typeof EventUpdates>[0]["approvedUpdates"];
+  canApproveUpdates: boolean;
   canManage: boolean;
   canManageFeedback: boolean;
-  currentUserId: string;
+  canManagePhotos: boolean;
   event: EventRow;
   feedback: readonly { id: string }[];
   feedbackDeadlinePassed: boolean;
@@ -237,14 +240,16 @@ interface EventTabsProps {
   isPastEvent: boolean;
   memberCount: number;
   pendingPhotos: Parameters<typeof EventPhotos>[0]["pendingPhotos"];
-  updates: Parameters<typeof EventUpdates>[0]["updates"];
+  pendingUpdates: Parameters<typeof EventUpdates>[0]["pendingUpdates"];
 }
 
 function EventTabs({
   approvedPhotos,
+  approvedUpdates,
+  canApproveUpdates,
   canManage,
   canManageFeedback,
-  currentUserId,
+  canManagePhotos,
   event,
   feedback,
   feedbackDeadlinePassed,
@@ -253,7 +258,7 @@ function EventTabs({
   isPastEvent,
   memberCount,
   pendingPhotos,
-  updates,
+  pendingUpdates,
 }: EventTabsProps) {
   const [tab, setTab] = useQueryState(
     "tab",
@@ -275,12 +280,17 @@ function EventTabs({
       <TabsList>
         <TabsTrigger value="updates">
           Updates
-          {updates.length > 0 ? ` (${updates.length})` : ""}
+          {approvedUpdates.length > 0 ? ` (${approvedUpdates.length})` : ""}
+          {canApproveUpdates && pendingUpdates.length > 0 ? (
+            <Badge size="xs" variant="warning">
+              {pendingUpdates.length}
+            </Badge>
+          ) : null}
         </TabsTrigger>
         <TabsTrigger value="photos">
           Photos &amp; Videos
           {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
-          {canManage && pendingPhotos.length > 0 ? (
+          {canManagePhotos && pendingPhotos.length > 0 ? (
             <Badge size="xs" variant="warning">
               {pendingPhotos.length}
             </Badge>
@@ -298,16 +308,18 @@ function EventTabs({
       </TabsList>
       <TabsContent value="updates">
         <EventUpdates
+          approvedUpdates={approvedUpdates}
+          canApproveUpdates={canApproveUpdates}
           canManage={canManage}
           eventId={event.id}
-          updates={updates}
+          isMember={isMember}
+          pendingUpdates={pendingUpdates}
         />
       </TabsContent>
       <TabsContent value="photos">
         <EventPhotos
           approvedPhotos={approvedPhotos}
-          canManage={canManage}
-          currentUserId={currentUserId}
+          canManage={canManagePhotos}
           eventId={event.id}
           immichAlbumUrl={immichAlbumUrl}
           isMember={isMember}
@@ -335,12 +347,76 @@ function EventTabs({
   );
 }
 
+/**
+ * Queries for the event detail page. Pending queries use `enabled` flags to
+ * control Zero subscriptions: approvers/leads get all pending, regular members
+ * get only their own (via ctx.userId in myPendingByEvent).
+ *
+ * Note: pendingByEvent has no query-level auth because team lead status is
+ * per-team and ZQL can't check team membership. The `enabled` flag prevents
+ * non-approvers from subscribing. Mutators enforce team-scoped authorization.
+ */
+function useEventDetailQueries(
+  eventId: string,
+  canApproveUpdates: boolean,
+  canManagePhotos: boolean
+) {
+  const [approvedUpdates] = useQuery(
+    queries.eventUpdate.approvedByEvent({ eventId })
+  );
+  const [allPendingUpdates] = useQuery(
+    queries.eventUpdate.pendingByEvent({ eventId }),
+    { enabled: canApproveUpdates }
+  );
+  const [myPendingUpdates] = useQuery(
+    queries.eventUpdate.myPendingByEvent({ eventId }),
+    { enabled: !canApproveUpdates }
+  );
+  const pendingUpdates = canApproveUpdates
+    ? allPendingUpdates
+    : myPendingUpdates;
+
+  const [approvedPhotos] = useQuery(
+    queries.eventPhoto.approvedByEvent({ eventId })
+  );
+  const [allPendingPhotos] = useQuery(
+    queries.eventPhoto.pendingByEvent({ eventId }),
+    { enabled: canManagePhotos }
+  );
+  const [myPendingPhotos] = useQuery(
+    queries.eventPhoto.myPendingByEvent({ eventId }),
+    { enabled: !canManagePhotos }
+  );
+  const pendingPhotos = canManagePhotos ? allPendingPhotos : myPendingPhotos;
+
+  const [album] = useQuery(queries.eventImmichAlbum.byEvent({ eventId }));
+  const [feedback] = useQuery(queries.eventFeedback.byEvent({ eventId }));
+  const [eventReimbursements] = useQuery(
+    queries.reimbursement.byEvent({ eventId })
+  );
+  const [eventVendorPayments] = useQuery(
+    queries.vendorPayment.byEvent({ eventId })
+  );
+
+  return {
+    approvedUpdates,
+    pendingUpdates,
+    approvedPhotos,
+    pendingPhotos,
+    album,
+    feedback,
+    eventReimbursements,
+    eventVendorPayments,
+  };
+}
+
 export function EventDetail({
+  canApproveUpdates,
   canManage,
   canManageAttendance,
   canManageFeedback,
+  canManagePhotos,
   canManageVolunteers: canManageVolunteersProp,
-  currentUserId,
   event,
   interests,
   isMember,
@@ -476,29 +552,16 @@ export function EventDetail({
   const canCancel = hasStarted ? false : canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
 
-  const [updates] = useQuery(
-    queries.eventUpdate.byEvent({ eventId: event.id })
-  );
-  const [approvedPhotos] = useQuery(
-    queries.eventPhoto.approvedByEvent({ eventId: event.id })
-  );
-  const [pendingPhotos] = useQuery(
-    queries.eventPhoto.pendingByEvent({ eventId: event.id })
-  );
-  const [album] = useQuery(
-    queries.eventImmichAlbum.byEvent({ eventId: event.id })
-  );
-
-  const [feedback] = useQuery(
-    queries.eventFeedback.byEvent({ eventId: event.id })
-  );
-
-  const [eventReimbursements] = useQuery(
-    queries.reimbursement.byEvent({ eventId: event.id })
-  );
-  const [eventVendorPayments] = useQuery(
-    queries.vendorPayment.byEvent({ eventId: event.id })
-  );
+  const {
+    approvedUpdates,
+    pendingUpdates,
+    approvedPhotos,
+    pendingPhotos,
+    album,
+    feedback,
+    eventReimbursements,
+    eventVendorPayments,
+  } = useEventDetailQueries(event.id, canApproveUpdates, canManagePhotos);
 
   const totalExpenses = [
     ...(eventReimbursements ?? []),
@@ -576,9 +639,11 @@ export function EventDetail({
             {hasStarted ? (
               <EventTabs
                 approvedPhotos={approvedPhotos}
+                approvedUpdates={approvedUpdates}
+                canApproveUpdates={canApproveUpdates}
                 canManage={canManage}
                 canManageFeedback={canManageFeedback}
-                currentUserId={currentUserId}
+                canManagePhotos={canManagePhotos}
                 event={event}
                 feedback={feedback}
                 feedbackDeadlinePassed={feedbackDeadlinePassed}
@@ -587,7 +652,7 @@ export function EventDetail({
                 isPastEvent={isPastEvent}
                 memberCount={event.members.length}
                 pendingPhotos={pendingPhotos}
-                updates={updates}
+                pendingUpdates={pendingUpdates}
               />
             ) : (
               <p className="py-12 text-center text-muted-foreground text-sm">

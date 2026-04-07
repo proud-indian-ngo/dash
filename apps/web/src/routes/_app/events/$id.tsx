@@ -27,12 +27,13 @@ export const Route = createFileRoute("/_app/events/$id")({
     context.zero?.preload(
       queries.eventInterest.byEvent({ eventId: params.id })
     );
-    context.zero?.preload(queries.eventUpdate.byEvent({ eventId: params.id }));
+    context.zero?.preload(
+      queries.eventUpdate.approvedByEvent({ eventId: params.id })
+    );
+    // Pending update/photo preloads omitted — conditionally fetched based on
+    // permissions inside EventDetail (approvers get all, others get own only).
     context.zero?.preload(
       queries.eventPhoto.approvedByEvent({ eventId: params.id })
-    );
-    context.zero?.preload(
-      queries.eventPhoto.pendingByEvent({ eventId: params.id })
     );
     context.zero?.preload(
       queries.eventImmichAlbum.byEvent({ eventId: params.id })
@@ -81,6 +82,8 @@ function EventDetailRouteComponent() {
   const canManageAttendance =
     hasPermission("events.manage_attendance") || isLead;
   const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
+  const canManagePhotos = hasPermission("events.manage_photos") || isLead;
+  const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
   const myInterest = interests.find(
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
@@ -99,11 +102,12 @@ function EventDetailRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-4 py-6">
       <EventDetail
+        canApproveUpdates={canApproveUpdates}
         canManage={canManage}
         canManageAttendance={canManageAttendance}
         canManageFeedback={canManageFeedback}
+        canManagePhotos={canManagePhotos}
         canManageVolunteers={canManage}
-        currentUserId={session.user.id}
         event={displayEvent}
         interests={
           interests as readonly (EventInterest & {

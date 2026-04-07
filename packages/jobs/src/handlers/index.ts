@@ -20,7 +20,12 @@ import {
   handleNotifyPhotoApproved,
   handleNotifyPhotoRejected,
 } from "./notify-event-photo";
-import { handleNotifyEventUpdatePosted } from "./notify-event-update";
+import {
+  handleNotifyEventUpdateApproved,
+  handleNotifyEventUpdatePending,
+  handleNotifyEventUpdatePosted,
+  handleNotifyEventUpdateRejected,
+} from "./notify-event-update";
 import {
   handleNotifyReimbursementApproved,
   handleNotifyReimbursementRejected,
@@ -342,6 +347,21 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-event-update-posted",
     NOTIFY_POLL,
     handleNotifyEventUpdatePosted
+  );
+  await boss.work(
+    "notify-event-update-approved",
+    NOTIFY_POLL,
+    handleNotifyEventUpdateApproved
+  );
+  await boss.work(
+    "notify-event-update-rejected",
+    NOTIFY_POLL,
+    handleNotifyEventUpdateRejected
+  );
+  await boss.work(
+    "notify-event-update-pending",
+    NOTIFY_POLL,
+    handleNotifyEventUpdatePending
   );
   await boss.work(
     "notify-event-feedback-open",

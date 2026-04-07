@@ -278,6 +278,13 @@ export const PERMISSIONS = [
     category: "events",
     description: "Delete any user's event updates",
   },
+  {
+    id: "event_updates.approve",
+    name: "Approve/Reject Updates",
+    category: "events",
+    description:
+      "Approve or reject pending event updates (also granted to team leads)",
+  },
 
   // ── Messages ──
   {

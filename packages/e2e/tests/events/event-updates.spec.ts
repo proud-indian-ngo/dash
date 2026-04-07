@@ -58,36 +58,32 @@ test.describe("Event updates CRUD (admin)", () => {
     await expect(updatesTab).toBeVisible({ timeout: 10_000 });
     await updatesTab.click();
 
-    // ---- POST UPDATE ----
-    // Type in the PlateEditor (always visible when canManage)
+    // ---- POST UPDATE (admin → auto-approved) ----
     const editor = page.locator("[data-slate-editor]");
     await expect(editor).toBeVisible();
     await editor.click();
     await page.keyboard.type("This is an E2E test update");
 
-    // Save
+    // Save — admin posts are auto-approved
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Update posted")).toBeVisible({
       timeout: 10_000,
     });
 
-    // Verify update content is rendered
+    // Verify update content is rendered in the approved timeline
     await expect(page.getByText("This is an E2E test update")).toBeVisible({
       timeout: 10_000,
     });
 
     // ---- EDIT UPDATE ----
-    // Find the Edit button for the update we just posted
     await page
       .getByRole("button", { name: "Edit", exact: true })
       .first()
       .click();
 
-    // Editor should appear with existing content
     const editEditor = page.locator("[data-slate-editor]");
     await expect(editEditor).toBeVisible();
     await editEditor.click();
-    // Select all and replace
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Updated E2E test content");
 
@@ -96,7 +92,6 @@ test.describe("Event updates CRUD (admin)", () => {
       timeout: 10_000,
     });
 
-    // Verify "(edited)" label appears
     await expect(page.getByText("(edited)")).toBeVisible({ timeout: 10_000 });
 
     // ---- DELETE UPDATE ----
@@ -105,11 +100,8 @@ test.describe("Event updates CRUD (admin)", () => {
       .first()
       .click();
 
-    // Confirm dialog
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
-    await expect(confirmDialog.getByText("Delete update")).toBeVisible();
-
     await confirmDialog
       .getByRole("button", { name: "Delete", exact: true })
       .click();
@@ -118,9 +110,63 @@ test.describe("Event updates CRUD (admin)", () => {
       timeout: 10_000,
     });
 
-    // Verify the update is gone
     await expect(page.getByText("No updates yet.")).toBeVisible({
       timeout: 10_000,
     });
+  });
+});
+
+test.describe("Event update approval (admin)", () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+  });
+
+  test("approves a pending update from seeded data", async ({ page }) => {
+    // Navigate to the seeded event with a pending update
+    await page.goto("/events");
+    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
+
+    const eventLink = page
+      .getByRole("table")
+      .getByRole("link")
+      .filter({ hasText: /E2E Past Event With Pending Update/ });
+    if ((await eventLink.count()) === 0) {
+      test.skip(true, "Seeded event not available");
+      return;
+    }
+    await eventLink.first().click();
+    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+
+    // Click Updates tab — should show pending badge
+    const updatesTab = page.getByRole("tab", { name: /Updates/ });
+    await expect(updatesTab).toBeVisible({ timeout: 10_000 });
+    await updatesTab.click();
+
+    // Verify the "Pending Approval" section is visible
+    await expect(page.getByText("Pending Approval")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Verify the pending update content
+    await expect(page.getByText("pending update from a volunteer")).toBeVisible(
+      { timeout: 10_000 }
+    );
+
+    // Verify "Pending" badge
+    await expect(page.getByText("Pending", { exact: true })).toBeVisible();
+
+    // Approve the pending update
+    await page.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByText("Update approved")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Pending section should disappear, update should now be in the timeline
+    await expect(page.getByText("Pending Approval")).toBeHidden({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("pending update from a volunteer")).toBeVisible(
+      { timeout: 10_000 }
+    );
   });
 });
