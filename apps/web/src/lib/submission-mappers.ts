@@ -46,3 +46,25 @@ export function mapAttachmentsToFormValues(
         }
   );
 }
+
+interface RawTransaction {
+  amount: number | string;
+  attachments?: readonly RawAttachment[];
+  description?: null | string;
+  paymentMethod?: null | string;
+  paymentReference?: null | string;
+  transactionDate?: null | number;
+}
+
+export function mapTransactionToFormValues(t: RawTransaction) {
+  return {
+    amount: String(t.amount),
+    description: (t.description as string) ?? "",
+    transactionDate: t.transactionDate
+      ? new Date(t.transactionDate)
+      : new Date(),
+    paymentMethod: (t.paymentMethod as string) ?? "",
+    paymentReference: (t.paymentReference as string) ?? "",
+    attachments: mapAttachmentsToFormValues(t.attachments ?? []),
+  };
+}

@@ -2,6 +2,7 @@ import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Delete02Icon,
+  PencilEdit01Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -9,7 +10,10 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
-import { RECORDABLE_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
+import {
+  INVOICE_LOCKED_STATUSES,
+  RECORDABLE_STATUSES,
+} from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -20,8 +24,12 @@ import { LONG_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
+import { mapTransactionToFormValues } from "@/lib/submission-mappers";
 import { TransactionFormDialog } from "./vendor-payment-transaction-form";
-import type { VendorPaymentWithRelations } from "./vendor-payment-types";
+import type {
+  VendorPaymentTransactionWithRelations,
+  VendorPaymentWithRelations,
+} from "./vendor-payment-types";
 
 interface VendorPaymentTransactionsProps {
   isOwner: boolean;
@@ -38,9 +46,14 @@ export function VendorPaymentTransactions({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editingTransaction, setEditingTransaction] =
+    useState<VendorPaymentTransactionWithRelations | null>(null);
 
   const canApprove = hasPermission("requests.approve");
   const canRecord = hasPermission("requests.record_payment");
+  const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(request.status as string);
+  const canEditAll = hasPermission("requests.edit_all") && !isInvoiceLocked;
+  const canDeleteAll = hasPermission("requests.delete_all") && !isInvoiceLocked;
   const showRecordButton =
     canRecord &&
     RECORDABLE_STATUSES.has(request.status as string) &&
@@ -188,6 +201,10 @@ export function VendorPaymentTransactions({
                   const badge = getStatusBadge(t.status);
                   const isPending = t.status === "pending";
                   const isTransactionOwner = isOwner || t.userId === user.id;
+                  const ownerCanModify =
+                    isPending && isTransactionOwner && !isInvoiceLocked;
+                  const canEditTxn = ownerCanModify || canEditAll;
+                  const canDeleteTxn = ownerCanModify || canDeleteAll;
                   return (
                     <tr className="border-b last:border-0" key={t.id}>
                       <td className="px-3 py-2 text-right tabular-nums">
@@ -241,7 +258,23 @@ export function VendorPaymentTransactions({
                               </Button>
                             </>
                           ) : null}
-                          {isPending && isTransactionOwner ? (
+                          {canEditTxn ? (
+                            <Button
+                              aria-label="Edit transaction"
+                              onClick={() => setEditingTransaction(t)}
+                              size="icon"
+                              title="Edit"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <HugeiconsIcon
+                                className="size-4 text-muted-foreground"
+                                icon={PencilEdit01Icon}
+                                strokeWidth={2}
+                              />
+                            </Button>
+                          ) : null}
+                          {canDeleteTxn ? (
                             <Button
                               aria-label="Delete transaction"
                               onClick={() => setDeletingId(t.id)}
@@ -276,6 +309,25 @@ export function VendorPaymentTransactions({
         canApprove={canApprove}
         onOpenChange={setFormOpen}
         open={formOpen}
+        vendorPaymentId={request.id as string}
+      />
+
+      <TransactionFormDialog
+        canApprove={canApprove}
+        initialValues={
+          editingTransaction
+            ? mapTransactionToFormValues(editingTransaction)
+            : undefined
+        }
+        key={editingTransaction?.id}
+        mode="edit"
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingTransaction(null);
+          }
+        }}
+        open={editingTransaction !== null}
+        transactionId={editingTransaction?.id}
         vendorPaymentId={request.id as string}
       />
 

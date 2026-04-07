@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
+import { INVOICE_LOCKED_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -55,10 +56,14 @@ function VendorPaymentDetailRouteComponent() {
   const canEditAll = hasPermission("requests.edit_all");
   const canApprove = hasPermission("requests.approve");
   const isPending = vendorPayment.status === "pending";
+  const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(
+    vendorPayment.status as string
+  );
   const isOwner = vendorPayment.userId === session.user.id;
-  const canEdit = isPending && (isOwner || canEditAll);
+  const canEdit = (canEditAll && !isInvoiceLocked) || (isPending && isOwner);
   const showAdminActions = canApprove && isPending;
-  const showEditForm = canEdit && (!showAdminActions || adminEditMode);
+  const ownerEditingPending = canEdit && !canEditAll && !showAdminActions;
+  const showEditForm = ownerEditingPending || (canEdit && adminEditMode);
 
   const initialValues = {
     id: vendorPayment.id as string,
@@ -80,7 +85,7 @@ function VendorPaymentDetailRouteComponent() {
               <h1 className="font-display font-semibold text-2xl tracking-tight">
                 Edit Vendor Payment
               </h1>
-              {showAdminActions ? (
+              {canEdit && !ownerEditingPending ? (
                 <Button
                   onClick={() => setAdminEditMode(false)}
                   type="button"
@@ -107,7 +112,7 @@ function VendorPaymentDetailRouteComponent() {
           </>
         ) : (
           <>
-            {showAdminActions ? (
+            {canEdit ? (
               <div className="mb-4 flex justify-end">
                 <Button
                   onClick={() => setAdminEditMode(true)}

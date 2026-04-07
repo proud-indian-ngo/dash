@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { useApp } from "@/context/app-context";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -166,6 +167,8 @@ export function VendorPaymentInvoiceSection({
   status,
 }: VendorPaymentInvoiceSectionProps) {
   const zero = useZero();
+  const { hasPermission } = useApp();
+  const canEditAll = hasPermission("requests.edit_all");
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
   const [invoiceApproveOpen, setInvoiceApproveOpen] = useState(false);
   const [invoiceRejectOpen, setInvoiceRejectOpen] = useState(false);
@@ -209,12 +212,14 @@ export function VendorPaymentInvoiceSection({
 
   const wasRejected =
     Boolean(request.invoiceRejectionReason) && status === "paid";
-  const showUploadButton = status === "paid" && (isOwner || canApprove);
-  const showEditButton = status === "invoice_pending" && isOwner;
-  const showApproveRejectActions = canApprove && status === "invoice_pending";
   const hasInvoiceDetails = Boolean(
     request.invoiceNumber || request.invoiceDate
   );
+  const showUploadButton = status === "paid" && (isOwner || canApprove);
+  const showEditButton =
+    (status === "invoice_pending" && isOwner) ||
+    (canEditAll && hasInvoiceDetails);
+  const showApproveRejectActions = canApprove && status === "invoice_pending";
   const showEmptyState = invoiceAttachments.length === 0 && status === "paid";
 
   return (
@@ -300,7 +305,7 @@ export function VendorPaymentInvoiceSection({
               }
             : undefined
         }
-        mode={status === "invoice_pending" ? "edit" : "submit"}
+        mode={showEditButton && hasInvoiceDetails ? "edit" : "submit"}
         onOpenChange={setInvoiceFormOpen}
         open={invoiceFormOpen}
         vendorPaymentId={request.id as string}

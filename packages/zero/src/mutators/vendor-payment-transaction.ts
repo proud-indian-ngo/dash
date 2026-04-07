@@ -34,7 +34,7 @@ const createSchema = z.object({
 
 const fk = (id: string) => ({ vendorPaymentTransactionId: id });
 
-async function recalculateParentStatus(
+export async function recalculateParentStatus(
   // biome-ignore lint/suspicious/noExplicitAny: tx type is complex and varies by context
   tx: any,
   vendorPaymentId: string,
@@ -208,16 +208,25 @@ export const vendorPaymentTransactionMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const userId = ctx.userId;
+      const hasEditAll = can(ctx, "requests.edit_all");
       const entity = await tx.run(
         zql.vendorPaymentTransaction.where("id", args.id).one()
       );
       assertEntityExists(entity, "Transaction");
-      assertCanModify(
-        entity,
-        userId,
-        can(ctx, "requests.edit_all"),
-        "transaction"
+
+      // Block edits when parent VP invoice is locked (applies to all users)
+      const parentVp = await tx.run(
+        zql.vendorPayment.where("id", entity.vendorPaymentId as string).one()
       );
+      if (parentVp && INVOICE_LOCKED_STATUSES.has(parentVp.status as string)) {
+        throw new Error(
+          "Cannot edit transaction while invoice is pending or completed"
+        );
+      }
+
+      if (!hasEditAll) {
+        assertCanModify(entity, userId, false, "transaction");
+      }
 
       const now = Date.now();
 
@@ -254,6 +263,15 @@ export const vendorPaymentTransactionMutators = {
         ...buildHistoryInsert(userId, "updated", now),
         ...fk(args.id),
       });
+
+      // Recalculate parent VP status when an approved transaction is edited
+      if (entity.status === "approved") {
+        await recalculateParentStatus(
+          tx,
+          entity.vendorPaymentId as string,
+          now
+        );
+      }
     }
   ),
 
@@ -415,8 +433,17 @@ export const vendorPaymentTransactionMutators = {
         zql.vendorPaymentTransaction.where("id", args.id).one()
       );
       assertEntityExists(entity, "Transaction");
-      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
       const vpId = entity.vendorPaymentId as string;
+
+      // Block deletion when parent VP invoice is locked (applies to all users)
+      const parentVp = await tx.run(zql.vendorPayment.where("id", vpId).one());
+      if (parentVp && INVOICE_LOCKED_STATUSES.has(parentVp.status as string)) {
+        throw new Error(
+          "Cannot delete transaction while invoice is pending or completed"
+        );
+      }
+
+      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
 
       // Delete attachments
       const attachments = await tx.run(

@@ -34,27 +34,45 @@ const transactionFormSchema = z.object({
   attachments: z.array(attachmentSchema),
 });
 
+export interface TransactionFormValues {
+  amount: string;
+  attachments: Attachment[];
+  description: string;
+  paymentMethod: string;
+  paymentReference: string;
+  transactionDate: Date;
+}
+
 interface TransactionFormDialogProps {
   canApprove: boolean;
+  initialValues?: TransactionFormValues;
+  mode?: "create" | "edit";
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  transactionId?: string;
   vendorPaymentId: string;
 }
 
 function TransactionFormContent({
   canApprove,
+  initialValues,
+  mode,
   onOpenChange,
+  transactionId,
   vendorPaymentId,
 }: {
   canApprove: boolean;
+  initialValues?: TransactionFormValues;
+  mode: "create" | "edit";
   onOpenChange: (open: boolean) => void;
+  transactionId?: string;
   vendorPaymentId: string;
 }) {
   const zero = useZero();
-  const entityId = uuidv7();
+  const entityId = mode === "edit" && transactionId ? transactionId : uuidv7();
 
   const form = useForm({
-    defaultValues: {
+    defaultValues: initialValues ?? {
       amount: "",
       description: "",
       transactionDate: new Date(),
@@ -66,28 +84,53 @@ function TransactionFormContent({
       const parsed = transactionFormSchema.parse(value);
       const amount = Number(parsed.amount);
 
-      const res = await zero.mutate(
-        mutators.vendorPaymentTransaction.create({
-          id: entityId,
-          vendorPaymentId,
-          amount,
-          description: parsed.description || undefined,
-          transactionDate: parsed.transactionDate.getTime(),
-          paymentMethod: parsed.paymentMethod || undefined,
-          paymentReference: parsed.paymentReference || undefined,
-          attachments: parsed.attachments,
-        })
-      ).server;
+      if (mode === "edit" && transactionId) {
+        const res = await zero.mutate(
+          mutators.vendorPaymentTransaction.update({
+            id: transactionId,
+            amount,
+            description: parsed.description || undefined,
+            transactionDate: parsed.transactionDate.getTime(),
+            paymentMethod: parsed.paymentMethod || undefined,
+            paymentReference: parsed.paymentReference || undefined,
+            attachments: parsed.attachments,
+          })
+        ).server;
 
-      handleMutationResult(res, {
-        mutation: "vendorPaymentTransaction.create",
-        entityId,
-        successMsg: "Payment recorded",
-        errorMsg: "Failed to record payment",
-      });
+        handleMutationResult(res, {
+          mutation: "vendorPaymentTransaction.update",
+          entityId: transactionId,
+          successMsg: "Payment updated",
+          errorMsg: "Failed to update payment",
+        });
 
-      if (res.type !== "error") {
-        onOpenChange(false);
+        if (res.type !== "error") {
+          onOpenChange(false);
+        }
+      } else {
+        const res = await zero.mutate(
+          mutators.vendorPaymentTransaction.create({
+            id: entityId,
+            vendorPaymentId,
+            amount,
+            description: parsed.description || undefined,
+            transactionDate: parsed.transactionDate.getTime(),
+            paymentMethod: parsed.paymentMethod || undefined,
+            paymentReference: parsed.paymentReference || undefined,
+            attachments: parsed.attachments,
+          })
+        ).server;
+
+        handleMutationResult(res, {
+          mutation: "vendorPaymentTransaction.create",
+          entityId,
+          successMsg: "Payment recorded",
+          errorMsg: "Failed to record payment",
+        });
+
+        if (res.type !== "error") {
+          onOpenChange(false);
+        }
       }
     },
     validators: {
@@ -95,6 +138,17 @@ function TransactionFormContent({
       onSubmit: transactionFormSchema,
     },
   });
+
+  const isEdit = mode === "edit";
+  let submitLabel = "Request Payment";
+  let submittingLabel = "Requesting...";
+  if (isEdit) {
+    submitLabel = "Update Payment";
+    submittingLabel = "Updating...";
+  } else if (canApprove) {
+    submitLabel = "Record Payment";
+    submittingLabel = "Recording...";
+  }
 
   return (
     <FormLayout form={form}>
@@ -123,8 +177,8 @@ function TransactionFormContent({
       <FormActions
         cancelLabel="Cancel"
         onCancel={() => onOpenChange(false)}
-        submitLabel={canApprove ? "Record Payment" : "Request Payment"}
-        submittingLabel={canApprove ? "Recording..." : "Requesting..."}
+        submitLabel={submitLabel}
+        submittingLabel={submittingLabel}
       />
     </FormLayout>
   );
@@ -132,8 +186,11 @@ function TransactionFormContent({
 
 export function TransactionFormDialog({
   canApprove,
+  initialValues,
+  mode = "create",
   onOpenChange,
   open,
+  transactionId,
   vendorPaymentId,
 }: TransactionFormDialogProps) {
   const [formKey, setFormKey] = useState(0);
@@ -145,23 +202,32 @@ export function TransactionFormDialog({
     onOpenChange(nextOpen);
   };
 
+  const isEdit = mode === "edit";
+  let title = "Request Payment";
+  let description =
+    "Request a payment against this vendor payment. An approver will record the payment details.";
+  if (isEdit) {
+    title = "Edit Payment";
+    description = "Update this payment record.";
+  } else if (canApprove) {
+    title = "Record Payment";
+    description = "Record a payment made against this vendor payment.";
+  }
+
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {canApprove ? "Record Payment" : "Request Payment"}
-          </DialogTitle>
-          <DialogDescription>
-            {canApprove
-              ? "Record a payment made against this vendor payment."
-              : "Request a payment against this vendor payment. An approver will record the payment details."}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <TransactionFormContent
           canApprove={canApprove}
+          initialValues={initialValues}
           key={formKey}
+          mode={mode}
           onOpenChange={onOpenChange}
+          transactionId={transactionId}
           vendorPaymentId={vendorPaymentId}
         />
       </DialogContent>

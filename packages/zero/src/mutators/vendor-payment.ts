@@ -7,7 +7,10 @@ import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
-import { INVOICE_UPLOADABLE_STATUSES } from "../vendor-payment-constants";
+import {
+  INVOICE_LOCKED_STATUSES,
+  INVOICE_UPLOADABLE_STATUSES,
+} from "../vendor-payment-constants";
 import {
   assertCanDelete,
   assertCanModify,
@@ -20,6 +23,7 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
+import { recalculateParentStatus } from "./vendor-payment-transaction";
 
 const createSchema = z.object({
   id: z.string(),
@@ -110,14 +114,16 @@ export const vendorPaymentMutators = {
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const userId = ctx.userId;
+    const hasEditAll = can(ctx, "requests.edit_all");
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
-    assertCanModify(
-      entity,
-      userId,
-      can(ctx, "requests.edit_all"),
-      "vendor payment"
-    );
+    if (!hasEditAll) {
+      assertCanModify(entity, userId, false, "vendor payment");
+    } else if (INVOICE_LOCKED_STATUSES.has(entity.status as string)) {
+      throw new Error(
+        "Cannot edit vendor payment details while invoice is pending or completed"
+      );
+    }
 
     const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
     if (!vendor) {
@@ -163,6 +169,11 @@ export const vendorPaymentMutators = {
           tx.mutate.vendorPaymentAttachment.delete(data),
       }
     );
+
+    // Recalculate payment status when admin edits line items on a non-pending VP
+    if (hasEditAll && entity.status !== "pending") {
+      await recalculateParentStatus(tx, args.id, now);
+    }
   }),
 
   approve: defineMutator(
@@ -486,20 +497,28 @@ export const vendorPaymentMutators = {
       }
 
       const status = entity.status as string;
-      if (status !== "paid" && status !== "invoice_pending") {
+      const invoiceEditableStatuses = canEditAll
+        ? new Set(["paid", "invoice_pending", "completed"])
+        : new Set(["paid", "invoice_pending"]);
+      if (!invoiceEditableStatuses.has(status)) {
         throw new Error(
-          "Invoice can only be edited in paid or invoice_pending status"
+          "Invoice can only be edited in paid, invoice_pending, or completed status"
         );
       }
 
       const now = Date.now();
+
+      // Admin editing a completed invoice keeps the status;
+      // non-admin or non-completed resets to invoice_pending for re-approval
+      const newStatus =
+        canEditAll && status === "completed" ? "completed" : "invoice_pending";
 
       await tx.mutate.vendorPayment.update({
         id: args.id,
         invoiceNumber: args.invoiceNumber,
         invoiceDate: args.invoiceDate,
         invoiceRejectionReason: null,
-        status: "invoice_pending",
+        status: newStatus,
         updatedAt: now,
       });
 
