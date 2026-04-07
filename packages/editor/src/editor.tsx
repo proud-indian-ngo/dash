@@ -1,7 +1,10 @@
 "use client";
 
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { ALLOWED_IMAGE_TYPES } from "@pi-dash/shared/constants";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import { CaptionPlugin } from "@platejs/caption/react";
 import { ImagePlugin } from "@platejs/media/react";
 import { log } from "evlog";
@@ -14,15 +17,14 @@ import {
   UnderlineIcon,
 } from "lucide-react";
 import type { TImageElement, Value } from "platejs";
-import { KEYS } from "platejs";
-import { Plate, usePlateEditor } from "platejs/react";
-import { type ChangeEvent, type MouseEvent, useEffect, useRef } from "react";
+import { ExitBreakPlugin, KEYS, TrailingBlockPlugin } from "platejs";
+import { Plate, useEditorSelector, usePlateEditor } from "platejs/react";
+import { type ChangeEvent, type MouseEvent, useRef } from "react";
 import { toast } from "sonner";
 import { AutoformatKit } from "../components/editor/plugins/autoformat-classic-kit";
 import { BasicBlocksKit } from "../components/editor/plugins/basic-blocks-kit";
 import { BasicMarksKit } from "../components/editor/plugins/basic-marks-kit";
 import { CodeBlockKit } from "../components/editor/plugins/code-block-kit";
-import { DndKit } from "../components/editor/plugins/dnd-kit";
 import { EmojiKit } from "../components/editor/plugins/emoji-kit";
 import { IndentKit } from "../components/editor/plugins/indent-kit";
 import { LinkKit } from "../components/editor/plugins/link-kit";
@@ -52,13 +54,16 @@ import { ToggleToolbarButton } from "../components/ui/toggle-toolbar-button";
 import { ToolbarButton, ToolbarGroup } from "../components/ui/toolbar";
 import { TurnIntoToolbarButton } from "../components/ui/turn-into-toolbar-button";
 
-const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
-
 function safeParse(json: string): Value | undefined {
   try {
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : undefined;
-  } catch {
+  } catch (error) {
+    log.warn({
+      component: "PlateEditor",
+      action: "parseContent",
+      error: error instanceof Error ? error.message : String(error),
+    });
     return undefined;
   }
 }
@@ -76,11 +81,12 @@ const editorPlugins = [
   ...TableKit,
   ...MentionKit,
   ...SlashKit,
-  ...DndKit,
   ...IndentKit,
   ...ToggleKit,
   ...EmojiKit,
   ...AutoformatKit,
+  ExitBreakPlugin,
+  TrailingBlockPlugin,
 ];
 
 export interface EditorProps {
@@ -103,12 +109,6 @@ export function PlateEditor({
   className,
 }: EditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   const editor = usePlateEditor({
     plugins: editorPlugins,
@@ -126,7 +126,9 @@ export function PlateEditor({
     }
 
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      toast.error("Image must be smaller than 10 MB.");
+      toast.error(
+        `Image must be smaller than ${Math.round(MAX_IMAGE_SIZE_BYTES / 1024 / 1024)} MB.`
+      );
       return;
     }
 
@@ -138,16 +140,16 @@ export function PlateEditor({
     try {
       const result = await onImageUpload(file);
 
-      if (!mountedRef.current) {
-        return;
-      }
-
       if (!result) {
         toast.error("Failed to upload image. Please try again.");
         return;
       }
 
       editor.tf.focus();
+
+      if (!editor.selection) {
+        editor.tf.select(editor.api.end([]));
+      }
 
       const imageNode: TImageElement = {
         type: "img",
@@ -156,9 +158,6 @@ export function PlateEditor({
       };
       editor.tf.insertNodes(imageNode);
     } catch (error) {
-      if (!mountedRef.current) {
-        return;
-      }
       log.error({
         component: "PlateEditor",
         action: "imageUpload",
@@ -182,6 +181,7 @@ export function PlateEditor({
       return;
     }
     onSave(JSON.stringify(children));
+    editor.tf.reset();
   }
 
   const preventToolbarFocus = (e: MouseEvent) => e.preventDefault();
@@ -238,9 +238,6 @@ export function PlateEditor({
               <LinkToolbarButton />
               <TableToolbarButton />
               <EmojiToolbarButton />
-            </ToolbarGroup>
-
-            <ToolbarGroup>
               {onImageUpload && (
                 <>
                   <ToolbarButton
@@ -275,24 +272,45 @@ export function PlateEditor({
             />
           </EditorContainer>
         </div>
-      </Plate>
 
-      <div className="mt-2 flex gap-2">
-        <Button disabled={saving} onClick={handleSave} size="sm" type="button">
-          {saving ? "Saving…" : "Save"}
+        <SaveBar onCancel={onCancel} onSave={handleSave} saving={saving} />
+      </Plate>
+    </div>
+  );
+}
+
+function SaveBar({
+  onCancel,
+  onSave,
+  saving,
+}: {
+  onCancel?: () => void;
+  onSave: () => void;
+  saving?: boolean;
+}) {
+  const empty = useEditorSelector((editor) => editor.api.isEmpty(), []);
+
+  return (
+    <div className="mt-2 flex gap-2">
+      <Button
+        disabled={saving || empty}
+        onClick={onSave}
+        size="sm"
+        type="button"
+      >
+        {saving ? "Saving…" : "Save"}
+      </Button>
+      {onCancel && (
+        <Button
+          disabled={saving}
+          onClick={onCancel}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Cancel
         </Button>
-        {onCancel && (
-          <Button
-            disabled={saving}
-            onClick={onCancel}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Cancel
-          </Button>
-        )}
-      </div>
+      )}
     </div>
   );
 }

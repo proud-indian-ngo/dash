@@ -3,8 +3,8 @@
 import { Button, buttonVariants } from "@pi-dash/components/ui/button";
 import {
   Popover,
-  PopoverAnchor,
   PopoverContent,
+  PopoverTrigger,
 } from "@pi-dash/components/ui/popover";
 import { Separator } from "@pi-dash/components/ui/separator";
 import {
@@ -69,7 +69,7 @@ export function MediaToolbar({
 
   return (
     <Popover modal={false} open={open}>
-      <PopoverAnchor>{children}</PopoverAnchor>
+      <PopoverTrigger render={<div />}>{children}</PopoverTrigger>
 
       <PopoverContent className="w-auto p-1">
         {isEditing ? (

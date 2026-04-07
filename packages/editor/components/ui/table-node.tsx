@@ -16,12 +16,7 @@ import {
   PopoverContent,
 } from "@pi-dash/components/ui/popover";
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { useDraggable, useDropLine } from "@platejs/dnd";
 import { resizeLengthClampStatic } from "@platejs/resizable";
-import {
-  BlockSelectionPlugin,
-  useBlockSelected,
-} from "@platejs/selection/react";
 import {
   getTableColumnCount,
   setCellBackground,
@@ -61,8 +56,6 @@ import {
 } from "lucide-react";
 import {
   KEYS,
-  PathApi,
-  type TElement,
   type TTableCellElement,
   type TTableElement,
   type TTableRowElement,
@@ -77,7 +70,6 @@ import {
   useElement,
   useElementSelector,
   useFocusedLast,
-  usePluginOption,
   useReadOnly,
   useRemoveNodeButton,
   useSelected,
@@ -632,10 +624,7 @@ export const TableElement = withHOC(
     ...props
   }: PlateElementProps<TTableElement>) {
     const readOnly = useReadOnly();
-    const isSelectionAreaVisible = usePluginOption(
-      BlockSelectionPlugin,
-      "isSelectionAreaVisible"
-    );
+    const isSelectionAreaVisible = false;
     const hasControls = !(readOnly || isSelectionAreaVisible);
     const { marginLeft, props: tableProps } = useTableElement();
     const colSizes = useTableColSizes();
@@ -696,7 +685,7 @@ export const TableElement = withHOC(
       [controlColumnWidth, resolvedColSizes]
     );
 
-    const isSelectingTable = useBlockSelected(props.element.id as string);
+    const isSelectingTable = false;
 
     const content = (
       <PlateElement
@@ -1162,9 +1151,7 @@ export function TableRowElement({
   children,
   ...props
 }: PlateElementProps<TTableRowElement>) {
-  const { element } = props;
   const readOnly = useReadOnly();
-  const editor = useEditorRef();
   const rowIndex = useElementSelector(([, path]) => path.at(-1) as number, [], {
     key: KEYS.tr,
   });
@@ -1177,35 +1164,19 @@ export function TableRowElement({
   );
   const rowSizeOverrides = useTableValue("rowSizeOverrides");
   const rowMinHeight = rowSizeOverrides.get?.(rowIndex) ?? rowSize;
-  const isSelectionAreaVisible = usePluginOption(
-    BlockSelectionPlugin,
-    "isSelectionAreaVisible"
-  );
+  const isSelectionAreaVisible = false;
   const hasControls = !(readOnly || isSelectionAreaVisible);
 
-  const { isDragging, nodeRef, previewRef, handleRef } = useDraggable({
-    element,
-    type: element.type,
-    canDropNode: ({ dragEntry, dropEntry }) =>
-      PathApi.equals(
-        PathApi.parent(dragEntry[1]),
-        PathApi.parent(dropEntry[1])
-      ),
-    onDropHandler: (_, { dragItem }) => {
-      const dragElement = (dragItem as { element: TElement }).element;
-
-      if (dragElement) {
-        editor.tf.select(dragElement);
-      }
-    },
-  });
+  const isDragging = false;
+  const nodeRef = React.useRef<HTMLTableRowElement>(null);
+  const handleRef = React.useRef(null);
 
   return (
     <PlateElement
       {...props}
       as="tr"
       className={cn("group/row", isDragging && "opacity-50")}
-      ref={useComposedRef(props.ref, previewRef, nodeRef)}
+      ref={useComposedRef(props.ref, nodeRef)}
       style={
         {
           ...props.style,
@@ -1277,20 +1248,7 @@ function RowDragHandle({ dragRef }: { dragRef: React.Ref<any> }) {
 }
 
 function RowDropLine() {
-  const { dropLine } = useDropLine();
-
-  if (!dropLine) {
-    return null;
-  }
-
-  return (
-    <div
-      className={cn(
-        "absolute inset-x-0 left-2 z-50 h-0.5 bg-brand/50",
-        dropLine === "top" ? "-top-px" : "-bottom-px"
-      )}
-    />
-  );
+  return null;
 }
 
 export function TableCellElement({
@@ -1302,18 +1260,8 @@ export function TableCellElement({
   const readOnly = useReadOnly();
   const element = props.element;
 
-  const tableId = useElementSelector(([node]) => node.id as string, [], {
-    key: KEYS.table,
-  });
-  const rowId = useElementSelector(([node]) => node.id as string, [], {
-    key: KEYS.tr,
-  });
-  const isSelectingTable = useBlockSelected(tableId);
-  const isSelectingRow = useBlockSelected(rowId) || isSelectingTable;
-  const isSelectionAreaVisible = usePluginOption(
-    BlockSelectionPlugin,
-    "isSelectionAreaVisible"
-  );
+  const isSelectingRow = false;
+  const isSelectionAreaVisible = false;
 
   const { borders, colIndex, colSpan, rowIndex, rowSpan, width } =
     useTableCellPresentation(element);

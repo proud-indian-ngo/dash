@@ -1,6 +1,5 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -8,6 +7,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import { log } from "evlog";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import {
+  EditorSkeleton,
+  RendererSkeleton,
+} from "@/components/editor/editor-skeletons";
 import { getMyEventFeedback } from "@/functions/event-feedback";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -137,7 +140,7 @@ function EventFeedbackAdmin({
                   ) : null}
                 </div>
               </div>
-              <Suspense>
+              <Suspense fallback={<RendererSkeleton />}>
                 <PlateRenderer content={item.content} />
               </Suspense>
             </div>
@@ -395,38 +398,6 @@ function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
         })}
         {isEdited ? " (edited)" : ""}
       </span>
-    </div>
-  );
-}
-
-function EditorSkeleton() {
-  return (
-    <div className="border">
-      <div className="flex gap-1 border-b p-1">
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-      </div>
-      <div className="space-y-2 p-4">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-    </div>
-  );
-}
-
-function RendererSkeleton() {
-  return (
-    <div className="space-y-2 py-1">
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-1/2" />
     </div>
   );
 }

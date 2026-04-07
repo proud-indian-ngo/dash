@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -16,6 +15,10 @@ import { log } from "evlog";
 import { lazy, Suspense, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+import {
+  EditorSkeleton,
+  RendererSkeleton,
+} from "@/components/editor/editor-skeletons";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -253,38 +256,6 @@ export function EventUpdates({
         open={deleteAction.isOpen}
         title="Delete update"
       />
-    </div>
-  );
-}
-
-function EditorSkeleton() {
-  return (
-    <div className="border">
-      <div className="flex gap-1 border-b p-1">
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
-      </div>
-      <div className="space-y-2 p-4">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-    </div>
-  );
-}
-
-function RendererSkeleton() {
-  return (
-    <div className="space-y-2 py-1">
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-1/2" />
     </div>
   );
 }

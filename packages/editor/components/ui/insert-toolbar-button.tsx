@@ -172,7 +172,7 @@ export function InsertToolbarButton() {
       />
 
       <DropdownMenuContent
-        className="flex max-h-[500px] min-w-0 flex-col overflow-y-auto"
+        className="flex max-h-[500px] min-w-[180px] flex-col overflow-y-auto"
         align="start"
       >
         {groups.map(({ group, items: nestedItems }) => (

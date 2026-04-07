@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  BlockquotePlugin,
-  BoldPlugin,
-  H1Plugin,
-  H2Plugin,
-  H3Plugin,
-  ItalicPlugin,
-  UnderlinePlugin,
-} from "@platejs/basic-nodes/react";
-import { getLinkAttributes } from "@platejs/link";
-import { LinkPlugin } from "@platejs/link/react";
+import { CaptionPlugin } from "@platejs/caption/react";
 import {
   BulletedListPlugin,
   ListItemContentPlugin,
@@ -20,31 +10,27 @@ import {
 } from "@platejs/list-classic/react";
 import { Image, ImagePlugin } from "@platejs/media/react";
 import { log } from "evlog";
-import type { TImageElement, TLinkElement, Value } from "platejs";
+import type { TImageElement, Value } from "platejs";
+import { KEYS } from "platejs";
 import type { PlateElementProps } from "platejs/react";
 import {
-  ParagraphPlugin,
   Plate,
   PlateContent,
   PlateElement,
   usePlateEditor,
 } from "platejs/react";
-
-function LinkElement(props: PlateElementProps<TLinkElement>) {
-  return (
-    <PlateElement
-      {...props}
-      as="a"
-      attributes={{
-        ...props.attributes,
-        ...getLinkAttributes(props.editor, props.element),
-      }}
-      className="font-medium text-primary underline decoration-primary underline-offset-4"
-    >
-      {props.children}
-    </PlateElement>
-  );
-}
+import { BasicBlocksKit } from "../components/editor/plugins/basic-blocks-kit";
+import { BasicMarksKit } from "../components/editor/plugins/basic-marks-kit";
+import { CodeBlockKit } from "../components/editor/plugins/code-block-kit";
+import { LinkKit } from "../components/editor/plugins/link-kit";
+import { MentionKit } from "../components/editor/plugins/mention-kit";
+import { TableKit } from "../components/editor/plugins/table-kit";
+import { ToggleKit } from "../components/editor/plugins/toggle-kit";
+import {
+  BulletedListElement,
+  ListItemElement,
+  NumberedListElement,
+} from "../components/ui/list-classic-node";
 
 function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
   const { align = "center" } = props.element;
@@ -65,7 +51,7 @@ function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
         style={width ? { width } : undefined}
       >
         <Image
-          alt=""
+          alt={captionText || "Image"}
           className="block w-full max-w-full rounded-sm object-cover"
         />
         {captionText && (
@@ -80,23 +66,26 @@ function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
 }
 
 const rendererPlugins = [
-  ParagraphPlugin,
-  H1Plugin,
-  H2Plugin,
-  H3Plugin,
-  BoldPlugin,
-  ItalicPlugin,
-  UnderlinePlugin,
-  BlockquotePlugin,
-  LinkPlugin.configure({
-    render: { node: LinkElement },
-  }),
-  ListPlugin,
-  BulletedListPlugin,
-  NumberedListPlugin,
-  ListItemPlugin,
-  ListItemContentPlugin,
+  ...BasicBlocksKit,
+  ...BasicMarksKit,
+  ...LinkKit,
   ImagePlugin.withComponent(ReadOnlyImageElement),
+  CaptionPlugin.configure({
+    options: { query: { allow: [KEYS.img] } },
+  }),
+  ...CodeBlockKit,
+  ...TableKit,
+  ...MentionKit,
+  ...ToggleKit,
+  ListPlugin,
+  ListItemContentPlugin,
+  BulletedListPlugin.configure({
+    node: { component: BulletedListElement },
+  }),
+  NumberedListPlugin.configure({
+    node: { component: NumberedListElement },
+  }),
+  ListItemPlugin.withComponent(ListItemElement),
 ];
 
 export interface RendererProps {

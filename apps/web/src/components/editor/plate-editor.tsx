@@ -2,10 +2,7 @@ import type { EditorProps } from "@pi-dash/editor/editor";
 
 import { PlateEditor as BaseEditor } from "@pi-dash/editor/editor";
 import { env } from "@pi-dash/env/web";
-import {
-  ALLOWED_IMAGE_TYPES,
-  type AllowedImageMimeType,
-} from "@pi-dash/shared/constants";
+import type { AllowedImageMimeType } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { toast } from "sonner";
 
@@ -24,11 +21,6 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
   async function onImageUpload(
     file: File
   ): Promise<{ url: string } | undefined> {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as AllowedImageMimeType)) {
-      toast.error("Only JPEG, PNG, GIF, and WebP images are allowed.");
-      return undefined;
-    }
-
     try {
       const { key, presignedUrl } = await getPresignedUploadUrl({
         data: {
