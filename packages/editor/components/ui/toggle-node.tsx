@@ -2,7 +2,8 @@
 
 import { Button } from "@pi-dash/components/ui/button";
 import { useToggleButton, useToggleButtonState } from "@platejs/toggle/react";
-import { ChevronRight } from "lucide-react";
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { PlateElementProps } from "platejs/react";
 import { PlateElement } from "platejs/react";
 
@@ -20,7 +21,8 @@ export function ToggleElement(props: PlateElementProps) {
         variant="ghost"
         {...buttonProps}
       >
-        <ChevronRight
+        <HugeiconsIcon
+          icon={ArrowRight01Icon}
           className={
             open
               ? "rotate-90 transition-transform duration-75"

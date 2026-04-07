@@ -1,8 +1,8 @@
 "use client";
 
-import type { LucideProps } from "lucide-react";
+type IconProps = React.SVGProps<SVGSVGElement>;
 
-export function BorderAllIcon(props: LucideProps) {
+export function BorderAllIcon(props: IconProps) {
   return (
     <svg
       fill="none"
@@ -32,7 +32,7 @@ export function BorderAllIcon(props: LucideProps) {
   );
 }
 
-export function BorderBottomIcon(props: LucideProps) {
+export function BorderBottomIcon(props: IconProps) {
   return (
     <svg
       fill="none"
@@ -79,7 +79,7 @@ export function BorderBottomIcon(props: LucideProps) {
   );
 }
 
-export function BorderLeftIcon(props: LucideProps) {
+export function BorderLeftIcon(props: IconProps) {
   return (
     <svg
       fill="none"
@@ -334,7 +334,7 @@ export function BorderLeftIcon(props: LucideProps) {
   );
 }
 
-export function BorderNoneIcon(props: LucideProps) {
+export function BorderNoneIcon(props: IconProps) {
   return (
     <svg
       fill="none"
@@ -403,7 +403,7 @@ export function BorderNoneIcon(props: LucideProps) {
   );
 }
 
-export function BorderRightIcon(props: LucideProps) {
+export function BorderRightIcon(props: IconProps) {
   return (
     <svg
       fill="none"
@@ -606,7 +606,7 @@ export function BorderRightIcon(props: LucideProps) {
   );
 }
 
-export function BorderTopIcon(props: LucideProps) {
+export function BorderTopIcon(props: IconProps) {
   return (
     <svg
       fill="none"

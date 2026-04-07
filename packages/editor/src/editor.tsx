@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  Image01Icon,
+  SourceCodeIcon,
+  TextBoldIcon,
+  TextItalicIcon,
+  TextStrikethroughIcon,
+  TextUnderlineIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -8,14 +17,6 @@ import {
 import { CaptionPlugin } from "@platejs/caption/react";
 import { ImagePlugin } from "@platejs/media/react";
 import { log } from "evlog";
-import {
-  BoldIcon,
-  Code2Icon,
-  ImageIcon,
-  ItalicIcon,
-  StrikethroughIcon,
-  UnderlineIcon,
-} from "lucide-react";
 import type { TImageElement, Value } from "platejs";
 import { ExitBreakPlugin, KEYS, TrailingBlockPlugin } from "platejs";
 import { Plate, useEditorSelector, usePlateEditor } from "platejs/react";
@@ -206,25 +207,25 @@ export function PlateEditor({
 
             <ToolbarGroup>
               <MarkToolbarButton nodeType={KEYS.bold} tooltip="Bold (⌘+B)">
-                <BoldIcon />
+                <HugeiconsIcon icon={TextBoldIcon} />
               </MarkToolbarButton>
               <MarkToolbarButton nodeType={KEYS.italic} tooltip="Italic (⌘+I)">
-                <ItalicIcon />
+                <HugeiconsIcon icon={TextItalicIcon} />
               </MarkToolbarButton>
               <MarkToolbarButton
                 nodeType={KEYS.underline}
                 tooltip="Underline (⌘+U)"
               >
-                <UnderlineIcon />
+                <HugeiconsIcon icon={TextUnderlineIcon} />
               </MarkToolbarButton>
               <MarkToolbarButton
                 nodeType={KEYS.strikethrough}
                 tooltip="Strikethrough (⌘+⇧+M)"
               >
-                <StrikethroughIcon />
+                <HugeiconsIcon icon={TextStrikethroughIcon} />
               </MarkToolbarButton>
               <MarkToolbarButton nodeType={KEYS.code} tooltip="Code (⌘+E)">
-                <Code2Icon />
+                <HugeiconsIcon icon={SourceCodeIcon} />
               </MarkToolbarButton>
             </ToolbarGroup>
 
@@ -245,7 +246,7 @@ export function PlateEditor({
                     onMouseDown={preventToolbarFocus}
                     tooltip="Upload image"
                   >
-                    <ImageIcon />
+                    <HugeiconsIcon icon={Image01Icon} />
                   </ToolbarButton>
                   <input
                     accept="image/jpeg,image/png,image/gif,image/webp"

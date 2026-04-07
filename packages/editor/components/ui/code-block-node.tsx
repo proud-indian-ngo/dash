@@ -16,7 +16,8 @@ import {
 } from "@pi-dash/components/ui/popover";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { formatCodeBlock, isLangSupported } from "@platejs/code-block";
-import { BracesIcon, Check, CheckIcon, CopyIcon } from "lucide-react";
+import { Copy01Icon, SourceCodeSquareIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { NodeApi, type TCodeBlockElement, type TCodeSyntaxLeaf } from "platejs";
 import {
   PlateElement,
@@ -54,7 +55,7 @@ export function CodeBlockElement(props: PlateElementProps<TCodeBlockElement>) {
               title="Format code"
               variant="ghost"
             >
-              <BracesIcon className="!size-3.5 text-muted-foreground" />
+              <HugeiconsIcon icon={SourceCodeSquareIcon} className="!size-3.5 text-muted-foreground" />
             </Button>
           )}
 
@@ -136,7 +137,8 @@ function CodeBlockCombobox() {
                   }}
                   value={language.value}
                 >
-                  <Check
+                  <HugeiconsIcon
+                    icon={Tick02Icon}
                     className={cn(
                       value === language.value ? "opacity-100" : "opacity-0"
                     )}
@@ -179,9 +181,9 @@ function CopyButton({
     >
       <span className="sr-only">Copy</span>
       {hasCopied ? (
-        <CheckIcon className="!size-3" />
+        <HugeiconsIcon icon={Tick02Icon} className="!size-3" />
       ) : (
-        <CopyIcon className="!size-3" />
+        <HugeiconsIcon icon={Copy01Icon} className="!size-3" />
       )}
     </Button>
   );

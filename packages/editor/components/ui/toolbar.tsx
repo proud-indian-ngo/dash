@@ -15,7 +15,8 @@ import {
 import { cn } from "@pi-dash/design-system/lib/utils";
 import * as ToolbarPrimitive from "@radix-ui/react-toolbar";
 import { cva, type VariantProps } from "class-variance-authority";
-import { ChevronDown } from "lucide-react";
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import * as React from "react";
 
 export function Toolbar({
@@ -152,7 +153,8 @@ export const ToolbarButton = withTooltip(function ToolbarButton({
               {children}
             </div>
             <div>
-              <ChevronDown
+              <HugeiconsIcon
+                icon={ArrowDown01Icon}
                 className="size-3.5 text-muted-foreground"
                 data-icon
               />
@@ -244,7 +246,7 @@ export function ToolbarSplitButtonSecondary({
       role="button"
       {...props}
     >
-      <ChevronDown className="size-3.5 text-muted-foreground" data-icon />
+      <HugeiconsIcon icon={ArrowDown01Icon} className="size-3.5 text-muted-foreground" data-icon />
     </span>
   );
 }

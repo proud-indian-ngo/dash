@@ -6,12 +6,13 @@ import {
   useListToolbarButtonState,
 } from "@platejs/list-classic/react";
 import {
-  IndentIcon,
-  List,
-  ListOrdered,
-  ListTodo,
-  OutdentIcon,
-} from "lucide-react";
+  CheckListIcon,
+  LeftToRightListBulletIcon,
+  LeftToRightListNumberIcon,
+  ListIndentDecreaseIcon,
+  ListIndentIncreaseIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { KEYS } from "platejs";
 import { useEditorRef } from "platejs/react";
 import type * as React from "react";
@@ -20,9 +21,9 @@ import { ToolbarButton } from "./toolbar";
 
 const nodeTypeMap: Record<string, { icon: React.JSX.Element; label: string }> =
   {
-    [KEYS.olClassic]: { icon: <ListOrdered />, label: "Numbered List" },
-    [KEYS.taskList]: { icon: <ListTodo />, label: "Task List" },
-    [KEYS.ulClassic]: { icon: <List />, label: "Bulleted List" },
+    [KEYS.olClassic]: { icon: <HugeiconsIcon icon={LeftToRightListNumberIcon} />, label: "Numbered List" },
+    [KEYS.taskList]: { icon: <HugeiconsIcon icon={CheckListIcon} />, label: "Task List" },
+    [KEYS.ulClassic]: { icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} />, label: "Bulleted List" },
   };
 
 export function ListToolbarButton({
@@ -63,7 +64,7 @@ export function IndentToolbarButton({
       }}
       tooltip={reverse ? "Outdent" : "Indent"}
     >
-      {reverse ? <OutdentIcon /> : <IndentIcon />}
+      {reverse ? <HugeiconsIcon icon={ListIndentDecreaseIcon} /> : <HugeiconsIcon icon={ListIndentIncreaseIcon} />}
     </ToolbarButton>
   );
 }

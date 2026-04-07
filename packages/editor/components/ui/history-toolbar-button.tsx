@@ -1,6 +1,7 @@
 "use client";
 
-import { Redo2Icon, Undo2Icon } from "lucide-react";
+import { ArrowTurnBackwardIcon, ArrowTurnForwardIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useEditorRef, useEditorSelector } from "platejs/react";
 
 import { ToolbarButton } from "./toolbar";
@@ -22,7 +23,7 @@ export function UndoToolbarButton(
       onMouseDown={(e) => e.preventDefault()}
       tooltip="Undo"
     >
-      <Undo2Icon />
+      <HugeiconsIcon icon={ArrowTurnBackwardIcon} />
     </ToolbarButton>
   );
 }
@@ -44,7 +45,7 @@ export function RedoToolbarButton(
       onMouseDown={(e) => e.preventDefault()}
       tooltip="Redo"
     >
-      <Redo2Icon />
+      <HugeiconsIcon icon={ArrowTurnForwardIcon} />
     </ToolbarButton>
   );
 }

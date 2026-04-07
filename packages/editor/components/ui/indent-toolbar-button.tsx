@@ -1,7 +1,8 @@
 "use client";
 
 import { useIndentButton, useOutdentButton } from "@platejs/indent/react";
-import { IndentIcon, OutdentIcon } from "lucide-react";
+import { ListIndentDecreaseIcon, ListIndentIncreaseIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 
 import { ToolbarButton } from "./toolbar";
@@ -13,7 +14,7 @@ export function IndentToolbarButton(
 
   return (
     <ToolbarButton {...props} {...buttonProps} tooltip="Indent">
-      <IndentIcon />
+      <HugeiconsIcon icon={ListIndentIncreaseIcon} />
     </ToolbarButton>
   );
 }
@@ -25,7 +26,7 @@ export function OutdentToolbarButton(
 
   return (
     <ToolbarButton {...props} {...buttonProps} tooltip="Outdent">
-      <OutdentIcon />
+      <HugeiconsIcon icon={ListIndentDecreaseIcon} />
     </ToolbarButton>
   );
 }

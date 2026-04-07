@@ -5,17 +5,18 @@ import * as React from "react";
 import type { TElement } from "platejs";
 
 import {
-  ChevronRightIcon,
-  FileCodeIcon,
-  Heading1Icon,
-  Heading2Icon,
-  Heading3Icon,
-  ListIcon,
-  ListOrderedIcon,
-  PilcrowIcon,
-  QuoteIcon,
-  SquareIcon,
-} from "lucide-react";
+  ArrowRight01Icon,
+  CheckmarkSquare01Icon,
+  Heading01Icon,
+  Heading02Icon,
+  Heading03Icon,
+  LeftToRightBlockQuoteIcon,
+  LeftToRightListBulletIcon,
+  LeftToRightListNumberIcon,
+  ParagraphIcon,
+  SourceCodeIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { KEYS } from "platejs";
 import { useEditorRef, useSelectionFragmentProp } from "platejs/react";
 
@@ -31,52 +32,52 @@ import { ToolbarButton, ToolbarMenuGroup } from "./toolbar";
 
 const turnIntoItems = [
   {
-    icon: <PilcrowIcon />,
+    icon: <HugeiconsIcon icon={ParagraphIcon} />,
     label: "Text",
     value: KEYS.p,
   },
   {
-    icon: <Heading1Icon />,
+    icon: <HugeiconsIcon icon={Heading01Icon} />,
     label: "Heading 1",
     value: "h1",
   },
   {
-    icon: <Heading2Icon />,
+    icon: <HugeiconsIcon icon={Heading02Icon} />,
     label: "Heading 2",
     value: "h2",
   },
   {
-    icon: <Heading3Icon />,
+    icon: <HugeiconsIcon icon={Heading03Icon} />,
     label: "Heading 3",
     value: "h3",
   },
   {
-    icon: <ListIcon />,
+    icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} />,
     label: "Bulleted list",
     value: KEYS.ul,
   },
   {
-    icon: <ListOrderedIcon />,
+    icon: <HugeiconsIcon icon={LeftToRightListNumberIcon} />,
     label: "Numbered list",
     value: KEYS.ol,
   },
   {
-    icon: <SquareIcon />,
+    icon: <HugeiconsIcon icon={CheckmarkSquare01Icon} />,
     label: "To-do list",
     value: KEYS.listTodo,
   },
   {
-    icon: <ChevronRightIcon />,
+    icon: <HugeiconsIcon icon={ArrowRight01Icon} />,
     label: "Toggle list",
     value: KEYS.toggle,
   },
   {
-    icon: <FileCodeIcon />,
+    icon: <HugeiconsIcon icon={SourceCodeIcon} />,
     label: "Code",
     value: KEYS.codeBlock,
   },
   {
-    icon: <QuoteIcon />,
+    icon: <HugeiconsIcon icon={LeftToRightBlockQuoteIcon} />,
     label: "Quote",
     value: KEYS.blockquote,
   },

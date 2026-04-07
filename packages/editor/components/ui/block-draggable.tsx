@@ -9,7 +9,8 @@ import {
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { DndPlugin, useDraggable, useDropLine } from "@platejs/dnd";
 import { BlockSelectionPlugin } from "@platejs/selection/react";
-import { GripVertical } from "lucide-react";
+import { DragDropVerticalIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { getPluginByType, isType, KEYS, type NodeEntry, type TElement } from "platejs";
 import {
   MemoizedChildren,
@@ -329,7 +330,7 @@ const DragHandle = React.memo(function DragHandle({
           />
         }
       >
-        <GripVertical className="text-muted-foreground" />
+        <HugeiconsIcon icon={DragDropVerticalIcon} className="text-muted-foreground" />
       </TooltipTrigger>
       <TooltipContent>Drag to move</TooltipContent>
     </Tooltip>

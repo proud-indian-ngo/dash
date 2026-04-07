@@ -29,18 +29,19 @@ import {
   PopoverTrigger,
 } from "@pi-dash/components/ui/popover";
 import {
-  AppleIcon,
-  ClockIcon,
-  CompassIcon,
-  FlagIcon,
-  LeafIcon,
-  LightbulbIcon,
-  MusicIcon,
+  Apple01Icon,
+  BulbIcon,
+  Cancel01Icon,
+  Clock01Icon,
+  Compass01Icon,
+  Flag01Icon,
+  Leaf01Icon,
+  MusicNote01Icon,
   SearchIcon,
   SmileIcon,
   StarIcon,
-  XIcon,
-} from "lucide-react";
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import * as React from "react";
 
 export function EmojiToolbarButton({
@@ -56,7 +57,7 @@ export function EmojiToolbarButton({
     <EmojiPopover
       control={
         <ToolbarButton isDropdown pressed={isOpen} tooltip="Emoji" {...props}>
-          <SmileIcon />
+          <HugeiconsIcon icon={SmileIcon} />
         </ToolbarButton>
       }
       isOpen={isOpen}
@@ -578,52 +579,52 @@ const emojiCategoryIcons: Record<
   },
 
   custom: {
-    outline: <StarIcon className="size-full" />,
-    solid: <StarIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={StarIcon} className="size-full" />,
+    solid: <HugeiconsIcon icon={StarIcon} className="size-full" />,
   },
 
   flags: {
-    outline: <FlagIcon className="size-full" />,
-    solid: <FlagIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={Flag01Icon} className="size-full" />,
+    solid: <HugeiconsIcon icon={Flag01Icon} className="size-full" />,
   },
 
   foods: {
-    outline: <AppleIcon className="size-full" />,
-    solid: <AppleIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={Apple01Icon} className="size-full" />,
+    solid: <HugeiconsIcon icon={Apple01Icon} className="size-full" />,
   },
 
   frequent: {
-    outline: <ClockIcon className="size-full" />,
-    solid: <ClockIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={Clock01Icon} className="size-full" />,
+    solid: <HugeiconsIcon icon={Clock01Icon} className="size-full" />,
   },
 
   nature: {
-    outline: <LeafIcon className="size-full" />,
-    solid: <LeafIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={Leaf01Icon} className="size-full" />,
+    solid: <HugeiconsIcon icon={Leaf01Icon} className="size-full" />,
   },
 
   objects: {
-    outline: <LightbulbIcon className="size-full" />,
-    solid: <LightbulbIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={BulbIcon} className="size-full" />,
+    solid: <HugeiconsIcon icon={BulbIcon} className="size-full" />,
   },
 
   people: {
-    outline: <SmileIcon className="size-full" />,
-    solid: <SmileIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={SmileIcon} className="size-full" />,
+    solid: <HugeiconsIcon icon={SmileIcon} className="size-full" />,
   },
 
   places: {
-    outline: <CompassIcon className="size-full" />,
-    solid: <CompassIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={Compass01Icon} className="size-full" />,
+    solid: <HugeiconsIcon icon={Compass01Icon} className="size-full" />,
   },
 
   symbols: {
-    outline: <MusicIcon className="size-full" />,
-    solid: <MusicIcon className="size-full" />,
+    outline: <HugeiconsIcon icon={MusicNote01Icon} className="size-full" />,
+    solid: <HugeiconsIcon icon={MusicNote01Icon} className="size-full" />,
   },
 };
 
 const emojiSearchIcons = {
-  delete: <XIcon className="size-4 text-current" />,
-  loupe: <SearchIcon className="size-4 text-current" />,
+  delete: <HugeiconsIcon icon={Cancel01Icon} className="size-4 text-current" />,
+  loupe: <HugeiconsIcon icon={SearchIcon} className="size-4 text-current" />,
 };

@@ -18,7 +18,8 @@ import {
   useFloatingLinkInsertState,
 } from "@platejs/link/react";
 import { cva } from "class-variance-authority";
-import { ExternalLink, Link, Text, Unlink } from "lucide-react";
+import { Link01Icon, LinkSquare01Icon, TextIcon, Unlink01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { TLinkElement } from "platejs";
 import { KEYS } from "platejs";
 import {
@@ -102,7 +103,7 @@ export function LinkFloatingToolbar({
     <div className="flex w-[330px] flex-col" {...inputProps}>
       <div className="flex items-center">
         <div className="flex items-center pr-1 pl-2 text-muted-foreground">
-          <Link className="size-4" />
+          <HugeiconsIcon icon={Link01Icon} className="size-4" />
         </div>
 
         <FloatingLinkUrlInput
@@ -114,7 +115,7 @@ export function LinkFloatingToolbar({
       <Separator className="my-1" />
       <div className="flex items-center">
         <div className="flex items-center pr-1 pl-2 text-muted-foreground">
-          <Text className="size-4" />
+          <HugeiconsIcon icon={TextIcon} className="size-4" />
         </div>
         <input
           className={inputVariants()}
@@ -152,7 +153,7 @@ export function LinkFloatingToolbar({
         type="button"
         {...unlinkButtonProps}
       >
-        <Unlink width={18} />
+        <HugeiconsIcon icon={Unlink01Icon} size={18} />
       </button>
     </div>
   );
@@ -202,7 +203,7 @@ function LinkOpenButton() {
       }}
       target="_blank"
     >
-      <ExternalLink width={18} />
+      <HugeiconsIcon icon={LinkSquare01Icon} size={18} />
     </a>
   );
 }

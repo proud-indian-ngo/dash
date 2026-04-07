@@ -14,17 +14,18 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 
 import { TablePlugin, useTableMergeState } from "@platejs/table/react";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  Combine,
-  Grid3x3Icon,
-  Table,
-  Trash2Icon,
-  Ungroup,
-  XIcon,
-} from "lucide-react";
+  ArrowDown01Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  ArrowUp01Icon,
+  Cancel01Icon,
+  CombineIcon,
+  Delete02Icon,
+  GridTableIcon,
+  LayoutTableIcon,
+  UngroupLayersIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { KEYS } from "platejs";
 import { useEditorPlugin, useEditorSelector } from "platejs/react";
 import * as React from "react";
@@ -48,7 +49,7 @@ export function TableToolbarButton(
       <DropdownMenuTrigger
         render={<ToolbarButton isDropdown pressed={open} tooltip="Table" />}
       >
-        <Table />
+        <HugeiconsIcon icon={LayoutTableIcon} />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
@@ -58,7 +59,7 @@ export function TableToolbarButton(
         <DropdownMenuGroup>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="gap-2 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-              <Grid3x3Icon className="size-4" />
+              <HugeiconsIcon icon={GridTableIcon} className="size-4" />
               <span>Table</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="m-0 p-0">
@@ -83,7 +84,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <Combine />
+                <HugeiconsIcon icon={CombineIcon} />
                 Merge cells
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -94,7 +95,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <Ungroup />
+                <HugeiconsIcon icon={UngroupLayersIcon} />
                 Split cell
               </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -117,7 +118,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <ArrowUp />
+                <HugeiconsIcon icon={ArrowUp01Icon} />
                 Insert row before
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -128,7 +129,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <ArrowDown />
+                <HugeiconsIcon icon={ArrowDown01Icon} />
                 Insert row after
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -139,7 +140,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <XIcon />
+                <HugeiconsIcon icon={Cancel01Icon} />
                 Delete row
               </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -162,7 +163,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <ArrowLeft />
+                <HugeiconsIcon icon={ArrowLeft01Icon} />
                 Insert column before
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -173,7 +174,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <ArrowRight />
+                <HugeiconsIcon icon={ArrowRight01Icon} />
                 Insert column after
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -184,7 +185,7 @@ export function TableToolbarButton(
                   editor.tf.focus();
                 }}
               >
-                <XIcon />
+                <HugeiconsIcon icon={Cancel01Icon} />
                 Delete column
               </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -198,7 +199,7 @@ export function TableToolbarButton(
               editor.tf.focus();
             }}
           >
-            <Trash2Icon />
+            <HugeiconsIcon icon={Delete02Icon} />
             Delete table
           </DropdownMenuItem>
         </DropdownMenuGroup>

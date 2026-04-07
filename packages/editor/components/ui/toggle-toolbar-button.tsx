@@ -4,7 +4,8 @@ import {
   useToggleToolbarButton,
   useToggleToolbarButtonState,
 } from "@platejs/toggle/react";
-import { ListCollapseIcon } from "lucide-react";
+import { CollapseIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 
 import { ToolbarButton } from "./toolbar";
@@ -17,7 +18,7 @@ export function ToggleToolbarButton(
 
   return (
     <ToolbarButton {...props} {...buttonProps} tooltip="Toggle">
-      <ListCollapseIcon />
+      <HugeiconsIcon icon={CollapseIcon} />
     </ToolbarButton>
   );
 }

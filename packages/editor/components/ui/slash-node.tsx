@@ -2,19 +2,20 @@
 
 import { insertBlock } from "@pi-dash/editor/components/editor/transforms";
 import {
-  ChevronRightIcon,
-  Code2,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  Minus,
-  PilcrowIcon,
-  Quote,
-  Square,
-  Table,
-} from "lucide-react";
+  ArrowRight01Icon,
+  CheckmarkSquare01Icon,
+  Heading01Icon,
+  Heading02Icon,
+  Heading03Icon,
+  LeftToRightBlockQuoteIcon,
+  LeftToRightListBulletIcon,
+  LeftToRightListNumberIcon,
+  MinusSignIcon,
+  ParagraphIcon,
+  SourceCodeIcon,
+  LayoutTableIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { KEYS, type TComboboxInputElement } from "platejs";
 import type { PlateEditor, PlateElementProps } from "platejs/react";
 import { PlateElement } from "platejs/react";
@@ -47,72 +48,72 @@ const groups: Group[] = [
     group: "Basic blocks",
     items: [
       {
-        icon: <PilcrowIcon />,
+        icon: <HugeiconsIcon icon={ParagraphIcon} />,
         keywords: ["paragraph"],
         label: "Text",
         value: KEYS.p,
       },
       {
-        icon: <Heading1 />,
+        icon: <HugeiconsIcon icon={Heading01Icon} />,
         keywords: ["title", "h1"],
         label: "Heading 1",
         value: KEYS.h1,
       },
       {
-        icon: <Heading2 />,
+        icon: <HugeiconsIcon icon={Heading02Icon} />,
         keywords: ["subtitle", "h2"],
         label: "Heading 2",
         value: KEYS.h2,
       },
       {
-        icon: <Heading3 />,
+        icon: <HugeiconsIcon icon={Heading03Icon} />,
         keywords: ["subtitle", "h3"],
         label: "Heading 3",
         value: KEYS.h3,
       },
       {
-        icon: <List />,
+        icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} />,
         keywords: ["unordered", "ul", "-"],
         label: "Bulleted list",
         value: KEYS.ulClassic,
       },
       {
-        icon: <ListOrdered />,
+        icon: <HugeiconsIcon icon={LeftToRightListNumberIcon} />,
         keywords: ["ordered", "ol", "1"],
         label: "Numbered list",
         value: KEYS.olClassic,
       },
       {
-        icon: <Square />,
+        icon: <HugeiconsIcon icon={CheckmarkSquare01Icon} />,
         keywords: ["checklist", "task", "checkbox", "[]"],
         label: "To-do list",
         value: KEYS.taskList,
       },
       {
-        icon: <ChevronRightIcon />,
+        icon: <HugeiconsIcon icon={ArrowRight01Icon} />,
         keywords: ["collapsible", "expandable"],
         label: "Toggle",
         value: KEYS.toggle,
       },
       {
-        icon: <Code2 />,
+        icon: <HugeiconsIcon icon={SourceCodeIcon} />,
         keywords: ["```"],
         label: "Code Block",
         value: KEYS.codeBlock,
       },
       {
-        icon: <Table />,
+        icon: <HugeiconsIcon icon={LayoutTableIcon} />,
         label: "Table",
         value: KEYS.table,
       },
       {
-        icon: <Quote />,
+        icon: <HugeiconsIcon icon={LeftToRightBlockQuoteIcon} />,
         keywords: ["citation", "blockquote", "quote", ">"],
         label: "Blockquote",
         value: KEYS.blockquote,
       },
       {
-        icon: <Minus />,
+        icon: <HugeiconsIcon icon={MinusSignIcon} />,
         keywords: ["hr", "rule", "---"],
         label: "Divider",
         value: KEYS.hr,

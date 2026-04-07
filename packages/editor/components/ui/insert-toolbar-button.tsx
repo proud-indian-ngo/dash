@@ -3,22 +3,23 @@
 import * as React from "react";
 
 import {
-  ChevronRightIcon,
-  FileCodeIcon,
-  Heading1Icon,
-  Heading2Icon,
-  Heading3Icon,
-  ImageIcon,
-  Link2Icon,
-  ListIcon,
-  ListOrderedIcon,
-  MinusIcon,
-  PilcrowIcon,
-  PlusIcon,
-  QuoteIcon,
-  SquareIcon,
-  TableIcon,
-} from "lucide-react";
+  ArrowRight01Icon,
+  CheckmarkSquare01Icon,
+  Heading01Icon,
+  Heading02Icon,
+  Heading03Icon,
+  Image01Icon,
+  LeftToRightBlockQuoteIcon,
+  LeftToRightListBulletIcon,
+  LeftToRightListNumberIcon,
+  Link01Icon,
+  MinusSignIcon,
+  ParagraphIcon,
+  PlusSignIcon,
+  SourceCodeIcon,
+  LayoutTableIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { KEYS } from "platejs";
 import { type PlateEditor, useEditorRef } from "platejs/react";
 
@@ -49,42 +50,42 @@ const groups: Group[] = [
     group: "Basic blocks",
     items: [
       {
-        icon: <PilcrowIcon />,
+        icon: <HugeiconsIcon icon={ParagraphIcon} />,
         label: "Paragraph",
         value: KEYS.p,
       },
       {
-        icon: <Heading1Icon />,
+        icon: <HugeiconsIcon icon={Heading01Icon} />,
         label: "Heading 1",
         value: "h1",
       },
       {
-        icon: <Heading2Icon />,
+        icon: <HugeiconsIcon icon={Heading02Icon} />,
         label: "Heading 2",
         value: "h2",
       },
       {
-        icon: <Heading3Icon />,
+        icon: <HugeiconsIcon icon={Heading03Icon} />,
         label: "Heading 3",
         value: "h3",
       },
       {
-        icon: <TableIcon />,
+        icon: <HugeiconsIcon icon={LayoutTableIcon} />,
         label: "Table",
         value: KEYS.table,
       },
       {
-        icon: <FileCodeIcon />,
+        icon: <HugeiconsIcon icon={SourceCodeIcon} />,
         label: "Code",
         value: KEYS.codeBlock,
       },
       {
-        icon: <QuoteIcon />,
+        icon: <HugeiconsIcon icon={LeftToRightBlockQuoteIcon} />,
         label: "Quote",
         value: KEYS.blockquote,
       },
       {
-        icon: <MinusIcon />,
+        icon: <HugeiconsIcon icon={MinusSignIcon} />,
         label: "Divider",
         value: KEYS.hr,
       },
@@ -99,22 +100,22 @@ const groups: Group[] = [
     group: "Lists",
     items: [
       {
-        icon: <ListIcon />,
+        icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} />,
         label: "Bulleted list",
         value: KEYS.ul,
       },
       {
-        icon: <ListOrderedIcon />,
+        icon: <HugeiconsIcon icon={LeftToRightListNumberIcon} />,
         label: "Numbered list",
         value: KEYS.ol,
       },
       {
-        icon: <SquareIcon />,
+        icon: <HugeiconsIcon icon={CheckmarkSquare01Icon} />,
         label: "To-do list",
         value: KEYS.listTodo,
       },
       {
-        icon: <ChevronRightIcon />,
+        icon: <HugeiconsIcon icon={ArrowRight01Icon} />,
         label: "Toggle list",
         value: KEYS.toggle,
       },
@@ -129,7 +130,7 @@ const groups: Group[] = [
     group: "Media",
     items: [
       {
-        icon: <ImageIcon />,
+        icon: <HugeiconsIcon icon={Image01Icon} />,
         label: "Image",
         value: KEYS.img,
       },
@@ -144,7 +145,7 @@ const groups: Group[] = [
     group: "Inline",
     items: [
       {
-        icon: <Link2Icon />,
+        icon: <HugeiconsIcon icon={Link01Icon} />,
         label: "Link",
         value: KEYS.link,
       },
@@ -166,7 +167,7 @@ export function InsertToolbarButton() {
       <DropdownMenuTrigger
         render={
           <ToolbarButton pressed={open} tooltip="Insert" isDropdown>
-            <PlusIcon />
+            <HugeiconsIcon icon={PlusSignIcon} />
           </ToolbarButton>
         }
       />

@@ -4,7 +4,8 @@ import {
   useLinkToolbarButton,
   useLinkToolbarButtonState,
 } from "@platejs/link/react";
-import { Link } from "lucide-react";
+import { Link01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 
 import { ToolbarButton } from "./toolbar";
@@ -17,7 +18,7 @@ export function LinkToolbarButton(
 
   return (
     <ToolbarButton {...props} {...buttonProps} data-plate-focus tooltip="Link">
-      <Link />
+      <HugeiconsIcon icon={Link01Icon} />
     </ToolbarButton>
   );
 }

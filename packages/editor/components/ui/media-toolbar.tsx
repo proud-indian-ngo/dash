@@ -14,7 +14,8 @@ import {
   useImagePreviewValue,
 } from "@platejs/media/react";
 import { cva } from "class-variance-authority";
-import { Link, Trash2Icon } from "lucide-react";
+import { Delete02Icon, Link01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { WithRequiredKey } from "platejs";
 import {
   useEditorRef,
@@ -76,7 +77,7 @@ export function MediaToolbar({
           <div className="flex w-[330px] flex-col">
             <div className="flex items-center">
               <div className="flex items-center pr-1 pl-2 text-muted-foreground">
-                <Link className="size-4" />
+                <HugeiconsIcon icon={Link01Icon} className="size-4" />
               </div>
 
               <FloatingMediaPrimitive.UrlInput
@@ -101,7 +102,7 @@ export function MediaToolbar({
             <Separator className="mx-1 h-6" orientation="vertical" />
 
             <Button size="sm" variant="ghost" {...buttonProps}>
-              <Trash2Icon />
+              <HugeiconsIcon icon={Delete02Icon} />
             </Button>
           </div>
         )}

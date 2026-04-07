@@ -41,19 +41,20 @@ import {
   useTableValue,
 } from "@platejs/table/react";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
+  ArrowDown01Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  ArrowUp01Icon,
+  Cancel01Icon,
   CombineIcon,
-  EraserIcon,
-  Grid2X2Icon,
-  GripVertical,
+  Delete02Icon,
+  DragDropVerticalIcon,
+  Eraser01Icon,
+  GridIcon,
   PaintBucketIcon,
-  SquareSplitHorizontalIcon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react";
+  TableColumnsSplitIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   KEYS,
   type TTableCellElement,
@@ -924,7 +925,7 @@ function TableFloatingToolbarContent({
     >
       <ToolbarGroup>
         <ColorDropdownMenu tooltip="Background color">
-          <PaintBucketIcon />
+          <HugeiconsIcon icon={PaintBucketIcon} />
         </ColorDropdownMenu>
         {canMerge && onMerge && (
           <ToolbarButton
@@ -932,7 +933,7 @@ function TableFloatingToolbarContent({
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Merge cells"
           >
-            <CombineIcon />
+            <HugeiconsIcon icon={CombineIcon} />
           </ToolbarButton>
         )}
         {canSplit && onSplit && (
@@ -941,7 +942,7 @@ function TableFloatingToolbarContent({
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Split cell"
           >
-            <SquareSplitHorizontalIcon />
+            <HugeiconsIcon icon={TableColumnsSplitIcon} />
           </ToolbarButton>
         )}
 
@@ -949,7 +950,7 @@ function TableFloatingToolbarContent({
           <DropdownMenuTrigger
             render={<ToolbarButton tooltip="Cell borders" />}
           >
-            <Grid2X2Icon />
+            <HugeiconsIcon icon={GridIcon} />
           </DropdownMenuTrigger>
 
           <DropdownMenuPortal>
@@ -960,7 +961,7 @@ function TableFloatingToolbarContent({
         {collapsedInside && (
           <ToolbarGroup>
             <ToolbarButton tooltip="Delete table" {...buttonProps}>
-              <Trash2Icon />
+              <HugeiconsIcon icon={Delete02Icon} />
             </ToolbarButton>
           </ToolbarGroup>
         )}
@@ -972,21 +973,21 @@ function TableFloatingToolbarContent({
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Insert row before"
           >
-            <ArrowUp />
+            <HugeiconsIcon icon={ArrowUp01Icon} />
           </ToolbarButton>
           <ToolbarButton
             onClick={onInsertRowAfter}
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Insert row after"
           >
-            <ArrowDown />
+            <HugeiconsIcon icon={ArrowDown01Icon} />
           </ToolbarButton>
           <ToolbarButton
             onClick={onDeleteRow}
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Delete row"
           >
-            <XIcon />
+            <HugeiconsIcon icon={Cancel01Icon} />
           </ToolbarButton>
         </ToolbarGroup>
       )}
@@ -997,21 +998,21 @@ function TableFloatingToolbarContent({
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Insert column before"
           >
-            <ArrowLeft />
+            <HugeiconsIcon icon={ArrowLeft01Icon} />
           </ToolbarButton>
           <ToolbarButton
             onClick={onInsertColumnAfter}
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Insert column after"
           >
-            <ArrowRight />
+            <HugeiconsIcon icon={ArrowRight01Icon} />
           </ToolbarButton>
           <ToolbarButton
             onClick={onDeleteColumn}
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Delete column"
           >
-            <XIcon />
+            <HugeiconsIcon icon={Cancel01Icon} />
           </ToolbarButton>
         </ToolbarGroup>
       )}
@@ -1138,7 +1139,7 @@ function ColorDropdownMenu({
         </ToolbarMenuGroup>
         <DropdownMenuGroup>
           <DropdownMenuItem className="p-2" onClick={onClearColor}>
-            <EraserIcon />
+            <HugeiconsIcon icon={Eraser01Icon} />
             <span>Clear</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -1242,7 +1243,7 @@ function RowDragHandle({ dragRef }: { dragRef: React.Ref<any> }) {
       ref={dragRef}
       variant="outline"
     >
-      <GripVertical className="text-muted-foreground" />
+      <HugeiconsIcon icon={DragDropVerticalIcon} className="text-muted-foreground" />
     </Button>
   );
 }
