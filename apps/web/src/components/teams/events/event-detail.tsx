@@ -410,6 +410,23 @@ function useEventDetailQueries(
   };
 }
 
+function calcTotalExpenses(
+  reimbursements:
+    | readonly { lineItems: readonly { amount: number }[] }[]
+    | null
+    | undefined,
+  vendorPayments:
+    | readonly { lineItems: readonly { amount: number }[] }[]
+    | null
+    | undefined
+): number {
+  return [...(reimbursements ?? []), ...(vendorPayments ?? [])].reduce(
+    (sum, expense) =>
+      sum + expense.lineItems.reduce((s, li) => s + li.amount, 0),
+    0
+  );
+}
+
 export function EventDetail({
   canApproveUpdates,
   canManage,
@@ -563,13 +580,9 @@ export function EventDetail({
     eventVendorPayments,
   } = useEventDetailQueries(event.id, canApproveUpdates, canManagePhotos);
 
-  const totalExpenses = [
-    ...(eventReimbursements ?? []),
-    ...(eventVendorPayments ?? []),
-  ].reduce(
-    (sum, expense) =>
-      sum + expense.lineItems.reduce((s, li) => s + li.amount, 0),
-    0
+  const totalExpenses = calcTotalExpenses(
+    eventReimbursements,
+    eventVendorPayments
   );
 
   const feedbackDeadlinePassed =
@@ -665,7 +678,7 @@ export function EventDetail({
 
           {/* Sidebar */}
           <aside className="lg:col-span-2 lg:col-start-4 lg:row-start-1">
-            <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:overflow-x-hidden">
+            <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-x-hidden lg:overflow-y-clip">
               <div className="hidden -space-y-px lg:flex lg:flex-col">
                 <EventDetailsCard canManage={canManage} event={event} />
                 {canManage ? (
@@ -696,12 +709,14 @@ export function EventDetail({
                 />
               )}
 
-              <EventMembersSection
-                canManage={canManageVolunteers}
-                members={event.members}
-                onAddMember={handleAddMemberClick}
-                onRemoveMember={(id) => removeMember.trigger(id)}
-              />
+              {(canManageVolunteersProp || isPastEvent) && (
+                <EventMembersSection
+                  canManage={canManageVolunteers}
+                  members={event.members}
+                  onAddMember={handleAddMemberClick}
+                  onRemoveMember={(id) => removeMember.trigger(id)}
+                />
+              )}
 
               {canManageAttendance && hasStarted ? (
                 <EventAttendanceSection
