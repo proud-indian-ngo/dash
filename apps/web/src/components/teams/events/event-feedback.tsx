@@ -7,6 +7,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import { log } from "evlog";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import {
+  EditorSkeleton,
+  RendererSkeleton,
+} from "@/components/editor/editor-skeletons";
 import { getMyEventFeedback } from "@/functions/event-feedback";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -136,7 +140,7 @@ function EventFeedbackAdmin({
                   ) : null}
                 </div>
               </div>
-              <Suspense>
+              <Suspense fallback={<RendererSkeleton />}>
                 <PlateRenderer content={item.content} />
               </Suspense>
             </div>
@@ -337,7 +341,7 @@ function EventFeedbackParticipant({
   // Editing existing feedback
   if (myFeedback && editing) {
     return (
-      <Suspense>
+      <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
           content={myFeedback.content}
           entityId={eventId}
@@ -364,7 +368,7 @@ function EventFeedbackParticipant({
           </p>
         ) : null}
       </div>
-      <Suspense>
+      <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
           entityId={eventId}
           key="create"
@@ -384,7 +388,7 @@ function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
   const isEdited = feedback.updatedAt !== feedback.createdAt;
   return (
     <div className="rounded-lg border p-4">
-      <Suspense>
+      <Suspense fallback={<RendererSkeleton />}>
         <PlateRenderer content={feedback.content} />
       </Suspense>
       <span className="mt-2 block text-muted-foreground text-xs">

@@ -15,6 +15,10 @@ import { log } from "evlog";
 import { lazy, Suspense, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+import {
+  EditorSkeleton,
+  RendererSkeleton,
+} from "@/components/editor/editor-skeletons";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -111,7 +115,7 @@ export function EventUpdates({
   return (
     <div className="flex flex-col gap-4">
       {canManage ? (
-        <Suspense>
+        <Suspense fallback={<EditorSkeleton />}>
           <PlateEditor
             entityId={eventId}
             key="create"
@@ -204,7 +208,15 @@ export function EventUpdates({
                       ) : null}
                     </div>
 
-                    <Suspense>
+                    <Suspense
+                      fallback={
+                        editingId === update.id ? (
+                          <EditorSkeleton />
+                        ) : (
+                          <RendererSkeleton />
+                        )
+                      }
+                    >
                       {editingId === update.id ? (
                         <PlateEditor
                           content={update.content}

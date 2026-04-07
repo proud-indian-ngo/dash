@@ -58,7 +58,7 @@ export function expandSeries(
   rangeEnd: number,
   exceptionDates: ReadonlySet<string> = new Set()
 ): VirtualOccurrence[] {
-  const rrule = rrulestr(rule.rrule);
+  const rrule = rrulestr(rule.rrule, { dtstart: new Date(seriesStart) });
   const exdateSet = new Set(rule.exdates ?? []);
 
   const dates = rrule.between(new Date(rangeStart), new Date(rangeEnd), true);

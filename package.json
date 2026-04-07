@@ -44,7 +44,18 @@
       "@platejs/list-classic": "^52.3.10",
       "@platejs/media": "^52.3.10",
       "@platejs/floating": "^52.3.10",
-      "@platejs/resizable": "^52.3.10"
+      "@platejs/resizable": "^52.3.10",
+      "@platejs/autoformat": "^52.3.10",
+      "@platejs/code-block": "^52.3.16",
+      "@platejs/combobox": "^52.3.10",
+      "@platejs/dnd": "^52.3.16",
+      "@platejs/emoji": "^52.3.10",
+      "@platejs/indent": "^52.3.10",
+      "@platejs/mention": "^52.3.10",
+      "@platejs/selection": "^52.3.10",
+      "@platejs/slash-command": "^52.3.10",
+      "@platejs/table": "^52.3.20",
+      "@platejs/toggle": "^52.3.10"
     }
   },
   "type": "module",

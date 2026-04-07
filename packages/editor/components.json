@@ -1,0 +1,26 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-lyra",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "",
+    "baseColor": "mauve",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "hugeicons",
+  "rtl": false,
+  "aliases": {
+    "components": "@pi-dash/editor/components",
+    "utils": "@pi-dash/design-system/lib/utils",
+    "ui": "@pi-dash/editor/components/ui",
+    "lib": "@pi-dash/design-system/lib",
+    "hooks": "@pi-dash/design-system/hooks"
+  },
+  "registries": {
+    "@platejs": "https://platejs.org/r/{name}.json",
+    "@plate": "https://platejs.org/r/{name}.json"
+  }
+}

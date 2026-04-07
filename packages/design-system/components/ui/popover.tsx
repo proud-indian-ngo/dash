@@ -80,8 +80,13 @@ function PopoverDescription({
   )
 }
 
+function PopoverAnchor({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>;
+}
+
 export {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverDescription,
   PopoverHeader,

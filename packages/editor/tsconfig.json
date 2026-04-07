@@ -1,0 +1,14 @@
+{
+  "extends": "@pi-dash/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "dom", "dom.iterable"],
+    "jsx": "preserve",
+    "paths": {
+      "@pi-dash/components/*": ["./components/*"],
+      "@pi-dash/editor/*": ["./*"],
+      "@pi-dash/*": ["../*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "components"]
+}
