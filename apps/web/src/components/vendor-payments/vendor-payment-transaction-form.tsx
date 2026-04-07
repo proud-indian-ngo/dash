@@ -17,22 +17,34 @@ import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
-import { type Attachment, attachmentSchema } from "@/lib/form-schemas";
+import {
+  type Attachment,
+  attachmentSchema,
+  formatINR,
+} from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-const transactionFormSchema = z.object({
-  amount: z
-    .string()
-    .min(1, "Amount is required")
-    .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
-      message: "Must be a positive number",
-    }),
-  description: z.string(),
-  transactionDate: z.date({ message: "Date is required" }),
-  paymentMethod: z.string(),
-  paymentReference: z.string(),
-  attachments: z.array(attachmentSchema),
-});
+function buildTransactionFormSchema(remainingAmount?: number) {
+  return z.object({
+    amount: z
+      .string()
+      .min(1, "Amount is required")
+      .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
+        message: "Must be a positive number",
+      })
+      .refine(
+        (v) => remainingAmount === undefined || Number(v) <= remainingAmount,
+        {
+          message: `Exceeds remaining balance of ${formatINR(remainingAmount ?? 0)}`,
+        }
+      ),
+    description: z.string(),
+    transactionDate: z.date({ message: "Date is required" }),
+    paymentMethod: z.string(),
+    paymentReference: z.string(),
+    attachments: z.array(attachmentSchema),
+  });
+}
 
 export interface TransactionFormValues {
   amount: string;
@@ -49,6 +61,7 @@ interface TransactionFormDialogProps {
   mode?: "create" | "edit";
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  remainingAmount?: number;
   transactionId?: string;
   vendorPaymentId: string;
 }
@@ -58,6 +71,7 @@ function TransactionFormContent({
   initialValues,
   mode,
   onOpenChange,
+  remainingAmount,
   transactionId,
   vendorPaymentId,
 }: {
@@ -65,11 +79,13 @@ function TransactionFormContent({
   initialValues?: TransactionFormValues;
   mode: "create" | "edit";
   onOpenChange: (open: boolean) => void;
+  remainingAmount?: number;
   transactionId?: string;
   vendorPaymentId: string;
 }) {
   const zero = useZero();
   const entityId = mode === "edit" && transactionId ? transactionId : uuidv7();
+  const schema = buildTransactionFormSchema(remainingAmount);
 
   const form = useForm({
     defaultValues: initialValues ?? {
@@ -81,7 +97,7 @@ function TransactionFormContent({
       attachments: [] as Attachment[],
     },
     onSubmit: async ({ value }) => {
-      const parsed = transactionFormSchema.parse(value);
+      const parsed = schema.parse(value);
       const amount = Number(parsed.amount);
 
       if (mode === "edit" && transactionId) {
@@ -134,8 +150,8 @@ function TransactionFormContent({
       }
     },
     validators: {
-      onChange: transactionFormSchema,
-      onSubmit: transactionFormSchema,
+      onChange: schema,
+      onSubmit: schema,
     },
   });
 
@@ -153,7 +169,14 @@ function TransactionFormContent({
   return (
     <FormLayout form={form}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <InputField isRequired label="Amount" name="amount" />
+        <div>
+          <InputField isRequired label="Amount" name="amount" />
+          {remainingAmount !== undefined && (
+            <p className="mt-1 text-muted-foreground text-xs">
+              Remaining: {formatINR(remainingAmount)}
+            </p>
+          )}
+        </div>
         <InputField label="Description" name="description" />
         <DateField isRequired label="Transaction Date" name="transactionDate" />
         {canApprove ? (
@@ -190,6 +213,7 @@ export function TransactionFormDialog({
   mode = "create",
   onOpenChange,
   open,
+  remainingAmount,
   transactionId,
   vendorPaymentId,
 }: TransactionFormDialogProps) {
@@ -227,6 +251,7 @@ export function TransactionFormDialog({
           key={formKey}
           mode={mode}
           onOpenChange={onOpenChange}
+          remainingAmount={remainingAmount}
           transactionId={transactionId}
           vendorPaymentId={vendorPaymentId}
         />

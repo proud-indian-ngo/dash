@@ -73,6 +73,12 @@ export function VendorPaymentTransactions({
     );
   const remaining = totalOwed - paidAmount;
 
+  // Sum of all non-rejected transactions (approved + pending) for cap enforcement
+  const recordableTotal = transactions
+    .filter((t) => t.status !== "rejected")
+    .reduce((sum: number, t) => sum + Number(t.amount), 0);
+  const remainingForCreate = Math.max(0, totalOwed - recordableTotal);
+
   const handleApproveTransaction = async (id: string) => {
     const res = await zero.mutate(
       mutators.vendorPaymentTransaction.approve({ id })
@@ -309,6 +315,7 @@ export function VendorPaymentTransactions({
         canApprove={canApprove}
         onOpenChange={setFormOpen}
         open={formOpen}
+        remainingAmount={remainingForCreate}
         vendorPaymentId={request.id as string}
       />
 
@@ -327,6 +334,14 @@ export function VendorPaymentTransactions({
           }
         }}
         open={editingTransaction !== null}
+        remainingAmount={
+          editingTransaction && editingTransaction.status !== "rejected"
+            ? Math.max(
+                0,
+                totalOwed - recordableTotal + Number(editingTransaction.amount)
+              )
+            : undefined
+        }
         transactionId={editingTransaction?.id}
         vendorPaymentId={request.id as string}
       />

@@ -33,6 +33,39 @@ const createSchema = z.object({
 });
 
 const fk = (id: string) => ({ vendorPaymentTransactionId: id });
+const toCents = (v: number | string) => Math.round(Number(v) * 100);
+
+async function assertWithinPaymentCap(
+  // biome-ignore lint/suspicious/noExplicitAny: tx type is complex and varies by context
+  tx: any,
+  vendorPaymentId: string,
+  newAmountCents: number,
+  excludeTransactionId?: string
+): Promise<void> {
+  const allTransactions = await tx.run(
+    zql.vendorPaymentTransaction.where("vendorPaymentId", vendorPaymentId)
+  );
+  const lineItems = await tx.run(
+    zql.vendorPaymentLineItem.where("vendorPaymentId", vendorPaymentId)
+  );
+
+  const otherTotalCents = (
+    allTransactions as Array<{
+      id: string;
+      status: string;
+      amount: number | string;
+    }>
+  )
+    .filter((t) => t.status !== "rejected" && t.id !== excludeTransactionId)
+    .reduce((sum: number, t) => sum + toCents(t.amount), 0);
+  const totalOwedCents = (
+    lineItems as Array<{ amount: number | string }>
+  ).reduce((sum: number, li) => sum + toCents(li.amount), 0);
+
+  if (otherTotalCents + newAmountCents > totalOwedCents) {
+    throw new Error("Payment amount exceeds remaining balance");
+  }
+}
 
 export async function recalculateParentStatus(
   // biome-ignore lint/suspicious/noExplicitAny: tx type is complex and varies by context
@@ -108,6 +141,12 @@ export const vendorPaymentTransactionMutators = {
     if (!PAYABLE_STATUSES.has(vpStatus) && vpStatus !== "pending") {
       throw new Error("Cannot record payments against this vendor payment");
     }
+
+    await assertWithinPaymentCap(
+      tx,
+      args.vendorPaymentId,
+      toCents(args.amount)
+    );
 
     const now = Date.now();
 
@@ -228,6 +267,17 @@ export const vendorPaymentTransactionMutators = {
         assertCanModify(entity, userId, false, "transaction");
       }
 
+      // Rejected transactions don't contribute to the balance, so the cap
+      // doesn't apply — skip to allow admin corrections on rejected records.
+      if (entity.status !== "rejected") {
+        await assertWithinPaymentCap(
+          tx,
+          entity.vendorPaymentId as string,
+          toCents(args.amount),
+          args.id
+        );
+      }
+
       const now = Date.now();
 
       await tx.mutate.vendorPaymentTransaction.update({
@@ -300,6 +350,13 @@ export const vendorPaymentTransactionMutators = {
           "Cannot approve transaction: parent vendor payment is not approved"
         );
       }
+
+      await assertWithinPaymentCap(
+        tx,
+        vpId,
+        toCents(entity.amount as number | string),
+        args.id
+      );
 
       const now = Date.now();
 
