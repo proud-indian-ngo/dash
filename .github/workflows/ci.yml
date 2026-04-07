@@ -184,14 +184,14 @@ jobs:
         uses: actions/cache@v5
         with:
           path: /tmp/zero-cache-image.tar
-          key: zero-cache-${{ runner.os }}-1.1.1
+          key: zero-cache-${{ runner.os }}-1.2.0
       - name: Load or pull zero-cache image
         run: |
           if [ -f /tmp/zero-cache-image.tar ]; then
             docker load -i /tmp/zero-cache-image.tar
           else
-            docker pull rocicorp/zero:1.1.1
-            docker save rocicorp/zero:1.1.1 -o /tmp/zero-cache-image.tar
+            docker pull rocicorp/zero:1.2.0
+            docker save rocicorp/zero:1.2.0 -o /tmp/zero-cache-image.tar
           fi
       - name: Start zero-cache
         run: |
@@ -206,7 +206,7 @@ jobs:
             -e ZERO_QUERY_FORWARD_COOKIES=true \
             -e ZERO_ADMIN_PASSWORD=ci-test-admin \
             -e ZERO_LOG_LEVEL=info \
-            rocicorp/zero:1.1.1
+            rocicorp/zero:1.2.0
           # Wait for zero-cache to be ready (use root path, not /keepalive)
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
