@@ -174,7 +174,7 @@ jobs:
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
       - name: Download build artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: web-build
           path: apps/web/.output/
@@ -220,7 +220,7 @@ jobs:
           exit 1
 
       - name: Download shard lists
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: shard-lists
           path: packages/e2e/shard-lists/
@@ -266,7 +266,7 @@ jobs:
           fi
       - name: Download all duration artifacts
         if: needs.e2e.result == 'success'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: test-durations-*
           path: /tmp/durations
