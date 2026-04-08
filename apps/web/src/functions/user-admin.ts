@@ -429,8 +429,14 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
           groupJids,
         });
       }
-    } catch {
-      // Best-effort: don't block deletion if WhatsApp group removal fails
+    } catch (error) {
+      const log = createRequestLogger({
+        method: "POST",
+        path: "deleteUser:whatsappRemoval",
+      });
+      log.set({ userId: data.userId });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
     }
 
     await auth.api.removeUser({
