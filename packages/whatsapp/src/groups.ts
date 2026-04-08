@@ -1,6 +1,8 @@
 import { db } from "@pi-dash/db";
 import { appConfig } from "@pi-dash/db/schema/app-config";
-import { team } from "@pi-dash/db/schema/team";
+import { user } from "@pi-dash/db/schema/auth";
+import { team, teamMember } from "@pi-dash/db/schema/team";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -316,4 +318,51 @@ export async function manageOrientationGroupMembership(
       await addToWhatsAppGroup(orientationJid, phone);
     }
   }
+}
+
+export async function getAllGroupJidsForUser(
+  userId: string
+): Promise<string[]> {
+  // Team groups
+  const teamGroups = await db
+    .select({ jid: whatsappGroup.jid })
+    .from(teamMember)
+    .innerJoin(team, eq(team.id, teamMember.teamId))
+    .innerJoin(whatsappGroup, eq(whatsappGroup.id, team.whatsappGroupId))
+    .where(eq(teamMember.userId, userId));
+
+  // Event groups
+  const eventGroups = await db
+    .select({ jid: whatsappGroup.jid })
+    .from(teamEventMember)
+    .innerJoin(teamEvent, eq(teamEvent.id, teamEventMember.eventId))
+    .innerJoin(whatsappGroup, eq(whatsappGroup.id, teamEvent.whatsappGroupId))
+    .where(eq(teamEventMember.userId, userId));
+
+  // Orientation or all-volunteers group based on role
+  const userRow = await db
+    .select({ role: user.role })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  const role = userRow[0]?.role;
+
+  const configKey =
+    role === "unoriented_volunteer"
+      ? ORIENTATION_GROUP_ID
+      : ALL_VOLUNTEERS_GROUP_ID;
+  const configJid = await getGroupJidByConfigKey(configKey);
+
+  const jids = new Set<string>();
+  for (const row of teamGroups) {
+    jids.add(row.jid);
+  }
+  for (const row of eventGroups) {
+    jids.add(row.jid);
+  }
+  if (configJid) {
+    jids.add(configJid);
+  }
+
+  return [...jids];
 }

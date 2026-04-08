@@ -99,6 +99,7 @@ import {
   handleWhatsAppAddMemberTeam,
   handleWhatsAppCreateGroup,
   handleWhatsAppManageOrientation,
+  handleWhatsAppRemoveFromAllGroups,
   handleWhatsAppRemoveMember,
   handleWhatsAppRemoveMemberTeam,
 } from "./whatsapp-group";
@@ -445,6 +446,10 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work(
     "whatsapp-remove-member-team",
     handleWhatsAppRemoveMemberTeam
+  );
+  await boss.work(
+    "whatsapp-remove-from-all-groups",
+    handleWhatsAppRemoveFromAllGroups
   );
   await boss.work(
     "whatsapp-manage-orientation",

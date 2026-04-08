@@ -21,6 +21,7 @@ import type {
   WhatsAppAddMemberTeamPayload,
   WhatsAppCreateGroupPayload,
   WhatsAppManageOrientationPayload,
+  WhatsAppRemoveFromAllGroupsPayload,
   WhatsAppRemoveMemberPayload,
   WhatsAppRemoveMemberTeamPayload,
 } from "../enqueue";
@@ -186,6 +187,45 @@ export async function handleWhatsAppRemoveMemberTeam(
       if (phone) {
         await removeFromWhatsAppGroup(jid, phone);
       }
+    }
+
+    log.set({ event: "job_complete" });
+    log.emit();
+  }
+}
+
+export async function handleWhatsAppRemoveFromAllGroups(
+  jobs: Job<WhatsAppRemoveFromAllGroupsPayload>[]
+): Promise<void> {
+  for (const job of jobs) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "whatsapp-remove-from-all-groups",
+    });
+    const { phone, groupJids } = job.data;
+    log.set({ jobId: job.id, phone, groupCount: groupJids.length });
+
+    const errors: Error[] = [];
+    for (const jid of groupJids) {
+      try {
+        await removeFromWhatsAppGroup(jid, phone);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error(err);
+        errors.push(err);
+      }
+    }
+
+    if (errors.length > 0) {
+      log.set({
+        event: "job_partial_failure",
+        failedCount: errors.length,
+        totalCount: groupJids.length,
+      });
+      log.emit();
+      throw new Error(
+        `Failed to remove from ${errors.length}/${groupJids.length} groups`
+      );
     }
 
     log.set({ event: "job_complete" });

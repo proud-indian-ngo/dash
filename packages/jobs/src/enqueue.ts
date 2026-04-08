@@ -445,6 +445,10 @@ export interface WhatsAppRemoveMemberTeamPayload {
   teamId: string;
   userId: string;
 }
+export interface WhatsAppRemoveFromAllGroupsPayload {
+  groupJids: string[];
+  phone: string;
+}
 
 // -- Infrastructure job payloads -----------------------------------------------
 
@@ -551,6 +555,7 @@ export interface JobPayloads {
   "whatsapp-add-members": WhatsAppAddMembersPayload;
   "whatsapp-create-group": WhatsAppCreateGroupPayload;
   "whatsapp-manage-orientation": WhatsAppManageOrientationPayload;
+  "whatsapp-remove-from-all-groups": WhatsAppRemoveFromAllGroupsPayload;
   "whatsapp-remove-member": WhatsAppRemoveMemberPayload;
   "whatsapp-remove-member-team": WhatsAppRemoveMemberTeamPayload;
 }
@@ -632,6 +637,7 @@ export const QUEUE_NAMES: JobName[] = [
   "whatsapp-add-members",
   "whatsapp-create-group",
   "whatsapp-manage-orientation",
+  "whatsapp-remove-from-all-groups",
   "whatsapp-remove-member",
   "whatsapp-remove-member-team",
 ];

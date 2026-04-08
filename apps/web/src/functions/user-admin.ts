@@ -412,6 +412,21 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
       // Best-effort: don't block deletion if notification fails
     }
 
+    // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
+    // Awaited to ensure the job is enqueued before the user is deleted.
+    const { getUserPhone } = await import("@pi-dash/whatsapp/users");
+    const { getAllGroupJidsForUser } = await import("@pi-dash/whatsapp/groups");
+    const [phone, groupJids] = await Promise.all([
+      getUserPhone(data.userId),
+      getAllGroupJidsForUser(data.userId),
+    ]);
+    if (phone && groupJids.length > 0) {
+      await enqueue("whatsapp-remove-from-all-groups", {
+        phone,
+        groupJids,
+      });
+    }
+
     await auth.api.removeUser({
       body: {
         userId: data.userId,
