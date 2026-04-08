@@ -51,10 +51,6 @@ export const Route = createFileRoute("/_app/users")({
   component: UsersRouteComponent,
 });
 
-const ROLE_OPTIONS = [
-  { label: "Admin", value: "admin" },
-  { label: "Volunteer", value: "volunteer" },
-];
 const ACTIVE_OPTIONS = [
   { label: "Active", value: "yes" },
   { label: "Inactive", value: "no" },
@@ -359,7 +355,7 @@ function UsersRouteComponent() {
               <TableFilterSelect
                 label="Role"
                 onChange={setRoleFilter}
-                options={ROLE_OPTIONS}
+                options={roleSelectOptions}
                 value={roleFilter}
               />
               <TableFilterSelect
