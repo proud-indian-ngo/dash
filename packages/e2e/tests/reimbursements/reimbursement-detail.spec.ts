@@ -122,9 +122,11 @@ test.describe("Reimbursement detail (reimbursement)", () => {
 
     await reimbursements.form.submit();
 
-    await expect(page.getByText("submitted")).toBeVisible({
+    await expect(page.getByRole("heading", { name: editedTitle })).toBeVisible({
       timeout: 10_000,
     });
+    await expect(reimbursements.detail.getEditSubmissionButton()).toBeVisible();
+    await expect(reimbursements.form.getTitleInput()).toBeHidden();
   });
 
   test("line items table shows Category, Description, Amount", async ({
