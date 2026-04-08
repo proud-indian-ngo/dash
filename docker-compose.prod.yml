@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
 
   tailscale-gowa:
-    image: tailscale/tailscale:v1.94.2
+    image: tailscale/tailscale:v1.96.5
     hostname: gowa
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
@@ -129,7 +129,7 @@ services:
     restart: unless-stopped
 
   tailscale-postgres:
-    image: tailscale/tailscale:v1.94.2
+    image: tailscale/tailscale:v1.96.5
     hostname: pi-dash-db
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
