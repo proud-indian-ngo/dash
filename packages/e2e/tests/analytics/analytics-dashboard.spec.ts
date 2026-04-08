@@ -40,7 +40,7 @@ test.describe("Analytics dashboard (admin)", () => {
         .or(
           page
             .getByText(
-              /Submission Trends|Category Breakdown|Top Submitters|Top Vendors/i
+              /Submission Trends|Category Breakdown|Request Submitters|Top Vendors/i
             )
             .first()
         )

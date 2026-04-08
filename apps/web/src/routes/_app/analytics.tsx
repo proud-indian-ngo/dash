@@ -92,10 +92,25 @@ function AnalyticsPage() {
 
   const createdAtAccessor = (item: { createdAt: number | null }) =>
     item.createdAt;
+  const filteredReimbursements = filterByDateRange(
+    reimbursements,
+    dateRange,
+    createdAtAccessor
+  );
+  const filteredAdvancePayments = filterByDateRange(
+    advancePayments,
+    dateRange,
+    createdAtAccessor
+  );
+  const filteredVendorPayments = filterByDateRange(
+    vendorPayments,
+    dateRange,
+    createdAtAccessor
+  );
   const allFiltered = [
-    ...filterByDateRange(reimbursements, dateRange, createdAtAccessor),
-    ...filterByDateRange(advancePayments, dateRange, createdAtAccessor),
-    ...filterByDateRange(vendorPayments, dateRange, createdAtAccessor),
+    ...filteredReimbursements,
+    ...filteredAdvancePayments,
+    ...filteredVendorPayments,
   ];
 
   const stats = computeSubmissionStats(allFiltered, Invoice01Icon);
@@ -110,11 +125,14 @@ function AnalyticsPage() {
     dateRange.to
   );
   const categoryData = computeCategoryData(analyticsData);
-  const submitterData = computeSubmitterData(analyticsData);
-  const filteredVendorPayments = filterByDateRange(
-    vendorPayments,
-    dateRange,
-    createdAtAccessor
+  const requestAnalyticsData = [
+    ...filteredReimbursements,
+    ...filteredAdvancePayments,
+  ];
+  const submitterData = computeSubmitterData(
+    requestAnalyticsData as unknown as Parameters<
+      typeof computeSubmitterData
+    >[0]
   );
   const vendorData = computeVendorData(
     filteredVendorPayments as unknown as Parameters<typeof computeVendorData>[0]
