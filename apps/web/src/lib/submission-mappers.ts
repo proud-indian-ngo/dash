@@ -4,6 +4,7 @@ interface RawLineItem {
   amount: number | string;
   categoryId: string;
   description: null | string;
+  generateVoucher?: boolean | null;
   id: string;
 }
 
@@ -24,6 +25,7 @@ export function mapLineItemsToFormValues(
     categoryId: li.categoryId,
     description: li.description ?? "",
     amount: String(li.amount),
+    generateVoucher: li.generateVoucher ?? false,
   }));
 }
 

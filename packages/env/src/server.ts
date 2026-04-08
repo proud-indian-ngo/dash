@@ -52,6 +52,12 @@ export const env = createEnv({
       .positive()
       .max(3600)
       .default(120),
+    VOUCHER_ORG_NAME: z.string().min(1).optional(),
+    VOUCHER_ORG_ADDRESS: z.string().min(1).optional(),
+    VOUCHER_ORG_PHONE: z.string().min(1).optional(),
+    VOUCHER_ORG_EMAIL: z.string().min(1).optional(),
+    VOUCHER_ORG_REGISTRATION: z.string().min(1).optional(),
+    VOUCHER_FINANCE_ADMIN_NAME: z.string().min(1).optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

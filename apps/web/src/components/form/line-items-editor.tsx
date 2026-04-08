@@ -1,6 +1,11 @@
-import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  InformationCircleIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
@@ -9,6 +14,12 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@pi-dash/design-system/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@pi-dash/design-system/components/ui/tooltip";
+import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import {
   computeRunningTotal,
@@ -53,6 +64,7 @@ interface LineItemsEditorProps {
   categories: ExpenseCategory[];
   form?: FormInstance;
   name?: string;
+  showVoucher?: boolean;
 }
 
 interface LineItemRowProps {
@@ -61,6 +73,7 @@ interface LineItemRowProps {
   index: number;
   name: string;
   onRemove: () => void;
+  showVoucher?: boolean;
   submitted: boolean;
 }
 
@@ -87,6 +100,7 @@ function LineItemRow({
   index,
   name,
   onRemove,
+  showVoucher,
   submitted,
 }: LineItemRowProps) {
   return (
@@ -216,6 +230,67 @@ function LineItemRow({
       >
         <HugeiconsIcon className="size-4" icon={Delete02Icon} strokeWidth={2} />
       </Button>
+
+      {showVoucher && (
+        <form.Subscribe
+          selector={(state: unknown) => {
+            const items = selectLineItems(state, name);
+            const amt = Number(items[index]?.amount);
+            return (
+              !Number.isNaN(amt) && amt > 0 && amt <= VOUCHER_AMOUNT_THRESHOLD
+            );
+          }}
+        >
+          {(eligible: boolean) =>
+            eligible ? (
+              <form.Field name={`${name}[${index}].generateVoucher`}>
+                {(rawField: unknown) => {
+                  const field = rawField as {
+                    handleChange: (value: boolean) => void;
+                    state: { value: boolean };
+                  };
+                  const checkboxId = `${name}-${index}-voucher`;
+                  return (
+                    <div className="col-span-full flex items-center gap-2 pl-1">
+                      <label
+                        className="flex cursor-pointer items-center gap-2"
+                        htmlFor={checkboxId}
+                      >
+                        <Checkbox
+                          checked={field.state.value}
+                          id={checkboxId}
+                          onCheckedChange={(checked) =>
+                            field.handleChange(checked === true)
+                          }
+                        />
+                        <span className="text-muted-foreground text-xs">
+                          Generate cash voucher
+                        </span>
+                      </label>
+                      <Tooltip>
+                        <TooltipTrigger
+                          className="text-muted-foreground"
+                          type="button"
+                        >
+                          <HugeiconsIcon
+                            className="size-3.5"
+                            icon={InformationCircleIcon}
+                            strokeWidth={2}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          A cash voucher PDF will be auto-generated on approval
+                          for line items ≤ ₹1,000 without an invoice.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  );
+                }}
+              </form.Field>
+            ) : null
+          }
+        </form.Subscribe>
+      )}
     </div>
   );
 }
@@ -224,6 +299,7 @@ export function LineItemsEditor({
   categories,
   form: formProp,
   name = "lineItems",
+  showVoucher,
 }: LineItemsEditorProps) {
   const form = useResolvedForm(formProp, "LineItemsEditor");
 
@@ -267,6 +343,7 @@ export function LineItemsEditor({
                       key={item.id}
                       name={name}
                       onRemove={() => arrayField.removeValue(index)}
+                      showVoucher={showVoucher}
                       submitted={form.state.submissionAttempts > 0}
                     />
                   ))}

@@ -104,4 +104,12 @@ export class RequestFormPage {
   async cancel(): Promise<void> {
     await this.getCancelButton().click();
   }
+
+  getCashVoucherCheckbox(index = 0): Locator {
+    return this.page.locator(`#lineItems-${index}-voucher`);
+  }
+
+  async toggleCashVoucher(index = 0): Promise<void> {
+    await this.page.locator(`label[for="lineItems-${index}-voucher"]`).click();
+  }
 }

@@ -221,7 +221,7 @@ test.describe("Vendor payment workflow (admin)", () => {
     );
     await editDialog.getByLabel("Invoice Number").clear();
     await editDialog.getByLabel("Invoice Number").fill("INV-GOOD-001");
-    await editDialog.getByRole("button", { name: "Submit Invoice" }).click();
+    await editDialog.getByRole("button", { name: "Update Invoice" }).click();
     await expect(editDialog).toBeHidden({ timeout: 15_000 });
     await expectStatus(page, "Invoice Pending");
 

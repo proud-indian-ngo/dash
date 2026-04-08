@@ -2,6 +2,7 @@ import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleDeleteR2Object } from "./delete-r2-object";
+import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
@@ -416,6 +417,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work("immich-delete-album", NOTIFY_POLL, handleImmichDeleteAlbum);
   await boss.work("immich-delete-asset", NOTIFY_POLL, handleImmichDeleteAsset);
   await boss.work("delete-r2-object", NOTIFY_POLL, handleDeleteR2Object);
+  await boss.work(
+    "generate-cash-voucher",
+    NOTIFY_POLL,
+    handleGenerateCashVoucher
+  );
 
   // User sync handlers (5s polling — external API)
   await boss.work(

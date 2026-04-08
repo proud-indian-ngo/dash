@@ -62,6 +62,7 @@ describe("buildLineItemInsert", () => {
         description: "Office supplies",
         amount: 4299,
         sortOrder: 0,
+        generateVoucher: false,
       },
       NOW
     );
@@ -85,6 +86,7 @@ describe("buildLineItemInsert", () => {
         description: "Travel expenses",
         amount: 1000,
         sortOrder: 1,
+        generateVoucher: false,
       },
       NOW
     );

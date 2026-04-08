@@ -19,7 +19,7 @@ test.describe("Public events page", () => {
     });
   });
 
-  test("events page shows table structure", async ({ page }, testInfo) => {
+  test("events page shows calendar layout", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await page.goto("/events");
@@ -27,13 +27,10 @@ test.describe("Public events page", () => {
       timeout: 10_000,
     });
 
-    // Table headers should be visible
-    await expect(
-      page.getByRole("columnheader", { name: "Event" })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("columnheader", { name: "Date & Time" })
-    ).toBeVisible();
+    // Calendar and search should be visible
+    await expect(page.getByPlaceholder("Search events...")).toBeVisible();
+    // Filter buttons
+    await expect(page.getByRole("button", { name: "All" })).toBeVisible();
   });
 
   test("sidebar has Events nav item", async ({ page }, testInfo) => {

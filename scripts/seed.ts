@@ -915,6 +915,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           cat: ID.catFood,
           desc: "Snacks for kids",
           amount: "450.00",
+          generateVoucher: true,
         },
       ],
       historyIds: [ID.rh01, ID.rh02, ID.rh03],
@@ -1014,6 +1015,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           description: item.desc,
           amount: item.amount,
           sortOrder: i,
+          generateVoucher: item.generateVoucher ?? false,
           createdAt: now,
           updatedAt: now,
         })

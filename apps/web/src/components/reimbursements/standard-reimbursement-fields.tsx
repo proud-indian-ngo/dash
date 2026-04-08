@@ -214,7 +214,7 @@ export function StandardReimbursementFields({
 
       <Separator />
 
-      <LineItemsEditor categories={categoryList} />
+      <LineItemsEditor categories={categoryList} showVoucher />
 
       <Separator />
 

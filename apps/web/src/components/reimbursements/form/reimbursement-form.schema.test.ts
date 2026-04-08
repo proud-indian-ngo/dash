@@ -10,6 +10,7 @@ const validLineItem = {
   categoryId: "cat-1",
   description: "Office supplies",
   amount: "100.00",
+  generateVoucher: false,
 };
 
 const validReimbursement = {

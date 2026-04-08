@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   index,
@@ -79,6 +80,11 @@ export const reimbursementLineItem = pgTable(
     description: text("description"),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     sortOrder: integer("sort_order").notNull(),
+    generateVoucher: boolean("generate_voucher").default(false).notNull(),
+    voucherAttachmentId: uuid("voucher_attachment_id").references(
+      () => reimbursementAttachment.id,
+      { onDelete: "set null" }
+    ),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -165,6 +171,10 @@ export const reimbursementLineItemRelations = relations(
     category: one(expenseCategory, {
       fields: [reimbursementLineItem.categoryId],
       references: [expenseCategory.id],
+    }),
+    voucherAttachment: one(reimbursementAttachment, {
+      fields: [reimbursementLineItem.voucherAttachmentId],
+      references: [reimbursementAttachment.id],
     }),
   })
 );

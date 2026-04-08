@@ -297,6 +297,21 @@ Optional integration for photo album management (`IMMICH_API_KEY` + `VITE_IMMICH
 
 Implementation: mutator at `packages/zero/src/mutators/event-photo.ts`, handlers at `packages/jobs/src/handlers/immich-sync-photo.ts`, `immich-delete-asset.ts`, `delete-r2-object.ts`. Shared R2 client at `packages/jobs/src/handlers/r2.ts`.
 
+## Cash Vouchers
+
+Cash vouchers are generated for reimbursement line items ≤ ₹1000. Users opt in per line item; vouchers auto-generate on reimbursement approval.
+
+**Async job**: pg-boss job `generate-cash-voucher` (payload: `{ lineItemId, voucherId }`)
+
+1. Receives reimbursement line item ID + voucher ID from enqueue call
+2. `packages/pdf/src/voucher.ts` builds PDF using @react-pdf/renderer
+3. PDF streamed → R2 upload via shared R2 client (`packages/jobs/src/handlers/r2.ts`)
+4. On success, attachment record linked to voucher via transaction (`attachmentId` + `voucherId`)
+5. Uses `singletonKey: voucherId` for deduplication — safe to regenerate without duplication
+6. Atomic transaction ensures attachment linking succeeds only if upload succeeds
+
+**Config**: `VOUCHER_ORG_*` env vars (name, address, phone, email, registration). Logo/signature PNG assets at `packages/pdf/assets/`.
+
 ## Observability
 
 ### Server-Side Logging (evlog)

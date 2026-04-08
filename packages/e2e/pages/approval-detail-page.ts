@@ -54,4 +54,16 @@ export class ApprovalDetailPage {
   async editSubmission(): Promise<void> {
     await this.getEditSubmissionButton().click();
   }
+
+  getGenerateVoucherButton(): Locator {
+    return this.page.getByRole("button", { name: "Generate Voucher" });
+  }
+
+  getRegenerateVoucherButton(): Locator {
+    return this.page.getByRole("button", { name: /Regenerate/ });
+  }
+
+  getVoucherGeneratedIndicator(): Locator {
+    return this.page.getByText("Generated");
+  }
 }

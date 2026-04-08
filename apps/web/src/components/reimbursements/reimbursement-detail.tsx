@@ -1,11 +1,15 @@
 import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
+  FileDownloadIcon,
+  RepeatIcon,
+  TickDouble02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
@@ -27,6 +31,7 @@ import {
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
+  isReimbursement,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/reimbursement-types";
@@ -44,6 +49,9 @@ export function ReimbursementDetail({
   const zero = useZero();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [generatingVoucherId, setGeneratingVoucherId] = useState<string | null>(
+    null
+  );
 
   const typeLabel = REQUEST_TYPE_LABELS[request.type];
 
@@ -88,6 +96,29 @@ export function ReimbursementDetail({
     }
     if (res.type !== "error") {
       setApproveOpen(false);
+    }
+  };
+
+  const handleGenerateVoucher = async (lineItemId: string) => {
+    if (request.type !== "reimbursement" || generatingVoucherId) {
+      return;
+    }
+    setGeneratingVoucherId(lineItemId);
+    try {
+      const res = await zero.mutate(
+        mutators.reimbursement.generateVoucher({
+          lineItemId,
+          reimbursementId: request.id,
+        })
+      ).server;
+      handleMutationResult(res, {
+        mutation: "reimbursement.generateVoucher",
+        entityId: lineItemId,
+        successMsg: "Voucher generation started",
+        errorMsg: "Failed to generate voucher",
+      });
+    } finally {
+      setGeneratingVoucherId(null);
     }
   };
 
@@ -217,55 +248,13 @@ export function ReimbursementDetail({
         ) : null}
 
         {/* Line items */}
-        <div className="flex flex-col gap-3">
-          <h2 className="font-medium text-sm">Line items</h2>
-          {request.lineItems.length > 0 ? (
-            <div className="overflow-hidden rounded-md border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="px-3 py-2 text-left font-medium">
-                      Category
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium">
-                      Description
-                    </th>
-                    <th className="px-3 py-2 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {request.lineItems.map((item) => (
-                    <tr className="border-b last:border-0" key={item.id}>
-                      <td className="px-3 py-2">
-                        {item.category?.name ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {item.description ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {formatINR(Number(item.amount))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t bg-muted/50">
-                    <td className="px-3 py-2 font-medium" colSpan={2}>
-                      Total
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatINR(total)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground text-sm">
-              No line items.
-            </p>
-          )}
-        </div>
+        <LineItemsTable
+          canApprove={canApprove}
+          generatingVoucherId={generatingVoucherId}
+          onGenerateVoucher={handleGenerateVoucher}
+          request={request}
+          total={total}
+        />
 
         {/* Attachments */}
         {request.attachments.length > 0 ? (
@@ -357,6 +346,182 @@ export function ReimbursementDetail({
         />
       </div>
     </AppErrorBoundary>
+  );
+}
+
+function VoucherCell({
+  canApprove,
+  isApproved,
+  isGenerating,
+  item,
+  onGenerate,
+}: {
+  canApprove: boolean;
+  isApproved: boolean;
+  isGenerating: boolean;
+  item: {
+    amount: number | string;
+    generateVoucher?: boolean | null;
+    id: string;
+    voucherAttachmentId?: string | null;
+  };
+  onGenerate: (lineItemId: string) => void;
+}) {
+  const amount = Number(item.amount);
+  const hasVoucher = !!item.voucherAttachmentId;
+  const isQualifying = amount > 0 && amount <= VOUCHER_AMOUNT_THRESHOLD;
+
+  if (hasVoucher) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <HugeiconsIcon
+          className="size-3.5 text-emerald-600"
+          icon={TickDouble02Icon}
+          strokeWidth={2}
+        />
+        <span className="text-emerald-600 text-xs">Generated</span>
+        {canApprove && isApproved ? (
+          <Button
+            className="ml-1 h-auto px-1.5 py-0.5 text-xs"
+            disabled={isGenerating}
+            onClick={() => onGenerate(item.id)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-3"
+              icon={RepeatIcon}
+              strokeWidth={2}
+            />
+            {isGenerating ? "Regenerating..." : "Regenerate"}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (item.generateVoucher && isApproved && !hasVoucher) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground text-xs">Pending...</span>
+        {canApprove ? (
+          <Button
+            className="ml-1 h-auto px-1.5 py-0.5 text-xs"
+            disabled={isGenerating}
+            onClick={() => onGenerate(item.id)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {isGenerating ? "Generating..." : "Retry"}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (canApprove && isApproved && isQualifying) {
+    return (
+      <Button
+        className="h-auto px-2 py-1 text-xs"
+        disabled={isGenerating}
+        onClick={() => onGenerate(item.id)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <HugeiconsIcon
+          className="size-3.5"
+          icon={FileDownloadIcon}
+          strokeWidth={2}
+        />
+        {isGenerating ? "Generating..." : "Generate Voucher"}
+      </Button>
+    );
+  }
+
+  return <span className="text-muted-foreground text-xs">—</span>;
+}
+
+function LineItemsTable({
+  canApprove,
+  generatingVoucherId,
+  onGenerateVoucher,
+  request,
+  total,
+}: {
+  canApprove: boolean;
+  generatingVoucherId: string | null;
+  onGenerateVoucher: (lineItemId: string) => void;
+  request: RequestDetailData;
+  total: number;
+}) {
+  const isReimb = isReimbursement(request);
+  const showVoucherCol = isReimb && request.status === "approved";
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="font-medium text-sm">Line items</h2>
+      {request.lineItems.length > 0 ? (
+        <div className="overflow-hidden rounded-md border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-3 py-2 text-left font-medium">Category</th>
+                <th className="px-3 py-2 text-left font-medium">Description</th>
+                <th className="px-3 py-2 text-right font-medium">Amount</th>
+                {showVoucherCol ? (
+                  <th className="px-3 py-2 text-left font-medium">Voucher</th>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {request.lineItems.map((item) => (
+                <tr className="border-b last:border-0" key={item.id}>
+                  <td className="px-3 py-2">{item.category?.name ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {item.description ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatINR(Number(item.amount))}
+                  </td>
+                  {showVoucherCol ? (
+                    <td className="px-3 py-2">
+                      <VoucherCell
+                        canApprove={canApprove}
+                        isApproved={request.status === "approved"}
+                        isGenerating={generatingVoucherId === item.id}
+                        item={item}
+                        onGenerate={onGenerateVoucher}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t bg-muted/50">
+                <td
+                  className="px-3 py-2 font-medium"
+                  colSpan={showVoucherCol ? 2 : 2}
+                >
+                  Total
+                </td>
+                <td className="px-3 py-2 text-right font-medium tabular-nums">
+                  {formatINR(total)}
+                </td>
+                {showVoucherCol ? <td /> : null}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ) : (
+        <p className="text-center text-muted-foreground text-sm">
+          No line items.
+        </p>
+      )}
+    </div>
   );
 }
 

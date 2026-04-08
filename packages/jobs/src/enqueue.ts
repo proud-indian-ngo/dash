@@ -71,6 +71,13 @@ export interface NotifyReimbursementRejectedPayload {
   title: string;
 }
 
+// Cash Voucher
+export interface GenerateCashVoucherPayload {
+  approverUserId: string;
+  lineItemId: string;
+  reimbursementId: string;
+}
+
 // Advance Payment
 export interface NotifyAdvancePaymentSubmittedPayload {
   advancePaymentId: string;
@@ -472,6 +479,7 @@ export interface SyncCourierPreferencePayload {
 export interface JobPayloads {
   "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
+  "generate-cash-voucher": GenerateCashVoucherPayload;
   "immich-delete-album": ImmichDeleteAlbumPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;
   "immich-sync-photo": ImmichSyncPhotoPayload;
@@ -552,6 +560,7 @@ export type JobName = keyof JobPayloads;
 export const QUEUE_NAMES: JobName[] = [
   "cleanup-stale-scheduled-recipients",
   "delete-r2-object",
+  "generate-cash-voucher",
   "immich-delete-album",
   "immich-delete-asset",
   "immich-sync-photo",

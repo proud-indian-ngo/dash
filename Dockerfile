@@ -10,6 +10,7 @@ COPY packages/design-system/package.json packages/design-system/
 COPY packages/editor/package.json packages/editor/
 COPY packages/email/package.json packages/email/
 COPY packages/env/package.json packages/env/
+COPY packages/pdf/package.json packages/pdf/
 COPY packages/jobs/package.json packages/jobs/
 COPY packages/notifications/package.json packages/notifications/
 COPY packages/observability/package.json packages/observability/

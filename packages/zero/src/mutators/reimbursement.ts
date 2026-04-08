@@ -1,4 +1,7 @@
-import { cityValues } from "@pi-dash/shared/constants";
+import {
+  cityValues,
+  VOUCHER_AMOUNT_THRESHOLD,
+} from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -34,7 +37,24 @@ export const createSchema = z.object({
   attachments: z.array(attachmentSchema),
 });
 
+type LineItems = z.infer<typeof createSchema>["lineItems"];
+
 const fk = (id: string) => ({ reimbursementId: id });
+
+function withVoucherFields<T extends { id: string }>(
+  lineItems: LineItems,
+  insertFn: (data: T) => Promise<unknown>
+) {
+  const byId = new Map(lineItems.map((li) => [li.id, li]));
+  return (data: T) => {
+    const src = byId.get(data.id);
+    return insertFn({
+      ...data,
+      generateVoucher: src?.generateVoucher ?? false,
+      voucherAttachmentId: null,
+    });
+  };
+}
 
 const entityFields = (args: z.infer<typeof createSchema>) => ({
   city: args.city ?? null,
@@ -74,7 +94,9 @@ export const reimbursementMutators = {
       "created",
       now,
       {
-        insertLineItem: (data) => tx.mutate.reimbursementLineItem.insert(data),
+        insertLineItem: withVoucherFields(args.lineItems, (data) =>
+          tx.mutate.reimbursementLineItem.insert(data)
+        ),
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
@@ -133,7 +155,9 @@ export const reimbursementMutators = {
       userId,
       now,
       {
-        insertLineItem: (data) => tx.mutate.reimbursementLineItem.insert(data),
+        insertLineItem: withVoucherFields(args.lineItems, (data) =>
+          tx.mutate.reimbursementLineItem.insert(data)
+        ),
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
@@ -182,6 +206,16 @@ export const reimbursementMutators = {
         const id = args.id;
         const note = args.note;
         const approvalScreenshotKey = args.approvalScreenshotKey;
+        const approverUserId = userId;
+
+        const lineItems = await tx.run(
+          zql.reimbursementLineItem.where("reimbursementId", args.id)
+        );
+        const voucherLineItems = lineItems.filter(
+          (li) =>
+            li.generateVoucher && Number(li.amount) <= VOUCHER_AMOUNT_THRESHOLD
+        );
+
         ctx.asyncTasks?.push({
           meta: {
             mutator: "approveReimbursement",
@@ -198,6 +232,17 @@ export const reimbursementMutators = {
               note,
               approvalScreenshotKey,
             });
+            for (const li of voucherLineItems) {
+              await enqueue(
+                "generate-cash-voucher",
+                {
+                  lineItemId: li.id,
+                  reimbursementId: id,
+                  approverUserId,
+                },
+                { singletonKey: `voucher-${li.id}` }
+              );
+            }
           },
         });
       }
@@ -275,6 +320,57 @@ export const reimbursementMutators = {
               submitterId: ownerId,
               reason,
             });
+          },
+        });
+      }
+    }
+  ),
+
+  generateVoucher: defineMutator(
+    z.object({ lineItemId: z.string(), reimbursementId: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.approve");
+      const userId = ctx.userId;
+
+      const entity = await tx.run(
+        zql.reimbursement.where("id", args.reimbursementId).one()
+      );
+      assertEntityExists(entity, "Reimbursement");
+      if (entity.status !== "approved") {
+        throw new Error("Only approved reimbursements can have vouchers");
+      }
+
+      const lineItem = await tx.run(
+        zql.reimbursementLineItem.where("id", args.lineItemId).one()
+      );
+      assertEntityExists(lineItem, "Line item");
+      if (Number(lineItem.amount) > VOUCHER_AMOUNT_THRESHOLD) {
+        throw new Error(
+          `Vouchers can only be generated for items ≤ ₹${VOUCHER_AMOUNT_THRESHOLD}`
+        );
+      }
+
+      if (tx.location === "server") {
+        const lineItemId = args.lineItemId;
+        const reimbursementId = args.reimbursementId;
+        const approverUserId = userId;
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "generateVoucher",
+            reimbursementId,
+            lineItemId,
+          },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "generate-cash-voucher",
+              {
+                lineItemId,
+                reimbursementId,
+                approverUserId,
+              },
+              { singletonKey: `voucher-${lineItemId}` }
+            );
           },
         });
       }

@@ -27,6 +27,7 @@ export const lineItemSchema = z.object({
     .refine((value) => amountSchema.safeParse(Number(value)).success, {
       message: "Must be > 0 with max 2 decimals",
     }),
+  generateVoucher: z.boolean().optional(),
 });
 
 export const attachmentSchema = z.discriminatedUnion("type", [
@@ -52,6 +53,7 @@ export const newLineItem = (): LineItem => ({
   categoryId: "",
   description: "",
   amount: "",
+  generateVoucher: false,
 });
 
 export const computeRunningTotal = (lineItems: LineItem[]): number => {

@@ -15,6 +15,7 @@
     "@pi-dash/env": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
     "@pi-dash/observability": "workspace:*",
+    "@pi-dash/pdf": "workspace:*",
     "@pi-dash/shared": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
     "date-fns": "catalog:",

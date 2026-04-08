@@ -281,6 +281,13 @@
       "when": 1775553682331,
       "tag": "0039_panoramic_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1775620831288,
+      "tag": "0040_kind_mongu",
+      "breakpoints": true
     }
   ]
 }

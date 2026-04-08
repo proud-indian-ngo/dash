@@ -140,6 +140,7 @@ describe("buildLineItemInsert", () => {
         description: "Test item",
         amount: 500,
         sortOrder: 0,
+        generateVoucher: false,
       },
       now
     );

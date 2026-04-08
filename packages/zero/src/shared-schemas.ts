@@ -24,4 +24,5 @@ export const mutatorLineItemSchema = z.object({
     .positive("Amount must be greater than 0")
     .multipleOf(0.01, "Amount must have at most 2 decimal places"),
   sortOrder: z.number().int(),
+  generateVoucher: z.boolean().optional().default(false),
 });

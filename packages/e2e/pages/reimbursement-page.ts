@@ -76,4 +76,27 @@ export class ReimbursementPage {
     });
     return title;
   }
+
+  async createReimbursementWithVoucher(titleSuffix: string): Promise<string> {
+    const title = `E2E ${titleSuffix} ${Date.now()}`;
+    await this.navigateToNew();
+    await this.selectType(this.type);
+    await this.form.fillTitle(title);
+    await this.form.selectCity("Bangalore");
+    await this.form.selectBankAccount();
+    await this.selectExpenseDate();
+
+    await this.form.fillLineItem({
+      description: "Small cash expense",
+      amount: "500",
+    });
+
+    await this.form.toggleCashVoucher(0);
+
+    await this.form.submit();
+    await this.page.waitForURL(/\/reimbursements\/[a-z0-9-]+$/, {
+      timeout: 10_000,
+    });
+    return title;
+  }
 }

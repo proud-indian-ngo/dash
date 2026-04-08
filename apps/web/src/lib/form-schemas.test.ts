@@ -4,8 +4,20 @@ import { computeRunningTotal, formatINR, lineItemSchema } from "./form-schemas";
 describe("computeRunningTotal", () => {
   it("sums valid amounts", () => {
     const items = [
-      { id: "1", categoryId: "c", description: "a", amount: "100.50" },
-      { id: "2", categoryId: "c", description: "b", amount: "200" },
+      {
+        id: "1",
+        categoryId: "c",
+        description: "a",
+        generateVoucher: false,
+        amount: "100.50",
+      },
+      {
+        id: "2",
+        categoryId: "c",
+        description: "b",
+        generateVoucher: false,
+        amount: "200",
+      },
     ];
     expect(computeRunningTotal(items)).toBeCloseTo(300.5);
   });
@@ -16,9 +28,27 @@ describe("computeRunningTotal", () => {
 
   it("treats non-numeric amounts as 0", () => {
     const items = [
-      { id: "1", categoryId: "c", description: "a", amount: "abc" },
-      { id: "2", categoryId: "c", description: "b", amount: "" },
-      { id: "3", categoryId: "c", description: "c", amount: "50" },
+      {
+        id: "1",
+        categoryId: "c",
+        description: "a",
+        generateVoucher: false,
+        amount: "abc",
+      },
+      {
+        id: "2",
+        categoryId: "c",
+        description: "b",
+        generateVoucher: false,
+        amount: "",
+      },
+      {
+        id: "3",
+        categoryId: "c",
+        description: "c",
+        generateVoucher: false,
+        amount: "50",
+      },
     ];
     expect(computeRunningTotal(items)).toBe(50);
   });
@@ -42,6 +72,7 @@ describe("lineItemSchema", () => {
     categoryId: "cat-1",
     description: "Taxi fare",
     amount: "150.50",
+    generateVoucher: false,
   };
 
   it("accepts valid line item", () => {

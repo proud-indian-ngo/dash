@@ -10,7 +10,13 @@ describe("mapLineItemsToFormValues", () => {
       { id: "1", categoryId: "c1", description: "Taxi", amount: 150.5 },
     ]);
     expect(result).toEqual([
-      { id: "1", categoryId: "c1", description: "Taxi", amount: "150.5" },
+      {
+        id: "1",
+        categoryId: "c1",
+        description: "Taxi",
+        amount: "150.5",
+        generateVoucher: false,
+      },
     ]);
   });
 

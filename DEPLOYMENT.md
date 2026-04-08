@@ -56,6 +56,18 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_KEY_PREFIX` | Key prefix for uploads |
 | `VITE_CDN_URL` | Public CDN URL for serving uploaded files |
 
+### Voucher Organization
+
+| Variable | Description |
+|---|---|
+| `VOUCHER_ORG_NAME` | Organization name on vouchers (required for voucher generation) |
+| `VOUCHER_ORG_ADDRESS` | Organization address |
+| `VOUCHER_ORG_PHONE` | Organization phone |
+| `VOUCHER_ORG_EMAIL` | Organization email |
+| `VOUCHER_ORG_REGISTRATION` | Organization registration number |
+
+Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signature.png` for voucher PDFs to include logo and signature.
+
 ### Optional
 
 | Variable | Description |
