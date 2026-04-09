@@ -163,14 +163,14 @@ function RoleEditPage() {
 
   if (!(roleData && permissionGroups)) {
     return (
-      <div className="app-container mx-auto max-w-4xl px-4 py-6">
+      <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
         <p className="text-muted-foreground">Role not found.</p>
       </div>
     );
   }
 
   return (
-    <div className="app-container mx-auto max-w-4xl px-4 py-6">
+    <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
       <div className="mb-6">
         <Link
           className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"

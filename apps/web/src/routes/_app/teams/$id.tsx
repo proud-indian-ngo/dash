@@ -23,7 +23,7 @@ function TeamDetailRouteComponent() {
 
   if (!team && result.type !== "complete") {
     return (
-      <div className="app-container mx-auto max-w-7xl px-4 py-6">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <Loader />
       </div>
     );
@@ -31,14 +31,14 @@ function TeamDetailRouteComponent() {
 
   if (!team) {
     return (
-      <div className="app-container mx-auto max-w-7xl px-4 py-6">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <p className="text-muted-foreground text-sm">Team not found.</p>
       </div>
     );
   }
 
   return (
-    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <TeamDetail team={team} userId={session.user.id} />
     </div>
   );

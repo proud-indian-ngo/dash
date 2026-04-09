@@ -139,7 +139,7 @@ function AppLayout() {
           tabIndex={-1}
         >
           <header className="flex h-16 shrink-0 items-center transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex h-full flex-1 items-center justify-between px-4">
+            <div className="flex h-full flex-1 items-center justify-between px-2 sm:px-4">
               <div className="flex items-center gap-2">
                 <SidebarTrigger className="-ml-1" />
                 <Separator
@@ -151,7 +151,7 @@ function AppLayout() {
               <ThemeToggle />
             </div>
           </header>
-          <div className="flex min-w-0 flex-1 flex-col gap-4 p-4 pt-0">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 px-2 pb-4 sm:px-4">
             <Outlet />
           </div>
         </SidebarInset>

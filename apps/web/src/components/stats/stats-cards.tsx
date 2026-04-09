@@ -52,7 +52,7 @@ export function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="font-display font-semibold text-2xl tracking-tight">
+        <div className="truncate font-display font-semibold text-2xl tracking-tight">
           {item.value}
         </div>
         {item.description && (
@@ -73,7 +73,7 @@ export function StatCard({
   if (item.href) {
     return (
       <Link
-        className={`transition-colors hover:bg-muted/40 ${animationClasses}`}
+        className={`min-w-0 transition-colors hover:bg-muted/40 ${animationClasses}`}
         style={animationStyle}
         to={item.href}
       >
@@ -87,7 +87,7 @@ export function StatCard({
   }
 
   return (
-    <div className={animationClasses} style={animationStyle}>
+    <div className={`min-w-0 ${animationClasses}`} style={animationStyle}>
       {card}
     </div>
   );

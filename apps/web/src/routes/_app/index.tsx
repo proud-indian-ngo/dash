@@ -162,7 +162,7 @@ function WelcomeDashboard() {
   const { session } = Route.useRouteContext();
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
+    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
         Dashboard
       </h1>
@@ -301,7 +301,7 @@ function OrientedDashboard() {
   });
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
+    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display font-semibold text-2xl tracking-tight">
           Dashboard
@@ -341,7 +341,7 @@ function OrientedDashboard() {
       )}
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <MyTeams isLoading={isLoading} teams={teams} />
           <RecentActivity
             advancePayments={advancePayments}
@@ -349,7 +349,7 @@ function OrientedDashboard() {
             reimbursements={reimbursements}
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <UpcomingEvents events={events} isLoading={isLoading} />
         </div>
       </div>

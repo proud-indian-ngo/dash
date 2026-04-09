@@ -145,7 +145,7 @@ function AnalyticsPage() {
   );
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-4 py-6 duration-150 ease-(--ease-out-expo)">
+    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display font-semibold text-2xl tracking-tight">
           Analytics

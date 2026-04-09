@@ -124,7 +124,7 @@ function ReimbursementsRouteComponent() {
   };
 
   return (
-    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
         Reimbursements
       </h1>

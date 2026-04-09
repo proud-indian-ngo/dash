@@ -37,7 +37,7 @@ function VendorPaymentDetailRouteComponent() {
 
   if (isLoading) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-4 py-6">
+      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
         <Loader />
       </div>
     );
@@ -45,7 +45,7 @@ function VendorPaymentDetailRouteComponent() {
 
   if (!vendorPayment) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-4 py-6">
+      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
         <p className="text-muted-foreground text-sm">
           Vendor payment not found.
         </p>
@@ -74,7 +74,7 @@ function VendorPaymentDetailRouteComponent() {
   };
 
   return (
-    <div className="app-container mx-auto max-w-3xl px-4 py-6">
+    <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
       <div
         className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)"
         key={showEditForm ? "edit" : "view"}

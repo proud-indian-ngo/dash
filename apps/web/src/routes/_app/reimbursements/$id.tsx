@@ -78,7 +78,7 @@ function ReimbursementDetailRouteComponent() {
 
   if (isLoading) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-4 py-6">
+      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
         <Loader />
       </div>
     );
@@ -86,7 +86,7 @@ function ReimbursementDetailRouteComponent() {
 
   if (!resolved) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-4 py-6">
+      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
         <p className="text-muted-foreground text-sm">
           Reimbursement not found.
         </p>
@@ -139,7 +139,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
 
   return (
-    <div className="app-container mx-auto max-w-3xl px-4 py-6">
+    <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
       <div
         className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)"
         key={showEditForm ? "edit" : "view"}

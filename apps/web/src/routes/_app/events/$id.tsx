@@ -71,7 +71,7 @@ function EventDetailRouteComponent() {
 
   if (!event) {
     return (
-      <div className="app-container mx-auto max-w-7xl px-4 py-6">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <p className="text-muted-foreground text-sm">Event not found.</p>
       </div>
     );
@@ -100,7 +100,7 @@ function EventDetailRouteComponent() {
       : event;
 
   return (
-    <div className="app-container mx-auto max-w-7xl px-4 py-6">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <EventDetail
         canApproveUpdates={canApproveUpdates}
         canManage={canManage}
