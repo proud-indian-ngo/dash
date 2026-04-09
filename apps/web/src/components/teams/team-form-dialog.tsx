@@ -76,9 +76,27 @@ export function TeamFormDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
-  const whatsappGroupOptions = (whatsappGroups ?? []).map(
-    (group: WhatsappGroup) => ({ label: group.name, value: group.id })
-  );
+  const [allTeams] = useQuery(queries.team.all());
+  const [allEvents] = useQuery(queries.teamEvent.allAccessible());
+
+  const usedGroupIds = new Set<string>();
+  for (const t of allTeams ?? []) {
+    if (t.whatsappGroupId) {
+      usedGroupIds.add(t.whatsappGroupId);
+    }
+  }
+  for (const e of allEvents ?? []) {
+    if (e.whatsappGroupId) {
+      usedGroupIds.add(e.whatsappGroupId);
+    }
+  }
+  if (isEdit && initialValues?.whatsappGroupId) {
+    usedGroupIds.delete(initialValues.whatsappGroupId);
+  }
+
+  const whatsappGroupOptions = (whatsappGroups ?? [])
+    .filter((group: WhatsappGroup) => !usedGroupIds.has(group.id))
+    .map((group: WhatsappGroup) => ({ label: group.name, value: group.id }));
   const whatsappGroupLabelByValue = new Map(
     whatsappGroupOptions.map((option) => [option.value, option.label])
   );

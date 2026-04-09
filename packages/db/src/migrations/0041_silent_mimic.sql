@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "team_event_whatsappGroupId_uidx" ON "team_event" USING btree ("whatsapp_group_id") WHERE series_id IS NULL;

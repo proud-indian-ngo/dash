@@ -70,6 +70,11 @@ export const teamEvent = pgTable(
       table.seriesId,
       table.originalDate
     ),
+    // Only enforce uniqueness on series parents and standalone events (seriesId IS NULL).
+    // Exceptions inherit the parent's whatsappGroupId, so they are excluded.
+    uniqueIndex("team_event_whatsappGroupId_uidx")
+      .on(table.whatsappGroupId)
+      .where(sql`series_id IS NULL`),
     check(
       "team_event_end_after_start_chk",
       sql`end_time IS NULL OR end_time >= start_time`

@@ -409,12 +409,32 @@ export function EventFormDialog({
   const [formKey, setFormKey] = useState(0);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
+  const [allTeams] = useQuery(queries.team.all());
+  const [allEvents] = useQuery(queries.teamEvent.allAccessible());
+
+  const usedGroupIds = new Set<string>();
+  for (const t of allTeams ?? []) {
+    if (t.whatsappGroupId) {
+      usedGroupIds.add(t.whatsappGroupId);
+    }
+  }
+  for (const e of allEvents ?? []) {
+    if (e.whatsappGroupId) {
+      usedGroupIds.add(e.whatsappGroupId);
+    }
+  }
+  if (isEdit && initialValues?.whatsappGroupId) {
+    usedGroupIds.delete(initialValues.whatsappGroupId);
+  }
+
   const waGroupOptions = [
     { label: "None", value: "" },
-    ...(whatsappGroups ?? []).map((g: WhatsappGroup) => ({
-      label: g.name,
-      value: g.id,
-    })),
+    ...(whatsappGroups ?? [])
+      .filter((g: WhatsappGroup) => !usedGroupIds.has(g.id))
+      .map((g: WhatsappGroup) => ({
+        label: g.name,
+        value: g.id,
+      })),
   ];
 
   const handleOpenChange = (nextOpen: boolean) => {
