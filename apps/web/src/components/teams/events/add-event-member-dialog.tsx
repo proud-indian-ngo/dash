@@ -6,16 +6,19 @@ import {
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
 import { mutators } from "@pi-dash/zero/mutators";
-import { queries } from "@pi-dash/zero/queries";
-import { useQuery, useZero } from "@rocicorp/zero/react";
+import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { UserPicker } from "@/components/shared/user-picker";
+import {
+  getUsersForPicker,
+  type PickerUser,
+} from "@/functions/users-for-picker";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const addMemberSchema = z.object({
@@ -39,9 +42,16 @@ function AddEventMemberFormContent({
   open,
 }: AddEventMemberDialogProps) {
   const zero = useZero();
-  const [allUsers] = useQuery(queries.user.all(), { enabled: open });
+  const [allUsers, setAllUsers] = useState<PickerUser[]>([]);
 
-  const eligibleUsers = (allUsers ?? []).filter((u) => u.isActive);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    getUsersForPicker().then(setAllUsers);
+  }, [open]);
+
+  const eligibleUsers = allUsers.filter((u) => u.isActive);
 
   const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 

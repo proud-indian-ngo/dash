@@ -62,6 +62,7 @@
 - DO: Use `can(ctx, "permission.id")` for conditional checks and `hasPermission("id")` from AppContext on the client.
 - DO: Add new permissions to `packages/db/src/permissions.ts` — they sync to DB automatically on server boot via `syncPermissions()`.
 - DO NOT: Delete or rename permission IDs without migrating existing `rolePermission` rows.
+- DO: Separate `{entity}.view` (for pickers/queries) from `{entity}.manage` (for admin pages) when an entity's admin page exposes sensitive details. Gate nav items and route guards on `.manage`; gate Zero queries on `.view`. Example: `users.view` lets volunteers see names in selectors; `users.manage` gates the Users admin page.
 - DO: Use dynamic `import()` in Zero mutators (`packages/zero/src/mutators/`) for server-only packages (`@pi-dash/jobs`, `@pi-dash/notifications`, `@pi-dash/env/server`) — mutators run on both client and server, and the `tx.location === "server"` guard is a runtime check, so static imports would leak server code into the client bundle.
 - DO: Prefer `tx.run(zql....)` for data queries in mutator server blocks instead of `await import("@pi-dash/db")` — this avoids pulling drizzle-orm and the `"bun"` import into the client bundle. Only use `await import("@pi-dash/db")` when you need drizzle-specific operations (INSERT/UPDATE/DELETE) that can't be expressed with ZQL.
 - DO: Import shared constants/types from `@pi-dash/shared` (not `@pi-dash/db/schema/shared`) in packages that run on the client (Zero mutators, web app).

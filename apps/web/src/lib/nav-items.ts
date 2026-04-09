@@ -143,7 +143,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "vendors.view_all")) {
     items.push(vendorsNavItem);
   }
-  if (has(permissions, "users.view")) {
+  if (has(permissions, "users.manage")) {
     items.push(usersNavItem);
   }
   if (has(permissions, "requests.view_all")) {
@@ -209,7 +209,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   if (has(permissions, "requests.view_all")) {
     adminItems.push(analyticsNavItem);
   }
-  if (has(permissions, "users.view")) {
+  if (has(permissions, "users.manage")) {
     adminItems.push(usersNavItem);
   }
   if (has(permissions, "requests.export")) {

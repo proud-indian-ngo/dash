@@ -239,7 +239,7 @@ function OrientedDashboard() {
   const { hasPermission } = useApp();
   const canViewAllRequests = hasPermission("requests.view_all");
   const canApprove = hasPermission("requests.approve");
-  const canViewUsers = hasPermission("users.view");
+  const canViewUsers = hasPermission("users.manage");
   const canViewVendors = hasPermission("vendors.view_all");
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());

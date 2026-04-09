@@ -8,7 +8,6 @@ import {
   ComboboxList,
   useComboboxAnchor,
 } from "@pi-dash/design-system/components/ui/combobox";
-import type { User } from "@pi-dash/zero/schema";
 import { useState } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
@@ -17,7 +16,12 @@ interface UserPickerProps {
   excludeUserIds?: ReadonlySet<string>;
   onValueChange: (ids: string[]) => void;
   placeholder?: string;
-  users: readonly User[];
+  users: readonly {
+    id: string;
+    name: string;
+    email?: null | string;
+    image?: null | string;
+  }[];
   value: string[];
 }
 

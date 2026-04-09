@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_app/users")({
   head: () => ({
     meta: [{ title: `Users | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => assertPermission(context, "users.view"),
+  beforeLoad: ({ context }) => assertPermission(context, "users.manage"),
   loader: ({ context }) => {
     context.zero?.preload(queries.user.all());
   },

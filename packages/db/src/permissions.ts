@@ -104,7 +104,14 @@ export const PERMISSIONS = [
     id: "users.view",
     name: "View Users",
     category: "users",
-    description: "See user list",
+    description: "See full user list in Zero queries",
+  },
+  {
+    id: "users.manage",
+    name: "Manage Users",
+    category: "users",
+    description:
+      "Access the Users admin page (view personal details, stats, filters)",
   },
   {
     id: "users.create",
