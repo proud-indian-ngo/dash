@@ -18,7 +18,6 @@ const istTimePartsFormatter = new Intl.DateTimeFormat("en-IN", {
 });
 
 export interface DigestEvent {
-  description: string | null;
   endTime: number | null;
   location: string | null;
   name: string;
@@ -71,11 +70,6 @@ function formatEventTime(epochMs: number): string {
   return format(displayDate, pattern, { locale: enUS }).toLowerCase();
 }
 
-function formatEventDescription(description: string | null): string | null {
-  const normalized = description?.trim();
-  return normalized ? normalized.replace(/\s+/g, " ") : null;
-}
-
 function formatEventTimeRange(
   startTime: number,
   endTime: number | null
@@ -94,11 +88,6 @@ function formatDigestEvent(event: DigestEvent): string[] {
     `🗓️ ${formatEventDate(event.startTime)}`,
     `⏰ ${formatEventTimeRange(event.startTime, event.endTime)}`,
   ];
-
-  const description = formatEventDescription(event.description);
-  if (description) {
-    lines.push(`📝 ${description}`);
-  }
 
   if (event.location) {
     lines.push(`📍 ${event.location}`);

@@ -27,7 +27,6 @@ async function collectStandaloneEvents(
       startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
-      description: teamEvent.description,
     })
     .from(teamEvent)
     .where(
@@ -45,7 +44,6 @@ async function collectStandaloneEvents(
     startTime: event.startTime.getTime(),
     endTime: event.endTime?.getTime() ?? null,
     location: event.location,
-    description: event.description ?? null,
   }));
 }
 
@@ -59,7 +57,6 @@ async function collectMaterializedExceptions(
       startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
-      description: teamEvent.description,
     })
     .from(teamEvent)
     .where(
@@ -76,7 +73,6 @@ async function collectMaterializedExceptions(
     startTime: event.startTime.getTime(),
     endTime: event.endTime?.getTime() ?? null,
     location: event.location,
-    description: event.description ?? null,
   }));
 }
 
@@ -91,7 +87,6 @@ async function collectRecurringEvents(
       startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
-      description: teamEvent.description,
       recurrenceRule: teamEvent.recurrenceRule,
     })
     .from(teamEvent)
@@ -136,7 +131,6 @@ async function collectRecurringEvents(
         startTime: occurrence.startTime,
         endTime: occurrence.endTime,
         location: parent.location,
-        description: parent.description ?? null,
       });
     }
   }
