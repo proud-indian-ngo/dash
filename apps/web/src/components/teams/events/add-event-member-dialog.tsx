@@ -41,6 +41,8 @@ function AddEventMemberFormContent({
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all(), { enabled: open });
 
+  const eligibleUsers = (allUsers ?? []).filter((u) => u.isActive);
+
   const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 
   const form = useForm({
@@ -93,7 +95,7 @@ function AddEventMemberFormContent({
             emptyMessage="No matching volunteers found."
             excludeUserIds={existingUserIds}
             onValueChange={(ids) => field.handleChange(ids)}
-            users={allUsers ?? []}
+            users={eligibleUsers}
             value={field.state.value ?? []}
           />
         )}

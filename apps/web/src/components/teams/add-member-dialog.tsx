@@ -43,6 +43,10 @@ function AddMemberFormContent({
   const zero = useZero();
   const [allUsers] = useQuery(queries.user.all(), { enabled: open });
 
+  const eligibleUsers = (allUsers ?? []).filter(
+    (u) => u.role !== "unoriented_volunteer" && u.isActive
+  );
+
   const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 
   const form = useForm({
@@ -88,7 +92,7 @@ function AddMemberFormContent({
             <UserPicker
               excludeUserIds={existingUserIds}
               onValueChange={(ids) => field.handleChange(ids)}
-              users={allUsers ?? []}
+              users={eligibleUsers}
               value={field.state.value ?? []}
             />
             {(field.state.value?.length ?? 0) > 1 ? (
