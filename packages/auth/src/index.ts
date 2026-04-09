@@ -11,8 +11,170 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { admin } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import {
+  getUserIdFromNewSession,
+  reactivateUserAfterSignIn,
+} from "./reactivation";
+
+interface AuthHookContext {
+  context: {
+    newSession?: unknown;
+    returned?: unknown;
+  };
+  path: string;
+}
+
+function getUserFromReturnedBody(
+  returned: unknown
+): { email?: string; id?: string; name?: string } | undefined {
+  const body =
+    returned && typeof returned === "object" && "body" in returned
+      ? (returned as { body?: unknown }).body
+      : undefined;
+
+  return body && typeof body === "object" && "user" in body
+    ? (
+        body as {
+          user?: { id?: string; email?: string; name?: string };
+        }
+      ).user
+    : undefined;
+}
+
+function handleAfterSignUp(ctx: AuthHookContext): void {
+  const returned = ctx.context.returned;
+  const user = getUserFromReturnedBody(returned);
+
+  if (!user?.id) {
+    if (returned) {
+      const body =
+        returned && typeof returned === "object" && "body" in returned
+          ? (returned as { body?: unknown }).body
+          : undefined;
+      const log = createRequestLogger();
+      log.set({
+        hook: "afterSignUp",
+        warning: "sign-up returned response but user.id is missing",
+        bodyShape: body ? Object.keys(body as object) : "no body",
+      });
+      log.emit();
+    }
+    return;
+  }
+
+  const userId = user.id;
+
+  withFireAndForgetLog({ hook: "afterSignUp", userId }, async () => {
+    await enqueue("notify-user-welcome", {
+      userId,
+      email: user.email ?? "",
+      name: user.name ?? "",
+    });
+  });
+
+  withFireAndForgetLog(
+    { hook: "afterSignUp", userId, action: "orientationGroup" },
+    async () => {
+      await enqueue("whatsapp-manage-orientation", {
+        userId,
+        isOriented: false,
+      });
+    }
+  );
+}
+
+async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
+  const userId = getUserIdFromNewSession(ctx.context.newSession);
+  if (!userId) {
+    const log = createRequestLogger();
+    log.set({
+      hook: "afterSignIn",
+      path: ctx.path,
+      warning: "sign-in succeeded but newSession userId is missing",
+      hasNewSession: ctx.context.newSession != null,
+    });
+    log.emit();
+    return;
+  }
+
+  const log = createRequestLogger();
+  log.set({ hook: "afterSignIn", path: ctx.path, userId });
+
+  try {
+    const result = await reactivateUserAfterSignIn(userId, {
+      fetchUserState: async (targetUserId) =>
+        db
+          .select({
+            banned: schema.user.banned,
+            isActive: schema.user.isActive,
+            role: schema.user.role,
+          })
+          .from(schema.user)
+          .where(eq(schema.user.id, targetUserId))
+          .limit(1)
+          .then((rows) => rows[0]),
+      markUserActive: async (targetUserId) => {
+        const rows = await db
+          .update(schema.user)
+          .set({ isActive: true })
+          .where(
+            and(
+              eq(schema.user.id, targetUserId),
+              eq(schema.user.isActive, false),
+              or(eq(schema.user.banned, false), isNull(schema.user.banned))
+            )
+          )
+          .returning({ id: schema.user.id });
+        return rows.length > 0;
+      },
+      restoreDefaultGroup: ({ isOriented, userId: targetUserId }) => {
+        withFireAndForgetLog(
+          {
+            hook: "afterSignIn",
+            userId: targetUserId,
+            action: "restoreDefaultWhatsAppGroup",
+            isOriented,
+          },
+          async () => {
+            await enqueue("whatsapp-manage-orientation", {
+              userId: targetUserId,
+              isOriented,
+            });
+          }
+        );
+      },
+    });
+
+    switch (result.status) {
+      case "missing-user":
+        log.set({ warning: "signed-in user not found in database" });
+        break;
+      case "skipped-banned":
+        log.set({ event: "skip_banned_user" });
+        break;
+      case "already-active":
+        log.set({ event: "already_active" });
+        break;
+      case "update-skipped":
+        log.set({ event: "reactivation_update_skipped", role: result.role });
+        break;
+      case "reactivated":
+        log.set({ event: "reactivated_on_login", role: result.role });
+        break;
+      default: {
+        const exhaustive: never = result;
+        throw new Error(`Unhandled sign-in reactivation result: ${exhaustive}`);
+      }
+    }
+
+    log.emit();
+  } catch (error) {
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
+  }
+}
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
@@ -55,57 +217,17 @@ export const auth = betterAuth({
     },
   },
   hooks: {
-    // biome-ignore lint/suspicious/useAwait: createAuthMiddleware requires async callback
     after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/sign-up/email") {
+      if (ctx.path === "/sign-up/email") {
+        handleAfterSignUp(ctx);
         return;
       }
 
-      const returned = ctx.context.returned;
-      const body =
-        returned && typeof returned === "object" && "body" in returned
-          ? (returned as { body?: unknown }).body
-          : undefined;
-      const user =
-        body && typeof body === "object" && "user" in body
-          ? (body as { user?: { id?: string; email?: string; name?: string } })
-              .user
-          : undefined;
-
-      if (!user?.id) {
-        if (returned) {
-          const log = createRequestLogger();
-          log.set({
-            hook: "afterSignUp",
-            warning: "sign-up returned response but user.id is missing",
-            bodyShape: body ? Object.keys(body as object) : "no body",
-          });
-          log.emit();
-        }
+      if (ctx.path !== "/sign-in/email") {
         return;
       }
 
-      // Welcome handler syncs user to Courier before sending notification
-      withFireAndForgetLog(
-        { hook: "afterSignUp", userId: user.id },
-        async () => {
-          await enqueue("notify-user-welcome", {
-            userId: user.id as string,
-            email: user.email ?? "",
-            name: user.name ?? "",
-          });
-        }
-      );
-
-      withFireAndForgetLog(
-        { hook: "afterSignUp", userId: user.id, action: "orientationGroup" },
-        async () => {
-          await enqueue("whatsapp-manage-orientation", {
-            userId: user.id as string,
-            isOriented: false,
-          });
-        }
-      );
+      await handleAfterSignIn(ctx);
     }),
   },
   trustedOrigins: [env.CORS_ORIGIN],

@@ -11,7 +11,8 @@
   },
   "scripts": {
     "auth:seed-admin": "bun run ./src/seed-admin.ts",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@pi-dash/db": "workspace:*",

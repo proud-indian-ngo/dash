@@ -16,6 +16,7 @@ import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
+import { getUserAdminWhatsappSyncPlan } from "@/functions/user-admin-whatsapp";
 import { authMiddleware } from "@/middleware/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -237,16 +238,17 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await ensurePermission(context, "users.edit");
 
-    // Fetch current user to detect actual changes
-    const currentUsers = await auth.api.listUsers({
-      query: {
-        filterField: "id",
-        filterOperator: "eq",
-        filterValue: data.userId,
-      },
-      headers: context.headers,
-    });
-    const currentUser = currentUsers.users[0];
+    // Fetch current user state from the DB to detect actual changes.
+    const currentUser = await db
+      .select({
+        banned: user.banned,
+        isActive: user.isActive,
+        role: user.role,
+      })
+      .from(user)
+      .where(eq(user.id, data.userId))
+      .limit(1)
+      .then((rows) => rows[0]);
     if (!currentUser) {
       throw new Error("User not found");
     }
@@ -315,39 +317,33 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
           });
         }
       );
+    }
 
-      // Enqueue WhatsApp orientation group membership change on role transition
-      const wasUnoriented = previousRole === "unoriented_volunteer";
-      const isNowUnoriented = newRole === "unoriented_volunteer";
-      if (wasUnoriented && !isNowUnoriented) {
-        withFireAndForgetLog(
-          {
-            handler: "updateUser:orientation",
+    const whatsappSyncPlan = getUserAdminWhatsappSyncPlan({
+      currentBanned: currentUser.banned,
+      currentIsActive: currentUser.isActive,
+      currentRole: currentUser.role,
+      nextIsActive: data.isActive,
+      nextRole: data.role,
+    });
+
+    if (whatsappSyncPlan.shouldRestoreDefaultGroup) {
+      withFireAndForgetLog(
+        {
+          handler: "updateUser:defaultGroupMembership",
+          userId: data.userId,
+          previousRole: currentUser.role,
+          nextRole: whatsappSyncPlan.effectiveRole,
+          becameActive: whatsappSyncPlan.becameActive,
+          isOriented: whatsappSyncPlan.isOriented,
+        },
+        async () => {
+          await enqueue("whatsapp-manage-orientation", {
             userId: data.userId,
-            isOriented: true,
-          },
-          async () => {
-            await enqueue("whatsapp-manage-orientation", {
-              userId: data.userId,
-              isOriented: true,
-            });
-          }
-        );
-      } else if (!wasUnoriented && isNowUnoriented) {
-        withFireAndForgetLog(
-          {
-            handler: "updateUser:orientation",
-            userId: data.userId,
-            isOriented: false,
-          },
-          async () => {
-            await enqueue("whatsapp-manage-orientation", {
-              userId: data.userId,
-              isOriented: false,
-            });
-          }
-        );
-      }
+            isOriented: whatsappSyncPlan.isOriented,
+          });
+        }
+      );
     }
 
     // Enqueue Courier profile sync
