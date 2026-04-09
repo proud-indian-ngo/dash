@@ -40,9 +40,6 @@ function toISODateUTC(date: Date): string {
 /**
  * Expand a series RRULE into virtual occurrences within [rangeStart, rangeEnd].
  *
- * Uses local getters + UTC setter for time-of-day — correct as long as the
- * runtime TZ matches the TZ used when events were created (Asia/Kolkata).
- *
  * @param rule       The recurrence rule from the series parent.
  * @param seriesStart  The series parent's startTime (epoch ms) — used for time-of-day.
  * @param seriesEnd    The series parent's endTime (epoch ms | null) — used for duration.
@@ -81,10 +78,10 @@ export function expandSeries(
 
     const occStart = new Date(date);
     occStart.setUTCHours(
-      seriesDate.getHours(),
-      seriesDate.getMinutes(),
-      seriesDate.getSeconds(),
-      seriesDate.getMilliseconds()
+      seriesDate.getUTCHours(),
+      seriesDate.getUTCMinutes(),
+      seriesDate.getUTCSeconds(),
+      seriesDate.getUTCMilliseconds()
     );
 
     const startTime = occStart.getTime();
