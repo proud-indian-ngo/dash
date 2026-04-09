@@ -1,5 +1,13 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@pi-dash/design-system/components/ui/combobox";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -9,13 +17,6 @@ import {
 } from "@pi-dash/design-system/components/ui/dialog";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@pi-dash/design-system/components/ui/select";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -25,6 +26,8 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { type FormEvent, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { handleMutationResult } from "@/lib/mutation-result";
+
+const NONE_WHATSAPP_GROUP = "__none__";
 
 function getTeamSuccessMsg(isEdit: boolean, createWaGroup: boolean): string {
   if (isEdit) {
@@ -73,9 +76,16 @@ export function TeamFormDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
-  const groupNameMap = new Map(
-    (whatsappGroups ?? []).map((g) => [g.id, g.name])
+  const whatsappGroupOptions = (whatsappGroups ?? []).map(
+    (group: WhatsappGroup) => ({ label: group.name, value: group.id })
   );
+  const whatsappGroupLabelByValue = new Map(
+    whatsappGroupOptions.map((option) => [option.value, option.label])
+  );
+  const whatsappGroupItems = [
+    NONE_WHATSAPP_GROUP,
+    ...whatsappGroupOptions.map((option) => option.value),
+  ];
 
   useEffect(() => {
     if (open) {
@@ -158,25 +168,49 @@ export function TeamFormDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="team-whatsapp">WhatsApp Group</Label>
-            <Select
+            <Combobox
               disabled={createWaGroup}
-              onValueChange={(v) => setWhatsappGroupId(v ?? "")}
-              value={whatsappGroupId}
+              items={whatsappGroupItems}
+              itemToStringLabel={(value) => {
+                if (value === NONE_WHATSAPP_GROUP) {
+                  return "None";
+                }
+
+                return whatsappGroupLabelByValue.get(value) ?? String(value);
+              }}
+              onValueChange={(value) => {
+                setWhatsappGroupId(
+                  value === NONE_WHATSAPP_GROUP || !value ? "" : value
+                );
+              }}
+              value={whatsappGroupId || NONE_WHATSAPP_GROUP}
             >
-              <SelectTrigger id="team-whatsapp">
-                <SelectValue placeholder="None">
-                  {groupNameMap.get(whatsappGroupId) ?? "None"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {(whatsappGroups ?? []).map((g: WhatsappGroup) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ComboboxInput
+                aria-label="WhatsApp Group"
+                className="w-full"
+                id="team-whatsapp"
+                placeholder="None"
+              />
+              <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
+                <ComboboxList>
+                  {(itemValue) => (
+                    <ComboboxItem
+                      className="items-start"
+                      key={itemValue}
+                      value={itemValue}
+                    >
+                      <span className="block min-w-0 whitespace-normal break-words">
+                        {itemValue === NONE_WHATSAPP_GROUP
+                          ? "None"
+                          : (whatsappGroupLabelByValue.get(itemValue) ??
+                            itemValue)}
+                      </span>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+                <ComboboxEmpty>No matching groups.</ComboboxEmpty>
+              </ComboboxContent>
+            </Combobox>
           </div>
           {!(isEdit || whatsappGroupId) && (
             <div className="flex items-center justify-between gap-2">

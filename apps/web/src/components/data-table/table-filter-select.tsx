@@ -21,17 +21,20 @@ export function TableFilterSelect({
   options,
   value,
 }: TableFilterSelectProps) {
-  const selectedLabel = value
-    ? (options.find((o) => o.value === value)?.label ?? value)
-    : "All";
+  const optionMap = new Map(
+    options.map((option) => [option.value, option.label])
+  );
+  const items = ["__all__", ...options.map((option) => option.value)];
+  const selectedLabel = value ? (optionMap.get(value) ?? value) : "All";
 
   return (
     <Combobox
+      items={items}
       itemToStringLabel={(v) => {
         if (v === "__all__") {
           return "All";
         }
-        return options.find((o) => o.value === v)?.label ?? String(v);
+        return optionMap.get(v) ?? String(v);
       }}
       onValueChange={(v) => onChange(v === "__all__" || !v ? "" : v)}
       value={value || "__all__"}
@@ -50,14 +53,15 @@ export function TableFilterSelect({
       </ComboboxInput>
       <ComboboxContent className="w-max min-w-[var(--anchor-width)]">
         <ComboboxList>
-          <ComboboxEmpty>No matches.</ComboboxEmpty>
-          <ComboboxItem value="__all__">All</ComboboxItem>
-          {options.map((option) => (
-            <ComboboxItem key={option.value} value={option.value}>
-              {option.label}
+          {(itemValue) => (
+            <ComboboxItem key={itemValue} value={itemValue}>
+              {itemValue === "__all__"
+                ? "All"
+                : (optionMap.get(itemValue) ?? itemValue)}
             </ComboboxItem>
-          ))}
+          )}
         </ComboboxList>
+        <ComboboxEmpty>No matches.</ComboboxEmpty>
       </ComboboxContent>
     </Combobox>
   );
