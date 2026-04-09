@@ -7,19 +7,15 @@ import {
 } from "@pi-dash/shared/rrule-expand";
 import { getGroupJidByConfigKey } from "@pi-dash/whatsapp/groups";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
-import { format } from "date-fns";
 import { and, between, eq, isNotNull, isNull } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { SendWeeklyEventsDigestPayload } from "../enqueue";
 import { computeWeekRange } from "../lib/weekly-digest-utils";
-
-interface DigestEvent {
-  endTime: number | null;
-  location: string | null;
-  name: string;
-  startTime: number;
-}
+import {
+  type DigestEvent,
+  formatDigestMessage,
+} from "../lib/weekly-events-digest";
 
 async function collectStandaloneEvents(
   weekStart: Date,
@@ -31,6 +27,7 @@ async function collectStandaloneEvents(
       startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
+      description: teamEvent.description,
     })
     .from(teamEvent)
     .where(
@@ -43,11 +40,12 @@ async function collectStandaloneEvents(
       )
     );
 
-  return events.map((e) => ({
-    name: e.name,
-    startTime: e.startTime.getTime(),
-    endTime: e.endTime?.getTime() ?? null,
-    location: e.location,
+  return events.map((event) => ({
+    name: event.name,
+    startTime: event.startTime.getTime(),
+    endTime: event.endTime?.getTime() ?? null,
+    location: event.location,
+    description: event.description ?? null,
   }));
 }
 
@@ -61,6 +59,7 @@ async function collectMaterializedExceptions(
       startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
+      description: teamEvent.description,
     })
     .from(teamEvent)
     .where(
@@ -72,11 +71,12 @@ async function collectMaterializedExceptions(
       )
     );
 
-  return events.map((e) => ({
-    name: e.name,
-    startTime: e.startTime.getTime(),
-    endTime: e.endTime?.getTime() ?? null,
-    location: e.location,
+  return events.map((event) => ({
+    name: event.name,
+    startTime: event.startTime.getTime(),
+    endTime: event.endTime?.getTime() ?? null,
+    location: event.location,
+    description: event.description ?? null,
   }));
 }
 
@@ -91,6 +91,7 @@ async function collectRecurringEvents(
       startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
+      description: teamEvent.description,
       recurrenceRule: teamEvent.recurrenceRule,
     })
     .from(teamEvent)
@@ -110,15 +111,14 @@ async function collectRecurringEvents(
       continue;
     }
 
-    // Query exception dates to exclude (materialized + cancelled instances)
     const exceptions = await db
       .select({ originalDate: teamEvent.originalDate })
       .from(teamEvent)
       .where(eq(teamEvent.seriesId, parent.id));
     const exceptionDates = new Set(
       exceptions
-        .map((e) => e.originalDate)
-        .filter((d): d is string => d != null)
+        .map((exception) => exception.originalDate)
+        .filter((date): date is string => date != null)
     );
 
     const occurrences = expandSeries(
@@ -129,31 +129,19 @@ async function collectRecurringEvents(
       weekEndMs,
       exceptionDates
     );
-    for (const occ of occurrences) {
+
+    for (const occurrence of occurrences) {
       result.push({
         name: parent.name,
-        startTime: occ.startTime,
-        endTime: occ.endTime,
+        startTime: occurrence.startTime,
+        endTime: occurrence.endTime,
         location: parent.location,
+        description: parent.description ?? null,
       });
     }
   }
-  return result;
-}
 
-function formatDigestMessage(events: DigestEvent[]): string {
-  const lines = ["*Upcoming Events This Week*\n"];
-  for (const [i, e] of events.entries()) {
-    // date-fns format for consistent output regardless of server locale/ICU
-    const when = format(new Date(e.startTime), "EEE, MMM d 'at' h:mm a");
-    const locationStr = e.location ? ` | ${e.location}` : "";
-    lines.push(`${i + 1}. *${e.name}*`);
-    lines.push(`   ${when}${locationStr}\n`);
-  }
-  lines.push(
-    `Interested? View events and register your interest:\n${env.APP_URL}/events`
-  );
-  return lines.join("\n");
+  return result;
 }
 
 export async function handleSendWeeklyEventsDigest(
@@ -182,7 +170,9 @@ export async function handleSendWeeklyEventsDigest(
     return;
   }
 
-  const message = formatDigestMessage(digestEvents);
+  const message = formatDigestMessage(digestEvents, {
+    ctaUrl: `${env.APP_URL}/events`,
+  });
 
   const groupKeys = ["orientation_group_id", "all_volunteers_group_id"];
   let groupsSent = 0;
