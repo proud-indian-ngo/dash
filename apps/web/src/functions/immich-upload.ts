@@ -6,6 +6,7 @@ import {
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
+import { format, parseISO } from "date-fns";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -25,7 +26,34 @@ const MEDIA_MIME_TYPES = new Set([
   "video/mp4",
   "video/quicktime",
 ]);
+const OCC_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/quicktime"]);
+
+function buildImmichAlbumName(
+  event: {
+    name: string;
+    recurrenceRule: { rrule: string; exdates?: string[] } | null;
+    seriesId: string | null;
+    originalDate: string | null;
+    startTime: Date;
+  },
+  occDate?: string
+) {
+  const isRecurring = !!event.recurrenceRule || !!event.seriesId;
+  if (!isRecurring) {
+    return event.name;
+  }
+
+  let eventDate = new Date(event.startTime);
+  if (event.originalDate) {
+    eventDate = parseISO(event.originalDate);
+  }
+  if (occDate) {
+    eventDate = parseISO(occDate);
+  }
+
+  return `${event.name} - ${format(eventDate, "MMMM d, yyyy")}`;
+}
 
 export const uploadPhotoToImmich = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -35,6 +63,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     }
     const file = input.get("file");
     const eventId = input.get("eventId");
+    const occDate = input.get("occDate");
     const mimeType = input.get("mimeType");
     const fileSize = input.get("fileSize");
     if (!(file instanceof Blob) || typeof eventId !== "string") {
@@ -42,6 +71,9 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     }
     const mime = typeof mimeType === "string" ? mimeType : file.type;
     const size = typeof fileSize === "string" ? Number(fileSize) : file.size;
+    if (typeof occDate === "string" && !OCC_DATE_RE.test(occDate)) {
+      throw new Error("Invalid occurrence date");
+    }
     if (!MEDIA_MIME_TYPES.has(mime)) {
       throw new Error("Unsupported file type");
     }
@@ -52,7 +84,12 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       const limit = VIDEO_MIME_TYPES.has(mime) ? "100 MB" : "20 MB";
       throw new Error(`File exceeds ${limit} limit`);
     }
-    return { file, eventId, mimeType: mime };
+    return {
+      file,
+      eventId,
+      mimeType: mime,
+      occDate: typeof occDate === "string" ? occDate : undefined,
+    };
   })
   .handler(async ({ context, data }) => {
     const log = createRequestLogger({
@@ -65,11 +102,12 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       return { error: "Unauthorized" } as const;
     }
 
-    const { file, eventId } = data;
+    const { file, eventId, occDate } = data;
     log.set({
       userId: session.user.id,
       role: session.user.role,
       eventId,
+      occDate,
       fileName: file.name,
       fileSize: file.size,
     });
@@ -114,7 +152,11 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     }
 
     try {
-      const albumId = await ensureImmichAlbum(config, eventId, event.name);
+      const albumId = await ensureImmichAlbum(
+        config,
+        eventId,
+        buildImmichAlbumName(event, occDate)
+      );
       log.set({ albumId });
 
       const deviceAssetId = `pi-dash-direct-${uuidv7()}`;

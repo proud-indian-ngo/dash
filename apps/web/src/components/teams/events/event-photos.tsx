@@ -80,12 +80,69 @@ function buildSlides(
   return result;
 }
 
+async function uploadSinglePhoto({
+  callImmichUpload,
+  eventId,
+  file,
+  getUploadUrl,
+  occDate,
+  useImmichDirect,
+  zero,
+}: {
+  callImmichUpload: ReturnType<typeof useServerFn<typeof uploadPhotoToImmich>>;
+  eventId: string;
+  file: File;
+  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>;
+  occDate?: string;
+  useImmichDirect: boolean;
+  zero: ReturnType<typeof useZero>;
+}) {
+  const now = Date.now();
+
+  if (useImmichDirect) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("eventId", eventId);
+    if (occDate) {
+      formData.append("occDate", occDate);
+    }
+    formData.append("mimeType", file.type);
+    formData.append("fileSize", String(file.size));
+    const result = await callImmichUpload({ data: formData });
+    if ("error" in result) {
+      throw new Error(result.error);
+    }
+    await zero.mutate(
+      mutators.eventPhoto.upload({
+        id: uuidv7(),
+        eventId,
+        immichAssetId: result.immichAssetId,
+        mimeType: file.type,
+        now,
+      })
+    ).server;
+    return;
+  }
+
+  const key = await uploadFileToR2(file, eventId, getUploadUrl);
+  await zero.mutate(
+    mutators.eventPhoto.upload({
+      id: uuidv7(),
+      eventId,
+      r2Key: key,
+      mimeType: file.type,
+      now,
+    })
+  ).server;
+}
+
 interface EventPhotosProps {
   approvedPhotos: readonly PhotoWithUploader[];
   canManage: boolean;
   eventId: string;
   immichAlbumUrl?: string | null;
   isMember: boolean;
+  occDate?: string;
   pendingPhotos: readonly PhotoWithUploader[];
 }
 
@@ -93,6 +150,7 @@ export function EventPhotos({
   canManage,
   eventId,
   isMember,
+  occDate,
   approvedPhotos,
   pendingPhotos,
   immichAlbumUrl,
@@ -161,40 +219,15 @@ export function EventPhotos({
 
     for (const file of validFiles) {
       try {
-        const now = Date.now();
-        if (useImmichDirect) {
-          // Admin/lead: upload directly to Immich via server proxy
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("eventId", eventId);
-          formData.append("mimeType", file.type);
-          formData.append("fileSize", String(file.size));
-          const result = await callImmichUpload({ data: formData });
-          if ("error" in result) {
-            throw new Error(result.error);
-          }
-          await zero.mutate(
-            mutators.eventPhoto.upload({
-              id: uuidv7(),
-              eventId,
-              immichAssetId: result.immichAssetId,
-              mimeType: file.type,
-              now,
-            })
-          ).server;
-        } else {
-          // Volunteer or no Immich: upload to R2
-          const key = await uploadFileToR2(file, eventId, getUploadUrl);
-          await zero.mutate(
-            mutators.eventPhoto.upload({
-              id: uuidv7(),
-              eventId,
-              r2Key: key,
-              mimeType: file.type,
-              now,
-            })
-          ).server;
-        }
+        await uploadSinglePhoto({
+          callImmichUpload,
+          eventId,
+          file,
+          getUploadUrl,
+          occDate,
+          useImmichDirect,
+          zero,
+        });
         uploadedCount += 1;
       } catch {
         failedCount += 1;

@@ -1,12 +1,32 @@
 import { db } from "@pi-dash/db";
 import { eventImmichAlbum, eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { env } from "@pi-dash/env/server";
+import { format, parseISO } from "date-fns";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 import type { ImmichSyncPhotoPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
+
+function buildImmichAlbumName(event: {
+  name: string;
+  recurrenceRule: { rrule: string; exdates?: string[] } | null;
+  seriesId: string | null;
+  originalDate: string | null;
+  startTime: Date;
+}) {
+  const isRecurring = !!event.recurrenceRule || !!event.seriesId;
+  if (!isRecurring) {
+    return event.name;
+  }
+
+  const eventDate = event.originalDate
+    ? parseISO(event.originalDate)
+    : new Date(event.startTime);
+
+  return `${event.name} - ${format(eventDate, "MMMM d, yyyy")}`;
+}
 
 async function resolveAlbumId(
   eventId: string,
@@ -103,9 +123,22 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
     return;
   }
 
+  const event = await db.query.teamEvent.findFirst({
+    where: (t, { eq: e }) => e(t.id, eventId),
+    columns: {
+      name: true,
+      originalDate: true,
+      recurrenceRule: true,
+      seriesId: true,
+      startTime: true,
+    },
+  });
+
+  const albumName = event ? buildImmichAlbumName(event) : eventName;
+
   const albumId = await resolveAlbumId(
     eventId,
-    eventName,
+    albumName,
     immichUrl,
     immichKey
   );

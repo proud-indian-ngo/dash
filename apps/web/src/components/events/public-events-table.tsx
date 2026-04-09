@@ -85,8 +85,12 @@ export function buildPublicDisplayRows(
         rows.push({
           ...base,
           endTime: exc.endTime,
+          eventId: exc.id,
+          isPublic: exc.isPublic,
+          location: exc.location,
           startTime: exc.startTime,
           members: exc.members,
+          name: exc.name,
           occDate: exc.originalDate,
         });
       }

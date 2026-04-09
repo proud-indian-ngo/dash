@@ -94,6 +94,46 @@ function deriveImmichUrl(
   return `${immichUrl.replace(TRAILING_SLASH, "")}/albums/${albumId}`;
 }
 
+function getPostEventContentMessage(
+  isPastEvent: boolean,
+  startTime: number | Date
+) {
+  const lead = isPastEvent
+    ? "This event took place on"
+    : "This event is scheduled for";
+  return `${lead} ${format(new Date(startTime), LONG_DATE_TIME)}. Post-event updates, photos, and feedback will appear here soon.`;
+}
+
+function InterestSection(props: {
+  canManage: boolean;
+  dialog: ReturnType<typeof useDialogManager<EventDialog>>;
+  event: EventRow;
+  hasStarted: boolean;
+  interests?: readonly InterestWithUser[];
+  isMember?: boolean;
+  myInterest?: InterestWithUser | null;
+}) {
+  if (props.hasStarted) {
+    return (
+      <PastInterestBadge
+        isMember={props.isMember}
+        myInterest={props.myInterest}
+      />
+    );
+  }
+
+  return (
+    <VolunteerInterestSection
+      canManage={props.canManage}
+      interests={props.interests}
+      isMember={props.isMember}
+      isPublic={!!props.event.isPublic}
+      myInterest={props.myInterest}
+      onShowInterest={() => props.dialog.open({ type: "interest" })}
+    />
+  );
+}
+
 function deriveAddMemberTarget(
   scope: EditScope | null,
   event: EventRow,
@@ -239,6 +279,7 @@ interface EventTabsProps {
   isMember: boolean;
   isPastEvent: boolean;
   memberCount: number;
+  occDate?: string;
   pendingPhotos: Parameters<typeof EventPhotos>[0]["pendingPhotos"];
   pendingUpdates: Parameters<typeof EventUpdates>[0]["pendingUpdates"];
 }
@@ -257,6 +298,7 @@ function EventTabs({
   isMember,
   isPastEvent,
   memberCount,
+  occDate,
   pendingPhotos,
   pendingUpdates,
 }: EventTabsProps) {
@@ -323,6 +365,7 @@ function EventTabs({
           eventId={event.id}
           immichAlbumUrl={immichAlbumUrl}
           isMember={isMember}
+          occDate={occDate}
           pendingPhotos={pendingPhotos}
         />
       </TabsContent>
@@ -566,6 +609,7 @@ export function EventDetail({
   const eventTime = event.endTime ?? event.startTime;
   const isPastEvent = new Date(eventTime) < new Date();
   const hasStarted = new Date(event.startTime) <= new Date();
+  const canAccessPostEventContent = isPastEvent && !isVirtualOccurrence;
   const canCancel = hasStarted ? false : canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
 
@@ -649,7 +693,7 @@ export function EventDetail({
               </p>
             ) : null}
 
-            {hasStarted ? (
+            {canAccessPostEventContent ? (
               <EventTabs
                 approvedPhotos={approvedPhotos}
                 approvedUpdates={approvedUpdates}
@@ -664,14 +708,13 @@ export function EventDetail({
                 isMember={!!isMember}
                 isPastEvent={isPastEvent}
                 memberCount={event.members.length}
+                occDate={occDate}
                 pendingPhotos={pendingPhotos}
                 pendingUpdates={pendingUpdates}
               />
             ) : (
               <p className="py-12 text-center text-muted-foreground text-sm">
-                This event is scheduled for{" "}
-                {format(new Date(event.startTime), LONG_DATE_TIME)}. Updates,
-                photos, and feedback will appear here once it starts.
+                {getPostEventContentMessage(isPastEvent, event.startTime)}
               </p>
             )}
           </div>
@@ -693,21 +736,15 @@ export function EventDetail({
                 ) : null}
               </div>
 
-              {hasStarted ? (
-                <PastInterestBadge
-                  isMember={isMember}
-                  myInterest={myInterest}
-                />
-              ) : (
-                <VolunteerInterestSection
-                  canManage={canManage}
-                  interests={interests}
-                  isMember={isMember}
-                  isPublic={!!event.isPublic}
-                  myInterest={myInterest}
-                  onShowInterest={() => dialog.open({ type: "interest" })}
-                />
-              )}
+              <InterestSection
+                canManage={canManage}
+                dialog={dialog}
+                event={event}
+                hasStarted={hasStarted}
+                interests={interests}
+                isMember={isMember}
+                myInterest={myInterest}
+              />
 
               {(canManageVolunteersProp || isPastEvent) && (
                 <EventMembersSection
