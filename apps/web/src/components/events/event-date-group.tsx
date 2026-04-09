@@ -38,7 +38,7 @@ export function EventDateGroup({
       <h2 className="sticky top-0 z-10 bg-background/95 px-1 py-2 font-medium text-muted-foreground text-sm backdrop-blur">
         {formatGroupDate(date)}
       </h2>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 pt-px">
         {rows.map((row) => (
           <EventCard
             key={`${row.eventId}-${row.startTime}`}

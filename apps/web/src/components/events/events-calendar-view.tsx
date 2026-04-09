@@ -11,6 +11,7 @@ import {
   endOfMonth,
   format,
   parse,
+  startOfDay,
   startOfMonth,
   subWeeks,
 } from "date-fns";
@@ -190,6 +191,13 @@ export function EventsCalendarView({
   }
 
   const dateEntries = Array.from(groupedRows.entries());
+  const todayStart = startOfDay(new Date()).getTime();
+  const pastIndex = dateEntries.findIndex(
+    ([dateStr]) => parseLocalDate(dateStr).getTime() < todayStart
+  );
+  const upcomingEntries =
+    pastIndex === -1 ? dateEntries : dateEntries.slice(0, pastIndex);
+  const pastEntries = pastIndex === -1 ? [] : dateEntries.slice(pastIndex);
 
   return (
     <div className="flex flex-col gap-6 md:flex-row">
@@ -255,7 +263,7 @@ export function EventsCalendarView({
           </p>
         ) : (
           <div className="space-y-6">
-            {dateEntries.map(([dateStr, rows]) => (
+            {upcomingEntries.map(([dateStr, rows]) => (
               <EventDateGroup
                 date={parseLocalDate(dateStr)}
                 groupRef={(el) => {
@@ -272,6 +280,30 @@ export function EventsCalendarView({
                 userId={userId}
               />
             ))}
+            {pastEntries.length > 0 && (
+              <>
+                <h2 className="border-t pt-4 font-medium text-muted-foreground text-sm">
+                  Past Events
+                </h2>
+                {pastEntries.map(([dateStr, rows]) => (
+                  <EventDateGroup
+                    date={parseLocalDate(dateStr)}
+                    groupRef={(el) => {
+                      if (el) {
+                        dateRefs.current.set(dateStr, el);
+                      } else {
+                        dateRefs.current.delete(dateStr);
+                      }
+                    }}
+                    key={dateStr}
+                    myInterests={myInterests}
+                    myTeamIds={myTeamIds}
+                    rows={rows}
+                    userId={userId}
+                  />
+                ))}
+              </>
+            )}
           </div>
         )}
       </main>
