@@ -23,6 +23,12 @@ import upperFirst from "lodash/upperFirst";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import type { EventRow } from "./events-table";
 
+const URL_PATTERN = /^https?:\/\//i;
+
+function isUrl(text: string) {
+  return URL_PATTERN.test(text);
+}
+
 function PropertyRow({
   icon,
   label,
@@ -42,7 +48,7 @@ function PropertyRow({
       />
       <div className="min-w-0">
         <div className="text-muted-foreground text-xs">{label}</div>
-        <div className="text-sm">{children}</div>
+        <div className="break-words text-sm">{children}</div>
       </div>
     </div>
   );
@@ -77,7 +83,18 @@ export function EventDetailsCard({
 
         {event.location ? (
           <PropertyRow icon={Location01Icon} label="Location">
-            {event.location}
+            {isUrl(event.location) ? (
+              <a
+                className="text-primary hover:underline"
+                href={event.location}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {event.location}
+              </a>
+            ) : (
+              event.location
+            )}
           </PropertyRow>
         ) : null}
 

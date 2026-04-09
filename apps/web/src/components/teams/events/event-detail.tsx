@@ -644,7 +644,7 @@ export function EventDetail({
           {/* Main column */}
           <div className="lg:col-span-3">
             {event.description ? (
-              <p className="mb-6 text-muted-foreground text-sm">
+              <p className="mb-6 whitespace-pre-line text-muted-foreground text-sm">
                 {event.description}
               </p>
             ) : null}
