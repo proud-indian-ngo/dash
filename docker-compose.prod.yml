@@ -73,7 +73,7 @@ services:
     restart: unless-stopped
 
   gowa:
-    image: aldinokemal2104/go-whatsapp-web-multidevice
+    image: ghcr.io/somus/go-whatsapp-web-multidevice-poll-vote:latest
     volumes:
       - whatsapp_data:/app/storages
     command:
