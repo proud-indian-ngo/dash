@@ -5,7 +5,9 @@ test.describe("Public events page", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -14,7 +16,9 @@ test.describe("Public events page", () => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -23,7 +27,9 @@ test.describe("Public events page", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
 

@@ -82,9 +82,11 @@ test.describe("Create team dialog (admin)", () => {
 
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
 
-    // Dialog should close and toast should appear
+    // Wait for success toast first, then dialog close
+    await expect(page.getByText("Team created")).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("Team created")).toBeVisible();
 
     // Verify team appears in the table
     await expect(page.getByText(teamName)).toBeVisible({ timeout: 10_000 });

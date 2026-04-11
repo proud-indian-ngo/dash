@@ -124,7 +124,9 @@ test.describe("Event update approval (admin)", () => {
   test("approves a pending update from seeded data", async ({ page }) => {
     // Navigate to the seeded event with a pending update
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible();
 
     const eventLink = page
       .getByRole("table")

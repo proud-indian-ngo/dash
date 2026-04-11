@@ -78,7 +78,9 @@ test.describe("Event feedback — volunteer", () => {
 
     // Navigate to public events
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible();
 
     // Find an event that has feedback enabled (created by admin test or seeded)
     const feedbackEvent = page
@@ -123,7 +125,9 @@ test.describe("Event feedback — volunteer", () => {
 
     // Navigate to public events
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible();
 
     // Find the feedback-enabled event
     const feedbackEvent = page

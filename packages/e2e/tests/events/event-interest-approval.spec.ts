@@ -5,7 +5,9 @@ async function navigateToEventWithPendingInterest(
   page: Page
 ): Promise<boolean> {
   await page.goto("/events");
-  await expect(page.getByRole("heading", { name: "Events" })).toBeVisible({
+  await expect(
+    page.getByRole("heading", { name: "Events", exact: true })
+  ).toBeVisible({
     timeout: 10_000,
   });
 
@@ -32,7 +34,9 @@ async function navigateToEventWithPendingInterest(
     }
 
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
   }

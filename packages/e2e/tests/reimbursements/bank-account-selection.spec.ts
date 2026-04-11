@@ -113,6 +113,7 @@ test.describe("Bank account selection with duplicate names", () => {
     // Step 4: Open the dropdown and switch to the other account
     await bankAccountGroup.getByRole("combobox").click();
     const options = page.getByRole("option");
+    await expect(options.first()).toBeVisible({ timeout: 10_000 });
     await expect(options).toHaveCount(2);
 
     // Select the old account (••••7890)

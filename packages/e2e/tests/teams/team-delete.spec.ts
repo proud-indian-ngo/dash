@@ -17,8 +17,8 @@ async function createTeam(
 
   await dialog.getByLabel("Name").fill(teamName);
   await dialog.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByText("Team created")).toBeVisible({ timeout: 10_000 });
   await expect(dialog).toBeHidden({ timeout: 10_000 });
-  await expect(page.getByText("Team created")).toBeVisible();
 
   return teamName;
 }

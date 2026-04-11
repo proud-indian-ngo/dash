@@ -69,7 +69,9 @@ test.describe("Recurring events", () => {
   test("recurring events appear on the events page", async ({ page }) => {
     // Navigate to global events page
     await page.goto("/events");
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible({
       timeout: 10_000,
     });
 

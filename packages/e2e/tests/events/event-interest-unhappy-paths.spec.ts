@@ -62,7 +62,9 @@ test.describe("Event interest unhappy paths (volunteer)", () => {
     // Regression check: the "Show Interest" button should appear on eligible events
     await page.goto("/events");
     await waitForZeroReady(page);
-    await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Events", exact: true })
+    ).toBeVisible();
 
     // Find any public event row and open it
     const eventRows = page.getByRole("table").getByRole("row");

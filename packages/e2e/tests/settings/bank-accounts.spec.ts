@@ -32,10 +32,9 @@ test.describe("Banking settings — bank account management", () => {
           .locator(".rounded-md.border")
           .filter({ hasText: /^E2E / })
           .first();
-        if (!(await e2eCard.isVisible({ timeout: 1000 }).catch(() => false))) {
+        if (!(await e2eCard.isVisible({ timeout: 2000 }).catch(() => false))) {
           break;
         }
-        // If this E2E account is the default, restore seeded account first
         const setDefaultBtn = dialog
           .locator(".rounded-md.border")
           .filter({ hasText: "••••7890" })
@@ -48,15 +47,16 @@ test.describe("Banking settings — bank account management", () => {
         }
         await e2eCard
           .getByRole("button", { name: "Delete account" })
-          .click({ timeout: 3000 });
+          .click({ timeout: 5000 });
         await page
           .getByRole("alertdialog")
           .getByRole("button", { name: "Delete" })
-          .click({ timeout: 3000 });
+          .click({ timeout: 5000 });
         await expect(e2eCard).toBeHidden({ timeout: 5000 });
       }
-    } catch {
-      // Best-effort
+    } catch (error) {
+      // Log but don't swallow — test runner will see this in output
+      console.warn("[afterEach cleanup] failed to delete E2E accounts:", error);
     }
   });
 
