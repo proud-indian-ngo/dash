@@ -53,6 +53,7 @@ export const teamEvent = pgTable(
     cancelledAt: timestamp("cancelled_at"),
     feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
     feedbackDeadline: timestamp("feedback_deadline"),
+    postRsvpPoll: boolean("post_rsvp_poll").default(false).notNull(),
     reminderIntervals: jsonb("reminder_intervals").$type<number[]>(),
     createdBy: text("created_by")
       .notNull()

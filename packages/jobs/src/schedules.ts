@@ -59,6 +59,22 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { retryLimit: 2, expireInSeconds: 600, tz: IST_TIMEZONE }
   );
 
+  // Every 15 minutes — post RSVP polls 3 days before eligible events
+  await boss.schedule(
+    "send-event-rsvp-polls",
+    "*/15 * * * *",
+    {},
+    { retryLimit: 2, expireInSeconds: 600, tz: IST_TIMEZONE }
+  );
+
+  // Hourly — close RSVP polls for events that have started
+  await boss.schedule(
+    "close-expired-rsvp-polls",
+    "0 * * * *",
+    {},
+    { retryLimit: 2, expireInSeconds: 600, tz: IST_TIMEZONE }
+  );
+
   // Monday at 7:00 AM IST — weekly upcoming events digest
   await boss.schedule(
     "send-weekly-events-digest",

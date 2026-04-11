@@ -71,6 +71,17 @@ export interface NotifyReimbursementRejectedPayload {
   title: string;
 }
 
+// RSVP Poll Lifecycle
+export interface CloseExpiredRsvpPollsPayload {
+  triggeredAt: string;
+}
+
+export interface CloseRsvpPollOnCancelPayload {
+  eventId: string;
+  eventName: string;
+  reason?: string;
+}
+
 // Cash Voucher
 export interface GenerateCashVoucherPayload {
   approverUserId: string;
@@ -210,6 +221,7 @@ export interface NotifyEventCancelledPayload {
   eventId: string;
   eventMemberIds: string[];
   eventName: string;
+  reason?: string;
   teamId: string;
 }
 export interface NotifyAddedToEventPayload {
@@ -411,6 +423,14 @@ export interface ProcessPostEventRemindersPayload {
   triggeredAt: string;
 }
 
+export interface SendEventRsvpPollsPayload {
+  triggeredAt: string;
+}
+
+export interface SendSingleRsvpPollPayload {
+  eventId: string;
+}
+
 export interface SendWeeklyEventsDigestPayload {
   triggeredAt: string;
 }
@@ -482,6 +502,8 @@ export interface SyncCourierPreferencePayload {
 
 export interface JobPayloads {
   "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
+  "close-expired-rsvp-polls": CloseExpiredRsvpPollsPayload;
+  "close-rsvp-poll-on-cancel": CloseRsvpPollOnCancelPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
   "generate-cash-voucher": GenerateCashVoucherPayload;
   "immich-delete-album": ImmichDeleteAlbumPayload;
@@ -542,9 +564,11 @@ export interface JobPayloads {
   "remind-stale-requests": RemindStaleRequestsPayload;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
+  "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
   "send-scheduled-whatsapp": SendScheduledWhatsAppPayload;
+  "send-single-rsvp-poll": SendSingleRsvpPollPayload;
   "send-weekly-events-digest": SendWeeklyEventsDigestPayload;
   "send-whatsapp": WhatsAppPayload;
   "sync-courier-preference": SyncCourierPreferencePayload;
@@ -564,6 +588,8 @@ export type JobName = keyof JobPayloads;
 
 export const QUEUE_NAMES: JobName[] = [
   "cleanup-stale-scheduled-recipients",
+  "close-expired-rsvp-polls",
+  "close-rsvp-poll-on-cancel",
   "delete-r2-object",
   "generate-cash-voucher",
   "immich-delete-album",
@@ -619,11 +645,13 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-vpt-submitted",
   "process-event-reminders",
   "process-post-event-reminders",
+  "send-event-rsvp-polls",
   "remind-feedback-deadline",
   "remind-photo-approval",
   "remind-stale-requests",
   "scan-whatsapp-groups",
   "send-bulk-notification",
+  "send-single-rsvp-poll",
   "send-notification",
   "send-scheduled-message",
   "send-scheduled-whatsapp",

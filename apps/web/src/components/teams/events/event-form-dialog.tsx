@@ -41,6 +41,7 @@ const eventFormSchema = z.object({
   createWaGroup: z.boolean(),
   feedbackEnabled: z.boolean(),
   feedbackDeadline: z.date().optional(),
+  postRsvpPoll: z.boolean(),
   reminderIntervals: z.array(z.number()),
 });
 
@@ -72,6 +73,7 @@ interface InitialValues {
   isPublic: boolean;
   location: string | null;
   name: string;
+  postRsvpPoll: boolean;
   recurrenceRule: {
     rrule: string;
     exdates?: string[];
@@ -108,6 +110,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     feedbackDeadline: initialValues?.feedbackDeadline
       ? new Date(initialValues.feedbackDeadline)
       : undefined,
+    postRsvpPoll: initialValues?.postRsvpPoll ?? false,
     reminderIntervals: initialValues?.reminderIntervals ?? [],
   };
 }
@@ -132,6 +135,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     whatsappGroupId: value.whatsappGroupId || undefined,
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    postRsvpPoll: value.postRsvpPoll,
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -157,6 +161,7 @@ function buildUpdateSeriesArgs(
     whatsappGroupId: value.whatsappGroupId || undefined,
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    postRsvpPoll: value.postRsvpPoll,
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -189,6 +194,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     recurrenceRule,
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    postRsvpPoll: value.postRsvpPoll,
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -244,6 +250,7 @@ function EventFormContent({
   isEdit,
   onOpenChange,
   originalDate,
+  teamHasWhatsAppGroup,
   teamId,
   waGroupOptions,
 }: {
@@ -252,6 +259,7 @@ function EventFormContent({
   isEdit: boolean;
   onOpenChange: (open: boolean) => void;
   originalDate?: string;
+  teamHasWhatsAppGroup: boolean;
   teamId: string;
   waGroupOptions: { label: string; value: string }[];
 }) {
@@ -368,6 +376,23 @@ function EventFormContent({
         label="Enable anonymous feedback"
         name="feedbackEnabled"
       />
+      <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
+        {(whatsappGroupId) => {
+          const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
+          return (
+            <CheckboxField
+              description={
+                hasGroup
+                  ? "Post a WhatsApp RSVP poll 3 days before the event"
+                  : "Link a WhatsApp group to the event or team first"
+              }
+              label="Post RSVP poll on WhatsApp"
+              name="postRsvpPoll"
+              readonly={!hasGroup}
+            />
+          );
+        }}
+      </form.Subscribe>
       <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
         {(feedbackEnabled) =>
           feedbackEnabled ? (
@@ -437,6 +462,9 @@ export function EventFormDialog({
       })),
   ];
 
+  const team = (allTeams ?? []).find((t: { id: string }) => t.id === teamId);
+  const teamHasWhatsAppGroup = !!team?.whatsappGroupId;
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setFormKey((k) => k + 1);
@@ -460,6 +488,7 @@ export function EventFormDialog({
           key={formKey}
           onOpenChange={onOpenChange}
           originalDate={originalDate}
+          teamHasWhatsAppGroup={teamHasWhatsAppGroup}
           teamId={teamId}
           waGroupOptions={waGroupOptions}
         />

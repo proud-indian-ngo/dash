@@ -37,6 +37,7 @@ import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbu
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
+import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
@@ -194,6 +195,11 @@ const ApiZeroMutateRoute = ApiZeroMutateRouteImport.update({
   path: '/api/zero/mutate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
+  id: '/api/whatsapp/webhook',
+  path: '/api/whatsapp/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLogIngestRoute = ApiLogIngestRouteImport.update({
   id: '/api/log/ingest',
   path: '/api/log/ingest',
@@ -316,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/events/': typeof AppEventsIndexRoute
@@ -356,6 +363,7 @@ export interface FileRoutesByTo {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/events': typeof AppEventsIndexRoute
@@ -405,6 +413,7 @@ export interface FileRoutesById {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/_app/events/': typeof AppEventsIndexRoute
@@ -453,6 +462,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/events/'
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/events'
@@ -541,6 +552,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/_app/events/'
@@ -567,6 +579,7 @@ export interface RootRouteChildren {
   ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
   ApiJobsStatsRoute: typeof ApiJobsStatsRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
+  ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
   ApiJobsIndexRoute: typeof ApiJobsIndexRoute
@@ -770,6 +783,13 @@ declare module '@tanstack/react-router' {
       path: '/api/zero/mutate'
       fullPath: '/api/zero/mutate'
       preLoaderRoute: typeof ApiZeroMutateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/whatsapp/webhook': {
+      id: '/api/whatsapp/webhook'
+      path: '/api/whatsapp/webhook'
+      fullPath: '/api/whatsapp/webhook'
+      preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/log/ingest': {
@@ -1066,6 +1086,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsIdRoute: ApiJobsIdRouteWithChildren,
   ApiJobsStatsRoute: ApiJobsStatsRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
+  ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
   ApiJobsIndexRoute: ApiJobsIndexRoute,

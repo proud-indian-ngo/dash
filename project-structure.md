@@ -17,6 +17,7 @@ All paths are relative to project root.
 | `bun run zero:generate` | Regenerate Zero schema |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
 | `bun run whatsapp:stop` | Stop WhatsApp gateway container |
+| `bun run dev:webhook-proxy` | Start WhatsApp webhook proxy (required for local webhook testing — Vite dev server can't handle chunked POST from Go) |
 | `cd packages/e2e && bash run-e2e.sh` | Run E2E tests (full stack) |
 | `cd packages/e2e && bash run-e2e.sh tests/foo.spec.ts` | Run specific test files |
 | `bun run test:seed` | Seed E2E test data |

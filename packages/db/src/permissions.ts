@@ -336,6 +336,15 @@ export const PERMISSIONS = [
       "View and manage background job queue (cancel, retry, schedule)",
   },
 
+  // ── System ──
+  {
+    id: "system.alerts",
+    name: "System Alerts",
+    category: "system",
+    description:
+      "Receive system-level alerts (e.g., non-team-member RSVP votes, WhatsApp scan results)",
+  },
+
   // ── Bank Accounts (user-scoped) ──
   {
     id: "bank_accounts.manage_own",
@@ -389,6 +398,7 @@ const adminExcluded = new Set<PermissionId>([
   "settings.expense_categories",
   "settings.whatsapp_groups",
   "jobs.manage",
+  "system.alerts",
 ]);
 
 const financeAdminExcluded = new Set<PermissionId>([
@@ -401,6 +411,7 @@ const financeAdminExcluded = new Set<PermissionId>([
   "settings.roles",
   "settings.whatsapp_groups",
   "jobs.manage",
+  "system.alerts",
 ]);
 
 /** Permissions for the admin role — all except finance approvals, user CRUD, app settings, and jobs */

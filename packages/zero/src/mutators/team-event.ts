@@ -47,6 +47,7 @@ function buildExceptionInsert(
     isPublic: boolean;
     feedbackEnabled: boolean;
     feedbackDeadline: number | null;
+    postRsvpPoll: boolean;
     reminderIntervals: number[] | null;
     whatsappGroupId: string;
     cancelledAt: number | null;
@@ -68,6 +69,7 @@ function buildExceptionInsert(
     feedbackEnabled: overrides.feedbackEnabled ?? series.feedbackEnabled,
     feedbackDeadline:
       overrides.feedbackDeadline ?? series.feedbackDeadline ?? null,
+    postRsvpPoll: overrides.postRsvpPoll ?? series.postRsvpPoll,
     reminderIntervals:
       overrides.reminderIntervals ?? series.reminderIntervals ?? null,
     whatsappGroupId:
@@ -88,6 +90,7 @@ interface UpdateArgs {
   location?: string;
   name?: string;
   now: number;
+  postRsvpPoll?: boolean;
   reminderIntervals?: number[] | null;
   startTime?: number;
   whatsappGroupId?: string;
@@ -109,6 +112,9 @@ function buildUpdateFields(args: UpdateArgs) {
     }),
     ...(args.feedbackDeadline !== undefined && {
       feedbackDeadline: args.feedbackDeadline ?? null,
+    }),
+    ...(args.postRsvpPoll !== undefined && {
+      postRsvpPoll: args.postRsvpPoll,
     }),
     ...(args.reminderIntervals !== undefined && {
       reminderIntervals: args.reminderIntervals ?? null,
@@ -171,6 +177,7 @@ async function updateSeriesThis(
     isPublic?: boolean;
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
+    postRsvpPoll?: boolean;
     reminderIntervals?: number[] | null;
     whatsappGroupId?: string;
   },
@@ -200,6 +207,7 @@ async function updateSeriesThis(
           isPublic: args.isPublic,
           feedbackEnabled: args.feedbackEnabled,
           feedbackDeadline: args.feedbackDeadline ?? undefined,
+          postRsvpPoll: args.postRsvpPoll,
           reminderIntervals: args.reminderIntervals ?? undefined,
           whatsappGroupId: args.whatsappGroupId,
         }
@@ -223,6 +231,7 @@ async function updateSeriesFollowing(
     isPublic?: boolean;
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
+    postRsvpPoll?: boolean;
     reminderIntervals?: number[] | null;
     whatsappGroupId?: string;
     recurrenceRule?: RecurrenceRuleValue;
@@ -261,6 +270,7 @@ async function updateSeriesFollowing(
     feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
     feedbackDeadline:
       args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
+    postRsvpPoll: args.postRsvpPoll ?? existing.postRsvpPoll,
     reminderIntervals:
       args.reminderIntervals ?? existing.reminderIntervals ?? null,
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
@@ -385,6 +395,7 @@ export const teamEventMutators = {
       createWhatsAppGroup: z.boolean().optional(),
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
+      postRsvpPoll: z.boolean().optional(),
       reminderIntervals: reminderIntervalsSchema,
       now: z.number(),
     }),
@@ -422,6 +433,7 @@ export const teamEventMutators = {
         recurrenceRule: args.recurrenceRule ?? null,
         feedbackEnabled: args.feedbackEnabled ?? false,
         feedbackDeadline: args.feedbackDeadline ?? null,
+        postRsvpPoll: args.postRsvpPoll ?? false,
         reminderIntervals: args.reminderIntervals ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
         seriesId: null,
@@ -499,6 +511,7 @@ export const teamEventMutators = {
       isPublic: z.boolean().optional(),
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
+      postRsvpPoll: z.boolean().optional(),
       reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
     }),
@@ -586,7 +599,11 @@ export const teamEventMutators = {
   ),
 
   cancel: defineMutator(
-    z.object({ id: z.string(), now: z.number() }),
+    z.object({
+      id: z.string(),
+      reason: z.string().optional(),
+      now: z.number(),
+    }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const existing = (await tx.run(
@@ -620,6 +637,7 @@ export const teamEventMutators = {
         const eventName = existing.name;
         const teamId = existing.teamId;
         const cancelledAt = now;
+        const reason = args.reason;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
@@ -634,7 +652,13 @@ export const teamEventMutators = {
               eventId,
               eventMemberIds,
               eventName,
+              reason,
               teamId,
+            });
+            await enqueue("close-rsvp-poll-on-cancel", {
+              eventId,
+              eventName,
+              reason,
             });
           },
         });
@@ -696,6 +720,7 @@ export const teamEventMutators = {
         cancelledAt: null,
         feedbackEnabled: series.feedbackEnabled,
         feedbackDeadline: series.feedbackDeadline,
+        postRsvpPoll: series.postRsvpPoll,
         reminderIntervals: series.reminderIntervals,
         whatsappGroupId: series.whatsappGroupId,
         createdBy: ctx.userId,
@@ -723,6 +748,7 @@ export const teamEventMutators = {
       recurrenceRule: recurrenceRuleSchema,
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
+      postRsvpPoll: z.boolean().optional(),
       reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
     }),
@@ -773,6 +799,7 @@ export const teamEventMutators = {
       mode: z.enum(["this", "following", "all"]),
       originalDate: z.string().regex(ISO_DATE_RE).optional(),
       newExceptionId: z.string().optional(),
+      reason: z.string().optional(),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -810,6 +837,7 @@ export const teamEventMutators = {
         const eventName = existing.name;
         const teamId = existing.teamId;
         const cancelledAt = args.now;
+        const reason = args.reason;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
@@ -824,7 +852,13 @@ export const teamEventMutators = {
               eventId,
               eventMemberIds,
               eventName,
+              reason,
               teamId,
+            });
+            await enqueue("close-rsvp-poll-on-cancel", {
+              eventId,
+              eventName,
+              reason,
             });
           },
         });

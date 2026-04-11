@@ -77,7 +77,7 @@ services:
     environment:
       WHATSAPP_WEBHOOK: ${WHATSAPP_WEBHOOK:-}
       WHATSAPP_WEBHOOK_EVENTS: ${WHATSAPP_WEBHOOK_EVENTS:-}
-      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET:-secret}
+      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
     volumes:
       - whatsapp_data:/app/storages
     command:

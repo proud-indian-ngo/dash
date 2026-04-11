@@ -9,7 +9,7 @@
  *   user, account (auto-created by auth.api.createUser), notificationTopicPreference,
  *   role, permission, rolePermission (via syncPermissions),
  *   appConfig, whatsappGroup,
- *   team, teamMember, teamEvent, teamEventMember,
+ *   team, teamMember, teamEvent, teamEventMember, eventRsvpPoll, eventRsvpVote,
  *   eventInterest, eventFeedback, eventFeedbackSubmission,
  *   eventPhoto, eventImmichAlbum, eventUpdate,
  *   expenseCategory, bankAccount,
@@ -20,6 +20,7 @@
  *   scheduledMessage, scheduledMessageRecipient
  */
 
+import { createHash } from "node:crypto";
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import {
@@ -38,6 +39,7 @@ import {
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventImmichAlbum, eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
+import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
@@ -93,6 +95,10 @@ function getUser(userMap: Map<string, string>, email: string): string {
     throw new Error(`User not found: ${email}`);
   }
   return id;
+}
+
+function hashPollOption(option: string): string {
+  return createHash("sha256").update(option).digest("hex");
 }
 
 // ── Deterministic IDs ────────────────────────────────────────────────────────
@@ -224,6 +230,12 @@ const ID2 = {
   smr05: "019d52c3-0000-7000-8000-00000000001a",
   smr06: "019d52c3-0000-7000-8000-00000000001b",
   smr07: "019d52c3-0000-7000-8000-00000000001c",
+  // RSVP polls
+  rsvpPoll01: "019d52c3-0000-7000-8000-00000000001d",
+  rsvpPoll02: "019d52c3-0000-7000-8000-00000000001e",
+  rsvpVote01: "019d52c3-0000-7000-8000-00000000001f",
+  rsvpVote02: "019d52c3-0000-7000-8000-000000000020",
+  rsvpVote03: "019d52c3-0000-7000-8000-000000000021",
 } as const;
 
 // ── User definitions ─────────────────────────────────────────────────────────
@@ -690,6 +702,83 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
     }
   }
   log(`${events.length} events ready`);
+}
+
+async function seedEventRsvp(userMap: Map<string, string>): Promise<void> {
+  log("Seeding RSVP polls...");
+  const leadId = getUser(userMap, "lead@pi-dash.dev");
+  const v2 = getUser(userMap, "volunteer2@pi-dash.dev");
+  const v3 = getUser(userMap, "volunteer3@pi-dash.dev");
+  const yesOptionHash = hashPollOption("Yes");
+  const noOptionHash = hashPollOption("No");
+
+  await db
+    .insert(eventRsvpPoll)
+    .values([
+      {
+        id: ID2.rsvpPoll01,
+        eventId: ID.evOutreach,
+        targetChatJid: "120363003456789012@g.us",
+        targetChatSource: "team_group",
+        messageId: "3EB0SEEDOUTREACHPOLL01",
+        question: "RSVP for Community Outreach Drive on 17 Apr 2026, 10:30 am?",
+        yesOptionHash,
+        noOptionHash,
+        sentAt: future(4),
+        closedAt: null,
+      },
+      {
+        id: ID2.rsvpPoll02,
+        eventId: ID.evTeachingNext,
+        targetChatJid: "120363001234567890@g.us",
+        targetChatSource: "team_group",
+        messageId: "3EB0SEEDTEACHINGPOLL02",
+        question: "RSVP for Upcoming Teaching Session on 12 Apr 2026, 5:03 pm?",
+        yesOptionHash,
+        noOptionHash,
+        sentAt: past(1),
+        closedAt: null,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(eventRsvpVote)
+    .values([
+      {
+        id: ID2.rsvpVote01,
+        pollId: ID2.rsvpPoll01,
+        userId: v2,
+        phone: "919876543213",
+        voteMessageId: "3AFBSEEDRSVPVOTE001",
+        selectedOptionHashes: [yesOptionHash],
+        selectedOption: "yes",
+        votedAt: future(4),
+      },
+      {
+        id: ID2.rsvpVote02,
+        pollId: ID2.rsvpPoll01,
+        userId: v3,
+        phone: "919876543214",
+        voteMessageId: "3AFBSEEDRSVPVOTE002",
+        selectedOptionHashes: [noOptionHash],
+        selectedOption: "no",
+        votedAt: future(4),
+      },
+      {
+        id: ID2.rsvpVote03,
+        pollId: ID2.rsvpPoll02,
+        userId: leadId,
+        phone: "919876543211",
+        voteMessageId: "3AFBSEEDRSVPVOTE003",
+        selectedOptionHashes: [yesOptionHash],
+        selectedOption: "yes",
+        votedAt: past(1),
+      },
+    ])
+    .onConflictDoNothing();
+
+  log("2 RSVP polls and 3 votes ready");
 }
 
 // ── 7. Event Extras ──────────────────────────────────────────────────────────
@@ -1694,6 +1783,7 @@ async function main(): Promise<void> {
   await seedWhatsappGroups();
   await seedTeams(userMap);
   await seedEvents(userMap);
+  await seedEventRsvp(userMap);
   await seedEventExtras(userMap);
   await seedReimbursements(userMap);
   await seedAdvancePayments(userMap);

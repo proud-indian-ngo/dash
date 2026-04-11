@@ -64,6 +64,7 @@
     "build": "turbo run build",
     "check:types": "bun run --env-file .env -- turbo run check:types",
     "dev:web": "turbo run --filter=web dev",
+    "dev:webhook-proxy": "bun --env-file=.env run scripts/dev-whatsapp-webhook-proxy.ts",
     "db:push": "turbo run --filter=@pi-dash/db db:push",
     "db:studio": "turbo run --filter=@pi-dash/db db:studio",
     "db:generate": "turbo run --filter=@pi-dash/db db:generate",

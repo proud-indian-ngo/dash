@@ -103,6 +103,7 @@ export default defineConfig(({ mode }) => ({
     tsconfigPaths: true,
   },
   server: {
+    allowedHosts: ["host.docker.internal"],
     port: Number(process.env.DEV_WEB_PORT) || 3001,
   },
 }));

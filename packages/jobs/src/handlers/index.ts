@@ -1,6 +1,8 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
+import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
+import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
@@ -83,12 +85,14 @@ import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
+import { handleSendEventRsvpPolls } from "./send-event-rsvp-polls";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
 import {
   handleDeadLetterScheduledWhatsApp,
   handleSendScheduledWhatsApp,
 } from "./send-scheduled-whatsapp";
+import { handleSendSingleRsvpPoll } from "./send-single-rsvp-poll";
 import { handleSendWeeklyEventsDigest } from "./send-weekly-events-digest";
 import { handleSendWhatsApp } from "./send-whatsapp";
 import { handleSyncCourierPreference } from "./sync-courier-preference";
@@ -406,6 +410,26 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "process-post-event-reminders",
     NOTIFY_POLL,
     handleProcessPostEventReminders
+  );
+  await boss.work(
+    "send-event-rsvp-polls",
+    NOTIFY_POLL,
+    handleSendEventRsvpPolls
+  );
+  await boss.work(
+    "send-single-rsvp-poll",
+    NOTIFY_POLL,
+    handleSendSingleRsvpPoll
+  );
+  await boss.work(
+    "close-expired-rsvp-polls",
+    NOTIFY_POLL,
+    handleCloseExpiredRsvpPolls
+  );
+  await boss.work(
+    "close-rsvp-poll-on-cancel",
+    NOTIFY_POLL,
+    handleCloseRsvpPollOnCancel
   );
   await boss.work(
     "send-weekly-events-digest",

@@ -203,7 +203,7 @@ export async function handleScanWhatsAppGroups(
     toDeactivate.length > 0 || toReactivate.length > 0 || totalUnregistered > 0;
 
   if (hasChanges) {
-    const adminIds = await getUserIdsWithPermission("users.create");
+    const adminIds = await getUserIdsWithPermission("system.alerts");
 
     try {
       await notifyWhatsAppScanResults({

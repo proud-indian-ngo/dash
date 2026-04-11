@@ -20,6 +20,10 @@ const createSchema = z.object({
   recurrenceRule: recurrenceRuleSchema,
   whatsappGroupId: z.string().optional(),
   createWhatsAppGroup: z.boolean().optional(),
+  feedbackEnabled: z.boolean().optional(),
+  feedbackDeadline: z.number().nullable().optional(),
+  postRsvpPoll: z.boolean().optional(),
+  reminderIntervals: z.array(z.number()).nullable().optional(),
   now: z.number(),
 });
 
@@ -32,10 +36,18 @@ const updateSchema = z.object({
   startTime: z.number().optional(),
   endTime: z.number().optional(),
   isPublic: z.boolean().optional(),
+  feedbackEnabled: z.boolean().optional(),
+  feedbackDeadline: z.number().nullable().optional(),
+  postRsvpPoll: z.boolean().optional(),
+  reminderIntervals: z.array(z.number()).nullable().optional(),
   whatsappGroupId: z.string().optional(),
 });
 
-const cancelSchema = z.object({ id: z.string(), now: z.number() });
+const cancelSchema = z.object({
+  id: z.string(),
+  reason: z.string().optional(),
+  now: z.number(),
+});
 
 const addMemberSchema = z.object({
   id: z.string(),
@@ -78,6 +90,8 @@ const updateSeriesSchema = z.object({
   recurrenceRule: recurrenceRuleSchema,
   feedbackEnabled: z.boolean().optional(),
   feedbackDeadline: z.number().nullable().optional(),
+  postRsvpPoll: z.boolean().optional(),
+  reminderIntervals: z.array(z.number()).nullable().optional(),
   whatsappGroupId: z.string().optional(),
 });
 
@@ -86,6 +100,7 @@ const cancelSeriesSchema = z.object({
   mode: z.enum(["this", "following", "all"]),
   originalDate: z.string().optional(),
   newExceptionId: z.string().optional(),
+  reason: z.string().optional(),
   now: z.number(),
 });
 

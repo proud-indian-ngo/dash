@@ -295,6 +295,13 @@
       "when": 1775749238893,
       "tag": "0041_silent_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1775843888900,
+      "tag": "0042_chilly_magik",
+      "breakpoints": true
     }
   ]
 }

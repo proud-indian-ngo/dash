@@ -264,6 +264,12 @@ Enqueue calls for side-effects should be wrapped in `withFireAndForgetLog` so th
 | Email | Courier | Routed through Courier's email channel |
 | WhatsApp | Self-hosted gateway | `WHATSAPP_API_URL`; per-user opt-in via phone number + preference check |
 
+### WhatsApp RSVP Polls
+
+Events with `postRsvpPoll` enabled get a WhatsApp poll sent to their team/event group 3 days before start (pg-boss schedule: `send-event-rsvp-polls`, every 15 min). The GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks to `/api/whatsapp/webhook`. Votes are recorded in `event_rsvp_vote`; "yes" auto-adds the user as an event member, "no" removes them.
+
+**Local dev webhook proxy**: GoWA (Go) can send `Transfer-Encoding: chunked` POST requests, which Vite's dev server rejects with 400. Run `bun run dev:webhook-proxy` alongside the dev server — it listens on `:3002`, buffers the body, and forwards to the app on `:3001` with `Content-Length`. The dev `docker-compose.yml` points GoWA's webhook URL to `:3002` by default. Not needed in production (Nitro handles requests directly).
+
 ### Topics & Preferences
 
 Notification topics defined in `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (email + WhatsApp) stored in the `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: both channels enabled (no row = enabled).

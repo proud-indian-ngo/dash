@@ -533,6 +533,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               whatsappGroupId: editEventData.event.event.whatsappGroupId,
               feedbackEnabled: !!editEventData.event.event.feedbackEnabled,
               feedbackDeadline: editEventData.event.event.feedbackDeadline,
+              postRsvpPoll: !!editEventData.event.event.postRsvpPoll,
               reminderIntervals:
                 (editEventData.event.event.reminderIntervals as
                   | number[]

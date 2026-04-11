@@ -1,6 +1,17 @@
 import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Tabs,
@@ -8,6 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
+import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -52,9 +64,11 @@ function buildCancelMutation(
   event: EventRow,
   cancelScope: EditScope | null,
   isRecurring: boolean,
-  scopeOccDate: string | undefined
+  scopeOccDate: string | undefined,
+  reason?: string
 ) {
   const mode = cancelScope;
+  const trimmedReason = reason?.trim() || undefined;
   if (mode && isRecurring) {
     // For "this": pass event.id — for virtual occurrences this is the series parent ID,
     // and the mutator creates a cancelled exception via originalDate.
@@ -66,12 +80,17 @@ function buildCancelMutation(
         mode,
         originalDate: scopeOccDate,
         newExceptionId: mode === "this" ? uuidv7() : undefined,
+        reason: trimmedReason,
         now: Date.now(),
       })
     ).server;
   }
   return zero.mutate(
-    mutators.teamEvent.cancel({ id: event.id, now: Date.now() })
+    mutators.teamEvent.cancel({
+      id: event.id,
+      reason: trimmedReason,
+      now: Date.now(),
+    })
   ).server;
 }
 
@@ -540,6 +559,7 @@ export function EventDetail({
   // --- Cancel scope state ---
   const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
   const cancelScopeRef = useRef<EditScope | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const cancelAction = useConfirmAction({
     onConfirm: () =>
@@ -548,11 +568,13 @@ export function EventDetail({
         event,
         cancelScopeRef.current,
         isRecurring,
-        scopeOccDate
+        scopeOccDate,
+        cancelReason
       ),
     onSuccess: () => {
       toast.success("Event cancelled");
       cancelScopeRef.current = null;
+      setCancelReason("");
       navigate({ to: "/teams/$id", params: { id: event.teamId } });
     },
     onError: (msg) => {
@@ -795,6 +817,7 @@ export function EventDetail({
           recurrenceRule: recurrence ?? null,
           feedbackEnabled: !!event.feedbackEnabled,
           feedbackDeadline: event.feedbackDeadline,
+          postRsvpPoll: !!event.postRsvpPoll,
           reminderIntervals:
             (event.reminderIntervals as number[] | null) ?? null,
         }}
@@ -829,21 +852,53 @@ export function EventDetail({
         open={dialog.isOpen("addMember")}
       />
 
-      <ConfirmDialog
-        cancelLabel="Keep Event"
-        confirmLabel="Cancel Event"
-        description={`Are you sure you want to cancel "${event.name}"? This action cannot be undone and all volunteers will be notified.`}
-        loading={cancelAction.isLoading}
-        loadingLabel="Cancelling..."
-        onConfirm={cancelAction.confirm}
+      <AlertDialog
         onOpenChange={(open) => {
           if (!open) {
             cancelAction.cancel();
+            setCancelReason("");
           }
         }}
         open={cancelAction.isOpen}
-        title="Cancel event"
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel &ldquo;{event.name}&rdquo;? This
+              action cannot be undone and all volunteers will be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Reason for cancellation (optional)"
+            rows={2}
+            value={cancelReason}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={cancelAction.isLoading}
+              variant="outline"
+            >
+              Keep Event
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelAction.isLoading}
+              onClick={cancelAction.confirm}
+              variant="destructive"
+            >
+              {cancelAction.isLoading ? (
+                <>
+                  <BrailleSpinner variant="inline" />
+                  Cancelling...
+                </>
+              ) : (
+                "Cancel Event"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ConfirmDialog
         confirmLabel="Remove"

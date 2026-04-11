@@ -41,13 +41,14 @@ export async function sendWhatsAppMessage(
 
 export async function sendWhatsAppGroupMessage(
   groupJid: string,
-  message: string
+  message: string,
+  options?: { replyMessageId?: string }
 ): Promise<void> {
   const log = createRequestLogger({
     method: "POST",
     path: "sendWhatsAppGroupMessage",
   });
-  log.set({ groupJid });
+  log.set({ groupJid, replyMessageId: options?.replyMessageId });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -56,10 +57,15 @@ export async function sendWhatsAppGroupMessage(
     return;
   }
 
+  const body: Record<string, string> = { phone: groupJid, message };
+  if (options?.replyMessageId) {
+    body.reply_message_id = options.replyMessageId;
+  }
+
   const response = await fetch(`${apiUrl}/send/message`, {
     method: "POST",
     headers: getWhatsAppHeaders(),
-    body: JSON.stringify({ phone: groupJid, message }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -74,6 +80,60 @@ export async function sendWhatsAppGroupMessage(
 
   log.set({ event: "message_sent" });
   log.emit();
+}
+
+export async function sendWhatsAppPoll(
+  groupJid: string,
+  question: string,
+  options: string[],
+  maxAnswer = 1
+): Promise<string> {
+  const log = createRequestLogger({
+    method: "POST",
+    path: "sendWhatsAppPoll",
+  });
+  log.set({ groupJid, question, optionCount: options.length, maxAnswer });
+
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    log.warn("whatsapp_not_configured");
+    log.emit();
+    throw new Error("WhatsApp not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/send/poll`, {
+    method: "POST",
+    headers: getWhatsAppHeaders(),
+    body: JSON.stringify({
+      phone: groupJid,
+      question,
+      options,
+      max_answer: maxAnswer,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    const error = new Error(`WhatsApp poll error ${response.status}: ${text}`);
+    log.error(error);
+    log.emit();
+    throw error;
+  }
+
+  const data = (await response.json()) as {
+    results?: { message_id?: string };
+  };
+  const messageId = data.results?.message_id;
+  if (!messageId) {
+    const error = new Error("WhatsApp poll response missing message_id");
+    log.error(error);
+    log.emit();
+    throw error;
+  }
+
+  log.set({ event: "poll_sent", messageId });
+  log.emit();
+  return messageId;
 }
 
 export async function sendWhatsAppImage(

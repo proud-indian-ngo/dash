@@ -58,8 +58,12 @@ services:
       retries: 5
 
   whatsapp:
-    image: aldinokemal2104/go-whatsapp-web-multidevice
+    image: ghcr.io/somus/go-whatsapp-web-multidevice-poll-vote:latest
     container_name: pi-dash-whatsapp
+    environment:
+      WHATSAPP_WEBHOOK: http://host.docker.internal:3002/api/whatsapp/webhook
+      WHATSAPP_WEBHOOK_EVENTS: message.poll_vote
+      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
     ports:
       - "3100:3000"
     volumes:
