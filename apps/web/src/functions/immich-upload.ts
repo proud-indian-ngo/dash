@@ -65,12 +65,11 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     const eventId = input.get("eventId");
     const occDate = input.get("occDate");
     const mimeType = input.get("mimeType");
-    const fileSize = input.get("fileSize");
     if (!(file instanceof Blob) || typeof eventId !== "string") {
       throw new Error("Missing file or eventId");
     }
     const mime = typeof mimeType === "string" ? mimeType : file.type;
-    const size = typeof fileSize === "string" ? Number(fileSize) : file.size;
+    const size = file.size;
     if (typeof occDate === "string" && !OCC_DATE_RE.test(occDate)) {
       throw new Error("Invalid occurrence date");
     }
