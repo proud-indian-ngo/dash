@@ -329,7 +329,7 @@ export function EventPhotos({
               {isUploading ? "Uploading..." : "Upload Photos & Videos"}
             </Button>
             <span className="text-muted-foreground text-xs">
-              JPEG, PNG, MP4, MOV · 20 MB / 100 MB
+              JPEG, PNG, MP4, MOV · 20 MB / 200 MB
             </span>
             <input
               accept={MEDIA_ACCEPT}

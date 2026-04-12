@@ -1,4 +1,4 @@
-export const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+export const MAX_VIDEO_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
 export const MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const VOUCHER_AMOUNT_THRESHOLD = 1000;
 

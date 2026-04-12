@@ -81,7 +81,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       ? MAX_VIDEO_SIZE_BYTES
       : MAX_IMAGE_SIZE_BYTES;
     if (size > maxSize) {
-      const limit = VIDEO_MIME_TYPES.has(mime) ? "100 MB" : "20 MB";
+      const limit = VIDEO_MIME_TYPES.has(mime) ? "200 MB" : "20 MB";
       throw new Error(`File exceeds ${limit} limit`);
     }
     return {
