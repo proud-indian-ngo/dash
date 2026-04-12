@@ -106,7 +106,6 @@ async function uploadSinglePhoto({
     if (occDate) {
       formData.append("occDate", occDate);
     }
-    formData.append("mimeType", file.type);
     const result = await callImmichUpload({ data: formData });
     if ("error" in result) {
       throw new Error(result.error);
