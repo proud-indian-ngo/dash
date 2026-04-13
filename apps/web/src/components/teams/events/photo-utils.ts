@@ -64,15 +64,18 @@ export function toPhotoSlide(
 ): PhotoSlide {
   const thumbnailSrc = getPhotoThumbnailUrl(photo) ?? EMPTY_PIXEL;
   if (isVideoPhoto(photo)) {
+    const hasRealPoster = thumbnailSrc !== EMPTY_PIXEL;
     return {
       type: "video" as const,
+      width: 1920,
+      height: 1080,
       sources: [
         {
           src: getPhotoLightboxUrl(photo),
           type: photo.mimeType ?? "video/mp4",
         },
       ],
-      poster: thumbnailSrc,
+      poster: hasRealPoster ? thumbnailSrc : undefined,
       thumbnailSrc,
       photoId: photo.id,
       caption: photo.caption ?? null,
