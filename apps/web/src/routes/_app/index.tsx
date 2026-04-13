@@ -23,6 +23,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryStates } from "nuqs";
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { MyTeams } from "@/components/dashboard/my-teams";
+import { PendingReviews } from "@/components/dashboard/pending-reviews";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
 import type { StatItem } from "@/components/stats/stats-cards";
@@ -35,6 +36,7 @@ import {
 } from "@/lib/date-range";
 import { formatINR } from "@/lib/form-schemas";
 import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
+import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/")({
   head: () => ({
@@ -190,55 +192,9 @@ function WelcomeDashboard() {
   );
 }
 
-function PendingActions({
-  canApprove,
-  pendingCount,
-}: {
-  canApprove: boolean;
-  pendingCount: number;
-}) {
-  if (pendingCount === 0) {
-    return null;
-  }
-
-  return (
-    <div className="fade-in-0 slide-in-from-bottom-1 mt-4 animate-in space-y-2 fill-mode-backwards duration-200 ease-(--ease-out-expo)">
-      {canApprove && pendingCount > 0 && (
-        <Link
-          className="flex items-center gap-3 border-amber-500 border-l-2 bg-amber-50/50 px-4 py-3 transition-colors hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
-          search={{ status: "pending" }}
-          to="/reimbursements"
-        >
-          <HugeiconsIcon
-            className="size-4 shrink-0 text-amber-500"
-            icon={Clock01Icon}
-            strokeWidth={2}
-          />
-          <span className="flex-1 text-sm">
-            <span className="font-display font-semibold text-lg tracking-tight">
-              {pendingCount}
-            </span>{" "}
-            {pendingCount === 1 ? "reimbursement needs" : "reimbursements need"}{" "}
-            your review
-          </span>
-          <Button
-            className="shrink-0"
-            nativeButton={false}
-            render={<span />}
-            size="xs"
-            variant="outline"
-          >
-            Review
-            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
-          </Button>
-        </Link>
-      )}
-    </div>
-  );
-}
-
 function OrientedDashboard() {
   const { hasPermission } = useApp();
+  const { session } = Route.useRouteContext();
   const canViewAllRequests = hasPermission("requests.view_all");
   const canApprove = hasPermission("requests.approve");
   const canViewUsers = hasPermission("users.manage");
@@ -252,6 +208,27 @@ function OrientedDashboard() {
   const [myEvents] = useQuery(queries.teamEvent.byCurrentUserAll());
   const [vendorPayments] = useQuery(queries.vendorPayment.all());
   const [eventInterests] = useQuery(queries.eventInterest.byCurrentUser());
+
+  // Team leads can approve event photos/updates/interest for their teams
+  const isLeadOfAnyTeam = teams.some((t) =>
+    isTeamLead(t.members, session?.user.id ?? "")
+  );
+  const canManagePhotos =
+    hasPermission("events.manage_photos") || isLeadOfAnyTeam;
+  const canApproveUpdates =
+    hasPermission("event_updates.approve") || isLeadOfAnyTeam;
+  const canManageInterest =
+    hasPermission("events.manage_interest") || isLeadOfAnyTeam;
+
+  const [pendingPhotos] = useQuery(queries.eventPhoto.allPending(), {
+    enabled: canManagePhotos,
+  });
+  const [pendingUpdates] = useQuery(queries.eventUpdate.allPending(), {
+    enabled: canApproveUpdates,
+  });
+  const [pendingInterests] = useQuery(queries.eventInterest.allPending(), {
+    enabled: canManageInterest,
+  });
   // Skeleton only on first load — once Zero has cached data, it stays during re-sync
   const isLoading =
     reimbursements.length === 0 &&
@@ -323,8 +300,6 @@ function OrientedDashboard() {
         </div>
       </div>
 
-      <PendingActions canApprove={canApprove} pendingCount={pendingCount} />
-
       <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />
       </div>
@@ -343,6 +318,26 @@ function OrientedDashboard() {
           </Button>
         </div>
       )}
+
+      <div className="mt-6">
+        <PendingReviews
+          advancePayments={advancePayments.filter(
+            (a) => a.status === "pending"
+          )}
+          eventInterests={pendingInterests}
+          eventPhotos={pendingPhotos}
+          eventUpdates={pendingUpdates}
+          isLoading={isLoading}
+          permissions={{
+            canApproveRequests: canApprove,
+            canManagePhotos,
+            canApproveUpdates,
+            canManageInterest,
+          }}
+          reimbursements={reimbursements.filter((r) => r.status === "pending")}
+          vendorPayments={vendorPayments.filter((v) => v.status === "pending")}
+        />
+      </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <div className="min-w-0 space-y-6">

@@ -1,5 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+import { can } from "../permissions";
 import { zql } from "../schema";
 
 export const eventPhotoQueries = {
@@ -34,6 +35,32 @@ export const eventPhotoQueries = {
         .where("status", "pending")
         .related("uploader")
         .orderBy("createdAt", "desc")
+  ),
+  /**
+   * All pending photos the current user can review.
+   * Admins with `events.manage_photos` see all; team leads see only their teams' events.
+   */
+  allPending: defineQuery(({ ctx }) =>
+    ctx != null && can(ctx, "events.manage_photos")
+      ? zql.eventPhoto
+          .where("status", "pending")
+          .related("uploader")
+          .related("event")
+          .orderBy("createdAt", "desc")
+      : zql.eventPhoto
+          .where("status", "pending")
+          .where(({ exists }) =>
+            exists("event", (e) =>
+              e.whereExists("team", (t) =>
+                t.whereExists("members", (m) =>
+                  m.where("userId", ctx?.userId).where("role", "lead")
+                )
+              )
+            )
+          )
+          .related("uploader")
+          .related("event")
+          .orderBy("createdAt", "desc")
   ),
   /** Current user's own pending photos. Auth-safe: uses ctx.userId. */
   myPendingByEvent: defineQuery(

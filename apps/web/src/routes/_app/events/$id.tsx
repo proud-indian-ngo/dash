@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_app/events/$id")({
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
   }),
   head: () => ({
     meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
