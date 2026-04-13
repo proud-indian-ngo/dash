@@ -12,6 +12,7 @@ export type PublicEventRow = TeamEvent & {
 };
 
 export interface PublicDisplayRow {
+  city: string | null;
   endTime: number | null;
   eventId: string;
   isPublic: boolean | null;
@@ -35,6 +36,7 @@ export function buildPublicDisplayRows(
   for (const event of data) {
     const rule = parseRecurrenceRule(event.recurrenceRule);
     const base = {
+      city: event.city,
       endTime: event.endTime,
       eventId: event.id,
       isPublic: event.isPublic,

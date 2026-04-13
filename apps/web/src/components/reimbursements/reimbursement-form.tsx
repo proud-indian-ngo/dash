@@ -81,10 +81,16 @@ function ReimbursementFormInner({
   const categoryList = (categories ?? []) as ExpenseCategory[];
   const bankAccountList = (bankAccounts ?? []) as BankAccount[];
   const eventList = (events ?? []) as TeamEvent[];
-  const eventOptions = eventList.map((e) => ({
-    label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
-    value: e.id,
-  }));
+
+  function getFilteredEventOptions(selectedCity: string | undefined) {
+    const filtered = selectedCity
+      ? eventList.filter((e) => e.city === selectedCity)
+      : eventList;
+    return filtered.map((e) => ({
+      label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
+      value: e.id,
+    }));
+  }
 
   const bankAccountOptions = bankAccountList.map((account) => ({
     label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
@@ -185,23 +191,38 @@ function ReimbursementFormInner({
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
-      <StandardReimbursementFields
-        bankAccountList={bankAccountList}
-        bankAccountOptions={bankAccountOptions}
-        bankAccountsStatus={bankAccountsStatus}
-        categoryList={categoryList}
-        disableBankAccountSelection={disableBankAccountSelection}
-        entityId={entityId}
-        eventOptions={eventOptions}
-        form={form}
-        isEdit={isEdit}
-        onBankAccountSelected={(account) => {
-          form.setFieldValue("bankAccountNumber", account.accountNumber);
-          form.setFieldValue("bankAccountIfscCode", account.ifscCode);
+      <form.Subscribe
+        selector={(state) => ({
+          city: state.values.city,
+          eventId: state.values.eventId,
+        })}
+      >
+        {({ city: selectedCity, eventId }) => {
+          const filteredOptions = getFilteredEventOptions(selectedCity);
+          if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
+            setTimeout(() => form.setFieldValue("eventId", undefined), 0);
+          }
+          return (
+            <StandardReimbursementFields
+              bankAccountList={bankAccountList}
+              bankAccountOptions={bankAccountOptions}
+              bankAccountsStatus={bankAccountsStatus}
+              categoryList={categoryList}
+              disableBankAccountSelection={disableBankAccountSelection}
+              entityId={entityId}
+              eventOptions={filteredOptions}
+              form={form}
+              isEdit={isEdit}
+              onBankAccountSelected={(account) => {
+                form.setFieldValue("bankAccountNumber", account.accountNumber);
+                form.setFieldValue("bankAccountIfscCode", account.ifscCode);
+              }}
+              onCancel={onCancel}
+              requestType={requestType}
+            />
+          );
         }}
-        onCancel={onCancel}
-        requestType={requestType}
-      />
+      </form.Subscribe>
     </FormLayout>
   );
 }

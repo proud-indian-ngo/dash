@@ -13,6 +13,7 @@ import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-p
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
 import { VendorPaymentsTable } from "@/components/vendor-payments/vendor-payments-table";
 import { useApp } from "@/context/app-context";
+import { cityOptions } from "@/lib/form-schemas";
 
 const STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
@@ -48,12 +49,20 @@ function VendorPaymentsRouteComponent() {
     "status",
     parseAsString
   );
+  const [cityFilter, setCityFilter] = useQueryState("city", parseAsString);
 
   const data = (vendorPayments ?? []) as VendorPaymentWithRelations[];
 
-  const filtered = statusFilter
-    ? data.filter((vp) => vp.status === statusFilter)
-    : data;
+  const filtered = (() => {
+    let result = data;
+    if (statusFilter) {
+      result = result.filter((vp) => vp.status === statusFilter);
+    }
+    if (cityFilter) {
+      result = result.filter((vp) => vp.city === cityFilter);
+    }
+    return result;
+  })();
 
   const isLoading = data.length === 0 && result.type !== "complete";
 
@@ -71,9 +80,12 @@ function VendorPaymentsRouteComponent() {
         <VendorPaymentsTable
           canDelete={canDelete}
           data={filtered}
-          hasActiveFilters={!!statusFilter}
+          hasActiveFilters={!!(statusFilter || cityFilter)}
           isLoading={isLoading}
-          onClearFilters={() => setStatusFilter(null)}
+          onClearFilters={() => {
+            setStatusFilter(null);
+            setCityFilter(null);
+          }}
           onDelete={handleDelete}
           onNavigate={(id) => {
             navigate({ to: "/vendor-payments/$id", params: { id } });
@@ -95,12 +107,20 @@ function VendorPaymentsRouteComponent() {
             ) : null
           }
           toolbarFilters={
-            <TableFilterSelect
-              label="Status"
-              onChange={(val) => setStatusFilter(val || null)}
-              options={STATUS_OPTIONS}
-              value={statusFilter ?? ""}
-            />
+            <>
+              <TableFilterSelect
+                label="City"
+                onChange={(val) => setCityFilter(val || null)}
+                options={cityOptions}
+                value={cityFilter ?? ""}
+              />
+              <TableFilterSelect
+                label="Status"
+                onChange={(val) => setStatusFilter(val || null)}
+                options={STATUS_OPTIONS}
+                value={statusFilter ?? ""}
+              />
+            </>
           }
         />
       </div>

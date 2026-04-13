@@ -104,6 +104,9 @@ export function VendorPaymentDetail({
               {request.vendor ? (
                 <span>Vendor: {request.vendor.name}</span>
               ) : null}
+              {request.city ? (
+                <span className="capitalize">City: {request.city}</span>
+              ) : null}
             </div>
             {request.user ? (
               <div className="mt-1 flex items-center gap-2">

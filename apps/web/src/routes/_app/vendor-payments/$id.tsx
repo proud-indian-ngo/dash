@@ -68,6 +68,7 @@ function VendorPaymentDetailRouteComponent() {
   const initialValues = {
     id: vendorPayment.id as string,
     title: vendorPayment.title as string,
+    city: vendorPayment.city as "bangalore" | "mumbai",
     vendorId: vendorPayment.vendorId as string,
     lineItems: mapLineItemsToFormValues(vendorPayment.lineItems ?? []),
     attachments: mapAttachmentsToFormValues(vendorPayment.attachments ?? []),

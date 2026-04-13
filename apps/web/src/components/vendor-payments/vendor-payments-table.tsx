@@ -122,6 +122,21 @@ export function VendorPaymentsTable({
       minSize: 120,
     },
     {
+      id: "city",
+      accessorFn: (row) => row.city,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="City" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm capitalize">
+          {row.original.city ?? "—"}
+        </span>
+      ),
+      meta: { headerTitle: "City", skeleton: SKELETON_TEXT },
+      size: 120,
+      minSize: 100,
+    },
+    {
       id: "submittedBy",
       accessorFn: (row) => row.user?.name ?? "",
       header: ({ column }) => (

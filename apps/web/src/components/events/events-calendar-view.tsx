@@ -5,6 +5,7 @@ import {
 } from "@pi-dash/design-system/components/ui/calendar";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { cityValues } from "@pi-dash/shared/constants";
 import type { EventInterest } from "@pi-dash/zero/schema";
 import {
   addWeeks,
@@ -16,6 +17,7 @@ import {
   startOfWeek,
   subWeeks,
 } from "date-fns";
+import capitalize from "lodash/capitalize";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { EventDateGroup } from "@/components/events/event-date-group";
 import { MobileWeekStrip } from "@/components/events/mobile-week-strip";
@@ -60,7 +62,7 @@ function searchRow(row: PublicDisplayRow, query: string): boolean {
   if (!q) {
     return true;
   }
-  return [row.name, row.location ?? "", row.team?.name ?? ""]
+  return [row.name, row.location ?? "", row.team?.name ?? "", row.city ?? ""]
     .join(" ")
     .toLowerCase()
     .includes(q);
@@ -138,6 +140,7 @@ export function EventsCalendarView({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [filter, setFilter] = useState<EventFilter>("all");
   const [timeScope, setTimeScope] = useState<TimeScope>("all");
+  const [cityFilter, setCityFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
 
   const calendarRangeStart = useMemo(
@@ -169,6 +172,9 @@ export function EventsCalendarView({
     [data, rangeStart, rangeEnd]
   );
 
+  const hasMultipleCities =
+    new Set(allDisplayRows.map((r) => r.city).filter(Boolean)).size > 1;
+
   const displayRows = useMemo(() => {
     let rows = allDisplayRows;
     if (filter === "my-teams") {
@@ -176,11 +182,14 @@ export function EventsCalendarView({
     } else if (filter === "public") {
       rows = rows.filter((r) => r.isPublic);
     }
+    if (cityFilter !== "all") {
+      rows = rows.filter((r) => r.city === cityFilter);
+    }
     if (search.trim()) {
       rows = rows.filter((r) => searchRow(r, search));
     }
     return rows;
-  }, [allDisplayRows, filter, myTeamIds, search]);
+  }, [allDisplayRows, filter, cityFilter, myTeamIds, search]);
 
   const datesWithEvents = useMemo(
     () => new Set(displayRows.map((r) => format(r.startTime, "yyyy-MM-dd"))),
@@ -278,6 +287,30 @@ export function EventsCalendarView({
             ))}
           </div>
         </div>
+        {hasMultipleCities ? (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs">City</p>
+            <div className="flex flex-wrap gap-1">
+              <Button
+                onClick={() => setCityFilter("all")}
+                size="sm"
+                variant={cityFilter === "all" ? "default" : "ghost"}
+              >
+                All
+              </Button>
+              {cityValues.map((city) => (
+                <Button
+                  key={city}
+                  onClick={() => setCityFilter(city)}
+                  size="sm"
+                  variant={cityFilter === city ? "default" : "ghost"}
+                >
+                  {capitalize(city)}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </aside>
 
       {/* Mobile week strip + filters */}
@@ -318,6 +351,30 @@ export function EventsCalendarView({
             ))}
           </div>
         </div>
+        {hasMultipleCities ? (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs">City</p>
+            <div className="flex gap-1">
+              <Button
+                onClick={() => setCityFilter("all")}
+                size="sm"
+                variant={cityFilter === "all" ? "default" : "ghost"}
+              >
+                All
+              </Button>
+              {cityValues.map((city) => (
+                <Button
+                  key={city}
+                  onClick={() => setCityFilter(city)}
+                  size="sm"
+                  variant={cityFilter === city ? "default" : "ghost"}
+                >
+                  {capitalize(city)}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Event card list */}

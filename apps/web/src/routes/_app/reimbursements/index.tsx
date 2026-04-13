@@ -14,6 +14,7 @@ import { computeReimbursementStats } from "@/components/reimbursements/reimburse
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { deleteUploadedAssets } from "@/functions/attachments";
+import { cityOptions } from "@/lib/form-schemas";
 import {
   normalizeToRequestRows,
   REQUEST_TYPE_LABELS,
@@ -76,6 +77,10 @@ function ReimbursementsRouteComponent() {
     "type",
     parseAsString.withDefault("")
   );
+  const [cityFilter, setCityFilter] = useQueryState(
+    "city",
+    parseAsString.withDefault("")
+  );
 
   const allData = normalizeToRequestRows(
     reimbursements ?? [],
@@ -89,6 +94,9 @@ function ReimbursementsRouteComponent() {
     }
     if (typeFilter) {
       result = result.filter((r) => r.type === typeFilter);
+    }
+    if (cityFilter) {
+      result = result.filter((r) => r.city === cityFilter);
     }
     return result;
   })();
@@ -136,11 +144,12 @@ function ReimbursementsRouteComponent() {
         />
         <ReimbursementsTable
           data={filteredData}
-          hasActiveFilters={!!(statusFilter || typeFilter)}
+          hasActiveFilters={!!(statusFilter || typeFilter || cityFilter)}
           isLoading={isLoading}
           onClearFilters={() => {
             setStatusFilter("");
             setTypeFilter("");
+            setCityFilter("");
           }}
           onDelete={handleDelete}
           onNavigate={(id) => {
@@ -164,6 +173,12 @@ function ReimbursementsRouteComponent() {
           }
           toolbarFilters={
             <>
+              <TableFilterSelect
+                label="City"
+                onChange={setCityFilter}
+                options={cityOptions}
+                value={cityFilter}
+              />
               <TableFilterSelect
                 label="Type"
                 onChange={setTypeFilter}

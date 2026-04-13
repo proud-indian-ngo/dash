@@ -139,6 +139,23 @@ export function createEventsTableColumns({
       size: 140,
     },
     {
+      id: "city",
+      accessorFn: (row) => row.event.city,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="City" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm capitalize">
+          {row.original.event.city || "\u2014"}
+        </span>
+      ),
+      meta: {
+        headerTitle: "City",
+        skeleton: SKELETON_LOCATION,
+      },
+      size: 120,
+    },
+    {
       id: "isPublic",
       accessorFn: (row) => row.event.isPublic,
       header: ({ column }) => (

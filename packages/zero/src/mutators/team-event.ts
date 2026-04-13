@@ -1,3 +1,4 @@
+import { type City, cityValues } from "@pi-dash/shared/constants";
 import { REMINDER_PRESET_MINUTES } from "@pi-dash/shared/event-reminders";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -59,6 +60,7 @@ function buildExceptionInsert(
     name: overrides.name ?? series.name,
     description: overrides.description ?? series.description ?? null,
     location: overrides.location ?? series.location ?? null,
+    city: series.city,
     startTime: overrides.startTime ?? series.startTime,
     endTime: overrides.endTime ?? series.endTime ?? null,
     isPublic: overrides.isPublic ?? series.isPublic,
@@ -81,6 +83,7 @@ function buildExceptionInsert(
 }
 
 interface UpdateArgs {
+  city?: City;
   description?: string;
   endTime?: number;
   feedbackDeadline?: number | null;
@@ -104,6 +107,7 @@ function buildUpdateFields(args: UpdateArgs) {
       description: args.description || null,
     }),
     ...(args.location !== undefined && { location: args.location || null }),
+    ...(args.city !== undefined && { city: args.city }),
     ...(args.startTime !== undefined && { startTime: args.startTime }),
     ...(args.endTime !== undefined && { endTime: args.endTime }),
     ...(args.isPublic !== undefined && { isPublic: args.isPublic }),
@@ -260,6 +264,7 @@ async function updateSeriesFollowing(
     name: args.name ?? existing.name,
     description: args.description ?? existing.description ?? null,
     location: args.location ?? existing.location ?? null,
+    city: existing.city,
     startTime: args.startTime ?? existing.startTime,
     endTime: args.endTime ?? existing.endTime ?? null,
     isPublic: args.isPublic ?? existing.isPublic,
@@ -387,6 +392,7 @@ export const teamEventMutators = {
       name: z.string().min(1),
       description: z.string().optional(),
       location: z.string().optional(),
+      city: z.enum(cityValues).optional(),
       startTime: z.number(),
       endTime: z.number().optional(),
       isPublic: z.boolean().optional(),
@@ -427,6 +433,7 @@ export const teamEventMutators = {
         name: args.name,
         description: args.description ?? null,
         location: args.location ?? null,
+        city: args.city ?? "bangalore",
         startTime: args.startTime,
         endTime: args.endTime ?? null,
         isPublic: args.isPublic ?? false,
@@ -505,6 +512,7 @@ export const teamEventMutators = {
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       location: z.string().optional(),
+      city: z.enum(cityValues).optional(),
       now: z.number(),
       startTime: z.number().optional(),
       endTime: z.number().optional(),
@@ -741,6 +749,7 @@ export const teamEventMutators = {
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       location: z.string().optional(),
+      city: z.enum(cityValues).optional(),
       now: z.number(),
       startTime: z.number().optional(),
       endTime: z.number().optional(),

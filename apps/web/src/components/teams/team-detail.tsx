@@ -524,6 +524,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               endTime: editEventData.event.endTime,
               isPublic: editEventData.event.event.isPublic ?? false,
               location: editEventData.event.event.location,
+              city: editEventData.event.event.city,
               seriesId: editEventData.event.seriesId,
               recurrenceRule: editEventData.event.event.recurrenceRule as {
                 rrule: string;

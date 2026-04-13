@@ -16,6 +16,7 @@ import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { reimbursement } from "./reimbursement";
+import { cityEnum } from "./shared";
 import { team } from "./team";
 import { vendorPayment } from "./vendor";
 import { whatsappGroup } from "./whatsapp-group";
@@ -35,6 +36,7 @@ export const teamEvent = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     location: text("location"),
+    city: cityEnum("city").notNull().default("bangalore"),
     startTime: timestamp("start_time").notNull(),
     endTime: timestamp("end_time"),
     isPublic: boolean("is_public").default(false).notNull(),

@@ -3,15 +3,17 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQueryStates } from "nuqs";
+import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { lazy, Suspense } from "react";
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
+import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { StatsCards } from "@/components/stats/stats-cards";
 import {
   dateRangeSearchParams,
   filterByDateRange,
   resolveDateRange,
 } from "@/lib/date-range";
+import { cityOptions } from "@/lib/form-schemas";
 import { assertPermission } from "@/lib/route-guards";
 import {
   computeApprovalTimeData,
@@ -84,6 +86,7 @@ function AnalyticsPage() {
     r1.type === "complete" || r2.type === "complete" || r3.type === "complete";
 
   const [dateParams] = useQueryStates(dateRangeSearchParams);
+  const [cityFilter, setCityFilter] = useQueryState("city", parseAsString);
   const dateRange = resolveDateRange(
     dateParams.range,
     dateParams.from,
@@ -92,20 +95,30 @@ function AnalyticsPage() {
 
   const createdAtAccessor = (item: { createdAt: number | null }) =>
     item.createdAt;
-  const filteredReimbursements = filterByDateRange(
-    reimbursements,
-    dateRange,
-    createdAtAccessor
+
+  const allCities = new Set(
+    [...reimbursements, ...advancePayments, ...vendorPayments]
+      .map((item) => (item as { city: string | null }).city)
+      .filter(Boolean)
   );
-  const filteredAdvancePayments = filterByDateRange(
-    advancePayments,
-    dateRange,
-    createdAtAccessor
+  const hasMultipleCities = allCities.size > 1;
+
+  const cityAccessor = (item: { city: string | null }) => item.city;
+  const filterByCity = <T extends { city: string | null }>(items: T[]): T[] => {
+    if (!cityFilter) {
+      return items;
+    }
+    return items.filter((item) => cityAccessor(item) === cityFilter);
+  };
+
+  const filteredReimbursements = filterByCity(
+    filterByDateRange(reimbursements, dateRange, createdAtAccessor)
   );
-  const filteredVendorPayments = filterByDateRange(
-    vendorPayments,
-    dateRange,
-    createdAtAccessor
+  const filteredAdvancePayments = filterByCity(
+    filterByDateRange(advancePayments, dateRange, createdAtAccessor)
+  );
+  const filteredVendorPayments = filterByCity(
+    filterByDateRange(vendorPayments, dateRange, createdAtAccessor)
   );
   const allFiltered = [
     ...filteredReimbursements,
@@ -150,7 +163,17 @@ function AnalyticsPage() {
         <h1 className="font-display font-semibold text-2xl tracking-tight">
           Analytics
         </h1>
-        <DateRangeFilter />
+        <div className="flex items-center gap-2">
+          {hasMultipleCities ? (
+            <TableFilterSelect
+              label="City"
+              onChange={(val) => setCityFilter(val || null)}
+              options={cityOptions}
+              value={cityFilter ?? ""}
+            />
+          ) : null}
+          <DateRangeFilter />
+        </div>
       </div>
 
       <div className="mt-4">

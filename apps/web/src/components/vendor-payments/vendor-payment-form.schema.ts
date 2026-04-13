@@ -1,3 +1,4 @@
+import { cityValues } from "@pi-dash/shared/constants";
 import z from "zod";
 import {
   attachmentSchema,
@@ -7,6 +8,7 @@ import {
 
 const vendorPaymentBaseFields = {
   title: z.string().min(1, "Title is required"),
+  city: z.enum(cityValues, { message: "City is required" }),
   eventId: z.string().optional(),
   lineItems: z
     .array(lineItemSchema)
@@ -24,6 +26,7 @@ export type VendorPaymentFormValues = z.infer<typeof vendorPaymentFormSchema>;
 export function getVendorPaymentDefaultValues(): VendorPaymentFormValues {
   return {
     title: "",
+    city: "bangalore",
     eventId: undefined,
     lineItems: [newLineItem()],
     attachments: [],

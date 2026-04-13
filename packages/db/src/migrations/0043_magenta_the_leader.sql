@@ -1,0 +1,2 @@
+ALTER TABLE "team_event" ADD COLUMN "city" "reimbursement_city" DEFAULT 'bangalore' NOT NULL;--> statement-breakpoint
+ALTER TABLE "vendor_payment" ADD COLUMN "city" "reimbursement_city" DEFAULT 'bangalore' NOT NULL;

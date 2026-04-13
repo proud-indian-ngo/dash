@@ -302,6 +302,13 @@
       "when": 1775843888900,
       "tag": "0042_chilly_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1776087695100,
+      "tag": "0043_magenta_the_leader",
+      "breakpoints": true
     }
   ]
 }

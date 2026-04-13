@@ -52,10 +52,16 @@ export function VendorPaymentForm({
   }));
 
   const eventList = (events ?? []) as TeamEvent[];
-  const eventOptions = eventList.map((e) => ({
-    label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
-    value: e.id,
-  }));
+
+  function getFilteredEventOptions(selectedCity: string | undefined) {
+    const filtered = selectedCity
+      ? eventList.filter((e) => e.city === selectedCity)
+      : eventList;
+    return filtered.map((e) => ({
+      label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
+      value: e.id,
+    }));
+  }
 
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
@@ -80,6 +86,7 @@ export function VendorPaymentForm({
         id,
         vendorId: value.vendorId,
         title: value.title,
+        city: value.city,
         eventId: value.eventId ?? undefined,
         lineItems,
         attachments: value.attachments,
@@ -109,17 +116,32 @@ export function VendorPaymentForm({
   return (
     <AppErrorBoundary level="section">
       <FormLayout className="flex flex-col gap-4" form={form}>
-        <VendorPaymentFields
-          categoryList={categoryList}
-          entityId={entityId}
-          eventOptions={eventOptions}
-          isEdit={isEdit}
-          onCancel={onCancel}
-          onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
-          onVendorDialogOpenChange={setVendorDialogOpen}
-          vendorDialogOpen={vendorDialogOpen}
-          vendorOptions={vendorOptions}
-        />
+        <form.Subscribe
+          selector={(state) => ({
+            city: state.values.city,
+            eventId: state.values.eventId,
+          })}
+        >
+          {({ city: selectedCity, eventId }) => {
+            const filteredOptions = getFilteredEventOptions(selectedCity);
+            if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
+              setTimeout(() => form.setFieldValue("eventId", undefined), 0);
+            }
+            return (
+              <VendorPaymentFields
+                categoryList={categoryList}
+                entityId={entityId}
+                eventOptions={filteredOptions}
+                isEdit={isEdit}
+                onCancel={onCancel}
+                onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
+                onVendorDialogOpenChange={setVendorDialogOpen}
+                vendorDialogOpen={vendorDialogOpen}
+                vendorOptions={vendorOptions}
+              />
+            );
+          }}
+        </form.Subscribe>
       </FormLayout>
     </AppErrorBoundary>
   );

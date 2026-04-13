@@ -1,3 +1,4 @@
+import { cityValues } from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -29,6 +30,7 @@ const createSchema = z.object({
   id: z.string(),
   vendorId: z.string(),
   title: z.string().min(1),
+  city: z.enum(cityValues).optional(),
   eventId: z.string().optional(),
   lineItems: z.array(lineItemSchema),
   attachments: z.array(attachmentSchema),
@@ -53,6 +55,7 @@ export const vendorPaymentMutators = {
       userId,
       vendorId: args.vendorId,
       title: args.title,
+      city: args.city ?? "bangalore",
       eventId: args.eventId ?? null,
       invoiceNumber: null,
       invoiceDate: null,
@@ -138,6 +141,7 @@ export const vendorPaymentMutators = {
       id: args.id,
       vendorId: args.vendorId,
       title: args.title,
+      city: args.city ?? "bangalore",
       eventId: args.eventId ?? null,
       updatedAt: now,
     });

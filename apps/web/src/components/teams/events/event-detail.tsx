@@ -809,6 +809,7 @@ export function EventDetail({
           name: event.name,
           description: event.description,
           location: event.location,
+          city: event.city,
           startTime: event.startTime,
           endTime: event.endTime,
           isPublic: !!event.isPublic,

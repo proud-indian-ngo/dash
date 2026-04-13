@@ -1,3 +1,4 @@
+import { cityValues } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -21,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { cityOptions } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { EditScope } from "./edit-scope-dialog";
 import { RecurrenceBuilder } from "./recurrence-builder";
@@ -30,6 +32,7 @@ const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   location: z.string().optional(),
+  city: z.enum(cityValues, { message: "City is required" }),
   startTime: z
     .date()
     .optional()
@@ -65,6 +68,7 @@ function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface InitialValues {
+  city: string | null;
   description: string | null;
   endTime: number | null;
   feedbackDeadline: number | null;
@@ -98,6 +102,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     name: initialValues?.name ?? "",
     description: initialValues?.description ?? "",
     location: initialValues?.location ?? "",
+    city: (initialValues?.city as (typeof cityValues)[number]) ?? "bangalore",
     startTime: initialValues ? new Date(initialValues.startTime) : undefined,
     endTime: initialValues?.endTime
       ? new Date(initialValues.endTime)
@@ -128,6 +133,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     name: value.name.trim(),
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
+    city: value.city,
     now: Date.now(),
     startTime: getStartTimeEpoch(value),
     endTime: value.endTime?.getTime(),
@@ -154,6 +160,7 @@ function buildUpdateSeriesArgs(
     name: value.name.trim(),
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
+    city: value.city,
     now: Date.now(),
     startTime: getStartTimeEpoch(value),
     endTime: value.endTime?.getTime(),
@@ -185,6 +192,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     name: value.name.trim(),
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
+    city: value.city,
     startTime: getStartTimeEpoch(value),
     endTime: value.endTime?.getTime(),
     isPublic: value.isPublic,
@@ -322,6 +330,13 @@ function EventFormContent({
         label="Location"
         name="location"
         placeholder="https://meet.google.com/..."
+      />
+      <SelectField
+        isRequired
+        label="City"
+        name="city"
+        options={cityOptions}
+        placeholder="Select city"
       />
       <form.Subscribe selector={(state) => state.values.startTime}>
         {(startTime) => (

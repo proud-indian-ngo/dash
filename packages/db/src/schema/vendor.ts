@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
-import { attachmentTypeEnum, historyActionEnum } from "./shared";
+import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 import { teamEvent } from "./team-event";
 import { vendorPaymentTransaction } from "./vendor-payment-transaction";
 
@@ -102,6 +102,7 @@ export const vendorPayment = pgTable(
     }),
     invoiceReviewedAt: timestamp("invoice_reviewed_at"),
     invoiceRejectionReason: text("invoice_rejection_reason"),
+    city: cityEnum("city").notNull().default("bangalore"),
     eventId: uuid("event_id").references(() => teamEvent.id, {
       onDelete: "set null",
     }),
