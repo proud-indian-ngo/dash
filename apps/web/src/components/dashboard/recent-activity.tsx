@@ -1,7 +1,10 @@
 import {
+  Calendar03Icon,
   Clock01Icon,
   Invoice01Icon,
   MoneyReceiveSquareIcon,
+  Store01Icon,
+  Ticket01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,7 +22,7 @@ import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge, type StatusBadgeVariant } from "@/lib/status-badge";
 
-interface RequestItem {
+interface FinancialItem {
   createdAt: number;
   id: string;
   lineItems: readonly { amount: number }[];
@@ -27,40 +30,121 @@ interface RequestItem {
   title: string;
 }
 
-interface ActivityItem {
-  amount: number;
+interface EventItem {
+  cancelledAt: number | null;
   createdAt: number;
+  id: string;
+  name: string;
+  team?: { name: string } | undefined;
+}
+
+interface EventInterestItem {
+  createdAt: number;
+  event?: { id: string; name: string } | undefined;
+  id: string;
+  status: string | null;
+}
+
+interface VendorPaymentItem {
+  createdAt: number;
+  id: string;
+  lineItems: readonly { amount: number }[];
+  status: string | null;
+  title: string;
+  vendor?: { name: string } | undefined;
+}
+
+interface ActivityItem {
+  amount?: number;
+  createdAt: number;
+  entityId: string;
   icon: IconSvgElement;
   id: string;
   label: string;
-  status: string | null;
+  route: string;
+  status?: string | null;
   title: string;
-  type: "reimbursement" | "advance_payment";
 }
 
 const MAX_ITEMS = 5;
 
-function toActivityItems(
-  items: readonly RequestItem[],
-  type: ActivityItem["type"],
+function toFinancialActivities(
+  items: readonly FinancialItem[],
   icon: IconSvgElement,
-  label: string
+  label: string,
+  route: string
 ): ActivityItem[] {
   return items.map((item) => ({
     amount: item.lineItems.reduce((sum, li) => sum + li.amount, 0),
     createdAt: item.createdAt,
+    entityId: item.id,
     icon,
     id: item.id,
     label,
+    route,
     status: item.status,
     title: item.title,
-    type,
   }));
+}
+
+function toEventActivities(events: readonly EventItem[]): ActivityItem[] {
+  return events.map((event) => {
+    const isCancelled = event.cancelledAt != null;
+    const teamName = event.team?.name;
+    return {
+      createdAt: event.cancelledAt ?? event.createdAt,
+      entityId: event.id,
+      icon: Calendar03Icon,
+      id: `event-${event.id}`,
+      label: isCancelled
+        ? `Cancelled${teamName ? ` · ${teamName}` : ""}`
+        : `New Event${teamName ? ` · ${teamName}` : ""}`,
+      route: "/events/$id",
+      status: null,
+      title: event.name,
+    };
+  });
+}
+
+function toRegistrationActivities(
+  interests: readonly EventInterestItem[]
+): ActivityItem[] {
+  return interests.map((interest) => ({
+    createdAt: interest.createdAt,
+    entityId: interest.event?.id ?? interest.id,
+    icon: Ticket01Icon,
+    id: `reg-${interest.id}`,
+    label: "Registration",
+    route: "/events/$id",
+    status: interest.status,
+    title: interest.event?.name ?? "Event",
+  }));
+}
+
+function toVendorPaymentActivities(
+  payments: readonly VendorPaymentItem[]
+): ActivityItem[] {
+  return payments.map((payment) => {
+    const vendorName = payment.vendor?.name;
+    return {
+      amount: payment.lineItems.reduce((sum, li) => sum + li.amount, 0),
+      createdAt: payment.createdAt,
+      entityId: payment.id,
+      icon: Store01Icon,
+      id: `vp-${payment.id}`,
+      label: "Vendor Payment",
+      route: "/vendor-payments/$id",
+      status: payment.status,
+      title: vendorName ? `${vendorName} — ${payment.title}` : payment.title,
+    };
+  });
 }
 
 const GHOST_ACTIVITIES = [
   { title: "Office Supplies", label: "Reimbursement", amount: "2,500" },
-  { title: "Travel Allowance", label: "Advance Payment", amount: "5,000" },
+  { title: "Team Outing", label: "New Event" },
+  { title: "Workshop", label: "Registration" },
+  { title: "Catering Services", label: "Vendor Payment", amount: "5,000" },
 ];
 
 function RecentActivityEmpty() {
@@ -76,21 +160,16 @@ function RecentActivityEmpty() {
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium text-sm">{activity.title}</p>
             <p className="text-muted-foreground text-xs">
-              {activity.label} &middot; {activity.amount}
+              {activity.label}
+              {"amount" in activity && ` · ${activity.amount}`}
             </p>
           </div>
         </div>
       ))}
     >
       <p className="text-muted-foreground text-sm">
-        Your reimbursements and updates will appear here
+        Your activity will appear here
       </p>
-      <Link
-        className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
-        to="/reimbursements"
-      >
-        Submit a reimbursement
-      </Link>
     </GhostEmptyState>
   );
 }
@@ -111,49 +190,6 @@ function RecentActivitySkeleton() {
   );
 }
 
-function RecentActivityContent({
-  advancePayments,
-  isLoading,
-  reimbursements,
-}: {
-  advancePayments: readonly RequestItem[];
-  isLoading?: boolean;
-  reimbursements: readonly RequestItem[];
-}) {
-  if (isLoading) {
-    return <RecentActivitySkeleton />;
-  }
-  const activities = [
-    ...toActivityItems(
-      reimbursements,
-      "reimbursement",
-      Invoice01Icon,
-      "Reimbursement"
-    ),
-    ...toActivityItems(
-      advancePayments,
-      "advance_payment",
-      MoneyReceiveSquareIcon,
-      "Advance Payment"
-    ),
-  ]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, MAX_ITEMS);
-
-  if (activities.length === 0) {
-    return (
-      <div className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)">
-        <RecentActivityEmpty />
-      </div>
-    );
-  }
-  return (
-    <div className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)">
-      <RecentActivityList activities={activities} />
-    </div>
-  );
-}
-
 function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
   return (
     <div className="space-y-3">
@@ -162,7 +198,12 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
           ? getStatusBadge(activity.status)
           : null;
         return (
-          <div className="flex items-start gap-3" key={activity.id}>
+          <Link
+            className="-mx-2 flex items-start gap-3 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+            key={activity.id}
+            params={{ id: activity.entityId }}
+            to={activity.route}
+          >
             <HugeiconsIcon
               className="mt-0.5 size-4 shrink-0 text-muted-foreground"
               icon={activity.icon}
@@ -181,28 +222,78 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
                 )}
               </div>
               <p className="text-muted-foreground text-xs">
-                {activity.label} &middot; {formatINR(activity.amount)} &middot;{" "}
+                {activity.label}
+                {activity.amount != null && ` · ${formatINR(activity.amount)}`}
+                {" · "}
                 {formatDistanceToNow(activity.createdAt, {
                   addSuffix: true,
                 })}
               </p>
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>
   );
 }
 
+export interface RecentActivityProps {
+  advancePayments: readonly FinancialItem[];
+  eventInterests: readonly EventInterestItem[];
+  events: readonly EventItem[];
+  isLoading?: boolean;
+  reimbursements: readonly FinancialItem[];
+  vendorPayments: readonly VendorPaymentItem[];
+}
+
 export function RecentActivity({
   advancePayments,
+  eventInterests,
+  events,
   isLoading,
   reimbursements,
-}: {
-  advancePayments: readonly RequestItem[];
-  isLoading?: boolean;
-  reimbursements: readonly RequestItem[];
-}) {
+  vendorPayments,
+}: RecentActivityProps) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-1.5 text-sm">
+            <HugeiconsIcon
+              className="size-4 text-amber-500"
+              icon={Clock01Icon}
+              strokeWidth={2}
+            />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RecentActivitySkeleton />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const activities = [
+    ...toFinancialActivities(
+      reimbursements,
+      Invoice01Icon,
+      "Reimbursement",
+      "/reimbursements/$id"
+    ),
+    ...toFinancialActivities(
+      advancePayments,
+      MoneyReceiveSquareIcon,
+      "Advance Payment",
+      "/reimbursements/$id"
+    ),
+    ...toEventActivities(events),
+    ...toRegistrationActivities(eventInterests),
+    ...toVendorPaymentActivities(vendorPayments),
+  ]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, MAX_ITEMS);
+
   return (
     <Card>
       <CardHeader>
@@ -216,11 +307,13 @@ export function RecentActivity({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <RecentActivityContent
-          advancePayments={advancePayments}
-          isLoading={isLoading}
-          reimbursements={reimbursements}
-        />
+        <div className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)">
+          {activities.length === 0 ? (
+            <RecentActivityEmpty />
+          ) : (
+            <RecentActivityList activities={activities} />
+          )}
+        </div>
       </CardContent>
     </Card>
   );

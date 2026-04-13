@@ -46,7 +46,9 @@ export const Route = createFileRoute("/_app/")({
     context.zero?.preload(queries.user.all());
     context.zero?.preload(queries.team.byCurrentUser());
     context.zero?.preload(queries.teamEvent.allAccessible());
+    context.zero?.preload(queries.teamEvent.byCurrentUserAll());
     context.zero?.preload(queries.vendorPayment.all());
+    context.zero?.preload(queries.eventInterest.byCurrentUser());
   },
   component: DashboardHome,
 });
@@ -247,7 +249,9 @@ function OrientedDashboard() {
   const [users] = useQuery(queries.user.all());
   const [teams] = useQuery(queries.team.byCurrentUser());
   const [events] = useQuery(queries.teamEvent.allAccessible());
+  const [myEvents] = useQuery(queries.teamEvent.byCurrentUserAll());
   const [vendorPayments] = useQuery(queries.vendorPayment.all());
+  const [eventInterests] = useQuery(queries.eventInterest.byCurrentUser());
   // Skeleton only on first load — once Zero has cached data, it stays during re-sync
   const isLoading =
     reimbursements.length === 0 &&
@@ -345,8 +349,11 @@ function OrientedDashboard() {
           <MyTeams isLoading={isLoading} teams={teams} />
           <RecentActivity
             advancePayments={advancePayments}
+            eventInterests={eventInterests}
+            events={myEvents}
             isLoading={isLoading}
             reimbursements={reimbursements}
+            vendorPayments={vendorPayments}
           />
         </div>
         <div className="min-w-0">

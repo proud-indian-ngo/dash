@@ -66,6 +66,14 @@ export const teamEventQueries = {
       .where("seriesId", "IS", null)
       .orderBy("startTime", "desc")
   ),
+  /** Like byCurrentUser but includes cancelled events (for activity feed). */
+  byCurrentUserAll: defineQuery(({ ctx }) =>
+    withRelated(zql.teamEvent)
+      .related("team")
+      .whereExists("members", (m) => m.where("userId", ctx?.userId))
+      .where("seriesId", "IS", null)
+      .orderBy("startTime", "desc")
+  ),
   byIdWithExpenses: defineQuery(
     z.object({ id: z.string() }),
     ({ args: { id }, ctx }) =>
