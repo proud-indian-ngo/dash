@@ -9,9 +9,11 @@ import type { EventInterest } from "@pi-dash/zero/schema";
 import {
   addWeeks,
   endOfMonth,
+  endOfWeek,
   format,
   parse,
   startOfMonth,
+  startOfWeek,
   subWeeks,
 } from "date-fns";
 import React, { useCallback, useMemo, useRef, useState } from "react";
@@ -39,6 +41,14 @@ const FILTERS: { label: string; value: EventFilter }[] = [
   { label: "All", value: "all" },
   { label: "My Teams", value: "my-teams" },
   { label: "Public", value: "public" },
+];
+
+type TimeScope = "all" | "this-week" | "this-month";
+
+const TIME_SCOPES: { label: string; value: TimeScope }[] = [
+  { label: "All", value: "all" },
+  { label: "This Week", value: "this-week" },
+  { label: "This Month", value: "this-month" },
 ];
 
 function parseLocalDate(dateStr: string): Date {
@@ -96,14 +106,25 @@ function groupRowsByDate(
   return map;
 }
 
-function emptyMessage(filter: EventFilter): string {
+function timeScopeLabel(scope: TimeScope): string {
+  if (scope === "this-week") {
+    return "this week";
+  }
+  if (scope === "this-month") {
+    return "this month";
+  }
+  return "this month";
+}
+
+function emptyMessage(filter: EventFilter, scope: TimeScope): string {
+  const period = timeScopeLabel(scope);
   if (filter === "my-teams") {
-    return "No events from your teams this month.";
+    return `No events from your teams ${period}.`;
   }
   if (filter === "public") {
-    return "No public events this month.";
+    return `No public events ${period}.`;
   }
-  return "No events this month.";
+  return `No events ${period}.`;
 }
 
 export function EventsCalendarView({
@@ -116,16 +137,32 @@ export function EventsCalendarView({
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [filter, setFilter] = useState<EventFilter>("all");
+  const [timeScope, setTimeScope] = useState<TimeScope>("all");
   const [search, setSearch] = useState("");
 
-  const rangeStart = useMemo(
+  const calendarRangeStart = useMemo(
     () => subWeeks(startOfMonth(selectedMonth), 1).getTime(),
     [selectedMonth]
   );
-  const rangeEnd = useMemo(
+  const calendarRangeEnd = useMemo(
     () => addWeeks(endOfMonth(selectedMonth), 1).getTime(),
     [selectedMonth]
   );
+
+  const now = useMemo(() => new Date(), []);
+
+  const [rangeStart, rangeEnd] = useMemo(() => {
+    if (timeScope === "this-week") {
+      return [
+        startOfWeek(now, { weekStartsOn: 1 }).getTime(),
+        endOfWeek(now, { weekStartsOn: 1 }).getTime(),
+      ];
+    }
+    if (timeScope === "this-month") {
+      return [startOfMonth(now).getTime(), endOfMonth(now).getTime()];
+    }
+    return [calendarRangeStart, calendarRangeEnd];
+  }, [timeScope, now, calendarRangeStart, calendarRangeEnd]);
 
   const allDisplayRows = useMemo(
     () => buildPublicDisplayRows(data, rangeStart, rangeEnd),
@@ -190,9 +227,9 @@ export function EventsCalendarView({
   }
 
   const dateEntries = Array.from(groupedRows.entries());
-  const now = Date.now();
+  const nowMs = Date.now();
   const pastIndex = dateEntries.findIndex(
-    ([, rows]) => (rows[0]?.startTime ?? 0) < now
+    ([, rows]) => (rows[0]?.startTime ?? 0) < nowMs
   );
   const upcomingEntries =
     pastIndex === -1 ? dateEntries : dateEntries.slice(0, pastIndex);
@@ -211,17 +248,35 @@ export function EventsCalendarView({
             selected={selectedDate ? parseLocalDate(selectedDate) : undefined}
           />
         </DatesWithEventsContext.Provider>
-        <div className="flex flex-wrap gap-1">
-          {FILTERS.map(({ label, value }) => (
-            <Button
-              key={value}
-              onClick={() => setFilter(value)}
-              size="sm"
-              variant={filter === value ? "default" : "ghost"}
-            >
-              {label}
-            </Button>
-          ))}
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-xs">Show</p>
+          <div className="flex flex-wrap gap-1">
+            {FILTERS.map(({ label, value }) => (
+              <Button
+                key={value}
+                onClick={() => setFilter(value)}
+                size="sm"
+                variant={filter === value ? "default" : "ghost"}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-xs">Time</p>
+          <div className="flex flex-wrap gap-1">
+            {TIME_SCOPES.map(({ label, value }) => (
+              <Button
+                key={value}
+                onClick={() => setTimeScope(value)}
+                size="sm"
+                variant={timeScope === value ? "default" : "ghost"}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
       </aside>
 
@@ -233,17 +288,35 @@ export function EventsCalendarView({
           onMonthChange={setSelectedMonth}
           selectedDate={selectedDate}
         />
-        <div className="flex gap-1">
-          {FILTERS.map(({ label, value }) => (
-            <Button
-              key={value}
-              onClick={() => setFilter(value)}
-              size="sm"
-              variant={filter === value ? "default" : "ghost"}
-            >
-              {label}
-            </Button>
-          ))}
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-xs">Show</p>
+          <div className="flex gap-1">
+            {FILTERS.map(({ label, value }) => (
+              <Button
+                key={value}
+                onClick={() => setFilter(value)}
+                size="sm"
+                variant={filter === value ? "default" : "ghost"}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-xs">Time</p>
+          <div className="flex gap-1">
+            {TIME_SCOPES.map(({ label, value }) => (
+              <Button
+                key={value}
+                onClick={() => setTimeScope(value)}
+                size="sm"
+                variant={timeScope === value ? "default" : "ghost"}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -258,7 +331,7 @@ export function EventsCalendarView({
         />
         {dateEntries.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground text-sm">
-            {emptyMessage(filter)}
+            {emptyMessage(filter, timeScope)}
           </p>
         ) : (
           <div className="space-y-6">
