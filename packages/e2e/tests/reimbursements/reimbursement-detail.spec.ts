@@ -83,23 +83,10 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
-
-    const pendingRow = reimbursements.list.getPendingRow().first();
-    const hasPending = (await pendingRow.count()) > 0;
-    test.skip(!hasPending, "No pending reimbursements available");
-
-    await pendingRow.click();
-    // Wait for a known status badge — fails if detail page doesn't render any
-    const statusBadge = page
-      .locator('[data-slot="badge"]')
-      .filter({ hasText: /^(Pending|Approved|Rejected)$/ })
-      .first();
-    await expect(statusBadge).toBeVisible({ timeout: 10_000 });
-    // Skip only if the reimbursement genuinely left pending state
-    const statusText = await statusBadge.textContent();
-    test.skip(statusText !== "Pending", "Reimbursement no longer pending");
+    await reimbursements.createReimbursement("Edit Submission Open");
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await reimbursements.detail.editSubmission();
 
@@ -114,23 +101,10 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
-
-    const pendingRow = reimbursements.list.getPendingRow().first();
-    const hasPending = (await pendingRow.count()) > 0;
-    test.skip(!hasPending, "No pending reimbursements available");
-
-    await pendingRow.click();
-    // Wait for a known status badge — fails if detail page doesn't render any
-    const statusBadge = page
-      .locator('[data-slot="badge"]')
-      .filter({ hasText: /^(Pending|Approved|Rejected)$/ })
-      .first();
-    await expect(statusBadge).toBeVisible({ timeout: 10_000 });
-    // Skip only if the reimbursement genuinely left pending state
-    const statusText = await statusBadge.textContent();
-    test.skip(statusText !== "Pending", "Reimbursement no longer pending");
+    await reimbursements.createReimbursement("Edit Submission Save");
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await reimbursements.detail.editSubmission();
     await expect(page.getByRole("heading", { name: /Edit/ })).toBeVisible();

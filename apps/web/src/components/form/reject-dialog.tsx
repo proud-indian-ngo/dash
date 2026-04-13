@@ -1,3 +1,6 @@
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -7,10 +10,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import { useState } from "react";
+} from "@/components/shared/responsive-alert-dialog";
 
 interface RejectDialogProps {
   entityLabel: string;

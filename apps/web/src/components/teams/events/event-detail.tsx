@@ -2,16 +2,6 @@ import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Tabs,
@@ -33,6 +23,16 @@ import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/shared/responsive-alert-dialog";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";

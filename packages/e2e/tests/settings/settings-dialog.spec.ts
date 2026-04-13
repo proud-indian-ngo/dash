@@ -6,7 +6,14 @@ async function openSettings(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   const sidebar = page.locator("[data-sidebar='sidebar']");
-  await sidebar.locator("[data-sidebar='menu-button']").last().click();
+  if (!(await sidebar.isVisible())) {
+    await page.getByRole("button", { name: "Toggle Sidebar" }).first().click();
+    await expect(sidebar).toBeVisible();
+  }
+
+  const userMenuButton = sidebar.locator("[data-sidebar='menu-button']").last();
+  await expect(userMenuButton).toBeVisible();
+  await userMenuButton.click();
   await page.getByRole("menuitem", { name: "Settings" }).click();
 
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -83,5 +90,17 @@ test.describe("Settings dialog", () => {
     await expect(
       dialog.getByRole("switch", { name: /WhatsApp/i }).first()
     ).toBeVisible();
+  });
+
+  test("mobile shows capitalized active section in header select", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+    await openSettings(page);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Settings section")).toContainText(
+      "Profile"
+    );
   });
 });

@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
+} from "@/components/shared/responsive-dialog";
 
 export type EditScope = "this" | "following" | "all";
 

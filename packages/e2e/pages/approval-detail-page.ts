@@ -52,7 +52,10 @@ export class ApprovalDetailPage {
   }
 
   async editSubmission(): Promise<void> {
-    await this.getEditSubmissionButton().click();
+    const button = this.getEditSubmissionButton();
+    await expect(button).toBeVisible();
+    await button.scrollIntoViewIfNeeded();
+    await button.click();
   }
 
   getGenerateVoucherButton(): Locator {

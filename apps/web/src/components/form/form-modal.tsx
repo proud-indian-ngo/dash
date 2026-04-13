@@ -1,12 +1,12 @@
+import type { ReactNode } from "react";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
-import type { ReactNode } from "react";
-import { AppErrorBoundary } from "@/components/app-error-boundary";
+} from "@/components/shared/responsive-dialog";
 
 interface FormModalProps {
   children: ReactNode;

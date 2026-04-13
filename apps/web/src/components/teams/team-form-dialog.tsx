@@ -7,14 +7,6 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@pi-dash/design-system/components/ui/combobox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
@@ -25,6 +17,14 @@ import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { type FormEvent, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const NONE_WHATSAPP_GROUP = "__none__";

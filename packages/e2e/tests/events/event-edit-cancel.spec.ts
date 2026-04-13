@@ -110,4 +110,42 @@ test.describe("Event edit and cancel (admin)", () => {
       timeout: 10_000,
     });
   });
+
+  test("mobile cancel confirmation is not dismissed by backdrop press", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 430, height: 932 });
+
+    const eventName = `E2E Mobile Cancel ${Date.now()}`;
+    await page.getByRole("button", { name: "Create Event" }).click();
+    const createDialog = page.getByRole("dialog");
+    await expect(createDialog).toBeVisible();
+
+    await createDialog.getByLabel("Name", { exact: true }).fill(eventName);
+
+    const nextWeek = new Date(Date.now() + 7 * 86_400_000);
+    await createDialog
+      .getByLabel("Start Time")
+      .fill(nextWeek.toISOString().slice(0, 16));
+
+    await createDialog
+      .getByRole("button", { name: "Create", exact: true })
+      .click();
+    await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
+
+    const row = page.getByRole("row").filter({ hasText: eventName });
+    await row.getByRole("button", { name: "Row actions" }).click();
+    await page.getByRole("menuitem", { name: "Cancel" }).click();
+
+    const confirmDialog = page.getByRole("alertdialog");
+    await expect(confirmDialog).toBeVisible();
+
+    await page.mouse.click(10, 10);
+    await expect(confirmDialog).toBeVisible();
+
+    await confirmDialog.getByRole("button", { name: "Keep Event" }).click();
+    await expect(confirmDialog).toBeHidden();
+  });
 });

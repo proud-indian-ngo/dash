@@ -1,3 +1,9 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { log } from "evlog";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -7,13 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import { log } from "evlog";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+} from "@/components/shared/responsive-alert-dialog";
 import {
   type AllowedMimeType,
   deleteUploadedAsset,

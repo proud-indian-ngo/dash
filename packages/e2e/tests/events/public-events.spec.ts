@@ -36,7 +36,8 @@ test.describe("Public events page", () => {
     // Calendar and search should be visible
     await expect(page.getByPlaceholder("Search events...")).toBeVisible();
     // Filter buttons
-    await expect(page.getByRole("button", { name: "All" })).toBeVisible();
+    const showFilter = page.getByText("Show").locator("..");
+    await expect(showFilter.getByRole("button", { name: "All" })).toBeVisible();
   });
 
   test("sidebar has Events nav item", async ({ page }, testInfo) => {

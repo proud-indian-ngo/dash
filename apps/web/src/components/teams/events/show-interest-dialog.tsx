@@ -1,4 +1,10 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { mutators } from "@pi-dash/zero/mutators";
+import { useZero } from "@rocicorp/zero/react";
+import { useEffect, useState } from "react";
+import { uuidv7 } from "uuidv7";
 import {
   Dialog,
   DialogContent,
@@ -6,13 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import { mutators } from "@pi-dash/zero/mutators";
-import { useZero } from "@rocicorp/zero/react";
-import { useEffect, useState } from "react";
-import { uuidv7 } from "uuidv7";
+} from "@/components/shared/responsive-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 interface ShowInterestDialogProps {

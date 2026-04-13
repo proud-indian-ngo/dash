@@ -3,6 +3,11 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
+import { Input } from "@pi-dash/design-system/components/ui/input";
+import { ScrollArea } from "@pi-dash/design-system/components/ui/scroll-area";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,12 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { ScrollArea } from "@pi-dash/design-system/components/ui/scroll-area";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { log } from "evlog";
-import { useEffect, useState } from "react";
+} from "@/components/shared/responsive-dialog";
 import { fetchWhatsAppGroups } from "@/functions/whatsapp-groups";
 
 interface WapiGroup {

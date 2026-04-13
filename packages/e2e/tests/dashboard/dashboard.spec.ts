@@ -22,15 +22,23 @@ test.describe("Dashboard", () => {
     const isAdmin = testInfo.project.name === "admin";
 
     await expect(
-      main.getByText(isAdmin ? "All Reimbursements" : "My Reimbursements")
+      main.getByRole("link", {
+        name: isAdmin ? /All Reimbursements/ : /My Reimbursements/,
+      })
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      main.getByText(isAdmin ? "Pending Reviews" : "My Pending")
+      main.getByRole("link", {
+        name: isAdmin ? /Pending Reviews/ : /My Pending/,
+      })
     ).toBeVisible();
 
     if (isAdmin) {
-      await expect(main.getByText("Total Users")).toBeVisible();
-      await expect(main.getByText("Vendor Payments")).toBeVisible();
+      await expect(
+        main.getByRole("link", { name: /Total Users/ })
+      ).toBeVisible();
+      await expect(
+        main.getByRole("link", { name: /Vendor Payments/ })
+      ).toBeVisible();
     }
   });
 });

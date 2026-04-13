@@ -127,4 +127,25 @@ test.describe("Create event (admin)", () => {
   test("table shows Recurrence column", async ({ page }) => {
     await expect(page.getByText("Recurrence")).toBeVisible();
   });
+
+  test("mobile drawer scrolls to form actions", async ({ page }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+
+    await page.getByRole("button", { name: "Create Event" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    const createButton = dialog.getByRole("button", {
+      name: "Create",
+      exact: true,
+    });
+
+    await expect(createButton).not.toBeInViewport();
+
+    await dialog.hover();
+    await page.mouse.wheel(0, 1600);
+
+    await expect(createButton).toBeInViewport();
+  });
 });

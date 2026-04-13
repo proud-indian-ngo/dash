@@ -1,4 +1,5 @@
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
+import type { ReactNode } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,8 +9,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@pi-dash/design-system/components/ui/alert-dialog";
-import type { ReactNode } from "react";
+} from "@/components/shared/responsive-alert-dialog";
 
 interface ConfirmDialogProps {
   cancelLabel?: string;

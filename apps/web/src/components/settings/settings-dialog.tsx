@@ -17,12 +17,6 @@ import {
   BreadcrumbSeparator,
 } from "@pi-dash/design-system/components/ui/breadcrumb";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +34,12 @@ import {
   SidebarProvider,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { type Section, useApp } from "@/context/app-context";
 import { AccountSection } from "./sections/account-section";
 import { BankingSection } from "./sections/banking-section";
@@ -125,7 +125,10 @@ export function SettingsDialog() {
 
   return (
     <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
-      <DialogContent className="max-h-[85vh] overflow-hidden p-0 md:max-w-[700px] lg:max-w-[800px]">
+      <DialogContent
+        bodyClassName="gap-0 p-0"
+        className="max-h-[85vh] overflow-hidden p-0 md:max-w-[700px] lg:max-w-[800px]"
+      >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your profile and account settings.
@@ -163,7 +166,7 @@ export function SettingsDialog() {
                   value={settingsSection}
                 >
                   <SelectTrigger aria-label="Settings section">
-                    <SelectValue />
+                    <SelectValue>{activeLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {navItems.map((item) => (
