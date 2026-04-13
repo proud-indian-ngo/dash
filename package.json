@@ -61,6 +61,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:kill": "bash scripts/dev-kill.sh",
     "build": "turbo run build",
     "check:types": "bun run --env-file .env -- turbo run check:types",
     "dev:web": "turbo run --filter=web dev",
