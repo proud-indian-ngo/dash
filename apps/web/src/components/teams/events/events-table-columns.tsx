@@ -41,7 +41,6 @@ export function createEventsTableColumns({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       cell: ({ row }) => {
-        const hasStarted = new Date(row.original.startTime) <= new Date();
         const isSeries = !!row.original.seriesId;
         return (
           <div className="flex min-w-0 items-center gap-1.5">
@@ -62,11 +61,6 @@ export function createEventsTableColumns({
             >
               {row.original.event.name}
             </button>
-            {hasStarted ? (
-              <Badge className="shrink-0" variant="outline">
-                Recap
-              </Badge>
-            ) : null}
           </div>
         );
       },

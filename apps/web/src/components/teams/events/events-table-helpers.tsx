@@ -149,7 +149,9 @@ export function buildEventDisplayRows(
       continue;
     }
 
-    rows.push(...expandSeriesEvent(event, rule, rangeStartMs, rangeEndMs));
+    // Expand from the series parent's own start so past occurrences are included
+    const seriesRangeStart = Math.min(event.startTime, rangeStartMs);
+    rows.push(...expandSeriesEvent(event, rule, seriesRangeStart, rangeEndMs));
   }
 
   // Upcoming events first (ascending), then past events (most recent first)
