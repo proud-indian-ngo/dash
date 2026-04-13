@@ -11,7 +11,6 @@ import {
   endOfMonth,
   format,
   parse,
-  startOfDay,
   startOfMonth,
   subWeeks,
 } from "date-fns";
@@ -191,9 +190,9 @@ export function EventsCalendarView({
   }
 
   const dateEntries = Array.from(groupedRows.entries());
-  const todayStart = startOfDay(new Date()).getTime();
+  const now = Date.now();
   const pastIndex = dateEntries.findIndex(
-    ([dateStr]) => parseLocalDate(dateStr).getTime() < todayStart
+    ([, rows]) => (rows[0]?.startTime ?? 0) < now
   );
   const upcomingEntries =
     pastIndex === -1 ? dateEntries : dateEntries.slice(0, pastIndex);
