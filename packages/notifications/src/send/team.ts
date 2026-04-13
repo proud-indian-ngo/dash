@@ -35,15 +35,15 @@ export async function notifyTeamUpdated({
   updatedAt,
 }: TeamUpdatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Team Updated",
-    paragraphs: [`${teamName} has been updated.`],
+    heading: "Team update",
+    paragraphs: [`${teamName} just got an update — take a look!`],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Team",
+    ctaLabel: "Check it out",
   });
   await sendBulkMessage({
     userIds: memberIds,
-    title: "Team Updated",
-    body: `${teamName} has been updated.`,
+    title: "📋 Team update",
+    body: `${teamName} just got an update — take a look!`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `team-updated-${teamId}-${updatedAt}`,
@@ -57,15 +57,15 @@ export async function notifyTeamDeleted({
   teamName,
 }: TeamDeletedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Team Deleted",
-    paragraphs: [`${teamName} has been deleted.`],
+    heading: "Team removed",
+    paragraphs: [`${teamName} has been removed.`],
     ctaUrl: `${env.APP_URL}/teams`,
-    ctaLabel: "View Teams",
+    ctaLabel: "View teams",
   });
   await sendBulkMessage({
     userIds: memberIds,
-    title: "Team Deleted",
-    body: `${teamName} has been deleted.`,
+    title: "📋 Team removed",
+    body: `${teamName} has been removed.`,
     emailHtml,
     clickAction: "/teams",
     idempotencyKey: `team-deleted-${teamName}-${deletedAt}`,
@@ -79,15 +79,15 @@ export async function notifyAddedToTeam({
   teamId,
 }: AddedToTeamOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Added to Team",
-    paragraphs: [`You've been added to ${teamName}.`],
+    heading: "You're on the team!",
+    paragraphs: [`You've been added to ${teamName} — welcome aboard!`],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Team",
+    ctaLabel: "Meet the team",
   });
   await sendMessage({
     to: userId,
-    title: "Added to Team",
-    body: `You've been added to ${teamName}.`,
+    title: "🙌 You're on the team!",
+    body: `You've been added to ${teamName} — welcome aboard!`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `team-member-added-${teamId}-${userId}`,
@@ -101,15 +101,15 @@ export async function notifyRemovedFromTeam({
   teamName,
 }: RemovedFromTeamOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Removed from Team",
-    paragraphs: [`You've been removed from ${teamName}.`],
+    heading: "Team change",
+    paragraphs: [`You've been moved out of ${teamName}.`],
     ctaUrl: `${env.APP_URL}/teams`,
-    ctaLabel: "View Teams",
+    ctaLabel: "View teams",
   });
   await sendMessage({
     to: userId,
-    title: "Removed from Team",
-    body: `You've been removed from ${teamName}.`,
+    title: "📋 Team change",
+    body: `You've been moved out of ${teamName}.`,
     emailHtml,
     clickAction: "/teams",
     idempotencyKey: `team-member-removed-${teamName}-${userId}-${removedAt}`,
@@ -130,17 +130,22 @@ export async function notifyTeamRoleChanged({
   teamName,
   newRole,
 }: TeamRoleChangedOptions): Promise<void> {
-  const label = newRole === "lead" ? "promoted to lead" : "changed to member";
+  const isLead = newRole === "lead";
+  const bodyText = isLead
+    ? `You've been promoted to lead in ${teamName} — nice!`
+    : `Your role in ${teamName} has been updated to member.`;
+  const heading = isLead ? "Level up!" : "Team role update";
+  const titleEmoji = isLead ? "⭐" : "📋";
   const emailHtml = await renderNotificationEmail({
-    heading: "Team Role Updated",
-    paragraphs: [`You have been ${label} in ${teamName}.`],
+    heading,
+    paragraphs: [bodyText],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Team",
+    ctaLabel: "Check it out",
   });
   await sendMessage({
     to: userId,
-    title: "Team Role Updated",
-    body: `You have been ${label} in ${teamName}.`,
+    title: `${titleEmoji} ${heading}`,
+    body: bodyText,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `team-role-changed-${teamId}-${userId}-${newRole}`,

@@ -147,7 +147,7 @@ export function TeamFormDialog({
       mutation: isEdit ? "team.update" : "team.create",
       entityId: isEdit ? initialValues.id : "new",
       successMsg: getTeamSuccessMsg(isEdit, createWaGroup),
-      errorMsg: isEdit ? "Failed to update team" : "Failed to create team",
+      errorMsg: isEdit ? "Couldn't update team" : "Couldn't create team",
     });
     if (res.type !== "error") {
       onOpenChange(false);

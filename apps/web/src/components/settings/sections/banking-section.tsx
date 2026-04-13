@@ -44,7 +44,7 @@ export function BankingSection() {
         mutation: "bankAccount.create",
         entityId: id,
         successMsg: "Bank account added",
-        errorMsg: "Failed to add bank account",
+        errorMsg: "Couldn't add bank account",
       });
       if (res.type !== "error") {
         form.reset();
@@ -110,7 +110,7 @@ export function BankingSection() {
                         handleMutationResult(res, {
                           mutation: "bankAccount.setDefault",
                           entityId: account.id,
-                          errorMsg: "Failed to set default bank account",
+                          errorMsg: "Couldn't set default bank account",
                         });
                       }}
                       size="sm"

@@ -161,7 +161,7 @@ function UsersRouteComponent() {
   const handleCreateUser = async (value: CreateUserFormValues) => {
     try {
       await createUser({ data: value });
-      toast.success("User created");
+      toast.success("User created!");
       setCreateModalOpen(false);
     } catch (error) {
       log.error({
@@ -177,7 +177,7 @@ function UsersRouteComponent() {
   const handleUpdateUser = async (value: EditUserFormValues) => {
     try {
       await updateUser({ data: value });
-      toast.success("User updated");
+      toast.success("Changes saved");
     } catch (error) {
       log.error({
         component: "UsersRoute",
@@ -198,7 +198,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
-      toast.success("Password updated");
+      toast.success("Password updated!");
     } catch (error) {
       log.error({
         component: "UsersRoute",
@@ -218,7 +218,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
-      toast.success("User deleted");
+      toast.success("User removed");
     } catch (error) {
       log.error({
         component: "UsersRoute",
@@ -245,7 +245,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
-      toast.success("User banned");
+      toast.success("User has been banned");
     } catch (error) {
       log.error({
         component: "UsersRoute",
@@ -266,7 +266,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
-      toast.success("User unbanned");
+      toast.success("User has been unbanned");
     } catch (error) {
       log.error({
         component: "UsersRoute",
@@ -283,14 +283,16 @@ function UsersRouteComponent() {
     setScanningGroups(true);
     try {
       await scanWhatsAppGroups();
-      toast.success("WhatsApp group scan triggered");
+      toast.success(
+        "Scan started — results will come through as a notification"
+      );
     } catch (error) {
       log.error({
         component: "UsersPage",
         action: "triggerWhatsAppGroupScan",
         error: getErrorMessage(error),
       });
-      toast.error("Failed to trigger scan");
+      toast.error("Couldn't trigger scan");
     } finally {
       setScanningGroups(false);
       setScanConfirmOpen(false);

@@ -80,8 +80,8 @@ function InvoiceFormContent({
         successMsg: mode === "submit" ? "Invoice submitted" : "Invoice updated",
         errorMsg:
           mode === "submit"
-            ? "Failed to submit invoice"
-            : "Failed to update invoice",
+            ? "Couldn't submit invoice"
+            : "Couldn't update invoice",
       });
 
       if (res.type !== "error") {

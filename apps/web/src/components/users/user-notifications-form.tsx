@@ -59,7 +59,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
         mutation: "notificationPreference.adminUpsert",
         entityId: topicId,
         successMsg: enabled ? "Notification enabled" : "Notification disabled",
-        errorMsg: "Failed to update notification preference",
+        errorMsg: "Couldn't update notification preference",
       });
     } catch (error) {
       log.error({
@@ -71,7 +71,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
         enabled,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to update notification preference");
+      toast.error("Couldn't update notification preference");
     }
   };
 

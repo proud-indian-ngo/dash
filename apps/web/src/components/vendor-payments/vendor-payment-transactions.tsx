@@ -87,7 +87,7 @@ export function VendorPaymentTransactions({
       mutation: "vendorPaymentTransaction.approve",
       entityId: id,
       successMsg: "Transaction approved",
-      errorMsg: "Failed to approve transaction",
+      errorMsg: "Couldn't approve transaction",
     });
   };
 
@@ -102,7 +102,7 @@ export function VendorPaymentTransactions({
       mutation: "vendorPaymentTransaction.reject",
       entityId: rejectingId,
       successMsg: "Transaction rejected",
-      errorMsg: "Failed to reject transaction",
+      errorMsg: "Couldn't reject transaction",
     });
     if (res.type !== "error") {
       setRejectingId(null);
@@ -122,7 +122,7 @@ export function VendorPaymentTransactions({
         mutation: "vendorPaymentTransaction.delete",
         entityId: deletingId,
         successMsg: "Transaction deleted",
-        errorMsg: "Failed to delete transaction",
+        errorMsg: "Couldn't delete transaction",
       });
       if (res.type !== "error") {
         setDeletingId(null);

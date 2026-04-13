@@ -1,4 +1,13 @@
 import { env } from "@pi-dash/env/server";
+
+const LEADING_EMOJI_RE =
+  /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\uFE0F?\s*/u;
+
+/** Strip a leading emoji (and optional trailing space) from a title for use in email subjects. */
+function stripLeadingEmoji(text: string): string {
+  return text.replace(LEADING_EMOJI_RE, "");
+}
+
 import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
 import {
   getEnabledUserPhonesForTopic,
@@ -79,11 +88,14 @@ export async function sendMessage({
                     {
                       type: "channel" as const,
                       channel: "email",
-                      raw: { html: emailHtml, subject: title },
+                      raw: {
+                        html: emailHtml,
+                        subject: stripLeadingEmoji(title),
+                      },
                     },
                   ],
                 }
-              : { title, body },
+              : { title: stripLeadingEmoji(title), body },
             routing: {
               method: "all",
               channels: ["email"],
@@ -206,11 +218,14 @@ export async function sendBulkMessage({
                     {
                       type: "channel" as const,
                       channel: "email",
-                      raw: { html: emailHtml, subject: title },
+                      raw: {
+                        html: emailHtml,
+                        subject: stripLeadingEmoji(title),
+                      },
                     },
                   ],
                 }
-              : { title, body },
+              : { title: stripLeadingEmoji(title), body },
             routing: {
               method: "all",
               channels: ["email"],

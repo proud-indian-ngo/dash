@@ -37,7 +37,7 @@ export const useAttachmentActions = ({
         attachmentType: attachment.type,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to delete attachment");
+      toast.error("Couldn't delete attachment");
     } finally {
       setDeletingIds((prev) => {
         const next = new Set(prev);

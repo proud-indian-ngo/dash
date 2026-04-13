@@ -529,7 +529,7 @@ export function EventDetail({
       })
     ).server;
     if (res.type === "error") {
-      toast.error("Failed to create occurrence");
+      toast.error("Couldn't create occurrence");
       return null;
     }
     // Navigate to the materialized event (no more occDate needed)
@@ -584,7 +584,7 @@ export function EventDetail({
         entityId: event.id,
         error: msg ?? "unknown",
       });
-      toast.error("Failed to cancel event");
+      toast.error("Couldn't cancel event");
       cancelScopeRef.current = null;
     },
   });
@@ -675,7 +675,7 @@ export function EventDetail({
         entityId: event.id,
         error: msg ?? "unknown",
       });
-      toast.error("Failed to remove volunteer");
+      toast.error("Couldn't remove volunteer");
     },
   });
 

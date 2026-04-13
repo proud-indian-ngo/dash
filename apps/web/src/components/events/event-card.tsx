@@ -57,7 +57,7 @@ export function EventCard({
       mutation: "eventInterest.create",
       entityId: id,
       successMsg: "Interest submitted!",
-      errorMsg: "Failed to submit interest",
+      errorMsg: "Couldn't submit interest",
     });
   };
 
@@ -72,7 +72,7 @@ export function EventCard({
     handleMutationResult(res, {
       mutation: "eventInterest.cancel",
       entityId: interestId,
-      errorMsg: "Failed to cancel interest",
+      errorMsg: "Couldn't cancel interest",
     });
   };
 

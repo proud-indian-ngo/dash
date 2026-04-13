@@ -72,7 +72,7 @@ function VendorsRouteComponent() {
       mutation: "vendor.delete",
       entityId: id,
       successMsg: "Vendor deleted",
-      errorMsg: "Failed to delete vendor",
+      errorMsg: "Couldn't delete vendor",
     });
     return res;
   };
@@ -84,7 +84,7 @@ function VendorsRouteComponent() {
       mutation: "vendor.approve",
       entityId: vendor.id,
       successMsg: "Vendor approved",
-      errorMsg: "Failed to approve vendor",
+      errorMsg: "Couldn't approve vendor",
     });
     return res;
   };
@@ -96,7 +96,7 @@ function VendorsRouteComponent() {
       mutation: "vendor.unapprove",
       entityId: vendor.id,
       successMsg: "Vendor unapproved",
-      errorMsg: "Failed to unapprove vendor",
+      errorMsg: "Couldn't unapprove vendor",
     });
     return res;
   };

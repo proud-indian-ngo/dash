@@ -94,7 +94,7 @@ export function VendorPaymentForm({
         mutation: `vendorPayment.${existingId ? "update" : "create"}`,
         entityId: id,
         successMsg: "Vendor payment submitted",
-        errorMsg: "Failed to submit vendor payment",
+        errorMsg: "Couldn't submit vendor payment",
       });
       if (res.type !== "error") {
         onSaved(id);

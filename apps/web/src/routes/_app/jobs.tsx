@@ -156,7 +156,7 @@ function JobsRouteComponent() {
             action: "fetchAll",
             error: error instanceof Error ? error.message : String(error),
           });
-          toast.error("Failed to load jobs data");
+          toast.error("Couldn't load jobs data");
           setJobs([]);
           setTotal(0);
           setIsLoading(false);
@@ -246,7 +246,7 @@ function JobsRouteComponent() {
         const data = await safeJson(res);
         throw new Error((data.error as string | undefined) ?? "Retry failed");
       }
-      toast.success("Job queued for retry");
+      toast.success("Queued for retry");
       setRetryTarget(null);
       setRefreshKey((k) => k + 1);
     } catch (error) {

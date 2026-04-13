@@ -177,7 +177,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   const deleteTeam = useConfirmAction({
     onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
     onSuccess: () => {
-      toast.success("Team deleted");
+      toast.success("Team removed");
       navigate({ to: "/teams" });
     },
     onError: (msg) => {

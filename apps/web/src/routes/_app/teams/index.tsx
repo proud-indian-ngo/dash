@@ -37,7 +37,7 @@ function TeamsRouteComponent() {
       mutation: "team.delete",
       entityId: id,
       successMsg: "Team deleted",
-      errorMsg: "Failed to delete team",
+      errorMsg: "Couldn't delete team",
     });
   };
 

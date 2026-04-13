@@ -80,14 +80,14 @@ function AvatarUpload() {
         headers: { "Content-Type": file.type },
       });
       if (!uploadRes.ok) {
-        toast.error("Upload failed");
+        toast.error("Couldn't upload");
         return;
       }
 
       const cdnUrl = `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
       const { error } = await authClient.updateUser({ image: cdnUrl });
       if (error) {
-        toast.error(error.message ?? "Failed to update profile picture");
+        toast.error(error.message ?? "Couldn't update profile picture");
         deleteProfilePicture({ data: { key } }).catch((error) => {
           log.error({
             component: "ProfileSection",
@@ -97,7 +97,7 @@ function AvatarUpload() {
           });
         });
       } else {
-        toast.success("Profile picture updated");
+        toast.success("Looking good!");
       }
     } catch (error) {
       log.error({
@@ -105,7 +105,7 @@ function AvatarUpload() {
         action: "uploadProfilePicture",
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to upload profile picture");
+      toast.error("Couldn't upload profile picture");
     } finally {
       setUploading(false);
     }
@@ -123,7 +123,7 @@ function AvatarUpload() {
       const imageUrl = user.image;
       const { error } = await authClient.updateUser({ image: "" });
       if (error) {
-        toast.error(error.message ?? "Failed to remove profile picture");
+        toast.error(error.message ?? "Couldn't remove profile picture");
         return;
       }
 
@@ -148,7 +148,7 @@ function AvatarUpload() {
         action: "removeProfilePicture",
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to remove profile picture");
+      toast.error("Couldn't remove profile picture");
     } finally {
       setUploading(false);
     }
@@ -218,9 +218,9 @@ export function ProfileSection() {
         phone: value.phone || undefined,
       });
       if (error) {
-        toast.error(error.message ?? "Failed to save profile");
+        toast.error(error.message ?? "Couldn't save profile");
       } else {
-        toast.success("Profile saved");
+        toast.success("Profile saved!");
       }
     },
     validators: {

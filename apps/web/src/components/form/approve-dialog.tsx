@@ -134,7 +134,7 @@ export function ApproveDialog({
         fileName: file.name,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to upload screenshot. Please try again.");
+      toast.error("Couldn't upload screenshot — try again");
     } finally {
       setUploading(false);
     }

@@ -119,7 +119,7 @@ function ScheduledMessagesPage() {
         mutation: "scheduledMessage.update",
         entityId: dialogMode.message.id,
         successMsg: "Message updated",
-        errorMsg: "Failed to update message",
+        errorMsg: "Couldn't update message",
       });
       if (res.type !== "error") {
         setDialogMode(null);
@@ -139,7 +139,7 @@ function ScheduledMessagesPage() {
         mutation: "scheduledMessage.create",
         entityId: id,
         successMsg: "Message scheduled",
-        errorMsg: "Failed to schedule message",
+        errorMsg: "Couldn't schedule message",
       });
       if (res.type !== "error") {
         setDialogMode(null);

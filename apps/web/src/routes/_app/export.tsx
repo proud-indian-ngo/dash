@@ -345,7 +345,7 @@ async function runAllExports(opts: {
   }
 
   if (exported.length > 0) {
-    toast.success(`Exported ${exported.join(", ")}`);
+    toast.success(`Exported ${exported.join(", ")}!`);
   }
   for (const err of errors) {
     toast.error(err);

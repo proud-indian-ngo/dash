@@ -88,7 +88,9 @@ const showUploadResultToasts = (
 ) => {
   if (uploadedCount > 0) {
     toast.success(
-      uploadedCount === 1 ? "File uploaded" : `${uploadedCount} files uploaded`
+      uploadedCount === 1
+        ? "File uploaded!"
+        : `${uploadedCount} files uploaded!`
     );
   }
 

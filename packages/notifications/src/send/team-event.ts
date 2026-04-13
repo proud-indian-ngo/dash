@@ -82,17 +82,17 @@ export async function notifyAddedToEvent({
   eventId,
 }: AddedToEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Added to Event",
+    heading: "You're in!",
     paragraphs: [
-      `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+      `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     ],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: userId,
-    title: "Added to Event",
-    body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    title: "✅ You're in!",
+    body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-added-${eventId}-${userId}`,
@@ -109,17 +109,17 @@ export async function notifyUsersAddedToEvent({
   eventId,
 }: UsersAddedToEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Added to Event",
+    heading: "You're in!",
     paragraphs: [
-      `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+      `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     ],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendBulkMessage({
     userIds,
-    title: "Added to Event",
-    body: `You've been added to ${eventName}${formatEventDetails(startTime, location)}.`,
+    title: "✅ You're in!",
+    body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-member-added-${eventId}`,
@@ -134,14 +134,14 @@ export async function notifyRemovedFromEvent({
   eventId,
 }: RemovedFromEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Removed from Event",
+    heading: "Event update",
     paragraphs: [`You've been removed from ${eventName}.`],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: userId,
-    title: "Removed from Event",
+    title: "📅 Event update",
     body: `You've been removed from ${eventName}.`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
@@ -159,17 +159,17 @@ export async function notifyEventCreated({
   eventId,
 }: EventCreatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "New Event",
+    heading: "New event!",
     paragraphs: [
-      `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
+      `${eventName} is happening${formatEventDetails(startTime, location)} — mark your calendar!`,
     ],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "Check it out",
   });
   await sendBulkMessage({
     userIds: teamMemberIds,
-    title: "New Event",
-    body: `${eventName} has been scheduled${formatEventDetails(startTime, location)}.`,
+    title: "🗓️ New event!",
+    body: `${eventName} is happening${formatEventDetails(startTime, location)} — mark your calendar!`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-created-${eventId}`,
@@ -186,18 +186,17 @@ export async function notifyEventUpdated({
   eventId,
   updatedAt,
 }: EventUpdatedOptions): Promise<void> {
+  const bodyText = `${eventName} just got updated${formatEventDetails(startTime, location)} — check the latest details.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Event Updated",
-    paragraphs: [
-      `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
-    ],
+    heading: "Event update",
+    paragraphs: [bodyText],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "See what changed",
   });
   await sendBulkMessage({
     userIds: eventMemberIds,
-    title: "Event Updated",
-    body: `${eventName} has been updated${formatEventDetails(startTime, location)}.`,
+    title: "📅 Event update",
+    body: bodyText,
     emailHtml,
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-updated-${eventId}-${updatedAt}`,
@@ -213,14 +212,14 @@ export async function notifyEventCancelled({
   cancelledAt,
 }: EventCancelledOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Event Cancelled",
+    heading: "Event cancelled",
     paragraphs: [`${eventName} has been cancelled.`],
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendBulkMessage({
     userIds: eventMemberIds,
-    title: "Event Cancelled",
+    title: "❌ Event cancelled",
     body: `${eventName} has been cancelled.`,
     emailHtml,
     clickAction: `/teams/${teamId}`,

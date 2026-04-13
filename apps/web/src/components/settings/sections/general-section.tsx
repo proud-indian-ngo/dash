@@ -43,7 +43,7 @@ export function GeneralSection() {
         successMsg: checked
           ? "All notifications disabled"
           : "Notifications re-enabled",
-        errorMsg: "Failed to update notification setting",
+        errorMsg: "Couldn't update notification setting",
       });
     } catch (error) {
       log.error({
@@ -52,7 +52,7 @@ export function GeneralSection() {
         checked,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to update notification setting");
+      toast.error("Couldn't update notification setting");
     }
   };
 

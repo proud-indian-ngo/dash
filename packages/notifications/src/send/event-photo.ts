@@ -23,16 +23,16 @@ export async function notifyPhotoApproved({
   eventName,
   uploaderId,
 }: PhotoApprovedOptions): Promise<void> {
-  const body = `Your photo for ${eventName} has been approved.`;
+  const body = `Your photo for ${eventName} looks great — it's been approved!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Photo Approved",
+    heading: "Photo approved!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: uploaderId,
-    title: "Photo Approved",
+    title: "✅ Photo approved!",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -47,16 +47,16 @@ export async function notifyPhotoRejected({
   eventName,
   uploaderId,
 }: PhotoRejectedOptions): Promise<void> {
-  const body = `Your photo for ${eventName} was rejected.`;
+  const body = `Your photo for ${eventName} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Photo Rejected",
+    heading: "Photo not published",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: uploaderId,
-    title: "Photo Rejected",
+    title: "📷 Photo not published",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -80,16 +80,16 @@ export async function notifyPhotosApproved({
   idempotencyKey,
   uploaderId,
 }: PhotosBatchOptions): Promise<void> {
-  const body = `${count} of your photos for ${eventName} have been approved.`;
+  const body = `${count} of your photos for ${eventName} made the cut — nice shots!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Photos Approved",
+    heading: "Photos approved!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: uploaderId,
-    title: "Photos Approved",
+    title: "✅ Photos approved!",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -105,16 +105,16 @@ export async function notifyPhotosRejected({
   idempotencyKey,
   uploaderId,
 }: PhotosBatchOptions): Promise<void> {
-  const body = `${count} of your photos for ${eventName} were rejected.`;
+  const body = `${count} of your photos for ${eventName} weren't published.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Photos Rejected",
+    heading: "Photos not published",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: uploaderId,
-    title: "Photos Rejected",
+    title: "📷 Photos not published",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,

@@ -22,16 +22,16 @@ export async function notifyEventUpdatePosted({
   authorName,
   updatedAt,
 }: EventUpdatePostedOptions): Promise<void> {
-  const body = `${authorName} posted an update to ${eventName}.`;
+  const body = `${authorName} posted an update on ${eventName} — check it out.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "New Event Update",
+    heading: "New update",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "Read update",
   });
   await sendBulkMessage({
     userIds: eventMemberIds,
-    title: "New Event Update",
+    title: "📝 New update",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -53,16 +53,16 @@ export async function notifyEventUpdateApproved({
   eventName,
   authorId,
 }: EventUpdateApprovedOptions): Promise<void> {
-  const body = `Your update to ${eventName} has been approved.`;
+  const body = `Your update to ${eventName} is now live!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Update Approved",
+    heading: "Update live!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: authorId,
-    title: "Update Approved",
+    title: "✅ Update live!",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -84,16 +84,16 @@ export async function notifyEventUpdateRejected({
   eventName,
   authorId,
 }: EventUpdateRejectedOptions): Promise<void> {
-  const body = `Your update to ${eventName} was rejected.`;
+  const body = `Your update to ${eventName} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Update Rejected",
+    heading: "Update not published",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: authorId,
-    title: "Update Rejected",
+    title: "📝 Update not published",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -117,12 +117,12 @@ export async function notifyEventUpdatePending({
   authorName,
   teamId,
 }: EventUpdatePendingOptions): Promise<void> {
-  const body = `${authorName} submitted an update to ${eventName} that needs approval.`;
+  const body = `${authorName} submitted an update to ${eventName} — it needs your review.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Event Update Pending Approval",
+    heading: "Update needs review",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Review Update",
+    ctaLabel: "Review update",
   });
 
   // Find team leads + users with event_updates.approve permission
@@ -149,7 +149,7 @@ export async function notifyEventUpdatePending({
 
   await sendBulkMessage({
     userIds: allUserIds,
-    title: "Event Update Pending Approval",
+    title: "👀 Update needs review",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,

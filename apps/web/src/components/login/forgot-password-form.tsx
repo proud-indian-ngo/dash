@@ -73,7 +73,7 @@ export function ForgotPasswordForm() {
           error: error.message || error.statusText,
         });
         if (!isNotFoundError(error.message || "")) {
-          toast.error("Something went wrong. Please try again.");
+          toast.error("Something went wrong — try again");
         }
       }
       setSentEmail(value.email);

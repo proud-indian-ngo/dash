@@ -78,7 +78,7 @@ function RolesPage() {
         action: "loadRoles",
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to load roles");
+      toast.error("Couldn't load roles");
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ function RolesPage() {
           permissionIds: [],
         },
       });
-      toast.success("Role created");
+      toast.success("Role created!");
       setCreateOpen(false);
       loadRoles();
     } catch (error) {

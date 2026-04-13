@@ -117,7 +117,7 @@ function TransactionFormContent({
           mutation: "vendorPaymentTransaction.update",
           entityId: transactionId,
           successMsg: "Payment updated",
-          errorMsg: "Failed to update payment",
+          errorMsg: "Couldn't update payment",
         });
 
         if (res.type !== "error") {
@@ -141,7 +141,7 @@ function TransactionFormContent({
           mutation: "vendorPaymentTransaction.create",
           entityId,
           successMsg: "Payment recorded",
-          errorMsg: "Failed to record payment",
+          errorMsg: "Couldn't record payment",
         });
 
         if (res.type !== "error") {

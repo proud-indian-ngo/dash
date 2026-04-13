@@ -61,7 +61,7 @@ export function VendorPaymentDetail({
       mutation: "vendorPayment.approve",
       entityId: request.id,
       successMsg: "Vendor payment approved",
-      errorMsg: "Failed to approve vendor payment",
+      errorMsg: "Couldn't approve vendor payment",
     });
     if (res.type !== "error") {
       setApproveOpen(false);
@@ -76,7 +76,7 @@ export function VendorPaymentDetail({
       mutation: "vendorPayment.reject",
       entityId: request.id,
       successMsg: "Vendor payment rejected",
-      errorMsg: "Failed to reject vendor payment",
+      errorMsg: "Couldn't reject vendor payment",
     });
     if (res.type !== "error") {
       setRejectOpen(false);

@@ -135,14 +135,14 @@ export function EventUpdates({
 
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
-    onSuccess: () => toast.success("Update deleted"),
+    onSuccess: () => toast.success("Update removed"),
     onError: (msg) => {
       log.error({
         component: "EventUpdates",
         mutation: "eventUpdate.delete",
         error: msg ?? "unknown",
       });
-      toast.error("Failed to delete update");
+      toast.error("Couldn't delete update");
     },
   });
 

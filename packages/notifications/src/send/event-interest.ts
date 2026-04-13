@@ -30,15 +30,15 @@ export async function notifyEventInterestReceived({
   volunteerName,
 }: InterestReceivedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "New Event Interest",
-    paragraphs: [`${volunteerName} is interested in ${eventName}.`],
+    heading: "Someone's interested!",
+    paragraphs: [`${volunteerName} wants to join ${eventName}!`],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "Take a look",
   });
   await sendBulkMessage({
     userIds: leadUserIds,
-    title: "New Event Interest",
-    body: `${volunteerName} is interested in ${eventName}.`,
+    title: "🙋 Someone's interested!",
+    body: `${volunteerName} wants to join ${eventName}!`,
     emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-received-${eventId}`,
@@ -52,17 +52,17 @@ export async function notifyEventInterestApproved({
   userId,
 }: InterestApprovedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Interest Approved",
+    heading: "You're in!",
     paragraphs: [
-      `Your interest in ${eventName} has been approved! You've been added as a volunteer.`,
+      `Great news — you've been approved for ${eventName}! Welcome to the crew.`,
     ],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: userId,
-    title: "Interest Approved",
-    body: `Your interest in ${eventName} has been approved! You've been added as a volunteer.`,
+    title: "✅ You're in!",
+    body: `Great news — you've been approved for ${eventName}! Welcome to the crew.`,
     emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-approved-${eventId}-${userId}`,
@@ -76,15 +76,17 @@ export async function notifyEventInterestRejected({
   userId,
 }: InterestRejectedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Interest Declined",
-    paragraphs: [`Your interest in ${eventName} has been declined.`],
+    heading: "Interest update",
+    paragraphs: [
+      `Unfortunately, your interest in ${eventName} wasn't approved this time.`,
+    ],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: userId,
-    title: "Interest Declined",
-    body: `Your interest in ${eventName} has been declined.`,
+    title: "📅 Interest update",
+    body: `Unfortunately, your interest in ${eventName} wasn't approved this time.`,
     emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-rejected-${eventId}-${userId}`,

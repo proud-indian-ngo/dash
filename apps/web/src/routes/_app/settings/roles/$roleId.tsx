@@ -87,7 +87,7 @@ function RoleEditPage() {
         roleId,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to load role");
+      toast.error("Couldn't load role");
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ function RoleEditPage() {
             permissionIds: [...selectedPermissions],
           },
         });
-        toast.success("Role updated");
+        toast.success("Role saved!");
       } catch (error) {
         log.error({
           component: "RoleEditPage",

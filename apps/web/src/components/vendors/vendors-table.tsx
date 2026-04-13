@@ -133,7 +133,7 @@ export function VendorsTable({
       const res = await onDelete(id);
       return res;
     },
-    onError: () => toast.error("Failed to delete vendor"),
+    onError: () => toast.error("Couldn't delete vendor"),
   });
 
   const columns: ColumnDef<VendorRow>[] = [

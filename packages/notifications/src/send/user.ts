@@ -27,17 +27,17 @@ export async function notifyUserWelcome({
   name,
 }: WelcomeOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: `Welcome to ${env.APP_NAME}!`,
+    heading: "Welcome aboard!",
     paragraphs: [
-      `Hi ${name}, your account has been created. Get started by exploring the dashboard.`,
+      `Hey ${name}, welcome to the team! Your account is all set up and ready to go.`,
     ],
     ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Go to Dashboard",
+    ctaLabel: "Let's go",
   });
   await sendMessage({
     to: userId,
-    title: `Welcome to ${env.APP_NAME}!`,
-    body: `Hi ${name}, your account has been created. Get started by exploring the dashboard.`,
+    title: "🎉 Welcome aboard!",
+    body: `Hey ${name}, welcome to the team! Your account is all set up and ready to go.`,
     emailHtml,
     clickAction: "/",
     idempotencyKey: `user-welcome-${userId}`,
@@ -50,15 +50,15 @@ export async function notifyRoleChanged({
   newRole,
 }: RoleChangedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Role Updated",
-    paragraphs: [`Your role has been changed to ${newRole}.`],
+    heading: "New role for you",
+    paragraphs: [`Heads up — you're now a ${newRole}!`],
     ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Go to Dashboard",
+    ctaLabel: "Let's go",
   });
   await sendMessage({
     to: userId,
-    title: "Role Updated",
-    body: `Your role has been changed to ${newRole}.`,
+    title: "🔑 New role for you",
+    body: `Heads up — you're now a ${newRole}!`,
     emailHtml,
     clickAction: "/",
     idempotencyKey: `role-changed-${userId}-${newRole}`,
@@ -74,12 +74,12 @@ export async function notifyUserBanned({
     ? `Your account has been suspended: ${reason}`
     : "Your account has been suspended.";
   const emailHtml = await renderNotificationEmail({
-    heading: "Account Suspended",
+    heading: "Account suspended",
     paragraphs: [body],
   });
   await sendMessage({
     to: userId,
-    title: "Account Suspended",
+    title: "⚠️ Account suspended",
     body,
     emailHtml,
     idempotencyKey: `user-banned-${userId}`,
@@ -91,17 +91,17 @@ export async function notifyUserUnbanned({
   userId,
 }: UnbannedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Account Restored",
+    heading: "Welcome back!",
     paragraphs: [
-      "Your account has been restored. You can now access the platform.",
+      "Great news — your account is back! Jump in whenever you're ready.",
     ],
     ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Go to Dashboard",
+    ctaLabel: "Jump back in",
   });
   await sendMessage({
     to: userId,
-    title: "Account Restored",
-    body: "Your account has been restored. You can now access the platform.",
+    title: "🎉 Welcome back!",
+    body: "Great news — your account is back! Jump in whenever you're ready.",
     emailHtml,
     clickAction: "/",
     idempotencyKey: `user-unbanned-${userId}`,
@@ -129,15 +129,15 @@ export async function notifyPasswordReset({
   userId,
 }: PasswordResetOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Password Reset by Admin",
+    heading: "Password reset",
     paragraphs: [
-      "Your password has been reset by an administrator. If this was unexpected, contact your admin immediately.",
+      "Your password was reset by an admin. If this wasn't you, reach out to your admin right away.",
     ],
   });
   await sendMessage({
     to: userId,
-    title: "Password Reset by Admin",
-    body: "Your password has been reset by an administrator. If this was unexpected, contact your admin immediately.",
+    title: "🔒 Password reset",
+    body: "Your password was reset by an admin. If this wasn't you, reach out to your admin right away.",
     emailHtml,
     idempotencyKey: `password-reset-admin-${userId}`,
     topic: TOPICS.ACCOUNT,
@@ -148,15 +148,15 @@ export async function notifyUserDeactivated({
   userId,
 }: UserDeactivatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Account Deactivated",
+    heading: "Account deactivated",
     paragraphs: [
-      "Your account has been deactivated. Contact your administrator for more information.",
+      "Your account has been deactivated. Reach out to your admin if you have questions.",
     ],
   });
   await sendMessage({
     to: userId,
-    title: "Account Deactivated",
-    body: "Your account has been deactivated. Contact your administrator for more information.",
+    title: "⚠️ Account deactivated",
+    body: "Your account has been deactivated. Reach out to your admin if you have questions.",
     emailHtml,
     idempotencyKey: `user-deactivated-${userId}`,
     topic: TOPICS.ACCOUNT,
@@ -167,15 +167,15 @@ export async function notifyUserDeleted({
   userId,
 }: UserDeletedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Account Deleted",
+    heading: "Account deleted",
     paragraphs: [
-      "Your account is being deleted by an administrator. All your data will be removed.",
+      "Your account is being removed by an admin. All your data will be deleted.",
     ],
   });
   await sendMessage({
     to: userId,
-    title: "Account Deleted",
-    body: "Your account is being deleted by an administrator. All your data will be removed.",
+    title: "⚠️ Account deleted",
+    body: "Your account is being removed by an admin. All your data will be deleted.",
     emailHtml,
     idempotencyKey: `user-deleted-${userId}`,
     topic: TOPICS.ACCOUNT,
@@ -186,17 +186,15 @@ export async function notifyUserReactivated({
   userId,
 }: UserReactivatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
-    heading: "Account Reactivated",
-    paragraphs: [
-      "Your account has been reactivated. You can now access the platform.",
-    ],
+    heading: "You're back!",
+    paragraphs: ["Your account is active again — welcome back!"],
     ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Go to Dashboard",
+    ctaLabel: "Jump back in",
   });
   await sendMessage({
     to: userId,
-    title: "Account Reactivated",
-    body: "Your account has been reactivated. You can now access the platform.",
+    title: "🎉 You're back!",
+    body: "Your account is active again — welcome back!",
     emailHtml,
     clickAction: "/",
     idempotencyKey: `user-reactivated-${userId}`,

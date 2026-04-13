@@ -72,18 +72,18 @@ export function createSubmissionNotifier({
         getLineItems(entityId),
       ]);
       const totalSuffix = formatTotalSuffix(lineItems);
-      const baseMessage = `${submitterName} submitted "${title}" for review.`;
+      const baseMessage = `${submitterName} submitted "${title}" — it needs your review.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       const emailHtml = await renderNotificationEmail({
-        heading: `New ${entityLabel} Submitted`,
+        heading: `New ${entityLabel.toLowerCase()} to review`,
         paragraphs: [baseMessage],
         lineItems,
         ctaUrl: fullUrl,
-        ctaLabel: `View ${entityLabel}`,
+        ctaLabel: `Review ${entityLabel.toLowerCase()}`,
       });
       await sendBulkMessage({
         userIds: approverIds,
-        title: `New ${entityLabel} Submitted`,
+        title: `👀 New ${entityLabel.toLowerCase()} to review`,
         body: `${baseMessage}${totalSuffix}`,
         emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
@@ -101,20 +101,20 @@ export function createSubmissionNotifier({
     }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
-      const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved.`;
+      const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved!`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       const emailHtml = await renderNotificationEmail({
-        heading: `${entityLabel} Approved`,
+        heading: `${entityLabel} approved!`,
         paragraphs: [baseMessage],
         lineItems,
         note: note ?? undefined,
         imageUrl: screenshotUrl,
         ctaUrl: fullUrl,
-        ctaLabel: `View ${entityLabel}`,
+        ctaLabel: `View ${entityLabel.toLowerCase()}`,
       });
       await sendMessage({
         to: submitterId,
-        title: `${entityLabel} Approved`,
+        title: `✅ ${entityLabel} approved!`,
         body: `${baseMessage}${totalSuffix}${note ? `\n\nMessage: ${note}` : ""}`,
         emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
@@ -127,18 +127,18 @@ export function createSubmissionNotifier({
     async notifyRejected({ entityId, title, submitterId, reason }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
-      const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" was rejected.`;
+      const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" wasn't approved.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       const emailHtml = await renderNotificationEmail({
-        heading: `${entityLabel} Rejected`,
+        heading: `${entityLabel} not approved`,
         paragraphs: [baseMessage, `Reason: ${reason}`],
         lineItems,
         ctaUrl: fullUrl,
-        ctaLabel: `View ${entityLabel}`,
+        ctaLabel: `View ${entityLabel.toLowerCase()}`,
       });
       await sendMessage({
         to: submitterId,
-        title: `${entityLabel} Rejected`,
+        title: `↩️ ${entityLabel} not approved`,
         body: `${baseMessage} ${reason}${totalSuffix}`,
         emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,

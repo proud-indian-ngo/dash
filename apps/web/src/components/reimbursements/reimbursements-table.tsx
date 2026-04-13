@@ -162,7 +162,7 @@ export function ReimbursementsTable({
         entityId: deleteTarget.row.id,
         error: e instanceof Error ? e.message : String(e),
       });
-      toast.error("Failed to delete reimbursement");
+      toast.error("Couldn't delete reimbursement");
     } finally {
       setDeleteLoading(false);
       setDeleteTarget(null);

@@ -60,16 +60,16 @@ export async function notifyStaleRequests({
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const body = `You have ${parts.join(", ")} pending review for more than 3 days.`;
+  const body = `You've got ${parts.join(", ")} waiting for your review — some have been sitting for 3+ days.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Pending Requests Reminder",
+    heading: "Requests need attention",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/requests`,
-    ctaLabel: "View Requests",
+    ctaLabel: "Review now",
   });
   await sendMessage({
     to: userId,
-    title: "Pending Requests Reminder",
+    title: "⏰ Requests need attention",
     body,
     emailHtml,
     clickAction: "/requests",
@@ -85,16 +85,16 @@ export async function notifyFeedbackDeadline({
 }: FeedbackDeadlineOptions): Promise<void> {
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const body = `Feedback for "${eventName}" closes tomorrow. Share your thoughts before the deadline.`;
+  const body = `Feedback for "${eventName}" closes tomorrow — don't miss your chance to share!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Feedback Deadline Tomorrow",
+    heading: "Last chance for feedback",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Share Feedback",
+    ctaLabel: "Share feedback",
   });
   await sendMessage({
     to: userId,
-    title: "Feedback Deadline Tomorrow",
+    title: "⏰ Last chance for feedback",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -192,15 +192,15 @@ export async function notifyWhatsAppScanResults({
   const inboxBody = `${groupList}: ${summaryParts.join(", ")}`;
 
   const emailHtml = await renderNotificationEmail({
-    heading: "WhatsApp Group Scan Results",
+    heading: "WhatsApp scan results",
     paragraphs: parts,
     ctaUrl: `${env.APP_URL}/users`,
-    ctaLabel: "Manage Users",
+    ctaLabel: "Manage users",
   });
 
   await sendBulkMessage({
     userIds,
-    title: "WhatsApp Group Scan Results",
+    title: "📊 WhatsApp scan results",
     body,
     emailHtml,
     clickAction: "/users",
@@ -224,16 +224,16 @@ export async function notifyPhotoApprovalReminder({
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const body = `${pendingCount} photo(s) across ${eventCount} event(s) need your review.`;
+  const body = `${pendingCount} photos across ${eventCount} events are waiting for your review.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Photos Pending Review",
+    heading: "Photos need review",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events`,
-    ctaLabel: "Review Photos",
+    ctaLabel: "Review photos",
   });
   await sendBulkMessage({
     userIds,
-    title: "Photos Pending Review",
+    title: "👀 Photos need review",
     body,
     emailHtml,
     clickAction: "/events",
@@ -265,14 +265,14 @@ export async function notifyEventReminder({
   const when = formatEventTime(startTime);
   const body = `"${eventName}" starts in ${label} (${when}).${location ? ` Location: ${location}` : ""}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Event Reminder",
+    heading: "Coming up!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View Event",
+    ctaLabel: "View event",
   });
   await sendMessage({
     to: userId,
-    title: "Event Reminder",
+    title: "⏰ Coming up!",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -307,7 +307,7 @@ export async function notifyEventReminderGroup({
   const label = formatReminderInterval(intervalMinutes);
   const when = formatEventTime(startTime);
   const lines = [
-    `*Event Reminder: ${eventName}*`,
+    `*⏰ Heads up: ${eventName}*`,
     `Starting in ${label} (${when})`,
   ];
   if (location) {
@@ -331,16 +331,16 @@ export async function notifyFeedbackNudge({
   eventName,
   eventId,
 }: FeedbackNudgeOptions): Promise<void> {
-  const body = `How was "${eventName}"? Share your feedback while it's still fresh.`;
+  const body = `How was "${eventName}"? Share your thoughts while it's still fresh!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Share Your Feedback",
+    heading: "How was it?",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Share Feedback",
+    ctaLabel: "Share feedback",
   });
   await sendMessage({
     to: userId,
-    title: "Share Your Feedback",
+    title: "💬 How was it?",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -360,16 +360,16 @@ export async function notifyAttendanceNotMarked({
   eventName,
   eventId,
 }: AttendanceNotMarkedOptions): Promise<void> {
-  const body = `Attendance for "${eventName}" hasn't been marked yet. Please update it when you can.`;
+  const body = `Attendance for "${eventName}" hasn't been marked yet — could you update it?`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Attendance Not Marked",
+    heading: "Attendance reminder",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Mark Attendance",
+    ctaLabel: "Mark attendance",
   });
   await sendMessage({
     to: userId,
-    title: "Attendance Not Marked",
+    title: "📋 Attendance reminder",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,
@@ -394,14 +394,14 @@ export async function notifyPhotoUploadNudge({
   }
   const body = `Got any photos from "${eventName}"? Upload them so the team can see!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Share Your Photos",
+    heading: "Got pics?",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Upload Photos",
+    ctaLabel: "Share photos",
   });
   await sendBulkMessage({
     userIds,
-    title: "Share Your Photos",
+    title: "📸 Got pics?",
     body,
     emailHtml,
     clickAction: `/events/${eventId}`,

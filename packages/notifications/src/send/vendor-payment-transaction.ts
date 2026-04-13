@@ -18,17 +18,17 @@ export async function notifyVendorPaymentTransactionSubmitted(options: {
 }): Promise<void> {
   const approverIds = await getUserIdsWithPermission("requests.approve");
   const formatted = currencyFormat.format(options.amount);
-  const baseMessage = `${options.submitterName} recorded a payment of ${formatted} against "${options.vendorPaymentTitle}".`;
+  const baseMessage = `${options.submitterName} logged a payment of ${formatted} for "${options.vendorPaymentTitle}".`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "New Payment Recorded",
+    heading: "New payment logged",
     paragraphs: [baseMessage],
     ctaUrl: fullUrl,
-    ctaLabel: "View Payment",
+    ctaLabel: "View payment",
   });
   await sendBulkMessage({
     userIds: approverIds,
-    title: "New Payment Recorded",
+    title: "💰 New payment logged",
     body: baseMessage,
     emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
@@ -46,18 +46,18 @@ export async function notifyVendorPaymentTransactionApproved(options: {
   vendorPaymentTitle: string;
 }): Promise<void> {
   const formatted = currencyFormat.format(options.amount);
-  const baseMessage = `Your payment of ${formatted} for "${options.vendorPaymentTitle}" has been approved.`;
+  const baseMessage = `Your ${formatted} payment for "${options.vendorPaymentTitle}" has been approved!`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Payment Approved",
+    heading: "Payment approved!",
     paragraphs: [baseMessage],
     note: options.note,
     ctaUrl: fullUrl,
-    ctaLabel: "View Payment",
+    ctaLabel: "View payment",
   });
   await sendMessage({
     to: options.submitterId,
-    title: "Payment Approved",
+    title: "✅ Payment approved!",
     body: `${baseMessage}${options.note ? `\n\nMessage: ${options.note}` : ""}`,
     emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
@@ -75,17 +75,17 @@ export async function notifyVendorPaymentTransactionRejected(options: {
   vendorPaymentTitle: string;
 }): Promise<void> {
   const formatted = currencyFormat.format(options.amount);
-  const baseMessage = `Your payment of ${formatted} for "${options.vendorPaymentTitle}" was rejected: ${options.reason}`;
+  const baseMessage = `Your ${formatted} payment for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Payment Rejected",
+    heading: "Payment not approved",
     paragraphs: [baseMessage],
     ctaUrl: fullUrl,
-    ctaLabel: "View Payment",
+    ctaLabel: "View payment",
   });
   await sendMessage({
     to: options.submitterId,
-    title: "Payment Rejected",
+    title: "↩️ Payment not approved",
     body: baseMessage,
     emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,

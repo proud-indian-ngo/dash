@@ -81,10 +81,12 @@ function AddMemberFormContent({
       );
       const failed = results.filter((r) => r.type === "error").length;
       if (failed > 0) {
-        toast.error(`Failed to add ${failed} member(s)`);
+        toast.error(`Couldn't add ${failed} member(s)`);
       } else {
         const count = value.userIds.length;
-        toast.success(count === 1 ? "Member added" : `${count} members added`);
+        toast.success(
+          count === 1 ? "Member added!" : `${count} members added!`
+        );
       }
       onOpenChange(false);
     },

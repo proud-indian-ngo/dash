@@ -258,7 +258,7 @@ export function EventPhotos({
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.approve({ id, now })).server;
-      toast.success("Approved");
+      toast.success("Approved!");
     } catch (error) {
       log.error({
         component: "EventPhotos",
@@ -274,7 +274,7 @@ export function EventPhotos({
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.reject({ id, now })).server;
-      toast.success("Rejected");
+      toast.success("Removed");
     } catch (error) {
       log.error({
         component: "EventPhotos",

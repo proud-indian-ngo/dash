@@ -117,8 +117,8 @@ export function RolesTable({
   const navigate = useNavigate();
   const deleteAction = useConfirmAction<{ id: string; name: string }>({
     onConfirm: (payload) => onDelete(payload),
-    onSuccess: () => toast.success("Role deleted"),
-    onError: (msg) => toast.error(msg ?? "Failed to delete role"),
+    onSuccess: () => toast.success("Role removed"),
+    onError: (msg) => toast.error(msg ?? "Couldn't delete role"),
   });
 
   const columns: ColumnDef<RoleListItem>[] = [

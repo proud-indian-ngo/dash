@@ -71,17 +71,17 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
   vendorPaymentTitle: string;
 }): Promise<void> {
   const approverIds = await getUserIdsWithPermission("requests.approve");
-  const body = `${options.submitterName} uploaded an invoice for "${options.vendorPaymentTitle}".`;
+  const body = `${options.submitterName} uploaded an invoice for "${options.vendorPaymentTitle}" — time to review.`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Invoice Uploaded",
+    heading: "New invoice",
     paragraphs: [body],
     ctaUrl: fullUrl,
-    ctaLabel: "View Vendor Payment",
+    ctaLabel: "View payment",
   });
   await sendBulkMessage({
     userIds: approverIds,
-    title: "Invoice Uploaded",
+    title: "📄 New invoice",
     body,
     emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
@@ -96,19 +96,19 @@ export async function notifyVendorPaymentInvoiceApproved(options: {
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const baseBody = `Your invoice for "${options.vendorPaymentTitle}" has been approved.`;
+  const baseBody = `Your invoice for "${options.vendorPaymentTitle}" has been approved!`;
   const body = `${baseBody}${options.note ? ` Note: ${options.note}` : ""}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Invoice Approved",
+    heading: "Invoice approved!",
     paragraphs: [baseBody],
     note: options.note,
     ctaUrl: fullUrl,
-    ctaLabel: "View Vendor Payment",
+    ctaLabel: "View payment",
   });
   await sendMessage({
     to: options.submitterId,
-    title: "Invoice Approved",
+    title: "✅ Invoice approved!",
     body,
     emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
@@ -124,17 +124,17 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const body = `Your invoice for "${options.vendorPaymentTitle}" was rejected. Reason: ${options.reason}`;
+  const body = `Your invoice for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Invoice Rejected",
+    heading: "Invoice not approved",
     paragraphs: [body],
     ctaUrl: fullUrl,
-    ctaLabel: "View Vendor Payment",
+    ctaLabel: "View payment",
   });
   await sendMessage({
     to: options.submitterId,
-    title: "Invoice Rejected",
+    title: "↩️ Invoice not approved",
     body,
     emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
@@ -148,16 +148,16 @@ export async function notifyVpFullyPaid(options: {
   title: string;
   vendorPaymentId: string;
 }): Promise<void> {
-  const body = `All payments for "${options.title}" have been received.`;
+  const body = `All payments for "${options.title}" are in — you're all set!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Payment Fully Completed",
+    heading: "All paid up!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/requests/${options.vendorPaymentId}`,
-    ctaLabel: "View Payment",
+    ctaLabel: "View payment",
   });
   await sendMessage({
     to: options.submitterId,
-    title: "Payment Fully Completed",
+    title: "🎉 All paid up!",
     body,
     emailHtml,
     clickAction: `/requests/${options.vendorPaymentId}`,
@@ -173,16 +173,16 @@ export async function notifyVptCascadeRejected(options: {
   transactionCount: number;
   vendorPaymentId: string;
 }): Promise<void> {
-  const body = `${options.transactionCount} pending transaction(s) for "${options.title}" were automatically rejected: ${options.rejectionReason}`;
+  const body = `${options.transactionCount} pending transactions for "${options.title}" were auto-rejected: ${options.rejectionReason}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Transactions Rejected",
+    heading: "Transactions not approved",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/requests/${options.vendorPaymentId}`,
-    ctaLabel: "View Payment",
+    ctaLabel: "View payment",
   });
   await sendMessage({
     to: options.submitterId,
-    title: "Transactions Rejected",
+    title: "↩️ Transactions not approved",
     body,
     emailHtml,
     clickAction: `/requests/${options.vendorPaymentId}`,

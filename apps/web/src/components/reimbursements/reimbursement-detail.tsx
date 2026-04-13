@@ -80,7 +80,7 @@ export function ReimbursementDetail({
       mutation: `${mutatorName}.approve`,
       entityId: request.id,
       successMsg: `${typeLabel} approved`,
-      errorMsg: `Failed to approve ${typeLabel.toLowerCase()}`,
+      errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
     });
     if (res.type === "error" && screenshotKey) {
       deleteUploadedAsset({
@@ -115,7 +115,7 @@ export function ReimbursementDetail({
         mutation: "reimbursement.generateVoucher",
         entityId: lineItemId,
         successMsg: "Voucher generation started",
-        errorMsg: "Failed to generate voucher",
+        errorMsg: "Couldn't generate voucher",
       });
     } finally {
       setGeneratingVoucherId(null);
@@ -129,7 +129,7 @@ export function ReimbursementDetail({
       mutation: `${mutatorName}.reject`,
       entityId: request.id,
       successMsg: `${typeLabel} rejected`,
-      errorMsg: `Failed to reject ${typeLabel.toLowerCase()}`,
+      errorMsg: `Couldn't reject ${typeLabel.toLowerCase()}`,
     });
     if (res.type !== "error") {
       setRejectOpen(false);

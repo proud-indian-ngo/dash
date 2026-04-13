@@ -67,7 +67,7 @@ export function LoginForm() {
             navigate({
               to: safeRedirect,
             });
-            toast.success("Login successful");
+            toast.success("Welcome back!");
           },
           onError: (error) => {
             const message = error.error.message || error.error.statusText;
@@ -109,7 +109,7 @@ export function LoginForm() {
         email: unverifiedEmail,
         callbackURL: "/login",
       });
-      toast.success("Verification email sent");
+      toast.success("Verification email sent — check your inbox");
     } catch (error) {
       log.error({
         component: "LoginForm",
@@ -117,7 +117,7 @@ export function LoginForm() {
         email: unverifiedEmail,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to resend verification email");
+      toast.error("Couldn't resend verification email");
     } finally {
       setResending(false);
     }

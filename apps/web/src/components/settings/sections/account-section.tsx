@@ -50,7 +50,7 @@ export function AccountSection() {
       if (error) {
         toast.error(error.message ?? "Failed to change password");
       } else {
-        toast.success("Password changed");
+        toast.success("Password changed!");
         form.reset();
       }
     },

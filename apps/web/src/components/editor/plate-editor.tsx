@@ -52,7 +52,7 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
         entityId,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to upload image. Please try again.");
+      toast.error("Couldn't upload image — try again");
       return undefined;
     }
   }

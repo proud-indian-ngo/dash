@@ -83,8 +83,8 @@ export function VendorPaymentsTable({
         type: "error" as const,
         error: { message: "No handler" },
       }),
-    onSuccess: () => toast.success("Vendor payment deleted"),
-    onError: (msg) => toast.error(msg ?? "Failed to delete vendor payment"),
+    onSuccess: () => toast.success("Vendor payment removed"),
+    onError: (msg) => toast.error(msg ?? "Couldn't delete vendor payment"),
   });
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {

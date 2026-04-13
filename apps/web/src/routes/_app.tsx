@@ -72,7 +72,7 @@ function CourierAuth() {
 }
 
 const showSyncErrorToast = debounce(
-  () => toast.error("Failed to sync data. Check your connection."),
+  () => toast.error("Couldn't sync data. Check your connection."),
   3000,
   { leading: true, trailing: false }
 );

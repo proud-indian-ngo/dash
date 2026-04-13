@@ -112,7 +112,7 @@ export function TeamsTable({
       await onDelete(id);
       return { type: "ok" };
     },
-    onError: () => toast.error("Failed to delete team"),
+    onError: () => toast.error("Couldn't delete team"),
   });
 
   const columns: ColumnDef<TeamRow>[] = [

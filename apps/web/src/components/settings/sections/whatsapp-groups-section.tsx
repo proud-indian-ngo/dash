@@ -111,7 +111,7 @@ export function WhatsAppGroupsSection() {
       mutation: "whatsappGroup.update",
       entityId: editMode.group.id,
       successMsg: "Group updated",
-      errorMsg: "Failed to update group",
+      errorMsg: "Couldn't update group",
     });
     if (res.type !== "error") {
       setEditMode(null);
@@ -129,7 +129,7 @@ export function WhatsAppGroupsSection() {
       mutation: "whatsappGroup.delete",
       entityId: rowAction.group.id,
       successMsg: "Group deleted",
-      errorMsg: "Failed to delete group",
+      errorMsg: "Couldn't delete group",
     });
     if (res.type !== "error") {
       setRowAction(null);

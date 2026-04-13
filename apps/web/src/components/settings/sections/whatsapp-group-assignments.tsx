@@ -39,7 +39,7 @@ export function GroupAssignments({
       mutation: "appConfig.upsert",
       entityId: key,
       successMsg: "Assignment updated",
-      errorMsg: "Failed to update assignment",
+      errorMsg: "Couldn't update assignment",
     });
   };
 

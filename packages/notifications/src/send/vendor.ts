@@ -21,16 +21,16 @@ export async function notifyVendorApproved({
   vendorName,
   creatorId,
 }: VendorApprovedOptions): Promise<void> {
-  const body = `Your vendor "${vendorName}" has been approved.`;
+  const body = `Your vendor "${vendorName}" has been approved — you're all set!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Vendor Approved",
+    heading: "Vendor approved!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
-    ctaLabel: "View Vendor",
+    ctaLabel: "View vendor",
   });
   await sendMessage({
     to: creatorId,
-    title: "Vendor Approved",
+    title: "✅ Vendor approved!",
     body,
     emailHtml,
     clickAction: `/vendors/${vendorId}`,
@@ -50,16 +50,16 @@ export async function notifyVendorUnapproved({
   vendorName,
   creatorId,
 }: VendorUnapprovedOptions): Promise<void> {
-  const body = `Your vendor "${vendorName}" has been sent back for review.`;
+  const body = `Your vendor "${vendorName}" needs a few changes before it can be approved.`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Vendor Sent Back for Review",
+    heading: "Vendor needs changes",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
-    ctaLabel: "View Vendor",
+    ctaLabel: "View vendor",
   });
   await sendMessage({
     to: creatorId,
-    title: "Vendor Sent Back for Review",
+    title: "🔄 Vendor needs changes",
     body,
     emailHtml,
     clickAction: `/vendors/${vendorId}`,
@@ -74,16 +74,16 @@ export async function notifyVendorAutoApproved({
   creatorId,
   vendorPaymentTitle,
 }: VendorAutoApprovedOptions): Promise<void> {
-  const body = `Your vendor "${vendorName}" was automatically approved with vendor payment "${vendorPaymentTitle}".`;
+  const body = `Your vendor "${vendorName}" was auto-approved along with "${vendorPaymentTitle}" — nice!`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Vendor Auto-Approved",
+    heading: "Vendor auto-approved!",
     paragraphs: [body],
     ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
-    ctaLabel: "View Vendor",
+    ctaLabel: "View vendor",
   });
   await sendMessage({
     to: creatorId,
-    title: "Vendor Auto-Approved",
+    title: "✅ Vendor auto-approved!",
     body,
     emailHtml,
     clickAction: `/vendors/${vendorId}`,

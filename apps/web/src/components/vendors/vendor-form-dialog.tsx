@@ -93,9 +93,7 @@ function VendorFormContent({
         mutation: `vendor.${isEdit ? "update" : "create"}`,
         entityId: payload.id,
         successMsg: isEdit ? "Vendor updated" : "Vendor created",
-        errorMsg: isEdit
-          ? "Failed to update vendor"
-          : "Failed to create vendor",
+        errorMsg: isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
       });
       if (res.type !== "error") {
         if (!isEdit) {
