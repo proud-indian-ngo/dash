@@ -168,6 +168,10 @@ export async function materializePastOccurrences(now: number): Promise<number> {
       if (occ.startTime > now) {
         continue;
       }
+      // Skip the first occurrence — the parent itself is the canonical event
+      if (occ.startTime === parent.startTime.getTime()) {
+        continue;
+      }
       if (await materializeOccurrence(parent, occ, now)) {
         materialized++;
       }
