@@ -1,4 +1,12 @@
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@pi-dash/design-system/components/ui/combobox";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -176,37 +184,44 @@ export function StandardReimbursementFields({
         ) : null}
         {requestType === "reimbursement" ? (
           <CustomField<string | undefined> label="Event" name="eventId">
-            {(field) => (
-              <Select
-                onOpenChange={(open) => {
-                  if (!open) {
-                    field.handleBlur();
+            {(field) => {
+              const items = ["", ...eventOptions.map((o) => o.value)];
+              const optionMap = new Map(
+                eventOptions.map((o) => [o.value, o.label])
+              );
+              return (
+                <Combobox
+                  items={items}
+                  itemToStringLabel={(v) =>
+                    v === "" ? "No event" : (optionMap.get(v) ?? String(v))
                   }
-                }}
-                onValueChange={(val) =>
-                  field.handleChange(val === "" ? undefined : val)
-                }
-                value={field.state.value ?? ""}
-              >
-                <SelectTrigger className="w-full" id={field.name}>
-                  <span
-                    className="flex flex-1 items-center text-left"
-                    data-slot="select-value"
-                  >
-                    {eventOptions.find((o) => o.value === field.state.value)
-                      ?.label ?? "No event"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No event</SelectItem>
-                  {eventOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+                  onValueChange={(v) =>
+                    field.handleChange(v === "" ? undefined : v)
+                  }
+                  value={field.state.value ?? ""}
+                >
+                  <ComboboxInput
+                    className="w-full"
+                    id={field.name}
+                    onBlur={field.handleBlur}
+                    placeholder="No event"
+                    showClear={!!field.state.value}
+                  />
+                  <ComboboxContent>
+                    <ComboboxList>
+                      {(itemValue) => (
+                        <ComboboxItem key={itemValue} value={itemValue}>
+                          {itemValue === ""
+                            ? "No event"
+                            : (optionMap.get(itemValue) ?? itemValue)}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                    <ComboboxEmpty>No matching events.</ComboboxEmpty>
+                  </ComboboxContent>
+                </Combobox>
+              );
+            }}
           </CustomField>
         ) : null}
         {renderBankAccountField()}
