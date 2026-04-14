@@ -19,15 +19,19 @@ import {
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 
 interface ColumnCallbacks {
+  canCreate: boolean;
   canManage: boolean;
   onCancelEvent: (row: EventDisplayRow) => void;
+  onDuplicateEvent: (row: EventDisplayRow) => void;
   onEditEvent: (row: EventDisplayRow) => void;
   onSelectEvent: (row: EventDisplayRow) => void;
 }
 
 export function createEventsTableColumns({
+  canCreate,
   canManage,
   onCancelEvent,
+  onDuplicateEvent,
   onEditEvent,
   onSelectEvent,
 }: ColumnCallbacks): (ColumnDef<EventDisplayRow> & {
@@ -225,8 +229,10 @@ export function createEventsTableColumns({
       header: "",
       cell: ({ row }) => (
         <EventActionsMenu
+          canCreate={canCreate}
           canManage={canManage}
           onCancelEvent={() => onCancelEvent(row.original)}
+          onDuplicateEvent={() => onDuplicateEvent(row.original)}
           onEditEvent={() => onEditEvent(row.original)}
           onSelectEvent={() => onSelectEvent(row.original)}
         />

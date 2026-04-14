@@ -176,6 +176,7 @@ function deriveAddMemberTarget(
 
 interface EventDetailProps {
   canApproveUpdates: boolean;
+  canCreate: boolean;
   canManage: boolean;
   canManageAttendance: boolean;
   canManageFeedback: boolean;
@@ -192,6 +193,7 @@ interface EventDetailProps {
 
 type EventDialog =
   | { type: "edit" }
+  | { type: "duplicate" }
   | { type: "addMember" }
   | { type: "interest" };
 
@@ -341,17 +343,21 @@ function deriveEventStatus(event: EventRow): EventStatus {
 
 function EventHeader({
   canCancel,
+  canCreate,
   canManage,
   event,
   onCancel,
+  onDuplicate,
   onEdit,
   status,
   teamName,
 }: {
   canCancel: boolean;
+  canCreate: boolean;
   canManage: boolean;
   event: EventRow;
   onCancel: () => void;
+  onDuplicate: () => void;
   onEdit: () => void;
   status: EventStatus;
   teamName: string | null;
@@ -380,8 +386,13 @@ function EventHeader({
           {teamName ?? "Team"}
         </button>
       </div>
-      {canManage || canCancel ? (
+      {canManage || canCancel || canCreate ? (
         <div className="flex gap-2">
+          {canCreate ? (
+            <Button onClick={onDuplicate} size="sm" variant="outline">
+              Duplicate
+            </Button>
+          ) : null}
           {canManage ? (
             <Button onClick={onEdit} size="sm" variant="outline">
               <HugeiconsIcon className="size-4" icon={Edit02Icon} />
@@ -587,6 +598,15 @@ function useEventDetailQueries(
   };
 }
 
+function deriveEventState(event: EventRow, isVirtualOccurrence: boolean) {
+  const status = deriveEventStatus(event);
+  const eventTime = event.endTime ?? event.startTime;
+  const isPastEvent = new Date(eventTime) < new Date();
+  const hasStarted = new Date(event.startTime) <= new Date();
+  const canAccessPostEventContent = isPastEvent && !isVirtualOccurrence;
+  return { status, isPastEvent, hasStarted, canAccessPostEventContent };
+}
+
 function calcTotalExpenses(
   reimbursements:
     | readonly { lineItems: readonly { amount: number }[] }[]
@@ -606,6 +626,7 @@ function calcTotalExpenses(
 
 export function EventDetail({
   canApproveUpdates,
+  canCreate,
   canManage,
   canManageAttendance,
   canManageFeedback,
@@ -679,11 +700,8 @@ export function EventDetail({
     materializeOccurrence
   );
 
-  const status = deriveEventStatus(event);
-  const eventTime = event.endTime ?? event.startTime;
-  const isPastEvent = new Date(eventTime) < new Date();
-  const hasStarted = new Date(event.startTime) <= new Date();
-  const canAccessPostEventContent = isPastEvent && !isVirtualOccurrence;
+  const { status, isPastEvent, hasStarted, canAccessPostEventContent } =
+    deriveEventState(event, isVirtualOccurrence);
   const canCancel = hasStarted ? false : canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
 
@@ -745,9 +763,11 @@ export function EventDetail({
       <div className="flex flex-col gap-6">
         <EventHeader
           canCancel={canCancel}
+          canCreate={canCreate}
           canManage={canManage}
           event={event}
           onCancel={handleCancelClick}
+          onDuplicate={() => dialog.open({ type: "duplicate" })}
           onEdit={handleEditClick}
           status={status}
           teamName={team?.name ?? null}
@@ -884,6 +904,33 @@ export function EventDetail({
         }}
         open={dialog.isOpen("edit")}
         originalDate={scopeOccDate}
+        teamId={event.teamId}
+      />
+
+      <EventFormDialog
+        initialValues={{
+          id: event.id,
+          name: `Copy of ${event.name}`,
+          description: event.description,
+          location: event.location,
+          city: event.city,
+          startTime: event.startTime,
+          endTime: event.endTime,
+          isPublic: !!event.isPublic,
+          whatsappGroupId: null,
+          seriesId: null,
+          recurrenceRule: null,
+          feedbackEnabled: !!event.feedbackEnabled,
+          feedbackDeadline: event.feedbackDeadline,
+          postRsvpPoll: !!event.postRsvpPoll,
+          rsvpPollLeadMinutes:
+            event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
+          reminderIntervals:
+            (event.reminderIntervals as number[] | null) ?? null,
+        }}
+        mode="create"
+        onOpenChange={dialog.onOpenChange}
+        open={dialog.isOpen("duplicate")}
         teamId={event.teamId}
       />
 

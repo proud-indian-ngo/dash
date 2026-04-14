@@ -80,6 +80,7 @@ function EventDetailRouteComponent() {
 
   const isLead = team ? isTeamLead(team.members, session.user.id) : false;
   const canManage = hasPermission("events.edit") || isLead;
+  const canCreate = hasPermission("events.create") || isLead;
   const canManageAttendance =
     hasPermission("events.manage_attendance") || isLead;
   const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
@@ -104,6 +105,7 @@ function EventDetailRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <EventDetail
         canApproveUpdates={canApproveUpdates}
+        canCreate={canCreate}
         canManage={canManage}
         canManageAttendance={canManageAttendance}
         canManageFeedback={canManageFeedback}

@@ -104,6 +104,7 @@ interface InitialValues {
 interface EventFormDialogProps {
   editScope?: EditScope;
   initialValues?: InitialValues;
+  mode?: "create" | "edit";
   onOpenChange: (open: boolean) => void;
   open: boolean;
   originalDate?: string;
@@ -491,11 +492,19 @@ export function EventFormDialog({
   editScope,
   teamId,
   initialValues,
+  mode,
   onOpenChange,
   open,
   originalDate,
 }: EventFormDialogProps) {
-  const isEdit = !!initialValues;
+  const isEdit = mode ? mode === "edit" : !!initialValues;
+  const isDuplicate = !isEdit && !!initialValues;
+  let dialogTitle = "Create Event";
+  if (isEdit) {
+    dialogTitle = "Edit Event";
+  } else if (isDuplicate) {
+    dialogTitle = "Duplicate Event";
+  }
   // Increment key each time dialog opens to remount form with fresh state
   const [formKey, setFormKey] = useState(0);
 
@@ -542,7 +551,7 @@ export function EventFormDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto [scrollbar-color:var(--color-muted-foreground)_transparent] [scrollbar-width:thin] sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Event" : "Create Event"}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription className="sr-only">
             {isEdit ? "Edit event details" : "Create a new event"}
           </DialogDescription>

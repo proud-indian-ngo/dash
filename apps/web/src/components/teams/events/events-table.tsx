@@ -17,6 +17,7 @@ export type {
 } from "@/components/teams/events/events-table-helpers";
 
 interface EventsTableProps {
+  canCreate: boolean;
   canManage: boolean;
   displayRowFilter?: (row: EventDisplayRow) => boolean;
   events: EventRow[];
@@ -24,6 +25,7 @@ interface EventsTableProps {
   isLoading?: boolean;
   onCancelEvent: (row: EventDisplayRow) => void;
   onClearFilters?: () => void;
+  onDuplicateEvent: (row: EventDisplayRow) => void;
   onEditEvent: (row: EventDisplayRow) => void;
   onSelectEvent: (row: EventDisplayRow) => void;
   toolbarActions?: ReactNode;
@@ -32,11 +34,13 @@ interface EventsTableProps {
 
 export function EventsTable({
   events,
+  canCreate,
   canManage,
   displayRowFilter,
   isLoading,
   onSelectEvent,
   onEditEvent,
+  onDuplicateEvent,
   onCancelEvent,
   toolbarActions,
   toolbarFilters,
@@ -51,8 +55,10 @@ export function EventsTable({
     : allDisplayRows;
 
   const columns = createEventsTableColumns({
+    canCreate,
     canManage,
     onCancelEvent,
+    onDuplicateEvent,
     onEditEvent,
     onSelectEvent,
   });

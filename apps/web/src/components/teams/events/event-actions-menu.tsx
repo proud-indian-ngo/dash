@@ -10,15 +10,19 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 
 export interface EventActionsMenuProps {
+  canCreate: boolean;
   canManage: boolean;
   onCancelEvent: () => void;
+  onDuplicateEvent: () => void;
   onEditEvent: () => void;
   onSelectEvent: () => void;
 }
 
 export function EventActionsMenu({
+  canCreate,
   canManage,
   onCancelEvent,
+  onDuplicateEvent,
   onEditEvent,
   onSelectEvent,
 }: EventActionsMenuProps) {
@@ -45,6 +49,11 @@ export function EventActionsMenu({
       />
       <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={onSelectEvent}>View</DropdownMenuItem>
+        {canCreate && (
+          <DropdownMenuItem onClick={onDuplicateEvent}>
+            Duplicate
+          </DropdownMenuItem>
+        )}
         {canManage && (
           <>
             <DropdownMenuItem onClick={onEditEvent}>Edit</DropdownMenuItem>

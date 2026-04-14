@@ -59,6 +59,7 @@ type TeamDialog =
   | { type: "edit" }
   | { type: "addMember" }
   | { type: "createEvent" }
+  | { type: "duplicateEvent"; event: EventDisplayRow }
   | { type: "editEvent"; event: EventDisplayRow };
 
 function TeamHeaderActions({
@@ -145,70 +146,56 @@ function matchesEventFilters(
   return true;
 }
 
-export function TeamDetail({ team, userId }: TeamDetailProps) {
-  const zero = useZero();
-  const navigate = useNavigate();
-  const { hasPermission } = useApp();
-  const canEdit = hasPermission("teams.edit");
-  const canDelete = hasPermission("teams.delete");
-  const canManageMembers = hasPermission("teams.manage_members");
-  const canManage = canManageMembers || isTeamLead(team.members, userId);
+function buildDuplicateInitialValues(row: EventDisplayRow) {
+  return {
+    id: row.eventId,
+    name: `Copy of ${row.event.name}`,
+    description: row.event.description,
+    endTime: row.endTime,
+    isPublic: row.event.isPublic ?? false,
+    location: row.event.location,
+    city: row.event.city,
+    seriesId: null,
+    recurrenceRule: null,
+    startTime: row.startTime,
+    whatsappGroupId: null,
+    feedbackEnabled: !!row.event.feedbackEnabled,
+    feedbackDeadline: row.event.feedbackDeadline,
+    postRsvpPoll: !!row.event.postRsvpPoll,
+    rsvpPollLeadMinutes:
+      row.event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
+    reminderIntervals: (row.event.reminderIntervals as number[] | null) ?? null,
+  };
+}
 
-  const [evStatusFilter, setEvStatusFilter] = useQueryState(
-    "evStatus",
-    parseAsString.withDefault("")
-  );
-  const [evVisFilter, setEvVisFilter] = useQueryState(
-    "evVis",
-    parseAsString.withDefault("")
-  );
-  const [evRecFilter, setEvRecFilter] = useQueryState(
-    "evRec",
-    parseAsString.withDefault("")
-  );
+function buildEditInitialValues(row: EventDisplayRow) {
+  return {
+    id: row.eventId,
+    name: row.event.name,
+    description: row.event.description,
+    endTime: row.endTime,
+    isPublic: row.event.isPublic ?? false,
+    location: row.event.location,
+    city: row.event.city,
+    seriesId: row.seriesId,
+    recurrenceRule: row.event.recurrenceRule as {
+      rrule: string;
+      exdates?: string[];
+    } | null,
+    startTime: row.startTime,
+    whatsappGroupId: row.event.whatsappGroupId,
+    feedbackEnabled: !!row.event.feedbackEnabled,
+    feedbackDeadline: row.event.feedbackDeadline,
+    postRsvpPoll: !!row.event.postRsvpPoll,
+    rsvpPollLeadMinutes:
+      row.event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
+    reminderIntervals: (row.event.reminderIntervals as number[] | null) ?? null,
+  };
+}
 
-  const eventDisplayRowFilter = useCallback(
-    (row: EventDisplayRow) =>
-      matchesEventFilters(row, evStatusFilter, evVisFilter, evRecFilter),
-    [evStatusFilter, evVisFilter, evRecFilter]
-  );
-
-  const dialog = useDialogManager<TeamDialog>();
-
-  const deleteTeam = useConfirmAction({
-    onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
-    onSuccess: () => {
-      toast.success("Team removed");
-      navigate({ to: "/teams" });
-    },
-    onError: (msg) => {
-      log.error({
-        component: "TeamDetail",
-        mutation: "team.delete",
-        entityId: team.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to delete team");
-    },
-  });
-
-  const removeMember = useConfirmAction<string>({
-    onConfirm: (memberId) =>
-      zero.mutate(mutators.team.removeMember({ teamId: team.id, memberId }))
-        .server,
-    onSuccess: () => toast.success("Member removed"),
-    onError: (msg) => {
-      log.error({
-        component: "TeamDetail",
-        mutation: "team.removeMember",
-        entityId: team.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to remove member");
-    },
-  });
-
-  // --- Edit scope state ---
+function useEditEventScope(
+  dialog: ReturnType<typeof useDialogManager<TeamDialog>>
+) {
   const [editScope, setEditScope] = useState<EditScope | null>(null);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
   const [editScopeRow, setEditScopeRow] = useState<EventDisplayRow | null>(
@@ -227,6 +214,13 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     [dialog]
   );
 
+  const handleDuplicateEvent = useCallback(
+    (row: EventDisplayRow) => {
+      dialog.open({ type: "duplicateEvent", event: row });
+    },
+    [dialog]
+  );
+
   const handleEditScopeSelect = useCallback(
     (scope: EditScope) => {
       setEditScopeDialogOpen(false);
@@ -238,7 +232,20 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     [dialog, editScopeRow]
   );
 
-  // --- Cancel scope state ---
+  return {
+    editScope,
+    setEditScope,
+    editScopeDialogOpen,
+    setEditScopeDialogOpen,
+    editScopeRow,
+    setEditScopeRow,
+    handleEditEvent,
+    handleDuplicateEvent,
+    handleEditScopeSelect,
+  };
+}
+
+function useCancelEventScope(zero: ReturnType<typeof useZero>) {
   const cancelScopeRef = useRef<EditScope | null>(null);
   const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
   const [cancelScopeRow, setCancelScopeRow] = useState<EventDisplayRow | null>(
@@ -249,7 +256,6 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     onConfirm: (row) => {
       const mode = cancelScopeRef.current;
       if (mode && row.seriesId) {
-        // "this" targets the event itself; "following"/"all" target the series parent
         const targetId = mode === "this" ? row.eventId : row.seriesId;
         return zero.mutate(
           mutators.teamEvent.cancelSeries({
@@ -305,6 +311,98 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     [cancelEvent, cancelScopeRow]
   );
 
+  return {
+    cancelEvent,
+    cancelScopeDialogOpen,
+    setCancelScopeDialogOpen,
+    handleCancelEvent,
+    handleCancelScopeSelect,
+  };
+}
+
+export function TeamDetail({ team, userId }: TeamDetailProps) {
+  const zero = useZero();
+  const navigate = useNavigate();
+  const { hasPermission } = useApp();
+  const canEdit = hasPermission("teams.edit");
+  const canDelete = hasPermission("teams.delete");
+  const canManageMembers = hasPermission("teams.manage_members");
+  const canManage = canManageMembers || isTeamLead(team.members, userId);
+  const canCreate = hasPermission("events.create") || canManage;
+
+  const [evStatusFilter, setEvStatusFilter] = useQueryState(
+    "evStatus",
+    parseAsString.withDefault("")
+  );
+  const [evVisFilter, setEvVisFilter] = useQueryState(
+    "evVis",
+    parseAsString.withDefault("")
+  );
+  const [evRecFilter, setEvRecFilter] = useQueryState(
+    "evRec",
+    parseAsString.withDefault("")
+  );
+
+  const eventDisplayRowFilter = useCallback(
+    (row: EventDisplayRow) =>
+      matchesEventFilters(row, evStatusFilter, evVisFilter, evRecFilter),
+    [evStatusFilter, evVisFilter, evRecFilter]
+  );
+
+  const dialog = useDialogManager<TeamDialog>();
+
+  const deleteTeam = useConfirmAction({
+    onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
+    onSuccess: () => {
+      toast.success("Team removed");
+      navigate({ to: "/teams" });
+    },
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "team.delete",
+        entityId: team.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to delete team");
+    },
+  });
+
+  const removeMember = useConfirmAction<string>({
+    onConfirm: (memberId) =>
+      zero.mutate(mutators.team.removeMember({ teamId: team.id, memberId }))
+        .server,
+    onSuccess: () => toast.success("Member removed"),
+    onError: (msg) => {
+      log.error({
+        component: "TeamDetail",
+        mutation: "team.removeMember",
+        entityId: team.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Failed to remove member");
+    },
+  });
+
+  const {
+    editScope,
+    setEditScope,
+    editScopeDialogOpen,
+    setEditScopeDialogOpen,
+    setEditScopeRow,
+    handleEditEvent,
+    handleDuplicateEvent,
+    handleEditScopeSelect,
+  } = useEditEventScope(dialog);
+
+  const {
+    cancelEvent,
+    cancelScopeDialogOpen,
+    setCancelScopeDialogOpen,
+    handleCancelEvent,
+    handleCancelScopeSelect,
+  } = useCancelEventScope(zero);
+
   const [events] = useQuery(queries.teamEvent.byTeam({ teamId: team.id }));
 
   const pendingInterestCount = canManage
@@ -347,6 +445,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   };
 
   const editEventData = dialog.getData("editEvent");
+  const duplicateEventData = dialog.getData("duplicateEvent");
 
   return (
     <AppErrorBoundary level="section">
@@ -411,6 +510,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           </h2>
 
           <EventsTable
+            canCreate={canCreate}
             canManage={canManage}
             displayRowFilter={eventDisplayRowFilter}
             events={(events as EventRow[]) ?? []}
@@ -421,6 +521,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               setEvVisFilter("");
               setEvRecFilter("");
             }}
+            onDuplicateEvent={handleDuplicateEvent}
             onEditEvent={handleEditEvent}
             onSelectEvent={handleSelectEvent}
             toolbarActions={
@@ -498,6 +599,19 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           />
         ) : null}
 
+        {/* Duplicate Event Dialog */}
+        {duplicateEventData ? (
+          <EventFormDialog
+            initialValues={buildDuplicateInitialValues(
+              duplicateEventData.event
+            )}
+            mode="create"
+            onOpenChange={dialog.onOpenChange}
+            open
+            teamId={team.id}
+          />
+        ) : null}
+
         {/* Edit Scope Dialog */}
         <EditScopeDialog
           onOpenChange={setEditScopeDialogOpen}
@@ -518,32 +632,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {editEventData ? (
           <EventFormDialog
             editScope={editScope ?? undefined}
-            initialValues={{
-              id: editEventData.event.eventId,
-              name: editEventData.event.event.name,
-              description: editEventData.event.event.description,
-              endTime: editEventData.event.endTime,
-              isPublic: editEventData.event.event.isPublic ?? false,
-              location: editEventData.event.event.location,
-              city: editEventData.event.event.city,
-              seriesId: editEventData.event.seriesId,
-              recurrenceRule: editEventData.event.event.recurrenceRule as {
-                rrule: string;
-                exdates?: string[];
-              } | null,
-              startTime: editEventData.event.startTime,
-              whatsappGroupId: editEventData.event.event.whatsappGroupId,
-              feedbackEnabled: !!editEventData.event.event.feedbackEnabled,
-              feedbackDeadline: editEventData.event.event.feedbackDeadline,
-              postRsvpPoll: !!editEventData.event.event.postRsvpPoll,
-              rsvpPollLeadMinutes:
-                editEventData.event.event.rsvpPollLeadMinutes ??
-                DEFAULT_RSVP_POLL_LEAD_MINUTES,
-              reminderIntervals:
-                (editEventData.event.event.reminderIntervals as
-                  | number[]
-                  | null) ?? null,
-            }}
+            initialValues={buildEditInitialValues(editEventData.event)}
             onOpenChange={(open) => {
               dialog.onOpenChange(open);
               if (!open) {
