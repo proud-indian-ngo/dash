@@ -32,6 +32,7 @@ interface AddEventMemberDialogProps {
   onBeforeAdd?: () => Promise<string | null>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  teamMemberIds?: ReadonlySet<string>;
 }
 
 function AddEventMemberFormContent({
@@ -40,6 +41,7 @@ function AddEventMemberFormContent({
   onBeforeAdd,
   onOpenChange,
   open,
+  teamMemberIds,
 }: AddEventMemberDialogProps) {
   const zero = useZero();
   const [allUsers, setAllUsers] = useState<PickerUser[]>([]);
@@ -104,6 +106,8 @@ function AddEventMemberFormContent({
           <UserPicker
             emptyMessage="No matching volunteers found."
             excludeUserIds={existingUserIds}
+            highlightedUserIds={teamMemberIds}
+            highlightLabel="Team Member"
             onValueChange={(ids) => field.handleChange(ids)}
             users={eligibleUsers}
             value={field.state.value ?? []}
@@ -131,6 +135,7 @@ export function AddEventMemberDialog({
   onBeforeAdd,
   onOpenChange,
   open,
+  teamMemberIds,
 }: AddEventMemberDialogProps) {
   const [formKey, setFormKey] = useState(0);
 
@@ -157,6 +162,7 @@ export function AddEventMemberDialog({
           onBeforeAdd={onBeforeAdd}
           onOpenChange={onOpenChange}
           open={open}
+          teamMemberIds={teamMemberIds}
         />
       </DialogContent>
     </Dialog>

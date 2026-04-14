@@ -905,6 +905,9 @@ export function EventDetail({
           }
         }}
         open={dialog.isOpen("addMember")}
+        teamMemberIds={
+          team ? new Set(team.members.map((m) => m.userId)) : undefined
+        }
       />
 
       <AlertDialog

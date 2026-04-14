@@ -1,3 +1,4 @@
+import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Combobox,
   ComboboxChip,
@@ -14,6 +15,8 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 interface UserPickerProps {
   emptyMessage?: string;
   excludeUserIds?: ReadonlySet<string>;
+  highlightedUserIds?: ReadonlySet<string>;
+  highlightLabel?: string;
   onValueChange: (ids: string[]) => void;
   placeholder?: string;
   users: readonly {
@@ -28,6 +31,8 @@ interface UserPickerProps {
 export function UserPicker({
   emptyMessage = "No matching users found.",
   excludeUserIds,
+  highlightedUserIds,
+  highlightLabel,
   placeholder = "Search by name or email...",
   users,
   value,
@@ -47,6 +52,13 @@ export function UserPicker({
           u.name?.toLowerCase().includes(q) ||
           u.email?.toLowerCase().includes(q)
       );
+    }
+    if (highlightedUserIds?.size) {
+      list = [...list].sort((a, b) => {
+        const aH = highlightedUserIds.has(a.id) ? 0 : 1;
+        const bH = highlightedUserIds.has(b.id) ? 0 : 1;
+        return aH - bH;
+      });
     }
     return list;
   })();
@@ -83,8 +95,15 @@ export function UserPicker({
                 fallbackClassName="text-xs"
                 user={u}
               />
-              <div>
-                <div className="font-medium">{u.name}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{u.name}</span>
+                  {highlightedUserIds?.has(u.id) && highlightLabel && (
+                    <Badge size="xs" variant="primary-light">
+                      {highlightLabel}
+                    </Badge>
+                  )}
+                </div>
                 <div className="text-muted-foreground text-xs">{u.email}</div>
               </div>
             </ComboboxItem>
