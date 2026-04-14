@@ -158,7 +158,7 @@ function AnalyticsPage() {
   );
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
+    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-out-expo sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display font-semibold text-2xl tracking-tight">
           Analytics
@@ -184,16 +184,16 @@ function AnalyticsPage() {
         fallback={
           <div className="mt-6 animate-pulse space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-[380px] rounded-none bg-muted/50" />
-              <div className="h-[380px] rounded-none bg-muted/50" />
+              <div className="h-95 rounded-none bg-muted/50" />
+              <div className="h-95 rounded-none bg-muted/50" />
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-[380px] rounded-none bg-muted/50" />
-              <div className="h-[380px] rounded-none bg-muted/50" />
+              <div className="h-95 rounded-none bg-muted/50" />
+              <div className="h-95 rounded-none bg-muted/50" />
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-[380px] rounded-none bg-muted/50" />
-              <div className="h-[380px] rounded-none bg-muted/50" />
+              <div className="h-95 rounded-none bg-muted/50" />
+              <div className="h-95 rounded-none bg-muted/50" />
             </div>
           </div>
         }

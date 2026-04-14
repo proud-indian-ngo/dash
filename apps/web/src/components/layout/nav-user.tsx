@@ -268,7 +268,7 @@ export function NavUser() {
               {hasUnreadNotifications && (
                 <span
                   aria-hidden="true"
-                  className="fade-in-0 zoom-in-0 absolute -top-0.5 -right-0.5 size-2.5 animate-in transition-all duration-150 ease-(--ease-out-expo)"
+                  className="fade-in-0 zoom-in-0 absolute -top-0.5 -right-0.5 size-2.5 animate-in transition-all duration-150 ease-out-expo"
                 >
                   <span
                     className={cn(
@@ -317,10 +317,10 @@ export function NavUser() {
                   <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
                   Notifications
                   {hasUnreadNotifications && (
-                    <span className="fade-in-0 zoom-in-0 ml-auto inline-flex size-5 animate-in transition-all duration-150 ease-(--ease-out-expo)">
+                    <span className="fade-in-0 zoom-in-0 ml-auto inline-flex size-5 animate-in transition-all duration-150 ease-out-expo">
                       <span
                         className={cn(
-                          "!text-white inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px]",
+                          "inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px] text-white!",
                           hasPulsed && "animate-badge-pulse"
                         )}
                         key={`menu-badge-${badgePulseToken}`}
@@ -331,7 +331,7 @@ export function NavUser() {
                   )}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
-                  <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-[400px]">
+                  <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-100">
                     <Suspense>
                       <CourierInbox
                         darkTheme={COURIER_DARK_THEME}

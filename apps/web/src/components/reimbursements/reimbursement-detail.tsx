@@ -172,7 +172,7 @@ export function ReimbursementDetail({
         {/* Admin actions */}
         {canApprove && request.status === "pending" ? (
           <>
-            <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-(--ease-out-expo)">
+            <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-out-expo">
               <Button
                 onClick={() => setApproveOpen(true)}
                 type="button"
@@ -204,7 +204,7 @@ export function ReimbursementDetail({
 
         {/* Rejection reason */}
         {request.status === "rejected" && request.rejectionReason ? (
-          <div className="fade-in-0 animate-in rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm duration-150 ease-(--ease-out-expo)">
+          <div className="fade-in-0 animate-in rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm duration-150 ease-out-expo">
             <span className="font-medium">Rejection reason: </span>
             {request.rejectionReason}
           </div>
@@ -212,7 +212,7 @@ export function ReimbursementDetail({
 
         {/* Payment proof */}
         {request.status === "approved" && request.approvalScreenshotKey ? (
-          <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-(--ease-out-expo)">
+          <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-out-expo">
             <h2 className="font-medium text-sm">Payment proof</h2>
             <div className="flex flex-col items-start gap-1.5">
               <a

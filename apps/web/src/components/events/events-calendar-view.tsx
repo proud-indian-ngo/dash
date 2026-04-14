@@ -222,8 +222,8 @@ export function EventsCalendarView({
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4 md:flex-row">
-        <div className="hidden md:block md:w-[280px] md:shrink-0">
-          <Skeleton className="h-[300px] w-full" />
+        <div className="hidden md:block md:w-70 md:shrink-0">
+          <Skeleton className="h-75 w-full" />
         </div>
         <div className="flex-1 space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -247,7 +247,7 @@ export function EventsCalendarView({
   return (
     <div className="flex flex-col gap-6 md:flex-row">
       {/* Desktop sidebar */}
-      <aside className="hidden space-y-3 md:block md:w-[280px] md:shrink-0">
+      <aside className="hidden space-y-3 md:block md:w-70 md:shrink-0">
         <DatesWithEventsContext.Provider value={datesWithEvents}>
           <Calendar
             components={CALENDAR_COMPONENTS}
