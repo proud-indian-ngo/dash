@@ -14,7 +14,7 @@ export default defineConfig({
   workers: undefined,
   reporter: isCI
     ? [["github"], ["html"], ["./duration-reporter.ts"]]
-    : [["html"], ["./duration-reporter.ts"]],
+    : [["list"], ["html"], ["./duration-reporter.ts"]],
   timeout: 45_000,
   expect: {
     timeout: 10_000,

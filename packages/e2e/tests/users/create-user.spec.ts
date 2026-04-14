@@ -84,7 +84,7 @@ test.describe("Create user dialog (admin)", () => {
 
     // Dialog should close and toast should appear
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("User created")).toBeVisible();
+    await expect(page.getByText("User created!")).toBeVisible();
 
     // Verify user appears in the table
     await expect(page.getByText(uniqueEmail)).toBeVisible();

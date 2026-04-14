@@ -47,7 +47,7 @@ test.describe("Role management (admin)", () => {
     await dialog.getByRole("button", { name: "Create role" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("Role created")).toBeVisible();
+    await expect(page.getByText("Role created!")).toBeVisible();
     await expect(page.getByText(roleName)).toBeVisible({ timeout: 10_000 });
   });
 
@@ -109,7 +109,7 @@ test.describe("Role management (admin)", () => {
 
     // Save
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Role updated")).toBeVisible({
+    await expect(page.getByText("Role saved!")).toBeVisible({
       timeout: 10_000,
     });
 

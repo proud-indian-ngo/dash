@@ -33,7 +33,7 @@ test.describe("User destructive actions (admin)", () => {
 
     await dialog.getByRole("button", { name: "Create user" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("User created")).toBeVisible();
+    await expect(page.getByText("User created!")).toBeVisible();
 
     return uniqueEmail;
   }
@@ -64,7 +64,7 @@ test.describe("User destructive actions (admin)", () => {
     await dialog.getByRole("button", { name: "Save changes" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("User updated")).toBeVisible();
+    await expect(page.getByText("Changes saved")).toBeVisible();
   });
 
   test("delete user removes them from the list", async ({ page }) => {
@@ -76,7 +76,7 @@ test.describe("User destructive actions (admin)", () => {
     await alertDialog.getByRole("button", { name: "Delete user" }).click();
 
     await expect(alertDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("User deleted")).toBeVisible();
+    await expect(page.getByText("User removed")).toBeVisible();
 
     // Verify user no longer appears
     await expect(page.getByText(email)).toBeHidden({ timeout: 10_000 });
@@ -92,7 +92,7 @@ test.describe("User destructive actions (admin)", () => {
     await dialog.getByRole("button", { name: "Ban user" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("User banned")).toBeVisible();
+    await expect(page.getByText("User has been banned")).toBeVisible();
   });
 
   test("reset password updates the password", async ({ page }) => {
@@ -112,6 +112,6 @@ test.describe("User destructive actions (admin)", () => {
     await dialog.getByRole("button", { name: "Update password" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("Password updated")).toBeVisible();
+    await expect(page.getByText("Password updated!")).toBeVisible();
   });
 });
