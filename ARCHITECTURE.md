@@ -339,3 +339,57 @@ Client logger initialized in `apps/web/src/lib/client-logger.ts`. Errors shipped
 ### Mutation Results
 
 `handleMutationResult()` from `apps/web/src/lib/mutation-result.ts` handles Zero mutation server results — logs via evlog + shows toast on error.
+
+## Jobs (`packages/jobs`)
+
+pg-boss–backed job queue for all async side-effects (notifications, integrations, cleanup). 42 handlers in `src/handlers/`.
+
+| Concept | Location | Notes |
+|---|---|---|
+| Queue init | `src/boss-instance.ts` | Singleton pg-boss instance, lazy-started |
+| Enqueue API | `src/enqueue.ts` | Typed `enqueue(name, payload)` — lean entry point for mutators |
+| Payload types | `src/types.ts` | All job payload interfaces + `JobPayloads` map |
+| Handler registration | `src/handlers/index.ts` | Imports all handlers, registers with pg-boss |
+| Handler wrapper | `src/handlers/create-handler.ts` | `createNotifyHandler()` — adds `createRequestLogger`, success/error logging |
+| Schedules | `src/schedules.ts` | Cron schedules for recurring jobs (reminders, polls, cleanup) |
+
+Handler categories: `notify-*` (12 notification types), `process-*` / `remind-*` / `send-*` (event reminders, RSVP polls, digests), `immich-*` (photo sync), `whatsapp-*` (group management), `sync-*` (Courier, WhatsApp status), `generate-*` (cash voucher PDF), `delete-*` / `cleanup-*` (R2, stale data).
+
+## PDF Generation (`packages/pdf`)
+
+React PDF (`@react-pdf/renderer`) for cash voucher generation.
+
+| File | Purpose |
+|---|---|
+| `src/cash-voucher.tsx` | Voucher layout — org details, line items, amounts, signatures |
+| `src/amount-to-words.ts` | Converts numeric amounts to English words for vouchers |
+| `assets/logo.png`, `assets/signature.png` | Static assets embedded in PDF |
+
+Voucher flow: `generate-cash-voucher` job → queries reimbursement + line items → renders PDF → uploads to R2 → attaches to reimbursement record. Env vars `VOUCHER_ORG_*` configure org details on the voucher.
+
+## Editor (`packages/editor`)
+
+Rich-text editor powered by Plate.js (Slate-based). Two entry points:
+
+| Export | Component | Use |
+|---|---|---|
+| `@pi-dash/editor/editor` | `PlateEditor` | Full editor with toolbar, image upload, mentions |
+| `@pi-dash/editor/renderer` | `PlateRenderer` | Read-only renderer for displaying Plate JSON content |
+
+- Plugin composition in `src/editor.tsx` (full set) and `src/renderer.tsx` (minimal read-only subset)
+- Image upload via `onImageUpload` callback — validation inside editor, transport via adapter
+- Web adapter at `apps/web/src/components/editor/plate-editor.tsx` wraps with S3 presign upload
+- Lazy-load in consumers: `React.lazy(() => import("@pi-dash/editor/editor"))`
+
+## Shared (`packages/shared`)
+
+Cross-package constants, types, and utilities used by both client and server code.
+
+| File | Contents |
+|---|---|
+| `src/constants.ts` | `ALLOWED_IMAGE_TYPES`, city values, status enums |
+| `src/event-reminders.ts` | `REMINDER_PRESET_MINUTES`, `RSVP_POLL_LEAD_PRESET_MINUTES`, `DEFAULT_RSVP_POLL_LEAD_MINUTES` |
+| `src/scheduled-message.ts` | `MAX_RECIPIENT_RETRIES`, scheduling constants |
+| `src/rrule-expand.ts` | RRULE expansion with exclusion pattern support |
+
+Import from `@pi-dash/shared` (not `@pi-dash/db/schema/shared`) in packages that run on the client.

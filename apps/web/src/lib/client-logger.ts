@@ -1,5 +1,9 @@
 import { initLogger } from "evlog";
-import { createBrowserLogDrain } from "evlog/browser";
+import {
+  clearIdentity as evlogClearIdentity,
+  setIdentity as evlogSetIdentity,
+} from "evlog/client";
+import { createHttpLogDrain } from "evlog/http";
 
 let initialized = false;
 
@@ -9,7 +13,7 @@ export function initClientLogger() {
   }
   initialized = true;
 
-  const drain = createBrowserLogDrain({
+  const drain = createHttpLogDrain({
     drain: { endpoint: "/api/log/ingest" },
     pipeline: {
       batch: { size: 25, intervalMs: 2000 },
@@ -22,4 +26,12 @@ export function initClientLogger() {
     pretty: import.meta.env.DEV,
     drain,
   });
+}
+
+export function setLogIdentity(userId: string, role: string) {
+  evlogSetIdentity({ userId, role });
+}
+
+export function clearLogIdentity() {
+  evlogClearIdentity();
 }

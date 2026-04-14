@@ -72,15 +72,20 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 
 | Variable | Description |
 |---|---|
+| `APP_NAME` | App display name (default `Proud Indian Dashboard`) |
 | `COURIER_API_KEY` | Courier API key (notifications) |
 | `WHATSAPP_API_URL` | WhatsApp gateway URL; blank to disable |
 | `WHATSAPP_AUTH_USER` / `WHATSAPP_AUTH_PASS` | Gateway basic auth (default `admin`/`admin`) |
+| `WHATSAPP_WEBHOOK_SECRET` | **Required** — secret for WhatsApp webhook validation |
 | `IMMICH_API_KEY` | Immich API key |
 | `VITE_IMMICH_URL` | Public Immich URL; blank to disable |
 | `GRAVATAR_API_KEY` | Gravatar REST API key |
+| `GRAVATAR_API_BASE_URL` | Gravatar API base URL (default `https://api.gravatar.com/v3`) |
+| `GRAVATAR_TIMEOUT_MS` | Gravatar API timeout in ms (default `5000`) |
 | `AVATAR_FALLBACK_SEED` | DiceBear fallback seed |
 | `COOKIE_DOMAIN` | Cross-subdomain cookie domain (production) |
 | `APP_URL` | App URL shown in notification footers |
+| `VOUCHER_FINANCE_ADMIN_NAME` | Finance admin name printed on cash vouchers |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | For `auth:seed-admin` script |
 
 ### Zero Cache Process

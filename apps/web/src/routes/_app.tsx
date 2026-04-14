@@ -41,6 +41,23 @@ export const Route = createFileRoute("/_app")({
   component: AppLayout,
 });
 
+function LogIdentitySync() {
+  const { user } = useApp();
+
+  useEffect(() => {
+    import("@/lib/client-logger").then(({ setLogIdentity }) =>
+      setLogIdentity(user.id, user.role ?? "volunteer")
+    );
+    return () => {
+      import("@/lib/client-logger").then(({ clearLogIdentity }) =>
+        clearLogIdentity()
+      );
+    };
+  }, [user.id, user.role]);
+
+  return null;
+}
+
 function CourierAuth() {
   const { user } = useApp();
   const courier = useCourier();
@@ -130,6 +147,7 @@ function AppLayout() {
     <AppProvider permissions={permissions} user={session.user}>
       <SidebarProvider>
         <ZeroConnectionMonitor onConnected={handleConnected} />
+        <LogIdentitySync />
         <CourierAuth />
         <AppSidebar />
         <SidebarInset
