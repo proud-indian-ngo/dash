@@ -50,7 +50,7 @@ function AddCoordinatorFormContent({
   }, [open]);
 
   const eligibleUsers = allUsers.filter(
-    (u) => u.role !== "unoriented_volunteer" && u.isActive
+    (u) => u.role === "center_coordinator" && u.isActive
   );
 
   const existingUserIds = new Set(existingCoordinators.map((c) => c.userId));

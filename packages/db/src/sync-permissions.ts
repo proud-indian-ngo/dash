@@ -2,6 +2,7 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   ADMIN_PERMISSIONS,
+  CENTER_COORDINATOR_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSIONS,
   UNORIENTED_VOLUNTEER_PERMISSIONS,
@@ -54,6 +55,11 @@ export async function syncPermissions(): Promise<void> {
     { id: "admin", name: "Admin", isSystem: true },
     { id: "finance_admin", name: "Finance Admin", isSystem: true },
     { id: "volunteer", name: "Volunteer", isSystem: true },
+    {
+      id: "center_coordinator",
+      name: "Center Coordinator",
+      isSystem: true,
+    },
     {
       id: "unoriented_volunteer",
       name: "Unoriented Volunteer",
@@ -133,4 +139,30 @@ export async function syncPermissions(): Promise<void> {
       );
     }
   });
+
+  // Center coordinator — deterministic sync (like admin-tier roles)
+  if (CENTER_COORDINATOR_PERMISSIONS.length > 0) {
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(rolePermission)
+        .values(
+          CENTER_COORDINATOR_PERMISSIONS.map((permId) => ({
+            roleId: "center_coordinator",
+            permissionId: permId,
+          }))
+        )
+        .onConflictDoNothing();
+      await tx
+        .delete(rolePermission)
+        .where(
+          and(
+            eq(rolePermission.roleId, "center_coordinator"),
+            notInArray(
+              rolePermission.permissionId,
+              CENTER_COORDINATOR_PERMISSIONS as string[]
+            )
+          )
+        );
+    });
+  }
 }

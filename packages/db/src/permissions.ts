@@ -388,6 +388,13 @@ export type PermissionId = (typeof PERMISSIONS)[number]["id"];
 
 export const PERMISSION_IDS = new Set<string>(PERMISSIONS.map((p) => p.id));
 
+/** Read-only permissions for center coordinators (scoped to assigned centers) */
+export const CENTER_COORDINATOR_PERMISSIONS: readonly PermissionId[] = [
+  "events.view_own",
+  "students.view",
+  "centers.view",
+];
+
 /** Baseline permissions granted to the oriented volunteer role */
 export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "requests.create",
