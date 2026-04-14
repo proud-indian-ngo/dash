@@ -345,6 +345,36 @@ export const PERMISSIONS = [
       "Receive system-level alerts (e.g., non-team-member RSVP votes, WhatsApp scan results)",
   },
 
+  // ── Students ──
+  {
+    id: "students.view",
+    name: "View Students",
+    category: "students",
+    description:
+      "See students at centers where your team runs class events (scoped)",
+  },
+  {
+    id: "students.manage",
+    name: "Manage Students",
+    category: "students",
+    description:
+      "Add/edit/deactivate students across all centers (unrestricted)",
+  },
+
+  // ── Centers ──
+  {
+    id: "centers.view",
+    name: "View Centers",
+    category: "centers",
+    description: "See centers list (scoped to team class events or assigned)",
+  },
+  {
+    id: "centers.manage",
+    name: "Manage Centers",
+    category: "centers",
+    description: "Add/edit centers and assign coordinators",
+  },
+
   // ── Bank Accounts (user-scoped) ──
   {
     id: "bank_accounts.manage_own",

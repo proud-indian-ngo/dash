@@ -15,10 +15,12 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { center } from "./center";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { reimbursement } from "./reimbursement";
-import { cityEnum } from "./shared";
+import { cityEnum, eventTypeEnum } from "./shared";
+import { classEventStudent } from "./student";
 import { team } from "./team";
 import { vendorPayment } from "./vendor";
 import { whatsappGroup } from "./whatsapp-group";
@@ -35,6 +37,7 @@ export const teamEvent = pgTable(
     teamId: uuid("team_id")
       .notNull()
       .references(() => team.id, { onDelete: "cascade" }),
+    type: eventTypeEnum("type").default("event").notNull(),
     name: text("name").notNull(),
     description: text("description"),
     location: text("location"),
@@ -63,6 +66,9 @@ export const teamEvent = pgTable(
       .default(DEFAULT_RSVP_POLL_LEAD_MINUTES)
       .notNull(),
     reminderIntervals: jsonb("reminder_intervals").$type<number[]>(),
+    centerId: uuid("center_id").references(() => center.id, {
+      onDelete: "set null",
+    }),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
@@ -71,6 +77,7 @@ export const teamEvent = pgTable(
   },
   (table) => [
     index("team_event_teamId_idx").on(table.teamId),
+    index("team_event_centerId_idx").on(table.centerId),
     index("team_event_seriesId_idx").on(table.seriesId),
     // PostgreSQL treats each NULL as distinct in unique indexes, so rows with
     // seriesId = NULL are never constrained by this index. Only exception
@@ -123,6 +130,10 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
     fields: [teamEvent.teamId],
     references: [team.id],
   }),
+  center: one(center, {
+    fields: [teamEvent.centerId],
+    references: [center.id],
+  }),
   whatsappGroup: one(whatsappGroup, {
     fields: [teamEvent.whatsappGroupId],
     references: [whatsappGroup.id],
@@ -134,6 +145,7 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
   }),
   exceptions: many(teamEvent, { relationName: "seriesExceptions" }),
   members: many(teamEventMember),
+  classEventStudents: many(classEventStudent),
   interests: many(eventInterest),
   feedback: many(eventFeedback),
   creator: one(user, {

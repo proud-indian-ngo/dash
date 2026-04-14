@@ -39,6 +39,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
+import { ClassStudentAttendanceSection } from "./class-student-attendance-section";
 import type { EditScope } from "./edit-scope-dialog";
 import { EditScopeDialog } from "./edit-scope-dialog";
 import { EventAttendanceSection } from "./event-attendance-section";
@@ -624,6 +625,51 @@ function calcTotalExpenses(
   );
 }
 
+function EventSidebarSections({
+  canManageAttendance,
+  canManageVolunteers,
+  canManageVolunteersProp,
+  event,
+  handleAddMemberClick,
+  hasStarted,
+  isPastEvent,
+  removeMember,
+}: {
+  canManageAttendance: boolean;
+  canManageVolunteers: boolean;
+  canManageVolunteersProp: boolean;
+  event: EventRow;
+  handleAddMemberClick: () => void;
+  hasStarted: boolean;
+  isPastEvent: boolean;
+  removeMember: { trigger: (id: string) => void };
+}) {
+  return (
+    <>
+      {(canManageVolunteersProp || isPastEvent) && (
+        <EventMembersSection
+          canManage={canManageVolunteers}
+          members={event.members}
+          onAddMember={handleAddMemberClick}
+          onRemoveMember={(id) => removeMember.trigger(id)}
+        />
+      )}
+
+      {canManageAttendance && hasStarted ? (
+        <EventAttendanceSection eventId={event.id} members={event.members} />
+      ) : null}
+
+      {canManageAttendance ? (
+        <ClassStudentAttendanceSection
+          eventId={event.id}
+          eventStartTime={event.startTime}
+          eventType={event.type ?? "event"}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function EventDetail({
   canApproveUpdates,
   canCreate,
@@ -840,21 +886,16 @@ export function EventDetail({
                 myInterest={myInterest}
               />
 
-              {(canManageVolunteersProp || isPastEvent) && (
-                <EventMembersSection
-                  canManage={canManageVolunteers}
-                  members={event.members}
-                  onAddMember={handleAddMemberClick}
-                  onRemoveMember={(id) => removeMember.trigger(id)}
-                />
-              )}
-
-              {canManageAttendance && hasStarted ? (
-                <EventAttendanceSection
-                  eventId={event.id}
-                  members={event.members}
-                />
-              ) : null}
+              <EventSidebarSections
+                canManageAttendance={canManageAttendance}
+                canManageVolunteers={canManageVolunteers}
+                canManageVolunteersProp={canManageVolunteersProp}
+                event={event}
+                handleAddMemberClick={handleAddMemberClick}
+                hasStarted={hasStarted}
+                isPastEvent={isPastEvent}
+                removeMember={removeMember}
+              />
             </div>
           </aside>
         </div>
@@ -882,6 +923,8 @@ export function EventDetail({
           description: event.description,
           location: event.location,
           city: event.city,
+          type: event.type ?? "event",
+          centerId: event.centerId,
           startTime: event.startTime,
           endTime: event.endTime,
           isPublic: !!event.isPublic,
@@ -914,6 +957,8 @@ export function EventDetail({
           description: event.description,
           location: event.location,
           city: event.city,
+          type: event.type ?? "event",
+          centerId: event.centerId,
           startTime: event.startTime,
           endTime: event.endTime,
           isPublic: !!event.isPublic,

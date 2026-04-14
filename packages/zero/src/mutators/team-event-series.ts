@@ -1,4 +1,4 @@
-import type { City } from "@pi-dash/shared/constants";
+import type { City, EventType } from "@pi-dash/shared/constants";
 import type { TeamEvent } from "../schema";
 import { zql } from "../schema";
 
@@ -50,6 +50,7 @@ export function buildExceptionInsert(
   return {
     id,
     teamId: series.teamId,
+    type: series.type,
     name: overrides.name ?? series.name,
     description: overrides.description ?? series.description ?? null,
     location: overrides.location ?? series.location ?? null,
@@ -71,6 +72,7 @@ export function buildExceptionInsert(
       overrides.reminderIntervals ?? series.reminderIntervals ?? null,
     whatsappGroupId:
       overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
+    centerId: series.centerId,
     createdBy,
     createdAt: now,
     updatedAt: now,
@@ -78,6 +80,7 @@ export function buildExceptionInsert(
 }
 
 export interface UpdateArgs {
+  centerId?: string | null;
   city?: City;
   description?: string;
   endTime?: number;
@@ -92,39 +95,51 @@ export interface UpdateArgs {
   reminderIntervals?: number[] | null;
   rsvpPollLeadMinutes?: number;
   startTime?: number;
+  type?: EventType;
   whatsappGroupId?: string;
+}
+
+/** Conditionally include a field in an update payload only if the value is defined. */
+function setIfDefined<K extends string, V, R = V>(
+  key: K,
+  value: V | undefined,
+  coerce?: (v: V) => R
+): Record<K, R> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return { [key]: coerce ? coerce(value) : value } as Record<K, R>;
+}
+
+function toNullIfFalsy<T>(v: T): T | null {
+  return v || null;
+}
+function toNullIfNullish<T>(v: T): T | null {
+  return v ?? null;
 }
 
 export function buildUpdateFields(args: UpdateArgs) {
   return {
     id: args.id,
-    ...(args.name !== undefined && { name: args.name }),
-    ...(args.description !== undefined && {
-      description: args.description || null,
-    }),
-    ...(args.location !== undefined && { location: args.location || null }),
-    ...(args.city !== undefined && { city: args.city }),
-    ...(args.startTime !== undefined && { startTime: args.startTime }),
-    ...(args.endTime !== undefined && { endTime: args.endTime }),
-    ...(args.isPublic !== undefined && { isPublic: args.isPublic }),
-    ...(args.feedbackEnabled !== undefined && {
-      feedbackEnabled: args.feedbackEnabled,
-    }),
-    ...(args.feedbackDeadline !== undefined && {
-      feedbackDeadline: args.feedbackDeadline ?? null,
-    }),
-    ...(args.postRsvpPoll !== undefined && {
-      postRsvpPoll: args.postRsvpPoll,
-    }),
-    ...(args.rsvpPollLeadMinutes !== undefined && {
-      rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
-    }),
-    ...(args.reminderIntervals !== undefined && {
-      reminderIntervals: args.reminderIntervals ?? null,
-    }),
-    ...(args.whatsappGroupId !== undefined && {
-      whatsappGroupId: args.whatsappGroupId || null,
-    }),
+    ...setIfDefined("name", args.name),
+    ...setIfDefined("description", args.description, toNullIfFalsy),
+    ...setIfDefined("location", args.location, toNullIfFalsy),
+    ...setIfDefined("city", args.city),
+    ...setIfDefined("startTime", args.startTime),
+    ...setIfDefined("endTime", args.endTime),
+    ...setIfDefined("isPublic", args.isPublic),
+    ...setIfDefined("feedbackEnabled", args.feedbackEnabled),
+    ...setIfDefined("feedbackDeadline", args.feedbackDeadline, toNullIfNullish),
+    ...setIfDefined("postRsvpPoll", args.postRsvpPoll),
+    ...setIfDefined("rsvpPollLeadMinutes", args.rsvpPollLeadMinutes),
+    ...setIfDefined(
+      "reminderIntervals",
+      args.reminderIntervals,
+      toNullIfNullish
+    ),
+    ...setIfDefined("whatsappGroupId", args.whatsappGroupId, toNullIfFalsy),
+    ...setIfDefined("type", args.type),
+    ...setIfDefined("centerId", args.centerId, toNullIfNullish),
     updatedAt: args.now,
   };
 }
@@ -142,6 +157,10 @@ export interface Tx {
       insert: (args: any) => Promise<void>;
       // biome-ignore lint/suspicious/noExplicitAny: same as above
       update: (args: any) => Promise<void>;
+    };
+    classEventStudent: {
+      // biome-ignore lint/suspicious/noExplicitAny: row shapes vary per call
+      insert: (args: any) => Promise<void>;
     };
   };
   // biome-ignore lint/suspicious/noExplicitAny: Zero's Query type is deeply generic
@@ -243,7 +262,8 @@ export async function updateSeriesFollowing(
     recurrenceRule?: RecurrenceRuleValue;
   },
   existing: TeamEvent,
-  userId: string
+  userId: string,
+  generateId?: () => string
 ) {
   if (!existing.recurrenceRule) {
     throw new Error("Cannot split a non-recurring event");
@@ -263,6 +283,7 @@ export async function updateSeriesFollowing(
   await tx.mutate.teamEvent.insert({
     id: args.newSeriesId,
     teamId: existing.teamId,
+    type: existing.type,
     name: args.name ?? existing.name,
     description: args.description ?? existing.description ?? null,
     location: args.location ?? existing.location ?? null,
@@ -283,10 +304,38 @@ export async function updateSeriesFollowing(
     reminderIntervals:
       args.reminderIntervals ?? existing.reminderIntervals ?? null,
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
+    centerId: existing.centerId,
     createdBy: userId,
     createdAt: args.now,
     updatedAt: args.now,
   });
+
+  // Copy student enrollment from old series to new series (for class events)
+  if (existing.type === "class" && generateId) {
+    await copyClassEventStudents(tx, args.id, args.newSeriesId, generateId);
+  }
+}
+
+/** Copy classEventStudent enrollment rows from one event to another. */
+export async function copyClassEventStudents(
+  tx: Tx,
+  sourceEventId: string,
+  targetEventId: string,
+  generateId: () => string
+) {
+  const students = (await tx.run(
+    zql.classEventStudent.where("eventId", sourceEventId)
+  )) as { studentId: string }[];
+  for (const s of students) {
+    await tx.mutate.classEventStudent.insert({
+      id: generateId(),
+      eventId: targetEventId,
+      studentId: s.studentId,
+      attendance: null,
+      attendanceMarkedAt: null,
+      attendanceMarkedBy: null,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

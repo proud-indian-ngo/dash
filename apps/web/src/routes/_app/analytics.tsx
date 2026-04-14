@@ -55,6 +55,16 @@ const ApprovalTimeChart = lazy(() =>
     default: m.ApprovalTimeChart,
   }))
 );
+const AttendanceByCenterChart = lazy(() =>
+  import("@/components/analytics/attendance-by-center-chart").then((m) => ({
+    default: m.AttendanceByCenterChart,
+  }))
+);
+const AttendanceTrendChart = lazy(() =>
+  import("@/components/analytics/attendance-trend-chart").then((m) => ({
+    default: m.AttendanceTrendChart,
+  }))
+);
 
 export const Route = createFileRoute("/_app/analytics")({
   head: () => ({
@@ -65,6 +75,7 @@ export const Route = createFileRoute("/_app/analytics")({
     context.zero?.preload(queries.reimbursement.all());
     context.zero?.preload(queries.advancePayment.all());
     context.zero?.preload(queries.vendorPayment.all());
+    context.zero?.preload(queries.teamEvent.allAccessible());
   },
   component: AnalyticsPage,
 });
@@ -73,6 +84,7 @@ function AnalyticsPage() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
   const [vendorPayments, r3] = useQuery(queries.vendorPayment.all());
+  const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
   const isLoading =
     reimbursements.length === 0 &&
@@ -157,6 +169,67 @@ function AnalyticsPage() {
     allFiltered as unknown as Parameters<typeof computeApprovalTimeData>[0]
   );
 
+  // Class attendance analytics
+  const classEvents = (allEvents ?? []).filter(
+    (e) => (e as { type: string | null }).type === "class"
+  );
+  const centerAttendanceMap = new Map<
+    string,
+    { center: string; present: number; total: number }
+  >();
+  const weekAttendanceMap = new Map<
+    string,
+    { present: number; total: number }
+  >();
+  for (const ev of classEvents) {
+    const students =
+      (
+        ev as {
+          classEventStudents?: ReadonlyArray<{ attendance: string | null }>;
+        }
+      ).classEventStudents ?? [];
+    const centerName =
+      (ev as { center?: { name: string } | null }).center?.name ?? "Unknown";
+    const weekKey = new Date(ev.startTime).toISOString().slice(0, 10);
+
+    for (const s of students) {
+      // Center aggregation
+      const existing = centerAttendanceMap.get(centerName) ?? {
+        center: centerName,
+        present: 0,
+        total: 0,
+      };
+      existing.total++;
+      if (s.attendance === "present") {
+        existing.present++;
+      }
+      centerAttendanceMap.set(centerName, existing);
+
+      // Trend aggregation
+      const week = weekAttendanceMap.get(weekKey) ?? {
+        present: 0,
+        total: 0,
+      };
+      week.total++;
+      if (s.attendance === "present") {
+        week.present++;
+      }
+      weekAttendanceMap.set(weekKey, week);
+    }
+  }
+  const centerAttendanceData = [...centerAttendanceMap.values()].map((d) => ({
+    ...d,
+    rate: d.total > 0 ? Math.round((d.present / d.total) * 100) : 0,
+  }));
+  const attendanceTrendData = [...weekAttendanceMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, d]) => ({
+      date,
+      ...d,
+      rate: d.total > 0 ? Math.round((d.present / d.total) * 100) : 0,
+    }));
+  const hasClassData = classEvents.length > 0;
+
   return (
     <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-out-expo sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -214,6 +287,18 @@ function AnalyticsPage() {
               <EventSpendingChart data={eventData} />
               <ApprovalTimeChart data={approvalTimeData} />
             </div>
+
+            {hasClassData && (
+              <>
+                <h2 className="mt-10 font-display font-semibold text-xl tracking-tight">
+                  Class Attendance
+                </h2>
+                <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                  <AttendanceByCenterChart data={centerAttendanceData} />
+                  <AttendanceTrendChart data={attendanceTrendData} />
+                </div>
+              </>
+            )}
           </>
         )}
       </Suspense>

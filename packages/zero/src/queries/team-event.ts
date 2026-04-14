@@ -7,6 +7,8 @@ function withRelated(q: typeof zql.teamEvent) {
   return q
     .related("members", (m) => m.related("user"))
     .related("whatsappGroup")
+    .related("center")
+    .related("classEventStudents", (s) => s.related("student"))
     .related("interests", (i) => i.related("user"))
     .related("exceptions", (e) =>
       e.related("members", (m) => m.related("user")).related("whatsappGroup")

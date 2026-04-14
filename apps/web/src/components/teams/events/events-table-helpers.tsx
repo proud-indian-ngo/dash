@@ -16,6 +16,7 @@ import { addWeeks, format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 
 export type EventRow = TeamEvent & {
+  center?: { id: string; name: string } | null;
   exceptions: ReadonlyArray<
     TeamEvent & {
       members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;

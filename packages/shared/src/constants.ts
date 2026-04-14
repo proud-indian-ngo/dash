@@ -16,6 +16,9 @@ export type City = (typeof cityValues)[number];
 export const attachmentTypeValues = ["file", "url"] as const;
 export type AttachmentType = (typeof attachmentTypeValues)[number];
 
+export const eventTypeValues = ["event", "class"] as const;
+export type EventType = (typeof eventTypeValues)[number];
+
 export const historyActionValues = [
   "created",
   "updated",

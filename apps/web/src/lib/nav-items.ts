@@ -1,5 +1,6 @@
 import {
   AnalyticsUpIcon,
+  Building02Icon,
   Calendar03Icon,
   FileExportIcon,
   HomeIcon,
@@ -118,6 +119,22 @@ const eventsNavItem: NavItem = {
   subItems: [{ title: "Event Details", url: "/events/$id", isHidden: true }],
 };
 
+const centersNavItem: NavItem = {
+  title: "Centers",
+  url: "/centers",
+  icon: Building02Icon,
+  subItems: [{ title: "Center Details", url: "/centers/$id", isHidden: true }],
+};
+
+const studentsNavItem: NavItem = {
+  title: "Students",
+  url: "/students",
+  icon: UserIcon,
+  subItems: [
+    { title: "Student Details", url: "/students/$id", isHidden: true },
+  ],
+};
+
 function has(permissions: string[], id: string): boolean {
   return permissions.includes(id);
 }
@@ -193,9 +210,17 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
 
   // Organization group
   const hasTeams = hasAny(permissions, "teams.view_own", "teams.view_all");
+  const hasCenters = hasAny(permissions, "centers.view", "centers.manage");
+  const hasStudents = hasAny(permissions, "students.view", "students.manage");
   const orgItems: NavItem[] = [];
   if (hasTeams) {
     orgItems.push(teamsNavItem);
+  }
+  if (hasCenters) {
+    orgItems.push(centersNavItem);
+  }
+  if (hasStudents) {
+    orgItems.push(studentsNavItem);
   }
   if (hasEvents) {
     orgItems.push(eventsNavItem);

@@ -98,6 +98,22 @@ export function EventDetailsCard({
           </PropertyRow>
         ) : null}
 
+        {event.type === "class" ? (
+          <PropertyRow icon={ViewIcon} label="Event Type">
+            <Badge size="xs" variant="info-light">
+              Class
+            </Badge>
+          </PropertyRow>
+        ) : null}
+
+        {event.center ? (
+          <PropertyRow icon={Location01Icon} label="Center">
+            <Badge size="xs" variant="secondary">
+              {event.center.name}
+            </Badge>
+          </PropertyRow>
+        ) : null}
+
         <PropertyRow
           icon={event.isPublic ? ViewIcon : ViewOffSlashIcon}
           label="Privacy"
