@@ -7,6 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import type {
   Center,
@@ -145,7 +146,9 @@ export function CenterDetail({ center }: CenterDetailProps) {
               {center.name}
             </h1>
             {center.city ? (
-              <p className="text-muted-foreground text-sm">{center.city}</p>
+              <p className="text-muted-foreground text-sm">
+                {formatEnumLabel(center.city)}
+              </p>
             ) : null}
             {center.address ? (
               <p className="text-muted-foreground text-sm">{center.address}</p>
