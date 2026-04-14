@@ -23,6 +23,14 @@ async function authenticate(
   email: string,
   password: string
 ) {
+  // Log auth API responses for CI debugging
+  page.on("response", (res) => {
+    const url = res.url();
+    if (url.includes("/api/auth/")) {
+      console.log(`[auth] ${res.status()} ${res.request().method()} ${url}`);
+    }
+  });
+
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
