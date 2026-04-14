@@ -7,7 +7,6 @@ test.describe("New reimbursement form", () => {
   test.beforeEach(async ({ page }) => {
     reimbursements = new ReimbursementPage(page, "reimbursement");
     await reimbursements.navigateToNew();
-    await reimbursements.selectType("reimbursement");
   });
 
   test("renders all form fields including Expense Date", async ({ page }) => {

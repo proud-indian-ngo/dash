@@ -4,6 +4,7 @@ import { ApprovalDetailPage } from "./approval-detail-page";
 import { ListPage } from "./list-page";
 import { RequestFormPage } from "./request-form-page";
 
+// Type retained for routing logic (navigateToNew); selectType() removed as UI no longer offers type selection.
 type RequestType = "reimbursement" | "advance_payment";
 
 export class ReimbursementPage {
@@ -37,12 +38,6 @@ export class ReimbursementPage {
     ).toBeVisible();
   }
 
-  /** @deprecated Type selector has been removed — form defaults to reimbursement. */
-  async selectType(_type: RequestType): Promise<void> {
-    // No-op: TypeSelector was removed from the reimbursement form.
-    // The form now only supports reimbursement.
-  }
-
   async selectExpenseDate(): Promise<void> {
     await this.page.getByLabel("Expense Date").click();
     const calendar = this.page.locator('[data-slot="calendar"]');
@@ -57,7 +52,7 @@ export class ReimbursementPage {
   async createReimbursement(titleSuffix: string): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
-    await this.selectType(this.type);
+
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
     await this.form.selectBankAccount();
@@ -80,7 +75,7 @@ export class ReimbursementPage {
   async createReimbursementWithVoucher(titleSuffix: string): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
-    await this.selectType(this.type);
+
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
     await this.form.selectBankAccount();

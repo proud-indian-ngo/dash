@@ -97,7 +97,6 @@ test.describe("Bank account selection with duplicate names", () => {
     // Step 3: Open new reimbursement form and verify the default account is selected
     const reimbursements = new ReimbursementPage(page, "reimbursement");
     await reimbursements.navigateToNew();
-    await reimbursements.selectType("reimbursement");
 
     // The bank account field should show the new default (••••3210)
     const bankAccountGroup = page

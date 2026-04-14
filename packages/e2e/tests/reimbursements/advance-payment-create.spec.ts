@@ -10,7 +10,6 @@ test.describe
     test.beforeEach(async ({ page }) => {
       reimbursements = new ReimbursementPage(page, "advance_payment");
       await reimbursements.navigateToNew();
-      await reimbursements.selectType("advance_payment");
     });
 
     test("renders form fields (no Expense Date)", async ({ page }) => {

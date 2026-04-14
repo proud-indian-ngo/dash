@@ -8,9 +8,9 @@ export const bankAccountMutators = {
   create: defineMutator(
     z.object({
       id: z.string(),
-      accountName: z.string(),
-      accountNumber: z.string(),
-      ifscCode: z.string(),
+      accountName: z.string().min(1),
+      accountNumber: z.string().min(1),
+      ifscCode: z.string().min(1),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);

@@ -14,7 +14,6 @@ test.describe("Cash voucher", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await reimbursements.navigateToNew();
-    await reimbursements.selectType("reimbursement");
 
     await reimbursements.form.fillLineItem({
       description: "Small expense",
@@ -30,7 +29,6 @@ test.describe("Cash voucher", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await reimbursements.navigateToNew();
-    await reimbursements.selectType("reimbursement");
 
     await reimbursements.form.fillLineItem({
       description: "Large expense",
@@ -46,7 +44,6 @@ test.describe("Cash voucher", () => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
 
     await reimbursements.navigateToNew();
-    await reimbursements.selectType("reimbursement");
 
     await reimbursements.form.fillLineItem({
       description: "Test item",

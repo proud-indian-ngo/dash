@@ -50,9 +50,6 @@ export default defineConfig(({ mode }) => ({
   ],
   build: {
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
-      external: ["bun", "bun:sqlite"],
-    },
     rolldownOptions: {
       external: ["bun", "bun:sqlite"],
     },
