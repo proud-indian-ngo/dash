@@ -1552,7 +1552,7 @@ const teamEventTable = {
     recurrenceRule: {
       type: "json",
       optional: true,
-      customType: null as unknown as { rrule: string; exdates?: string[] },
+      customType: null as unknown as { rrule: string; exdates?: string[]; excludeRules?: string[] },
       serverName: "recurrence_rule",
     },
     seriesId: {

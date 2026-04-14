@@ -147,6 +147,90 @@ export function truncateRRule(rruleString: string, splitDate: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Exclusion rules (Nth weekday of month)
+// ---------------------------------------------------------------------------
+
+// rrule-js weekday index: 0=MO, 1=TU, ..., 6=SU (not JavaScript Date.getDay())
+const BYDAY_ABBR = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+
+/**
+ * Build an RRULE string that matches the Nth weekday of each month.
+ * @param nth Position in the month (1-4 or -1 for "last")
+ * @param weekday rrule-js weekday index (0=MO, 6=SU)
+ */
+export function buildExcludeRRule(nth: number, weekday: number): string {
+  const day = BYDAY_ABBR[weekday];
+  return `FREQ=MONTHLY;BYDAY=${day};BYSETPOS=${nth}`;
+}
+
+/** Parse a monthly exclusion RRULE back into nth + weekday. Returns null if not a valid exclusion pattern. */
+export function parseExcludeRRule(
+  rrule: string
+): { nth: number; weekday: number } | null {
+  const rule = parseRRule(rrule);
+  const opts = rule.origOptions;
+
+  if (opts.freq !== RRule.MONTHLY) {
+    return null;
+  }
+
+  const bysetpos = Array.isArray(opts.bysetpos)
+    ? opts.bysetpos[0]
+    : opts.bysetpos;
+  if (bysetpos == null) {
+    return null;
+  }
+
+  const byweekday = Array.isArray(opts.byweekday)
+    ? opts.byweekday[0]
+    : opts.byweekday;
+  if (byweekday == null) {
+    return null;
+  }
+
+  let weekday: number | null = null;
+  if (typeof byweekday === "number") {
+    weekday = byweekday;
+  } else if (typeof byweekday === "object" && "weekday" in byweekday) {
+    weekday = byweekday.weekday;
+  }
+  if (weekday == null) {
+    return null;
+  }
+
+  return { nth: bysetpos, weekday };
+}
+
+const POSITION_LABELS: Record<number, string> = {
+  1: "1st",
+  2: "2nd",
+  3: "3rd",
+  4: "4th",
+  [-1]: "Last",
+};
+
+const WEEKDAY_LABELS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+/** Human-readable label for an exclusion rule (e.g. "3rd Saturday"). */
+export function excludeRuleLabel(rrule: string): string {
+  const parsed = parseExcludeRRule(rrule);
+  if (!parsed) {
+    return "Custom exclusion";
+  }
+  const pos = POSITION_LABELS[parsed.nth] ?? `${parsed.nth}th`;
+  const day = WEEKDAY_LABELS[parsed.weekday] ?? "day";
+  return `${pos} ${day}`;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

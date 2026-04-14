@@ -1,7 +1,11 @@
 import { rrulestr } from "rrule";
 
 export interface RecurrenceRule {
+  /** RRULE strings defining recurring dates to exclude (e.g. FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3 skips every 3rd Saturday). */
+  excludeRules?: string[];
+  /** Specific ISO date strings (YYYY-MM-DD) to exclude from expansion. */
   exdates?: string[];
+  /** iCal RRULE string defining the recurrence pattern. */
   rrule: string;
 }
 
@@ -55,8 +59,20 @@ export function expandSeries(
   rangeEnd: number,
   exceptionDates: ReadonlySet<string> = new Set()
 ): VirtualOccurrence[] {
-  const rrule = rrulestr(rule.rrule, { dtstart: new Date(seriesStart) });
+  const dtstart = new Date(seriesStart);
+  const rrule = rrulestr(rule.rrule, { dtstart });
   const exdateSet = new Set(rule.exdates ?? []);
+
+  for (const excludeRule of rule.excludeRules ?? []) {
+    const exRule = rrulestr(excludeRule, { dtstart });
+    for (const d of exRule.between(
+      new Date(rangeStart),
+      new Date(rangeEnd),
+      true
+    )) {
+      exdateSet.add(toISODateUTC(d));
+    }
+  }
 
   const dates = rrule.between(new Date(rangeStart), new Date(rangeEnd), true);
 

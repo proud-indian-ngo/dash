@@ -10,6 +10,8 @@ import {
 } from "@pi-dash/design-system/components/ui/select";
 import { expandSeries } from "@pi-dash/shared/rrule-expand";
 import {
+  buildExcludeRRule,
+  excludeRuleLabel,
   formStateToRRule,
   type RRuleFormState,
   rruleToFormState,
@@ -227,11 +229,114 @@ function EndConditionPicker({
   );
 }
 
+const EXCLUSION_POSITIONS = [
+  { label: "1st", value: 1 },
+  { label: "2nd", value: 2 },
+  { label: "3rd", value: 3 },
+  { label: "4th", value: 4 },
+  { label: "Last", value: -1 },
+];
+
+const EXCLUSION_WEEKDAYS = [
+  { label: "Monday", value: 0 },
+  { label: "Tuesday", value: 1 },
+  { label: "Wednesday", value: 2 },
+  { label: "Thursday", value: 3 },
+  { label: "Friday", value: 4 },
+  { label: "Saturday", value: 5 },
+  { label: "Sunday", value: 6 },
+];
+
+function ExclusionPicker({
+  excludeRules,
+  onChange,
+}: {
+  excludeRules: string[];
+  onChange: (excludeRules: string[]) => void;
+}) {
+  const [nth, setNth] = useState(3);
+  const [weekday, setWeekday] = useState(5); // Saturday
+
+  const addExclusion = () => {
+    const rule = buildExcludeRRule(nth, weekday);
+    if (!excludeRules.includes(rule)) {
+      onChange([...excludeRules, rule]);
+    }
+  };
+
+  const removeExclusion = (index: number) => {
+    onChange(excludeRules.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Skip on</Label>
+      {excludeRules.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {excludeRules.map((rule, i) => (
+            <Badge className="gap-1 pr-1" key={rule} variant="secondary">
+              {excludeRuleLabel(rule)}
+              <Button
+                className="h-4 w-4 p-0"
+                onClick={() => removeExclusion(i)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                ×
+              </Button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-1.5">
+        <Select onValueChange={(v) => setNth(Number(v))} value={String(nth)}>
+          <SelectTrigger className="w-20">
+            {EXCLUSION_POSITIONS.find((p) => p.value === nth)?.label}
+          </SelectTrigger>
+          <SelectContent>
+            {EXCLUSION_POSITIONS.map((p) => (
+              <SelectItem key={p.value} value={String(p.value)}>
+                {p.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={(v) => setWeekday(Number(v))}
+          value={String(weekday)}
+        >
+          <SelectTrigger className="w-28">
+            {EXCLUSION_WEEKDAYS.find((d) => d.value === weekday)?.label}
+          </SelectTrigger>
+          <SelectContent>
+            {EXCLUSION_WEEKDAYS.map((d) => (
+              <SelectItem key={d.value} value={String(d.value)}>
+                {d.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={addExclusion}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function OccurrencePreview({
+  excludeRules,
   frequency,
   startTime,
   state,
 }: {
+  excludeRules: string[];
   frequency: string;
   startTime: Date | undefined;
   state: RRuleFormState;
@@ -248,7 +353,13 @@ function OccurrencePreview({
     );
     const now = startTime.getTime();
     const farFuture = now + 365 * 24 * 60 * 60 * 1000;
-    dates = expandSeries({ rrule }, now, null, now, farFuture).slice(0, 5);
+    dates = expandSeries(
+      { rrule, excludeRules: excludeRules.length ? excludeRules : undefined },
+      now,
+      null,
+      now,
+      farFuture
+    ).slice(0, 5);
   } catch {
     // Invalid RRULE — no preview
   }
@@ -278,24 +389,31 @@ function OccurrencePreview({
 // ---------------------------------------------------------------------------
 
 interface RecurrenceBuilderProps {
+  excludeRules?: string[];
   onChange: (rrule: string) => void;
+  onExcludeRulesChange?: (excludeRules: string[]) => void;
   startTime?: Date;
   value: string;
 }
 
 export function RecurrenceBuilder({
+  excludeRules: excludeRulesProp = [],
   value,
   onChange,
+  onExcludeRulesChange,
   startTime,
 }: RecurrenceBuilderProps) {
   const [state, setState] = useState<RRuleFormState>(() =>
     value ? rruleToFormState(value) : DEFAULT_STATE
   );
   const [frequency, setFrequency] = useState(value ? state.frequency : "");
+  const [excludeRules, setExcludeRules] = useState<string[]>(excludeRulesProp);
 
   // Use ref to avoid onChange in effect deps (it's a new closure each render from TanStack Form)
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onExcludeRulesChangeRef = useRef(onExcludeRulesChange);
+  onExcludeRulesChangeRef.current = onExcludeRulesChange;
 
   useEffect(() => {
     if (!frequency) {
@@ -308,6 +426,11 @@ export function RecurrenceBuilder({
     );
     onChangeRef.current(rrule);
   }, [state, frequency, startTime]);
+
+  const handleExcludeRulesChange = (rules: string[]) => {
+    setExcludeRules(rules);
+    onExcludeRulesChangeRef.current?.(rules);
+  };
 
   const updateState = (patch: Partial<RRuleFormState>) => {
     setState((prev) => ({ ...prev, ...patch }));
@@ -322,6 +445,9 @@ export function RecurrenceBuilder({
             setFrequency(v ?? "");
             if (v && !state.frequency) {
               setState(DEFAULT_STATE);
+            }
+            if (!v) {
+              handleExcludeRulesChange([]);
             }
           }}
           value={frequency}
@@ -369,7 +495,13 @@ export function RecurrenceBuilder({
             until={state.until}
           />
 
+          <ExclusionPicker
+            excludeRules={excludeRules}
+            onChange={handleExcludeRulesChange}
+          />
+
           <OccurrencePreview
+            excludeRules={excludeRules}
             frequency={frequency}
             startTime={startTime}
             state={state}

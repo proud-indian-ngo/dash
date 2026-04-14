@@ -476,6 +476,7 @@ const recurrenceRuleSchema = z
   .object({
     rrule: z.string(),
     exdates: z.array(z.string()).optional(),
+    excludeRules: z.array(z.string().max(100)).max(10).optional(),
   })
   .optional();
 

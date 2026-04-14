@@ -136,4 +136,81 @@ describe("expandSeries", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.endTime).toBeNull();
   });
+
+  it("excludes dates matching excludeRules", () => {
+    // Weekly on Saturdays, starting 2026-04-04 (Saturday) at 10:00 UTC
+    // April 2026 Saturdays: 4(1st), 11(2nd), 18(3rd), 25(4th)
+    // May 2026 Saturdays: 2(1st), 9(2nd), 16(3rd), 23(4th), 30(5th)
+    const satRule: RecurrenceRule = {
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      excludeRules: ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3"],
+    };
+    const satStart = Date.UTC(2026, 3, 4, 10, 0); // 2026-04-04 Saturday
+    const satEnd = Date.UTC(2026, 3, 4, 12, 0);
+    // Range: April 4 – May 31 2026
+    const rangeStart = Date.UTC(2026, 3, 4, 0, 0);
+    const rangeEnd = Date.UTC(2026, 4, 31, 23, 59);
+
+    const result = expandSeries(
+      satRule,
+      satStart,
+      satEnd,
+      rangeStart,
+      rangeEnd
+    );
+
+    const dates = result.map((o) => o.date);
+    // 3rd Saturdays: Apr 18, May 16 — should be excluded
+    expect(dates).not.toContain("2026-04-18");
+    expect(dates).not.toContain("2026-05-16");
+    // Other Saturdays should still be present
+    expect(dates).toContain("2026-04-04");
+    expect(dates).toContain("2026-04-11");
+    expect(dates).toContain("2026-04-25");
+  });
+
+  it("combines multiple excludeRules", () => {
+    const satRule: RecurrenceRule = {
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      excludeRules: [
+        "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1",
+        "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
+      ],
+    };
+    const satStart = Date.UTC(2026, 3, 4, 10, 0);
+    const satEnd = Date.UTC(2026, 3, 4, 12, 0);
+    const rangeStart = Date.UTC(2026, 3, 4, 0, 0);
+    const rangeEnd = Date.UTC(2026, 3, 30, 23, 59);
+
+    const result = expandSeries(
+      satRule,
+      satStart,
+      satEnd,
+      rangeStart,
+      rangeEnd
+    );
+
+    const dates = result.map((o) => o.date);
+    // 1st Saturday Apr 4, 3rd Saturday Apr 18 — both excluded
+    expect(dates).not.toContain("2026-04-04");
+    expect(dates).not.toContain("2026-04-18");
+    // 2nd (Apr 11) and 4th (Apr 25) remain
+    expect(dates).toContain("2026-04-11");
+    expect(dates).toContain("2026-04-25");
+  });
+
+  it("handles undefined excludeRules (backward compat)", () => {
+    const rangeStart = Date.UTC(2026, 3, 6, 0, 0);
+    const rangeEnd = Date.UTC(2026, 3, 20, 23, 59);
+
+    const result = expandSeries(
+      { rrule: "FREQ=WEEKLY;BYDAY=MO" },
+      seriesStart,
+      seriesEnd,
+      rangeStart,
+      rangeEnd
+    );
+
+    expect(result).toHaveLength(3);
+  });
 });

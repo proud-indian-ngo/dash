@@ -49,6 +49,7 @@ export const teamEvent = pgTable(
     recurrenceRule: jsonb("recurrence_rule").$type<{
       rrule: string;
       exdates?: string[];
+      excludeRules?: string[];
     }>(),
     seriesId: uuid("series_id").references((): AnyPgColumn => teamEvent.id, {
       onDelete: "cascade",

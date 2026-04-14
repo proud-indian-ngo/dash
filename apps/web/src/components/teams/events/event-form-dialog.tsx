@@ -44,6 +44,7 @@ const eventFormSchema = z.object({
   endTime: z.date().optional(),
   isPublic: z.boolean(),
   rrule: z.string().optional(),
+  excludeRules: z.array(z.string()).optional(),
   whatsappGroupId: z.string().optional(),
   createWaGroup: z.boolean(),
   feedbackEnabled: z.boolean(),
@@ -91,6 +92,7 @@ interface InitialValues {
   recurrenceRule: {
     rrule: string;
     exdates?: string[];
+    excludeRules?: string[];
   } | null;
   reminderIntervals: number[] | null;
   rsvpPollLeadMinutes: number;
@@ -120,6 +122,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
       : undefined,
     isPublic: initialValues?.isPublic ?? false,
     rrule: initialValues?.recurrenceRule?.rrule ?? "",
+    excludeRules: initialValues?.recurrenceRule?.excludeRules ?? [],
     whatsappGroupId: initialValues?.whatsappGroupId ?? "",
     createWaGroup: false,
     feedbackEnabled: initialValues?.feedbackEnabled ?? false,
@@ -188,7 +191,14 @@ function buildUpdateSeriesArgs(
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
-    recurrenceRule: value.rrule ? { rrule: value.rrule } : undefined,
+    recurrenceRule: value.rrule
+      ? {
+          rrule: value.rrule,
+          excludeRules: value.excludeRules?.length
+            ? value.excludeRules
+            : undefined,
+        }
+      : undefined,
   };
   if (editScope === "this") {
     return { ...base, originalDate, newExceptionId: uuidv7() };
@@ -200,7 +210,14 @@ function buildUpdateSeriesArgs(
 }
 
 function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
-  const recurrenceRule = value.rrule ? { rrule: value.rrule } : undefined;
+  const recurrenceRule = value.rrule
+    ? {
+        rrule: value.rrule,
+        excludeRules: value.excludeRules?.length
+          ? value.excludeRules
+          : undefined,
+      }
+    : undefined;
 
   return {
     id: uuidv7(),
@@ -377,12 +394,18 @@ function EventFormContent({
         editScope === "following" ||
         (!editScope && !!initialValues?.recurrenceRule)) && (
         <form.Field name="rrule">
-          {(field) => (
-            <RecurrenceBuilder
-              onChange={(v) => field.handleChange(v)}
-              startTime={form.state.values.startTime}
-              value={field.state.value ?? ""}
-            />
+          {(rruleField) => (
+            <form.Field name="excludeRules">
+              {(excludeField) => (
+                <RecurrenceBuilder
+                  excludeRules={excludeField.state.value ?? []}
+                  onChange={(v) => rruleField.handleChange(v)}
+                  onExcludeRulesChange={(v) => excludeField.handleChange(v)}
+                  startTime={form.state.values.startTime}
+                  value={rruleField.state.value ?? ""}
+                />
+              )}
+            </form.Field>
           )}
         </form.Field>
       )}
@@ -517,7 +540,7 @@ export function EventFormDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto [scrollbar-color:var(--color-muted-foreground)_transparent] [scrollbar-width:thin] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Event" : "Create Event"}</DialogTitle>
           <DialogDescription className="sr-only">
