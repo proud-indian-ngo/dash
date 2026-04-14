@@ -7,6 +7,9 @@
 - Prefer repo source-of-truth over memory.
 - Avoid redundant explanation.
 - Preserve existing architecture unless the task asks otherwise.
+- State assumptions explicitly; ask instead of guessing when ambiguous.
+- Prefer the simplest non-speculative solution that fully solves the request.
+- Keep edits surgical; every changed line should trace to the request.
 
 ## Response Contract
 
@@ -16,11 +19,12 @@
 
 ## Execution Loop
 
-1. Inspect relevant files with `rg` plus targeted reads.
-2. Form a minimal plan.
-3. Execute the smallest change set.
-4. Run only necessary checks.
-5. Report delta and verification.
+1. Clarify ambiguity, state assumptions/tradeoffs, and define the verification target.
+2. Inspect relevant files with `rg` plus targeted reads.
+3. Form a minimal plan.
+4. Execute the smallest change set.
+5. Run only necessary checks.
+6. Report delta and verification.
 
 ## Guardrails
 
@@ -35,6 +39,8 @@
 - DO NOT: Edit generated files `apps/web/src/routeTree.gen.ts`, `packages/zero/src/schema.ts`, `packages/db/src/migrations/**/*`, `packages/design-system/components/**/*`, `packages/design-system/lib/utils.ts`, or `packages/design-system/hooks/use-mobile.ts` (all excluded in `biome.jsonc`).
 - DO NOT: Invent commands or scripts not in repo manifests.
 - DO NOT: Perform broad refactors during focused tasks.
+- DO NOT: Add speculative abstractions, configurability, or impossible-scenario handling unless the task requires it.
+- DO NOT: "Improve" adjacent code, comments, or formatting unrelated to the request.
 - DO NOT: Add backwards-compatibility shims (re-exports, type aliases, renamed `_vars`, `// removed` comments). This is a new app with no external consumers — delete old code outright.
 - DO NOT: Use `Date.now()` in notification idempotency keys — it defeats deduplication. Pass a deterministic timestamp from the mutator instead.
 - DO: Use `uuidv7()` from the `uuidv7` package for all ID generation — never use `crypto.randomUUID()` (UUIDv4) or `gen_random_uuid()` (PostgreSQL). UUIDv7 is time-ordered, which benefits database index performance.
