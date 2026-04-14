@@ -10,6 +10,7 @@ import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 type AttendanceMember = TeamEventMember & { user: User | undefined };
@@ -55,15 +56,24 @@ function AttendanceRow({
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
       {member.user ? (
-        <UserAvatar
-          className="size-8"
-          fallbackClassName="text-xs"
+        <UserHoverCard
+          triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-3 [@media(pointer:coarse)]:pointer-events-none"
           user={member.user}
-        />
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-sm">{displayName}</div>
-      </div>
+        >
+          <UserAvatar
+            className="size-8"
+            fallbackClassName="text-xs"
+            user={member.user}
+          />
+          <div className="min-w-0">
+            <div className="truncate font-medium text-sm">{displayName}</div>
+          </div>
+        </UserHoverCard>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-sm">{displayName}</div>
+        </div>
+      )}
       <div className="flex gap-1">
         <Button
           aria-label={`Mark ${displayName} present`}

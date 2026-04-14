@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
 import { SHORT_DATE } from "@/lib/date-formats";
@@ -233,17 +234,19 @@ export function ReimbursementsTable({
           return <span className="text-muted-foreground text-sm">—</span>;
         }
         return (
-          <div className="flex min-w-0 items-center gap-3">
-            <UserAvatar className="size-8" user={user} />
-            <div className="min-w-0 space-y-px">
-              <div className="truncate font-medium text-foreground text-sm">
-                {user.name}
-              </div>
-              <div className="truncate text-muted-foreground text-xs">
-                {user.email}
+          <UserHoverCard user={user}>
+            <div className="flex min-w-0 items-center gap-3">
+              <UserAvatar className="size-8" user={user} />
+              <div className="min-w-0 space-y-px">
+                <div className="truncate font-medium text-foreground text-sm">
+                  {user.name}
+                </div>
+                <div className="truncate text-muted-foreground text-xs">
+                  {user.email}
+                </div>
               </div>
             </div>
-          </div>
+          </UserHoverCard>
         );
       },
       meta: { headerTitle: "Created By", skeleton: SKELETON_CREATED_BY },

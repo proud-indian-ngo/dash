@@ -17,6 +17,8 @@ import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
@@ -33,6 +35,15 @@ const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
 const SKELETON_TEXT = <Skeleton className="h-5 w-24" />;
 const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
 const SKELETON_TOTAL = <Skeleton className="h-5 w-20" />;
+const SKELETON_USER = (
+  <div className="flex items-center gap-3">
+    <Skeleton className="size-8 rounded-full" />
+    <div className="space-y-1">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-3 w-32" />
+    </div>
+  </div>
+);
 
 function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
   const q = query.toLowerCase();
@@ -146,14 +157,30 @@ export function VendorPaymentsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.user?.name ?? "—"}
-        </span>
-      ),
-      meta: { headerTitle: "Submitted by", skeleton: SKELETON_TEXT },
-      size: 150,
-      minSize: 120,
+      cell: ({ row }) => {
+        const user = row.original.user;
+        if (!user) {
+          return <span className="text-muted-foreground text-sm">—</span>;
+        }
+        return (
+          <UserHoverCard user={user}>
+            <div className="flex min-w-0 items-center gap-3">
+              <UserAvatar className="size-8" user={user} />
+              <div className="min-w-0 space-y-px">
+                <div className="truncate font-medium text-foreground text-sm">
+                  {user.name}
+                </div>
+                <div className="truncate text-muted-foreground text-xs">
+                  {user.email}
+                </div>
+              </div>
+            </div>
+          </UserHoverCard>
+        );
+      },
+      meta: { headerTitle: "Submitted by", skeleton: SKELETON_USER },
+      size: 220,
+      minSize: 180,
     },
     {
       id: "total",

@@ -20,6 +20,7 @@ import { RejectDialog } from "@/components/form/reject-dialog";
 import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { deleteUploadedAsset } from "@/functions/attachments";
 import {
   getAttachmentDownloadHref,
@@ -154,12 +155,18 @@ export function ReimbursementDetail({
                 <span className="text-muted-foreground text-sm">
                   Requested by
                 </span>
-                <UserAvatar
-                  className="size-6"
-                  fallbackClassName="text-xs"
-                  user={request.user}
-                />
-                <span className="font-medium text-sm">{request.user.name}</span>
+                <UserHoverCard user={request.user}>
+                  <div className="flex items-center gap-2">
+                    <UserAvatar
+                      className="size-6"
+                      fallbackClassName="text-xs"
+                      user={request.user}
+                    />
+                    <span className="font-medium text-sm">
+                      {request.user.name}
+                    </span>
+                  </div>
+                </UserHoverCard>
               </div>
             ) : null}
           </div>

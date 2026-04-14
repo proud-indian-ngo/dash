@@ -9,6 +9,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { LOCALE_DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -53,25 +54,42 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
       {interest.user ? (
-        <UserAvatar
-          className="size-8"
-          fallbackClassName="text-xs"
+        <UserHoverCard
+          triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-3 [@media(pointer:coarse)]:pointer-events-none"
           user={interest.user}
-        />
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-sm">
-          {interest.user?.name ?? "Unknown"}
-        </div>
-        <div className="text-muted-foreground text-xs">
-          {format(new Date(interest.createdAt), LOCALE_DATE)}
-        </div>
-        {interest.message ? (
-          <div className="mt-1 text-muted-foreground text-xs italic">
-            "{interest.message}"
+        >
+          <UserAvatar
+            className="size-8"
+            fallbackClassName="text-xs"
+            user={interest.user}
+          />
+          <div className="min-w-0">
+            <div className="truncate font-medium text-sm">
+              {interest.user.name}
+            </div>
+            <div className="text-muted-foreground text-xs">
+              {format(new Date(interest.createdAt), LOCALE_DATE)}
+            </div>
+            {interest.message ? (
+              <div className="mt-1 text-muted-foreground text-xs italic">
+                "{interest.message}"
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </UserHoverCard>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-sm">Unknown</div>
+          <div className="text-muted-foreground text-xs">
+            {format(new Date(interest.createdAt), LOCALE_DATE)}
+          </div>
+          {interest.message ? (
+            <div className="mt-1 text-muted-foreground text-xs italic">
+              "{interest.message}"
+            </div>
+          ) : null}
+        </div>
+      )}
       {interest.status === "pending" ? (
         <div className="flex gap-1">
           <Button

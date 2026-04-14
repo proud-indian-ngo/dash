@@ -27,6 +27,7 @@ import {
 } from "@/components/editor/editor-skeletons";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
@@ -231,6 +232,127 @@ export function EventUpdates({
   );
 }
 
+function TimelineItem({
+  canManage,
+  editingId,
+  eventId,
+  onDelete,
+  onEdit,
+  onEditStart,
+  saving,
+  update,
+  userId,
+}: {
+  canManage: boolean;
+  editingId: string | null;
+  eventId: string;
+  onDelete: (id: string) => void;
+  onEdit: (id: string, content: string) => Promise<void>;
+  onEditStart: (id: string | null) => void;
+  saving: boolean;
+  update: UpdateWithAuthor;
+  userId: string;
+}) {
+  const isAuthor = update.createdBy === userId;
+  const canEdit = canManage;
+  const canDelete = isAuthor || canManage;
+  const isEdited = update.updatedAt !== update.createdAt;
+
+  return (
+    <div className="relative pl-10">
+      {/* Avatar on the timeline */}
+      <div className="absolute top-0 left-0">
+        {update.author ? (
+          <UserAvatar
+            className="size-7 ring-4 ring-background"
+            fallbackClassName="text-xs"
+            user={update.author}
+          />
+        ) : (
+          <div className="size-7 rounded-full bg-muted ring-4 ring-background" />
+        )}
+      </div>
+
+      {/* Content card */}
+      <div className="rounded-lg border p-4">
+        <div className="mb-2 flex items-center gap-2">
+          {update.author ? (
+            <UserHoverCard user={update.author}>
+              <span className="font-medium text-sm">{update.author.name}</span>
+            </UserHoverCard>
+          ) : (
+            <span className="font-medium text-sm">Unknown</span>
+          )}
+          <span className="text-muted-foreground text-xs">
+            {format(new Date(update.createdAt), LONG_DATE_TIME)}
+          </span>
+          {isEdited ? (
+            <span className="text-muted-foreground text-xs">(edited)</span>
+          ) : null}
+
+          {(canEdit || canDelete) && editingId !== update.id ? (
+            <div className="ml-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      aria-label="Update actions"
+                      className="size-7"
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <HugeiconsIcon
+                        className="size-3.5"
+                        icon={MoreVerticalIcon}
+                        strokeWidth={2}
+                      />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-28">
+                  {canEdit ? (
+                    <DropdownMenuItem onClick={() => onEditStart(update.id)}>
+                      Edit
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canDelete ? (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(update.id)}
+                      variant="destructive"
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
+        </div>
+
+        <Suspense
+          fallback={
+            editingId === update.id ? <EditorSkeleton /> : <RendererSkeleton />
+          }
+        >
+          {editingId === update.id ? (
+            <PlateEditor
+              content={update.content}
+              entityId={eventId}
+              key={editingId}
+              onCancel={() => onEditStart(null)}
+              onSave={(content) => onEdit(update.id, content)}
+              saving={saving}
+            />
+          ) : (
+            <PlateRenderer content={update.content} key={update.updatedAt} />
+          )}
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
 function UpdateTimeline({
   canManage,
   eventId,
@@ -273,114 +395,20 @@ function UpdateTimeline({
       <div className="absolute top-0 bottom-3.5 left-3.5 w-px bg-border" />
 
       <div className="flex flex-col gap-6">
-        {updates.map((update) => {
-          const isAuthor = update.createdBy === user.id;
-          // Only admins/leads can edit approved updates (prevents post-approval content swap)
-          const canEdit = canManage;
-          const canDelete = isAuthor || canManage;
-          const isEdited = update.updatedAt !== update.createdAt;
-
-          return (
-            <div className="relative pl-10" key={update.id}>
-              {/* Avatar on the timeline */}
-              <div className="absolute top-0 left-0">
-                {update.author ? (
-                  <UserAvatar
-                    className="size-7 ring-4 ring-background"
-                    fallbackClassName="text-xs"
-                    user={update.author}
-                  />
-                ) : (
-                  <div className="size-7 rounded-full bg-muted ring-4 ring-background" />
-                )}
-              </div>
-
-              {/* Content card */}
-              <div className="rounded-lg border p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="font-medium text-sm">
-                    {update.author?.name ?? "Unknown"}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {format(new Date(update.createdAt), LONG_DATE_TIME)}
-                  </span>
-                  {isEdited ? (
-                    <span className="text-muted-foreground text-xs">
-                      (edited)
-                    </span>
-                  ) : null}
-
-                  {(canEdit || canDelete) && editingId !== update.id ? (
-                    <div className="ml-auto">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              aria-label="Update actions"
-                              className="size-7"
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <HugeiconsIcon
-                                className="size-3.5"
-                                icon={MoreVerticalIcon}
-                                strokeWidth={2}
-                              />
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end" className="w-28">
-                          {canEdit ? (
-                            <DropdownMenuItem
-                              onClick={() => setEditingId(update.id)}
-                            >
-                              Edit
-                            </DropdownMenuItem>
-                          ) : null}
-                          {canDelete ? (
-                            <DropdownMenuItem
-                              onClick={() => onDelete(update.id)}
-                              variant="destructive"
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  ) : null}
-                </div>
-
-                <Suspense
-                  fallback={
-                    editingId === update.id ? (
-                      <EditorSkeleton />
-                    ) : (
-                      <RendererSkeleton />
-                    )
-                  }
-                >
-                  {editingId === update.id ? (
-                    <PlateEditor
-                      content={update.content}
-                      entityId={eventId}
-                      key={editingId}
-                      onCancel={() => setEditingId(null)}
-                      onSave={(content) => handleUpdate(update.id, content)}
-                      saving={saving}
-                    />
-                  ) : (
-                    <PlateRenderer
-                      content={update.content}
-                      key={update.updatedAt}
-                    />
-                  )}
-                </Suspense>
-              </div>
-            </div>
-          );
-        })}
+        {updates.map((update) => (
+          <TimelineItem
+            canManage={canManage}
+            editingId={editingId}
+            eventId={eventId}
+            key={update.id}
+            onDelete={onDelete}
+            onEdit={handleUpdate}
+            onEditStart={setEditingId}
+            saving={saving}
+            update={update}
+            userId={user.id}
+          />
+        ))}
       </div>
     </div>
   );
@@ -421,17 +449,22 @@ function PendingUpdateCard({
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
       <div className="mb-2 flex items-center gap-2">
         {update.author ? (
-          <UserAvatar
-            className="size-6"
-            fallbackClassName="text-xs"
-            user={update.author}
-          />
+          <UserHoverCard user={update.author}>
+            <div className="flex items-center gap-2">
+              <UserAvatar
+                className="size-6"
+                fallbackClassName="text-xs"
+                user={update.author}
+              />
+              <span className="font-medium text-sm">{update.author.name}</span>
+            </div>
+          </UserHoverCard>
         ) : (
-          <div className="size-6 rounded-full bg-muted" />
+          <div className="flex items-center gap-2">
+            <div className="size-6 rounded-full bg-muted" />
+            <span className="font-medium text-sm">Unknown</span>
+          </div>
         )}
-        <span className="font-medium text-sm">
-          {update.author?.name ?? "Unknown"}
-        </span>
         <span className="text-muted-foreground text-xs">
           {format(new Date(update.createdAt), LONG_DATE_TIME)}
         </span>

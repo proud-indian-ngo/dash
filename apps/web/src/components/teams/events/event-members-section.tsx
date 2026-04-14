@@ -4,6 +4,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { LOCALE_DATE } from "@/lib/date-formats";
 import type { EventRow } from "./events-table";
 
@@ -19,20 +20,32 @@ function EventMemberRow({
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
       {member.user ? (
-        <UserAvatar
-          className="size-8"
-          fallbackClassName="text-xs"
+        <UserHoverCard
+          triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-3 [@media(pointer:coarse)]:pointer-events-none"
           user={member.user}
-        />
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-sm">
-          {member.user?.name ?? "Unknown"}
+        >
+          <UserAvatar
+            className="size-8"
+            fallbackClassName="text-xs"
+            user={member.user}
+          />
+          <div className="min-w-0">
+            <div className="truncate font-medium text-sm">
+              {member.user.name}
+            </div>
+            <div className="text-muted-foreground text-xs">
+              Added {format(new Date(member.addedAt), LOCALE_DATE)}
+            </div>
+          </div>
+        </UserHoverCard>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-sm">Unknown</div>
+          <div className="text-muted-foreground text-xs">
+            Added {format(new Date(member.addedAt), LOCALE_DATE)}
+          </div>
         </div>
-        <div className="text-muted-foreground text-xs">
-          Added {format(new Date(member.addedAt), LOCALE_DATE)}
-        </div>
-      </div>
+      )}
       {canManage ? (
         <Button
           aria-label={`Remove ${member.user?.name ?? "volunteer"}`}
