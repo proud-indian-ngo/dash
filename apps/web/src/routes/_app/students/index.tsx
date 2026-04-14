@@ -11,11 +11,14 @@ import { StudentFormDialog } from "@/components/students/student-form-dialog";
 import { StudentsTable } from "@/components/students/students-table";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { assertAnyPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/students/")({
   head: () => ({
     meta: [{ title: `Students | ${env.VITE_APP_NAME}` }],
   }),
+  beforeLoad: ({ context }) =>
+    assertAnyPermission(context, "students.view", "students.manage"),
   loader: ({ context }) => {
     context.zero?.preload(queries.student.all());
   },

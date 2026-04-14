@@ -65,6 +65,16 @@ const AttendanceTrendChart = lazy(() =>
     default: m.AttendanceTrendChart,
   }))
 );
+const AttendanceByStudentChart = lazy(() =>
+  import("@/components/analytics/attendance-by-student-chart").then((m) => ({
+    default: m.AttendanceByStudentChart,
+  }))
+);
+const EventTypeSplitChart = lazy(() =>
+  import("@/components/analytics/event-type-split-chart").then((m) => ({
+    default: m.EventTypeSplitChart,
+  }))
+);
 
 export const Route = createFileRoute("/_app/analytics")({
   head: () => ({
@@ -79,6 +89,109 @@ export const Route = createFileRoute("/_app/analytics")({
   },
   component: AnalyticsPage,
 });
+
+interface ClassEventLike {
+  center?: { name: string } | null;
+  classEventStudents?: ReadonlyArray<{
+    attendance: string | null;
+    student?: { id: string; name: string } | null;
+  }>;
+  startTime: number;
+  type: string | null;
+}
+
+function computeClassAttendanceStats(
+  allEvents: readonly { startTime: number }[]
+) {
+  const classEvents = allEvents.filter(
+    (e) => (e as ClassEventLike).type === "class"
+  ) as ClassEventLike[];
+
+  const centerMap = new Map<
+    string,
+    { center: string; present: number; total: number }
+  >();
+  const weekMap = new Map<string, { present: number; total: number }>();
+  const studentMap = new Map<
+    string,
+    { name: string; present: number; total: number }
+  >();
+
+  for (const ev of classEvents) {
+    const students = ev.classEventStudents ?? [];
+    const centerName = ev.center?.name ?? "Unknown";
+    const weekKey = new Date(ev.startTime).toISOString().slice(0, 10);
+
+    for (const s of students) {
+      const isPresent = s.attendance === "present";
+
+      // Center aggregation
+      const c = centerMap.get(centerName) ?? {
+        center: centerName,
+        present: 0,
+        total: 0,
+      };
+      c.total++;
+      if (isPresent) {
+        c.present++;
+      }
+      centerMap.set(centerName, c);
+
+      // Week aggregation
+      const w = weekMap.get(weekKey) ?? { present: 0, total: 0 };
+      w.total++;
+      if (isPresent) {
+        w.present++;
+      }
+      weekMap.set(weekKey, w);
+
+      // Student aggregation
+      const studentId = s.student?.id ?? s.student?.name ?? "unknown";
+      const st = studentMap.get(studentId) ?? {
+        name: s.student?.name ?? "Unknown",
+        present: 0,
+        total: 0,
+      };
+      st.total++;
+      if (isPresent) {
+        st.present++;
+      }
+      studentMap.set(studentId, st);
+    }
+  }
+
+  const toRate = (d: { present: number; total: number }) =>
+    d.total > 0 ? Math.round((d.present / d.total) * 100) : 0;
+
+  return {
+    hasClassData: classEvents.length > 0,
+    centerData: [...centerMap.values()].map((d) => ({ ...d, rate: toRate(d) })),
+    trendData: [...weekMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, d]) => ({ date, ...d, rate: toRate(d) })),
+    studentData: [...studentMap.values()]
+      .map((d) => ({ ...d, rate: toRate(d) }))
+      .sort((a, b) => a.rate - b.rate)
+      .slice(0, 10),
+    eventTypeSplit: (() => {
+      let eventCount = 0;
+      let classCount = 0;
+      for (const ev of allEvents) {
+        if ((ev as ClassEventLike).type === "class") {
+          classCount++;
+        } else {
+          eventCount++;
+        }
+      }
+      return eventCount > 0 || classCount > 0
+        ? [
+            { type: "Event", count: eventCount },
+            { type: "Class", count: classCount },
+          ]
+        : [];
+    })(),
+  };
+}
 
 function AnalyticsPage() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
@@ -169,66 +282,13 @@ function AnalyticsPage() {
     allFiltered as unknown as Parameters<typeof computeApprovalTimeData>[0]
   );
 
-  // Class attendance analytics
-  const classEvents = (allEvents ?? []).filter(
-    (e) => (e as { type: string | null }).type === "class"
-  );
-  const centerAttendanceMap = new Map<
-    string,
-    { center: string; present: number; total: number }
-  >();
-  const weekAttendanceMap = new Map<
-    string,
-    { present: number; total: number }
-  >();
-  for (const ev of classEvents) {
-    const students =
-      (
-        ev as {
-          classEventStudents?: ReadonlyArray<{ attendance: string | null }>;
-        }
-      ).classEventStudents ?? [];
-    const centerName =
-      (ev as { center?: { name: string } | null }).center?.name ?? "Unknown";
-    const weekKey = new Date(ev.startTime).toISOString().slice(0, 10);
-
-    for (const s of students) {
-      // Center aggregation
-      const existing = centerAttendanceMap.get(centerName) ?? {
-        center: centerName,
-        present: 0,
-        total: 0,
-      };
-      existing.total++;
-      if (s.attendance === "present") {
-        existing.present++;
-      }
-      centerAttendanceMap.set(centerName, existing);
-
-      // Trend aggregation
-      const week = weekAttendanceMap.get(weekKey) ?? {
-        present: 0,
-        total: 0,
-      };
-      week.total++;
-      if (s.attendance === "present") {
-        week.present++;
-      }
-      weekAttendanceMap.set(weekKey, week);
-    }
-  }
-  const centerAttendanceData = [...centerAttendanceMap.values()].map((d) => ({
-    ...d,
-    rate: d.total > 0 ? Math.round((d.present / d.total) * 100) : 0,
-  }));
-  const attendanceTrendData = [...weekAttendanceMap.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, d]) => ({
-      date,
-      ...d,
-      rate: d.total > 0 ? Math.round((d.present / d.total) * 100) : 0,
-    }));
-  const hasClassData = classEvents.length > 0;
+  const {
+    hasClassData,
+    centerData: centerAttendanceData,
+    trendData: attendanceTrendData,
+    studentData: studentAttendanceData,
+    eventTypeSplit: eventTypeSplitData,
+  } = computeClassAttendanceStats(allEvents ?? []);
 
   return (
     <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-out-expo sm:px-4">
@@ -296,6 +356,10 @@ function AnalyticsPage() {
                 <div className="mt-4 grid gap-6 lg:grid-cols-2">
                   <AttendanceByCenterChart data={centerAttendanceData} />
                   <AttendanceTrendChart data={attendanceTrendData} />
+                </div>
+                <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  <AttendanceByStudentChart data={studentAttendanceData} />
+                  <EventTypeSplitChart data={eventTypeSplitData} />
                 </div>
               </>
             )}

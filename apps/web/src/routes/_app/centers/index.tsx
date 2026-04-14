@@ -11,11 +11,14 @@ import { CenterFormDialog } from "@/components/centers/center-form-dialog";
 import { CentersTable } from "@/components/centers/centers-table";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { assertAnyPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/centers/")({
   head: () => ({
     meta: [{ title: `Centers | ${env.VITE_APP_NAME}` }],
   }),
+  beforeLoad: ({ context }) =>
+    assertAnyPermission(context, "centers.view", "centers.manage"),
   loader: ({ context }) => {
     context.zero?.preload(queries.center.all());
   },
