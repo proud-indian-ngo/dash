@@ -257,7 +257,7 @@ export function StudentFormDialog({
               <SelectContent>
                 {cityValues.map((cityValue) => (
                   <SelectItem key={cityValue} value={cityValue}>
-                    <span className="capitalize">{cityValue}</span>
+                    {cityValue}
                   </SelectItem>
                 ))}
               </SelectContent>
