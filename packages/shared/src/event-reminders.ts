@@ -8,6 +8,22 @@ export const REMINDER_PRESETS = [
 
 export type ReminderPreset = (typeof REMINDER_PRESETS)[number];
 
+/** Default RSVP poll lead time in minutes (3 days). */
+export const DEFAULT_RSVP_POLL_LEAD_MINUTES = 4320;
+
+export const RSVP_POLL_LEAD_PRESETS = [
+  { label: "1 week", minutes: 10_080 },
+  { label: "5 days", minutes: 7200 },
+  { label: "3 days", minutes: 4320 },
+  { label: "2 days", minutes: 2880 },
+  { label: "1 day", minutes: 1440 },
+] as const;
+
+export type RsvpPollLeadPreset = (typeof RSVP_POLL_LEAD_PRESETS)[number];
+
+export const RSVP_POLL_LEAD_PRESET_MINUTES: readonly number[] =
+  RSVP_POLL_LEAD_PRESETS.map((p) => p.minutes);
+
 export const REMINDER_PRESET_MINUTES: readonly number[] = REMINDER_PRESETS.map(
   (p) => p.minutes
 );

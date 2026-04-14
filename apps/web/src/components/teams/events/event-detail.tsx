@@ -11,6 +11,7 @@ import {
 } from "@pi-dash/design-system/components/ui/tabs";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { env } from "@pi-dash/env/web";
+import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -193,6 +194,120 @@ type EventDialog =
   | { type: "edit" }
   | { type: "addMember" }
   | { type: "interest" };
+
+function useScopeDialogs(
+  isOccurrence: boolean,
+  isRecurring: boolean,
+  scopeOccDate: string | undefined,
+  event: EventRow,
+  dialog: ReturnType<typeof useDialogManager<EventDialog>>
+) {
+  const zero = useZero();
+  const navigate = useNavigate();
+
+  // --- Edit scope ---
+  const [editScope, setEditScope] = useState<EditScope | null>(null);
+  const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
+
+  const handleEditClick = isOccurrence
+    ? () => setEditScopeDialogOpen(true)
+    : () => dialog.open({ type: "edit" });
+
+  const handleEditScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setEditScopeDialogOpen(false);
+      setEditScope(scope);
+      dialog.open({ type: "edit" });
+    },
+    [dialog]
+  );
+
+  // --- Cancel scope ---
+  const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
+  const cancelScopeRef = useRef<EditScope | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+
+  const cancelAction = useConfirmAction({
+    onConfirm: () =>
+      buildCancelMutation(
+        zero,
+        event,
+        cancelScopeRef.current,
+        isRecurring,
+        scopeOccDate,
+        cancelReason
+      ),
+    onSuccess: () => {
+      toast.success("Event cancelled");
+      cancelScopeRef.current = null;
+      setCancelReason("");
+      navigate({ to: "/teams/$id", params: { id: event.teamId } });
+    },
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
+        mutation: "teamEvent.cancel",
+        entityId: event.id,
+        error: msg ?? "unknown",
+      });
+      toast.error("Couldn't cancel event");
+      cancelScopeRef.current = null;
+    },
+  });
+
+  const handleCancelClick = isOccurrence
+    ? () => setCancelScopeDialogOpen(true)
+    : () => cancelAction.trigger();
+
+  const handleCancelScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setCancelScopeDialogOpen(false);
+      cancelScopeRef.current = scope;
+      cancelAction.trigger();
+    },
+    [cancelAction]
+  );
+
+  // --- Add member scope ---
+  const [addMemberScopeDialogOpen, setAddMemberScopeDialogOpen] =
+    useState(false);
+  const [addMemberScope, setAddMemberScope] = useState<EditScope | null>(null);
+
+  const handleAddMemberClick = isOccurrence
+    ? () => setAddMemberScopeDialogOpen(true)
+    : () => dialog.open({ type: "addMember" });
+
+  const handleAddMemberScopeSelect = useCallback(
+    (scope: EditScope) => {
+      setAddMemberScopeDialogOpen(false);
+      setAddMemberScope(scope);
+      dialog.open({ type: "addMember" });
+    },
+    [dialog]
+  );
+
+  return {
+    editScope,
+    setEditScope,
+    editScopeDialogOpen,
+    setEditScopeDialogOpen,
+    handleEditClick,
+    handleEditScopeSelect,
+    cancelScopeDialogOpen,
+    setCancelScopeDialogOpen,
+    cancelReason,
+    setCancelReason,
+    cancelAction,
+    handleCancelClick,
+    handleCancelScopeSelect,
+    addMemberScope,
+    setAddMemberScope,
+    addMemberScopeDialogOpen,
+    setAddMemberScopeDialogOpen,
+    handleAddMemberClick,
+    handleAddMemberScopeSelect,
+  };
+}
 
 type EventStatus = "upcoming" | "in-progress" | "completed" | "cancelled";
 
@@ -509,10 +624,7 @@ export function EventDetail({
   const { isVirtualOccurrence, isRecurring, isOccurrence, scopeOccDate } =
     deriveRecurrenceState(event, occDate);
 
-  /**
-   * Materialize this virtual occurrence. Returns the new exception event ID.
-   * After materialization, navigates to the new event's detail page.
-   */
+  /** Materialize a virtual occurrence into an exception row, then navigate to it. */
   const materializeOccurrence = useCallback(async (): Promise<
     string | null
   > => {
@@ -532,93 +644,33 @@ export function EventDetail({
       toast.error("Couldn't create occurrence");
       return null;
     }
-    // Navigate to the materialized event (no more occDate needed)
     navigate({ to: "/events/$id", params: { id: newId } });
     return newId;
   }, [isVirtualOccurrence, occDate, event.id, zero, navigate]);
 
   const dialog = useDialogManager<EventDialog>();
 
-  // --- Edit scope state ---
-  const [editScope, setEditScope] = useState<EditScope | null>(null);
-  const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
-
-  const handleEditClick = isOccurrence
-    ? () => setEditScopeDialogOpen(true)
-    : () => dialog.open({ type: "edit" });
-
-  const handleEditScopeSelect = useCallback(
-    (scope: EditScope) => {
-      setEditScopeDialogOpen(false);
-      setEditScope(scope);
-      dialog.open({ type: "edit" });
-    },
-    [dialog]
-  );
-
-  // --- Cancel scope state ---
-  const [cancelScopeDialogOpen, setCancelScopeDialogOpen] = useState(false);
-  const cancelScopeRef = useRef<EditScope | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-
-  const cancelAction = useConfirmAction({
-    onConfirm: () =>
-      buildCancelMutation(
-        zero,
-        event,
-        cancelScopeRef.current,
-        isRecurring,
-        scopeOccDate,
-        cancelReason
-      ),
-    onSuccess: () => {
-      toast.success("Event cancelled");
-      cancelScopeRef.current = null;
-      setCancelReason("");
-      navigate({ to: "/teams/$id", params: { id: event.teamId } });
-    },
-    onError: (msg) => {
-      log.error({
-        component: "EventDetail",
-        mutation: "teamEvent.cancel",
-        entityId: event.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Couldn't cancel event");
-      cancelScopeRef.current = null;
-    },
-  });
-
-  const handleCancelClick = isOccurrence
-    ? () => setCancelScopeDialogOpen(true)
-    : () => cancelAction.trigger();
-
-  const handleCancelScopeSelect = useCallback(
-    (scope: EditScope) => {
-      setCancelScopeDialogOpen(false);
-      cancelScopeRef.current = scope;
-      cancelAction.trigger();
-    },
-    [cancelAction]
-  );
-
-  // --- Add member scope state ---
-  const [addMemberScopeDialogOpen, setAddMemberScopeDialogOpen] =
-    useState(false);
-  const [addMemberScope, setAddMemberScope] = useState<EditScope | null>(null);
-
-  const handleAddMemberClick = isOccurrence
-    ? () => setAddMemberScopeDialogOpen(true)
-    : () => dialog.open({ type: "addMember" });
-
-  const handleAddMemberScopeSelect = useCallback(
-    (scope: EditScope) => {
-      setAddMemberScopeDialogOpen(false);
-      setAddMemberScope(scope);
-      dialog.open({ type: "addMember" });
-    },
-    [dialog]
-  );
+  const {
+    editScope,
+    setEditScope,
+    editScopeDialogOpen,
+    setEditScopeDialogOpen,
+    handleEditClick,
+    handleEditScopeSelect,
+    cancelScopeDialogOpen,
+    setCancelScopeDialogOpen,
+    cancelReason,
+    setCancelReason,
+    cancelAction,
+    handleCancelClick,
+    handleCancelScopeSelect,
+    addMemberScope,
+    setAddMemberScope,
+    addMemberScopeDialogOpen,
+    setAddMemberScopeDialogOpen,
+    handleAddMemberClick,
+    handleAddMemberScopeSelect,
+  } = useScopeDialogs(isOccurrence, isRecurring, scopeOccDate, event, dialog);
 
   const { addMemberEventId, addMemberOnBeforeAdd } = deriveAddMemberTarget(
     addMemberScope,
@@ -819,6 +871,8 @@ export function EventDetail({
           feedbackEnabled: !!event.feedbackEnabled,
           feedbackDeadline: event.feedbackDeadline,
           postRsvpPoll: !!event.postRsvpPoll,
+          rsvpPollLeadMinutes:
+            event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
           reminderIntervals:
             (event.reminderIntervals as number[] | null) ?? null,
         }}

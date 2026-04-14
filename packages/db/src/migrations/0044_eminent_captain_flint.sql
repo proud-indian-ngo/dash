@@ -1,0 +1,1 @@
+ALTER TABLE "team_event" ADD COLUMN "rsvp_poll_lead_minutes" integer DEFAULT 4320 NOT NULL;

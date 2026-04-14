@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
@@ -535,6 +536,9 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               feedbackEnabled: !!editEventData.event.event.feedbackEnabled,
               feedbackDeadline: editEventData.event.event.feedbackDeadline,
               postRsvpPoll: !!editEventData.event.event.postRsvpPoll,
+              rsvpPollLeadMinutes:
+                editEventData.event.event.rsvpPollLeadMinutes ??
+                DEFAULT_RSVP_POLL_LEAD_MINUTES,
               reminderIntervals:
                 (editEventData.event.event.reminderIntervals as
                   | number[]

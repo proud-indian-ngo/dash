@@ -1,9 +1,11 @@
+import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -56,6 +58,9 @@ export const teamEvent = pgTable(
     feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
     feedbackDeadline: timestamp("feedback_deadline"),
     postRsvpPoll: boolean("post_rsvp_poll").default(false).notNull(),
+    rsvpPollLeadMinutes: integer("rsvp_poll_lead_minutes")
+      .default(DEFAULT_RSVP_POLL_LEAD_MINUTES)
+      .notNull(),
     reminderIntervals: jsonb("reminder_intervals").$type<number[]>(),
     createdBy: text("created_by")
       .notNull()

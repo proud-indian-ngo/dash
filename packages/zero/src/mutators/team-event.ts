@@ -1,5 +1,9 @@
 import { type City, cityValues } from "@pi-dash/shared/constants";
-import { REMINDER_PRESET_MINUTES } from "@pi-dash/shared/event-reminders";
+import {
+  DEFAULT_RSVP_POLL_LEAD_MINUTES,
+  REMINDER_PRESET_MINUTES,
+  RSVP_POLL_LEAD_PRESET_MINUTES,
+} from "@pi-dash/shared/event-reminders";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -14,6 +18,11 @@ import { zql } from "../schema";
 const reminderIntervalsSchema = z
   .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
   .nullable()
+  .optional();
+
+const rsvpPollLeadMinutesSchema = z
+  .number()
+  .refine((n) => RSVP_POLL_LEAD_PRESET_MINUTES.includes(n))
   .optional();
 
 const UNTIL_RE = /UNTIL=[^;]+/;
@@ -49,6 +58,7 @@ function buildExceptionInsert(
     feedbackEnabled: boolean;
     feedbackDeadline: number | null;
     postRsvpPoll: boolean;
+    rsvpPollLeadMinutes: number;
     reminderIntervals: number[] | null;
     whatsappGroupId: string;
     cancelledAt: number | null;
@@ -72,6 +82,8 @@ function buildExceptionInsert(
     feedbackDeadline:
       overrides.feedbackDeadline ?? series.feedbackDeadline ?? null,
     postRsvpPoll: overrides.postRsvpPoll ?? series.postRsvpPoll,
+    rsvpPollLeadMinutes:
+      overrides.rsvpPollLeadMinutes ?? series.rsvpPollLeadMinutes,
     reminderIntervals:
       overrides.reminderIntervals ?? series.reminderIntervals ?? null,
     whatsappGroupId:
@@ -95,6 +107,7 @@ interface UpdateArgs {
   now: number;
   postRsvpPoll?: boolean;
   reminderIntervals?: number[] | null;
+  rsvpPollLeadMinutes?: number;
   startTime?: number;
   whatsappGroupId?: string;
 }
@@ -119,6 +132,9 @@ function buildUpdateFields(args: UpdateArgs) {
     }),
     ...(args.postRsvpPoll !== undefined && {
       postRsvpPoll: args.postRsvpPoll,
+    }),
+    ...(args.rsvpPollLeadMinutes !== undefined && {
+      rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
     }),
     ...(args.reminderIntervals !== undefined && {
       reminderIntervals: args.reminderIntervals ?? null,
@@ -182,6 +198,7 @@ async function updateSeriesThis(
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
     postRsvpPoll?: boolean;
+    rsvpPollLeadMinutes?: number;
     reminderIntervals?: number[] | null;
     whatsappGroupId?: string;
   },
@@ -212,6 +229,7 @@ async function updateSeriesThis(
           feedbackEnabled: args.feedbackEnabled,
           feedbackDeadline: args.feedbackDeadline ?? undefined,
           postRsvpPoll: args.postRsvpPoll,
+          rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
           reminderIntervals: args.reminderIntervals ?? undefined,
           whatsappGroupId: args.whatsappGroupId,
         }
@@ -236,6 +254,7 @@ async function updateSeriesFollowing(
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
     postRsvpPoll?: boolean;
+    rsvpPollLeadMinutes?: number;
     reminderIntervals?: number[] | null;
     whatsappGroupId?: string;
     recurrenceRule?: RecurrenceRuleValue;
@@ -276,6 +295,8 @@ async function updateSeriesFollowing(
     feedbackDeadline:
       args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
     postRsvpPoll: args.postRsvpPoll ?? existing.postRsvpPoll,
+    rsvpPollLeadMinutes:
+      args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
     reminderIntervals:
       args.reminderIntervals ?? existing.reminderIntervals ?? null,
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
@@ -377,6 +398,80 @@ async function cancelSeriesFollowing(
   }
 }
 
+interface MutatorCtx {
+  asyncTasks?: {
+    // biome-ignore lint/suspicious/noExplicitAny: matches Zero's internal push signature
+    push: (task: any) => void;
+  };
+  userId: string;
+}
+
+async function pushCreateServerTasks(
+  tx: Tx,
+  ctx: MutatorCtx,
+  args: {
+    id: string;
+    name: string;
+    startTime: number;
+    location?: string;
+    teamId: string;
+    createWhatsAppGroup?: boolean;
+    whatsappGroupId?: string;
+  },
+  isBackdated: boolean
+) {
+  if (args.createWhatsAppGroup && !args.whatsappGroupId) {
+    const eventId = args.id;
+    const eventName = args.name;
+    const creatorUserId = ctx.userId;
+    ctx.asyncTasks?.push({
+      meta: { mutator: "createTeamEvent", eventId, eventName },
+      fn: async () => {
+        const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        await enqueue("whatsapp-create-group", {
+          entityType: "event",
+          entityId: eventId,
+          groupName: eventName,
+          creatorUserId,
+        });
+      },
+    });
+  }
+
+  if (!isBackdated) {
+    const eventId = args.id;
+    const eventName = args.name;
+    const startTime = args.startTime;
+    const location = args.location;
+    const teamId = args.teamId;
+    const members = (await tx.run(zql.teamMember.where("teamId", teamId))) as {
+      userId: string;
+    }[];
+    const teamMemberIds = members.map((m) => m.userId);
+    ctx.asyncTasks?.push({
+      meta: {
+        mutator: "createTeamEvent",
+        eventId,
+        eventName,
+        teamId,
+        startTime,
+        location,
+      },
+      fn: async () => {
+        const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        await enqueue("notify-event-created", {
+          eventId,
+          eventName,
+          location: location ?? null,
+          startTime,
+          teamId,
+          teamMemberIds,
+        });
+      },
+    });
+  }
+}
+
 const recurrenceRuleSchema = z
   .object({
     rrule: z.string(),
@@ -402,6 +497,7 @@ export const teamEventMutators = {
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
       postRsvpPoll: z.boolean().optional(),
+      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       now: z.number(),
     }),
@@ -441,6 +537,8 @@ export const teamEventMutators = {
         feedbackEnabled: args.feedbackEnabled ?? false,
         feedbackDeadline: args.feedbackDeadline ?? null,
         postRsvpPoll: args.postRsvpPoll ?? false,
+        rsvpPollLeadMinutes:
+          args.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
         reminderIntervals: args.reminderIntervals ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
         seriesId: null,
@@ -451,57 +549,8 @@ export const teamEventMutators = {
         updatedAt: args.now,
       });
 
-      if (
-        tx.location === "server" &&
-        args.createWhatsAppGroup &&
-        !args.whatsappGroupId
-      ) {
-        const eventId = args.id;
-        const eventName = args.name;
-        const creatorUserId = ctx.userId;
-        ctx.asyncTasks?.push({
-          meta: { mutator: "createTeamEvent", eventId, eventName },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("whatsapp-create-group", {
-              entityType: "event",
-              entityId: eventId,
-              groupName: eventName,
-              creatorUserId,
-            });
-          },
-        });
-      }
-
-      if (tx.location === "server" && !isBackdated) {
-        const eventId = args.id;
-        const eventName = args.name;
-        const startTime = args.startTime;
-        const location = args.location;
-        const teamId = args.teamId;
-        const members = await tx.run(zql.teamMember.where("teamId", teamId));
-        const teamMemberIds = members.map((m) => m.userId);
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "createTeamEvent",
-            eventId,
-            eventName,
-            teamId,
-            startTime,
-            location,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-created", {
-              eventId,
-              eventName,
-              location: location ?? null,
-              startTime,
-              teamId,
-              teamMemberIds,
-            });
-          },
-        });
+      if (tx.location === "server") {
+        await pushCreateServerTasks(tx, ctx, args, isBackdated);
       }
     }
   ),
@@ -520,6 +569,7 @@ export const teamEventMutators = {
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
       postRsvpPoll: z.boolean().optional(),
+      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
     }),
@@ -729,6 +779,7 @@ export const teamEventMutators = {
         feedbackEnabled: series.feedbackEnabled,
         feedbackDeadline: series.feedbackDeadline,
         postRsvpPoll: series.postRsvpPoll,
+        rsvpPollLeadMinutes: series.rsvpPollLeadMinutes,
         reminderIntervals: series.reminderIntervals,
         whatsappGroupId: series.whatsappGroupId,
         createdBy: ctx.userId,
@@ -758,6 +809,7 @@ export const teamEventMutators = {
       feedbackEnabled: z.boolean().optional(),
       feedbackDeadline: z.number().nullable().optional(),
       postRsvpPoll: z.boolean().optional(),
+      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
     }),

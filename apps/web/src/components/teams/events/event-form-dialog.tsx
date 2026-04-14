@@ -1,4 +1,8 @@
 import { cityValues } from "@pi-dash/shared/constants";
+import {
+  DEFAULT_RSVP_POLL_LEAD_MINUTES,
+  RSVP_POLL_LEAD_PRESETS,
+} from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -45,8 +49,14 @@ const eventFormSchema = z.object({
   feedbackEnabled: z.boolean(),
   feedbackDeadline: z.date().optional(),
   postRsvpPoll: z.boolean(),
+  rsvpPollLeadMinutes: z.string().min(1),
   reminderIntervals: z.array(z.number()),
 });
+
+const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
+  label: `${p.label} before`,
+  value: String(p.minutes),
+}));
 
 const endTimeAfterStartTime = (data: EventFormValues) =>
   !(data.endTime && data.startTime) || data.endTime > data.startTime;
@@ -83,6 +93,7 @@ interface InitialValues {
     exdates?: string[];
   } | null;
   reminderIntervals: number[] | null;
+  rsvpPollLeadMinutes: number;
   seriesId: string | null;
   startTime: number;
   whatsappGroupId: string | null;
@@ -116,6 +127,9 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
       ? new Date(initialValues.feedbackDeadline)
       : undefined,
     postRsvpPoll: initialValues?.postRsvpPoll ?? false,
+    rsvpPollLeadMinutes: String(
+      initialValues?.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES
+    ),
     reminderIntervals: initialValues?.reminderIntervals ?? [],
   };
 }
@@ -142,6 +156,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
     postRsvpPoll: value.postRsvpPoll,
+    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -169,6 +184,7 @@ function buildUpdateSeriesArgs(
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
     postRsvpPoll: value.postRsvpPoll,
+    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -203,6 +219,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     feedbackEnabled: value.feedbackEnabled,
     feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
     postRsvpPoll: value.postRsvpPoll,
+    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -398,7 +415,7 @@ function EventFormContent({
             <CheckboxField
               description={
                 hasGroup
-                  ? "Post a WhatsApp RSVP poll 3 days before the event"
+                  ? "Post a WhatsApp RSVP poll before the event"
                   : "Link a WhatsApp group to the event or team first"
               }
               label="Post RSVP poll on WhatsApp"
@@ -407,6 +424,17 @@ function EventFormContent({
             />
           );
         }}
+      </form.Subscribe>
+      <form.Subscribe selector={(state) => state.values.postRsvpPoll}>
+        {(postRsvpPoll) =>
+          postRsvpPoll ? (
+            <SelectField
+              label="Post poll"
+              name="rsvpPollLeadMinutes"
+              options={rsvpPollLeadOptions}
+            />
+          ) : null
+        }
       </form.Subscribe>
       <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
         {(feedbackEnabled) =>
