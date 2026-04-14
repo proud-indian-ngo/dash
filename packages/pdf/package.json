@@ -7,7 +7,7 @@
     "./*.tsx": "./src/*.tsx"
   },
   "dependencies": {
-    "@react-pdf/renderer": "^4.4.0",
+    "@react-pdf/renderer": "^4.4.1",
     "react": "catalog:"
   },
   "devDependencies": {
