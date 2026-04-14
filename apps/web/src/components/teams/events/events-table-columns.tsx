@@ -2,6 +2,7 @@ import { RepeatIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 
@@ -143,8 +144,10 @@ export function createEventsTableColumns({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
-          {row.original.event.city || "\u2014"}
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.event.city
+            ? formatEnumLabel(row.original.event.city)
+            : "\u2014"}
         </span>
       ),
       meta: {

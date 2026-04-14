@@ -19,6 +19,17 @@ export type AttachmentType = (typeof attachmentTypeValues)[number];
 export const eventTypeValues = ["event", "class"] as const;
 export type EventType = (typeof eventTypeValues)[number];
 
+/**
+ * Convert a snake_case or lowercase enum value to a human-readable title case label.
+ * "bangalore" → "Bangalore", "invoice_submitted" → "Invoice Submitted", "male" → "Male"
+ */
+export function formatEnumLabel(value: string): string {
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export const historyActionValues = [
   "created",
   "updated",

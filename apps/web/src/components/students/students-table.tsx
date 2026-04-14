@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import type {
   Center,
   ClassEventStudent,
@@ -168,8 +169,8 @@ export function StudentsTable({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm capitalize">
-          {row.original.city}
+        <span className="text-muted-foreground text-sm">
+          {row.original.city ? formatEnumLabel(row.original.city) : "—"}
         </span>
       ),
       meta: { headerTitle: "City", skeleton: SKELETON_CITY },

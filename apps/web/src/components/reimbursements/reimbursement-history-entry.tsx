@@ -1,3 +1,4 @@
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import { format } from "date-fns";
 import { SHORT_DATE_WITH_TIME } from "@/lib/date-formats";
 
@@ -16,7 +17,9 @@ export function HistoryEntry({ entry }: { entry: HistoryEntryProps }) {
       </div>
       <div className="flex flex-col gap-0.5 pb-3">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm capitalize">{entry.action}</span>
+          <span className="font-medium text-sm">
+            {formatEnumLabel(entry.action)}
+          </span>
           <span className="text-muted-foreground text-xs">
             {format(entry.createdAt, SHORT_DATE_WITH_TIME)}
           </span>

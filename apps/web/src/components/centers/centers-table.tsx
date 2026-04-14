@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import type {
   Center,
   CenterCoordinator,
@@ -146,7 +147,7 @@ export function CentersTable({
       ),
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
-          {row.original.city || "—"}
+          {row.original.city ? formatEnumLabel(row.original.city) : "—"}
         </span>
       ),
       meta: { headerTitle: "City", skeleton: SKELETON_CITY },

@@ -6,6 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
@@ -106,7 +107,7 @@ export function VendorPaymentDetail({
                 <span>Vendor: {request.vendor.name}</span>
               ) : null}
               {request.city ? (
-                <span className="capitalize">City: {request.city}</span>
+                <span>City: {formatEnumLabel(request.city)}</span>
               ) : null}
             </div>
             {request.user ? (

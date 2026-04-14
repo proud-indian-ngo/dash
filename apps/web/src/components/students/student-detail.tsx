@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import type {
   Center,
   ClassEventStudent,
@@ -92,7 +93,9 @@ export function StudentDetail({ student }: StudentDetailProps) {
             <p className="font-medium text-muted-foreground text-xs uppercase">
               City
             </p>
-            <p className="text-sm capitalize">{student.city || "—"}</p>
+            <p className="text-sm">
+              {student.city ? formatEnumLabel(student.city) : "—"}
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -142,7 +145,7 @@ export function StudentDetail({ student }: StudentDetailProps) {
                           ce.attendance === "present" ? "default" : "secondary"
                         }
                       >
-                        {ce.attendance}
+                        {formatEnumLabel(ce.attendance)}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">

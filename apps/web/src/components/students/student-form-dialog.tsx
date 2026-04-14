@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import { cityValues } from "@pi-dash/shared/constants";
+import { cityValues, formatEnumLabel } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { Center } from "@pi-dash/zero/schema";
@@ -257,7 +257,7 @@ export function StudentFormDialog({
               <SelectContent>
                 {cityValues.map((cityValue) => (
                   <SelectItem key={cityValue} value={cityValue}>
-                    {cityValue}
+                    {formatEnumLabel(cityValue)}
                   </SelectItem>
                 ))}
               </SelectContent>
