@@ -2,6 +2,7 @@ import {
   attachmentTypeValues,
   cityValues,
   historyActionValues,
+  reminderTargetValues,
 } from "@pi-dash/shared/constants";
 import { pgEnum } from "drizzle-orm/pg-core";
 
@@ -13,3 +14,7 @@ export const attachmentTypeEnum = pgEnum(
   attachmentTypeValues
 );
 export const historyActionEnum = pgEnum("history_action", historyActionValues);
+export const reminderTargetEnum = pgEnum(
+  "reminder_target",
+  reminderTargetValues
+);

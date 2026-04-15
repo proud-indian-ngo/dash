@@ -283,6 +283,8 @@ export interface NotifyEventUpdatePostedPayload {
   eventId: string;
   eventMemberIds: string[];
   eventName: string;
+  eventWhatsappGroupId: string | null;
+  teamWhatsappGroupId: string | null;
   updatedAt: number;
 }
 

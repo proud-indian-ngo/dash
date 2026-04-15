@@ -1,4 +1,4 @@
-import { cityValues } from "@pi-dash/shared/constants";
+import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   REMINDER_PRESET_MINUTES,
@@ -30,6 +30,8 @@ const reminderIntervalsSchema = z
   .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
   .nullable()
   .optional();
+
+const reminderTargetSchema = z.enum(reminderTargetValues).optional();
 
 const rsvpPollLeadMinutesSchema = z
   .number()
@@ -138,6 +140,7 @@ export const teamEventMutators = {
       postRsvpPoll: z.boolean().optional(),
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
+      reminderTarget: reminderTargetSchema,
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -179,6 +182,7 @@ export const teamEventMutators = {
         rsvpPollLeadMinutes:
           args.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
         reminderIntervals: args.reminderIntervals ?? null,
+        reminderTarget: args.reminderTarget ?? "group",
         whatsappGroupId: args.whatsappGroupId ?? null,
         seriesId: null,
         originalDate: null,
@@ -210,6 +214,7 @@ export const teamEventMutators = {
       postRsvpPoll: z.boolean().optional(),
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
+      reminderTarget: reminderTargetSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -424,6 +429,7 @@ export const teamEventMutators = {
         postRsvpPoll: series.postRsvpPoll,
         rsvpPollLeadMinutes: series.rsvpPollLeadMinutes,
         reminderIntervals: series.reminderIntervals,
+        reminderTarget: series.reminderTarget ?? "group",
         whatsappGroupId: series.whatsappGroupId,
         createdBy: ctx.userId,
         createdAt: args.now,
@@ -454,6 +460,7 @@ export const teamEventMutators = {
       postRsvpPoll: z.boolean().optional(),
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
+      reminderTarget: reminderTargetSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {

@@ -28,3 +28,6 @@ export const historyActionValues = [
   "invoice_rejected",
 ] as const;
 export type HistoryAction = (typeof historyActionValues)[number];
+
+export const reminderTargetValues = ["participants", "group", "both"] as const;
+export type ReminderTarget = (typeof reminderTargetValues)[number];

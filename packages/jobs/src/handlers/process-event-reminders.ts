@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { team } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import {
@@ -47,10 +48,13 @@ export async function handleProcessEventReminders(
       location: teamEvent.location,
       whatsappGroupId: teamEvent.whatsappGroupId,
       reminderIntervals: teamEvent.reminderIntervals,
+      reminderTarget: teamEvent.reminderTarget,
       recurrenceRule: teamEvent.recurrenceRule,
       seriesId: teamEvent.seriesId,
+      teamWhatsappGroupId: team.whatsappGroupId,
     })
     .from(teamEvent)
+    .innerJoin(team, eq(team.id, teamEvent.teamId))
     .where(
       and(
         isNotNull(teamEvent.reminderIntervals),
@@ -121,7 +125,9 @@ export async function handleProcessEventReminders(
           eventName: event.name,
           startTime: occurrence.startTime,
           location: event.location,
-          whatsappGroupId: event.whatsappGroupId,
+          eventWhatsappGroupId: event.whatsappGroupId,
+          teamWhatsappGroupId: event.teamWhatsappGroupId,
+          reminderTarget: event.reminderTarget ?? "group",
           intervals,
           instanceDate: occurrence.date,
           onPartialFailure,
@@ -138,7 +144,9 @@ export async function handleProcessEventReminders(
         eventName: event.name,
         startTime: event.startTime.getTime(),
         location: event.location,
-        whatsappGroupId: event.whatsappGroupId,
+        eventWhatsappGroupId: event.whatsappGroupId,
+        teamWhatsappGroupId: event.teamWhatsappGroupId,
+        reminderTarget: event.reminderTarget ?? "group",
         intervals,
         instanceDate: null,
         onPartialFailure,
@@ -157,6 +165,7 @@ export async function handleProcessEventReminders(
 interface ProcessParams {
   eventId: string;
   eventName: string;
+  eventWhatsappGroupId: string | null;
   instanceDate: string | null;
   intervals: number[];
   location: string | null;
@@ -167,9 +176,52 @@ interface ProcessParams {
     intervalMinutes: number;
     totalMembers: number;
   }) => void;
+  reminderTarget: string;
   startTime: number;
-  whatsappGroupId: string | null;
+  teamWhatsappGroupId: string | null;
   windowStart: Date;
+}
+
+/** Resolve a WhatsApp group JID from a group UUID, or null if not found. */
+async function resolveGroupJid(groupId: string | null): Promise<string | null> {
+  if (!groupId) {
+    return null;
+  }
+  const rows = await db
+    .select({ jid: whatsappGroup.jid })
+    .from(whatsappGroup)
+    .where(eq(whatsappGroup.id, groupId))
+    .limit(1);
+  return rows[0]?.jid ?? null;
+}
+
+/** Send individual reminders to all event members. */
+async function sendParticipantReminders(
+  params: ProcessParams,
+  members: { userId: string }[],
+  intervalMinutes: number
+): Promise<void> {
+  const results = await Promise.allSettled(
+    members.map((m) =>
+      notifyEventReminder({
+        userId: m.userId,
+        eventId: params.eventId,
+        eventName: params.eventName,
+        intervalMinutes,
+        location: params.location,
+        startTime: params.startTime,
+      })
+    )
+  );
+  const failures = results.filter((r) => r.status === "rejected");
+  if (failures.length > 0) {
+    params.onPartialFailure({
+      eventId: params.eventId,
+      intervalMinutes,
+      failureCount: failures.length,
+      totalMembers: members.length,
+    });
+  }
 }
 
 async function processRemindersForEvent(
@@ -177,6 +229,42 @@ async function processRemindersForEvent(
 ): Promise<{ sent: number; skipped: number }> {
   let sent = 0;
   let skipped = 0;
+
+  const sendToGroup =
+    params.reminderTarget === "group" || params.reminderTarget === "both";
+  const sendToParticipants =
+    params.reminderTarget === "participants" ||
+    params.reminderTarget === "both";
+
+  // Resolve group JID once (event group > team group fallback)
+  const groupJid = sendToGroup
+    ? ((await resolveGroupJid(params.eventWhatsappGroupId)) ??
+      (await resolveGroupJid(params.teamWhatsappGroupId)))
+    : null;
+
+  if (sendToGroup && !groupJid) {
+    const log = createRequestLogger({
+      method: "JOB",
+      path: "process-event-reminders",
+    });
+    log.set({
+      event: "no_group_for_target",
+      eventId: params.eventId,
+      reminderTarget: params.reminderTarget,
+      eventWhatsappGroupId: params.eventWhatsappGroupId,
+      teamWhatsappGroupId: params.teamWhatsappGroupId,
+    });
+    log.warn("Reminder target includes group but no WhatsApp group found");
+    log.emit();
+  }
+
+  // Fetch members once for all intervals
+  const members = sendToParticipants
+    ? await db
+        .select({ userId: teamEventMember.userId })
+        .from(teamEventMember)
+        .where(eq(teamEventMember.eventId, params.eventId))
+    : [];
 
   for (const intervalMinutes of params.intervals) {
     const reminderTime = params.startTime - intervalMinutes * 60 * 1000;
@@ -188,7 +276,6 @@ async function processRemindersForEvent(
       continue;
     }
 
-    // Check idempotency first (read-only check via insert attempt)
     const isNew = await tryInsertReminderSent(
       params.eventId,
       params.instanceDate,
@@ -199,51 +286,19 @@ async function processRemindersForEvent(
       continue;
     }
 
-    // Send the reminder
-    if (params.whatsappGroupId) {
-      const group = await db
-        .select({ jid: whatsappGroup.jid })
-        .from(whatsappGroup)
-        .where(eq(whatsappGroup.id, params.whatsappGroupId))
-        .limit(1);
+    if (groupJid) {
+      await notifyEventReminderGroup({
+        eventId: params.eventId,
+        eventName: params.eventName,
+        groupJid,
+        intervalMinutes,
+        location: params.location,
+        startTime: params.startTime,
+      });
+    }
 
-      if (group[0]) {
-        await notifyEventReminderGroup({
-          eventId: params.eventId,
-          eventName: params.eventName,
-          groupJid: group[0].jid,
-          intervalMinutes,
-          location: params.location,
-          startTime: params.startTime,
-        });
-      }
-    } else {
-      const members = await db
-        .select({ userId: teamEventMember.userId })
-        .from(teamEventMember)
-        .where(eq(teamEventMember.eventId, params.eventId));
-
-      const results = await Promise.allSettled(
-        members.map((m) =>
-          notifyEventReminder({
-            userId: m.userId,
-            eventId: params.eventId,
-            eventName: params.eventName,
-            intervalMinutes,
-            location: params.location,
-            startTime: params.startTime,
-          })
-        )
-      );
-      const failures = results.filter((r) => r.status === "rejected");
-      if (failures.length > 0) {
-        params.onPartialFailure({
-          eventId: params.eventId,
-          intervalMinutes,
-          failureCount: failures.length,
-          totalMembers: members.length,
-        });
-      }
+    if (sendToParticipants) {
+      await sendParticipantReminders(params, members, intervalMinutes);
     }
     sent++;
   }

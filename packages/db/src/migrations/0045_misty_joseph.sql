@@ -1,0 +1,2 @@
+CREATE TYPE "public"."reminder_target" AS ENUM('participants', 'group', 'both');--> statement-breakpoint
+ALTER TABLE "team_event" ADD COLUMN "reminder_target" "reminder_target" DEFAULT 'group' NOT NULL;

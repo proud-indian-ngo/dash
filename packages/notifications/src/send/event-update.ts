@@ -1,7 +1,10 @@
 import { db } from "@pi-dash/db";
 import { teamMember } from "@pi-dash/db/schema/team";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
+import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
@@ -12,6 +15,8 @@ interface EventUpdatePostedOptions {
   eventId: string;
   eventMemberIds: string[];
   eventName: string;
+  eventWhatsappGroupId: string | null;
+  teamWhatsappGroupId: string | null;
   updatedAt: number;
 }
 
@@ -20,6 +25,8 @@ export async function notifyEventUpdatePosted({
   eventName,
   eventMemberIds,
   authorName,
+  eventWhatsappGroupId,
+  teamWhatsappGroupId,
   updatedAt,
 }: EventUpdatePostedOptions): Promise<void> {
   const body = `${authorName} posted an update on ${eventName} — check it out.`;
@@ -38,6 +45,24 @@ export async function notifyEventUpdatePosted({
     idempotencyKey: `event-update-posted-${eventId}-${updatedAt}`,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
+
+  // Send to WhatsApp group (event group > team group fallback)
+  const waGroupId = eventWhatsappGroupId ?? teamWhatsappGroupId;
+  if (waGroupId) {
+    const group = await db
+      .select({ jid: whatsappGroup.jid })
+      .from(whatsappGroup)
+      .where(eq(whatsappGroup.id, waGroupId))
+      .limit(1);
+    if (group[0]) {
+      const lines = [
+        `*📝 New update on ${eventName}*`,
+        `${authorName} posted an update — check it out.`,
+        `\nView: ${env.APP_URL}/events/${eventId}`,
+      ];
+      await sendWhatsAppGroupMessage(group[0].jid, lines.join("\n"));
+    }
+  }
 }
 
 interface EventUpdateApprovedOptions {

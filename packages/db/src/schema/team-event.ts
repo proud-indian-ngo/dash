@@ -18,7 +18,7 @@ import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { reimbursement } from "./reimbursement";
-import { cityEnum } from "./shared";
+import { cityEnum, reminderTargetEnum } from "./shared";
 import { team } from "./team";
 import { vendorPayment } from "./vendor";
 import { whatsappGroup } from "./whatsapp-group";
@@ -63,6 +63,9 @@ export const teamEvent = pgTable(
       .default(DEFAULT_RSVP_POLL_LEAD_MINUTES)
       .notNull(),
     reminderIntervals: jsonb("reminder_intervals").$type<number[]>(),
+    reminderTarget: reminderTargetEnum("reminder_target")
+      .default("group")
+      .notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),

@@ -165,6 +165,7 @@ function buildDuplicateInitialValues(row: EventDisplayRow) {
     rsvpPollLeadMinutes:
       row.event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
     reminderIntervals: (row.event.reminderIntervals as number[] | null) ?? null,
+    reminderTarget: (row.event.reminderTarget as string) ?? "group",
   };
 }
 
@@ -190,6 +191,7 @@ function buildEditInitialValues(row: EventDisplayRow) {
     rsvpPollLeadMinutes:
       row.event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
     reminderIntervals: (row.event.reminderIntervals as number[] | null) ?? null,
+    reminderTarget: (row.event.reminderTarget as string) ?? "group",
   };
 }
 

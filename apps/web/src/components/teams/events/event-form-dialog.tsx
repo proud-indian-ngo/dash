@@ -1,4 +1,4 @@
-import { cityValues } from "@pi-dash/shared/constants";
+import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
@@ -52,6 +52,7 @@ const eventFormSchema = z.object({
   postRsvpPoll: z.boolean(),
   rsvpPollLeadMinutes: z.string().min(1),
   reminderIntervals: z.array(z.number()),
+  reminderTarget: z.enum(reminderTargetValues),
 });
 
 const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
@@ -95,6 +96,7 @@ interface InitialValues {
     excludeRules?: string[];
   } | null;
   reminderIntervals: number[] | null;
+  reminderTarget: string | null;
   rsvpPollLeadMinutes: number;
   seriesId: string | null;
   startTime: number;
@@ -135,6 +137,10 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
       initialValues?.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES
     ),
     reminderIntervals: initialValues?.reminderIntervals ?? [],
+    reminderTarget:
+      (initialValues?.reminderTarget as
+        | (typeof reminderTargetValues)[number]
+        | null) ?? "group",
   };
 }
 
@@ -164,6 +170,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
+    reminderTarget: value.reminderTarget,
   };
 }
 
@@ -192,6 +199,7 @@ function buildUpdateSeriesArgs(
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
+    reminderTarget: value.reminderTarget,
     recurrenceRule: value.rrule
       ? {
           rrule: value.rrule,
@@ -241,6 +249,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
+    reminderTarget: value.reminderTarget,
   };
 }
 
@@ -471,14 +480,25 @@ function EventFormContent({
           ) : null
         }
       </form.Subscribe>
-      <form.Field name="reminderIntervals">
-        {(field) => (
-          <ReminderIntervalsField
-            onChange={(v) => field.handleChange(v)}
-            value={field.state.value}
-          />
+      <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
+        {(whatsappGroupId) => (
+          <form.Field name="reminderIntervals">
+            {(intervalsField) => (
+              <form.Field name="reminderTarget">
+                {(targetField) => (
+                  <ReminderIntervalsField
+                    hasWhatsappGroup={!!whatsappGroupId || teamHasWhatsAppGroup}
+                    onChange={(v) => intervalsField.handleChange(v)}
+                    onTargetChange={(v) => targetField.handleChange(v)}
+                    reminderTarget={targetField.state.value}
+                    value={intervalsField.state.value}
+                  />
+                )}
+              </form.Field>
+            )}
+          </form.Field>
         )}
-      </form.Field>
+      </form.Subscribe>
       <FormActions
         onCancel={() => onOpenChange(false)}
         submitLabel={isEdit ? "Save" : "Create"}

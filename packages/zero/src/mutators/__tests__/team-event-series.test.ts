@@ -57,6 +57,7 @@ const SERIES_BASE = {
   rsvpPollLeadMinutes: 4320,
   reminderIntervals: [60, 1440],
   whatsappGroupId: "wg-1",
+  reminderTarget: "group" as const,
   createdBy: "user-1",
   createdAt: NOW,
   updatedAt: NOW,
@@ -88,6 +89,7 @@ describe("buildExceptionInsert", () => {
     expect(result.feedbackEnabled).toBe(true);
     expect(result.postRsvpPoll).toBe(false);
     expect(result.reminderIntervals).toEqual([60, 1440]);
+    expect(result.reminderTarget).toBe("group");
     expect(result.whatsappGroupId).toBe("wg-1");
     expect(result.createdBy).toBe("user-2");
     expect(result.createdAt).toBe(NOW + 1000);
@@ -143,6 +145,34 @@ describe("buildExceptionInsert", () => {
     expect(result.feedbackDeadline).toBeNull();
     expect(result.reminderIntervals).toBeNull();
     expect(result.whatsappGroupId).toBeNull();
+    expect(result.reminderTarget).toBe("group");
+  });
+
+  it("applies reminderTarget override", () => {
+    const result = buildExceptionInsert(
+      "exc-4",
+      SERIES_BASE,
+      "2026-05-08",
+      "user-1",
+      NOW,
+      { reminderTarget: "both" }
+    );
+    expect(result.reminderTarget).toBe("both");
+  });
+
+  it("falls back to 'group' when series has no reminderTarget", () => {
+    const seriesWithoutTarget = {
+      ...SERIES_BASE,
+      reminderTarget: null,
+    };
+    const result = buildExceptionInsert(
+      "exc-5",
+      seriesWithoutTarget,
+      "2026-05-15",
+      "user-1",
+      NOW
+    );
+    expect(result.reminderTarget).toBe("group");
   });
 });
 
@@ -223,6 +253,7 @@ describe("buildUpdateFields", () => {
       postRsvpPoll: true,
       rsvpPollLeadMinutes: 1440,
       reminderIntervals: [30, 60],
+      reminderTarget: "both",
       whatsappGroupId: "wg-2",
     });
 
@@ -238,7 +269,25 @@ describe("buildUpdateFields", () => {
     expect(result.postRsvpPoll).toBe(true);
     expect(result.rsvpPollLeadMinutes).toBe(1440);
     expect(result.reminderIntervals).toEqual([30, 60]);
+    expect(result.reminderTarget).toBe("both");
     expect(result.whatsappGroupId).toBe("wg-2");
     expect(result.updatedAt).toBe(NOW);
+  });
+
+  it("includes reminderTarget when provided", () => {
+    const result = buildUpdateFields({
+      id: "evt-1",
+      now: NOW,
+      reminderTarget: "participants",
+    });
+    expect(result.reminderTarget).toBe("participants");
+  });
+
+  it("omits reminderTarget when not provided", () => {
+    const result = buildUpdateFields({
+      id: "evt-1",
+      now: NOW,
+    });
+    expect(result).not.toHaveProperty("reminderTarget");
   });
 });

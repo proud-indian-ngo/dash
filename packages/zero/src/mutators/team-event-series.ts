@@ -1,4 +1,4 @@
-import type { City } from "@pi-dash/shared/constants";
+import type { City, ReminderTarget } from "@pi-dash/shared/constants";
 import type { TeamEvent } from "../schema";
 import { zql } from "../schema";
 
@@ -43,6 +43,7 @@ export function buildExceptionInsert(
     postRsvpPoll: boolean;
     rsvpPollLeadMinutes: number;
     reminderIntervals: number[] | null;
+    reminderTarget: string;
     whatsappGroupId: string;
     cancelledAt: number | null;
   }> = {}
@@ -69,6 +70,8 @@ export function buildExceptionInsert(
       overrides.rsvpPollLeadMinutes ?? series.rsvpPollLeadMinutes,
     reminderIntervals:
       overrides.reminderIntervals ?? series.reminderIntervals ?? null,
+    reminderTarget:
+      overrides.reminderTarget ?? series.reminderTarget ?? "group",
     whatsappGroupId:
       overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
     createdBy,
@@ -90,6 +93,7 @@ export interface UpdateArgs {
   now: number;
   postRsvpPoll?: boolean;
   reminderIntervals?: number[] | null;
+  reminderTarget?: ReminderTarget;
   rsvpPollLeadMinutes?: number;
   startTime?: number;
   whatsappGroupId?: string;
@@ -121,6 +125,9 @@ export function buildUpdateFields(args: UpdateArgs) {
     }),
     ...(args.reminderIntervals !== undefined && {
       reminderIntervals: args.reminderIntervals ?? null,
+    }),
+    ...(args.reminderTarget !== undefined && {
+      reminderTarget: args.reminderTarget,
     }),
     ...(args.whatsappGroupId !== undefined && {
       whatsappGroupId: args.whatsappGroupId || null,
@@ -183,6 +190,7 @@ export async function updateSeriesThis(
     postRsvpPoll?: boolean;
     rsvpPollLeadMinutes?: number;
     reminderIntervals?: number[] | null;
+    reminderTarget?: ReminderTarget;
     whatsappGroupId?: string;
   },
   existing: TeamEvent,
@@ -214,6 +222,7 @@ export async function updateSeriesThis(
           postRsvpPoll: args.postRsvpPoll,
           rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
           reminderIntervals: args.reminderIntervals ?? undefined,
+          reminderTarget: args.reminderTarget,
           whatsappGroupId: args.whatsappGroupId,
         }
       )
@@ -239,6 +248,7 @@ export async function updateSeriesFollowing(
     postRsvpPoll?: boolean;
     rsvpPollLeadMinutes?: number;
     reminderIntervals?: number[] | null;
+    reminderTarget?: ReminderTarget;
     whatsappGroupId?: string;
     recurrenceRule?: RecurrenceRuleValue;
   },
@@ -282,6 +292,7 @@ export async function updateSeriesFollowing(
       args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
     reminderIntervals:
       args.reminderIntervals ?? existing.reminderIntervals ?? null,
+    reminderTarget: args.reminderTarget ?? existing.reminderTarget ?? "group",
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
     createdBy: userId,
     createdAt: args.now,

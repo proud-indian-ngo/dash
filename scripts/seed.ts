@@ -640,6 +640,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       city: "bangalore" as const,
       members: [adminId, leadId, v2],
       reminderIntervals: [4320, 1440, 120],
+      reminderTarget: "both" as const,
     },
     {
       id: ID.evPlanning,
@@ -684,6 +685,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
         feedbackEnabled: e.feedbackEnabled ?? false,
         feedbackDeadline: e.feedbackEnabled ? future(3) : undefined,
         reminderIntervals: e.reminderIntervals ?? null,
+        reminderTarget: e.reminderTarget ?? "group",
         createdBy: e.creator,
         createdAt: subDays(e.start, 5),
         updatedAt: subDays(e.start, 5),

@@ -81,6 +81,9 @@ export const eventUpdateMutators = {
           if (eventMemberIds.length > 0) {
             const author = await tx.run(zql.user.where("id", ctx.userId).one());
             const authorName = author?.name ?? "Someone";
+            const teamRow = (await tx.run(
+              zql.team.where("id", event.teamId).one()
+            )) as { whatsappGroupId: string | null } | undefined;
             ctx.asyncTasks?.push({
               meta: {
                 mutator: "createEventUpdate",
@@ -95,6 +98,8 @@ export const eventUpdateMutators = {
                   eventName: event.name,
                   eventMemberIds,
                   authorName,
+                  eventWhatsappGroupId: event.whatsappGroupId ?? null,
+                  teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
                   updatedAt: args.now,
                 });
               },
@@ -199,6 +204,9 @@ export const eventUpdateMutators = {
             zql.user.where("id", existing.createdBy).one()
           );
           const authorName = author?.name ?? "Someone";
+          const teamRow = (await tx.run(
+            zql.team.where("id", event.teamId).one()
+          )) as { whatsappGroupId: string | null } | undefined;
           ctx.asyncTasks?.push({
             meta: {
               mutator: "approveEventUpdate",
@@ -212,6 +220,8 @@ export const eventUpdateMutators = {
                 eventName: event.name,
                 eventMemberIds,
                 authorName,
+                eventWhatsappGroupId: event.whatsappGroupId ?? null,
+                teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
                 updatedAt: args.now,
               });
             },

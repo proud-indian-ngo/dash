@@ -625,6 +625,19 @@ function calcTotalExpenses(
   );
 }
 
+function deriveEventMetrics(event: EventDetailProps["event"]) {
+  const feedbackDeadlinePassed =
+    !!event.feedbackDeadline && new Date(event.feedbackDeadline) < new Date();
+  const presentCount = event.members.filter(
+    (m) => m.attendance === "present"
+  ).length;
+  const recurrence = event.recurrenceRule as
+    | { rrule: string; exdates?: string[] }
+    | null
+    | undefined;
+  return { feedbackDeadlinePassed, presentCount, recurrence };
+}
+
 export function EventDetail({
   canApproveUpdates,
   canCancelPast,
@@ -723,8 +736,8 @@ export function EventDetail({
     eventVendorPayments
   );
 
-  const feedbackDeadlinePassed =
-    !!event.feedbackDeadline && new Date(event.feedbackDeadline) < new Date();
+  const { feedbackDeadlinePassed, presentCount, recurrence } =
+    deriveEventMetrics(event);
 
   const immichAlbumUrl = deriveImmichUrl(
     album?.immichAlbumId,
@@ -750,15 +763,6 @@ export function EventDetail({
       toast.error("Couldn't remove volunteer");
     },
   });
-
-  const recurrence = event.recurrenceRule as
-    | { rrule: string; exdates?: string[] }
-    | null
-    | undefined;
-
-  const presentCount = event.members.filter(
-    (m) => m.attendance === "present"
-  ).length;
 
   return (
     <AppErrorBoundary level="section">
@@ -897,6 +901,7 @@ export function EventDetail({
             event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
           reminderIntervals:
             (event.reminderIntervals as number[] | null) ?? null,
+          reminderTarget: (event.reminderTarget as string) ?? "group",
         }}
         onOpenChange={(open) => {
           dialog.onOpenChange(open);
@@ -929,6 +934,7 @@ export function EventDetail({
             event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
           reminderIntervals:
             (event.reminderIntervals as number[] | null) ?? null,
+          reminderTarget: (event.reminderTarget as string) ?? "group",
         }}
         mode="create"
         onOpenChange={dialog.onOpenChange}
