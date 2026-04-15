@@ -7,47 +7,53 @@ allowed-tools: Bash
 
 # Git Commit with Conventional Commits
 
-## Overview
+Write commit messages terse and exact. Why over what. No fluff.
 
-Create standardized, semantic git commits using the Conventional Commits specification. Analyze the actual diff to determine appropriate type, scope, and message.
+## Commit Message Format
 
-## Conventional Commit Format
+**Subject line:**
+- `<type>(<scope>): <imperative summary>` — `<scope>` optional
+- Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `build`, `ci`, `style`, `revert`
+- Imperative mood: "add", "fix", "remove" — not "added", "adds", "adding"
+- ≤50 chars when possible, hard cap 72. No trailing period.
 
-```
-<type>[optional scope]: <description>
+**Body (only if needed):**
+- Skip entirely when subject is self-explanatory
+- Add body only for: non-obvious *why*, breaking changes, migration notes, linked issues
+- Wrap at 72 chars. Bullets `-` not `*`.
+- Reference issues/PRs at end: `Closes #42`, `Refs #17`
 
-[optional body]
+**Breaking changes:**
+- `feat!:` or `BREAKING CHANGE:` footer. Always include body explaining migration.
 
-[optional footer(s)]
-```
+**What NEVER goes in:**
+- "This commit does X", "I", "we", "now", "currently" — the diff says what
+- "As requested by..." — use Co-authored-by trailer
+- "Generated with Claude Code", `Co-Authored-By`, or any AI attribution
+- Emoji (unless project convention requires)
+- Restating the file name when scope already says it
 
-## Commit Types
-
-| Type       | Purpose                        |
-| ---------- | ------------------------------ |
-| `feat`     | New feature                    |
-| `fix`      | Bug fix                        |
-| `docs`     | Documentation only             |
-| `style`    | Formatting/style (no logic)    |
-| `refactor` | Code refactor (no feature/fix) |
-| `perf`     | Performance improvement        |
-| `test`     | Add/update tests               |
-| `build`    | Build system/dependencies      |
-| `ci`       | CI/config changes              |
-| `chore`    | Maintenance/misc               |
-| `revert`   | Revert commit                  |
-
-## Breaking Changes
+## Examples
 
 ```
-# Exclamation mark after type/scope
-feat!: remove deprecated endpoint
+feat(api): add GET /users/:id/profile
 
-# BREAKING CHANGE footer
-feat: allow config to extend other configs
+Mobile client needs profile data without full user payload
+to reduce LTE bandwidth on cold-launch screens.
 
-BREAKING CHANGE: `extends` key behavior changed
+Closes #128
 ```
+
+```
+feat(api)!: rename /v1/orders to /v1/checkout
+
+BREAKING CHANGE: clients on /v1/orders must migrate to /v1/checkout
+before 2026-06-01. Old route returns 410 after that date.
+```
+
+## Auto-Clarity
+
+Always include body for: breaking changes, security fixes, data migrations, anything reverting a prior commit. Never compress these into subject-only.
 
 ## Workflow
 
@@ -66,8 +72,6 @@ git status --porcelain
 
 ### 2. Stage Files (if needed)
 
-If nothing is staged or you want to group changes differently:
-
 ```bash
 # Stage specific files
 git add path/to/file1 path/to/file2
@@ -75,22 +79,13 @@ git add path/to/file1 path/to/file2
 # Stage by pattern
 git add *.test.*
 git add src/components/*
-
-# Interactive staging
-git add -p
 ```
 
 **Never commit secrets** (.env, credentials.json, private keys).
 
-### 3. Generate Commit Message
+### 3. Generate & Execute
 
-Analyze the diff to determine:
-
-- **Type**: What kind of change is this?
-- **Scope**: What area/module is affected?
-- **Description**: One-line summary of what changed (present tense, imperative mood, <72 chars)
-
-### 4. Execute Commit
+Analyze the diff to determine type, scope, description. One logical change per commit.
 
 ```bash
 # Single line
@@ -106,14 +101,6 @@ git commit -m "$(cat <<'EOF'
 EOF
 )"
 ```
-
-## Best Practices
-
-- One logical change per commit
-- Present tense: "add" not "added"
-- Imperative mood: "fix bug" not "fixes bug"
-- Reference issues: `Closes #123`, `Refs #456`
-- Keep description under 72 characters
 
 ## Git Safety Protocol
 
