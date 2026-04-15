@@ -32,6 +32,7 @@ import {
 import { appConfig } from "@pi-dash/db/schema/app-config";
 import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
+import { center, centerCoordinator } from "@pi-dash/db/schema/center";
 import {
   eventFeedback,
   eventFeedbackSubmission,
@@ -52,6 +53,7 @@ import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
+import { classEventStudent, student } from "@pi-dash/db/schema/student";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import {
@@ -195,6 +197,43 @@ const ID = {
   advH01: "019d52c2-7261-7dce-b0ee-e24af4242ec9",
   advH02: "019d52c2-7261-7dce-b0ee-e24b84bd3e7e",
   advH03: "019d52c2-7261-7dce-b0ee-e24ccaf3bcb2",
+  // Centers
+  centerJayanagar: "019d52c2-7262-7d00-a000-c00000000001",
+  centerIndiranagar: "019d52c2-7262-7d00-a000-c00000000002",
+  centerKoramangala: "019d52c2-7262-7d00-a000-c00000000003",
+  // Center coordinators
+  cc01: "019d52c2-7262-7d00-a000-cc0000000001",
+  cc02: "019d52c2-7262-7d00-a000-cc0000000002",
+  // Students (15 total, 5 per center)
+  st01: "019d52c2-7262-7d00-a000-550000000001",
+  st02: "019d52c2-7262-7d00-a000-550000000002",
+  st03: "019d52c2-7262-7d00-a000-550000000003",
+  st04: "019d52c2-7262-7d00-a000-550000000004",
+  st05: "019d52c2-7262-7d00-a000-550000000005",
+  st06: "019d52c2-7262-7d00-a000-550000000006",
+  st07: "019d52c2-7262-7d00-a000-550000000007",
+  st08: "019d52c2-7262-7d00-a000-550000000008",
+  st09: "019d52c2-7262-7d00-a000-550000000009",
+  st10: "019d52c2-7262-7d00-a000-55000000000a",
+  st11: "019d52c2-7262-7d00-a000-55000000000b",
+  st12: "019d52c2-7262-7d00-a000-55000000000c",
+  st13: "019d52c2-7262-7d00-a000-55000000000d",
+  st14: "019d52c2-7262-7d00-a000-55000000000e",
+  st15: "019d52c2-7262-7d00-a000-55000000000f",
+  // Class events
+  evClassMathJN: "019d52c2-7262-7d00-a000-e10000000001",
+  evClassEngIN: "019d52c2-7262-7d00-a000-e10000000002",
+  // Class event students (enrollment)
+  ces01: "019d52c2-7262-7d00-a000-ce0000000001",
+  ces02: "019d52c2-7262-7d00-a000-ce0000000002",
+  ces03: "019d52c2-7262-7d00-a000-ce0000000003",
+  ces04: "019d52c2-7262-7d00-a000-ce0000000004",
+  ces05: "019d52c2-7262-7d00-a000-ce0000000005",
+  ces06: "019d52c2-7262-7d00-a000-ce0000000006",
+  ces07: "019d52c2-7262-7d00-a000-ce0000000007",
+  ces08: "019d52c2-7262-7d00-a000-ce0000000008",
+  ces09: "019d52c2-7262-7d00-a000-ce0000000009",
+  ces10: "019d52c2-7262-7d00-a000-ce000000000a",
 } as const;
 
 // Second batch of IDs for vendors, scheduled messages, etc.
@@ -1778,6 +1817,275 @@ async function seedAppConfig(): Promise<void> {
   log(`${configs.length} config entries ready`);
 }
 
+// ── 14. Centers, Students & Class Events ──────────────────────────────────────
+
+async function seedCentersAndStudents(
+  userMap: Map<string, string>
+): Promise<void> {
+  const adminId = getUser(userMap, "admin@pi-dash.dev");
+  const leadId = getUser(userMap, "lead@pi-dash.dev");
+  const v1 = getUser(userMap, "volunteer1@pi-dash.dev");
+
+  // Centers
+  const centers = [
+    {
+      id: ID.centerJayanagar,
+      name: "Jayanagar Center",
+      city: "bangalore" as const,
+      address: "4th Block, Jayanagar, Bangalore",
+    },
+    {
+      id: ID.centerIndiranagar,
+      name: "Indiranagar Center",
+      city: "bangalore" as const,
+      address: "100 Feet Road, Indiranagar, Bangalore",
+    },
+    {
+      id: ID.centerKoramangala,
+      name: "Koramangala Center",
+      city: "bangalore" as const,
+      address: "5th Block, Koramangala, Bangalore",
+    },
+  ];
+
+  for (const c of centers) {
+    await db
+      .insert(center)
+      .values({
+        id: c.id,
+        name: c.name,
+        city: c.city,
+        address: c.address,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing();
+  }
+  log(`${centers.length} centers ready`);
+
+  // Center coordinators
+  await db
+    .insert(centerCoordinator)
+    .values({
+      id: ID.cc01,
+      centerId: ID.centerJayanagar,
+      userId: v1,
+      assignedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(centerCoordinator)
+    .values({
+      id: ID.cc02,
+      centerId: ID.centerIndiranagar,
+      userId: leadId,
+      assignedAt: now,
+    })
+    .onConflictDoNothing();
+  log("2 center coordinators ready");
+
+  // Students (5 per center)
+  const students = [
+    // Jayanagar
+    {
+      id: ID.st01,
+      name: "Aarav Sharma",
+      dob: new Date("2015-03-12"),
+      gender: "male" as const,
+      centerId: ID.centerJayanagar,
+    },
+    {
+      id: ID.st02,
+      name: "Diya Patel",
+      dob: new Date("2014-07-22"),
+      gender: "female" as const,
+      centerId: ID.centerJayanagar,
+    },
+    {
+      id: ID.st03,
+      name: "Vivaan Kumar",
+      dob: new Date("2015-11-05"),
+      gender: "male" as const,
+      centerId: ID.centerJayanagar,
+    },
+    {
+      id: ID.st04,
+      name: "Anaya Reddy",
+      dob: new Date("2014-01-18"),
+      gender: "female" as const,
+      centerId: ID.centerJayanagar,
+    },
+    {
+      id: ID.st05,
+      name: "Reyansh Gupta",
+      dob: new Date("2016-06-30"),
+      gender: "male" as const,
+      centerId: ID.centerJayanagar,
+    },
+    // Indiranagar
+    {
+      id: ID.st06,
+      name: "Saanvi Nair",
+      dob: new Date("2015-09-14"),
+      gender: "female" as const,
+      centerId: ID.centerIndiranagar,
+    },
+    {
+      id: ID.st07,
+      name: "Arjun Iyer",
+      dob: new Date("2014-04-08"),
+      gender: "male" as const,
+      centerId: ID.centerIndiranagar,
+    },
+    {
+      id: ID.st08,
+      name: "Ishaan Menon",
+      dob: new Date("2015-12-25"),
+      gender: "male" as const,
+      centerId: ID.centerIndiranagar,
+    },
+    {
+      id: ID.st09,
+      name: "Myra Desai",
+      dob: new Date("2016-02-11"),
+      gender: "female" as const,
+      centerId: ID.centerIndiranagar,
+    },
+    {
+      id: ID.st10,
+      name: "Kabir Singh",
+      dob: new Date("2014-08-03"),
+      gender: "male" as const,
+      centerId: ID.centerIndiranagar,
+    },
+    // Koramangala
+    {
+      id: ID.st11,
+      name: "Anika Rao",
+      dob: new Date("2015-05-19"),
+      gender: "female" as const,
+      centerId: ID.centerKoramangala,
+    },
+    {
+      id: ID.st12,
+      name: "Advaith Hegde",
+      dob: new Date("2014-10-27"),
+      gender: "male" as const,
+      centerId: ID.centerKoramangala,
+    },
+    {
+      id: ID.st13,
+      name: "Zara Khan",
+      dob: new Date("2016-01-06"),
+      gender: "female" as const,
+      centerId: ID.centerKoramangala,
+    },
+    {
+      id: ID.st14,
+      name: "Vihaan Joshi",
+      dob: new Date("2015-07-15"),
+      gender: "male" as const,
+      centerId: ID.centerKoramangala,
+    },
+    {
+      id: ID.st15,
+      name: "Prisha Verma",
+      dob: new Date("2014-12-09"),
+      gender: "female" as const,
+      centerId: ID.centerKoramangala,
+    },
+  ];
+
+  for (const s of students) {
+    await db
+      .insert(student)
+      .values({
+        id: s.id,
+        name: s.name,
+        dateOfBirth: s.dob,
+        gender: s.gender,
+        centerId: s.centerId,
+        city: "bangalore",
+        notes: null,
+        isActive: true,
+        createdBy: adminId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing();
+  }
+  log(`${students.length} students ready`);
+
+  // Class events (weekly recurring, linked to Teaching team + centers)
+  const classEvents = [
+    {
+      id: ID.evClassMathJN,
+      teamId: ID.teamTeaching,
+      name: "Saturday Math Class",
+      centerId: ID.centerJayanagar,
+      studentIds: [ID.st01, ID.st02, ID.st03, ID.st04, ID.st05],
+      cesIds: [ID.ces01, ID.ces02, ID.ces03, ID.ces04, ID.ces05],
+    },
+    {
+      id: ID.evClassEngIN,
+      teamId: ID.teamTeaching,
+      name: "Saturday English Class",
+      centerId: ID.centerIndiranagar,
+      studentIds: [ID.st06, ID.st07, ID.st08, ID.st09, ID.st10],
+      cesIds: [ID.ces06, ID.ces07, ID.ces08, ID.ces09, ID.ces10],
+    },
+  ];
+
+  for (const ce of classEvents) {
+    await db
+      .insert(teamEvent)
+      .values({
+        id: ce.id,
+        teamId: ce.teamId,
+        type: "class",
+        name: ce.name,
+        description: `Weekly ${ce.name.toLowerCase()} for children`,
+        location: null,
+        city: "bangalore",
+        startTime: past(7), // last Saturday
+        endTime: new Date(past(7).getTime() + 2 * 3_600_000), // 2 hours
+        isPublic: false,
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=SA" },
+        seriesId: null,
+        originalDate: null,
+        cancelledAt: null,
+        feedbackEnabled: false,
+        feedbackDeadline: null,
+        postRsvpPoll: false,
+        rsvpPollLeadMinutes: 4320,
+        reminderIntervals: [60, 1440],
+        whatsappGroupId: null,
+        centerId: ce.centerId,
+        createdBy: adminId,
+        createdAt: past(30),
+        updatedAt: past(30),
+      })
+      .onConflictDoNothing();
+
+    // Enroll students
+    for (let i = 0; i < ce.studentIds.length; i++) {
+      await db
+        .insert(classEventStudent)
+        .values({
+          id: ce.cesIds[i],
+          eventId: ce.id,
+          studentId: ce.studentIds[i],
+          attendance: i < 3 ? "present" : null, // first 3 students marked present
+          attendanceMarkedAt: i < 3 ? past(7) : null,
+          attendanceMarkedBy: i < 3 ? leadId : null,
+        })
+        .onConflictDoNothing();
+    }
+  }
+  log(`${classEvents.length} class events with enrolled students ready`);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -1791,6 +2099,7 @@ async function main(): Promise<void> {
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);
+  await seedCentersAndStudents(userMap);
   await seedEvents(userMap);
   await seedEventRsvp(userMap);
   await seedEventExtras(userMap);

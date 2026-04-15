@@ -1,4 +1,5 @@
-import { cityValues } from "@pi-dash/shared/constants";
+import type { EventType } from "@pi-dash/shared/constants";
+import { cityValues, eventTypeValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
@@ -42,6 +43,8 @@ const eventFormSchema = z.object({
     .optional()
     .refine((d): d is Date => d != null, "Start time is required"),
   endTime: z.date().optional(),
+  type: z.enum(eventTypeValues),
+  centerId: z.string().optional(),
   isPublic: z.boolean(),
   rrule: z.string().optional(),
   excludeRules: z.array(z.string()).optional(),
@@ -63,7 +66,12 @@ const endTimeAfterStartTime = (data: EventFormValues) =>
   !(data.endTime && data.startTime) || data.endTime > data.startTime;
 
 function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
-  const withEndTimeCheck = eventFormSchema.refine(endTimeAfterStartTime, {
+  const withCenterCheck = eventFormSchema.refine(
+    (data) =>
+      data.type !== "class" || (data.centerId && data.centerId.length > 0),
+    { message: "Center is required for class events", path: ["centerId"] }
+  );
+  const withEndTimeCheck = withCenterCheck.refine(endTimeAfterStartTime, {
     message: "End time must be after start time",
     path: ["endTime"],
   });
@@ -79,6 +87,7 @@ function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface InitialValues {
+  centerId: string | null;
   city: string | null;
   description: string | null;
   endTime: number | null;
@@ -98,6 +107,7 @@ interface InitialValues {
   rsvpPollLeadMinutes: number;
   seriesId: string | null;
   startTime: number;
+  type: string | null;
   whatsappGroupId: string | null;
 }
 
@@ -121,6 +131,12 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     endTime: initialValues?.endTime
       ? new Date(initialValues.endTime)
       : undefined,
+    type:
+      initialValues?.type &&
+      (eventTypeValues as readonly string[]).includes(initialValues.type)
+        ? (initialValues.type as EventType)
+        : "event",
+    centerId: initialValues?.centerId ?? "",
     isPublic: initialValues?.isPublic ?? false,
     rrule: initialValues?.recurrenceRule?.rrule ?? "",
     excludeRules: initialValues?.recurrenceRule?.excludeRules ?? [],
@@ -152,6 +168,8 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
     city: value.city,
+    type: value.type,
+    centerId: value.centerId || undefined,
     now: Date.now(),
     startTime: getStartTimeEpoch(value),
     endTime: value.endTime?.getTime(),
@@ -180,6 +198,8 @@ function buildUpdateSeriesArgs(
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
     city: value.city,
+    type: value.type,
+    centerId: value.centerId || undefined,
     now: Date.now(),
     startTime: getStartTimeEpoch(value),
     endTime: value.endTime?.getTime(),
@@ -227,6 +247,8 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     description: value.description?.trim() || undefined,
     location: value.location?.trim() || undefined,
     city: value.city,
+    type: value.type,
+    centerId: value.centerId || undefined,
     startTime: getStartTimeEpoch(value),
     endTime: value.endTime?.getTime(),
     isPublic: value.isPublic,
@@ -309,6 +331,7 @@ function EventFormContent({
   const zero = useZero();
   const { hasPermission } = useApp();
   const canBackdate = hasPermission("events.create_backdated");
+  const [centers] = useQuery(queries.center.all());
 
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
@@ -346,8 +369,38 @@ function EventFormContent({
     },
   });
 
+  const centerOptions = (centers ?? []).map(
+    (c: { id: string; name: string }) => ({
+      label: c.name,
+      value: c.id,
+    })
+  );
+
   return (
     <FormLayout form={form}>
+      <SelectField
+        isRequired
+        label="Type"
+        name="type"
+        options={[
+          { label: "Event", value: "event" },
+          { label: "Class", value: "class" },
+        ]}
+        placeholder="Select event type"
+      />
+      <form.Subscribe selector={(state) => state.values.type}>
+        {(eventType) =>
+          eventType === "class" ? (
+            <SelectField
+              isRequired
+              label="Center"
+              name="centerId"
+              options={centerOptions}
+              placeholder="Select center"
+            />
+          ) : null
+        }
+      </form.Subscribe>
       <InputField
         isRequired
         label="Name"
@@ -388,7 +441,13 @@ function EventFormContent({
         )}
       </form.Subscribe>
       <DateTimeField label="End Time" name="endTime" />
-      <CheckboxField label="Public" name="isPublic" />
+      <form.Subscribe selector={(state) => state.values.type}>
+        {(eventType) =>
+          eventType === "class" ? null : (
+            <CheckboxField label="Public" name="isPublic" />
+          )
+        }
+      </form.Subscribe>
       {/* Show recurrence builder: on create, scope edits for "all"/"following", or editing a series parent directly */}
       {(!isEdit ||
         editScope === "all" ||
@@ -432,8 +491,16 @@ function EventFormContent({
         label="Enable anonymous feedback"
         name="feedbackEnabled"
       />
-      <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
-        {(whatsappGroupId) => {
+      <form.Subscribe
+        selector={(state) => ({
+          type: state.values.type,
+          whatsappGroupId: state.values.whatsappGroupId,
+        })}
+      >
+        {({ type, whatsappGroupId }) => {
+          if (type === "class") {
+            return null;
+          }
           const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
           return (
             <CheckboxField

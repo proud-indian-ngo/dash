@@ -40,6 +40,7 @@ describe("buildTruncatedRRule", () => {
 const SERIES_BASE = {
   id: "series-1",
   teamId: "team-1",
+  type: "event" as const,
   name: "Weekly Meeting",
   description: "Team standup",
   location: "Office",
@@ -57,6 +58,7 @@ const SERIES_BASE = {
   rsvpPollLeadMinutes: 4320,
   reminderIntervals: [60, 1440],
   whatsappGroupId: "wg-1",
+  centerId: null,
   createdBy: "user-1",
   createdAt: NOW,
   updatedAt: NOW,

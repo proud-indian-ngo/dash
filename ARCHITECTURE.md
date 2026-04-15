@@ -154,6 +154,54 @@ The default role for new users and null-role fallbacks is `unoriented_volunteer`
 
 `toBetterAuthRole()` maps custom roles to `admin` or `volunteer` for Better Auth's admin plugin, which expects one of those two values. Custom roles with admin-level permissions map to `admin`; all others map to `volunteer`.
 
+## Class Events & Student Attendance
+
+### Domain Model
+
+A **class event** is a `teamEvent` with `type = "class"`, linked to a **center**. Unlike regular events, class events:
+
+- Are always private (no public flag)
+- Have no WhatsApp group or RSVP poll integration
+- Use student enrollment instead of RSVP
+- Track per-student attendance (present/absent) after the event starts
+
+| Table | Purpose |
+|---|---|
+| `center` | Physical location with name, city, address. Unique constraint on `(name, city)`. |
+| `centerCoordinator` | Links a user to a center as coordinator. |
+| `student` | Child registry — name, DOB, gender, center, active status. `centerId` cascades on delete. |
+| `classEventStudent` | Enrollment + attendance link between event and student. Unique on `(eventId, studentId)`. |
+
+### Permissions & Scoping
+
+| Permission | Purpose |
+|---|---|
+| `centers.manage` | Create/edit/delete centers, assign coordinators (admin-only) |
+| `centers.view` | List/view centers (scoped to user's team's class events or assigned centers) |
+| `students.manage` | Create/edit/deactivate students (admin-only) |
+| `students.view` | List/view students (scoped to user's centers) |
+| `events.manage_attendance` | Mark attendance (team lead or team members on class events) |
+
+Scoped queries in `packages/zero/src/queries/center.ts` and `student.ts` filter results based on the user's team membership and coordinator assignments.
+
+### Center Coordinators
+
+A `centerCoordinator` assignment grants `CENTER_COORDINATOR_PERMISSIONS` (defined in `packages/db/src/permissions.ts`):
+
+- `events.view_own` — view events their team runs
+- `students.view` — view students at their center
+- `centers.view` — view their center
+
+Assigned manually by admin via the center detail page.
+
+### Attendance Flow
+
+1. Admin creates a class event, selecting a center
+2. Students at that center are enrolled (via `classEventStudent`)
+3. For recurring class events, enrollment is copied to each materialized exception
+4. After the event starts, team leads/members can mark individual students present/absent or use "Mark All Present"
+5. Attendance records preserve an audit trail (`attendanceMarkedBy`, `attendanceMarkedAt`)
+
 ## Recurring Events (RRULE)
 
 ### Data Model

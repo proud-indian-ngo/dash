@@ -86,6 +86,10 @@ All paths are relative to project root.
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
 | `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
+| `routes/_app/centers/index.tsx` | Centers list (`centers.manage` permission guard) |
+| `routes/_app/centers/$id.tsx` | Center detail (coordinators, students) |
+| `routes/_app/students/index.tsx` | Students list (`students.manage` permission guard) |
+| `routes/_app/students/$id.tsx` | Student detail |
 | `routes/_app/analytics.tsx` | Analytics dashboard with charts (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
@@ -123,7 +127,9 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
-| `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu |
+| `components/centers/` | centers-table, center-detail, center-form-dialog, add-coordinator-dialog |
+| `components/students/` | students-table, student-detail, student-form-dialog |
+| `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, class-student-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |

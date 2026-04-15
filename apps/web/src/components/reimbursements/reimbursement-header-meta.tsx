@@ -1,3 +1,4 @@
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import { format } from "date-fns";
 import { LONG_DATE } from "@/lib/date-formats";
 import {
@@ -12,7 +13,7 @@ export function ReimbursementHeaderMeta({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-      {request.city ? <span>{request.city}</span> : null}
+      {request.city ? <span>{formatEnumLabel(request.city)}</span> : null}
       {isReimbursement(request) ? (
         <span>{format(request.expenseDate, LONG_DATE)}</span>
       ) : null}

@@ -2,6 +2,8 @@ import { defineQueries } from "@rocicorp/zero";
 import { advancePaymentQueries } from "./queries/advance-payment";
 import { appConfigQueries } from "./queries/app-config";
 import { bankAccountQueries } from "./queries/bank-account";
+import { centerQueries } from "./queries/center";
+import { classEventStudentQueries } from "./queries/class-event-student";
 import { eventFeedbackQueries } from "./queries/event-feedback";
 import { eventInterestQueries } from "./queries/event-interest";
 import {
@@ -13,6 +15,7 @@ import { expenseCategoryQueries } from "./queries/expense-category";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { reimbursementQueries } from "./queries/reimbursement";
 import { scheduledMessageQueries } from "./queries/scheduled-message";
+import { studentQueries } from "./queries/student";
 import { teamQueries } from "./queries/team";
 import { teamEventQueries } from "./queries/team-event";
 import { userQueries } from "./queries/user";
@@ -25,9 +28,12 @@ export const queries = defineQueries({
   user: userQueries,
   notificationPreference: notificationPreferenceQueries,
   bankAccount: bankAccountQueries,
+  center: centerQueries,
+  classEventStudent: classEventStudentQueries,
   expenseCategory: expenseCategoryQueries,
   reimbursement: reimbursementQueries,
   scheduledMessage: scheduledMessageQueries,
+  student: studentQueries,
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,
   eventFeedback: eventFeedbackQueries,

@@ -33,8 +33,10 @@ import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as AppVendorPaymentsIndexRouteImport } from './routes/_app/vendor-payments/index'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
+import { Route as AppStudentsIndexRouteImport } from './routes/_app/students/index'
 import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbursements/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
+import { Route as AppCentersIndexRouteImport } from './routes/_app/centers/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
@@ -46,9 +48,11 @@ import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachm
 import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-payments/new'
 import { Route as AppVendorPaymentsIdRouteImport } from './routes/_app/vendor-payments/$id'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
+import { Route as AppStudentsIdRouteImport } from './routes/_app/students/$id'
 import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
 import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimbursements/$id'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
+import { Route as AppCentersIdRouteImport } from './routes/_app/centers/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
 import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
@@ -175,6 +179,11 @@ const AppTeamsIndexRoute = AppTeamsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTeamsRouteRoute,
 } as any)
+const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
+  id: '/students/',
+  path: '/students/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppReimbursementsIndexRoute = AppReimbursementsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -184,6 +193,11 @@ const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppEventsRouteRoute,
+} as any)
+const AppCentersIndexRoute = AppCentersIndexRouteImport.update({
+  id: '/centers/',
+  path: '/centers/',
+  getParentRoute: () => AppRoute,
 } as any)
 const ApiZeroQueryRoute = ApiZeroQueryRouteImport.update({
   id: '/api/zero/query',
@@ -240,6 +254,11 @@ const AppTeamsIdRoute = AppTeamsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppTeamsRouteRoute,
 } as any)
+const AppStudentsIdRoute = AppStudentsIdRouteImport.update({
+  id: '/students/$id',
+  path: '/students/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppReimbursementsNewRoute = AppReimbursementsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -254,6 +273,11 @@ const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AppEventsRouteRoute,
+} as any)
+const AppCentersIdRoute = AppCentersIdRouteImport.update({
+  id: '/centers/$id',
+  path: '/centers/$id',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRolesRouteRoute = AppSettingsRolesRouteRouteImport.update({
   id: '/settings/roles',
@@ -311,9 +335,11 @@ export interface FileRoutesByFullPath {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
+  '/centers/$id': typeof AppCentersIdRoute
   '/events/$id': typeof AppEventsIdRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/students/$id': typeof AppStudentsIdRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -325,8 +351,10 @@ export interface FileRoutesByFullPath {
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
+  '/centers/': typeof AppCentersIndexRoute
   '/events/': typeof AppEventsIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
+  '/students/': typeof AppStudentsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
@@ -352,9 +380,11 @@ export interface FileRoutesByTo {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
+  '/centers/$id': typeof AppCentersIdRoute
   '/events/$id': typeof AppEventsIdRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/students/$id': typeof AppStudentsIdRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -366,8 +396,10 @@ export interface FileRoutesByTo {
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
+  '/centers': typeof AppCentersIndexRoute
   '/events': typeof AppEventsIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
+  '/students': typeof AppStudentsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
@@ -402,9 +434,11 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
+  '/_app/centers/$id': typeof AppCentersIdRoute
   '/_app/events/$id': typeof AppEventsIdRoute
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/_app/students/$id': typeof AppStudentsIdRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/_app/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -416,8 +450,10 @@ export interface FileRoutesById {
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
+  '/_app/centers/': typeof AppCentersIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
+  '/_app/students/': typeof AppStudentsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
@@ -451,9 +487,11 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/settings/roles'
+    | '/centers/$id'
     | '/events/$id'
     | '/reimbursements/$id'
     | '/reimbursements/new'
+    | '/students/$id'
     | '/teams/$id'
     | '/vendor-payments/$id'
     | '/vendor-payments/new'
@@ -465,8 +503,10 @@ export interface FileRouteTypes {
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
+    | '/centers/'
     | '/events/'
     | '/reimbursements/'
+    | '/students/'
     | '/teams/'
     | '/vendor-payments/'
     | '/vendors/'
@@ -492,9 +532,11 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/avatar'
     | '/api/health'
+    | '/centers/$id'
     | '/events/$id'
     | '/reimbursements/$id'
     | '/reimbursements/new'
+    | '/students/$id'
     | '/teams/$id'
     | '/vendor-payments/$id'
     | '/vendor-payments/new'
@@ -506,8 +548,10 @@ export interface FileRouteTypes {
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
+    | '/centers'
     | '/events'
     | '/reimbursements'
+    | '/students'
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
@@ -541,9 +585,11 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/_app/'
     | '/_app/settings/roles'
+    | '/_app/centers/$id'
     | '/_app/events/$id'
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
+    | '/_app/students/$id'
     | '/_app/teams/$id'
     | '/_app/vendor-payments/$id'
     | '/_app/vendor-payments/new'
@@ -555,8 +601,10 @@ export interface FileRouteTypes {
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
+    | '/_app/centers/'
     | '/_app/events/'
     | '/_app/reimbursements/'
+    | '/_app/students/'
     | '/_app/teams/'
     | '/_app/vendor-payments/'
     | '/_app/vendors/'
@@ -757,6 +805,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsIndexRouteImport
       parentRoute: typeof AppTeamsRouteRoute
     }
+    '/_app/students/': {
+      id: '/_app/students/'
+      path: '/students'
+      fullPath: '/students/'
+      preLoaderRoute: typeof AppStudentsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/reimbursements/': {
       id: '/_app/reimbursements/'
       path: '/'
@@ -770,6 +825,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/'
       preLoaderRoute: typeof AppEventsIndexRouteImport
       parentRoute: typeof AppEventsRouteRoute
+    }
+    '/_app/centers/': {
+      id: '/_app/centers/'
+      path: '/centers'
+      fullPath: '/centers/'
+      preLoaderRoute: typeof AppCentersIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/api/zero/query': {
       id: '/api/zero/query'
@@ -848,6 +910,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsIdRouteImport
       parentRoute: typeof AppTeamsRouteRoute
     }
+    '/_app/students/$id': {
+      id: '/_app/students/$id'
+      path: '/students/$id'
+      fullPath: '/students/$id'
+      preLoaderRoute: typeof AppStudentsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/reimbursements/new': {
       id: '/_app/reimbursements/new'
       path: '/new'
@@ -868,6 +937,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$id'
       preLoaderRoute: typeof AppEventsIdRouteImport
       parentRoute: typeof AppEventsRouteRoute
+    }
+    '/_app/centers/$id': {
+      id: '/_app/centers/$id'
+      path: '/centers/$id'
+      fullPath: '/centers/$id'
+      preLoaderRoute: typeof AppCentersIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/settings/roles': {
       id: '/_app/settings/roles'
@@ -1025,6 +1101,10 @@ interface AppRouteChildren {
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
+  AppCentersIdRoute: typeof AppCentersIdRoute
+  AppStudentsIdRoute: typeof AppStudentsIdRoute
+  AppCentersIndexRoute: typeof AppCentersIndexRoute
+  AppStudentsIndexRoute: typeof AppStudentsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -1040,6 +1120,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
+  AppCentersIdRoute: AppCentersIdRoute,
+  AppStudentsIdRoute: AppStudentsIdRoute,
+  AppCentersIndexRoute: AppCentersIndexRoute,
+  AppStudentsIndexRoute: AppStudentsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -1,5 +1,6 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import type { User } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -63,9 +64,7 @@ export function createUserColumns(
         return roleName === "admin" ? (
           <Badge variant="info-outline">Admin</Badge>
         ) : (
-          <Badge className="capitalize" variant="secondary">
-            {roleName.replace(/_/g, " ")}
-          </Badge>
+          <Badge variant="secondary">{formatEnumLabel(roleName)}</Badge>
         );
       },
       meta: {

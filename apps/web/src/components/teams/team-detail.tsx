@@ -155,6 +155,8 @@ function buildDuplicateInitialValues(row: EventDisplayRow) {
     isPublic: row.event.isPublic ?? false,
     location: row.event.location,
     city: row.event.city,
+    type: row.event.type ?? "event",
+    centerId: row.event.centerId ?? null,
     seriesId: null,
     recurrenceRule: null,
     startTime: row.startTime,
@@ -177,6 +179,8 @@ function buildEditInitialValues(row: EventDisplayRow) {
     isPublic: row.event.isPublic ?? false,
     location: row.event.location,
     city: row.event.city,
+    type: row.event.type ?? "event",
+    centerId: row.event.centerId ?? null,
     seriesId: row.seriesId,
     recurrenceRule: row.event.recurrenceRule as {
       rrule: string;

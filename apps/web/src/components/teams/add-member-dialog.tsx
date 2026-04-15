@@ -102,6 +102,7 @@ function AddMemberFormContent({
         {(field) => (
           <>
             <UserPicker
+              emptyMessage="No eligible users found."
               excludeUserIds={existingUserIds}
               onValueChange={(ids) => field.handleChange(ids)}
               users={eligibleUsers}

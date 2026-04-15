@@ -33,6 +33,7 @@ export const POST_EVENT_SENTINELS = {
   feedbackNudge: -360,
   attendanceReminder: -1440,
   photoNudge: -1441,
+  classAttendanceReminder: -1442,
 } as const;
 
 /** Convert minutes to a human-readable label like "in 1 day" or "in 2 hours". */

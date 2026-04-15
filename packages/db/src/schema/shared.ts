@@ -1,6 +1,7 @@
 import {
   attachmentTypeValues,
   cityValues,
+  eventTypeValues,
   historyActionValues,
 } from "@pi-dash/shared/constants";
 import { pgEnum } from "drizzle-orm/pg-core";
@@ -13,3 +14,4 @@ export const attachmentTypeEnum = pgEnum(
   attachmentTypeValues
 );
 export const historyActionEnum = pgEnum("history_action", historyActionValues);
+export const eventTypeEnum = pgEnum("event_type", eventTypeValues);

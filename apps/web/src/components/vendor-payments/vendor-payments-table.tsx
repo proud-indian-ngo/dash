@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatEnumLabel } from "@pi-dash/shared/constants";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
@@ -139,8 +140,8 @@ export function VendorPaymentsTable({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
-          {row.original.city ?? "—"}
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.city ? formatEnumLabel(row.original.city) : "—"}
         </span>
       ),
       meta: { headerTitle: "City", skeleton: SKELETON_TEXT },

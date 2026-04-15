@@ -3,12 +3,14 @@ import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
+import { center, centerCoordinator } from "@pi-dash/db/schema/center";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
   reimbursement,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { classEventStudent, student } from "@pi-dash/db/schema/student";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
@@ -31,7 +33,7 @@ interface TestUser {
   email: string;
   name: string;
   password: string;
-  role: "super_admin" | "volunteer";
+  role: "super_admin" | "volunteer" | "center_coordinator";
 }
 
 const TEST_USERS: TestUser[] = [
@@ -45,7 +47,7 @@ const TEST_USERS: TestUser[] = [
     email: process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test",
     password: process.env.VOLUNTEER_PASSWORD ?? "TestVolunteer123!",
     name: "Test Volunteer",
-    role: "volunteer",
+    role: "center_coordinator",
   },
 ];
 
@@ -218,6 +220,9 @@ const SEED_EVENT_NAME = "E2E Past Event With Pending Update";
 const SEED_PENDING_UPDATE_CONTENT =
   "This is a pending update from a volunteer that needs admin approval.";
 
+const SEED_CENTER_NAME = "E2E Test Center";
+const SEED_STUDENT_NAME_PREFIX = "E2E Student";
+
 async function ensureEventWithPendingUpdate(
   adminUserId: string,
   volunteerUserId: string
@@ -307,6 +312,110 @@ async function ensureEventWithPendingUpdate(
   log("Created E2E team, past event, and pending update");
 }
 
+async function ensureCenterAndStudents(
+  adminUserId: string,
+  volunteerUserId: string
+): Promise<void> {
+  // Check if center already exists
+  const existingCenter = await db.query.center.findFirst({
+    where: (table, ops) => ops.eq(table.name, SEED_CENTER_NAME),
+  });
+  if (existingCenter) {
+    log("E2E Test Center already exists — skipping");
+    return;
+  }
+
+  const now = new Date();
+  const centerId = uuidv7();
+
+  // Create center
+  await db.insert(center).values({
+    id: centerId,
+    name: SEED_CENTER_NAME,
+    city: "bangalore",
+    address: "123 Test Street, Bangalore",
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Assign volunteer as coordinator
+  await db.insert(centerCoordinator).values({
+    id: uuidv7(),
+    centerId,
+    userId: volunteerUserId,
+    assignedAt: now,
+  });
+
+  // Create 3 students
+  const studentIds: string[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const studentId = uuidv7();
+    studentIds.push(studentId);
+    await db.insert(student).values({
+      id: studentId,
+      name: `${SEED_STUDENT_NAME_PREFIX} ${i}`,
+      dateOfBirth: new Date(`201${i}-0${i + 2}-15`),
+      gender: i % 2 === 0 ? "female" : "male",
+      centerId,
+      city: "bangalore",
+      notes: null,
+      isActive: true,
+      createdBy: adminUserId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Find the E2E team (or any team with admin as lead)
+  const existingTeam = await db.query.team.findFirst({
+    where: (table, ops) => ops.eq(table.name, SEED_TEAM_NAME),
+  });
+
+  if (existingTeam) {
+    // Create a class event linked to the center
+    const classEventId = uuidv7();
+    await db.insert(teamEvent).values({
+      id: classEventId,
+      teamId: existingTeam.id,
+      type: "class",
+      name: "E2E Saturday Class",
+      description: "E2E test class event",
+      startTime: subDays(now, 1), // yesterday so attendance can be marked
+      endTime: new Date(subDays(now, 1).getTime() + 2 * 3_600_000),
+      isPublic: false,
+      centerId,
+      createdBy: adminUserId,
+      createdAt: subDays(now, 3),
+      updatedAt: subDays(now, 3),
+    });
+
+    // Add admin as event member
+    await db.insert(teamEventMember).values({
+      id: uuidv7(),
+      eventId: classEventId,
+      userId: adminUserId,
+      addedAt: subDays(now, 3),
+    });
+
+    // Enroll students
+    for (const studentId of studentIds) {
+      await db.insert(classEventStudent).values({
+        id: uuidv7(),
+        eventId: classEventId,
+        studentId,
+        attendance: null,
+        attendanceMarkedAt: null,
+        attendanceMarkedBy: null,
+      });
+    }
+
+    log("Created E2E center, 3 students, class event with enrollment");
+  } else {
+    log("Created E2E center and 3 students (no team found for class event)");
+  }
+}
+
 async function seed(): Promise<void> {
   await syncPermissions();
   log("Synced roles and permissions");
@@ -328,6 +437,7 @@ async function seed(): Promise<void> {
 
   await ensureReimbursement(adminUserId);
   await ensureEventWithPendingUpdate(adminUserId, volunteerUserId);
+  await ensureCenterAndStudents(adminUserId, volunteerUserId);
 }
 
 seed().catch((error: unknown) => {

@@ -1,4 +1,4 @@
-import { cityValues } from "@pi-dash/shared/constants";
+import { cityValues, eventTypeValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   REMINDER_PRESET_MINUTES,
@@ -19,6 +19,7 @@ import {
   cancelSeriesAll,
   cancelSeriesFollowing,
   cancelSeriesThis,
+  copyClassEventStudents,
   ISO_DATE_RE,
   type Tx,
   updateSeriesAll,
@@ -123,6 +124,7 @@ export const teamEventMutators = {
     z.object({
       id: z.string(),
       teamId: z.string(),
+      type: z.enum(eventTypeValues).optional(),
       name: z.string().min(1),
       description: z.string().optional(),
       location: z.string().optional(),
@@ -138,6 +140,7 @@ export const teamEventMutators = {
       postRsvpPoll: z.boolean().optional(),
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
+      centerId: z.string().nullable().optional(),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -165,6 +168,7 @@ export const teamEventMutators = {
       await tx.mutate.teamEvent.insert({
         id: args.id,
         teamId: args.teamId,
+        type: args.type ?? "event",
         name: args.name,
         description: args.description ?? null,
         location: args.location ?? null,
@@ -180,6 +184,7 @@ export const teamEventMutators = {
           args.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
         reminderIntervals: args.reminderIntervals ?? null,
         whatsappGroupId: args.whatsappGroupId ?? null,
+        centerId: args.centerId ?? null,
         seriesId: null,
         originalDate: null,
         cancelledAt: null,
@@ -197,6 +202,7 @@ export const teamEventMutators = {
   update: defineMutator(
     z.object({
       id: z.string(),
+      type: z.enum(eventTypeValues).optional(),
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       location: z.string().optional(),
@@ -211,6 +217,7 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       whatsappGroupId: z.string().optional(),
+      centerId: z.string().nullable().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -405,6 +412,7 @@ export const teamEventMutators = {
       await tx.mutate.teamEvent.insert({
         id: args.id,
         teamId: series.teamId,
+        type: series.type,
         name: series.name,
         description: series.description,
         location: series.location,
@@ -421,10 +429,23 @@ export const teamEventMutators = {
         rsvpPollLeadMinutes: series.rsvpPollLeadMinutes,
         reminderIntervals: series.reminderIntervals,
         whatsappGroupId: series.whatsappGroupId,
+        centerId: series.centerId,
         createdBy: ctx.userId,
         createdAt: args.now,
         updatedAt: args.now,
       });
+
+      // Copy student enrollment from series parent to materialized exception
+      if (series.type === "class") {
+        const { uuidv7 } = await import("uuidv7");
+        try {
+          await copyClassEventStudents(tx, args.seriesId, args.id, uuidv7);
+        } catch (err) {
+          throw new Error(
+            `Failed to copy student enrollment: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
     }
   ),
 
@@ -478,6 +499,7 @@ export const teamEventMutators = {
         args.originalDate &&
         args.newSeriesId
       ) {
+        const { uuidv7 } = await import("uuidv7");
         await updateSeriesFollowing(
           tx,
           {
@@ -486,7 +508,8 @@ export const teamEventMutators = {
             newSeriesId: args.newSeriesId,
           },
           existing,
-          ctx.userId
+          ctx.userId,
+          uuidv7
         );
       }
     }

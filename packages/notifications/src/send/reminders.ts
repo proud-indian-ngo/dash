@@ -378,6 +378,37 @@ export async function notifyAttendanceNotMarked({
   });
 }
 
+interface ClassAttendanceNotMarkedOptions {
+  eventId: string;
+  eventName: string;
+  unmarkedCount: number;
+  userId: string;
+}
+
+export async function notifyClassAttendanceNotMarked({
+  userId,
+  eventName,
+  eventId,
+  unmarkedCount,
+}: ClassAttendanceNotMarkedOptions): Promise<void> {
+  const body = `Student attendance for "${eventName}" has ${unmarkedCount} unmarked — please update it.`;
+  const emailHtml = await renderNotificationEmail({
+    heading: "Student attendance reminder",
+    paragraphs: [body],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "Mark attendance",
+  });
+  await sendMessage({
+    to: userId,
+    title: "📋 Student attendance reminder",
+    body,
+    emailHtml,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `class-attendance-reminder-${eventId}-${userId}`,
+    topic: TOPICS.EVENTS_SCHEDULE,
+  });
+}
+
 interface PhotoUploadNudgeOptions {
   eventId: string;
   eventName: string;
