@@ -20,25 +20,9 @@ args = ["-y", "@upstash/context7-mcp", "--api-key", "${CONTEXT7_API_KEY}"]
 command = "npx"
 args = ["-y", "mcp-remote", "https://mcp.jina.ai/v1", "--header", "Authorization: Bearer ${JINA_API_KEY}"]
 
-[mcp_servers.courier]
-command = "npx"
-args = ["-y", "mcp-remote", "https://mcp.courier.com", "--header", "api_key: ${COURIER_API_KEY}"]
-
-[mcp_servers.grepai]
-command = "grepai"
-args = ["mcp-serve"]
-
 [mcp_servers.hugeicons]
 command = "npx"
 args = ["-y", "@hugeicons/mcp-server"]
-
-[mcp_servers.agentation]
-command = "npx"
-args = ["-y", "agentation-mcp", "server"]
-
-[mcp_servers.chrome-devtools]
-command = "npx"
-args = ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
 
 # --- Global .gitignore Configuration ---
 [gitignore]
