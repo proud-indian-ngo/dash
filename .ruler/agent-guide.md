@@ -1,5 +1,16 @@
 # Agent Guide (Lean)
 
+## RTK — Token-Optimized Tooling
+
+RTK (Rust Token Killer) is installed globally and saves 50%+ tokens on dev operations. Always use `rtk` commands instead of raw equivalents — hooks enforce this in Claude Code, but other agents (pi, codex, etc.) must follow these instructions manually.
+
+- **Text search:** `rtk grep "<pattern>" [path] -t <type>` — never raw `grep`, `rg`, or built-in Grep tools. Flags: `-m 50` (max results), `-l 80` (max line len), `-u` (ultra-compact).
+- **File listing:** `rtk ls [path]` — never raw `ls`.
+- **File reading via Bash:** `rtk read <file>` — never `cat`.
+- **Git:** `rtk git status`, `rtk git diff`, etc.
+- **RTK output is authoritative.** It compresses paths, truncates lines, and groups by file. This is intentional — do not re-run without RTK, do not discard RTK output, do not fall back to raw commands.
+- **Never circumvent RTK.** No `command grep`, `command rg`, `/usr/bin/grep`, or any bypass path.
+
 ## Prime Directives
 
 - Make the smallest correct change.
@@ -20,7 +31,7 @@
 ## Execution Loop
 
 1. Clarify ambiguity, state assumptions/tradeoffs, and define the verification target.
-2. Inspect relevant files with `rg` plus targeted reads.
+2. Inspect relevant files with `rtk grep` plus targeted reads.
 3. Form a minimal plan.
 4. Execute the smallest change set.
 5. Run only necessary checks.
@@ -49,11 +60,7 @@
 - DO NOT: Remove `useMemo`/`useCallback` from shared hooks or third-party component prop boundaries during React Compiler cleanup.
 - INSTEAD: For router tree changes, edit route source files and regenerate through app workflow.
 - INSTEAD: For Zero schema changes, edit Drizzle schema then run `bun run zero:generate`.
-- DO: Follow this search chain for code discovery:
-  1. `grepai_search` first (semantic, intent-based — best for "how does X work?" questions)
-  2. Dedicated `Grep` tool if GrepAI misses or you need exact literal matches
-  3. `bash` with grep/rg only as last resort (piped commands, complex shell patterns)
-- DO NOT: Skip straight to bash grep/rg for code search — try GrepAI and Grep tool first.
+- DO: Follow the search tool policy in the "GrepAI Usage Policy" section below.
 - DO: Use `createRequestLogger()` + `log.set()` / `log.error()` / `log.warn()` / `log.emit()` from `evlog` for server-side error logging. Never use `console.error` on the server.
 - DO NOT: Pass custom fields to `createRequestLogger()` — it only accepts `{ method?, path?, requestId? }`. Use `log.set({ ... })` for context.
 - DO NOT: Pass raw `unknown` to `log.error()` — use `error instanceof Error ? error : String(error)`.
@@ -117,11 +124,18 @@ For deployment and production setup, read `DEPLOYMENT.md`.
 
 ## GrepAI Usage Policy
 
-- **Prefer grepai for discovery.** When exploring unfamiliar code or searching by intent (e.g., "how are users authenticated"), use `grepai_search` before falling back to grep/glob.
-- **Use grep/glob for exact matches.** For known names (function, class, file), use Grep/Glob directly — grepai is for semantic, not literal search.
-- **Use trace tools for impact analysis.** Before modifying shared functions, run `grepai_trace_callers` to find all usage sites. Use `grepai_trace_callees` to understand a function's dependencies.
-- **Use `format: "toon"` and `compact: true`** on all grepai tool calls to minimize token usage.
-- **Use 3-7 word descriptive queries.** Good: "validate user credentials before login". Bad: "auth" or "getUserById".
+- **Pick tool by query type:**
+  - **"I know the name"** → `rtk grep` via Bash (or Glob for file patterns). 100% recall, never misses. Default for known symbols, patterns, regexes.
+  - **"I know the intent"** → `grepai search "<query>" -t -c` first. Use for concept-based discovery ("how does X work?", "what handles Y?"). Then narrow with `rtk grep` once symbols are revealed.
+  - **"I need impact analysis"** → `grepai trace callers/callees` for project-local, direct-call functions. `rtk grep` for external symbols, function-ref patterns, and string-based dispatch.
+- **Do NOT grep for guessed symbol names when exploring by intent.** Start with grepai search. Guessing is slower and misses context. The workflow: **grepai discovers → rtk grep narrows → Read confirms**.
+- **Phrase grepai queries with 4-6 domain-specific nouns.** Good: "approve reimbursement mutator notification" (0.75). Bad: "reimbursement approval flow" (0.30) or single words. Include entity names, action verbs, and layer names (mutator, handler, notification).
+- **Never put known function names into grepai queries** — they don't help semantic search. If you know the symbol, use `rtk grep` directly.
+- **If first grepai query scores < 0.70, rephrase before falling back.** Adding concrete nouns (handler, mutator, notification, schema) dramatically improves results.
+- **grepai trace callers**: ~100% recall, 97% precision for project-local symbols with direct call patterns (e.g., `handleMutationResult`). Returns 0 for: (1) external symbols (evlog, Courier SDK), (2) function-reference patterns, (3) string-based dispatch (`enqueue("job-name")`). Filter out phantom `field.tsx` entries.
+- **grepai trace callees**: ~70% precision (stdlib noise), ~80% recall. Cannot trace external packages.
+- **grepai trace graph**: Same limits as callers+callees. Use `--depth 2`. Returns 0 edges for string-based dispatch.
+- **CLI flags:** Search: `-t -c` (toon + compact). Trace: `-t` only.
 - **Read `project-structure.md` for structure questions.** When you need file paths, route tables, or pattern references, read that file rather than searching.
 
 ## MCP Usage Policy
