@@ -19,6 +19,7 @@ import {
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 
 interface ColumnCallbacks {
+  canCancelPast: boolean;
   canCreate: boolean;
   canManage: boolean;
   onCancelEvent: (row: EventDisplayRow) => void;
@@ -28,6 +29,7 @@ interface ColumnCallbacks {
 }
 
 export function createEventsTableColumns({
+  canCancelPast,
   canCreate,
   canManage,
   onCancelEvent,
@@ -229,6 +231,10 @@ export function createEventsTableColumns({
       header: "",
       cell: ({ row }) => (
         <EventActionsMenu
+          canCancel={
+            canManage &&
+            (canCancelPast || row.original.event.startTime > Date.now())
+          }
           canCreate={canCreate}
           canManage={canManage}
           onCancelEvent={() => onCancelEvent(row.original)}

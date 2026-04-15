@@ -105,6 +105,7 @@ function EventDetailRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <EventDetail
         canApproveUpdates={canApproveUpdates}
+        canCancelPast={hasPermission("events.cancel")}
         canCreate={canCreate}
         canManage={canManage}
         canManageAttendance={canManageAttendance}

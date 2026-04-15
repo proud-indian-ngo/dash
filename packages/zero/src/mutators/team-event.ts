@@ -318,7 +318,11 @@ export const teamEventMutators = {
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
 
-      if (existing.startTime <= args.now) {
+      if (
+        existing.startTime <= args.now &&
+        isTeamLead &&
+        !can(ctx, "events.cancel")
+      ) {
         throw new Error("Cannot cancel an event that has already started");
       }
 
@@ -518,6 +522,23 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+
+      // Team leads without events.cancel cannot cancel materialized (past) events
+      if (isTeamLead && !can(ctx, "events.cancel")) {
+        if (args.mode === "all") {
+          const exceptions = (await tx.run(
+            zql.teamEvent.where("seriesId", args.id)
+          )) as TeamEvent[];
+          if (exceptions.some((e) => e.startTime <= args.now)) {
+            throw new Error("Cannot cancel a series with past events");
+          }
+        } else if (
+          (args.mode === "this" || args.mode === "following") &&
+          existing.startTime <= args.now
+        ) {
+          throw new Error("Cannot cancel an event that has already started");
+        }
+      }
 
       if (args.mode === "all") {
         await cancelSeriesAll(tx, args);

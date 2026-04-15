@@ -176,6 +176,7 @@ function deriveAddMemberTarget(
 
 interface EventDetailProps {
   canApproveUpdates: boolean;
+  canCancelPast: boolean;
   canCreate: boolean;
   canManage: boolean;
   canManageAttendance: boolean;
@@ -626,6 +627,7 @@ function calcTotalExpenses(
 
 export function EventDetail({
   canApproveUpdates,
+  canCancelPast,
   canCreate,
   canManage,
   canManageAttendance,
@@ -702,7 +704,7 @@ export function EventDetail({
 
   const { status, isPastEvent, hasStarted, canAccessPostEventContent } =
     deriveEventState(event, isVirtualOccurrence);
-  const canCancel = hasStarted ? false : canManage;
+  const canCancel = hasStarted ? canCancelPast : canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
 
   const {

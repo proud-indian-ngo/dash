@@ -328,6 +328,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   const canDelete = hasPermission("teams.delete");
   const canManageMembers = hasPermission("teams.manage_members");
   const canManage = canManageMembers || isTeamLead(team.members, userId);
+  const canCancelPast = hasPermission("events.cancel");
   const canCreate = hasPermission("events.create") || canManage;
 
   const [evStatusFilter, setEvStatusFilter] = useQueryState(
@@ -510,6 +511,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           </h2>
 
           <EventsTable
+            canCancelPast={canCancelPast}
             canCreate={canCreate}
             canManage={canManage}
             displayRowFilter={eventDisplayRowFilter}

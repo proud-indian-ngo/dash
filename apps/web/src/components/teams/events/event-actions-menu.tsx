@@ -10,6 +10,7 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 
 export interface EventActionsMenuProps {
+  canCancel: boolean;
   canCreate: boolean;
   canManage: boolean;
   onCancelEvent: () => void;
@@ -19,6 +20,7 @@ export interface EventActionsMenuProps {
 }
 
 export function EventActionsMenu({
+  canCancel,
   canCreate,
   canManage,
   onCancelEvent,
@@ -55,13 +57,13 @@ export function EventActionsMenu({
           </DropdownMenuItem>
         )}
         {canManage && (
-          <>
-            <DropdownMenuItem onClick={onEditEvent}>Edit</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onCancelEvent} variant="destructive">
-              Cancel
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onClick={onEditEvent}>Edit</DropdownMenuItem>
+        )}
+        {canManage && canCancel && <DropdownMenuSeparator />}
+        {canCancel && (
+          <DropdownMenuItem onClick={onCancelEvent} variant="destructive">
+            Cancel
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

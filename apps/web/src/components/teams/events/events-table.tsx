@@ -17,6 +17,7 @@ export type {
 } from "@/components/teams/events/events-table-helpers";
 
 interface EventsTableProps {
+  canCancelPast: boolean;
   canCreate: boolean;
   canManage: boolean;
   displayRowFilter?: (row: EventDisplayRow) => boolean;
@@ -34,6 +35,7 @@ interface EventsTableProps {
 
 export function EventsTable({
   events,
+  canCancelPast,
   canCreate,
   canManage,
   displayRowFilter,
@@ -55,6 +57,7 @@ export function EventsTable({
     : allDisplayRows;
 
   const columns = createEventsTableColumns({
+    canCancelPast,
     canCreate,
     canManage,
     onCancelEvent,
