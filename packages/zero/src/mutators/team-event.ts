@@ -438,7 +438,13 @@ export const teamEventMutators = {
       // Copy student enrollment from series parent to materialized exception
       if (series.type === "class") {
         const { uuidv7 } = await import("uuidv7");
-        await copyClassEventStudents(tx, args.seriesId, args.id, uuidv7);
+        try {
+          await copyClassEventStudents(tx, args.seriesId, args.id, uuidv7);
+        } catch (err) {
+          throw new Error(
+            `Failed to copy student enrollment: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
   ),

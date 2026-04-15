@@ -13,15 +13,19 @@ import { cityEnum } from "./shared";
 import { student } from "./student";
 import { teamEvent } from "./team-event";
 
-export const center = pgTable("center", {
-  id: uuid("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  city: cityEnum("city").notNull().default("bangalore"),
-  address: text("address"),
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at").notNull(),
-  updatedAt: timestamp("updated_at").notNull(),
-});
+export const center = pgTable(
+  "center",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    city: cityEnum("city").notNull().default("bangalore"),
+    address: text("address"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("center_name_city_uidx").on(table.name, table.city)]
+);
 
 export const centerCoordinator = pgTable(
   "center_coordinator",

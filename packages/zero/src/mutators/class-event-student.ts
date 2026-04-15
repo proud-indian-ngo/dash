@@ -86,8 +86,11 @@ export const classEventStudentMutators = {
       await tx.mutate.classEventStudent.update({
         id: args.id,
         attendance: args.attendance,
-        attendanceMarkedAt: args.attendance === null ? null : args.now,
-        attendanceMarkedBy: args.attendance === null ? null : ctx.userId,
+        // Only update marker/timestamp when setting a status; clearing keeps the last audit trail
+        ...(args.attendance !== null && {
+          attendanceMarkedAt: args.now,
+          attendanceMarkedBy: ctx.userId,
+        }),
       });
     }
   ),
@@ -112,12 +115,18 @@ export const classEventStudentMutators = {
         zql.classEventStudent.where("eventId", args.eventId)
       )) as { id: string }[];
       for (const s of students) {
-        await tx.mutate.classEventStudent.update({
-          id: s.id,
-          attendance: "present",
-          attendanceMarkedAt: args.now,
-          attendanceMarkedBy: ctx.userId,
-        });
+        try {
+          await tx.mutate.classEventStudent.update({
+            id: s.id,
+            attendance: "present",
+            attendanceMarkedAt: args.now,
+            attendanceMarkedBy: ctx.userId,
+          });
+        } catch (err) {
+          throw new Error(
+            `Failed to mark student ${s.id} present: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
   ),

@@ -9,12 +9,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { formatEnumLabel } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
-import type {
-  Center,
-  CenterCoordinator,
-  Student,
-  User,
-} from "@pi-dash/zero/schema";
+import type { Center, CenterCoordinator, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -26,19 +21,30 @@ import { CenterFormDialog } from "@/components/centers/center-form-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import { StudentFormDialog } from "@/components/students/student-form-dialog";
+import {
+  type StudentRow,
+  StudentsTable,
+  studentHasAttended,
+} from "@/components/students/students-table";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 export type CenterDetailData = Center & {
   coordinators: readonly (CenterCoordinator & { user: User | undefined })[];
-  students: readonly Student[];
+  students: readonly StudentRow[];
 };
 
 interface CenterDetailProps {
   center: CenterDetailData;
 }
 
-type CenterDialog = { type: "edit" } | { type: "addCoordinator" };
+type CenterDialog =
+  | { type: "edit" }
+  | { type: "addCoordinator" }
+  | { type: "addStudent" }
+  | { type: "editStudent"; student: StudentRow };
 
 function CenterHeaderActions({
   canDelete,
@@ -84,10 +90,13 @@ function CenterHeaderActions({
 export function CenterDetail({ center }: CenterDetailProps) {
   const zero = useZero();
   const navigate = useNavigate();
-  const { hasPermission } = useApp();
+  const { hasPermission, user } = useApp();
   const canEdit = hasPermission("centers.manage");
   const canDelete = hasPermission("centers.manage");
   const canManage = hasPermission("centers.manage");
+  const isAdmin = hasPermission("students.manage");
+  const isCoordinator = center.coordinators.some((c) => c.userId === user.id);
+  const canAddStudents = isAdmin || isCoordinator;
 
   const [dialogState, setDialogState] = useState<CenterDialog | null>(null);
 
@@ -249,15 +258,54 @@ export function CenterDetail({ center }: CenterDetailProps) {
           <h2 className="font-medium text-sm">
             Students ({center.students.length})
           </h2>
-          {center.students.length > 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Student management is handled separately.
-            </p>
-          ) : (
-            <p className="text-center text-muted-foreground text-sm">
-              No students yet.
-            </p>
-          )}
+          <StudentsTable
+            canDelete={isAdmin}
+            canEdit={canAddStudents}
+            data={[...center.students]}
+            onDeactivate={async (id) => {
+              const res = await zero.mutate(
+                mutators.student.deactivate({ id, now: Date.now() })
+              ).server;
+              handleMutationResult(res, {
+                mutation: "student.deactivate",
+                entityId: id,
+                successMsg: "Student deactivated",
+                errorMsg: "Couldn't deactivate student",
+              });
+            }}
+            onDelete={async (id) => {
+              const res = await zero.mutate(mutators.student.delete({ id }))
+                .server;
+              handleMutationResult(res, {
+                mutation: "student.delete",
+                entityId: id,
+                successMsg: "Student deleted",
+                errorMsg: "Couldn't delete student",
+              });
+            }}
+            onEdit={(row) =>
+              handleOpenDialog({ type: "editStudent", student: row })
+            }
+            onNavigate={(id) =>
+              navigate({ to: "/students/$id", params: { id } })
+            }
+            toolbarActions={
+              canAddStudents ? (
+                <Button
+                  onClick={() => handleOpenDialog({ type: "addStudent" })}
+                  size="sm"
+                  type="button"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={PlusSignIcon}
+                    strokeWidth={2}
+                  />
+                  Add Student
+                </Button>
+              ) : undefined
+            }
+          />
         </div>
 
         {/* Edit Center Dialog */}
@@ -289,6 +337,43 @@ export function CenterDetail({ center }: CenterDetailProps) {
               }
             }}
             open={dialogState?.type === "addCoordinator"}
+          />
+        ) : null}
+
+        {/* Add Student Dialog */}
+        {canAddStudents ? (
+          <StudentFormDialog
+            defaultCenterId={center.id}
+            onOpenChange={(open) => {
+              if (!open) {
+                handleCloseDialog();
+              }
+            }}
+            open={dialogState?.type === "addStudent"}
+          />
+        ) : null}
+
+        {/* Edit Student Dialog */}
+        {dialogState?.type === "editStudent" ? (
+          <StudentFormDialog
+            initialValues={{
+              id: dialogState.student.id,
+              name: dialogState.student.name,
+              dateOfBirth: dialogState.student.dateOfBirth ?? null,
+              gender:
+                (dialogState.student.gender as "male" | "female" | null) ??
+                null,
+              centerId: dialogState.student.centerId ?? null,
+              city: dialogState.student.city || "bangalore",
+              notes: dialogState.student.notes ?? null,
+            }}
+            onOpenChange={(open) => {
+              if (!open) {
+                handleCloseDialog();
+              }
+            }}
+            open
+            restrictedEdit={!isAdmin && studentHasAttended(dialogState.student)}
           />
         ) : null}
 

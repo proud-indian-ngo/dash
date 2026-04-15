@@ -83,7 +83,7 @@ export function UserPicker({
       </ComboboxChips>
       <ComboboxContent anchor={anchorRef}>
         <ComboboxList>
-          {filteredUsers.length === 0 && searchQuery.trim() ? (
+          {filteredUsers.length === 0 ? (
             <div className="py-2 text-center text-muted-foreground text-xs">
               {emptyMessage}
             </div>

@@ -95,6 +95,7 @@ function AddCoordinatorFormContent({
       <CustomField<string[]> isRequired label="Search users" name="userIds">
         {(field) => (
           <UserPicker
+            emptyMessage="No users with the Center Coordinator role. Assign the role in Users first."
             excludeUserIds={existingUserIds}
             onValueChange={(ids) => field.handleChange(ids)}
             users={eligibleUsers}

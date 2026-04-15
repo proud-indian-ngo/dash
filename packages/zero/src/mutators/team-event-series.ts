@@ -99,7 +99,11 @@ export interface UpdateArgs {
   whatsappGroupId?: string;
 }
 
-/** Conditionally include a field in an update payload only if the value is defined. */
+/**
+ * Conditionally include a field in an update payload only if the value is defined.
+ * For nullable fields, pass a coerce function (`toNullIfFalsy` or `toNullIfNullish`)
+ * to ensure correct null handling — omitting coerce sends the raw value.
+ */
 function setIfDefined<K extends string, V, R = V>(
   key: K,
   value: V | undefined,
@@ -111,10 +115,13 @@ function setIfDefined<K extends string, V, R = V>(
   return { [key]: coerce ? coerce(value) : value } as Record<K, R>;
 }
 
-function toNullIfFalsy<T>(v: T): T | null {
+/** Coerce falsy values (empty string, 0, false) to null. */
+export function toNullIfFalsy<T>(v: T): T | null {
   return v || null;
 }
-function toNullIfNullish<T>(v: T): T | null {
+
+/** Coerce null/undefined to null, preserving other falsy values. */
+export function toNullIfNullish<T>(v: T): T | null {
   return v ?? null;
 }
 

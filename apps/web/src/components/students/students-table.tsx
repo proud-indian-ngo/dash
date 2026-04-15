@@ -20,10 +20,8 @@ import type {
 } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
 export type StudentRow = Student & {
@@ -33,6 +31,11 @@ export type StudentRow = Student & {
   >;
 };
 
+/** Whether the student has any attendance record (present or absent). */
+export function studentHasAttended(row: StudentRow): boolean {
+  return row.classEvents.some((ce) => ce.attendance !== null);
+}
+
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
 const SKELETON_CENTER = <Skeleton className="h-5 w-32" />;
 const SKELETON_CITY = <Skeleton className="h-5 w-24" />;
@@ -40,16 +43,24 @@ const SKELETON_STATUS = <Skeleton className="h-5 w-20" />;
 
 function RowActions({
   canDeactivate,
+  canDelete,
+  canEdit,
   id,
   isActive,
   onNavigate,
   onRequestDeactivate,
+  onRequestDelete,
+  onRequestEdit,
 }: {
   canDeactivate: boolean;
+  canDelete: boolean;
+  canEdit: boolean;
   id: string;
   isActive: boolean;
   onNavigate: (id: string) => void;
   onRequestDeactivate: () => void;
+  onRequestDelete: () => void;
+  onRequestEdit: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -74,6 +85,9 @@ function RowActions({
       />
       <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
+        {canEdit ? (
+          <DropdownMenuItem onClick={onRequestEdit}>Edit</DropdownMenuItem>
+        ) : null}
         {canDeactivate && isActive ? (
           <>
             <DropdownMenuSeparator />
@@ -82,6 +96,14 @@ function RowActions({
               variant="destructive"
             >
               Deactivate
+            </DropdownMenuItem>
+          </>
+        ) : null}
+        {canDelete ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
+              Delete
             </DropdownMenuItem>
           </>
         ) : null}
@@ -99,29 +121,54 @@ function searchStudent(row: StudentRow, query: string): boolean {
 }
 
 interface StudentsTableProps {
+  canDelete?: boolean;
+  canEdit?: boolean;
   data: StudentRow[];
   isLoading?: boolean;
   onDeactivate: (id: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+  onEdit?: (row: StudentRow) => void;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
 }
 
 export function StudentsTable({
+  canDelete = false,
+  canEdit = false,
   data,
   isLoading,
   onDeactivate,
+  onDelete,
+  onEdit,
   onNavigate,
   toolbarActions,
 }: StudentsTableProps) {
-  const { hasPermission } = useApp();
-  const canDeactivateStudent = hasPermission("students.manage");
-
   const deactivateAction = useConfirmAction<string>({
     onConfirm: async (id) => {
       await onDeactivate(id);
       return { type: "ok" };
     },
-    onError: () => toast.error("Couldn't deactivate student"),
+    mutationMeta: {
+      mutation: "student.deactivate",
+      entityId: (id) => id,
+      successMsg: "Student deactivated",
+      errorMsg: "Couldn't deactivate student",
+    },
+  });
+
+  const deleteAction = useConfirmAction<string>({
+    onConfirm: async (id) => {
+      if (onDelete) {
+        await onDelete(id);
+      }
+      return { type: "ok" };
+    },
+    mutationMeta: {
+      mutation: "student.delete",
+      entityId: (id) => id,
+      successMsg: "Student deleted",
+      errorMsg: "Couldn't delete student",
+    },
   });
 
   const columns: ColumnDef<StudentRow>[] = [
@@ -199,15 +246,24 @@ export function StudentsTable({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <RowActions
-          canDeactivate={canDeactivateStudent}
-          id={row.original.id}
-          isActive={row.original.isActive ?? true}
-          onNavigate={onNavigate}
-          onRequestDeactivate={() => deactivateAction.trigger(row.original.id)}
-        />
-      ),
+      cell: ({ row }) => {
+        const hasAttended = studentHasAttended(row.original);
+        return (
+          <RowActions
+            canDeactivate={canEdit}
+            canDelete={canDelete && (!hasAttended || canDelete)}
+            canEdit={canEdit}
+            id={row.original.id}
+            isActive={row.original.isActive ?? true}
+            onNavigate={onNavigate}
+            onRequestDeactivate={() =>
+              deactivateAction.trigger(row.original.id)
+            }
+            onRequestDelete={() => deleteAction.trigger(row.original.id)}
+            onRequestEdit={() => onEdit?.(row.original)}
+          />
+        );
+      },
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -251,6 +307,20 @@ export function StudentsTable({
         }}
         open={deactivateAction.isOpen}
         title="Deactivate student"
+      />
+      <ConfirmDialog
+        confirmLabel="Delete"
+        description="This will permanently delete the student and all their attendance records. This cannot be undone."
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteAction.cancel();
+          }
+        }}
+        open={deleteAction.isOpen}
+        title="Delete student"
       />
     </>
   );

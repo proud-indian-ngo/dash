@@ -22,7 +22,7 @@ export const student = pgTable(
     dateOfBirth: date("date_of_birth", { mode: "date" }),
     gender: userGenderEnum("gender"),
     centerId: uuid("center_id").references(() => center.id, {
-      onDelete: "set null",
+      onDelete: "cascade",
     }),
     city: cityEnum("city").notNull().default("bangalore"),
     notes: text("notes"),

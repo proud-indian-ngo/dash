@@ -33,7 +33,7 @@ interface TestUser {
   email: string;
   name: string;
   password: string;
-  role: "super_admin" | "volunteer";
+  role: "super_admin" | "volunteer" | "center_coordinator";
 }
 
 const TEST_USERS: TestUser[] = [
@@ -47,7 +47,7 @@ const TEST_USERS: TestUser[] = [
     email: process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test",
     password: process.env.VOLUNTEER_PASSWORD ?? "TestVolunteer123!",
     name: "Test Volunteer",
-    role: "volunteer",
+    role: "center_coordinator",
   },
 ];
 

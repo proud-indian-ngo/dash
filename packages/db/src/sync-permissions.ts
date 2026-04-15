@@ -140,13 +140,19 @@ export async function syncPermissions(): Promise<void> {
     }
   });
 
-  // Center coordinator — deterministic sync (like admin-tier roles)
-  if (CENTER_COORDINATOR_PERMISSIONS.length > 0) {
+  // Center coordinator — volunteer baseline + coordinator-specific permissions
+  const coordinatorPermIds = [
+    ...new Set([
+      ...(VOLUNTEER_BASELINE_PERMISSIONS as string[]),
+      ...(CENTER_COORDINATOR_PERMISSIONS as string[]),
+    ]),
+  ];
+  if (coordinatorPermIds.length > 0) {
     await db.transaction(async (tx) => {
       await tx
         .insert(rolePermission)
         .values(
-          CENTER_COORDINATOR_PERMISSIONS.map((permId) => ({
+          coordinatorPermIds.map((permId) => ({
             roleId: "center_coordinator",
             permissionId: permId,
           }))
@@ -157,10 +163,7 @@ export async function syncPermissions(): Promise<void> {
         .where(
           and(
             eq(rolePermission.roleId, "center_coordinator"),
-            notInArray(
-              rolePermission.permissionId,
-              CENTER_COORDINATOR_PERMISSIONS as string[]
-            )
+            notInArray(rolePermission.permissionId, coordinatorPermIds)
           )
         );
     });

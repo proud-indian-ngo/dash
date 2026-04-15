@@ -1,10 +1,12 @@
 import { db } from "@pi-dash/db";
 import { eventFeedbackSubmission } from "@pi-dash/db/schema/event-feedback";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { classEventStudent } from "@pi-dash/db/schema/student";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
   notifyAttendanceNotMarked,
+  notifyClassAttendanceNotMarked,
   notifyFeedbackNudge,
   notifyPhotoUploadNudge,
 } from "@pi-dash/notifications/send/reminders";
@@ -32,6 +34,9 @@ export async function handleProcessPostEventReminders(
   const attendanceSent = await processAttendanceReminders(now);
   totalSent += attendanceSent;
 
+  const classAttendanceSent = await processClassAttendanceReminders(now);
+  totalSent += classAttendanceSent;
+
   const photoSent = await processPhotoNudges(now);
   totalSent += photoSent;
 
@@ -39,6 +44,7 @@ export async function handleProcessPostEventReminders(
     event: "job_complete",
     feedbackSent,
     attendanceSent,
+    classAttendanceSent,
     photoSent,
     totalSent,
   });
@@ -198,6 +204,98 @@ async function processAttendanceReminders(now: number): Promise<number> {
   }
 
   log.set({ event: "attendance_reminders_complete", sent });
+  log.emit();
+  return sent;
+}
+
+// ── Class Student Attendance Not Marked (24-25h after endTime) ───────────────
+
+async function processClassAttendanceReminders(now: number): Promise<number> {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "process-post-event-reminders/class-attendance",
+  });
+
+  const windowStart = new Date(now - 25 * 60 * 60 * 1000);
+  const windowEnd = new Date(now - 24 * 60 * 60 * 1000);
+
+  // Find class events that ended 24-25h ago
+  const events = await db
+    .select({
+      id: teamEvent.id,
+      name: teamEvent.name,
+      teamId: teamEvent.teamId,
+    })
+    .from(teamEvent)
+    .where(
+      and(
+        eq(teamEvent.type, "class"),
+        isNull(teamEvent.cancelledAt),
+        sql`COALESCE(${teamEvent.endTime}, ${teamEvent.startTime}) BETWEEN ${windowStart} AND ${windowEnd}`
+      )
+    );
+
+  log.set({ candidateEvents: events.length });
+
+  let sent = 0;
+  for (const event of events) {
+    // Count unmarked student attendance
+    const unmarked = await db
+      .select({ id: classEventStudent.id })
+      .from(classEventStudent)
+      .where(
+        and(
+          eq(classEventStudent.eventId, event.id),
+          isNull(classEventStudent.attendance)
+        )
+      );
+
+    if (unmarked.length === 0) {
+      continue;
+    }
+
+    if (
+      !(await tryInsertReminderSent(
+        event.id,
+        null,
+        POST_EVENT_SENTINELS.classAttendanceReminder
+      ))
+    ) {
+      continue;
+    }
+
+    // Recipients: event members (volunteers) + team leads
+    const members = await db
+      .select({ userId: teamEventMember.userId })
+      .from(teamEventMember)
+      .where(eq(teamEventMember.eventId, event.id));
+
+    const leads = await db
+      .select({ userId: teamMember.userId })
+      .from(teamMember)
+      .where(
+        and(eq(teamMember.teamId, event.teamId), eq(teamMember.role, "lead"))
+      );
+
+    const recipientIds = new Set([
+      ...members.map((m) => m.userId),
+      ...leads.map((l) => l.userId),
+    ]);
+
+    await Promise.allSettled(
+      Array.from(recipientIds).map((userId) =>
+        notifyClassAttendanceNotMarked({
+          userId,
+          eventName: event.name,
+          eventId: event.id,
+          unmarkedCount: unmarked.length,
+        })
+      )
+    );
+    sent++;
+  }
+
+  log.set({ event: "class_attendance_reminders_complete", sent });
   log.emit();
   return sent;
 }

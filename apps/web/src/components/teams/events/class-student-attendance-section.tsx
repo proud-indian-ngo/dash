@@ -14,6 +14,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { log } from "evlog";
 import { useMemo } from "react";
+import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -56,14 +57,15 @@ function AttendanceToggle({
           errorMsg: "Failed to update attendance",
         })
       )
-      .catch((e) =>
+      .catch((e) => {
         log.error({
           component: "ClassStudentAttendanceSection",
           action: "markAttendance",
           entityId: row.id,
           error: e instanceof Error ? e.message : String(e),
-        })
-      );
+        });
+        toast.error("Failed to update attendance");
+      });
   }
 
   if (!canMark) {
@@ -212,9 +214,10 @@ export function ClassStudentAttendanceSection({
   eventType: string;
 }) {
   const zero = useZero();
-  const [students] = useQuery(queries.classEventStudent.byEvent({ eventId }), {
-    enabled: eventType === "class",
-  });
+  const [students, studentsResult] = useQuery(
+    queries.classEventStudent.byEvent({ eventId }),
+    { enabled: eventType === "class" }
+  );
 
   const hasStarted = Date.now() >= eventStartTime;
   const canMark = hasStarted;
@@ -235,14 +238,15 @@ export function ClassStudentAttendanceSection({
           errorMsg: "Failed to mark attendance",
         })
       )
-      .catch((e) =>
+      .catch((e) => {
         log.error({
           component: "ClassStudentAttendanceSection",
           action: "markAllPresent",
           entityId: eventId,
           error: e instanceof Error ? e.message : String(e),
-        })
-      );
+        });
+        toast.error("Failed to mark attendance");
+      });
   }
 
   const columns = useMemo(
@@ -282,7 +286,9 @@ export function ClassStudentAttendanceSection({
         data={studentList}
         emptyMessage="No students enrolled in this class."
         getRowId={(row) => row.id}
-        isLoading={false}
+        isLoading={
+          studentList.length === 0 && studentsResult.type !== "complete"
+        }
         searchFn={searchFn}
         storageKey="class_student_attendance_table_state_v1"
         tableLayout={{

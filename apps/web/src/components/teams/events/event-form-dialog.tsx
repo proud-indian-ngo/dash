@@ -66,7 +66,12 @@ const endTimeAfterStartTime = (data: EventFormValues) =>
   !(data.endTime && data.startTime) || data.endTime > data.startTime;
 
 function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
-  const withEndTimeCheck = eventFormSchema.refine(endTimeAfterStartTime, {
+  const withCenterCheck = eventFormSchema.refine(
+    (data) =>
+      data.type !== "class" || (data.centerId && data.centerId.length > 0),
+    { message: "Center is required for class events", path: ["centerId"] }
+  );
+  const withEndTimeCheck = withCenterCheck.refine(endTimeAfterStartTime, {
     message: "End time must be after start time",
     path: ["endTime"],
   });
@@ -126,7 +131,11 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     endTime: initialValues?.endTime
       ? new Date(initialValues.endTime)
       : undefined,
-    type: (initialValues?.type as EventType) ?? "event",
+    type:
+      initialValues?.type &&
+      (eventTypeValues as readonly string[]).includes(initialValues.type)
+        ? (initialValues.type as EventType)
+        : "event",
     centerId: initialValues?.centerId ?? "",
     isPublic: initialValues?.isPublic ?? false,
     rrule: initialValues?.recurrenceRule?.rrule ?? "",

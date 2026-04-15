@@ -1,57 +1,46 @@
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@pi-dash/design-system/components/ui/combobox";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@pi-dash/design-system/components/ui/select";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import { cityValues, formatEnumLabel } from "@pi-dash/shared/constants";
+import { cityValues } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { Center } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { type FormEvent, useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+import z from "zod";
+import { DateField } from "@/components/form/date-field";
+import { FormActions } from "@/components/form/form-actions";
+import { FormLayout } from "@/components/form/form-layout";
+import { InputField } from "@/components/form/input-field";
+import { SelectField } from "@/components/form/select-field";
+import { TextareaField } from "@/components/form/textarea-field";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
+import { cityOptions } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-const NONE_CENTER = "__none__";
-const GENDER_OPTIONS = [
+const genderOptions = [
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
 ];
 
-function getStudentSuccessMsg(isEdit: boolean): string {
-  return isEdit ? "Student updated" : "Student created";
-}
+const studentFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  dateOfBirth: z.date().optional(),
+  gender: z.string().optional(),
+  centerId: z.string().optional(),
+  city: z.enum(cityValues),
+  notes: z.string().optional(),
+});
 
-function submitButtonLabel(submitting: boolean, isEdit: boolean): string {
-  if (submitting) {
-    return isEdit ? "Saving..." : "Creating...";
-  }
-  return isEdit ? "Save" : "Create";
-}
+type StudentFormValues = z.infer<typeof studentFormSchema>;
 
 interface StudentFormDialogProps {
+  defaultCenterId?: string;
   initialValues?: {
     id: string;
     name: string;
@@ -63,99 +52,187 @@ interface StudentFormDialogProps {
   };
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /** When true, only DOB is editable (non-admin editing a student who has attended a class) */
+  restrictedEdit?: boolean;
 }
 
-export function StudentFormDialog({
+function getDefaultValues(
+  initialValues: StudentFormDialogProps["initialValues"],
+  defaultCenterId?: string
+): StudentFormValues {
+  return {
+    name: initialValues?.name ?? "",
+    dateOfBirth: initialValues?.dateOfBirth
+      ? new Date(initialValues.dateOfBirth)
+      : undefined,
+    gender: initialValues?.gender ?? "",
+    centerId: initialValues?.centerId ?? defaultCenterId ?? "",
+    city: (initialValues?.city as (typeof cityValues)[number]) ?? "bangalore",
+    notes: initialValues?.notes ?? "",
+  };
+}
+
+function StudentFormContent({
+  defaultCenterId,
   initialValues,
   onOpenChange,
-  open,
-}: StudentFormDialogProps) {
+  restrictedEdit = false,
+}: {
+  defaultCenterId?: string;
+  initialValues?: StudentFormDialogProps["initialValues"];
+  onOpenChange: (open: boolean) => void;
+  restrictedEdit?: boolean;
+}) {
   const zero = useZero();
   const isEdit = !!initialValues;
 
-  const [name, setName] = useState(initialValues?.name ?? "");
-  const [dateOfBirth, setDateOfBirth] = useState(
-    initialValues?.dateOfBirth
-      ? new Date(initialValues.dateOfBirth).toISOString().split("T")[0]
-      : ""
-  );
-  const [gender, setGender] = useState(initialValues?.gender ?? "");
-  const [centerId, setCenterId] = useState(initialValues?.centerId ?? "");
-  const [city, setCity] = useState(initialValues?.city ?? "bangalore");
-  const [notes, setNotes] = useState(initialValues?.notes ?? "");
-  const [submitting, setSubmitting] = useState(false);
-
   const [centers] = useQuery(queries.center.all());
-
-  const centerOptions = (centers ?? []).map((c: Center) => ({
-    label: c.name,
-    value: c.id,
-  }));
-  const centerLabelByValue = new Map(
-    centerOptions.map((option) => [option.value, option.label])
-  );
-  const centerItems = [
-    NONE_CENTER,
-    ...centerOptions.map((option) => option.value),
+  const centerOptions = [
+    { label: "None", value: "" },
+    ...(centers ?? []).map((c: Center) => ({
+      label: c.name,
+      value: c.id,
+    })),
   ];
 
-  useEffect(() => {
-    if (open) {
-      setName(initialValues?.name ?? "");
-      setDateOfBirth(
-        initialValues?.dateOfBirth
-          ? new Date(initialValues.dateOfBirth).toISOString().split("T")[0]
-          : ""
-      );
-      setGender(initialValues?.gender ?? "");
-      setCenterId(initialValues?.centerId ?? "");
-      setCity(initialValues?.city ?? "bangalore");
-      setNotes(initialValues?.notes ?? "");
-    }
-  }, [open, initialValues]);
+  const form = useForm({
+    defaultValues: getDefaultValues(initialValues, defaultCenterId),
+    onSubmit: async ({ value }) => {
+      const dateOfBirthMs = value.dateOfBirth
+        ? value.dateOfBirth.getTime()
+        : null;
+      const now = Date.now();
+      let mutation: ReturnType<typeof zero.mutate>;
+      if (restrictedEdit && isEdit) {
+        // Non-admin editing student who has attended — DOB only
+        mutation = zero.mutate(
+          mutators.student.update({
+            id: initialValues.id,
+            dateOfBirth: dateOfBirthMs,
+            now,
+          })
+        );
+      } else if (isEdit) {
+        mutation = zero.mutate(
+          mutators.student.update({
+            id: initialValues.id,
+            name: value.name.trim(),
+            dateOfBirth: dateOfBirthMs,
+            gender: (value.gender as "male" | "female") || undefined,
+            centerId: value.centerId || undefined,
+            city: value.city,
+            notes: value.notes?.trim() || undefined,
+            now,
+          })
+        );
+      } else {
+        mutation = zero.mutate(
+          mutators.student.create({
+            id: uuidv7(),
+            name: value.name.trim(),
+            dateOfBirth: dateOfBirthMs,
+            gender: (value.gender as "male" | "female") || undefined,
+            centerId: value.centerId || undefined,
+            city: value.city,
+            notes: value.notes?.trim() || undefined,
+            now,
+          })
+        );
+      }
+      const res = await mutation.server;
+      handleMutationResult(res, {
+        mutation: isEdit ? "student.update" : "student.create",
+        entityId: isEdit ? initialValues.id : "new",
+        successMsg: isEdit ? "Student updated" : "Student created",
+        errorMsg: isEdit
+          ? "Couldn't update student"
+          : "Couldn't create student",
+      });
+      if (res.type !== "error") {
+        onOpenChange(false);
+      }
+    },
+    validators: {
+      onChange: studentFormSchema,
+      onSubmit: studentFormSchema,
+    },
+  });
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      return;
-    }
+  return (
+    <FormLayout form={form}>
+      <InputField
+        disabled={restrictedEdit}
+        isRequired
+        label="Name"
+        name="name"
+        placeholder="Student name"
+      />
+      <DateField
+        endMonth={new Date()}
+        label="Date of Birth"
+        maxDate={new Date()}
+        name="dateOfBirth"
+        placeholder="Pick date of birth"
+        startMonth={new Date(2005, 0, 1)}
+      />
+      <SelectField
+        disabled={restrictedEdit}
+        label="Gender"
+        name="gender"
+        options={genderOptions}
+        placeholder="Select gender"
+      />
+      <SelectField
+        disabled={restrictedEdit}
+        label="Center"
+        name="centerId"
+        options={centerOptions}
+        placeholder="Select center"
+      />
+      <SelectField
+        disabled={restrictedEdit}
+        isRequired
+        label="City"
+        name="city"
+        options={cityOptions}
+        placeholder="Select city"
+      />
+      <TextareaField
+        disabled={restrictedEdit}
+        label="Notes"
+        name="notes"
+        placeholder="Optional notes"
+        rows={3}
+      />
+      <FormActions
+        onCancel={() => onOpenChange(false)}
+        submitLabel={isEdit ? "Save" : "Create"}
+        submittingLabel={isEdit ? "Saving..." : "Creating..."}
+      />
+    </FormLayout>
+  );
+}
 
-    setSubmitting(true);
-    const dateOfBirthMs = dateOfBirth
-      ? new Date(`${dateOfBirth}T00:00:00Z`).getTime()
-      : null;
-    const commonArgs = {
-      name: trimmedName,
-      dateOfBirth: dateOfBirthMs,
-      gender: (gender as "male" | "female") || undefined,
-      centerId: centerId || undefined,
-      city: (city as (typeof cityValues)[number]) || undefined,
-      notes: notes.trim() || undefined,
-      now: Date.now(),
-    };
+export function StudentFormDialog({
+  defaultCenterId,
+  initialValues,
+  onOpenChange,
+  open,
+  restrictedEdit = false,
+}: StudentFormDialogProps) {
+  const isEdit = !!initialValues;
+  const [formKey, setFormKey] = useState(0);
 
-    const mutation = isEdit
-      ? zero.mutate(
-          mutators.student.update({ id: initialValues.id, ...commonArgs })
-        )
-      : zero.mutate(mutators.student.create({ id: uuidv7(), ...commonArgs }));
-    const res = await mutation.server;
-    setSubmitting(false);
-    handleMutationResult(res, {
-      mutation: isEdit ? "student.update" : "student.create",
-      entityId: isEdit ? initialValues.id : "new",
-      successMsg: getStudentSuccessMsg(isEdit),
-      errorMsg: isEdit ? "Couldn't update student" : "Couldn't create student",
-    });
-    if (res.type !== "error") {
-      onOpenChange(false);
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setFormKey((k) => k + 1);
     }
+    onOpenChange(nextOpen);
   };
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog onOpenChange={handleOpenChange} open={open}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Edit Student" : "Create Student"}
@@ -164,129 +241,13 @@ export function StudentFormDialog({
             {isEdit ? "Edit student details" : "Create a new student"}
           </DialogDescription>
         </DialogHeader>
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-2">
-            <Label htmlFor="student-name">Name</Label>
-            <Input
-              id="student-name"
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Student name"
-              required
-              value={name}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="student-dob">Date of Birth</Label>
-            <Input
-              id="student-dob"
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              type="date"
-              value={dateOfBirth}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="student-gender">Gender</Label>
-            <Select
-              onValueChange={(val) => setGender(val as "male" | "female" | "")}
-              value={gender || ""}
-            >
-              <SelectTrigger id="student-gender">
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                {GENDER_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="student-center">Center</Label>
-            <Combobox
-              items={centerItems}
-              itemToStringLabel={(value) => {
-                if (value === NONE_CENTER) {
-                  return "None";
-                }
-                return centerLabelByValue.get(value) ?? String(value);
-              }}
-              onValueChange={(value) => {
-                setCenterId(value === NONE_CENTER || !value ? "" : value);
-              }}
-              value={centerId || NONE_CENTER}
-            >
-              <ComboboxInput
-                aria-label="Center"
-                className="w-full"
-                id="student-center"
-                placeholder="None"
-              />
-              <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
-                <ComboboxList>
-                  {(itemValue) => (
-                    <ComboboxItem
-                      className="items-start"
-                      key={itemValue}
-                      value={itemValue}
-                    >
-                      <span className="block min-w-0 whitespace-normal break-words">
-                        {itemValue === NONE_CENTER
-                          ? "None"
-                          : (centerLabelByValue.get(itemValue) ?? itemValue)}
-                      </span>
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-                <ComboboxEmpty>No matching centers.</ComboboxEmpty>
-              </ComboboxContent>
-            </Combobox>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="student-city">City</Label>
-            <Select
-              onValueChange={(value: string | null) =>
-                setCity((value || "bangalore") as (typeof cityValues)[number])
-              }
-              value={city || "bangalore"}
-            >
-              <SelectTrigger id="student-city">
-                <SelectValue placeholder="Select city" />
-              </SelectTrigger>
-              <SelectContent>
-                {cityValues.map((cityValue) => (
-                  <SelectItem key={cityValue} value={cityValue}>
-                    {formatEnumLabel(cityValue)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="student-notes">Notes</Label>
-            <Textarea
-              id="student-notes"
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes"
-              rows={3}
-              value={notes}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              disabled={submitting}
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button disabled={submitting || !name.trim()} type="submit">
-              {submitButtonLabel(submitting, isEdit)}
-            </Button>
-          </DialogFooter>
-        </form>
+        <StudentFormContent
+          defaultCenterId={defaultCenterId}
+          initialValues={initialValues}
+          key={formKey}
+          onOpenChange={onOpenChange}
+          restrictedEdit={restrictedEdit}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -6,7 +6,9 @@ import { zql } from "../schema";
 function withRelated(q: typeof zql.center) {
   return q
     .related("coordinators", (c) => c.related("user"))
-    .related("students");
+    .related("students", (s) =>
+      s.related("center").related("classEvents", (ce) => ce.related("event"))
+    );
 }
 
 /**

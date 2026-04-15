@@ -8,7 +8,11 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { StudentFormDialog } from "@/components/students/student-form-dialog";
-import { StudentsTable } from "@/components/students/students-table";
+import {
+  type StudentRow,
+  StudentsTable,
+  studentHasAttended,
+} from "@/components/students/students-table";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { assertAnyPermission } from "@/lib/route-guards";
@@ -30,6 +34,9 @@ function StudentsRouteComponent() {
   const navigate = useNavigate();
   const zero = useZero();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editStudent, setEditStudent] = useState<StudentRow | null>(null);
+
+  const isAdmin = hasPermission("students.manage");
 
   const [data, result] = useQuery(queries.student.all());
   const isLoading = data.length === 0 && result.type !== "complete";
@@ -46,6 +53,19 @@ function StudentsRouteComponent() {
     });
   };
 
+  const handleDelete = async (id: string) => {
+    const res = await zero.mutate(mutators.student.delete({ id })).server;
+    handleMutationResult(res, {
+      mutation: "student.delete",
+      entityId: id,
+      successMsg: "Student deleted",
+      errorMsg: "Couldn't delete student",
+    });
+  };
+
+  const restrictedEdit =
+    !!editStudent && !isAdmin && studentHasAttended(editStudent);
+
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
@@ -54,14 +74,18 @@ function StudentsRouteComponent() {
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StudentsTable
+          canDelete={isAdmin}
+          canEdit
           data={data ?? []}
           isLoading={isLoading}
           onDeactivate={handleDeactivate}
+          onDelete={handleDelete}
+          onEdit={setEditStudent}
           onNavigate={(id) => {
             navigate({ to: "/students/$id", params: { id } });
           }}
           toolbarActions={
-            hasPermission("students.manage") ? (
+            isAdmin ? (
               <Button
                 onClick={() => setCreateOpen(true)}
                 size="sm"
@@ -79,8 +103,29 @@ function StudentsRouteComponent() {
         />
       </div>
 
-      {hasPermission("students.manage") ? (
+      {isAdmin ? (
         <StudentFormDialog onOpenChange={setCreateOpen} open={createOpen} />
+      ) : null}
+
+      {editStudent ? (
+        <StudentFormDialog
+          initialValues={{
+            id: editStudent.id,
+            name: editStudent.name,
+            dateOfBirth: editStudent.dateOfBirth ?? null,
+            gender: (editStudent.gender as "male" | "female" | null) ?? null,
+            centerId: editStudent.centerId ?? null,
+            city: editStudent.city || "bangalore",
+            notes: editStudent.notes ?? null,
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditStudent(null);
+            }
+          }}
+          open
+          restrictedEdit={restrictedEdit}
+        />
       ) : null}
     </div>
   );
