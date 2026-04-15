@@ -1,6 +1,6 @@
 ---
 name: zero-patterns
-description: Use when writing or modifying Zero query hooks, loading states, or data-derived computations. Ensures correct handling of Zero sync states and prevents skeleton/content flash cycles.
+description: Use when writing or modifying Zero query hooks, fixing skeleton/loading flash issues, handling Zero sync states, or auditing whether the project's Zero usage follows recommended patterns. Triggers for "skeleton flashes", "loading state flicker", "data loads then disappears", requests to analyze Zero docs against our codebase, or any Zero useQuery loading behavior problem. Also covers data-derived computations from Zero queries.
 ---
 
 # Zero Query Patterns

@@ -1,6 +1,6 @@
 ---
 name: add-logging
-description: Use when adding error handling, catch blocks, server-side tasks, or fire-and-forget operations. Ensures consistent structured logging patterns.
+description: Use when adding or improving error handling/logging — including catch blocks, try/catch, structured logging audits, evlog migrations, client-side `log.error()` adoption, server functions with logging, and fire-and-forget operations. Also use for requests to find missing logging/error-handling spots in a diff or codebase. Ensures consistent structured logging with evlog's createRequestLogger pattern.
 ---
 
 # Add Logging / Error Handling

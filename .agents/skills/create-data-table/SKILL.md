@@ -1,6 +1,6 @@
 ---
 name: create-data-table
-description: Use when creating or modifying data tables, adding columns, row actions, filters, or pagination. Ensures consistent table patterns.
+description: Use when creating, modifying, refactoring, or fixing data tables — including columns, row actions, filters, sorting, pagination, layout, responsiveness, scrolling, computed columns, stats widgets above tables, or making a table consistent with other tables. Also triggers for "make X table like other tables", table style/UX consistency requests, table-centric admin/list pages that "look different" or should "match the rest of the app", and adding detail panels. Ensures consistent table patterns using DataTableWrapper.
 ---
 
 # Create/Modify Data Table

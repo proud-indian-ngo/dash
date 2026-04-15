@@ -1,12 +1,12 @@
 ---
 name: deslop
 description: >
-  Run a final pre-commit review-readiness pass for nearly finished pi-dash changes.
-  Use when the user asks to deslop, do a final cleanup before commit or PR,
-  sanity-check a nearly finished diff, or make code more review-ready without
-  changing behavior. Fan out exactly three focused review passes across
-  repo-rule conformance, type/source-of-truth safety, and simplification, then
-  apply only the clearly worthwhile fixes.
+  Remove AI-generated slop and do a final pre-commit cleanup pass.
+  Use when the user asks to deslop, remove slop, clean up the diff, do a final
+  cleanup before commit or PR, sanity-check a nearly finished diff, or make code
+  more review-ready without changing behavior. Fan out exactly three focused
+  review passes across repo-rule conformance, type/source-of-truth safety, and
+  simplification, then apply only the clearly worthwhile fixes.
 ---
 
 # Deslop

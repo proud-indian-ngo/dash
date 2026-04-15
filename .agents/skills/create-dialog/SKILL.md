@@ -1,6 +1,6 @@
 ---
 name: create-dialog
-description: Use when creating or modifying dialogs, modals, or alert dialogs. Ensures consistent dialog patterns including accessibility.
+description: Use when creating or modifying dialogs, modals, alert dialogs, confirmation dialogs, or dialog rendering issues such as z-index/portal problems (for example a dialog appearing behind another overlay). Ensures consistent dialog patterns including accessibility.
 ---
 
 # Create/Modify Dialog

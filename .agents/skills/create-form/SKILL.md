@@ -1,6 +1,6 @@
 ---
 name: create-form
-description: Use when creating or modifying any form, dialog with form inputs, or settings section with form fields. Ensures consistent form patterns across the codebase.
+description: Use when creating, modifying, or fixing any form — including validation schemas, field interactions, default values, phone/date/select fields, error states, auth forms (login/signup), or form layout. Also triggers for dialog with form inputs, settings sections with fields, "improve validation", "fix field behavior", building a form into a provided layout, or auditing forms for consistency. Ensures consistent form patterns (useForm, Zod, FormLayout, FormActions) across the codebase.
 ---
 
 # Create/Modify Form

@@ -1,6 +1,6 @@
 ---
 name: e2e-testing
-description: Use when writing, modifying, or debugging E2E tests. Covers selectors, fixtures, page objects, and test organization patterns.
+description: Use when writing, modifying, running, or debugging E2E tests — including failing specs, tests that are not running or not starting, fixture/setup issues, selectors, page objects, and test organization patterns.
 ---
 
 # E2E Testing

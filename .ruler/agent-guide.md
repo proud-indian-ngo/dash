@@ -150,9 +150,29 @@ For deployment and production setup, read `DEPLOYMENT.md`.
 
 ## Skills Policy
 
-- DO: Check available skills BEFORE starting any form, table, dialog, logging, Zero query, E2E test, design, or worktree task.
-- DO: Invoke the matching skill when creating/modifying: forms (`create-form`), data tables (`create-data-table`), dialogs (`create-dialog`), error handling (`add-logging`), Zero queries (`zero-patterns`), E2E tests (`e2e-testing`), UI design (`design-context`), worktrees (`worktree-dev`).
+- DO: Check available skills BEFORE starting any form, table, dialog, logging, Zero query, E2E test, commit, review, or worktree task.
+- DO: Invoke the matching skill when creating/modifying: forms (`create-form`), data tables (`create-data-table`), dialogs (`create-dialog`), error handling/logging (`add-logging`), Zero queries (`zero-patterns`), E2E tests (`e2e-testing`), UI design (`design-context`), worktrees (`worktree-dev`).
+- DO: Invoke `git-commit` whenever you are about to run `git commit` — whether the user said "commit", "just commit", "save to git", "commit when done", or you are committing as part of a larger flow. Never run `git commit` without this skill. But do NOT add `git-commit` to scenarios where committing was not requested — "add a form" does not imply "and commit."
+- DO: Invoke `code-review` when the user asks to review code, review a diff, check work before committing, or asks "what did I miss" / "anything wrong with this".
+- DO NOT: Invoke `code-review` for a generic sanity check on one file/script/migration (for example "is this migration okay?") unless the user is explicitly asking for diff review, uncommitted-change review, or pre-commit review.
+- DO: If the "review" request is narrowly about missing logging/error-handling patterns (for example "find places we should add evlog"), invoke `add-logging`, not `code-review`. Use `code-review` for broad adversarial diff review; use `add-logging` for scoped logging audits.
+- DO NOT: Invoke `add-logging` just because the prompt contains "error" or shows a console/server error. Use it when the task is to add/improve logging or error handling patterns; plain debugging of an existing runtime/scheduled-task error does not trigger the skill.
+- DO: Invoke `deslop` when the user says any of: "deslop", "clean up the diff", "clean up my changes", "clean them up", "final pass", "remove slop." These are all explicit requests. Do NOT invent deslop when user only says "review and commit" without cleanup language.
+- DO: Invoke `zero-patterns` for skeleton/loading flash bugs on pages using Zero queries — not just for creating new hooks.
+- DO: Invoke `playwriter` when asked to test the app in a browser, verify UI behavior, click through a flow, or scrape JS-heavy sites — connects to the user's Chrome.
 - DO NOT: Create forms, tables, dialogs, or Zero query hooks without first invoking the corresponding skill.
+- DO: Invoke skills when fixing bugs IN skill-covered components — if the bug is about filter behavior in a data table (`create-data-table`), form field interactions or validation (`create-form`), dialog rendering/portal issues (`create-dialog`), or Zero sync behavior (`zero-patterns`), the skill's patterns are essential for a correct fix. Test: "Does this bug live inside a component whose patterns the skill defines?" If yes → invoke the skill.
+- DO: Invoke component skills for audits and consistency reviews in their area too — not just implementation. If the user asks to analyze how forms or data tables differ from project norms, load `create-form` and/or `create-data-table` as reference skills.
+- DO NOT: Invoke skills for bugs NEAR but not IN skill-covered components. Runtime errors, console errors, API failures, scheduling bugs, and infrastructure issues don't need component skills — even if they mention "table", "form", "dialog", or "error". Test: "Is the broken behavior about the component's UI/interaction patterns, or about backend/runtime logic?" If backend/runtime → no skill.
+- DO NOT: Trigger `create-data-table` for database tables, migrations, schema changes, SQL scripts, or seed data. "Table" only means UI data tables/lists here.
+- DO NOT: Invoke `zero-patterns` just because a table exists — only when the user explicitly asks for a Zero query hook, or the bug is clearly about Zero sync behavior (mentions "Zero", "sync", "stale after sync", "skeleton flash").
+- DO NOT: Invoke `zero-patterns` for plain server functions (`createServerFn`) — it's for Zero query hooks and sync states only.
+- DO NOT: Add skills the user didn't request. "Commit when done" means `git-commit` only, not `code-review` + `deslop` + `git-commit`.
+- DO NOT: Preload `create-form`, `create-dialog`, or `create-data-table` for generic feature requests (for example uploads, avatars, new CRUD features) unless the prompt itself makes the UI shape clear or you inspect the code and confirm the task lives in that component.
+- User-invoked only (don't auto-trigger): `react-doctor`, `design-motion-principles`.
+- Multi-skill triggers: a dialog with input fields (name, email, etc.) triggers BOTH `create-dialog` + `create-form`. A Zero query feeding a table triggers BOTH `zero-patterns` + `create-data-table`. But table search/filter/sort controls are part of `create-data-table` — don't add `create-form` for those. `create-form` is for user-input forms (create/edit entities, settings), not table toolbar controls.
+- Multi-skill triggers: approval/rejection/confirmation flows that collect extra user input (notes, screenshots, reasons, optional messages) usually trigger BOTH `create-dialog` + `create-form`, even if the prompt only mentions the action and fields, because the repo commonly implements these as confirm/modal flows.
+- Multi-skill ordering: review skills (`code-review`, `deslop`) run before `git-commit`. Creation skills (`create-form`, `create-dialog`, `create-data-table`, `zero-patterns`) run before `e2e-testing`. `add-logging` runs during implementation, not after.
 - These skills contain project-specific patterns that MUST be followed.
 - Discovery pointers: `skills-lock.json`, `.agents/skills`, `.claude/skills`.
 
