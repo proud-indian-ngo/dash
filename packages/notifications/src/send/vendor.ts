@@ -25,7 +25,7 @@ export async function notifyVendorApproved({
   const emailHtml = await renderNotificationEmail({
     heading: "Vendor approved!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
+    ctaUrl: `${env.APP_URL}/vendors`,
     ctaLabel: "View vendor",
   });
   await sendMessage({
@@ -33,7 +33,7 @@ export async function notifyVendorApproved({
     title: "✅ Vendor approved!",
     body,
     emailHtml,
-    clickAction: `/vendors/${vendorId}`,
+    clickAction: "/vendors",
     idempotencyKey: `vendor-approved-${vendorId}`,
     topic: TOPICS.REQUESTS_STATUS,
   });
@@ -54,7 +54,7 @@ export async function notifyVendorUnapproved({
   const emailHtml = await renderNotificationEmail({
     heading: "Vendor needs changes",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
+    ctaUrl: `${env.APP_URL}/vendors`,
     ctaLabel: "View vendor",
   });
   await sendMessage({
@@ -62,7 +62,7 @@ export async function notifyVendorUnapproved({
     title: "🔄 Vendor needs changes",
     body,
     emailHtml,
-    clickAction: `/vendors/${vendorId}`,
+    clickAction: "/vendors",
     idempotencyKey: `vendor-unapproved-${vendorId}`,
     topic: TOPICS.REQUESTS_STATUS,
   });
@@ -78,7 +78,7 @@ export async function notifyVendorAutoApproved({
   const emailHtml = await renderNotificationEmail({
     heading: "Vendor auto-approved!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendors/${vendorId}`,
+    ctaUrl: `${env.APP_URL}/vendors`,
     ctaLabel: "View vendor",
   });
   await sendMessage({
@@ -86,7 +86,7 @@ export async function notifyVendorAutoApproved({
     title: "✅ Vendor auto-approved!",
     body,
     emailHtml,
-    clickAction: `/vendors/${vendorId}`,
+    clickAction: "/vendors",
     idempotencyKey: `vendor-auto-approved-${vendorId}`,
     topic: TOPICS.REQUESTS_STATUS,
   });

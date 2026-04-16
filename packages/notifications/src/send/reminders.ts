@@ -64,7 +64,7 @@ export async function notifyStaleRequests({
   const emailHtml = await renderNotificationEmail({
     heading: "Requests need attention",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/requests`,
+    ctaUrl: `${env.APP_URL}/`,
     ctaLabel: "Review now",
   });
   await sendMessage({
@@ -72,7 +72,7 @@ export async function notifyStaleRequests({
     title: "⏰ Requests need attention",
     body,
     emailHtml,
-    clickAction: "/requests",
+    clickAction: "/",
     idempotencyKey: `stale-requests-reminder-${userId}-${dateKey}`,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
   });

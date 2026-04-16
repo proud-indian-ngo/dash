@@ -7,7 +7,7 @@ const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Advance Payment",
-  routePrefix: "requests",
+  routePrefix: "reimbursements",
   idempotencyPrefix: "advance-payment",
   getLineItems: getAdvancePaymentLineItems,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,

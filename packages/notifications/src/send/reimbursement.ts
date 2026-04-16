@@ -7,7 +7,7 @@ const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Reimbursement",
-  routePrefix: "requests",
+  routePrefix: "reimbursements",
   idempotencyPrefix: "reimbursement",
   getLineItems: getReimbursementLineItems,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,

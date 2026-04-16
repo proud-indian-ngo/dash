@@ -12,7 +12,7 @@ const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Vendor Payment",
-  routePrefix: "requests",
+  routePrefix: "vendor-payments",
   idempotencyPrefix: "vendor-payment",
   getLineItems: getVendorPaymentLineItems,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
@@ -152,7 +152,7 @@ export async function notifyVpFullyPaid(options: {
   const emailHtml = await renderNotificationEmail({
     heading: "All paid up!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/requests/${options.vendorPaymentId}`,
+    ctaUrl: `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`,
     ctaLabel: "View payment",
   });
   await sendMessage({
@@ -160,7 +160,7 @@ export async function notifyVpFullyPaid(options: {
     title: "🎉 All paid up!",
     body,
     emailHtml,
-    clickAction: `/requests/${options.vendorPaymentId}`,
+    clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     idempotencyKey: `vp-fully-paid-${options.vendorPaymentId}`,
     topic: TOPICS.REQUESTS_STATUS,
   });
@@ -177,7 +177,7 @@ export async function notifyVptCascadeRejected(options: {
   const emailHtml = await renderNotificationEmail({
     heading: "Transactions not approved",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/requests/${options.vendorPaymentId}`,
+    ctaUrl: `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`,
     ctaLabel: "View payment",
   });
   await sendMessage({
@@ -185,7 +185,7 @@ export async function notifyVptCascadeRejected(options: {
     title: "↩️ Transactions not approved",
     body,
     emailHtml,
-    clickAction: `/requests/${options.vendorPaymentId}`,
+    clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     idempotencyKey: `vpt-cascade-rejected-${options.vendorPaymentId}`,
     topic: TOPICS.REQUESTS_STATUS,
   });
