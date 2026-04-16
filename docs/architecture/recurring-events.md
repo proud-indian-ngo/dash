@@ -23,6 +23,10 @@ Virtual occurrences expanded client-side via `expandSeries()` from `@pi-dash/zer
 
 Zero queries filter `seriesId IS NULL` → only series parents + standalone events sync. Exceptions fetched via `exceptions` relation on series parent.
 
+### Team detail display range
+
+`buildEventDisplayRows` (`apps/web/src/components/teams/events/events-table-helpers.tsx`) expands each series over its **own** range: `[event.startTime, ruleUntil ?? callerRangeEnd]`. Bounded series (with `UNTIL`) always render every occurrence regardless of the caller's window; unbounded series are capped by the caller's `rangeEnd`. Exceptions have no upper bound — see "Post-split orphan exceptions" below.
+
 ## Edit/Cancel Scope
 
 Google Calendar-style scope selection ("This event" / "This and following" / "All events"):
@@ -34,6 +38,14 @@ Google Calendar-style scope selection ("This event" / "This and following" / "Al
 | `all` | Updates series parent directly | Cancels series parent + all exceptions |
 
 Mutators: `teamEvent.updateSeries`, `teamEvent.cancelSeries`, `teamEvent.materialize`.
+
+### UNTIL boundary
+
+`buildTruncatedRRule` (`packages/zero/src/mutators/team-event-series.ts`) sets `UNTIL=<splitDate>T000000Z`. Any occurrence at or after `splitDate 00:00Z` is excluded (belongs to the new series); earlier occurrences stay on the old series. Using midnight UTC keeps the boundary TZ-clean regardless of the series' wall-clock time.
+
+### Post-split orphan exceptions
+
+`updateSeriesFollowing` does **not** migrate materialized exceptions whose `originalDate >= splitDate` to the new series. They remain on the old parent and would otherwise become invisible once the old parent's truncated UNTIL is in the past. To preserve visibility, the team detail display deliberately does not apply an upper-bound filter to exceptions.
 
 ## Self-Join Materialization
 

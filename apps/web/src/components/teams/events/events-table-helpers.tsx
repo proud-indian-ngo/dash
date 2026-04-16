@@ -14,6 +14,7 @@ import type {
 } from "@pi-dash/zero/schema";
 import { addWeeks, format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
+import { parseRuleUntil } from "./rrule-until";
 
 export type EventRow = TeamEvent & {
   exceptions: ReadonlyArray<
@@ -99,23 +100,28 @@ function expandSeriesEvent(
     });
   }
 
+  // No upper bound on exceptions: "this and following" splits do not migrate
+  // exceptions whose originalDate >= splitDate to the new series, so orphaned
+  // exceptions that now fall past the old parent's truncated UNTIL must still
+  // render here — otherwise they become invisible across the whole app.
   for (const exc of event.exceptions) {
     if (exc.cancelledAt) {
       continue;
     }
-    if (exc.startTime >= rangeStartMs && exc.startTime <= rangeEndMs) {
-      rows.push({
-        key: exc.id,
-        event,
-        eventId: exc.id,
-        startTime: exc.startTime,
-        endTime: exc.endTime,
-        members: exc.members,
-        isVirtual: false,
-        seriesId: event.id,
-        originalDate: exc.originalDate,
-      });
+    if (exc.startTime < rangeStartMs) {
+      continue;
     }
+    rows.push({
+      key: exc.id,
+      event,
+      eventId: exc.id,
+      startTime: exc.startTime,
+      endTime: exc.endTime,
+      members: exc.members,
+      isVirtual: false,
+      seriesId: event.id,
+      originalDate: exc.originalDate,
+    });
   }
 
   return rows;
@@ -123,11 +129,9 @@ function expandSeriesEvent(
 
 export function buildEventDisplayRows(
   events: readonly EventRow[],
-  rangeStart: Date,
   rangeEnd: Date
 ): EventDisplayRow[] {
   const rows: EventDisplayRow[] = [];
-  const rangeStartMs = rangeStart.getTime();
   const rangeEndMs = rangeEnd.getTime();
 
   for (const event of events) {
@@ -149,9 +153,14 @@ export function buildEventDisplayRows(
       continue;
     }
 
-    // Expand from the series parent's own start so past occurrences are included
-    const seriesRangeStart = Math.min(event.startTime, rangeStartMs);
-    rows.push(...expandSeriesEvent(event, rule, seriesRangeStart, rangeEndMs));
+    // Per-series bounds: start at the series parent's own DTSTART; end at the
+    // rule's UNTIL (if bounded) or the caller's rangeEnd (for unbounded rules).
+    const seriesRangeStart = event.startTime;
+    const ruleUntil = parseRuleUntil(rule.rrule);
+    const seriesRangeEnd = ruleUntil ?? rangeEndMs;
+    rows.push(
+      ...expandSeriesEvent(event, rule, seriesRangeStart, seriesRangeEnd)
+    );
   }
 
   // Upcoming events first (ascending), then past events (most recent first)

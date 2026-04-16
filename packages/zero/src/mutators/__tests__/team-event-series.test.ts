@@ -8,9 +8,9 @@ import {
 const NOW = 1_700_000_000_000;
 
 describe("buildTruncatedRRule", () => {
-  it("appends UNTIL one day before split date", () => {
+  it("appends UNTIL pinned to 00:00:00Z of split date", () => {
     const result = buildTruncatedRRule("FREQ=WEEKLY;BYDAY=SA", "2026-04-15");
-    expect(result).toBe("FREQ=WEEKLY;BYDAY=SA;UNTIL=20260414T235959Z");
+    expect(result).toBe("FREQ=WEEKLY;BYDAY=SA;UNTIL=20260415T000000Z");
   });
 
   it("replaces existing UNTIL", () => {
@@ -18,22 +18,22 @@ describe("buildTruncatedRRule", () => {
       "FREQ=MONTHLY;BYDAY=1SA;UNTIL=20261231T235959Z",
       "2026-06-01"
     );
-    expect(result).toBe("FREQ=MONTHLY;BYDAY=1SA;UNTIL=20260531T235959Z");
+    expect(result).toBe("FREQ=MONTHLY;BYDAY=1SA;UNTIL=20260601T000000Z");
   });
 
-  it("handles January 1st split (rolls back to previous year)", () => {
+  it("handles January 1st split", () => {
     const result = buildTruncatedRRule("FREQ=WEEKLY", "2026-01-01");
-    expect(result).toBe("FREQ=WEEKLY;UNTIL=20251231T235959Z");
+    expect(result).toBe("FREQ=WEEKLY;UNTIL=20260101T000000Z");
   });
 
   it("handles March 1st split in non-leap year", () => {
     const result = buildTruncatedRRule("FREQ=DAILY", "2025-03-01");
-    expect(result).toBe("FREQ=DAILY;UNTIL=20250228T235959Z");
+    expect(result).toBe("FREQ=DAILY;UNTIL=20250301T000000Z");
   });
 
   it("handles March 1st split in leap year", () => {
     const result = buildTruncatedRRule("FREQ=DAILY", "2024-03-01");
-    expect(result).toBe("FREQ=DAILY;UNTIL=20240229T235959Z");
+    expect(result).toBe("FREQ=DAILY;UNTIL=20240301T000000Z");
   });
 });
 

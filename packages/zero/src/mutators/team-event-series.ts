@@ -2,21 +2,24 @@ import type { City, ReminderTarget } from "@pi-dash/shared/constants";
 import type { TeamEvent } from "../schema";
 import { zql } from "../schema";
 
-const UNTIL_RE = /UNTIL=[^;]+/;
+const UNTIL_RE = /UNTIL=\d{8}T\d{6}Z/;
 const DASH_RE = /-/g;
 
-/** Build a truncated RRULE string with UNTIL set to the day before splitDate. */
+/**
+ * Build a truncated RRULE string with UNTIL pinned to 00:00:00Z of splitDate.
+ * Any occurrence at or after splitDate (UTC) is excluded; earlier occurrences
+ * stay on the old series. TZ-clean regardless of the series' wall-clock time.
+ */
 export function buildTruncatedRRule(
   rruleStr: string,
   splitIsoDate: string
 ): string {
-  const splitDate = new Date(`${splitIsoDate}T00:00:00Z`);
-  splitDate.setUTCDate(splitDate.getUTCDate() - 1);
-  const untilStr = splitDate.toISOString().slice(0, 10).replace(DASH_RE, "");
+  const untilStr = splitIsoDate.replace(DASH_RE, "");
+  const until = `UNTIL=${untilStr}T000000Z`;
   if (rruleStr.includes("UNTIL=")) {
-    return rruleStr.replace(UNTIL_RE, `UNTIL=${untilStr}T235959Z`);
+    return rruleStr.replace(UNTIL_RE, until);
   }
-  return `${rruleStr};UNTIL=${untilStr}T235959Z`;
+  return `${rruleStr};${until}`;
 }
 
 export type RecurrenceRuleValue = {

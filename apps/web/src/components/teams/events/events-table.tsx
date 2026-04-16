@@ -49,8 +49,8 @@ export function EventsTable({
   hasActiveFilters,
   onClearFilters,
 }: EventsTableProps) {
-  const { start, end } = getDefaultDateRange();
-  const allDisplayRows = buildEventDisplayRows(events, start, end);
+  const { end } = getDefaultDateRange();
+  const allDisplayRows = buildEventDisplayRows(events, end);
 
   const displayRows = displayRowFilter
     ? allDisplayRows.filter(displayRowFilter)
