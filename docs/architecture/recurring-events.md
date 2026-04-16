@@ -43,9 +43,14 @@ Mutators: `teamEvent.updateSeries`, `teamEvent.cancelSeries`, `teamEvent.materia
 
 `buildTruncatedRRule` (`packages/zero/src/mutators/team-event-series.ts`) sets `UNTIL=<splitDate>T000000Z`. Any occurrence at or after `splitDate 00:00Z` is excluded (belongs to the new series); earlier occurrences stay on the old series. Using midnight UTC keeps the boundary TZ-clean regardless of the series' wall-clock time.
 
-### Post-split orphan exceptions
+### Orphaned exceptions
 
-`updateSeriesFollowing` does **not** migrate materialized exceptions whose `originalDate >= splitDate` to the new series. They remain on the old parent and would otherwise become invisible once the old parent's truncated UNTIL is in the past. To preserve visibility, the team detail display deliberately does not apply an upper-bound filter to exceptions.
+Series edits like `all` and `following` can shift the parent's DTSTART or truncate its UNTIL, leaving materialized exception rows whose `originalDate` or `startTime` no longer lines up with the current RRULE expansion. Examples:
+
+- `updateSeriesFollowing` does **not** migrate exceptions with `originalDate >= splitDate` to the new series — they stay on the old parent, past its truncated UNTIL.
+- `updateSeriesAll` can move the parent's `startTime` forward, leaving exceptions whose `startTime` is before the new DTSTART.
+
+To keep them visible, the team detail display applies **no range filter** to exception rows — every non-cancelled exception renders, regardless of how its timestamps relate to the current RRULE.
 
 ## Self-Join Materialization
 
