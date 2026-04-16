@@ -45,7 +45,7 @@ test.describe("Settings dialog", () => {
   });
 
   test("shows admin-only sections for admin", async ({ page }, testInfo) => {
-    if (testInfo.project.name !== "admin") {
+    if (testInfo.project.name !== "super_admin") {
       test.skip();
     }
 

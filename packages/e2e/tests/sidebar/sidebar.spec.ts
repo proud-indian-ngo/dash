@@ -7,6 +7,14 @@ dotenv.config({
   quiet: true,
 });
 
+const ROLES_WITH_USERS = new Set(["super_admin", "admin", "finance_admin"]);
+const ROLES_WITH_REIMBURSEMENTS = new Set([
+  "super_admin",
+  "admin",
+  "finance_admin",
+  "volunteer",
+]);
+
 test.describe("Sidebar navigation", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
@@ -16,25 +24,78 @@ test.describe("Sidebar navigation", () => {
     ).toBeVisible();
   });
 
-  test("nav links are present", async ({ page }, testInfo) => {
+  test("Dashboard link is always present", async ({ page }) => {
     const nav = page.locator("[data-sidebar='content']");
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Reimbursements" })
-    ).toBeVisible();
     await expect(nav.getByRole("button", { name: "Dashboard" })).toHaveCount(0);
-    await expect(
-      nav.getByRole("button", { name: "Reimbursements" })
-    ).toHaveCount(0);
+  });
 
-    if (testInfo.project.name === "admin") {
-      await expect(nav.getByRole("link", { name: "Users" })).toBeVisible();
+  test("Reimbursements link visibility per role", async ({
+    page,
+  }, testInfo) => {
+    const nav = page.locator("[data-sidebar='content']");
+    const link = nav.getByRole("link", { name: "Reimbursements" });
+    if (ROLES_WITH_REIMBURSEMENTS.has(testInfo.project.name)) {
+      await expect(link).toBeVisible();
     } else {
-      await expect(nav.getByRole("link", { name: "Users" })).toBeHidden();
+      await expect(link).toBeHidden();
     }
   });
 
-  test("clicking Reimbursements navigates correctly", async ({ page }) => {
+  test("Users link visibility per role", async ({ page }, testInfo) => {
+    const nav = page.locator("[data-sidebar='content']");
+    const link = nav.getByRole("link", { name: "Users" });
+    if (ROLES_WITH_USERS.has(testInfo.project.name)) {
+      await expect(link).toBeVisible();
+    } else {
+      await expect(link).toBeHidden();
+    }
+  });
+
+  test("Roles link visible only for super_admin", async ({
+    page,
+  }, testInfo) => {
+    const nav = page.locator("[data-sidebar='content']");
+    const link = nav.getByRole("link", { name: "Roles" });
+    if (testInfo.project.name === "super_admin") {
+      await expect(link).toBeVisible();
+    } else {
+      await expect(link).toBeHidden();
+    }
+  });
+
+  test("Jobs link visible only for super_admin", async ({ page }, testInfo) => {
+    const nav = page.locator("[data-sidebar='content']");
+    const link = nav.getByRole("link", { name: "Jobs" });
+    if (testInfo.project.name === "super_admin") {
+      await expect(link).toBeVisible();
+    } else {
+      await expect(link).toBeHidden();
+    }
+  });
+
+  test("Vendors link hidden for volunteer + unoriented_volunteer", async ({
+    page,
+  }, testInfo) => {
+    const nav = page.locator("[data-sidebar='content']");
+    const link = nav.getByRole("link", { name: "Vendors" });
+    if (
+      testInfo.project.name === "volunteer" ||
+      testInfo.project.name === "unoriented_volunteer"
+    ) {
+      await expect(link).toBeHidden();
+    } else {
+      await expect(link).toBeVisible();
+    }
+  });
+
+  test("clicking Reimbursements navigates correctly", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      !ROLES_WITH_REIMBURSEMENTS.has(testInfo.project.name),
+      "Role lacks reimbursements access"
+    );
     const nav = page.locator("[data-sidebar='content']");
     await nav.getByRole("link", { name: "Reimbursements" }).click();
     await page.waitForURL(/\/reimbursements/);
@@ -94,10 +155,10 @@ test.describe("Sidebar log out", () => {
     await page.goto("/login");
     await page
       .getByLabel("Email")
-      .fill(process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test");
+      .fill(process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test");
     await page
       .getByLabel("Password")
-      .fill(process.env.ADMIN_PASSWORD ?? "TestAdmin123!");
+      .fill(process.env.SUPER_ADMIN_PASSWORD ?? "TestSuperAdmin123!");
     await page.getByRole("button", { name: "Login" }).click();
     await page.waitForURL("/");
     await expect(

@@ -53,7 +53,7 @@ async function openRowActionAndClick(
 
 test.describe("Team delete", () => {
   test("admin deletes a team via actions menu", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     const teamName = await createTeam(page);
 
@@ -89,7 +89,7 @@ test.describe("Team delete", () => {
   });
 
   test("admin can cancel delete dialog", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     const teamName = await createTeam(page);
 

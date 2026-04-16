@@ -32,10 +32,19 @@ function accountCard(
     .filter({ hasText: `••••${lastFour}` });
 }
 
+const ROLES_FOR_BANK_ACCOUNT_FLOW = new Set(["super_admin", "volunteer"]);
+
 test.describe("Bank account selection with duplicate names", () => {
   const DUPLICATE_NUMBER = "9876543210";
   const DUPLICATE_LAST4 = "3210";
   const SEED_LAST4 = "7890";
+
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(
+      !ROLES_FOR_BANK_ACCOUNT_FLOW.has(testInfo.project.name),
+      "Bank account UX covered under super_admin + volunteer projects"
+    );
+  });
 
   test.afterEach(async ({ page }) => {
     // Cleanup: delete the duplicate account if it exists

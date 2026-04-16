@@ -2,7 +2,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Event duplication", () => {
   test("duplicates an event from detail page", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     // Navigate to events and open the first one
     await page.goto("/events");
@@ -77,7 +77,7 @@ test.describe("Event duplication", () => {
   test("duplicate preserves event details from original", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/teams");
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
