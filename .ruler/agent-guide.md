@@ -134,7 +134,10 @@ Architecture docs live at `docs/architecture/` as sharded chapters. **Do NOT loa
 - `@react-pdf/renderer`, voucher layout, `amount-to-words` → `pdf.md`
 - `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, `onImageUpload` → `editor.md`
 - `@pi-dash/shared`, `ALLOWED_IMAGE_TYPES`, reminder presets, client/server constant boundary → `shared.md`
-- New workspace, package layout, Turborepo, Dockerfile copy lines → `monorepo.md`
+- New workspace, package layout, Turborepo, Dockerfile copy lines, Biome/lefthook/commitlint config → `monorepo.md`
+- `packages/env`, `.env`, `.env.worktree`, `BETTER_AUTH_SECRET`, `createEnv`, worktree port collision, `SKIP_VALIDATION` → `env-and-secrets.md`
+- `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, rate limiter (`checkRateLimit`), 429 response, HMR-reset cache → `caching.md`
+- `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, shard-by-duration, `run-e2e.sh`, E2E DB isolation → `e2e-testing.md`
 
 **DO NOT read architecture docs for**: UI copy/style tweaks, CSS changes, component restyling, lint fixes, dep bumps, test-only changes, typo fixes, commit message drafting, config-file edits outside the listed triggers, dev-tool config. In these cases skip the index entirely.
 

@@ -22,6 +22,9 @@ Chapters intentionally sharded so loading stays cheap.
 | PDF | `pdf.md` | `@pi-dash/pdf`, voucher layout, `amount-to-words`, signature assets |
 | Editor | `editor.md` | `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, `onImageUpload` adapter |
 | Shared | `shared.md` | `@pi-dash/shared`, `ALLOWED_IMAGE_TYPES`, event reminder presets, client/server constant boundary |
+| Env & Secrets | `env-and-secrets.md` | `packages/env`, `.env`, `.env.worktree`, `BETTER_AUTH_SECRET`, `createEnv`, worktree port auto-detect, `SKIP_VALIDATION`, `VITE_E2E` |
+| Caching & Rate Limit | `caching.md` | `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, `checkRateLimit`, 429 response, HMR-reset cache, `Retry-After` |
+| E2E Testing | `e2e-testing.md` | `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, `shard-by-duration`, `run-e2e.sh`, duration reporter |
 
 ## Load Rules
 

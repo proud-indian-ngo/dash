@@ -20,3 +20,6 @@ Start with [`docs/architecture/index.md`](docs/architecture/index.md) — topic 
 - [PDF Generation](docs/architecture/pdf.md)
 - [Editor](docs/architecture/editor.md)
 - [Shared Constants](docs/architecture/shared.md)
+- [Environment & Secrets](docs/architecture/env-and-secrets.md)
+- [Caching & Rate Limiting](docs/architecture/caching.md)
+- [E2E Testing](docs/architecture/e2e-testing.md)

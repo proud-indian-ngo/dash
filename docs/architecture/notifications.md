@@ -1,6 +1,6 @@
 # Notifications
 
-> **Load when**: `enqueue`, Courier, WhatsApp, poll, RSVP, `notify-*` handler, notification topic preferences, webhook proxy, fire-and-forget.
+> **Load when**: `enqueue`, Courier, WhatsApp, poll, RSVP, `notify-*` handler, notification topic preferences, webhook proxy, fire-and-forget, group JID, `sync-courier-preference`, `sync-whatsapp-status`, GoWA gateway.
 > **Related**: `jobs.md`, `observability.md`
 
 ## Architecture
@@ -47,3 +47,37 @@ Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggl
 **UI**: Users manage prefs via settings (`NotificationsSection`). Admins edit any user (`UserNotificationsForm`). Both use Zero queries/mutators — no server fns.
 
 **Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled (server-side guard).
+
+## Courier Preference Reconciliation
+
+Flow (`packages/jobs/src/handlers/sync-courier-preference.ts`):
+
+1. Mutator updates local DB → enqueues `sync-courier-preference` with `{ userId, topicId, enabled, previousEmailEnabled }`.
+2. Job calls Courier via `updateUserTopicPreference()` with `OPTED_IN` or `OPTED_OUT`.
+3. On Courier failure: **conditional revert**. Re-read current `emailEnabled` from DB.
+   - If `current === enabled` (no newer user choice): revert DB to `previousEmailEnabled`. Log `event: "reverted"`.
+   - If `current !== enabled` (user changed pref meanwhile): **skip revert**. Log `event: "revert_skipped"`. Protects against clobbering a user's newer choice on pg-boss retry.
+4. Throw error regardless — pg-boss surfaces the failure.
+
+This guard is why `previousEmailEnabled` must be captured in the mutator and passed through — the job needs the pre-mutation value to know what to revert to.
+
+## WhatsApp Gateway (GoWA)
+
+`packages/whatsapp` wraps the self-hosted GoWA (`go-whatsapp-web-multidevice-poll-vote`) REST API. Config: `WHATSAPP_API_URL`, `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS`, `WHATSAPP_WEBHOOK_SECRET`.
+
+**Group JID format**: `<numeric-id>@g.us` (example `120363012345678901@g.us`). Users paste JIDs into the WhatsApp group form — admin copies from WhatsApp Web URL.
+
+**User sync**: `sync-whatsapp-status` job (enqueued from `packages/auth/src/index.ts` on user creation/phone change) verifies the user's phone is registered with WhatsApp. Result cached on `user.whatsappStatus`.
+
+**Per-user opt-in**: send-time check combines three conditions:
+1. User has a phone number.
+2. `whatsappStatus` is verified.
+3. `isWhatsAppTopicEnabled(userId, topicId)` — local DB pref.
+
+Any false → skip WhatsApp, fall back to Courier channels.
+
+**Group ops**: `whatsapp-add-to-group`, `whatsapp-remove-from-group` jobs — idempotent, retry-safe. Used by RSVP poll vote handler and team-membership mutations.
+
+**Webhook**: GoWA POSTs to `/api/whatsapp/webhook` with `WHATSAPP_WEBHOOK_SECRET` header check. Handles poll votes + message status updates.
+
+**Chunked-request proxy**: GoWA (Go) emits `Transfer-Encoding: chunked` POSTs — Vite dev server rejects with 400. `bun run dev:webhook-proxy` buffers body on `:3002`, forwards to `:3001` with `Content-Length`. Prod (Nitro) handles chunked directly — proxy not needed.

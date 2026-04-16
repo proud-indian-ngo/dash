@@ -27,3 +27,13 @@ Turborepo monorepo. Bun package manager.
 ## New Workspace Rule
 
 New `packages/*`: add `COPY packages/<name>/package.json packages/<name>/` to `Dockerfile` before `RUN bun install`. Else Docker build breaks.
+
+## Dev Tooling
+
+- **Biome + ultracite** (`biome.jsonc`): linter + formatter. `bun run check` validates, `bun run fix` auto-fixes. Ultracite = preset on top of Biome with opinionated React/TS rules.
+- **Lefthook** (`lefthook.yml`): git hooks.
+  - `pre-commit` (parallel): type check, `ultracite fix {staged_files}` with `stage_fixed: true`, unit tests, `check:unused` (knip).
+  - `post-checkout` — on worktree switch: copies `.env` from main worktree if missing; re-runs `bun run ruler:apply` if `CLAUDE.md` missing or older than `.ruler/agent-guide.md`.
+- **Commitlint** (`commitlint.config.js`): enforces conventional commits (`feat:`, `fix:`, `docs:`, etc).
+- **Knip** (`knip.json`): unused exports/dependencies check via `bun run check:unused`.
+- **Turborepo** (`turbo.json`): task orchestration + remote cache (self-hosted at `turbo.ducktors.dev`).
