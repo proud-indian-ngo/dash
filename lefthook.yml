@@ -18,25 +18,6 @@ pre-commit:
       glob: "*.{ts,tsx}"
       run: bun run check:unused
 
-pre-push:
-  commands:
-    build:
-      # Populate Turbo remote cache so CI build hits cache.
-      # Only runs when app/package code changes; doc/config-only pushes skip.
-      glob: "{apps,packages}/**/*.{ts,tsx,js,jsx,json,css,html}"
-      env:
-        TURBO_TELEMETRY_DISABLED: "1"
-        TURBO_API: "https://turbo.ducktors.dev"
-        TURBO_TOKEN: "turbotokenoss"
-        TURBO_TEAM: "pi-dash"
-        SKIP_VALIDATION: "true"
-        BETTER_AUTH_URL: "http://localhost:3001"
-        BETTER_AUTH_SECRET: "local-prepush-build-secret-at-least-32-chars"
-        CORS_ORIGIN: "http://localhost:3001"
-        VITE_ZERO_URL: "http://localhost:4848"
-        VITE_CDN_URL: "http://localhost:3001"
-      run: bun run build
-
 post-checkout:
   commands:
     worktree-bootstrap:
