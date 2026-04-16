@@ -11,7 +11,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   test("admin sees Approve/Reject buttons for pending reimbursement", async ({
     page: _page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
@@ -45,7 +45,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   });
 
   test("admin approves a pending reimbursement", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Approv Flow Test");
 
@@ -64,7 +64,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   test("admin rejects a pending reimbursement with reason", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Denial Flow Test");
 
@@ -81,7 +81,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   test("admin edit submission button opens edit form", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Edit Submission Open");
     await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible({
@@ -99,7 +99,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   test("admin edits submission and saves changes", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Edit Submission Save");
     await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible({
@@ -125,7 +125,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   test("line items table shows Category, Description, Amount", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
@@ -166,7 +166,7 @@ test.describe
     test("advance payment detail does not show Expense Date", async ({
       page,
     }, testInfo) => {
-      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
       await reimbursements.createReimbursement("AP Detail NoDate");
 
@@ -179,7 +179,7 @@ test.describe
     test("admin approves a pending advance payment", async ({
       page,
     }, testInfo) => {
-      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
       await reimbursements.createReimbursement("AP Approve Flow");
 
@@ -200,7 +200,7 @@ test.describe
     test("admin rejects a pending advance payment with reason", async ({
       page,
     }, testInfo) => {
-      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
       await reimbursements.createReimbursement("AP Reject Flow");
 

@@ -22,7 +22,7 @@ test.describe("WhatsApp Groups (admin)", () => {
   test("shows section with empty state or group list", async ({
     page,
   }, testInfo) => {
-    if (testInfo.project.name !== "admin") {
+    if (testInfo.project.name !== "super_admin") {
       test.skip();
     }
 
@@ -36,7 +36,7 @@ test.describe("WhatsApp Groups (admin)", () => {
   });
 
   test("shows add group button", async ({ page }, testInfo) => {
-    if (testInfo.project.name !== "admin") {
+    if (testInfo.project.name !== "super_admin") {
       test.skip();
     }
 
@@ -54,7 +54,7 @@ test.describe("WhatsApp Groups (admin)", () => {
   });
 
   test("can open and cancel picker dialog", async ({ page }, testInfo) => {
-    if (testInfo.project.name !== "admin") {
+    if (testInfo.project.name !== "super_admin") {
       test.skip();
     }
 
@@ -102,7 +102,7 @@ test.describe("WhatsApp Groups (admin)", () => {
   test("can add group from picker, edit, and delete", async ({
     page,
   }, testInfo) => {
-    if (testInfo.project.name !== "admin") {
+    if (testInfo.project.name !== "super_admin") {
       test.skip();
     }
     test.slow();

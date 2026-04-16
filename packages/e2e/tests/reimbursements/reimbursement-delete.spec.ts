@@ -11,7 +11,7 @@ test.describe("Reimbursement delete (reimbursement)", () => {
   test("admin deletes a reimbursement via actions menu", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     const title = await reimbursements.createReimbursement("Delete Admin");
 
@@ -37,7 +37,7 @@ test.describe("Reimbursement delete (reimbursement)", () => {
   });
 
   test("admin can cancel delete dialog", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     const title = await reimbursements.createReimbursement("Delete Cancel");
 
@@ -91,7 +91,7 @@ test.describe
     test("admin deletes an advance payment via actions menu", async ({
       page,
     }, testInfo) => {
-      test.skip(testInfo.project.name !== "admin", "Admin-only test");
+      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
       const title = await reimbursements.createReimbursement("Delete AP Admin");
 

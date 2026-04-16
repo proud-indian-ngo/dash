@@ -99,7 +99,7 @@ test.describe("Event interest flow", () => {
   test("admin sees interest requests on event detail", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(

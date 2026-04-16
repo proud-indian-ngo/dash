@@ -2,7 +2,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Event feedback — admin", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("creates a past event with feedback enabled and sees empty feedback tab", async ({

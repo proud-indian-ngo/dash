@@ -2,7 +2,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Event attendance (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("admin sees attendance section on a started event", async ({ page }) => {

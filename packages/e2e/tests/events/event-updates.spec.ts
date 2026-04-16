@@ -2,7 +2,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Event updates CRUD (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("creates a past event and posts, edits, and deletes an update", async ({
@@ -118,7 +118,7 @@ test.describe("Event updates CRUD (admin)", () => {
 
 test.describe("Event update approval (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("approves a pending update from seeded data", async ({ page }) => {

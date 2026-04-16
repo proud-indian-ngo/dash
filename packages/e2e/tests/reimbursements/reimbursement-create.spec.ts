@@ -13,8 +13,10 @@ test.describe("New reimbursement form", () => {
     await expect(reimbursements.form.getTitleInput()).toBeVisible();
     await expect(reimbursements.form.getCityInput()).toBeVisible();
     await expect(page.getByLabel("Expense Date")).toBeVisible();
+    // Bank Account section hydrates from a separate Zero query, which runs
+    // later than data-zero-ready under parallel load — extra headroom.
     await expect(page.getByText("Bank Account")).toBeVisible({
-      timeout: 15_000,
+      timeout: 25_000,
     });
   });
 

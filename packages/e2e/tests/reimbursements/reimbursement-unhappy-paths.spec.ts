@@ -23,7 +23,7 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
 
 test.describe("Reimbursement unhappy paths (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("edit button hidden on approved reimbursement", async ({ page }) => {

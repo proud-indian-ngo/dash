@@ -20,7 +20,7 @@ async function openExpenseCategories(page: import("@playwright/test").Page) {
 
 test.describe("Expense Categories settings (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("shows seeded expense categories", async ({ page }) => {

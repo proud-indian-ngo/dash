@@ -2,7 +2,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Export CSV (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/export");
     await expect(

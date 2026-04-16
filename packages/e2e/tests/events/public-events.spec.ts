@@ -2,7 +2,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Public events page", () => {
   test("admin can navigate to /events page", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -24,7 +24,7 @@ test.describe("Public events page", () => {
   });
 
   test("events page shows calendar layout", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -41,7 +41,7 @@ test.describe("Public events page", () => {
   });
 
   test("sidebar has Events nav item", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/");
     await expect(

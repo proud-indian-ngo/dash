@@ -4,7 +4,7 @@ test.describe("Event time scope filter", () => {
   test("shows time scope filter buttons on events page", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -22,7 +22,7 @@ test.describe("Event time scope filter", () => {
   });
 
   test("filters events by This Week scope", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -42,7 +42,7 @@ test.describe("Event time scope filter", () => {
   });
 
   test("filters events by This Month scope", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -62,7 +62,7 @@ test.describe("Event time scope filter", () => {
   });
 
   test("resets to All events", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(

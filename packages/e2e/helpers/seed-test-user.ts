@@ -27,25 +27,52 @@ const log = (message: string): void => {
   process.stdout.write(`${message}\n`);
 };
 
+type TestUserRole =
+  | "super_admin"
+  | "admin"
+  | "finance_admin"
+  | "volunteer"
+  | "unoriented_volunteer";
+
 interface TestUser {
   email: string;
   name: string;
   password: string;
-  role: "super_admin" | "volunteer";
+  role: TestUserRole;
 }
 
 const TEST_USERS: TestUser[] = [
   {
+    email: process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test",
+    password: process.env.SUPER_ADMIN_PASSWORD ?? "TestSuperAdmin123!",
+    name: "Test Super Admin",
+    role: "super_admin",
+  },
+  {
     email: process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test",
     password: process.env.ADMIN_PASSWORD ?? "TestAdmin123!",
     name: "Test Admin",
-    role: "super_admin",
+    role: "admin",
+  },
+  {
+    email: process.env.FINANCE_ADMIN_EMAIL ?? "test-finance-admin@pi-dash.test",
+    password: process.env.FINANCE_ADMIN_PASSWORD ?? "TestFinanceAdmin123!",
+    name: "Test Finance Admin",
+    role: "finance_admin",
   },
   {
     email: process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test",
     password: process.env.VOLUNTEER_PASSWORD ?? "TestVolunteer123!",
     name: "Test Volunteer",
     role: "volunteer",
+  },
+  {
+    email:
+      process.env.UNORIENTED_VOLUNTEER_EMAIL ??
+      "test-unoriented-volunteer@pi-dash.test",
+    password: process.env.UNORIENTED_VOLUNTEER_PASSWORD ?? "TestUnoriented123!",
+    name: "Test Unoriented Volunteer",
+    role: "unoriented_volunteer",
   },
 ];
 
@@ -314,20 +341,20 @@ async function seed(): Promise<void> {
   await ensureExpenseCategories();
   await ensureWhatsAppGroup();
 
-  let adminUserId = "";
+  let superAdminUserId = "";
   let volunteerUserId = "";
   for (const testUser of TEST_USERS) {
     const userId = await ensureTestUser(testUser);
     await ensureBankAccount(userId);
     if (testUser.role === "super_admin") {
-      adminUserId = userId;
-    } else {
+      superAdminUserId = userId;
+    } else if (testUser.role === "volunteer") {
       volunteerUserId = userId;
     }
   }
 
-  await ensureReimbursement(adminUserId);
-  await ensureEventWithPendingUpdate(adminUserId, volunteerUserId);
+  await ensureReimbursement(superAdminUserId);
+  await ensureEventWithPendingUpdate(superAdminUserId, volunteerUserId);
 }
 
 seed().catch((error: unknown) => {

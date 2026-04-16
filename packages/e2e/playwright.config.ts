@@ -31,13 +31,37 @@ export default defineConfig({
       testDir: path.resolve(import.meta.dirname),
     },
     {
+      name: "super_admin",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/super_admin.json"
+        ),
+      },
+      dependencies: ["setup"],
+      testIgnore: /auth\//,
+    },
+    {
       name: "admin",
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(import.meta.dirname, ".auth/admin.json"),
       },
       dependencies: ["setup"],
-      testIgnore: /auth\//,
+      testIgnore: [/auth\//, /users\//],
+    },
+    {
+      name: "finance_admin",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/finance_admin.json"
+        ),
+      },
+      dependencies: ["setup"],
+      testIgnore: [/auth\//, /users\//],
     },
     {
       name: "volunteer",
@@ -47,6 +71,21 @@ export default defineConfig({
       },
       dependencies: ["setup"],
       testIgnore: [/auth\//, /users\//],
+    },
+    {
+      name: "unoriented_volunteer",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/unoriented_volunteer.json"
+        ),
+      },
+      dependencies: ["setup"],
+      // Skip domains whose specs assume access unoriented volunteers lack.
+      // Dedicated coverage lives in tests/roles/unoriented-volunteer-flows.spec.ts
+      // and tests/authorization/.
+      testIgnore: [/auth\//, /users\//, /reimbursements\//, /teams\//],
     },
     {
       name: "unauthenticated",

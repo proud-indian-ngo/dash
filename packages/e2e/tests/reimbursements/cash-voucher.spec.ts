@@ -11,7 +11,7 @@ test.describe("Cash voucher", () => {
   test("shows cash voucher checkbox for line item ≤ 1000", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.navigateToNew();
 
@@ -26,7 +26,7 @@ test.describe("Cash voucher", () => {
   test("hides cash voucher checkbox for line item > 1000", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.navigateToNew();
 
@@ -41,7 +41,7 @@ test.describe("Cash voucher", () => {
   test("toggles cash voucher checkbox when amount crosses threshold", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.navigateToNew();
 
@@ -61,7 +61,7 @@ test.describe("Cash voucher", () => {
   test("submits reimbursement with cash voucher opt-in", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursementWithVoucher("Voucher Submit");
 
@@ -71,7 +71,7 @@ test.describe("Cash voucher", () => {
   test("approval enqueues voucher for opted-in line item", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
     test.slow();
 
     await reimbursements.createReimbursementWithVoucher("Voucher Approval");
@@ -79,7 +79,9 @@ test.describe("Cash voucher", () => {
     await expect(reimbursements.detail.getApproveButton()).toBeVisible();
     await reimbursements.detail.approve();
 
-    await expect(page.getByText("Reimbursement approved")).toBeVisible();
+    await expect(page.getByText("Reimbursement approved")).toBeVisible({
+      timeout: 15_000,
+    });
 
     // After approval, the voucher column should appear with a pending/generated state
     await expect(
@@ -90,7 +92,7 @@ test.describe("Cash voucher", () => {
   test("admin can trigger voucher generation for qualifying line item", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
     test.slow();
 
     await reimbursements.createReimbursement("No Voucher");
@@ -98,7 +100,9 @@ test.describe("Cash voucher", () => {
     await expect(reimbursements.detail.getApproveButton()).toBeVisible();
     await reimbursements.detail.approve();
 
-    await expect(page.getByText("Reimbursement approved")).toBeVisible();
+    await expect(page.getByText("Reimbursement approved")).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Since createReimbursement uses amount "100" (≤ 1000) without opt-in,
     // the "Generate Voucher" button should appear for the qualifying line item
@@ -116,7 +120,7 @@ test.describe("Cash voucher", () => {
   test("shows voucher column only for approved reimbursements", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();

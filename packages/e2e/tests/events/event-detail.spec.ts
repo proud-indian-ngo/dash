@@ -4,7 +4,7 @@ test.describe("Event detail page", () => {
   test("admin can navigate to event detail from public events", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -39,7 +39,7 @@ test.describe("Event detail page", () => {
   });
 
   test("event detail shows event info section", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
     await expect(
@@ -74,7 +74,7 @@ test.describe("Event detail page", () => {
   test("admin sees Edit and Cancel Event buttons for future events", async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/teams");
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();

@@ -9,7 +9,7 @@ import { expect, test } from "../../fixtures/test";
 
 test.describe("Photo notifications — admin batch approval", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("batch approving multiple photos sends a single summary notification to the uploader", async ({
@@ -138,7 +138,7 @@ test.describe("Photo notifications — admin batch approval", () => {
 
 test.describe("Photo notifications — admin single approval", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
   test("approving a single photo sends a singular notification", async ({

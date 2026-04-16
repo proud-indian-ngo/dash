@@ -3,7 +3,7 @@ import { ListPage } from "../../pages/list-page";
 
 test.describe("Scheduled messages (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/scheduled-messages");
     await expect(

@@ -1,8 +1,8 @@
 import { expect, test } from "../../../fixtures/test";
 
-test.describe("Role management (admin)", () => {
+test.describe("Role management (super_admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin-only test");
 
     await page.goto("/settings/roles");
     await expect(page.getByRole("heading", { name: "Roles" })).toBeVisible({
@@ -160,13 +160,20 @@ test.describe("Role management (admin)", () => {
   });
 });
 
-test.describe("Roles route guard (volunteer)", () => {
-  test("volunteer redirected from /settings/roles", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+test.describe("Roles route guard — non-super_admin redirect", () => {
+  for (const role of [
+    "admin",
+    "finance_admin",
+    "volunteer",
+    "unoriented_volunteer",
+  ] as const) {
+    test(`${role} redirected from /settings/roles`, async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== role, `${role}-only test`);
 
-    await page.goto("/settings/roles");
-    await page.waitForURL("/", { timeout: 10_000 });
-  });
+      await page.goto("/settings/roles");
+      await page.waitForURL("/", { timeout: 10_000 });
+    });
+  }
 });

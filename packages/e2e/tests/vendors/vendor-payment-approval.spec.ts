@@ -1,8 +1,13 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
-test.describe("Vendor payment approval (admin)", () => {
+const APPROVER_ROLES = new Set(["super_admin", "finance_admin"]);
+
+test.describe("Vendor payment approval (super_admin + finance_admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(
+      !APPROVER_ROLES.has(testInfo.project.name),
+      "Only roles with requests.approve"
+    );
   });
 
   async function createVendorPayment(

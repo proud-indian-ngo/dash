@@ -2,7 +2,7 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 test.describe("Vendor Payments list (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/vendor-payments");
     await waitForZeroReady(page);

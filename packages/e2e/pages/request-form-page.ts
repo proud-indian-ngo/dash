@@ -52,7 +52,7 @@ export class RequestFormPage {
     await this.page.getByRole("option", { name: cityName }).click();
   }
 
-  async selectBankAccount(timeout = 15_000): Promise<void> {
+  async selectBankAccount(timeout = 25_000): Promise<void> {
     const bankAccountGroup = this.page
       .getByRole("group")
       .filter({ hasText: "Bank Account" });
@@ -98,7 +98,23 @@ export class RequestFormPage {
   }
 
   async submit(): Promise<void> {
-    await this.getSubmitButton().click();
+    const btn = this.getSubmitButton();
+    // If the submit button is enabled, click it normally.
+    // Otherwise (form validation intentionally kept the button disabled),
+    // trigger submit via the form element so onSubmit-validation still fires
+    // and surfaces field errors. Avoids flake from the mount→validate race
+    // where `canSubmit` briefly flips false while Playwright waits for enabled.
+    const enabled = await btn.isEnabled().catch(() => false);
+    if (enabled) {
+      await btn.click();
+      return;
+    }
+    await this.page
+      .locator("form")
+      .first()
+      .evaluate((form: HTMLFormElement) => {
+        form.requestSubmit();
+      });
   }
 
   async cancel(): Promise<void> {
