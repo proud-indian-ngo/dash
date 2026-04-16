@@ -106,10 +106,39 @@ Always use `rtk` instead of raw equivalents. Hooks enforce in Claude Code; other
 
 - Major feature → update `README.md` and `.ruler/agent-guide.md`.
 - Structural change (routes, env vars, paths, patterns) → update `project-structure.md`.
-- Architectural change (data layer, auth, sync, notifications) → update `ARCHITECTURE.md`.
+- Architectural change (data layer, auth, sync, notifications) → update the matching chapter in `docs/architecture/`.
 - Deployment change (env vars, services, build steps) → update `DEPLOYMENT.md`.
 
-Read `project-structure.md` for structure/paths, `ARCHITECTURE.md` for system architecture, `DEPLOYMENT.md` for production setup.
+Read `project-structure.md` for structure/paths, `DEPLOYMENT.md` for production setup.
+
+## Architecture Docs (On-Demand)
+
+Architecture docs live at `docs/architecture/` as sharded chapters. **Do NOT load them by default.** Load ONLY when the current task matches a trigger below.
+
+**Protocol**:
+1. If task matches any trigger → first `rtk read docs/architecture/index.md` (topic map).
+2. Then `rtk read docs/architecture/<chapter>.md` for each matching topic. Multiple chapters allowed.
+3. If task does not match any trigger → skip architecture docs entirely.
+
+**Load triggers (read the matching chapter)**:
+- Zero mutators, Zero queries, Drizzle schema, connection pool, sync flow, SSR loaders, `ZeroProvider`, IndexedDB, optimistic updates → `data-layer.md`
+- Better Auth, session cookie, sign-in flow, `getAuth`, `getCachedAuth`, `requireSession` → `auth.md`
+- Permissions, roles, `assertHasPermission`, `can`, `hasPermission`, `resolvePermissions`, role hierarchy → `authorization.md`
+- Recurring events, RRULE, `teamEvent` recurrence, `seriesId`, `originalDate`, materialize, exdate → `recurring-events.md`
+- Vendor payment, VP status, invoice approval, `recalculateParentStatus` → `vendor-payments.md`
+- `enqueue()`, pg-boss, Courier, WhatsApp poll, notification topic preferences, `notify-*` handlers, webhook proxy → `notifications.md`
+- Cloudflare R2 presign, attachments, Immich sync, event photos → `file-uploads.md`
+- Cash voucher PDF, `generate-cash-voucher`, `VOUCHER_ORG_*` → `cash-vouchers.md`
+- evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, `/api/log/ingest` → `observability.md`
+- pg-boss handlers, job schedules, `createNotifyHandler`, `singletonKey`, 42 handlers → `jobs.md`
+- `@react-pdf/renderer`, voucher layout, `amount-to-words` → `pdf.md`
+- `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, `onImageUpload` → `editor.md`
+- `@pi-dash/shared`, `ALLOWED_IMAGE_TYPES`, reminder presets, client/server constant boundary → `shared.md`
+- New workspace, package layout, Turborepo, Dockerfile copy lines → `monorepo.md`
+
+**DO NOT read architecture docs for**: UI copy/style tweaks, CSS changes, component restyling, lint fixes, dep bumps, test-only changes, typo fixes, commit message drafting, config-file edits outside the listed triggers, dev-tool config. In these cases skip the index entirely.
+
+**When unsure**: skip the docs, start reading code. Only reconsider if code surfaces architectural patterns you don't recognize.
 
 ## GrepAI Usage Policy
 

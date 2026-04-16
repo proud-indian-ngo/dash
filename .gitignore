@@ -65,6 +65,7 @@ temp
 # END Ruler Generated Files
 .grepai/
 .desloppify/
+docs/plans/
 
 # Worktrees
 .worktrees/
