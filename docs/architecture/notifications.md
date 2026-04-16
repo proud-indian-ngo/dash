@@ -78,6 +78,10 @@ Any false → skip WhatsApp, fall back to Courier channels.
 
 **Group ops**: `whatsapp-add-to-group`, `whatsapp-remove-from-group` jobs — idempotent, retry-safe. Used by RSVP poll vote handler and team-membership mutations.
 
+## Volunteer Self-Join / Leave
+
+`teamEvent.joinAsMember` (self-join) enqueues `notify-added-to-event` (same topic as admin-triggered add). `teamEvent.leaveEvent` (self-remove) enqueues `notify-event-volunteer-left` → bulk message to team leads (queried server-side at mutation time). Topic reuses `EVENTS_INTEREST` (same lead audience, related signal). Idempotency key includes `leftAt` timestamp so leave→rejoin→leave delivers two distinct notifications.
+
 **Webhook**: GoWA POSTs to `/api/whatsapp/webhook` with `WHATSAPP_WEBHOOK_SECRET` header check. Handles poll votes + message status updates.
 
 **Chunked-request proxy**: GoWA (Go) emits `Transfer-Encoding: chunked` POSTs — Vite dev server rejects with 400. `bun run dev:webhook-proxy` buffers body on `:3002`, forwards to `:3001` with `Content-Length`. Prod (Nitro) handles chunked directly — proxy not needed.

@@ -14,21 +14,32 @@ const interestStatusMap = {
 
 export function VolunteerInterestSection({
   canManage,
+  canManageInterest,
   interests,
   isMember,
   isPublic,
+  isTeamMember,
   myInterest,
+  onJoinAsMember,
+  onLeaveEvent,
   onShowInterest,
 }: {
   canManage: boolean;
+  canManageInterest?: boolean;
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
   isPublic: boolean;
+  isTeamMember?: boolean;
   myInterest?: InterestWithUser | null;
+  onJoinAsMember?: () => void;
+  onLeaveEvent?: () => void;
   onShowInterest: () => void;
 }) {
   const zero = useZero();
-  const showButton = !(canManage || isMember || myInterest) && isPublic;
+  const excluded = canManage || canManageInterest || isMember;
+  const showJoin = !excluded && isTeamMember && !!onJoinAsMember;
+  const showInterest = !(excluded || isTeamMember || myInterest) && isPublic;
+  const showLeave = isMember && !canManage && !!onLeaveEvent;
 
   const handleCancel = async () => {
     if (!myInterest) {
@@ -47,9 +58,19 @@ export function VolunteerInterestSection({
 
   return (
     <>
-      {showButton ? (
+      {showJoin ? (
+        <Button onClick={onJoinAsMember} size="sm" variant="default">
+          Join
+        </Button>
+      ) : null}
+      {showInterest ? (
         <Button onClick={onShowInterest} size="sm" variant="default">
           Show Interest
+        </Button>
+      ) : null}
+      {showLeave ? (
+        <Button onClick={onLeaveEvent} size="sm" variant="outline">
+          Leave Event
         </Button>
       ) : null}
       {myInterest && !isMember ? (

@@ -67,6 +67,22 @@ const removeMemberSchema = z.object({
   memberId: z.string(),
 });
 
+const leaveEventSchema = z.object({
+  eventId: z.string(),
+  now: z.number(),
+});
+
+const joinAsMemberSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  occDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  materializedId: z.string().optional(),
+  now: z.number(),
+});
+
 const materializeSchema = z.object({
   id: z.string(),
   seriesId: z.string(),
@@ -300,6 +316,79 @@ describe("teamEvent mutator schemas", () => {
 
     it("rejects missing memberId", () => {
       const result = removeMemberSchema.safeParse({
+        eventId: "evt-1",
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("leaveEvent", () => {
+    it("accepts valid input", () => {
+      const result = leaveEventSchema.safeParse({
+        eventId: "evt-1",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects missing eventId", () => {
+      const result = leaveEventSchema.safeParse({
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects missing now", () => {
+      const result = leaveEventSchema.safeParse({
+        eventId: "evt-1",
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("joinAsMember", () => {
+    it("accepts valid input", () => {
+      const result = joinAsMemberSchema.safeParse({
+        id: "mem-1",
+        eventId: "evt-1",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts virtual-occurrence input with occDate + materializedId", () => {
+      const result = joinAsMemberSchema.safeParse({
+        id: "mem-1",
+        eventId: "series-1",
+        occDate: "2026-05-02",
+        materializedId: "evt-2",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects invalid occDate format", () => {
+      const result = joinAsMemberSchema.safeParse({
+        id: "mem-1",
+        eventId: "series-1",
+        occDate: "05/02/2026",
+        materializedId: "evt-2",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects missing eventId", () => {
+      const result = joinAsMemberSchema.safeParse({
+        id: "mem-1",
+        now: 1_700_000_000_000,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects missing now", () => {
+      const result = joinAsMemberSchema.safeParse({
+        id: "mem-1",
         eventId: "evt-1",
       });
       expect(result.success).toBe(false);

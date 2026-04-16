@@ -24,6 +24,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-event-interest-approved",
   "notify-event-interest-received",
   "notify-event-interest-rejected",
+  "notify-event-volunteer-left",
   "notify-event-update-approved",
   "notify-event-update-pending",
   "notify-event-update-posted",

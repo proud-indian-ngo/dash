@@ -86,11 +86,14 @@ function EventDetailRouteComponent() {
   const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
   const canManagePhotos = hasPermission("events.manage_photos") || isLead;
   const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
+  const canManageInterest = hasPermission("events.manage_interest") || isLead;
   const myInterest = interests.find(
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
   );
   const isMember = event.members.some((m) => m.userId === session.user.id);
+  const isTeamMember =
+    team?.members.some((m) => m.userId === session.user.id) ?? false;
 
   // For virtual occurrences, override the displayed start/end with the occurrence date
   const displayEvent =
@@ -110,6 +113,7 @@ function EventDetailRouteComponent() {
         canManage={canManage}
         canManageAttendance={canManageAttendance}
         canManageFeedback={canManageFeedback}
+        canManageInterest={canManageInterest}
         canManagePhotos={canManagePhotos}
         canManageVolunteers={canManage}
         event={displayEvent}
@@ -119,6 +123,7 @@ function EventDetailRouteComponent() {
           })[]
         }
         isMember={isMember}
+        isTeamMember={isTeamMember}
         myInterest={myInterest ?? null}
         occDate={occDate}
         team={team}

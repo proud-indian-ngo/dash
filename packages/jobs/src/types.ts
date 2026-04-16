@@ -262,6 +262,15 @@ export interface NotifyEventInterestRejectedPayload {
   eventName: string;
   userId: string;
 }
+export interface NotifyEventVolunteerLeftPayload {
+  eventId: string;
+  eventName: string;
+  leadUserIds: string[];
+  leftAt: number;
+  teamId: string;
+  volunteerName: string;
+  volunteerUserId: string;
+}
 
 // Event Photo
 export interface NotifyPhotoApprovedPayload {
@@ -524,6 +533,7 @@ export interface JobPayloads {
   "notify-event-update-posted": NotifyEventUpdatePostedPayload;
   "notify-event-update-rejected": NotifyEventUpdateRejectedPayload;
   "notify-event-updated": NotifyEventUpdatedPayload;
+  "notify-event-volunteer-left": NotifyEventVolunteerLeftPayload;
   "notify-password-reset": NotifyPasswordResetPayload;
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;

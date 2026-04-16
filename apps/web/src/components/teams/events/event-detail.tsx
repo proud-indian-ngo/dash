@@ -38,6 +38,7 @@ import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
 import { EditScopeDialog } from "./edit-scope-dialog";
@@ -126,12 +127,16 @@ function getPostEventContentMessage(
 
 function InterestSection(props: {
   canManage: boolean;
+  canManageInterest: boolean;
   dialog: ReturnType<typeof useDialogManager<EventDialog>>;
   event: EventRow;
   hasStarted: boolean;
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
+  isTeamMember: boolean;
   myInterest?: InterestWithUser | null;
+  onJoinAsMember: () => void;
+  onLeaveEvent: () => void;
 }) {
   if (props.hasStarted) {
     return (
@@ -145,10 +150,14 @@ function InterestSection(props: {
   return (
     <VolunteerInterestSection
       canManage={props.canManage}
+      canManageInterest={props.canManageInterest}
       interests={props.interests}
       isMember={props.isMember}
       isPublic={!!props.event.isPublic}
+      isTeamMember={props.isTeamMember}
       myInterest={props.myInterest}
+      onJoinAsMember={props.onJoinAsMember}
+      onLeaveEvent={props.onLeaveEvent}
       onShowInterest={() => props.dialog.open({ type: "interest" })}
     />
   );
@@ -181,11 +190,13 @@ interface EventDetailProps {
   canManage: boolean;
   canManageAttendance: boolean;
   canManageFeedback: boolean;
+  canManageInterest: boolean;
   canManagePhotos: boolean;
   canManageVolunteers: boolean;
   event: EventRow;
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
+  isTeamMember: boolean;
   myInterest?: InterestWithUser | null;
   /** ISO date (YYYY-MM-DD) when viewing a virtual occurrence of a series. */
   occDate?: string;
@@ -645,11 +656,13 @@ export function EventDetail({
   canManage,
   canManageAttendance,
   canManageFeedback,
+  canManageInterest,
   canManagePhotos,
   canManageVolunteers: canManageVolunteersProp,
   event,
   interests,
   isMember,
+  isTeamMember,
   myInterest,
   occDate,
   team,
@@ -764,6 +777,45 @@ export function EventDetail({
     },
   });
 
+  const handleJoinAsMember = useCallback(async () => {
+    const id = uuidv7();
+    const res = await zero.mutate(
+      mutators.teamEvent.joinAsMember({
+        id,
+        eventId: event.id,
+        occDate: isVirtualOccurrence ? occDate : undefined,
+        materializedId: isVirtualOccurrence ? uuidv7() : undefined,
+        now: Date.now(),
+      })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "teamEvent.joinAsMember",
+      entityId: id,
+      successMsg: "Joined event",
+      errorMsg: "Couldn't join event",
+    });
+  }, [isVirtualOccurrence, occDate, event.id, zero]);
+
+  const leaveEventAction = useConfirmAction({
+    onConfirm: () =>
+      zero.mutate(
+        mutators.teamEvent.leaveEvent({
+          eventId: event.id,
+          now: Date.now(),
+        })
+      ).server,
+    onSuccess: () => toast.success("Left event"),
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
+        mutation: "teamEvent.leaveEvent",
+        entityId: event.id,
+        error: msg ?? "unknown",
+      });
+      toast.error(msg ?? "Couldn't leave event");
+    },
+  });
+
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
@@ -838,22 +890,26 @@ export function EventDetail({
 
               <InterestSection
                 canManage={canManage}
+                canManageInterest={canManageInterest}
                 dialog={dialog}
                 event={event}
                 hasStarted={hasStarted}
                 interests={interests}
                 isMember={isMember}
+                isTeamMember={isTeamMember}
                 myInterest={myInterest}
+                onJoinAsMember={handleJoinAsMember}
+                onLeaveEvent={() => leaveEventAction.trigger()}
               />
 
-              {(canManageVolunteersProp || isPastEvent) && (
+              {canManageVolunteers || event.members.length > 0 ? (
                 <EventMembersSection
                   canManage={canManageVolunteers}
                   members={event.members}
                   onAddMember={handleAddMemberClick}
                   onRemoveMember={(id) => removeMember.trigger(id)}
                 />
-              )}
+              ) : null}
 
               {canManageAttendance && hasStarted ? (
                 <EventAttendanceSection
@@ -1026,6 +1082,21 @@ export function EventDetail({
         }}
         open={removeMember.isOpen}
         title="Remove volunteer"
+      />
+
+      <ConfirmDialog
+        confirmLabel="Leave"
+        description="Are you sure you want to leave this event? Team leads will be notified."
+        loading={leaveEventAction.isLoading}
+        loadingLabel="Leaving..."
+        onConfirm={leaveEventAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            leaveEventAction.cancel();
+          }
+        }}
+        open={leaveEventAction.isOpen}
+        title="Leave event"
       />
 
       <ShowInterestDialog

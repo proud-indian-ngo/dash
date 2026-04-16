@@ -18,6 +18,7 @@ import {
   handleNotifyEventInterestApproved,
   handleNotifyEventInterestReceived,
   handleNotifyEventInterestRejected,
+  handleNotifyEventVolunteerLeft,
 } from "./notify-event-interest";
 import {
   handleNotifyPhotoApproved,
@@ -336,6 +337,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-event-interest-rejected",
     NOTIFY_POLL,
     handleNotifyEventInterestRejected
+  );
+  await boss.work(
+    "notify-event-volunteer-left",
+    NOTIFY_POLL,
+    handleNotifyEventVolunteerLeft
   );
 
   await boss.work(

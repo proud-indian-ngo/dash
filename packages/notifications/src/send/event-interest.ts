@@ -23,6 +23,15 @@ interface InterestRejectedOptions {
   userId: string;
 }
 
+interface VolunteerLeftOptions {
+  eventId: string;
+  eventName: string;
+  leadUserIds: string[];
+  leftAt: number;
+  volunteerName: string;
+  volunteerUserId: string;
+}
+
 export async function notifyEventInterestReceived({
   eventId,
   eventName,
@@ -90,6 +99,31 @@ export async function notifyEventInterestRejected({
     emailHtml,
     clickAction: `/events/${eventId}`,
     idempotencyKey: `event-interest-rejected-${eventId}-${userId}`,
+    topic: TOPICS.EVENTS_INTEREST,
+  });
+}
+
+export async function notifyEventVolunteerLeft({
+  eventId,
+  eventName,
+  leadUserIds,
+  leftAt,
+  volunteerName,
+  volunteerUserId,
+}: VolunteerLeftOptions): Promise<void> {
+  const emailHtml = await renderNotificationEmail({
+    heading: "Volunteer left event",
+    paragraphs: [`${volunteerName} left ${eventName}.`],
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    ctaLabel: "View event",
+  });
+  await sendBulkMessage({
+    userIds: leadUserIds,
+    title: "🏃 Volunteer left",
+    body: `${volunteerName} left ${eventName}.`,
+    emailHtml,
+    clickAction: `/events/${eventId}`,
+    idempotencyKey: `event-volunteer-left-${eventId}-${volunteerUserId}-${leftAt}`,
     topic: TOPICS.EVENTS_INTEREST,
   });
 }

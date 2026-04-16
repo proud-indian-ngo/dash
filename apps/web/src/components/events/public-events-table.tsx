@@ -16,6 +16,7 @@ export interface PublicDisplayRow {
   endTime: number | null;
   eventId: string;
   isPublic: boolean | null;
+  isVirtualOccurrence: boolean;
   location: string | null;
   members: readonly TeamEventMember[];
   name: string;
@@ -49,7 +50,12 @@ export function buildPublicDisplayRows(
 
     if (!rule) {
       if (event.startTime >= rangeStart && event.startTime <= rangeEnd) {
-        rows.push({ ...base, startTime: event.startTime, occDate: null });
+        rows.push({
+          ...base,
+          startTime: event.startTime,
+          occDate: null,
+          isVirtualOccurrence: false,
+        });
       }
       continue;
     }
@@ -75,6 +81,7 @@ export function buildPublicDisplayRows(
         endTime: occ.endTime,
         startTime: occ.startTime,
         occDate: occ.date,
+        isVirtualOccurrence: true,
       });
     }
 
@@ -94,6 +101,7 @@ export function buildPublicDisplayRows(
           members: exc.members,
           name: exc.name,
           occDate: exc.originalDate,
+          isVirtualOccurrence: false,
         });
       }
     }

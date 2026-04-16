@@ -46,6 +46,117 @@ interface MutatorCtx {
   userId: string;
 }
 
+function computeOccurrenceStart(
+  seriesStartTime: number,
+  occDate: string
+): number {
+  const seriesStart = new Date(seriesStartTime);
+  const occStart = new Date(occDate);
+  occStart.setHours(
+    seriesStart.getHours(),
+    seriesStart.getMinutes(),
+    seriesStart.getSeconds(),
+    seriesStart.getMilliseconds()
+  );
+  return occStart.getTime();
+}
+
+interface JoinTarget {
+  endTime: number | null;
+  eventId: string;
+  location: string | null;
+  name: string;
+  startTime: number;
+}
+
+async function resolveJoinTarget(
+  tx: Tx,
+  ctx: MutatorCtx,
+  event: TeamEvent,
+  args: {
+    eventId: string;
+    occDate?: string;
+    materializedId?: string;
+    now: number;
+  }
+): Promise<JoinTarget> {
+  if (!args.occDate) {
+    if (event.startTime <= args.now) {
+      throw new Error("Cannot join event that has already started");
+    }
+    return {
+      eventId: args.eventId,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      name: event.name,
+      location: event.location,
+    };
+  }
+  if (!event.recurrenceRule) {
+    throw new Error("Event is not a recurring series");
+  }
+  if (!args.materializedId) {
+    throw new Error("materializedId required for virtual occurrence");
+  }
+  const existing = (await tx.run(
+    zql.teamEvent
+      .where("seriesId", args.eventId)
+      .where("originalDate", args.occDate)
+      .one()
+  )) as TeamEvent | undefined;
+  if (existing) {
+    if (existing.startTime <= args.now) {
+      throw new Error("Cannot join event that has already started");
+    }
+    return {
+      eventId: existing.id,
+      startTime: existing.startTime,
+      endTime: existing.endTime,
+      name: existing.name,
+      location: existing.location,
+    };
+  }
+  const occStart = computeOccurrenceStart(event.startTime, args.occDate);
+  if (occStart <= args.now) {
+    throw new Error("Cannot join event that has already started");
+  }
+  const duration =
+    event.endTime == null ? null : event.endTime - event.startTime;
+  const occEnd = duration == null ? null : occStart + duration;
+  await tx.mutate.teamEvent.insert({
+    id: args.materializedId,
+    teamId: event.teamId,
+    name: event.name,
+    description: event.description,
+    location: event.location,
+    city: event.city,
+    startTime: occStart,
+    endTime: occEnd,
+    isPublic: event.isPublic,
+    recurrenceRule: null,
+    seriesId: args.eventId,
+    originalDate: args.occDate,
+    cancelledAt: null,
+    feedbackEnabled: event.feedbackEnabled,
+    feedbackDeadline: event.feedbackDeadline,
+    postRsvpPoll: event.postRsvpPoll,
+    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
+    reminderIntervals: event.reminderIntervals,
+    reminderTarget: event.reminderTarget ?? "group",
+    whatsappGroupId: event.whatsappGroupId,
+    createdBy: ctx.userId,
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+  return {
+    eventId: args.materializedId,
+    startTime: occStart,
+    endTime: occEnd,
+    name: event.name,
+    location: event.location,
+  };
+}
+
 async function pushCreateServerTasks(
   tx: Tx,
   ctx: MutatorCtx,
@@ -774,6 +885,98 @@ export const teamEventMutators = {
     }
   ),
 
+  joinAsMember: defineMutator(
+    z.object({
+      id: z.string(),
+      eventId: z.string(),
+      occDate: z.string().regex(ISO_DATE_RE).optional(),
+      materializedId: z.string().optional(),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      const teamMembership = await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .one()
+      );
+      if (!teamMembership) {
+        throw new Error("Not a member of the event's team");
+      }
+
+      const target = await resolveJoinTarget(tx, ctx, event, args);
+
+      const existingMember = await tx.run(
+        zql.teamEventMember
+          .where("eventId", target.eventId)
+          .where("userId", ctx.userId)
+          .one()
+      );
+      if (existingMember) {
+        throw new Error("Already a member of this event");
+      }
+
+      await tx.mutate.teamEventMember.insert({
+        id: args.id,
+        eventId: target.eventId,
+        userId: ctx.userId,
+        addedAt: args.now,
+      });
+
+      if (tx.location === "server") {
+        const userId = ctx.userId;
+        const whatsappGroupId = event.whatsappGroupId;
+        if (whatsappGroupId) {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "joinEventAsMember",
+              eventId: target.eventId,
+              userId,
+              whatsappGroupId,
+            },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue("whatsapp-add-member", {
+                groupId: whatsappGroupId,
+                userId,
+              });
+            },
+          });
+        }
+
+        const teamId = event.teamId;
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "joinEventAsMember",
+            eventId: target.eventId,
+            eventName: target.name,
+            userId,
+            teamId,
+          },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue("notify-added-to-event", {
+              eventId: target.eventId,
+              eventName: target.name,
+              location: target.location ?? null,
+              startTime: target.startTime,
+              teamId,
+              userId,
+            });
+          },
+        });
+      }
+    }
+  ),
+
   markAttendance: defineMutator(
     z.object({
       eventId: z.string(),
@@ -860,6 +1063,96 @@ export const teamEventMutators = {
           attendance: "present",
           attendanceMarkedAt: args.now,
           attendanceMarkedBy: ctx.userId,
+        });
+      }
+    }
+  ),
+
+  leaveEvent: defineMutator(
+    z.object({
+      eventId: z.string(),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      // Attendance tracked post-start; retroactive leaves mangle records.
+      if (event.startTime <= args.now) {
+        throw new Error("Cannot leave event that has already started");
+      }
+
+      const member = (await tx.run(
+        zql.teamEventMember
+          .where("eventId", args.eventId)
+          .where("userId", ctx.userId)
+          .one()
+      )) as TeamEventMember | undefined;
+      if (!member) {
+        throw new Error("Not a member of this event");
+      }
+
+      await tx.mutate.teamEventMember.delete({ id: member.id });
+
+      if (tx.location === "server") {
+        const volunteerUserId = ctx.userId;
+        const eventId = args.eventId;
+        const eventName = event.name;
+        const teamId = event.teamId;
+        const whatsappGroupId = event.whatsappGroupId;
+        const leftAt = args.now;
+
+        const leads = await tx.run(
+          zql.teamMember.where("teamId", teamId).where("role", "lead")
+        );
+        const leadUserIds = leads.map((l) => l.userId);
+        const volunteer = await tx.run(
+          zql.user.where("id", volunteerUserId).one()
+        );
+        const volunteerName = volunteer?.name ?? "A volunteer";
+
+        if (whatsappGroupId) {
+          ctx.asyncTasks?.push({
+            meta: {
+              mutator: "leaveEvent",
+              eventId,
+              userId: volunteerUserId,
+              whatsappGroupId,
+            },
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue("whatsapp-remove-member", {
+                groupId: whatsappGroupId,
+                userId: volunteerUserId,
+              });
+            },
+          });
+        }
+
+        ctx.asyncTasks?.push({
+          meta: {
+            mutator: "leaveEvent",
+            eventId,
+            eventName,
+            teamId,
+            volunteerUserId,
+          },
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue("notify-event-volunteer-left", {
+              eventId,
+              eventName,
+              leadUserIds,
+              leftAt,
+              teamId,
+              volunteerName,
+              volunteerUserId,
+            });
+          },
         });
       }
     }

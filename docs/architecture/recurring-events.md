@@ -35,6 +35,12 @@ Google Calendar-style scope selection ("This event" / "This and following" / "Al
 
 Mutators: `teamEvent.updateSeries`, `teamEvent.cancelSeries`, `teamEvent.materialize`.
 
+## Self-Join Materialization
+
+`teamEvent.joinAsMember` lets regular team members self-join an event without `events.edit` or team-lead perms. For a virtual occurrence, client passes `{occDate, materializedId}` — server materializes the exception row server-side (bypasses `teamEvent.materialize` perm gate) and inserts the `teamEventMember` row pointing to it. Uses the (`seriesId`, `originalDate`) unique index to dedupe concurrent joins.
+
+Auth gate: must be a member of `event.teamId` via `teamMember` table.
+
 ## RRULE Utilities
 
 `packages/zero/src/lib/rrule-utils.ts` → exported as `@pi-dash/zero/rrule-utils`:

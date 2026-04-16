@@ -25,6 +25,53 @@ interface EventCardProps {
   userId: string;
 }
 
+type CardActionState =
+  | { kind: "joined" }
+  | { kind: "interestPending"; interestId: string; started: boolean }
+  | { kind: "interestApproved" }
+  | { kind: "interestDeclined" }
+  | { kind: "join" }
+  | { kind: "showInterest" }
+  | { kind: "none" };
+
+function deriveCardActionState(opts: {
+  isMember: boolean;
+  interest: EventInterest | undefined;
+  hasStarted: boolean;
+  canManageInterest: boolean;
+  isOwnTeam: boolean;
+  isPublic: boolean | null;
+}): CardActionState {
+  if (opts.isMember) {
+    return { kind: "joined" };
+  }
+  if (opts.interest) {
+    if (opts.interest.status === "pending") {
+      return {
+        kind: "interestPending",
+        interestId: opts.interest.id,
+        started: opts.hasStarted,
+      };
+    }
+    if (opts.interest.status === "approved") {
+      return { kind: "interestApproved" };
+    }
+    if (opts.interest.status === "rejected") {
+      return { kind: "interestDeclined" };
+    }
+  }
+  if (opts.hasStarted || opts.canManageInterest) {
+    return { kind: "none" };
+  }
+  if (opts.isOwnTeam) {
+    return { kind: "join" };
+  }
+  if (opts.isPublic) {
+    return { kind: "showInterest" };
+  }
+  return { kind: "none" };
+}
+
 export function EventCard({
   myInterests,
   myTeamIds,
@@ -43,7 +90,7 @@ export function EventCard({
   const canSeeVolunteers = isOver || canManageInterest || isOwnTeam;
   const interest = myInterests.find((i) => i.eventId === row.eventId);
 
-  const handleJoin = async (e: React.MouseEvent) => {
+  const handleShowInterest = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const id = uuidv7();
     const res = await zero.mutate(
@@ -58,6 +105,28 @@ export function EventCard({
       entityId: id,
       successMsg: "Interest submitted!",
       errorMsg: "Couldn't submit interest",
+    });
+  };
+
+  const handleJoinAsMember = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = uuidv7();
+    const res = await zero.mutate(
+      mutators.teamEvent.joinAsMember({
+        id,
+        eventId: row.eventId,
+        occDate: row.isVirtualOccurrence
+          ? (row.occDate ?? undefined)
+          : undefined,
+        materializedId: row.isVirtualOccurrence ? uuidv7() : undefined,
+        now: Date.now(),
+      })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "teamEvent.joinAsMember",
+      entityId: id,
+      successMsg: "Joined event",
+      errorMsg: "Couldn't join event",
     });
   };
 
@@ -85,39 +154,48 @@ export function EventCard({
   };
 
   const renderAction = () => {
-    if (isMember) {
-      return <Badge variant="default">Joined</Badge>;
-    }
-    if (interest) {
-      if (interest.status === "pending") {
-        if (hasStarted) {
-          return <Badge variant="secondary">Interest Pending</Badge>;
-        }
-        return (
+    const action = deriveCardActionState({
+      isMember,
+      interest,
+      hasStarted,
+      canManageInterest,
+      isOwnTeam,
+      isPublic: row.isPublic,
+    });
+    switch (action.kind) {
+      case "joined":
+        return <Badge variant="default">Joined</Badge>;
+      case "interestPending":
+        return action.started ? (
+          <Badge variant="secondary">Interest Pending</Badge>
+        ) : (
           <Button
-            onClick={(e) => handleCancelInterest(e, interest.id)}
+            onClick={(e) => handleCancelInterest(e, action.interestId)}
             size="sm"
             variant="outline"
           >
             Cancel Interest
           </Button>
         );
-      }
-      if (interest.status === "approved") {
+      case "interestApproved":
         return <Badge variant="default">Interest Approved</Badge>;
-      }
-      if (interest.status === "rejected") {
+      case "interestDeclined":
         return <Badge variant="secondary">Interest Declined</Badge>;
-      }
+      case "join":
+        return (
+          <Button onClick={handleJoinAsMember} size="sm">
+            Join
+          </Button>
+        );
+      case "showInterest":
+        return (
+          <Button onClick={handleShowInterest} size="sm">
+            Show Interest
+          </Button>
+        );
+      default:
+        return null;
     }
-    if (!(hasStarted || isOwnTeam || canManageInterest)) {
-      return (
-        <Button onClick={handleJoin} size="sm">
-          Join
-        </Button>
-      );
-    }
-    return null;
   };
 
   return (
