@@ -67,13 +67,6 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     approverUserId: data.approverUserId,
   });
 
-  if (!env.VOUCHER_ORG_NAME) {
-    log.set({ event: "missing_voucher_org_config" });
-    log.error("VOUCHER_ORG_NAME env var is not set — cannot generate voucher");
-    log.emit();
-    return;
-  }
-
   const [lineItem] = await db
     .select()
     .from(reimbursementLineItem)
@@ -147,12 +140,12 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     category: category?.name ?? "Uncategorized",
     amount,
     amountInWords: amountToWords(amount),
-    approvedBy: env.VOUCHER_FINANCE_ADMIN_NAME ?? "Finance Admin",
+    approvedBy: env.VOUCHER_FINANCE_ADMIN_NAME,
     orgName: env.VOUCHER_ORG_NAME,
-    orgAddress: env.VOUCHER_ORG_ADDRESS ?? "",
-    orgPhone: env.VOUCHER_ORG_PHONE ?? "",
-    orgEmail: env.VOUCHER_ORG_EMAIL ?? "",
-    orgRegistration: env.VOUCHER_ORG_REGISTRATION ?? "",
+    orgAddress: env.VOUCHER_ORG_ADDRESS,
+    orgPhone: env.VOUCHER_ORG_PHONE,
+    orgEmail: env.VOUCHER_ORG_EMAIL,
+    orgRegistration: env.VOUCHER_ORG_REGISTRATION,
   });
 
   // 1. Upload new PDF to R2. If this fails the old voucher is untouched.
