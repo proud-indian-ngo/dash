@@ -8,7 +8,9 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
-type SeriesParent = Awaited<ReturnType<typeof querySeriesParents>>[number];
+export type SeriesParent = Awaited<
+  ReturnType<typeof querySeriesParents>
+>[number];
 
 function querySeriesParents() {
   return db
@@ -47,7 +49,9 @@ async function hasMembers(eventId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-async function getExceptionDates(parentId: string): Promise<Set<string>> {
+export async function getExceptionDates(
+  parentId: string
+): Promise<Set<string>> {
   const exceptions = await db
     .select({ originalDate: teamEvent.originalDate })
     .from(teamEvent)
@@ -61,7 +65,7 @@ async function materializeOccurrence(
   parent: SeriesParent,
   occurrence: { date: string; startTime: number; endTime: number | null },
   now: number
-): Promise<boolean> {
+): Promise<string | null> {
   const inserted = await db
     .insert(teamEvent)
     .values({
@@ -89,10 +93,10 @@ async function materializeOccurrence(
     .returning({ id: teamEvent.id });
 
   if (inserted.length === 0) {
-    return false;
+    return null;
   }
 
-  const newEventId = inserted[0] as { id: string };
+  const newEventId = (inserted[0] as { id: string }).id;
 
   // Copy members from the series parent
   const members = await db
@@ -108,14 +112,47 @@ async function materializeOccurrence(
       .insert(teamEventMember)
       .values({
         id: uuidv7(),
-        eventId: newEventId.id,
+        eventId: newEventId,
         userId: member.userId,
         addedAt: member.addedAt,
       })
       .onConflictDoNothing();
   }
 
-  return true;
+  return newEventId;
+}
+
+/**
+ * Materialize a virtual occurrence and return its id. If the exception row
+ * already exists (unique index on seriesId+originalDate), look it up and
+ * return the existing id instead.
+ */
+export async function getOrMaterializeOccurrenceId(
+  parent: SeriesParent,
+  occurrence: { date: string; startTime: number; endTime: number | null },
+  now: number
+): Promise<string> {
+  const newId = await materializeOccurrence(parent, occurrence, now);
+  if (newId) {
+    return newId;
+  }
+  const existing = await db
+    .select({ id: teamEvent.id })
+    .from(teamEvent)
+    .where(
+      and(
+        eq(teamEvent.seriesId, parent.id),
+        eq(teamEvent.originalDate, occurrence.date)
+      )
+    )
+    .limit(1);
+  const row = existing[0];
+  if (!row) {
+    throw new Error(
+      `Exception row missing after onConflictDoNothing: series=${parent.id} date=${occurrence.date}`
+    );
+  }
+  return row.id;
 }
 
 /**
