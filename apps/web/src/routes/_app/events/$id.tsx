@@ -126,6 +126,7 @@ function EventDetailRouteComponent() {
         isTeamMember={isTeamMember}
         myInterest={myInterest ?? null}
         occDate={occDate}
+        parentEvent={displayEvent === event ? undefined : event}
         team={team}
       />
     </div>

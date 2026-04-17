@@ -199,6 +199,8 @@ interface EventDetailProps {
   myInterest?: InterestWithUser | null;
   /** ISO date (YYYY-MM-DD) when viewing a virtual occurrence of a series. */
   occDate?: string;
+  /** Original series parent event (before applyOccurrenceDate), for mode="all" edits. */
+  parentEvent?: EventRow;
   team?: TeamDetailData | null;
 }
 
@@ -715,6 +717,7 @@ export function EventDetail({
   isTeamMember,
   myInterest,
   occDate,
+  parentEvent,
   team,
 }: EventDetailProps) {
   const zero = useZero();
@@ -983,7 +986,10 @@ export function EventDetail({
 
       <EventFormDialog
         editScope={editScope ?? undefined}
-        initialValues={buildEditInitialValues(event, recurrence)}
+        initialValues={buildEditInitialValues(
+          editScope === "all" && parentEvent ? parentEvent : event,
+          recurrence
+        )}
         onOpenChange={(open) => {
           dialog.onOpenChange(open);
           if (!open) {
