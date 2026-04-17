@@ -11,9 +11,8 @@
 
 External services (optional based on features):
 
-- **Courier** — notifications (inbox, email)
 - **Cloudflare R2** — file storage
-- **SMTP server** — transactional email (verification, password reset)
+- **SMTP server** — transactional email (verification, password reset, notifications)
 - **Immich** — photo album management
 - **WhatsApp gateway** — self-hosted `go-whatsapp-web-multidevice`
 
@@ -73,7 +72,6 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | Variable | Description |
 |---|---|
 | `APP_NAME` | App display name (default `Proud Indian Dashboard`) |
-| `COURIER_API_KEY` | Courier API key (notifications) |
 | `WHATSAPP_API_URL` | WhatsApp gateway URL; blank to disable |
 | `WHATSAPP_AUTH_USER` / `WHATSAPP_AUTH_PASS` | Gateway basic auth (default `admin`/`admin`) |
 | `WHATSAPP_WEBHOOK_SECRET` | **Required** — secret for WhatsApp webhook validation |
@@ -213,7 +211,6 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] SMTP configured for email verification and password reset
 - [ ] R2 bucket created and credentials set
 - [ ] `VITE_CDN_URL` points to your R2 public access or CDN
-- [ ] Courier workspace configured (if using notifications)
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 

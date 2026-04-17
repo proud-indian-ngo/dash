@@ -44,7 +44,7 @@ Always use `rtk` instead of raw equivalents. Hooks enforce in Claude Code; other
 ### Imports & Bundling
 - Design-system: `@pi-dash/design-system/components/ui/...` or `.../reui/...` — never `src/` path. New components: `bun run ui:add <component>`.
 - Client-accessible constants: `@pi-dash/shared` (not `@pi-dash/db/schema/shared`).
-- `React.lazy()` for heavy third-party libs not needed on initial render (Plate editor, Courier inbox, phone input).
+- `React.lazy()` for heavy third-party libs not needed on initial render (Plate editor, phone input).
 - Static imports in server functions, API routes, server-only packages — TanStack Start/Nitro handle client exclusion.
 - DO NOT use dynamic `import()` in `createServerFn`, `routes/api/`, or server-only packages. DO NOT use dynamic `import()` for `createServerFn` exports in client components — TanStack Start replaces with RPC stubs.
 
@@ -64,7 +64,7 @@ Always use `rtk` instead of raw equivalents. Hooks enforce in Claude Code; other
 - Separate `{entity}.view` (pickers/queries) from `{entity}.manage` (admin pages) when admin page exposes sensitive details.
 
 ### Jobs & Enqueue
-- `enqueue()` from `@pi-dash/jobs` for all async side-effects (notifications, Courier sync, WhatsApp). Never call directly from server functions/auth hooks/mutators. Exception: `notifyUserDeleted` (sync before deletion).
+- `enqueue()` from `@pi-dash/jobs` for all async side-effects (notifications, WhatsApp). Never call directly from server functions/auth hooks/mutators. Exception: `notifyUserDeleted` (sync before deletion).
 - Wrap in `withFireAndForgetLog()` when enqueue is side-effect. Only `await enqueue()` if enqueue IS primary operation.
 - `withTaskLog()` from `@pi-dash/observability` only for in-process retry (not pg-boss enqueue).
 
@@ -126,7 +126,7 @@ Architecture docs live at `docs/architecture/` as sharded chapters. **Do NOT loa
 - Permissions, roles, `assertHasPermission`, `can`, `hasPermission`, `resolvePermissions`, role hierarchy → `authorization.md`
 - Recurring events, RRULE, `teamEvent` recurrence, `seriesId`, `originalDate`, materialize, exdate → `recurring-events.md`
 - Vendor payment, VP status, invoice approval, `recalculateParentStatus` → `vendor-payments.md`
-- `enqueue()`, pg-boss, Courier, WhatsApp poll, notification topic preferences, `notify-*` handlers, webhook proxy → `notifications.md`
+- `enqueue()`, pg-boss, in-app inbox, WhatsApp poll, notification topic preferences, `notify-*` handlers, webhook proxy → `notifications.md`
 - Cloudflare R2 presign, attachments, Immich sync, event photos → `file-uploads.md`
 - Cash voucher PDF, `generate-cash-voucher`, `VOUCHER_ORG_*` → `cash-vouchers.md`
 - evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, `/api/log/ingest` → `observability.md`

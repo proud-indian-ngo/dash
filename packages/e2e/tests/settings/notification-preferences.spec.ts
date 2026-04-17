@@ -19,18 +19,22 @@ async function openNotificationSettings(page: import("@playwright/test").Page) {
 }
 
 test.describe("Notification preferences settings", () => {
-  test("shows notification topic toggles with email and WhatsApp switches", async ({
+  test("shows notification topic toggles with in-app, email, and WhatsApp switches", async ({
     page,
   }) => {
     const dialog = await openNotificationSettings(page);
 
-    // Each topic has at least one WhatsApp switch
-    const waSwitch = dialog.getByRole("switch", { name: /WhatsApp/i }).first();
-    await expect(waSwitch).toBeVisible({ timeout: 10_000 });
+    // Each topic has at least one in-app switch
+    const inAppSwitch = dialog.getByRole("switch", { name: /in-app/i }).first();
+    await expect(inAppSwitch).toBeVisible({ timeout: 10_000 });
 
     // And at least one email switch
-    const emailSwitch = dialog.getByRole("switch", { name: /Email/i }).first();
+    const emailSwitch = dialog.getByRole("switch", { name: /email/i }).first();
     await expect(emailSwitch).toBeVisible();
+
+    // And at least one WhatsApp switch
+    const waSwitch = dialog.getByRole("switch", { name: /WhatsApp/i }).first();
+    await expect(waSwitch).toBeVisible();
   });
 
   test("toggling a switch updates the preference state", async ({ page }) => {

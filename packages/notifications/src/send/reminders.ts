@@ -204,7 +204,7 @@ export async function notifyWhatsAppScanResults({
     body,
     emailHtml,
     clickAction: "/users",
-    idempotencyKey: `whatsapp-scan-${dateKey}-${Date.now()}`,
+    idempotencyKey: `whatsapp-scan-${dateKey}`,
     inboxBody,
     topic: TOPICS.ACCOUNT,
   });

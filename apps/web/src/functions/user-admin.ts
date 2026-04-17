@@ -204,7 +204,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       .set({ role: data.role })
       .where(eq(user.id, created.user.id));
 
-    // Welcome handler syncs user to Courier before sending notification
+    // Send welcome notification to the new user
     withFireAndForgetLog(
       { handler: "createUser:welcome", userId: created.user.id },
       async () => {
@@ -346,23 +346,6 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       );
     }
 
-    // Enqueue Courier profile sync
-    withFireAndForgetLog(
-      {
-        handler: "updateUser:courierSync",
-        userId: data.userId,
-        email: normalizedEmail,
-        name: data.name,
-      },
-      async () => {
-        await enqueue("sync-courier-user", {
-          userId: data.userId,
-          email: normalizedEmail,
-          name: data.name,
-        });
-      }
-    );
-
     return data.userId;
   });
 
@@ -400,8 +383,8 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
       throw new Error("You cannot delete your own account");
     }
 
-    // Called directly (not enqueued) — Courier needs the user to exist when the
-    // notification is sent, but the user is deleted immediately after.
+    // Called directly (not enqueued) — user must exist when notification is sent,
+    // but is deleted immediately after.
     try {
       await notifyUserDeleted({ userId: data.userId });
     } catch {

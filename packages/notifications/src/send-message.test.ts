@@ -4,12 +4,24 @@ vi.mock("./kill-switch", () => ({
   isNotificationsDisabled: vi.fn(async () => true),
 }));
 
-vi.mock("./client", () => ({
-  courier: undefined,
+vi.mock("./preferences", () => ({
+  getChannelPreferences: vi.fn(async () => ({
+    emailEnabled: true,
+    inboxEnabled: true,
+    whatsappEnabled: true,
+  })),
+  getBulkChannelPreferences: vi.fn(async () => new Map()),
+  getUserEmail: vi.fn(async () => "test@test.com"),
+  getBulkUserEmails: vi.fn(async () => new Map()),
 }));
 
-vi.mock("./preferences", () => ({
-  getCourierTopicId: vi.fn(async (t: string) => t),
+vi.mock("./inbox", () => ({
+  insertNotification: vi.fn(async () => true),
+  insertBulkNotifications: vi.fn(async () => 0),
+}));
+
+vi.mock("./email", () => ({
+  sendNotificationEmail: vi.fn(async () => true),
 }));
 
 vi.mock("@pi-dash/whatsapp/messaging", () => ({
@@ -101,8 +113,6 @@ describe("captureSends", () => {
       );
       expect(inner).toHaveLength(1);
     });
-    // AsyncLocalStorage.run replaces the active store for the inner scope,
-    // so the inner send is not recorded in the outer store.
     expect(outer).toHaveLength(1);
     expect(outer[0]?.kind === "message" && outer[0].result.to).toBe("outer");
   });

@@ -50,7 +50,7 @@ export async function notifyEventInterestReceived({
     body: `${volunteerName} wants to join ${eventName}!`,
     emailHtml,
     clickAction: `/events/${eventId}`,
-    idempotencyKey: `event-interest-received-${eventId}`,
+    idempotencyKey: `event-interest-received-${eventId}-${volunteerName}`,
     topic: TOPICS.EVENTS_INTEREST,
   });
 }

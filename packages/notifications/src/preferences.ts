@@ -1,83 +1,94 @@
-import type { PreferenceStatus } from "@trycourier/courier/resources/shared";
-import { createRequestLogger } from "evlog";
-import { courier } from "./client";
+import { db } from "@pi-dash/db";
+import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
+import { and, eq } from "drizzle-orm";
 
-let courierTopicIdMap: Map<string, string> | null = null;
+export interface ChannelPreferences {
+  emailEnabled: boolean;
+  inboxEnabled: boolean;
+  whatsappEnabled: boolean;
+}
 
-/**
- * Fetches all Courier subscription topics and builds a name→id map.
- * Called once on first preference update, then cached in memory.
- */
-async function getCourierTopicIdMap(): Promise<Map<string, string>> {
-  if (courierTopicIdMap) {
-    return courierTopicIdMap;
-  }
-  if (!courier) {
-    const log = createRequestLogger({
-      method: "GET",
-      path: "getCourierTopicIdMap",
-    });
-    log.warn("courier_not_configured");
-    log.emit();
+const DEFAULTS: ChannelPreferences = {
+  emailEnabled: true,
+  inboxEnabled: true,
+  whatsappEnabled: true,
+};
+
+export async function getChannelPreferences(
+  userId: string,
+  topicId: string
+): Promise<ChannelPreferences> {
+  const row = await db
+    .select({
+      emailEnabled: notificationTopicPreference.emailEnabled,
+      inboxEnabled: notificationTopicPreference.inboxEnabled,
+      whatsappEnabled: notificationTopicPreference.whatsappEnabled,
+    })
+    .from(notificationTopicPreference)
+    .where(
+      and(
+        eq(notificationTopicPreference.userId, userId),
+        eq(notificationTopicPreference.topicId, topicId)
+      )
+    )
+    .limit(1);
+  return row[0] ?? DEFAULTS;
+}
+
+export async function getBulkChannelPreferences(
+  userIds: string[],
+  topicId: string
+): Promise<Map<string, ChannelPreferences>> {
+  if (userIds.length === 0) {
     return new Map();
   }
-  const log = createRequestLogger();
-  log.set({ handler: "getCourierTopicIdMap" });
-  try {
-    // Fetch any user's preferences to get topic_id→topic_name mappings.
-    // The preferences endpoint returns all topics with their IDs.
-    const resp = await courier.users.preferences.retrieve("__system__");
-    const map = new Map<string, string>();
-    for (const item of resp.items ?? []) {
-      if (item.topic_id && item.topic_name) {
-        map.set(item.topic_name, item.topic_id);
-      }
+
+  const rows = await db
+    .select({
+      userId: notificationTopicPreference.userId,
+      emailEnabled: notificationTopicPreference.emailEnabled,
+      inboxEnabled: notificationTopicPreference.inboxEnabled,
+      whatsappEnabled: notificationTopicPreference.whatsappEnabled,
+    })
+    .from(notificationTopicPreference)
+    .where(eq(notificationTopicPreference.topicId, topicId));
+
+  const map = new Map<string, ChannelPreferences>();
+  for (const row of rows) {
+    if (userIds.includes(row.userId)) {
+      map.set(row.userId, {
+        emailEnabled: row.emailEnabled,
+        inboxEnabled: row.inboxEnabled,
+        whatsappEnabled: row.whatsappEnabled,
+      });
     }
-    courierTopicIdMap = map;
-    log.set({ topicCount: map.size });
-    log.emit();
-    return map;
-  } catch (error) {
-    log.error(error instanceof Error ? error : String(error), {
-      step: "fetch-courier-topics",
-    });
-    log.emit();
+  }
+  return map;
+}
+
+export async function getUserEmail(userId: string): Promise<string | null> {
+  const rows = await db
+    .select({ email: user.email })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return rows[0]?.email ?? null;
+}
+
+export async function getBulkUserEmails(
+  userIds: string[]
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) {
     return new Map();
   }
-}
 
-interface UpdateTopicPreferenceOptions {
-  status: PreferenceStatus;
-  topicId: string;
-  userId: string;
-}
+  const rows = await db.select({ id: user.id, email: user.email }).from(user);
 
-export async function getCourierTopicId(topicName: string): Promise<string> {
-  const topicMap = await getCourierTopicIdMap();
-  return topicMap.get(topicName) ?? topicName;
-}
-
-export async function updateUserTopicPreference({
-  userId,
-  topicId,
-  status,
-}: UpdateTopicPreferenceOptions): Promise<void> {
-  if (!courier) {
-    const log = createRequestLogger({
-      method: "POST",
-      path: "updateUserTopicPreference",
-    });
-    log.set({ userId, topicId, preferenceStatus: status });
-    log.warn("courier_not_configured");
-    log.emit();
-    return;
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (userIds.includes(row.id)) {
+      map.set(row.id, row.email);
+    }
   }
-  const topicMap = await getCourierTopicIdMap();
-  const courierTopicId = topicMap.get(topicId) ?? topicId;
-  await courier.users.preferences.updateOrCreateTopic(courierTopicId, {
-    user_id: userId,
-    topic: {
-      status,
-    },
-  });
+  return map;
 }

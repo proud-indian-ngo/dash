@@ -147,7 +147,6 @@ export VITE_E2E=true
 export ZERO_APP_ID=zero
 
 # Disable external notification services during E2E tests
-unset COURIER_API_KEY
 unset WHATSAPP_API_URL
 unset WHATSAPP_AUTH_USER
 unset WHATSAPP_AUTH_PASS

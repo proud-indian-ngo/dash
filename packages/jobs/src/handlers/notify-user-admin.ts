@@ -1,4 +1,3 @@
-import { syncCourierUser } from "@pi-dash/notifications/helpers";
 import {
   notifyPasswordReset,
   notifyRoleChanged,
@@ -8,8 +7,6 @@ import {
   notifyUserUnbanned,
   notifyUserWelcome,
 } from "@pi-dash/notifications/send/user";
-import { createRequestLogger } from "evlog";
-import type { Job } from "pg-boss";
 import type {
   NotifyPasswordResetPayload,
   NotifyRoleChangedPayload,
@@ -27,31 +24,12 @@ export const handleNotifyRoleChanged =
     async () => notifyRoleChanged
   );
 
-/** Syncs the user profile to Courier before sending the welcome notification. */
-export async function handleNotifyUserWelcome(
-  jobs: Job<NotifyUserWelcomePayload>[]
-): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "notify-user-welcome",
-    });
-    const { userId, email, name } = job.data;
-    log.set({ jobId: job.id, userId, email, name });
-    try {
-      await syncCourierUser({ userId, email, name });
-      await notifyUserWelcome({ userId, name });
-
-      log.set({ event: "job_complete" });
-      log.emit();
-    } catch (error) {
-      log.set({ event: "job_failed" });
-      log.error(error instanceof Error ? error : String(error));
-      log.emit();
-      throw error;
-    }
-  }
-}
+export const handleNotifyUserWelcome =
+  createNotifyHandler<NotifyUserWelcomePayload>(
+    "notify-user-welcome",
+    async () => (data: NotifyUserWelcomePayload) =>
+      notifyUserWelcome({ userId: data.userId, name: data.name })
+  );
 
 export const handleNotifyUserBanned =
   createNotifyHandler<NotifyUserBannedPayload>(

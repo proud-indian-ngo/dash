@@ -11,13 +11,31 @@ const REQUIRED_TOPIC_IDS: ReadonlySet<string> = new Set(
 
 const upsertSchema = z.object({
   topicId: z.string().min(1),
-  channel: z.enum(["email", "whatsapp"]),
+  channel: z.enum(["email", "whatsapp", "inbox"]),
   enabled: z.boolean(),
 });
 
 const adminUpsertSchema = upsertSchema.extend({
   userId: z.string().min(1),
 });
+
+function channelUpdate(channel: string, enabled: boolean) {
+  if (channel === "email") {
+    return { emailEnabled: enabled };
+  }
+  if (channel === "whatsapp") {
+    return { whatsappEnabled: enabled };
+  }
+  return { inboxEnabled: enabled };
+}
+
+function channelDefaults(channel: string, enabled: boolean) {
+  return {
+    emailEnabled: channel === "email" ? enabled : true,
+    whatsappEnabled: channel === "whatsapp" ? enabled : true,
+    inboxEnabled: channel === "inbox" ? enabled : true,
+  };
+}
 
 export const notificationPreferenceMutators = {
   upsert: defineMutator(upsertSchema, async ({ tx, ctx, args }) => {
@@ -41,37 +59,13 @@ export const notificationPreferenceMutators = {
       await tx.mutate.notificationTopicPreference.update({
         userId,
         topicId: args.topicId,
-        ...(args.channel === "email"
-          ? { emailEnabled: args.enabled }
-          : { whatsappEnabled: args.enabled }),
+        ...channelUpdate(args.channel, args.enabled),
       });
     } else {
       await tx.mutate.notificationTopicPreference.insert({
         userId,
         topicId: args.topicId,
-        emailEnabled: args.channel === "email" ? args.enabled : true,
-        whatsappEnabled: args.channel === "whatsapp" ? args.enabled : true,
-      });
-    }
-
-    if (tx.location === "server" && args.channel === "email") {
-      const previousEmailEnabled = existing?.emailEnabled ?? true;
-      ctx.asyncTasks?.push({
-        meta: {
-          mutator: "notificationPreference.upsert",
-          userId,
-          topicId: args.topicId,
-          enabled: args.enabled,
-        },
-        fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs/enqueue");
-          await enqueue("sync-courier-preference", {
-            userId,
-            topicId: args.topicId,
-            enabled: args.enabled,
-            previousEmailEnabled,
-          });
-        },
+        ...channelDefaults(args.channel, args.enabled),
       });
     }
   }),
@@ -97,37 +91,13 @@ export const notificationPreferenceMutators = {
       await tx.mutate.notificationTopicPreference.update({
         userId: args.userId,
         topicId: args.topicId,
-        ...(args.channel === "email"
-          ? { emailEnabled: args.enabled }
-          : { whatsappEnabled: args.enabled }),
+        ...channelUpdate(args.channel, args.enabled),
       });
     } else {
       await tx.mutate.notificationTopicPreference.insert({
         userId: args.userId,
         topicId: args.topicId,
-        emailEnabled: args.channel === "email" ? args.enabled : true,
-        whatsappEnabled: args.channel === "whatsapp" ? args.enabled : true,
-      });
-    }
-
-    if (tx.location === "server" && args.channel === "email") {
-      const previousEmailEnabled = existing?.emailEnabled ?? true;
-      ctx.asyncTasks?.push({
-        meta: {
-          mutator: "notificationPreference.adminUpsert",
-          userId: args.userId,
-          topicId: args.topicId,
-          enabled: args.enabled,
-        },
-        fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs/enqueue");
-          await enqueue("sync-courier-preference", {
-            userId: args.userId,
-            topicId: args.topicId,
-            enabled: args.enabled,
-            previousEmailEnabled,
-          });
-        },
+        ...channelDefaults(args.channel, args.enabled),
       });
     }
   }),

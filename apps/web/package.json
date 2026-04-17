@@ -34,8 +34,6 @@
     "@tanstack/react-router": "^1.168.21",
     "@tanstack/react-start": "^1.167.39",
     "@tanstack/react-table": "^8.21.3",
-    "@trycourier/courier-react": "^9.0.7",
-    "@trycourier/courier-ui-inbox": "^2.4.2",
     "better-auth": "catalog:",
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",

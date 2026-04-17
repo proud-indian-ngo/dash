@@ -16,7 +16,6 @@ const RE_PLATE = /node_modules[\\/](@platejs[\\/][^\\/]+|platejs)\//;
 const RE_TABLE = /node_modules[\\/]@tanstack[\\/]react-table\//;
 const RE_FORM = /node_modules[\\/]@tanstack[\\/](react-form|form-core)\//;
 const RE_DND = /node_modules[\\/]@dnd-kit[\\/](core|sortable)\//;
-const RE_COURIER = /node_modules[\\/]@trycourier[\\/]/;
 const RE_BASE_UI =
   /node_modules[\\/](@base-ui[\\/][^\\/]+|@floating-ui[\\/][^\\/]+)\//;
 const RE_ICONS =
@@ -69,7 +68,6 @@ export default defineConfig(({ mode }) => ({
                 { name: "vendor-table", test: RE_TABLE, priority: 20 },
                 { name: "vendor-form", test: RE_FORM, priority: 20 },
                 { name: "vendor-dnd", test: RE_DND, priority: 20 },
-                { name: "vendor-courier", test: RE_COURIER, priority: 20 },
                 { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
                 { name: "vendor-icons", test: RE_ICONS, priority: 20 },
                 { name: "vendor-phone", test: RE_PHONE, priority: 20 },

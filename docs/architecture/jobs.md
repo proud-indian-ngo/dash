@@ -20,9 +20,9 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 - `process-*` / `remind-*` / `send-*` — event reminders, RSVP polls, digests
 - `immich-*` — photo sync
 - `whatsapp-*` — group management
-- `sync-*` — Courier, WhatsApp status
+- `sync-*` — WhatsApp status
 - `generate-*` — cash voucher PDF
-- `delete-*` / `cleanup-*` — R2, stale data
+- `delete-*` / `cleanup-*` — R2, stale data, old notifications
 
 ## Idempotency Rule
 

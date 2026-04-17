@@ -1,5 +1,6 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
+import { handleCleanupNotifications } from "./cleanup-notifications";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
 import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
@@ -97,8 +98,7 @@ import {
 import { handleSendSingleRsvpPoll } from "./send-single-rsvp-poll";
 import { handleSendWeeklyEventsDigest } from "./send-weekly-events-digest";
 import { handleSendWhatsApp } from "./send-whatsapp";
-import { handleSyncCourierPreference } from "./sync-courier-preference";
-import { handleSyncCourierUser, handleSyncWhatsAppStatus } from "./sync-user";
+import { handleSyncWhatsAppStatus } from "./sync-user";
 import {
   handleWhatsAppAddMember,
   handleWhatsAppAddMembers,
@@ -396,6 +396,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
 
   // Scheduled reminder/cleanup handlers (cron-triggered)
   await boss.work(
+    "cleanup-notifications",
+    NOTIFY_POLL,
+    withDefaultOutput(handleCleanupNotifications)
+  );
+  await boss.work(
     "cleanup-stale-scheduled-recipients",
     NOTIFY_POLL,
     withDefaultOutput(handleCleanupStaleScheduledRecipients)
@@ -468,12 +473,6 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   );
 
   // User sync handlers (5s polling — external API)
-  await boss.work(
-    "sync-courier-preference",
-    NOTIFY_POLL,
-    handleSyncCourierPreference
-  );
-  await boss.work("sync-courier-user", NOTIFY_POLL, handleSyncCourierUser);
   await boss.work(
     "sync-whatsapp-status",
     NOTIFY_POLL,

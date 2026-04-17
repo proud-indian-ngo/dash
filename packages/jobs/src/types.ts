@@ -386,11 +386,6 @@ export interface NotifyUserReactivatedPayload {
 }
 
 // User Sync
-export interface SyncCourierUserPayload {
-  email: string;
-  name: string;
-  userId: string;
-}
 export interface SyncWhatsAppStatusPayload {
   phone: string | null;
   userId: string;
@@ -499,16 +494,10 @@ export interface DeleteR2ObjectPayload {
   r2Key: string;
 }
 
-export interface SyncCourierPreferencePayload {
-  enabled: boolean;
-  previousEmailEnabled: boolean;
-  topicId: string;
-  userId: string;
-}
-
 // -- Payload map ---------------------------------------------------------------
 
 export interface JobPayloads {
+  "cleanup-notifications": Record<string, never>;
   "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
   "close-expired-rsvp-polls": CloseExpiredRsvpPollsPayload;
   "close-rsvp-poll-on-cancel": CloseRsvpPollOnCancelPayload;
@@ -580,8 +569,6 @@ export interface JobPayloads {
   "send-single-rsvp-poll": SendSingleRsvpPollPayload;
   "send-weekly-events-digest": SendWeeklyEventsDigestPayload;
   "send-whatsapp": WhatsAppPayload;
-  "sync-courier-preference": SyncCourierPreferencePayload;
-  "sync-courier-user": SyncCourierUserPayload;
   "sync-whatsapp-status": SyncWhatsAppStatusPayload;
   "whatsapp-add-member": WhatsAppAddMemberPayload;
   "whatsapp-add-member-team": WhatsAppAddMemberTeamPayload;

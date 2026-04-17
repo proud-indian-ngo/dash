@@ -27,6 +27,14 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { retryLimit: 2, expireInSeconds: 600, tz: IST_TIMEZONE }
   );
 
+  // Daily at 2:00 AM IST — clean up old notifications
+  await boss.schedule(
+    "cleanup-notifications",
+    "0 2 * * *",
+    {},
+    { retryLimit: 2, expireInSeconds: 600, tz: IST_TIMEZONE }
+  );
+
   // Monthly on 1st at 3:00 AM IST — clean up stale scheduled message recipients
   await boss.schedule(
     "cleanup-stale-scheduled-recipients",

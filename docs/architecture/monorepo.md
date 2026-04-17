@@ -16,7 +16,7 @@ Turborepo monorepo. Bun package manager.
 | `packages/design-system` | shadcn/ui + reui components, theme provider |
 | `packages/editor` | Plate.js rich-text editor (`editor` + `renderer` exports) |
 | `packages/jobs` | pg-boss handlers + `enqueue()` |
-| `packages/notifications` | Courier multi-channel notifications |
+| `packages/notifications` | Multi-channel notifications (inbox, email, WhatsApp) |
 | `packages/observability` | `withTaskLog`, `withFireAndForgetLog` |
 | `packages/pdf` | React-PDF voucher generation |
 | `packages/shared` | Client-safe constants, types, utilities |

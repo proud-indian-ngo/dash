@@ -10,6 +10,7 @@ export * from "./event-reminder";
 export * from "./event-rsvp";
 export * from "./event-update";
 export * from "./expense-category";
+export * from "./notification";
 export * from "./permission";
 export * from "./reimbursement";
 export * from "./scheduled-message";

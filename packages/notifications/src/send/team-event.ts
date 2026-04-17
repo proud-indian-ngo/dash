@@ -122,7 +122,7 @@ export async function notifyUsersAddedToEvent({
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     emailHtml,
     clickAction: `/teams/${teamId}`,
-    idempotencyKey: `event-member-added-${eventId}`,
+    idempotencyKey: `event-members-added-${eventId}-${userIds.sort().join(",")}`,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }

@@ -1,4 +1,8 @@
-import { Mail01Icon, WhatsappIcon } from "@hugeicons/core-free-icons";
+import {
+  Mail01Icon,
+  NotificationIcon,
+  WhatsappIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -34,6 +38,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
       description: meta.description,
       group: meta.group,
       required: meta.required,
+      inboxEnabled: pref?.inboxEnabled ?? true,
       emailEnabled: pref?.emailEnabled ?? true,
       whatsappEnabled: pref?.whatsappEnabled ?? true,
     };
@@ -43,7 +48,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   const handleToggle = async (
     topicId: string,
-    channel: "email" | "whatsapp",
+    channel: "email" | "whatsapp" | "inbox",
     enabled: boolean
   ) => {
     try {
@@ -92,6 +97,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
               <div className="flex gap-6">
                 <Skeleton className="h-5 w-9 rounded-full" />
                 <Skeleton className="h-5 w-9 rounded-full" />
+                <Skeleton className="h-5 w-9 rounded-full" />
               </div>
             </div>
           ))}
@@ -116,6 +122,14 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
               </p>
               {groupIndex === 0 && (
                 <div className="flex items-center gap-6">
+                  <div className="flex w-9 items-center justify-center">
+                    <HugeiconsIcon
+                      className="text-muted-foreground"
+                      icon={NotificationIcon}
+                      size={14}
+                      strokeWidth={2}
+                    />
+                  </div>
                   <div className="flex w-9 items-center justify-center">
                     <HugeiconsIcon
                       className="text-muted-foreground"
@@ -149,6 +163,15 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-6">
+                  <Switch
+                    aria-label={`${topic.topicName} in-app`}
+                    checked={topic.inboxEnabled}
+                    disabled={topic.required}
+                    id={`${topic.topicId}-inbox`}
+                    onCheckedChange={(checked) =>
+                      handleToggle(topic.topicId, "inbox", checked)
+                    }
+                  />
                   <Switch
                     aria-label={`${topic.topicName} email`}
                     checked={topic.emailEnabled}

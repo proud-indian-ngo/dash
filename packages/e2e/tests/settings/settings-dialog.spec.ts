@@ -86,9 +86,9 @@ test.describe("Settings dialog", () => {
     await expect(
       dialog.getByText("Choose which notifications you want to receive.")
     ).toBeVisible({ timeout: 15_000 });
-    // Each topic has an email and WhatsApp toggle
+    // Each topic has in-app, email, and WhatsApp toggles
     await expect(
-      dialog.getByRole("switch", { name: /WhatsApp/i }).first()
+      dialog.getByRole("switch", { name: /in-app/i }).first()
     ).toBeVisible();
   });
 

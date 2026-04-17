@@ -1,6 +1,6 @@
 # Proud Indian Dashboard
 
-A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process financial request workflows (reimbursements and advance payments) — with real-time data sync powered by Rocicorp Zero and multi-channel notifications via Courier.
+A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process financial request workflows (reimbursements and advance payments) — with real-time data sync powered by Rocicorp Zero and self-owned multi-channel notifications (in-app inbox, email, WhatsApp).
 
 > Sign-up is disabled by design. Only admins can create new accounts.
 
@@ -17,9 +17,9 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 - **Zero (Rocicorp)** — real-time data sync via PostgreSQL logical replication
 - **Drizzle ORM** — TypeScript-first ORM with migrations
 - **PostgreSQL** — primary database
-- **Courier** — multi-channel notifications (email, in-app, push)
 - **WhatsApp** — optional self-hosted WhatsApp gateway via go-whatsapp-web-multidevice
-- **React Email + Nodemailer** — transactional email (verification, password reset)
+- **React Email + Nodemailer** — transactional and notification email
+- **Zero-synced inbox** — self-owned in-app notifications with real-time sync
 - **Plate** — rich-text editor for event updates (bold, italic, lists, inline images)
 - **Cloudflare R2** — S3-compatible object storage for file attachments
 - **evlog** — structured wide-event logging (server-side)
@@ -48,7 +48,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | File attachments | Upload files to Cloudflare R2; attach URLs to requests |
 | Bank accounts | Users manage bank accounts for request payouts |
 | Expense categories | Admin-managed categories for request line items |
-| Notifications | Multi-channel notifications via Courier; per-user topic preferences |
+| Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences |
 | WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
 | CSV export | Export data tables to CSV files |
 | Settings dialog | Profile, account, banking, expense categories, WhatsApp groups, and notification preferences |
@@ -75,7 +75,7 @@ pi-dash/
 │   ├── env/                # Zod-validated env contracts (server + web)
 │   ├── config/             # Shared TypeScript & tooling config
 │   ├── design-system/      # shadcn/ui + reui components, theme provider
-│   ├── notifications/      # Courier notifications
+│   ├── notifications/      # Multi-channel notification sending (inbox, email, WhatsApp)
 │   ├── observability/      # Structured logging helpers (withTaskLog, withFireAndForgetLog)
 │   ├── whatsapp/           # WhatsApp gateway client, groups, messaging
 │   ├── zero/               # Rocicorp Zero schema, queries, mutators
@@ -191,12 +191,6 @@ Copy `.env.sample` to `.env`. Required variables:
 | `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | R2 bucket name |
 | `R2_KEY_PREFIX` | Key prefix for uploaded assets |
-
-### Courier (notifications)
-
-| Variable | Description |
-|---|---|
-| `COURIER_API_KEY` | Courier API key for multi-channel notifications |
 
 ### WhatsApp (optional)
 

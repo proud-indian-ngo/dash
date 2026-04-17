@@ -5,6 +5,7 @@ import type { JobName, JobPayloads } from "./types";
 export type * from "./types";
 
 export const QUEUE_NAMES: JobName[] = [
+  "cleanup-notifications",
   "cleanup-stale-scheduled-recipients",
   "close-expired-rsvp-polls",
   "close-rsvp-poll-on-cancel",
@@ -76,8 +77,6 @@ export const QUEUE_NAMES: JobName[] = [
   "send-scheduled-whatsapp",
   "send-weekly-events-digest",
   "send-whatsapp",
-  "sync-courier-preference",
-  "sync-courier-user",
   "sync-whatsapp-status",
   "whatsapp-add-member",
   "whatsapp-add-member-team",

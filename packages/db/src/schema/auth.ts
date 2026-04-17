@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { notification } from "./notification";
 import { role } from "./permission";
 
 export type UserRole = string;
@@ -105,6 +106,7 @@ export const verification = pgTable(
 export const userRelations = relations(user, ({ one, many }) => ({
   sessions: many(session),
   accounts: many(account),
+  notifications: many(notification),
   notificationTopicPreferences: many(notificationTopicPreference),
   roleRef: one(role, {
     fields: [user.role],
@@ -135,6 +137,7 @@ export const notificationTopicPreference = pgTable(
     topicId: text("topic_id").notNull(),
     emailEnabled: boolean("email_enabled").default(true).notNull(),
     whatsappEnabled: boolean("whatsapp_enabled").default(true).notNull(),
+    inboxEnabled: boolean("inbox_enabled").default(true).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.topicId] })]
 );

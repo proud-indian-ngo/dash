@@ -214,7 +214,7 @@ describe("error isolation", () => {
     const results: string[] = [];
     const notifyGroup = vi
       .fn()
-      .mockImplementationOnce(() => Promise.reject(new Error("Courier error")))
+      .mockImplementationOnce(() => Promise.reject(new Error("Send error")))
       .mockImplementationOnce(() => {
         results.push("user-b notified");
         return Promise.resolve();

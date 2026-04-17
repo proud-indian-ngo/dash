@@ -14,9 +14,9 @@
     "@pi-dash/env": "workspace:*",
     "@pi-dash/shared": "workspace:*",
     "@pi-dash/whatsapp": "workspace:*",
-    "@trycourier/courier": "^7.10.1",
     "drizzle-orm": "catalog:",
-    "evlog": "catalog:"
+    "evlog": "catalog:",
+    "uuidv7": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

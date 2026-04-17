@@ -10,6 +10,7 @@ import {
 } from "./queries/event-photo";
 import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
+import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { reimbursementQueries } from "./queries/reimbursement";
 import { scheduledMessageQueries } from "./queries/scheduled-message";
@@ -23,6 +24,7 @@ import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
 export const queries = defineQueries({
   user: userQueries,
+  notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   bankAccount: bankAccountQueries,
   expenseCategory: expenseCategoryQueries,

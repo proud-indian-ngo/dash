@@ -1,14 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { env } from "@pi-dash/env/server";
-
-const LEADING_EMOJI_RE =
-  /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\uFE0F?\s*/u;
-
-/** Strip a leading emoji (and optional trailing space) from a title for use in email subjects. */
-function stripLeadingEmoji(text: string): string {
-  return text.replace(LEADING_EMOJI_RE, "");
-}
-
 import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
 import {
   getEnabledUserPhonesForTopic,
@@ -16,9 +7,15 @@ import {
 } from "@pi-dash/whatsapp/preferences";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createRequestLogger } from "evlog";
-import { courier } from "./client";
+import { sendNotificationEmail } from "./email";
+import { insertBulkNotifications, insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";
-import { getCourierTopicId } from "./preferences";
+import {
+  getBulkChannelPreferences,
+  getBulkUserEmails,
+  getChannelPreferences,
+  getUserEmail,
+} from "./preferences";
 import type { Topic } from "./topics";
 
 interface SendMessageOptions {
@@ -79,60 +76,32 @@ export async function sendMessage({
     return suppressed;
   }
 
-  const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
+  const [prefs, email] = await Promise.all([
+    getChannelPreferences(to, topic),
+    getUserEmail(to),
+  ]);
 
-  const inboxPromise = courier
-    ? courier.send.message(
-        {
-          message: {
-            to: { user_id: to },
-            content: { title, body },
-            ...(clickAction && { data: { clickAction } }),
-            routing: {
-              method: "all",
-              channels: ["inbox"],
-            },
-            preferences: {
-              subscription_topic_id: courierTopicId,
-            },
-          },
-        },
-        { idempotencyKey: `${idempotencyKey}-inbox` }
-      )
-    : undefined;
+  const inboxPromise = prefs.inboxEnabled
+    ? insertNotification({
+        userId: to,
+        topicId: topic,
+        title,
+        body,
+        clickAction,
+        imageUrl,
+        idempotencyKey: `${idempotencyKey}-inbox`,
+      })
+    : false;
 
-  const emailPromise = courier
-    ? courier.send.message(
-        {
-          message: {
-            to: { user_id: to },
-            content: emailHtml
-              ? {
-                  version: "2022-01-01",
-                  elements: [
-                    {
-                      type: "channel" as const,
-                      channel: "email",
-                      raw: {
-                        html: emailHtml,
-                        subject: stripLeadingEmoji(title),
-                      },
-                    },
-                  ],
-                }
-              : { title: stripLeadingEmoji(title), body },
-            routing: {
-              method: "all",
-              channels: ["email"],
-            },
-            preferences: {
-              subscription_topic_id: courierTopicId,
-            },
-          },
-        },
-        { idempotencyKey: `${idempotencyKey}-email` }
-      )
-    : undefined;
+  const emailPromise =
+    prefs.emailEnabled && email
+      ? sendNotificationEmail({
+          toEmail: email,
+          title,
+          body,
+          emailHtml,
+        })
+      : false;
 
   const whatsappPromise = (async (): Promise<boolean> => {
     try {
@@ -169,7 +138,7 @@ export async function sendMessage({
     }
   })();
 
-  const [, , whatsappSent] = await Promise.all([
+  const [inboxQueued, emailQueued, whatsappSent] = await Promise.all([
     inboxPromise,
     emailPromise,
     whatsappPromise,
@@ -182,8 +151,8 @@ export async function sendMessage({
     idempotencyKey,
     suppressedByKillSwitch: false,
     channels: {
-      inboxQueued: Boolean(inboxPromise),
-      emailQueued: Boolean(emailPromise),
+      inboxQueued: Boolean(inboxQueued),
+      emailQueued: Boolean(emailQueued),
       whatsapp: whatsappSent,
     },
   };
@@ -286,61 +255,55 @@ export async function sendBulkMessage({
     return suppressed;
   }
 
-  const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
-  const recipients = userIds.map((id) => ({ user_id: id }));
+  const [prefsMap, emailMap] = await Promise.all([
+    getBulkChannelPreferences(userIds, topic),
+    getBulkUserEmails(userIds),
+  ]);
 
-  const inboxPromise = courier
-    ? courier.send.message(
-        {
-          message: {
-            to: recipients,
-            content: { title, body: inboxBody ?? body },
-            ...(clickAction && { data: { clickAction } }),
-            routing: {
-              method: "all",
-              channels: ["inbox"],
-            },
-            preferences: {
-              subscription_topic_id: courierTopicId,
-            },
-          },
-        },
-        { idempotencyKey: `${idempotencyKey}-inbox` }
-      )
-    : undefined;
+  const DEFAULTS = {
+    emailEnabled: true,
+    inboxEnabled: true,
+    whatsappEnabled: true,
+  };
+  const displayBody = inboxBody ?? body;
 
-  const emailPromise = courier
-    ? courier.send.message(
-        {
-          message: {
-            to: recipients,
-            content: emailHtml
-              ? {
-                  version: "2022-01-01",
-                  elements: [
-                    {
-                      type: "channel" as const,
-                      channel: "email",
-                      raw: {
-                        html: emailHtml,
-                        subject: stripLeadingEmoji(title),
-                      },
-                    },
-                  ],
-                }
-              : { title: stripLeadingEmoji(title), body },
-            routing: {
-              method: "all",
-              channels: ["email"],
-            },
-            preferences: {
-              subscription_topic_id: courierTopicId,
-            },
-          },
-        },
-        { idempotencyKey: `${idempotencyKey}-email` }
-      )
-    : undefined;
+  const inboxPromise = (async (): Promise<boolean> => {
+    const inboxNotifications = userIds
+      .filter((uid) => (prefsMap.get(uid) ?? DEFAULTS).inboxEnabled)
+      .map((uid) => ({
+        userId: uid,
+        topicId: topic,
+        title,
+        body: displayBody,
+        clickAction,
+        idempotencyKey: `${idempotencyKey}-inbox-${uid}`,
+      }));
+    if (inboxNotifications.length === 0) {
+      return false;
+    }
+    const count = await insertBulkNotifications(inboxNotifications);
+    return count > 0;
+  })();
+
+  const emailPromise = (async (): Promise<boolean> => {
+    const emailRecipients = userIds.filter((uid) => {
+      const prefs = prefsMap.get(uid) ?? DEFAULTS;
+      return prefs.emailEnabled && emailMap.has(uid);
+    });
+    if (emailRecipients.length === 0) {
+      return false;
+    }
+    const results = await Promise.allSettled(
+      emailRecipients.map((uid) => {
+        const toEmail = emailMap.get(uid);
+        if (!toEmail) {
+          return Promise.resolve(false);
+        }
+        return sendNotificationEmail({ toEmail, title, body, emailHtml });
+      })
+    );
+    return results.some((r) => r.status === "fulfilled" && r.value);
+  })();
 
   const whatsappPromise = (async (): Promise<number> => {
     try {
@@ -379,7 +342,7 @@ export async function sendBulkMessage({
     }
   })();
 
-  const [, , whatsappRecipients] = await Promise.all([
+  const [inboxQueued, emailQueued, whatsappRecipients] = await Promise.all([
     inboxPromise,
     emailPromise,
     whatsappPromise,
@@ -393,8 +356,8 @@ export async function sendBulkMessage({
     suppressedByKillSwitch: false,
     skippedEmpty: false,
     channels: {
-      inboxQueued: Boolean(inboxPromise),
-      emailQueued: Boolean(emailPromise),
+      inboxQueued,
+      emailQueued,
       whatsappRecipients,
     },
   };

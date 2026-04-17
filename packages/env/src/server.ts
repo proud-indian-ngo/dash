@@ -37,7 +37,6 @@ export const env = createEnv({
     R2_SECRET_ACCESS_KEY: z.string().min(1),
     R2_BUCKET_NAME: z.string().min(1),
     R2_KEY_PREFIX: z.string().min(1),
-    COURIER_API_KEY: z.string().min(1).optional(),
     WHATSAPP_API_URL: z.url().optional(),
     WHATSAPP_AUTH_USER: z.string().min(1).optional(),
     WHATSAPP_AUTH_PASS: z.string().min(1).optional(),

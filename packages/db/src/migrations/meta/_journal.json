@@ -330,6 +330,13 @@
       "when": 1776404415233,
       "tag": "0046_handy_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1776412898126,
+      "tag": "0047_first_romulus",
+      "breakpoints": true
     }
   ]
 }

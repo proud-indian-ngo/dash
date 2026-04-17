@@ -126,7 +126,7 @@ test.describe("Photo notifications — admin batch approval", () => {
         .getByRole("menuitem", { name: /Notifications/i })
         .click();
 
-      // The Courier inbox should show a batch notification:
+      // The inbox should show a batch notification:
       // "X of your photos for [event] have been approved."
       const inboxNotification = volunteerPage.getByText(/photos.*approved/i);
       await expect(inboxNotification).toBeVisible({ timeout: 20_000 });

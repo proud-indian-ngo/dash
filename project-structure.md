@@ -53,7 +53,7 @@ All paths are relative to project root.
 |---|---|
 | `apps/web/src/router.tsx` | App entry / router config |
 | `apps/web/src/routes/__root.tsx` | Root layout |
-| `apps/web/src/routes/_app.tsx` | Authenticated layout (sidebar, breadcrumbs, Courier inbox) |
+| `apps/web/src/routes/_app.tsx` | Authenticated layout (sidebar, breadcrumbs) |
 | `apps/web/src/routes/_auth.tsx` | Unauthenticated guard (pass-through outlet) |
 | `apps/web/src/middleware/auth.ts` | Auth middleware |
 | `apps/web/src/context/app-context.tsx` | App context provider (authenticated user) |
@@ -142,7 +142,7 @@ All component paths above are prefixed with `apps/web/src/`.
 | `hooks/use-dialog-manager.ts` | Discriminated-union state for managing multiple dialogs |
 | `hooks/use-local-storage.ts` | Generic localStorage with JSON serialization |
 | `hooks/use-table-state.ts` | Table state (pagination, sorting, filters, column persistence) |
-| `hooks/use-unread-notification-count.ts` | Unread Courier notification count |
+| `hooks/use-unread-notification-count.ts` | Unread notification count (Zero query) |
 
 All hook paths above are prefixed with `apps/web/src/`.
 
@@ -155,7 +155,6 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/get-permissions.ts` | Resolve permissions for current user's role |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
 | `functions/attachments.ts` | R2 presigned upload URL, delete asset, avatar upload/delete |
-| `functions/courier-token.ts` | Generate Courier JWT for client-side inbox |
 | `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
@@ -203,7 +202,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/shared/` | Client-safe constants and types shared across packages (e.g., `cityValues`, `attachmentTypeValues`, `historyActionValues`, `event-reminders` presets/formatting, `rrule-expand` series expansion) — no heavy dependencies |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/client.ts` (Courier client), `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts`, `src/jwt.ts`, `src/helpers.ts` |
+| `packages/notifications/` | `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/inbox.ts` (DB insert), `src/email.ts` (nodemailer send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts` (channel preference lookup), `src/helpers.ts` |
 | `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/handlers/r2.ts` (shared R2 S3 client), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory), `src/lib/` (shared utils: `reminder-sentinel.ts`, `materialize-occurrences.ts`, `rrule-expand.ts` re-export, `weekly-digest-utils.ts`). `send-scheduled-whatsapp` uses a dedicated dead letter queue (`dead-letter-scheduled-whatsapp`) to avoid hijacking the shared `dead-letter` queue. **Cron schedules**: `process-event-reminders` (every 15 min), `process-post-event-reminders` (hourly), `send-weekly-events-digest` (Monday 7 AM IST), plus existing schedules. **Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point (payload types + `enqueue()` only, no handler deps) used by mutators; `@pi-dash/jobs` (barrel) is for server-only code. |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/pdf/` | Server-side PDF generation using @react-pdf/renderer. First template: NGO cash voucher. `src/voucher.ts` (cash voucher PDF builder), `assets/` (logo, signature) |
@@ -259,19 +258,19 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 ## Notifications
 
-- **Package**: `packages/notifications/` — Courier-based multi-channel notifications.
-- **Client**: `src/client.ts` initializes CourierClient from `COURIER_API_KEY`.
+- **Package**: `packages/notifications/` — self-owned multi-channel notifications (in-app inbox, email, WhatsApp).
 - **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, reminders — pre-event, feedback nudge, attendance, photo upload). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()` or from pg-boss cron handlers.
 - **Core**: `src/send-message.ts` provides `sendMessage()` and `sendBulkMessage()` with inbox, email, and WhatsApp channels + idempotency keys. `topic` is required on all sends.
+- **Inbox**: `src/inbox.ts` inserts to `notification` DB table (idempotent via unique key). Zero syncs to client in real-time. `NotificationInbox` component in sidebar user menu.
+- **Email**: `src/email.ts` sends via nodemailer with `List-Unsubscribe` header. Uses SMTP config from `packages/env`.
 - **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
-- **Preferences**: Per-topic, per-channel (email + WhatsApp) toggles stored in `notification_topic_preference` table (local DB as source of truth). Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. Email preferences sync one-way to Courier. WhatsApp preferences checked at send-time from local DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
+- **Preferences**: Per-topic, per-channel (inbox + email + WhatsApp) toggles stored in `notification_topic_preference` table. Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. All preferences checked at send-time from DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
 - **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) is used in notification functions to construct screenshot URLs for approval messages.
-- **JWT**: `src/jwt.ts` generates Courier JWTs for client-side inbox.
-- **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`, `syncCourierUser`.
+- **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`.
+- **Retention**: `cleanup-notifications` pg-boss cron (daily 2 AM IST) deletes archived >90 days, read >180 days.
 - DO: Add new notification types in `packages/notifications/src/send/`.
 - DO: Register new env vars in `packages/env/src/server.ts`.
-- DO NOT: Call Courier directly from web app code — use the notifications package.
 
 ## Unit Testing
 
@@ -402,8 +401,8 @@ Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (owners
 1. Zero mutator performs data change (e.g., approve reimbursement)
 2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
 3. `routes/api/zero/mutate.ts` awaits async tasks after mutation completes
-4. Notification function in `packages/notifications/src/send/` sends via Courier
-5. Client-side inbox powered by Courier JWT from `functions/courier-token.ts`
+4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via nodemailer
+5. Client-side inbox synced in real-time via Zero
 
 ### Structured Logging (evlog)
 

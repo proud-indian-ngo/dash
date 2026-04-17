@@ -1,34 +1,53 @@
 # Notifications
 
-> **Load when**: `enqueue`, Courier, WhatsApp, poll, RSVP, `notify-*` handler, notification topic preferences, webhook proxy, fire-and-forget, group JID, `sync-courier-preference`, `sync-whatsapp-status`, GoWA gateway.
+> **Load when**: `enqueue`, `notify-*` handler, notification topic preferences, WhatsApp poll, webhook proxy, fire-and-forget, group JID, `sync-whatsapp-status`, GoWA gateway.
 > **Related**: `jobs.md`, `observability.md`
 
 ## Architecture
 
 ```
 Server function / Zero mutator / auth hook
-    → enqueue("notify-*" | "sync-*" | "whatsapp-*", payload)
+    → enqueue("notify-*" | "whatsapp-*", payload)
         → packages/jobs/src/handlers/       # pg-boss picks up job
-            → packages/notifications/src/   # notifications
+            → packages/notifications/src/   # sendMessage / sendBulkMessage
             → packages/whatsapp/src/        # WhatsApp group ops
-            → Courier API                   # user profile sync
 ```
 
-All async side-effects (notifications, Courier sync, WhatsApp group management, Immich photo sync, R2 object cleanup) → pg-boss `enqueue()` from `@pi-dash/jobs/enqueue`. **Never** call these fns directly from server fns, auth hooks, or mutators. pg-boss = persistence, retry (3 attempts + backoff), DLQ, jobs dashboard visibility.
+All async side-effects (notifications, WhatsApp group management, Immich photo sync, R2 object cleanup) → pg-boss `enqueue()` from `@pi-dash/jobs/enqueue`. **Never** call these fns directly from server fns, auth hooks, or mutators. pg-boss = persistence, retry (3 attempts + backoff), DLQ, jobs dashboard visibility.
 
 **Subpath exports**: `@pi-dash/jobs/enqueue` = lean entry — typed payload interfaces + `enqueue()` only, no handler deps. Keeps client bundle free of server-only code. `@pi-dash/jobs` (barrel) re-exports everything incl. `boss.ts`, server-only.
 
-**Exceptions**: `notifyUserDeleted` runs synchronously before user deletion (Courier needs user to still exist).
+**Exceptions**: `notifyUserDeleted` runs synchronously before user deletion (user row must exist for notification insert via FK constraint).
 
 Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss failure doesn't block primary op. Only `await enqueue()` if enqueue IS the primary op.
 
 ## Channels
 
-| Channel | Provider | Config |
+| Channel | Implementation | Config |
 |---|---|---|
-| In-app inbox | Courier | `COURIER_API_KEY`; client-side JWT from `functions/courier-token.ts` |
-| Email | Courier | Routed through Courier's email channel |
+| In-app inbox | `notification` DB table synced via Zero | No external service; real-time via Zero sync |
+| Email | Nodemailer via `@pi-dash/email` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` |
 | WhatsApp | Self-hosted gateway | `WHATSAPP_API_URL`; per-user opt-in via phone + preference check |
+
+### Send Flow
+
+`sendMessage()` and `sendBulkMessage()` in `packages/notifications/src/send-message.ts`:
+
+1. Check kill-switch (`isNotificationsDisabled()`) — early return if disabled.
+2. Query `notificationTopicPreference` for user's channel preferences (defaults: all enabled).
+3. Three parallel promises:
+   - **Inbox**: `insertNotification()` to `notification` table (idempotent via unique `idempotencyKey`).
+   - **Email**: `sendNotificationEmail()` via nodemailer with `List-Unsubscribe` header.
+   - **WhatsApp**: `sendWhatsAppMessage()` via GoWA gateway (unchanged).
+4. Return `SendMessageResult` with per-channel success status.
+
+### In-App Inbox
+
+- **Storage**: `notification` table (id, userId, topicId, title, body, clickAction, imageUrl, read, archived, idempotencyKey, createdAt).
+- **Real-time**: Zero syncs `notification` table to client. `useQuery(queries.notification.forCurrentUser())` — reactive, no polling.
+- **UI**: `NotificationInbox` component in sidebar user menu. Actions: mark read/unread, archive, mark all read.
+- **Retention**: Daily cleanup job (`cleanup-notifications`) deletes archived notifications >90 days and read notifications >180 days.
+- **Query limit**: 50 most recent unarchived notifications.
 
 ## WhatsApp RSVP Polls
 
@@ -40,26 +59,13 @@ GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks 
 
 ## Topics & Preferences
 
-Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (email + WhatsApp) in `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: both channels enabled (no row = enabled).
+Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (inbox + email + WhatsApp) in `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: all channels enabled (no row = enabled).
 
-**Storage model**: Local DB is source of truth. Email prefs sync one-way to Courier via `sync-courier-preference` pg-boss job (enqueued from Zero mutator's async task). Job reverts DB on Courier failure **only if** pref hasn't changed since job enqueued. WhatsApp prefs checked at send-time from local DB (`isWhatsAppTopicEnabled`), not via Courier.
+**Storage model**: DB is sole source of truth. Preferences checked at send-time for all channels. No external sync needed.
 
 **UI**: Users manage prefs via settings (`NotificationsSection`). Admins edit any user (`UserNotificationsForm`). Both use Zero queries/mutators — no server fns.
 
 **Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled (server-side guard).
-
-## Courier Preference Reconciliation
-
-Flow (`packages/jobs/src/handlers/sync-courier-preference.ts`):
-
-1. Mutator updates local DB → enqueues `sync-courier-preference` with `{ userId, topicId, enabled, previousEmailEnabled }`.
-2. Job calls Courier via `updateUserTopicPreference()` with `OPTED_IN` or `OPTED_OUT`.
-3. On Courier failure: **conditional revert**. Re-read current `emailEnabled` from DB.
-   - If `current === enabled` (no newer user choice): revert DB to `previousEmailEnabled`. Log `event: "reverted"`.
-   - If `current !== enabled` (user changed pref meanwhile): **skip revert**. Log `event: "revert_skipped"`. Protects against clobbering a user's newer choice on pg-boss retry.
-4. Throw error regardless — pg-boss surfaces the failure.
-
-This guard is why `previousEmailEnabled` must be captured in the mutator and passed through — the job needs the pre-mutation value to know what to revert to.
 
 ## WhatsApp Gateway (GoWA)
 
@@ -74,7 +80,7 @@ This guard is why `previousEmailEnabled` must be captured in the mutator and pas
 2. `whatsappStatus` is verified.
 3. `isWhatsAppTopicEnabled(userId, topicId)` — local DB pref.
 
-Any false → skip WhatsApp, fall back to Courier channels.
+Any false → skip WhatsApp for that user.
 
 **Group ops**: `whatsapp-add-to-group`, `whatsapp-remove-from-group` jobs — idempotent, retry-safe. Used by RSVP poll vote handler and team-membership mutations.
 

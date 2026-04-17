@@ -12,7 +12,6 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router";
-import { useCourier } from "@trycourier/courier-react";
 import { log } from "evlog";
 import debounce from "lodash/debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,7 +20,6 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppProvider, useApp } from "@/context/app-context";
-import { getCourierToken } from "@/functions/courier-token";
 import { getCachedAuth } from "@/lib/auth-cache";
 
 export const Route = createFileRoute("/_app")({
@@ -54,36 +52,6 @@ function LogIdentitySync() {
       );
     };
   }, [user.id, user.role]);
-
-  return null;
-}
-
-function CourierAuth() {
-  const { user } = useApp();
-  const courier = useCourier();
-  const signedInRef = useRef(false);
-
-  useEffect(() => {
-    if (signedInRef.current) {
-      return;
-    }
-    signedInRef.current = true;
-
-    getCourierToken()
-      .then(({ token }) => {
-        if (token) {
-          courier.shared.signIn({ userId: user.id, jwt: token });
-        }
-      })
-      .catch((error: unknown) => {
-        log.error({
-          component: "CourierAuth",
-          action: "signIn",
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-  }, [user.id, courier]);
 
   return null;
 }
@@ -148,7 +116,6 @@ function AppLayout() {
       <SidebarProvider>
         <ZeroConnectionMonitor onConnected={handleConnected} />
         <LogIdentitySync />
-        <CourierAuth />
         <AppSidebar />
         <SidebarInset
           className="min-w-0"

@@ -17,6 +17,7 @@
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
  *   vendorPaymentTransaction, vendorPaymentTransactionAttachment, vendorPaymentTransactionHistory,
+ *   notification,
  *   scheduledMessage, scheduledMessageRecipient
  */
 
@@ -42,6 +43,7 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { notification } from "@pi-dash/db/schema/notification";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -1761,7 +1763,57 @@ async function seedNotificationPreferences(
   log(`${prefs.length} notification preferences seeded`);
 }
 
-// ── 13. App Config ───────────────────────────────────────────────────────────
+// ── 13a. Notifications ──────────────────────────────────────────────────────
+
+async function seedNotifications(userMap: Map<string, string>): Promise<void> {
+  log("Seeding notifications...");
+  const adminId = getUser(userMap, "admin@pi-dash.dev");
+  const v1 = getUser(userMap, "volunteer1@pi-dash.dev");
+
+  const rows = [
+    {
+      id: uuidv7(),
+      userId: adminId,
+      topicId: "Requests - New Submissions",
+      title: "👀 New reimbursement to review",
+      body: 'Volunteer 1 submitted "Office supplies"',
+      clickAction: "/reimbursements",
+      read: false,
+      archived: false,
+      idempotencyKey: "seed-notif-1",
+      createdAt: past(1),
+    },
+    {
+      id: uuidv7(),
+      userId: v1,
+      topicId: "Events - Schedule",
+      title: "📅 New event: Beach Cleanup",
+      body: "A new event has been created for next Saturday",
+      clickAction: "/events",
+      read: true,
+      archived: false,
+      idempotencyKey: "seed-notif-2",
+      createdAt: past(3),
+    },
+    {
+      id: uuidv7(),
+      userId: v1,
+      topicId: "Account Notifications",
+      title: "🎉 Welcome aboard!",
+      body: "Welcome to the team, Volunteer 1!",
+      clickAction: "/",
+      read: true,
+      archived: false,
+      idempotencyKey: "seed-notif-3",
+      createdAt: past(7),
+    },
+  ];
+
+  await db.insert(notification).values(rows).onConflictDoNothing();
+  log(`${rows.length} notifications seeded`);
+}
+
+// ── 14. App Config ───────────────────────────────────────────────────────────
 
 async function seedAppConfig(): Promise<void> {
   log("Seeding app config...");
@@ -1801,6 +1853,7 @@ async function main(): Promise<void> {
   await seedVendors(userMap);
   await seedScheduledMessages(userMap);
   await seedNotificationPreferences(userMap);
+  await seedNotifications(userMap);
   await seedAppConfig();
 
   process.stdout.write("\n=== Dev data seeded successfully! ===\n");

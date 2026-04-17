@@ -70,7 +70,7 @@ Rules:
 
 ## Warning Logs for Service-Not-Configured Bailouts
 
-When an optional service (WhatsApp, Courier, Immich) is not configured, use `log.warn()` instead of silently returning:
+When an optional service (WhatsApp, Immich) is not configured, use `log.warn()` instead of silently returning:
 
 ```tsx
 const log = createRequestLogger({ method: "POST", path: "functionName" });

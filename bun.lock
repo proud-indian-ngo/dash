@@ -50,8 +50,6 @@
         "@tanstack/react-router": "^1.168.21",
         "@tanstack/react-start": "^1.167.39",
         "@tanstack/react-table": "^8.21.3",
-        "@trycourier/courier-react": "^9.0.7",
-        "@trycourier/courier-ui-inbox": "^2.4.2",
         "better-auth": "catalog:",
         "date-fns": "catalog:",
         "drizzle-orm": "catalog:",
@@ -281,9 +279,9 @@
         "@pi-dash/env": "workspace:*",
         "@pi-dash/shared": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
-        "@trycourier/courier": "^7.10.1",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
+        "uuidv7": "catalog:",
       },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",
@@ -1432,20 +1430,6 @@
     "@tanstack/table-core": ["@tanstack/table-core@8.21.3", "", {}, "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="],
 
     "@tanstack/virtual-file-routes": ["@tanstack/virtual-file-routes@1.161.7", "", { "bin": { "intent": "bin/intent.js" } }, "sha512-olW33+Cn+bsCsZKPwEGhlkqS6w3M2slFv11JIobdnCFKMLG97oAI2kWKdx5/zsywTL8flpnoIgaZZPlQTFYhdQ=="],
-
-    "@trycourier/courier": ["@trycourier/courier@7.10.1", "", {}, "sha512-bhDdWFIPY0uUoE2/QDB2xupHu3NQ70GCt66KaSUMBCWxaTLoU6ccCj4TlOAO23dzfAV6uZvavhTCETajzr/PEw=="],
-
-    "@trycourier/courier-js": ["@trycourier/courier-js@3.1.2", "", {}, "sha512-npagf4nvM3snFHbDWEzy2uR4p/IIfoV5t6fr18kawChQgkAtIjuhQhQc+Aicmn6QP3WjUHZEiRslJa0zMeE+MQ=="],
-
-    "@trycourier/courier-react": ["@trycourier/courier-react@9.0.7", "", { "dependencies": { "@trycourier/courier-js": "3.1.2", "@trycourier/courier-react-components": "2.0.7", "@trycourier/courier-ui-core": "2.0.0", "@trycourier/courier-ui-inbox": "2.4.2", "@trycourier/courier-ui-toast": "2.1.2" }, "peerDependencies": { "react": ">=18.0.0", "react-dom": ">=18.0.0" } }, "sha512-pbblZAnj+9unexDy771Wy1ZJhxXlpmpUwi5P3h87r9G3LGEQ2SylLXqkYl7Fp7st2iOLnj8BrXmxS4vV/lmVyQ=="],
-
-    "@trycourier/courier-react-components": ["@trycourier/courier-react-components@2.0.7", "", { "dependencies": { "@trycourier/courier-js": "3.1.2", "@trycourier/courier-ui-core": "2.0.0", "@trycourier/courier-ui-inbox": "2.4.2", "@trycourier/courier-ui-toast": "2.1.2" } }, "sha512-/kRSECMvCKp2c0dFPoL/F06ZEX9c5fgqIvOBXRkgtyxRf1ubgUlOaXlMas1ihFtijynT38KsASPhd9/Wedoucg=="],
-
-    "@trycourier/courier-ui-core": ["@trycourier/courier-ui-core@2.0.0", "", {}, "sha512-Aqj6LKs0xdzZ+Pu2RRqbDqTYpLVpc1bkxX6OEfAUt/52cGlxPVeu2y274tRZ5Lf+r/udhBD/EsIMNR546JyUnA=="],
-
-    "@trycourier/courier-ui-inbox": ["@trycourier/courier-ui-inbox@2.4.2", "", { "dependencies": { "@trycourier/courier-js": "3.1.2", "@trycourier/courier-ui-core": "2.0.0" } }, "sha512-gMVfqe+dtqf/YahJbghvpVeaLUjS0XiZM5za6aKUltk1Igot1R6sEg/VfTXOnUDn4oYjiQPP80JgttU1AvPZYg=="],
-
-    "@trycourier/courier-ui-toast": ["@trycourier/courier-ui-toast@2.1.2", "", { "dependencies": { "@trycourier/courier-js": "3.1.2", "@trycourier/courier-ui-core": "2.0.0" } }, "sha512-uunyhG4PtPwbejB4E075Q4OiseyuLFHfTAZ9DVFKeDd99pJSsp5RYDYORZAVcaNZDStaCf+ipwFDlXd572bwSA=="],
 
     "@ts-morph/common": ["@ts-morph/common@0.27.0", "", { "dependencies": { "fast-glob": "^3.3.3", "minimatch": "^10.0.1", "path-browserify": "^1.0.1" } }, "sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ=="],
 
