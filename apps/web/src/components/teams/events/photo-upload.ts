@@ -43,7 +43,7 @@ export function validateFiles(files: FileList): File[] {
       ? MAX_VIDEO_SIZE_BYTES
       : MAX_IMAGE_SIZE_BYTES;
     if (file.size > maxSize) {
-      const limit = isVideoMimeType(file.type) ? "200 MB" : "20 MB";
+      const limit = isVideoMimeType(file.type) ? "500 MB" : "20 MB";
       toast.error(`${file.name}: exceeds ${limit} limit`);
       continue;
     }
