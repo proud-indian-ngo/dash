@@ -104,6 +104,7 @@ function ScheduledMessagesPage() {
     scheduledAt: number;
     recipients: Recipient[];
     attachments?: MediaAttachment[];
+    sendNow?: boolean;
   }) => {
     if (dialogMode?.kind === "edit") {
       const res = await zero.mutate(
@@ -138,8 +139,10 @@ function ScheduledMessagesPage() {
       handleMutationResult(res, {
         mutation: "scheduledMessage.create",
         entityId: id,
-        successMsg: "Message scheduled",
-        errorMsg: "Couldn't schedule message",
+        successMsg: values.sendNow ? "Message sent" : "Message scheduled",
+        errorMsg: values.sendNow
+          ? "Couldn't send message"
+          : "Couldn't schedule message",
       });
       if (res.type !== "error") {
         setDialogMode(null);

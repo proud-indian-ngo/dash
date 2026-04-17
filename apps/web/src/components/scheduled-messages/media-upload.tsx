@@ -123,6 +123,11 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
     maxFiles: remainingSlots,
     maxSize: MAX_MEDIA_FILE_SIZE,
     multiple: true,
+    onError: (errors: string[]) => {
+      for (const error of errors) {
+        toast.error(error);
+      }
+    },
     onFilesAdded: (addedFiles: FileWithPreview[]) => {
       const files = addedFiles
         .map((item) => item.file)

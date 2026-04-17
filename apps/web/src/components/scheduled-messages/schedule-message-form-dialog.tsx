@@ -3,6 +3,8 @@ import {
   FieldError,
   FieldLabel,
 } from "@pi-dash/design-system/components/ui/field";
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import type {
   ScheduledMessage,
   ScheduledMessageRecipient,
@@ -38,11 +40,21 @@ const attachmentSchema = z.object({
   r2Key: z.string(),
 });
 
-const formSchema = z.object({
+const scheduledFormSchema = z.object({
   message: z.string().min(1, "Message is required"),
   scheduledAt: z.date().refine((val) => val.getTime() > Date.now(), {
     message: "Must be in the future",
   }),
+  recipients: z
+    .array(recipientSchema)
+    .min(1, "At least one recipient is required")
+    .max(10),
+  attachments: z.array(attachmentSchema).max(5),
+});
+
+const sendNowFormSchema = z.object({
+  message: z.string().min(1, "Message is required"),
+  scheduledAt: z.date(),
   recipients: z
     .array(recipientSchema)
     .min(1, "At least one recipient is required")
@@ -62,6 +74,7 @@ interface ScheduleMessageFormDialogProps {
     message: string;
     recipients: Recipient[];
     scheduledAt: number;
+    sendNow?: boolean;
   }) => Promise<void>;
   open: boolean;
 }
@@ -74,10 +87,13 @@ export function ScheduleMessageFormDialog({
 }: ScheduleMessageFormDialogProps) {
   const isEdit = !!initialValues;
   const [formKey, setFormKey] = useState(0);
+  const [sendNow, setSendNow] = useState(false);
   const entityId = useMemo(
     () => initialValues?.id ?? uuidv7(),
     [initialValues?.id]
   );
+
+  const formSchema = sendNow ? sendNowFormSchema : scheduledFormSchema;
 
   const form = useForm({
     defaultValues: {
@@ -95,10 +111,11 @@ export function ScheduleMessageFormDialog({
     onSubmit: async ({ value }) => {
       await onSubmit({
         message: value.message,
-        scheduledAt: value.scheduledAt.getTime(),
+        scheduledAt: sendNow ? Date.now() : value.scheduledAt.getTime(),
         recipients: value.recipients,
         attachments:
           value.attachments.length > 0 ? value.attachments : undefined,
+        sendNow: sendNow || undefined,
       });
     },
     validators: {
@@ -110,11 +127,14 @@ export function ScheduleMessageFormDialog({
   return (
     <FormModal
       description={
-        isEdit ? "Edit the scheduled message" : "Schedule a WhatsApp message"
+        isEdit
+          ? "Edit the scheduled message"
+          : `${sendNow ? "Send" : "Schedule"} a WhatsApp message`
       }
       onOpenChange={(v) => {
         if (!v) {
           setFormKey((k) => k + 1);
+          setSendNow(false);
           onClose();
         }
       }}
@@ -130,13 +150,26 @@ export function ScheduleMessageFormDialog({
           rows={4}
         />
 
-        <DateTimeField
-          isRequired
-          label="Scheduled at"
-          minDate={new Date()}
-          name="scheduledAt"
-          placeholder="Pick date and time"
-        />
+        {!isEdit && (
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={sendNow}
+              id="send-now"
+              onCheckedChange={setSendNow}
+            />
+            <Label htmlFor="send-now">Send now</Label>
+          </div>
+        )}
+
+        {!sendNow && (
+          <DateTimeField
+            isRequired
+            label="Scheduled at"
+            minDate={new Date()}
+            name="scheduledAt"
+            placeholder="Pick date and time"
+          />
+        )}
 
         <form.Field name="recipients">
           {(field) => {
@@ -174,8 +207,12 @@ export function ScheduleMessageFormDialog({
 
         <FormActions
           onCancel={onClose}
-          submitLabel={isEdit ? "Save changes" : "Schedule message"}
-          submittingLabel={isEdit ? "Saving..." : "Scheduling..."}
+          submitLabel={
+            isEdit ? "Save changes" : `${sendNow ? "Send" : "Schedule"} message`
+          }
+          submittingLabel={
+            isEdit ? "Saving..." : `${sendNow ? "Sending" : "Scheduling"}...`
+          }
         />
       </FormLayout>
     </FormModal>
