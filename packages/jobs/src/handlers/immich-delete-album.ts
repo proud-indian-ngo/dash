@@ -4,7 +4,7 @@ import type { ImmichDeleteAlbumPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 
 async function deleteImmichAlbum(data: ImmichDeleteAlbumPayload) {
-  const immichUrl = env.VITE_IMMICH_URL;
+  const immichUrl = env.IMMICH_INTERNAL_URL ?? env.VITE_IMMICH_URL;
   const immichKey = env.IMMICH_API_KEY;
   if (!(immichUrl && immichKey)) {
     const log = createRequestLogger({

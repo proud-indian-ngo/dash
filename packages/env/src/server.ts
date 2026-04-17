@@ -44,6 +44,7 @@ export const env = createEnv({
     WHATSAPP_WEBHOOK_SECRET: z.string().min(1),
     VITE_CDN_URL: z.url(),
     VITE_IMMICH_URL: z.url().optional(),
+    IMMICH_INTERNAL_URL: z.url().optional(),
     IMMICH_API_KEY: z.string().min(1).optional(),
     APP_NAME: z.string().min(1).default("Proud Indian Dashboard"),
     APP_URL: z.url().optional(),

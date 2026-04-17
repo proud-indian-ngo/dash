@@ -79,6 +79,7 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | `WHATSAPP_WEBHOOK_SECRET` | **Required** — secret for WhatsApp webhook validation |
 | `IMMICH_API_KEY` | Immich API key |
 | `VITE_IMMICH_URL` | Public Immich URL; blank to disable |
+| `IMMICH_INTERNAL_URL` | Optional direct/internal Immich URL used by server-side jobs (photo sync, delete) to bypass Cloudflare 100 MB body limit. Example: `http://immich-server:2283` on shared Docker network. Falls back to `VITE_IMMICH_URL` when unset. |
 | `GRAVATAR_API_KEY` | Gravatar REST API key |
 | `GRAVATAR_API_BASE_URL` | Gravatar API base URL (default `https://api.gravatar.com/v3`) |
 | `GRAVATAR_TIMEOUT_MS` | Gravatar API timeout in ms (default `5000`) |

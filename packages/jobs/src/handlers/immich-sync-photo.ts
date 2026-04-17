@@ -103,7 +103,7 @@ function emitLog(event: string, extra: Record<string, unknown>) {
 async function processImmichSync(data: ImmichSyncPhotoPayload) {
   const { photoId, eventId, eventName, r2Key } = data;
 
-  const immichUrl = env.VITE_IMMICH_URL;
+  const immichUrl = env.IMMICH_INTERNAL_URL ?? env.VITE_IMMICH_URL;
   const immichKey = env.IMMICH_API_KEY;
   if (!(immichUrl && immichKey)) {
     emitLog("immich_not_configured", { photoId, eventId });
