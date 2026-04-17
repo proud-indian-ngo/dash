@@ -15,6 +15,7 @@ import { CheckboxField } from "@/components/form/checkbox-field";
 import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
+import { FormSectionHeading } from "@/components/form/form-section";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
@@ -375,36 +376,41 @@ function EventFormContent({
         placeholder="Optional description"
         rows={3}
       />
-      <InputField
-        description="Google Maps, Google Calendar, or Google Meet link"
-        label="Location"
-        name="location"
-        placeholder="https://meet.google.com/..."
-      />
-      <SelectField
-        isRequired
-        label="City"
-        name="city"
-        options={cityOptions}
-        placeholder="Select city"
-      />
-      <form.Subscribe selector={(state) => state.values.startTime}>
-        {(startTime) => (
-          <DateTimeField
-            description={
-              canBackdate && startTime && startTime < new Date()
-                ? "Past dates allowed — team won't be notified"
-                : undefined
-            }
-            isRequired
-            label="Start Time"
-            name="startTime"
-          />
-        )}
-      </form.Subscribe>
-      <DateTimeField label="End Time" name="endTime" />
+
+      <FormSectionHeading>Schedule</FormSectionHeading>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <InputField
+          description="Google Maps, Google Calendar, or Google Meet link"
+          label="Location"
+          name="location"
+          placeholder="https://meet.google.com/..."
+        />
+        <SelectField
+          isRequired
+          label="City"
+          name="city"
+          options={cityOptions}
+          placeholder="Select city"
+        />
+        <form.Subscribe selector={(state) => state.values.startTime}>
+          {(startTime) => (
+            <DateTimeField
+              description={
+                canBackdate && startTime && startTime < new Date()
+                  ? "Past dates allowed — team won't be notified"
+                  : undefined
+              }
+              isRequired
+              label="Start Time"
+              name="startTime"
+            />
+          )}
+        </form.Subscribe>
+        <DateTimeField label="End Time" name="endTime" />
+      </div>
+
       <CheckboxField label="Public" name="isPublic" />
-      {/* Show recurrence builder: on create, scope edits for "all"/"following", or editing a series parent directly */}
+
       {(!isEdit ||
         editScope === "all" ||
         editScope === "following" ||
@@ -425,61 +431,73 @@ function EventFormContent({
           )}
         </form.Field>
       )}
-      <SelectField
-        label="WhatsApp Group"
-        name="whatsappGroupId"
-        options={waGroupOptions}
-        placeholder="None"
-      />
-      <form.Subscribe
-        selector={(state) => ({
-          whatsappGroupId: state.values.whatsappGroupId,
-        })}
-      >
-        {({ whatsappGroupId }) =>
-          isEdit || whatsappGroupId ? null : (
-            <CheckboxField label="Create WhatsApp group" name="createWaGroup" />
-          )
-        }
-      </form.Subscribe>
-      <CheckboxField
-        description="Participants can share anonymous feedback after the event ends"
-        label="Enable anonymous feedback"
-        name="feedbackEnabled"
-      />
-      <CheckboxField
-        description="Photo upload and attendance marking reminders after the event"
-        label="Send post-event reminders"
-        name="postEventNudgesEnabled"
-      />
-      <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
-        {(whatsappGroupId) => {
-          const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
-          return (
-            <CheckboxField
-              description={
-                hasGroup
-                  ? "Post a WhatsApp RSVP poll before the event"
-                  : "Link a WhatsApp group to the event or team first"
-              }
-              label="Post RSVP poll on WhatsApp"
-              name="postRsvpPoll"
-              readonly={!hasGroup}
-            />
-          );
-        }}
-      </form.Subscribe>
-      <form.Subscribe selector={(state) => state.values.postRsvpPoll}>
-        {(postRsvpPoll) =>
-          postRsvpPoll ? (
-            <SelectField
-              label="Post poll"
-              name="rsvpPollLeadMinutes"
-              options={rsvpPollLeadOptions}
-            />
-          ) : null
-        }
-      </form.Subscribe>
+
+      <FormSectionHeading>Notifications</FormSectionHeading>
+      <div className="grid items-end gap-4 sm:grid-cols-2">
+        <SelectField
+          label="WhatsApp Group"
+          name="whatsappGroupId"
+          options={waGroupOptions}
+          placeholder="None"
+        />
+        <form.Subscribe
+          selector={(state) => ({
+            whatsappGroupId: state.values.whatsappGroupId,
+          })}
+        >
+          {({ whatsappGroupId }) =>
+            isEdit || whatsappGroupId ? (
+              <div />
+            ) : (
+              <CheckboxField
+                label="Create WhatsApp group"
+                name="createWaGroup"
+              />
+            )
+          }
+        </form.Subscribe>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <CheckboxField
+          description="Participants can share anonymous feedback after the event ends"
+          label="Enable anonymous feedback"
+          name="feedbackEnabled"
+        />
+        <CheckboxField
+          description="Photo upload and attendance marking reminders after the event"
+          label="Send post-event reminders"
+          name="postEventNudgesEnabled"
+        />
+        <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
+          {(whatsappGroupId) => {
+            const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
+            return (
+              <CheckboxField
+                description={
+                  hasGroup
+                    ? "Post a WhatsApp RSVP poll before the event"
+                    : "Link a WhatsApp group to the event or team first"
+                }
+                label="Post RSVP poll on WhatsApp"
+                name="postRsvpPoll"
+                readonly={!hasGroup}
+              />
+            );
+          }}
+        </form.Subscribe>
+        <form.Subscribe selector={(state) => state.values.postRsvpPoll}>
+          {(postRsvpPoll) =>
+            postRsvpPoll ? (
+              <SelectField
+                label="Post poll"
+                name="rsvpPollLeadMinutes"
+                options={rsvpPollLeadOptions}
+              />
+            ) : null
+          }
+        </form.Subscribe>
+      </div>
+
       <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
         {(feedbackEnabled) =>
           feedbackEnabled ? (
@@ -491,6 +509,7 @@ function EventFormContent({
           ) : null
         }
       </form.Subscribe>
+
       <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
         {(whatsappGroupId) => (
           <form.Field name="reminderIntervals">
@@ -510,6 +529,7 @@ function EventFormContent({
           </form.Field>
         )}
       </form.Subscribe>
+
       <FormActions
         onCancel={() => onOpenChange(false)}
         submitLabel={isEdit ? "Save" : "Create"}
@@ -580,7 +600,7 @@ export function EventFormDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto [scrollbar-color:var(--color-muted-foreground)_transparent] [scrollbar-width:thin] sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto [scrollbar-color:var(--color-muted-foreground)_transparent] [scrollbar-width:thin] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription className="sr-only">

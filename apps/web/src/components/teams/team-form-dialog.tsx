@@ -156,7 +156,7 @@ export function TeamFormDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Team" : "Create Team"}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -164,15 +164,63 @@ export function TeamFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-2">
-            <Label htmlFor="team-name">Name</Label>
-            <Input
-              id="team-name"
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Team name"
-              required
-              value={name}
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="team-name">Name</Label>
+              <Input
+                id="team-name"
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Team name"
+                required
+                value={name}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="team-whatsapp">WhatsApp Group</Label>
+              <Combobox
+                disabled={createWaGroup}
+                items={whatsappGroupItems}
+                itemToStringLabel={(value) => {
+                  if (value === NONE_WHATSAPP_GROUP) {
+                    return "None";
+                  }
+
+                  return whatsappGroupLabelByValue.get(value) ?? String(value);
+                }}
+                onValueChange={(value) => {
+                  setWhatsappGroupId(
+                    value === NONE_WHATSAPP_GROUP || !value ? "" : value
+                  );
+                }}
+                value={whatsappGroupId || NONE_WHATSAPP_GROUP}
+              >
+                <ComboboxInput
+                  aria-label="WhatsApp Group"
+                  className="w-full"
+                  id="team-whatsapp"
+                  placeholder="None"
+                />
+                <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
+                  <ComboboxList>
+                    {(itemValue) => (
+                      <ComboboxItem
+                        className="items-start"
+                        key={itemValue}
+                        value={itemValue}
+                      >
+                        <span className="block min-w-0 whitespace-normal break-words">
+                          {itemValue === NONE_WHATSAPP_GROUP
+                            ? "None"
+                            : (whatsappGroupLabelByValue.get(itemValue) ??
+                              itemValue)}
+                        </span>
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                  <ComboboxEmpty>No matching groups.</ComboboxEmpty>
+                </ComboboxContent>
+              </Combobox>
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="team-description">Description</Label>
@@ -183,52 +231,6 @@ export function TeamFormDialog({
               rows={3}
               value={description}
             />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="team-whatsapp">WhatsApp Group</Label>
-            <Combobox
-              disabled={createWaGroup}
-              items={whatsappGroupItems}
-              itemToStringLabel={(value) => {
-                if (value === NONE_WHATSAPP_GROUP) {
-                  return "None";
-                }
-
-                return whatsappGroupLabelByValue.get(value) ?? String(value);
-              }}
-              onValueChange={(value) => {
-                setWhatsappGroupId(
-                  value === NONE_WHATSAPP_GROUP || !value ? "" : value
-                );
-              }}
-              value={whatsappGroupId || NONE_WHATSAPP_GROUP}
-            >
-              <ComboboxInput
-                aria-label="WhatsApp Group"
-                className="w-full"
-                id="team-whatsapp"
-                placeholder="None"
-              />
-              <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
-                <ComboboxList>
-                  {(itemValue) => (
-                    <ComboboxItem
-                      className="items-start"
-                      key={itemValue}
-                      value={itemValue}
-                    >
-                      <span className="block min-w-0 whitespace-normal break-words">
-                        {itemValue === NONE_WHATSAPP_GROUP
-                          ? "None"
-                          : (whatsappGroupLabelByValue.get(itemValue) ??
-                            itemValue)}
-                      </span>
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-                <ComboboxEmpty>No matching groups.</ComboboxEmpty>
-              </ComboboxContent>
-            </Combobox>
           </div>
           {!(isEdit || whatsappGroupId) && (
             <div className="flex items-center justify-between gap-2">

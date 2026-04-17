@@ -1,3 +1,4 @@
+import { FieldDescription } from "@pi-dash/design-system/components/ui/field";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import type { ReactNode } from "react";
 import { CustomField } from "./custom-field";
@@ -31,32 +32,36 @@ export function CheckboxField({
 }: CheckboxFieldProps) {
   const resolvedForm = useResolvedForm(form, "CheckboxField");
   return (
-    <CustomField<boolean>
-      className={className}
-      description={description}
-      form={form}
-      isRequired={isRequired}
-      label={label}
-      name={name}
-      orientation="horizontal"
-      validators={validators}
-    >
-      {(field) => {
-        return (
-          <Switch
-            {...fieldErrorProps(
-              field,
-              resolvedForm.state.submissionAttempts > 0
-            )}
-            aria-required={isRequired}
-            checked={Boolean(field.state.value)}
-            disabled={readonly}
-            id={field.name}
-            onBlur={field.handleBlur}
-            onCheckedChange={(checked) => field.handleChange(Boolean(checked))}
-          />
-        );
-      }}
-    </CustomField>
+    <div className="flex flex-col gap-1">
+      <CustomField<boolean>
+        className={className}
+        form={form}
+        isRequired={isRequired}
+        label={label}
+        name={name}
+        orientation="horizontal"
+        validators={validators}
+      >
+        {(field) => {
+          return (
+            <Switch
+              {...fieldErrorProps(
+                field,
+                resolvedForm.state.submissionAttempts > 0
+              )}
+              aria-required={isRequired}
+              checked={Boolean(field.state.value)}
+              disabled={readonly}
+              id={field.name}
+              onBlur={field.handleBlur}
+              onCheckedChange={(checked) =>
+                field.handleChange(Boolean(checked))
+              }
+            />
+          );
+        }}
+      </CustomField>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+    </div>
   );
 }
