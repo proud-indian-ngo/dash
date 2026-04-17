@@ -8,8 +8,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
+import type React from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { getPhotoThumbnailUrl, isVideoPhoto } from "./photo-utils";
+import {
+  getPhotoThumbnailUrl,
+  getR2VideoUrl,
+  isVideoPhoto,
+} from "./photo-utils";
 
 type PhotoWithUploader = EventPhoto & { uploader: User | undefined };
 
@@ -34,6 +39,42 @@ export function PhotoCard({
 }: PhotoCardProps) {
   const thumbnailUrl = getPhotoThumbnailUrl(photo);
   const isVideo = isVideoPhoto(photo);
+  const r2VideoPreviewUrl =
+    isVideo && !photo.immichAssetId && photo.r2Key
+      ? `${getR2VideoUrl(photo.r2Key)}#t=0.1`
+      : null;
+
+  let preview: React.ReactNode;
+  if (thumbnailUrl) {
+    preview = (
+      <img
+        alt={photo.caption ?? (isVideo ? "Event video" : "Event photo")}
+        className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) [@media(hover:hover)]:group-hover:scale-[1.02]"
+        height={320}
+        loading="lazy"
+        src={thumbnailUrl}
+        width={320}
+      />
+    );
+  } else if (r2VideoPreviewUrl) {
+    preview = (
+      <video
+        className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) [@media(hover:hover)]:group-hover:scale-[1.02]"
+        muted
+        playsInline
+        preload="metadata"
+        src={r2VideoPreviewUrl}
+      >
+        <track kind="captions" />
+      </video>
+    );
+  } else {
+    preview = (
+      <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted-foreground/10">
+        <span className="text-muted-foreground text-xs">Processing…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
@@ -42,21 +83,7 @@ export function PhotoCard({
         onClick={onClick}
         type="button"
       >
-        {thumbnailUrl ? (
-          <img
-            alt={photo.caption ?? (isVideo ? "Event video" : "Event photo")}
-            className="size-full object-cover transition-transform duration-200 ease-(--ease-out-expo) [@media(hover:hover)]:group-hover:scale-[1.02]"
-            height={320}
-            loading="lazy"
-            src={thumbnailUrl}
-            width={320}
-          />
-        ) : (
-          // Placeholder for R2-only videos awaiting Immich sync
-          <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted-foreground/10">
-            <span className="text-muted-foreground text-xs">Processing…</span>
-          </div>
-        )}
+        {preview}
         {isVideo ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex size-10 items-center justify-center rounded-full bg-black/50">

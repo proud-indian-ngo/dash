@@ -31,6 +31,10 @@ export function getR2ThumbnailUrl(r2Key: string): string {
   return `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${directUrl}`;
 }
 
+export function getR2VideoUrl(r2Key: string): string {
+  return `${cdnBase}/${r2Key}`;
+}
+
 /**
  * Returns the thumbnail URL for a photo/video.
  * Returns null for R2-only videos (Cloudflare image resizing doesn't process video).
