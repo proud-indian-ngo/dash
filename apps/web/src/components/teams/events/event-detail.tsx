@@ -42,7 +42,6 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
 import { EditScopeDialog } from "./edit-scope-dialog";
-import { EventAttendanceSection } from "./event-attendance-section";
 import { EventDetailsCard } from "./event-details-card";
 import { EventExpenses } from "./event-expenses";
 import { EventFeedbackSection } from "./event-feedback";
@@ -956,16 +955,11 @@ export function EventDetail({
               {canManageVolunteers || event.members.length > 0 ? (
                 <EventMembersSection
                   canManage={canManageVolunteers}
+                  canMarkAttendance={canManageAttendance && hasStarted}
+                  eventId={event.id}
                   members={event.members}
                   onAddMember={handleAddMemberClick}
                   onRemoveMember={(id) => removeMember.trigger(id)}
-                />
-              ) : null}
-
-              {canManageAttendance && hasStarted ? (
-                <EventAttendanceSection
-                  eventId={event.id}
-                  members={event.members}
                 />
               ) : null}
             </div>

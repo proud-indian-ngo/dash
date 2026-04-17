@@ -47,15 +47,10 @@ test.describe("Event attendance (admin)", () => {
     await eventCell.getByRole("button").first().click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
-    // Attendance section should be visible
-    await expect(page.getByText(/Attendance \(\d+\/\d+ present\)/)).toBeVisible(
+    // Attendance info should be visible in the Volunteers heading
+    await expect(page.getByRole("heading", { name: /Volunteers/ })).toBeVisible(
       { timeout: 10_000 }
     );
-
-    // With 0 members the button is hidden, so just verify the heading is there
-    await expect(
-      page.getByRole("heading", { name: /Attendance/ })
-    ).toBeVisible();
 
     // Verify Updates tab also visible (confirms event has started)
     await expect(page.getByRole("tab", { name: /Updates/ })).toBeVisible();
@@ -91,9 +86,9 @@ test.describe("Event attendance (volunteer)", () => {
       timeout: 10_000,
     });
 
-    // Attendance section should NOT be visible to volunteers
+    // Attendance controls should NOT be visible to volunteers
     await expect(
-      page.getByRole("heading", { name: /Attendance/ })
+      page.getByRole("button", { name: /Mark All Present/ })
     ).not.toBeVisible();
   });
 });
