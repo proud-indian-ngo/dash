@@ -99,6 +99,7 @@ export const eventUpdateMutators = {
                   eventMemberIds,
                   authorName,
                   eventWhatsappGroupId: event.whatsappGroupId ?? null,
+                  startTime: event.startTime,
                   teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
                   updatedAt: args.now,
                 });
@@ -123,6 +124,7 @@ export const eventUpdateMutators = {
                 eventId: args.eventId,
                 eventName: event.name,
                 authorName,
+                startTime: event.startTime,
                 teamId: event.teamId,
               });
             },
@@ -186,6 +188,7 @@ export const eventUpdateMutators = {
                 eventId: existing.eventId,
                 eventName: event.name,
                 authorId: existing.createdBy,
+                startTime: event.startTime,
               });
             },
           });
@@ -221,6 +224,7 @@ export const eventUpdateMutators = {
                 eventMemberIds,
                 authorName,
                 eventWhatsappGroupId: event.whatsappGroupId ?? null,
+                startTime: event.startTime,
                 teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
                 updatedAt: args.now,
               });
@@ -283,6 +287,7 @@ export const eventUpdateMutators = {
               eventId: existing.eventId,
               eventName: event.name,
               authorId: existing.createdBy,
+              startTime: event.startTime,
             });
           },
         });

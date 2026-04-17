@@ -6,7 +6,7 @@ import { env } from "@pi-dash/env/server";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
-import { getUserIdsWithPermission } from "../helpers";
+import { formatEventDate, getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -16,6 +16,7 @@ interface EventUpdatePostedOptions {
   eventMemberIds: string[];
   eventName: string;
   eventWhatsappGroupId: string | null;
+  startTime: number;
   teamWhatsappGroupId: string | null;
   updatedAt: number;
 }
@@ -26,10 +27,12 @@ export async function notifyEventUpdatePosted({
   eventMemberIds,
   authorName,
   eventWhatsappGroupId,
+  startTime,
   teamWhatsappGroupId,
   updatedAt,
 }: EventUpdatePostedOptions): Promise<void> {
-  const body = `${authorName} posted an update on ${eventName} — check it out.`;
+  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
+  const body = `${authorName} posted an update on ${eventLabel} — check it out.`;
   const emailHtml = await renderNotificationEmail({
     heading: "New update",
     paragraphs: [body],
@@ -56,7 +59,7 @@ export async function notifyEventUpdatePosted({
       .limit(1);
     if (group[0]) {
       const lines = [
-        `*📝 New update on ${eventName}*`,
+        `*📝 New update on ${eventLabel}*`,
         `${authorName} posted an update — check it out.`,
         `\nView: ${env.APP_URL}/events/${eventId}`,
       ];
@@ -70,6 +73,7 @@ interface EventUpdateApprovedOptions {
   eventId: string;
   eventName: string;
   eventUpdateId: string;
+  startTime: number;
 }
 
 export async function notifyEventUpdateApproved({
@@ -77,8 +81,10 @@ export async function notifyEventUpdateApproved({
   eventId,
   eventName,
   authorId,
+  startTime,
 }: EventUpdateApprovedOptions): Promise<void> {
-  const body = `Your update to ${eventName} is now live!`;
+  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
+  const body = `Your update to ${eventLabel} is now live!`;
   const emailHtml = await renderNotificationEmail({
     heading: "Update live!",
     paragraphs: [body],
@@ -101,6 +107,7 @@ interface EventUpdateRejectedOptions {
   eventId: string;
   eventName: string;
   eventUpdateId: string;
+  startTime: number;
 }
 
 export async function notifyEventUpdateRejected({
@@ -108,8 +115,10 @@ export async function notifyEventUpdateRejected({
   eventId,
   eventName,
   authorId,
+  startTime,
 }: EventUpdateRejectedOptions): Promise<void> {
-  const body = `Your update to ${eventName} wasn't published.`;
+  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
+  const body = `Your update to ${eventLabel} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
     heading: "Update not published",
     paragraphs: [body],
@@ -132,6 +141,7 @@ interface EventUpdatePendingOptions {
   eventId: string;
   eventName: string;
   eventUpdateId: string;
+  startTime: number;
   teamId: string;
 }
 
@@ -140,9 +150,11 @@ export async function notifyEventUpdatePending({
   eventId,
   eventName,
   authorName,
+  startTime,
   teamId,
 }: EventUpdatePendingOptions): Promise<void> {
-  const body = `${authorName} submitted an update to ${eventName} — it needs your review.`;
+  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
+  const body = `${authorName} submitted an update to ${eventLabel} — it needs your review.`;
   const emailHtml = await renderNotificationEmail({
     heading: "Update needs review",
     paragraphs: [body],

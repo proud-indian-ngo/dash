@@ -293,6 +293,7 @@ export interface NotifyEventUpdatePostedPayload {
   eventMemberIds: string[];
   eventName: string;
   eventWhatsappGroupId: string | null;
+  startTime: number;
   teamWhatsappGroupId: string | null;
   updatedAt: number;
 }
@@ -302,6 +303,7 @@ export interface NotifyEventUpdateApprovedPayload {
   eventId: string;
   eventName: string;
   eventUpdateId: string;
+  startTime: number;
 }
 
 export interface NotifyEventUpdateRejectedPayload {
@@ -309,6 +311,7 @@ export interface NotifyEventUpdateRejectedPayload {
   eventId: string;
   eventName: string;
   eventUpdateId: string;
+  startTime: number;
 }
 
 export interface NotifyEventUpdatePendingPayload {
@@ -316,6 +319,7 @@ export interface NotifyEventUpdatePendingPayload {
   eventId: string;
   eventName: string;
   eventUpdateId: string;
+  startTime: number;
   teamId: string;
 }
 

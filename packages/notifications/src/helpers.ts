@@ -1,4 +1,13 @@
 import { db } from "@pi-dash/db";
+
+export function formatEventDate(startTime: number): string {
+  return new Date(startTime).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 import { advancePaymentLineItem } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
