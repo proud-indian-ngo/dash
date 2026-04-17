@@ -9,12 +9,14 @@ import {
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useApp } from "@/context/app-context";
 import { LONG_DATE } from "@/lib/date-formats";
 
 interface UserHoverCardUser {
   createdAt?: null | number | string;
   email?: null | string;
   gender?: null | string;
+  id: string;
   image?: null | string;
   name: string;
   phone?: null | string;
@@ -22,7 +24,7 @@ interface UserHoverCardUser {
 }
 
 interface UserHoverCardProps {
-  children: ReactNode;
+  children?: ReactNode;
   /**
    * Override the trigger element's className. Use when the hover card trigger
    * needs to participate in a parent flex layout (e.g., `flex-1 min-w-0`).
@@ -44,6 +46,10 @@ export function UserHoverCard({
   triggerClassName,
   user,
 }: UserHoverCardProps) {
+  const { hasPermission, user: appUser } = useApp();
+  const canSeeFullDetails =
+    hasPermission("users.view") || user.id === appUser.id;
+
   return (
     <HoverCard>
       <HoverCardTrigger
@@ -65,14 +71,14 @@ export function UserHoverCard({
           <div className="min-w-0 space-y-1.5">
             <div>
               <p className="truncate font-medium text-sm">{user.name}</p>
-              {user.email ? (
+              {canSeeFullDetails && user.email ? (
                 <p className="truncate text-muted-foreground text-xs">
                   {user.email}
                 </p>
               ) : null}
             </div>
             <div className="space-y-1">
-              {user.phone ? (
+              {canSeeFullDetails && user.phone ? (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon
                     className="size-3.5 shrink-0 text-muted-foreground"
@@ -96,7 +102,7 @@ export function UserHoverCard({
                   </Badge>
                 </div>
               ) : null}
-              {user.createdAt ? (
+              {canSeeFullDetails && user.createdAt ? (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon
                     className="size-3.5 shrink-0 text-muted-foreground"
