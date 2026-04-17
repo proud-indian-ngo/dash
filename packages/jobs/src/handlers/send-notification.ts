@@ -6,7 +6,8 @@ import type { NotificationPayload } from "../enqueue";
 
 export async function handleSendNotification(
   jobs: Job<NotificationPayload>[]
-): Promise<void> {
+): Promise<object> {
+  const outputs: object[] = [];
   for (const job of jobs) {
     const log = createRequestLogger({
       method: "JOB",
@@ -52,5 +53,17 @@ export async function handleSendNotification(
 
     log.set({ event: "job_complete" });
     log.emit();
+
+    outputs.push({
+      userId,
+      topic,
+      title,
+      idempotencyKey,
+      hasEmail: Boolean(emailHtml),
+      hasImage: Boolean(imageUrl),
+      sentAt: new Date().toISOString(),
+    });
   }
+  const first = outputs[0];
+  return outputs.length === 1 && first ? first : { batch: outputs };
 }

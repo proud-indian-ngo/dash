@@ -112,7 +112,7 @@ export function JobDetailSheet({
                   <h3 className="font-medium text-sm">
                     {job.state === "failed" ? "Error Output" : "Output"}
                   </h3>
-                  <pre className="max-h-60 overflow-auto rounded-md border border-destructive/30 bg-destructive/5 p-3 font-mono text-xs leading-relaxed">
+                  <pre className="max-h-96 overflow-auto rounded-md border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
                     {JSON.stringify(job.output, null, 2)}
                   </pre>
                 </div>

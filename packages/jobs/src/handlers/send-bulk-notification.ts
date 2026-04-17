@@ -6,7 +6,8 @@ import type { BulkNotificationPayload } from "../enqueue";
 
 export async function handleSendBulkNotification(
   jobs: Job<BulkNotificationPayload>[]
-): Promise<void> {
+): Promise<object> {
+  const outputs: object[] = [];
   for (const job of jobs) {
     const log = createRequestLogger({
       method: "JOB",
@@ -50,5 +51,16 @@ export async function handleSendBulkNotification(
 
     log.set({ event: "job_complete" });
     log.emit();
+
+    outputs.push({
+      userCount: userIds.length,
+      topic,
+      title,
+      idempotencyKey,
+      hasEmail: Boolean(emailHtml),
+      sentAt: new Date().toISOString(),
+    });
   }
+  const first = outputs[0];
+  return outputs.length === 1 && first ? first : { batch: outputs };
 }

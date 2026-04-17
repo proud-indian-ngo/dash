@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { env } from "@pi-dash/env/server";
 
 const LEADING_EMOJI_RE =
@@ -31,6 +32,21 @@ interface SendMessageOptions {
   topic: Topic;
 }
 
+export interface SendMessageResult {
+  channels: { inboxQueued: boolean; emailQueued: boolean; whatsapp: boolean };
+  idempotencyKey: string;
+  suppressedByKillSwitch: boolean;
+  title: string;
+  to: string;
+  topic: Topic;
+}
+
+const sendCaptureStore = new AsyncLocalStorage<CapturedSend[]>();
+
+function recordSend(entry: CapturedSend): void {
+  sendCaptureStore.getStore()?.push(entry);
+}
+
 export async function sendMessage({
   to,
   title,
@@ -40,7 +56,7 @@ export async function sendMessage({
   clickAction,
   imageUrl,
   topic,
-}: SendMessageOptions): Promise<void> {
+}: SendMessageOptions): Promise<SendMessageResult> {
   if (await isNotificationsDisabled()) {
     const log = createRequestLogger();
     log.set({
@@ -51,7 +67,16 @@ export async function sendMessage({
       topic,
     });
     log.emit();
-    return;
+    const suppressed: SendMessageResult = {
+      to,
+      topic,
+      title,
+      idempotencyKey,
+      suppressedByKillSwitch: true,
+      channels: { inboxQueued: false, emailQueued: false, whatsapp: false },
+    };
+    recordSend({ kind: "message", result: suppressed });
+    return suppressed;
   }
 
   const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
@@ -109,14 +134,14 @@ export async function sendMessage({
       )
     : undefined;
 
-  const whatsappPromise = (async () => {
+  const whatsappPromise = (async (): Promise<boolean> => {
     try {
       const [phone, topicEnabled] = await Promise.all([
         getUserPhone(to),
         isWhatsAppTopicEnabled(to, topic),
       ]);
       if (!(phone && topicEnabled)) {
-        return;
+        return false;
       }
       const appUrl = env.APP_URL;
       const whatsappBody =
@@ -127,6 +152,7 @@ export async function sendMessage({
       const imageSuffix = imageUrl ? `\n\nPayment proof: ${imageUrl}` : "";
       const fullMessage = `*${title}*\n\n${whatsappBody}${imageSuffix}${footer}`;
       await sendWhatsAppMessage(phone, fullMessage);
+      return true;
     } catch (error) {
       const log = createRequestLogger();
       log.set({
@@ -139,10 +165,30 @@ export async function sendMessage({
       });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
+      return false;
     }
   })();
 
-  await Promise.all([inboxPromise, emailPromise, whatsappPromise]);
+  const [, , whatsappSent] = await Promise.all([
+    inboxPromise,
+    emailPromise,
+    whatsappPromise,
+  ]);
+
+  const result: SendMessageResult = {
+    to,
+    topic,
+    title,
+    idempotencyKey,
+    suppressedByKillSwitch: false,
+    channels: {
+      inboxQueued: Boolean(inboxPromise),
+      emailQueued: Boolean(emailPromise),
+      whatsapp: whatsappSent,
+    },
+  };
+  recordSend({ kind: "message", result });
+  return result;
 }
 
 interface SendBulkMessageOptions {
@@ -156,6 +202,35 @@ interface SendBulkMessageOptions {
   userIds: string[];
 }
 
+export interface SendBulkMessageResult {
+  channels: {
+    inboxQueued: boolean;
+    emailQueued: boolean;
+    whatsappRecipients: number;
+  };
+  idempotencyKey: string;
+  skippedEmpty: boolean;
+  suppressedByKillSwitch: boolean;
+  title: string;
+  topic: Topic;
+  userCount: number;
+}
+
+export type CapturedSend =
+  | { kind: "message"; result: SendMessageResult }
+  | { kind: "bulk"; result: SendBulkMessageResult };
+
+export function captureSends<T>(fn: () => Promise<T>): Promise<{
+  result: T;
+  sends: CapturedSend[];
+}> {
+  const sends: CapturedSend[] = [];
+  return sendCaptureStore.run(sends, async () => {
+    const result = await fn();
+    return { result, sends };
+  });
+}
+
 export async function sendBulkMessage({
   userIds,
   title,
@@ -165,9 +240,23 @@ export async function sendBulkMessage({
   idempotencyKey,
   inboxBody,
   topic,
-}: SendBulkMessageOptions): Promise<void> {
+}: SendBulkMessageOptions): Promise<SendBulkMessageResult> {
   if (userIds.length === 0) {
-    return;
+    const empty: SendBulkMessageResult = {
+      userCount: 0,
+      topic,
+      title,
+      idempotencyKey,
+      suppressedByKillSwitch: false,
+      skippedEmpty: true,
+      channels: {
+        inboxQueued: false,
+        emailQueued: false,
+        whatsappRecipients: 0,
+      },
+    };
+    recordSend({ kind: "bulk", result: empty });
+    return empty;
   }
 
   if (await isNotificationsDisabled()) {
@@ -180,7 +269,21 @@ export async function sendBulkMessage({
       topic,
     });
     log.emit();
-    return;
+    const suppressed: SendBulkMessageResult = {
+      userCount: userIds.length,
+      topic,
+      title,
+      idempotencyKey,
+      suppressedByKillSwitch: true,
+      skippedEmpty: false,
+      channels: {
+        inboxQueued: false,
+        emailQueued: false,
+        whatsappRecipients: 0,
+      },
+    };
+    recordSend({ kind: "bulk", result: suppressed });
+    return suppressed;
   }
 
   const courierTopicId = courier ? await getCourierTopicId(topic) : topic;
@@ -239,11 +342,11 @@ export async function sendBulkMessage({
       )
     : undefined;
 
-  const whatsappPromise = (async () => {
+  const whatsappPromise = (async (): Promise<number> => {
     try {
       const phoneMap = await getEnabledUserPhonesForTopic(userIds, topic);
       if (phoneMap.size === 0) {
-        return;
+        return 0;
       }
 
       const appUrl = env.APP_URL;
@@ -254,11 +357,12 @@ export async function sendBulkMessage({
       const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
       const fullMessage = `*${title}*\n\n${whatsappBody}${footer}`;
 
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         [...phoneMap.values()].map((phone) =>
           sendWhatsAppMessage(phone, fullMessage)
         )
       );
+      return results.filter((r) => r.status === "fulfilled").length;
     } catch (error) {
       const log = createRequestLogger();
       log.set({
@@ -271,8 +375,29 @@ export async function sendBulkMessage({
       });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
+      return 0;
     }
   })();
 
-  await Promise.all([inboxPromise, emailPromise, whatsappPromise]);
+  const [, , whatsappRecipients] = await Promise.all([
+    inboxPromise,
+    emailPromise,
+    whatsappPromise,
+  ]);
+
+  const result: SendBulkMessageResult = {
+    userCount: userIds.length,
+    topic,
+    title,
+    idempotencyKey,
+    suppressedByKillSwitch: false,
+    skippedEmpty: false,
+    channels: {
+      inboxQueued: Boolean(inboxPromise),
+      emailQueued: Boolean(emailPromise),
+      whatsappRecipients,
+    },
+  };
+  recordSend({ kind: "bulk", result });
+  return result;
 }

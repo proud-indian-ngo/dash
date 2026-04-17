@@ -3,6 +3,7 @@ import { type JobName, QUEUE_NAMES } from "../enqueue";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
 import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
+import { withDefaultOutput } from "./create-handler";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
@@ -142,7 +143,7 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work(
     DEAD_LETTER_SCHEDULED_WHATSAPP,
     NOTIFY_POLL,
-    handleDeadLetterScheduledWhatsApp
+    withDefaultOutput(handleDeadLetterScheduledWhatsApp)
   );
 
   // Create all application queues
@@ -154,11 +155,23 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   }
 
   // Low-level handlers (default 2s polling — high priority)
-  await boss.work("send-notification", handleSendNotification);
-  await boss.work("send-bulk-notification", handleSendBulkNotification);
-  await boss.work("send-whatsapp", handleSendWhatsApp);
-  await boss.work("send-scheduled-message", handleSendScheduledMessage);
-  await boss.work("send-scheduled-whatsapp", handleSendScheduledWhatsApp);
+  await boss.work(
+    "send-notification",
+    withDefaultOutput(handleSendNotification)
+  );
+  await boss.work(
+    "send-bulk-notification",
+    withDefaultOutput(handleSendBulkNotification)
+  );
+  await boss.work("send-whatsapp", withDefaultOutput(handleSendWhatsApp));
+  await boss.work(
+    "send-scheduled-message",
+    withDefaultOutput(handleSendScheduledMessage)
+  );
+  await boss.work(
+    "send-scheduled-whatsapp",
+    withDefaultOutput(handleSendScheduledWhatsApp)
+  );
 
   // Notification handlers (5s polling — burst traffic, not continuous)
   await boss.work(
@@ -385,62 +398,62 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work(
     "cleanup-stale-scheduled-recipients",
     NOTIFY_POLL,
-    handleCleanupStaleScheduledRecipients
+    withDefaultOutput(handleCleanupStaleScheduledRecipients)
   );
   await boss.work(
     "remind-stale-requests",
     NOTIFY_POLL,
-    handleRemindStaleRequests
+    withDefaultOutput(handleRemindStaleRequests)
   );
   await boss.work(
     "remind-feedback-deadline",
     NOTIFY_POLL,
-    handleRemindFeedbackDeadline
+    withDefaultOutput(handleRemindFeedbackDeadline)
   );
   await boss.work(
     "remind-photo-approval",
     NOTIFY_POLL,
-    handleRemindPhotoApproval
+    withDefaultOutput(handleRemindPhotoApproval)
   );
   await boss.work(
     "scan-whatsapp-groups",
     NOTIFY_POLL,
-    handleScanWhatsAppGroups
+    withDefaultOutput(handleScanWhatsAppGroups)
   );
   await boss.work(
     "process-event-reminders",
     NOTIFY_POLL,
-    handleProcessEventReminders
+    withDefaultOutput(handleProcessEventReminders)
   );
   await boss.work(
     "process-post-event-reminders",
     NOTIFY_POLL,
-    handleProcessPostEventReminders
+    withDefaultOutput(handleProcessPostEventReminders)
   );
   await boss.work(
     "send-event-rsvp-polls",
     NOTIFY_POLL,
-    handleSendEventRsvpPolls
+    withDefaultOutput(handleSendEventRsvpPolls)
   );
   await boss.work(
     "send-single-rsvp-poll",
     NOTIFY_POLL,
-    handleSendSingleRsvpPoll
+    withDefaultOutput(handleSendSingleRsvpPoll)
   );
   await boss.work(
     "close-expired-rsvp-polls",
     NOTIFY_POLL,
-    handleCloseExpiredRsvpPolls
+    withDefaultOutput(handleCloseExpiredRsvpPolls)
   );
   await boss.work(
     "close-rsvp-poll-on-cancel",
     NOTIFY_POLL,
-    handleCloseRsvpPollOnCancel
+    withDefaultOutput(handleCloseRsvpPollOnCancel)
   );
   await boss.work(
     "send-weekly-events-digest",
     NOTIFY_POLL,
-    handleSendWeeklyEventsDigest
+    withDefaultOutput(handleSendWeeklyEventsDigest)
   );
 
   // Immich + R2 handlers (5s polling — external API + object storage)
@@ -468,22 +481,37 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   );
 
   // WhatsApp group management (default 2s polling — external API)
-  await boss.work("whatsapp-create-group", handleWhatsAppCreateGroup);
-  await boss.work("whatsapp-add-member", handleWhatsAppAddMember);
-  await boss.work("whatsapp-add-members", handleWhatsAppAddMembers);
-  await boss.work("whatsapp-remove-member", handleWhatsAppRemoveMember);
-  await boss.work("whatsapp-add-member-team", handleWhatsAppAddMemberTeam);
+  await boss.work(
+    "whatsapp-create-group",
+    withDefaultOutput(handleWhatsAppCreateGroup)
+  );
+  await boss.work(
+    "whatsapp-add-member",
+    withDefaultOutput(handleWhatsAppAddMember)
+  );
+  await boss.work(
+    "whatsapp-add-members",
+    withDefaultOutput(handleWhatsAppAddMembers)
+  );
+  await boss.work(
+    "whatsapp-remove-member",
+    withDefaultOutput(handleWhatsAppRemoveMember)
+  );
+  await boss.work(
+    "whatsapp-add-member-team",
+    withDefaultOutput(handleWhatsAppAddMemberTeam)
+  );
   await boss.work(
     "whatsapp-remove-member-team",
-    handleWhatsAppRemoveMemberTeam
+    withDefaultOutput(handleWhatsAppRemoveMemberTeam)
   );
   await boss.work(
     "whatsapp-remove-from-all-groups",
-    handleWhatsAppRemoveFromAllGroups
+    withDefaultOutput(handleWhatsAppRemoveFromAllGroups)
   );
   await boss.work(
     "whatsapp-manage-orientation",
     NOTIFY_POLL,
-    handleWhatsAppManageOrientation
+    withDefaultOutput(handleWhatsAppManageOrientation)
   );
 }
