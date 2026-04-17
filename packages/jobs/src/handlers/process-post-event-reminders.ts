@@ -140,6 +140,7 @@ async function processAttendanceReminders(now: number): Promise<number> {
     .where(
       and(
         isNull(teamEvent.cancelledAt),
+        eq(teamEvent.postEventNudgesEnabled, true),
         sql`COALESCE(${teamEvent.endTime}, ${teamEvent.startTime}) BETWEEN ${windowStart} AND ${windowEnd}`
       )
     );
@@ -222,6 +223,7 @@ async function processPhotoNudges(now: number): Promise<number> {
     .where(
       and(
         isNull(teamEvent.cancelledAt),
+        eq(teamEvent.postEventNudgesEnabled, true),
         sql`COALESCE(${teamEvent.endTime}, ${teamEvent.startTime}) BETWEEN ${windowStart} AND ${windowEnd}`
       )
     );

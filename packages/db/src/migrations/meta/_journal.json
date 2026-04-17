@@ -323,6 +323,13 @@
       "when": 1776234688072,
       "tag": "0045_misty_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1776404415233,
+      "tag": "0046_handy_silver_fox",
+      "breakpoints": true
     }
   ]
 }

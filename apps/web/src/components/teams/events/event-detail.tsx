@@ -649,6 +649,57 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
   return { feedbackDeadlinePassed, presentCount, recurrence };
 }
 
+function buildEditInitialValues(
+  event: EventRow,
+  recurrence: { rrule: string; exdates?: string[] } | null | undefined
+) {
+  return {
+    id: event.id,
+    name: event.name,
+    description: event.description,
+    location: event.location,
+    city: event.city,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    isPublic: !!event.isPublic,
+    whatsappGroupId: event.whatsappGroupId,
+    seriesId: event.seriesId,
+    recurrenceRule: recurrence ?? null,
+    feedbackEnabled: !!event.feedbackEnabled,
+    feedbackDeadline: event.feedbackDeadline,
+    postRsvpPoll: !!event.postRsvpPoll,
+    rsvpPollLeadMinutes:
+      event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
+    reminderIntervals: (event.reminderIntervals as number[] | null) ?? null,
+    reminderTarget: (event.reminderTarget as string) ?? "group",
+    postEventNudgesEnabled: event.postEventNudgesEnabled ?? true,
+  };
+}
+
+function buildDuplicateInitialValues(event: EventRow) {
+  return {
+    id: event.id,
+    name: `Copy of ${event.name}`,
+    description: event.description,
+    location: event.location,
+    city: event.city,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    isPublic: !!event.isPublic,
+    whatsappGroupId: null,
+    seriesId: null,
+    recurrenceRule: null,
+    feedbackEnabled: !!event.feedbackEnabled,
+    feedbackDeadline: event.feedbackDeadline,
+    postRsvpPoll: !!event.postRsvpPoll,
+    rsvpPollLeadMinutes:
+      event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
+    reminderIntervals: (event.reminderIntervals as number[] | null) ?? null,
+    reminderTarget: (event.reminderTarget as string) ?? "group",
+    postEventNudgesEnabled: event.postEventNudgesEnabled ?? true,
+  };
+}
+
 export function EventDetail({
   canApproveUpdates,
   canCancelPast,
@@ -938,27 +989,7 @@ export function EventDetail({
 
       <EventFormDialog
         editScope={editScope ?? undefined}
-        initialValues={{
-          id: event.id,
-          name: event.name,
-          description: event.description,
-          location: event.location,
-          city: event.city,
-          startTime: event.startTime,
-          endTime: event.endTime,
-          isPublic: !!event.isPublic,
-          whatsappGroupId: event.whatsappGroupId,
-          seriesId: event.seriesId,
-          recurrenceRule: recurrence ?? null,
-          feedbackEnabled: !!event.feedbackEnabled,
-          feedbackDeadline: event.feedbackDeadline,
-          postRsvpPoll: !!event.postRsvpPoll,
-          rsvpPollLeadMinutes:
-            event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-          reminderIntervals:
-            (event.reminderIntervals as number[] | null) ?? null,
-          reminderTarget: (event.reminderTarget as string) ?? "group",
-        }}
+        initialValues={buildEditInitialValues(event, recurrence)}
         onOpenChange={(open) => {
           dialog.onOpenChange(open);
           if (!open) {
@@ -971,27 +1002,7 @@ export function EventDetail({
       />
 
       <EventFormDialog
-        initialValues={{
-          id: event.id,
-          name: `Copy of ${event.name}`,
-          description: event.description,
-          location: event.location,
-          city: event.city,
-          startTime: event.startTime,
-          endTime: event.endTime,
-          isPublic: !!event.isPublic,
-          whatsappGroupId: null,
-          seriesId: null,
-          recurrenceRule: null,
-          feedbackEnabled: !!event.feedbackEnabled,
-          feedbackDeadline: event.feedbackDeadline,
-          postRsvpPoll: !!event.postRsvpPoll,
-          rsvpPollLeadMinutes:
-            event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-          reminderIntervals:
-            (event.reminderIntervals as number[] | null) ?? null,
-          reminderTarget: (event.reminderTarget as string) ?? "group",
-        }}
+        initialValues={buildDuplicateInitialValues(event)}
         mode="create"
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("duplicate")}

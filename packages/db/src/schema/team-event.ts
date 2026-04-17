@@ -66,6 +66,9 @@ export const teamEvent = pgTable(
     reminderTarget: reminderTargetEnum("reminder_target")
       .default("group")
       .notNull(),
+    postEventNudgesEnabled: boolean("post_event_nudges_enabled")
+      .default(true)
+      .notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),

@@ -1,0 +1,1 @@
+ALTER TABLE "team_event" ADD COLUMN "post_event_nudges_enabled" boolean DEFAULT true NOT NULL;

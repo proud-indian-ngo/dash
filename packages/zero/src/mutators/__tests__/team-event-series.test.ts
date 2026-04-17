@@ -58,6 +58,7 @@ const SERIES_BASE = {
   reminderIntervals: [60, 1440],
   whatsappGroupId: "wg-1",
   reminderTarget: "group" as const,
+  postEventNudgesEnabled: true,
   createdBy: "user-1",
   createdAt: NOW,
   updatedAt: NOW,
@@ -90,6 +91,7 @@ describe("buildExceptionInsert", () => {
     expect(result.postRsvpPoll).toBe(false);
     expect(result.reminderIntervals).toEqual([60, 1440]);
     expect(result.reminderTarget).toBe("group");
+    expect(result.postEventNudgesEnabled).toBe(true);
     expect(result.whatsappGroupId).toBe("wg-1");
     expect(result.createdBy).toBe("user-2");
     expect(result.createdAt).toBe(NOW + 1000);
@@ -173,6 +175,18 @@ describe("buildExceptionInsert", () => {
       NOW
     );
     expect(result.reminderTarget).toBe("group");
+  });
+
+  it("overrides postEventNudgesEnabled", () => {
+    const result = buildExceptionInsert(
+      "exc-6",
+      SERIES_BASE,
+      "2026-05-22",
+      "user-1",
+      NOW,
+      { postEventNudgesEnabled: false }
+    );
+    expect(result.postEventNudgesEnabled).toBe(false);
   });
 });
 

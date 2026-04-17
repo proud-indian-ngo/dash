@@ -53,6 +53,7 @@ const eventFormSchema = z.object({
   rsvpPollLeadMinutes: z.string().min(1),
   reminderIntervals: z.array(z.number()),
   reminderTarget: z.enum(reminderTargetValues),
+  postEventNudgesEnabled: z.boolean(),
 });
 
 const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
@@ -89,6 +90,7 @@ interface InitialValues {
   isPublic: boolean;
   location: string | null;
   name: string;
+  postEventNudgesEnabled: boolean;
   postRsvpPoll: boolean;
   recurrenceRule: {
     rrule: string;
@@ -132,6 +134,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     feedbackDeadline: initialValues?.feedbackDeadline
       ? new Date(initialValues.feedbackDeadline)
       : undefined,
+    postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? true,
     postRsvpPoll: initialValues?.postRsvpPoll ?? false,
     rsvpPollLeadMinutes: String(
       initialValues?.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES
@@ -171,6 +174,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
+    postEventNudgesEnabled: value.postEventNudgesEnabled,
   };
 }
 
@@ -200,6 +204,7 @@ function buildUpdateSeriesArgs(
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
+    postEventNudgesEnabled: value.postEventNudgesEnabled,
     recurrenceRule: value.rrule
       ? {
           rrule: value.rrule,
@@ -250,6 +255,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
+    postEventNudgesEnabled: value.postEventNudgesEnabled,
   };
 }
 
@@ -440,6 +446,11 @@ function EventFormContent({
         description="Participants can share anonymous feedback after the event ends"
         label="Enable anonymous feedback"
         name="feedbackEnabled"
+      />
+      <CheckboxField
+        description="Photo upload and attendance marking reminders after the event"
+        label="Send post-event reminders"
+        name="postEventNudgesEnabled"
       />
       <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
         {(whatsappGroupId) => {

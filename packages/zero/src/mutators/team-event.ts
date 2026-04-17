@@ -143,6 +143,7 @@ async function resolveJoinTarget(
     rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
     reminderIntervals: event.reminderIntervals,
     reminderTarget: event.reminderTarget ?? "group",
+    postEventNudgesEnabled: event.postEventNudgesEnabled,
     whatsappGroupId: event.whatsappGroupId,
     createdBy: ctx.userId,
     createdAt: args.now,
@@ -252,6 +253,7 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
+      postEventNudgesEnabled: z.boolean().optional(),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -294,6 +296,7 @@ export const teamEventMutators = {
           args.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
         reminderIntervals: args.reminderIntervals ?? null,
         reminderTarget: args.reminderTarget ?? "group",
+        postEventNudgesEnabled: args.postEventNudgesEnabled ?? true,
         whatsappGroupId: args.whatsappGroupId ?? null,
         seriesId: null,
         originalDate: null,
@@ -326,6 +329,7 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
+      postEventNudgesEnabled: z.boolean().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -572,6 +576,7 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
+      postEventNudgesEnabled: z.boolean().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
