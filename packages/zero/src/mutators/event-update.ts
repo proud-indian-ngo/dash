@@ -93,16 +93,20 @@ export const eventUpdateMutators = {
               },
               fn: async () => {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                await enqueue("notify-event-update-posted", {
-                  eventId: args.eventId,
-                  eventName: event.name,
-                  eventMemberIds,
-                  authorName,
-                  eventWhatsappGroupId: event.whatsappGroupId ?? null,
-                  startTime: event.startTime,
-                  teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
-                  updatedAt: args.now,
-                });
+                await enqueue(
+                  "notify-event-update-posted",
+                  {
+                    eventId: args.eventId,
+                    eventName: event.name,
+                    eventMemberIds,
+                    authorName,
+                    eventWhatsappGroupId: event.whatsappGroupId ?? null,
+                    startTime: event.startTime,
+                    teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
+                    updatedAt: args.now,
+                  },
+                  { traceId: ctx.traceId }
+                );
               },
             });
           }
@@ -119,14 +123,18 @@ export const eventUpdateMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-event-update-pending", {
-                eventUpdateId: args.id,
-                eventId: args.eventId,
-                eventName: event.name,
-                authorName,
-                startTime: event.startTime,
-                teamId: event.teamId,
-              });
+              await enqueue(
+                "notify-event-update-pending",
+                {
+                  eventUpdateId: args.id,
+                  eventId: args.eventId,
+                  eventName: event.name,
+                  authorName,
+                  startTime: event.startTime,
+                  teamId: event.teamId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -183,13 +191,17 @@ export const eventUpdateMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-event-update-approved", {
-                eventUpdateId: args.id,
-                eventId: existing.eventId,
-                eventName: event.name,
-                authorId: existing.createdBy,
-                startTime: event.startTime,
-              });
+              await enqueue(
+                "notify-event-update-approved",
+                {
+                  eventUpdateId: args.id,
+                  eventId: existing.eventId,
+                  eventName: event.name,
+                  authorId: existing.createdBy,
+                  startTime: event.startTime,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -218,16 +230,20 @@ export const eventUpdateMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-event-update-posted", {
-                eventId: existing.eventId,
-                eventName: event.name,
-                eventMemberIds,
-                authorName,
-                eventWhatsappGroupId: event.whatsappGroupId ?? null,
-                startTime: event.startTime,
-                teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
-                updatedAt: args.now,
-              });
+              await enqueue(
+                "notify-event-update-posted",
+                {
+                  eventId: existing.eventId,
+                  eventName: event.name,
+                  eventMemberIds,
+                  authorName,
+                  eventWhatsappGroupId: event.whatsappGroupId ?? null,
+                  startTime: event.startTime,
+                  teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
+                  updatedAt: args.now,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -282,13 +298,17 @@ export const eventUpdateMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-update-rejected", {
-              eventUpdateId: args.id,
-              eventId: existing.eventId,
-              eventName: event.name,
-              authorId: existing.createdBy,
-              startTime: event.startTime,
-            });
+            await enqueue(
+              "notify-event-update-rejected",
+              {
+                eventUpdateId: args.id,
+                eventId: existing.eventId,
+                eventName: event.name,
+                authorId: existing.createdBy,
+                startTime: event.startTime,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

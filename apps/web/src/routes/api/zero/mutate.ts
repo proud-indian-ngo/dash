@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import { withFireAndForgetLog } from "@pi-dash/observability";
+import { parseTraceparent } from "@pi-dash/observability/trace-context";
 import type { AsyncTask } from "@pi-dash/zero/context";
 import { mutators } from "@pi-dash/zero/mutators";
 import { schema } from "@pi-dash/zero/schema";
@@ -33,10 +34,13 @@ export const Route = createFileRoute("/api/zero/mutate")({
           return rateLimitResponse(rl);
         }
 
+        const traceId = parseTraceparent(
+          request.headers.get("traceparent")
+        )?.traceId;
         const { permissions, role, userId } =
           await buildSessionContext(session);
         const asyncTasks: AsyncTask[] = [];
-        const ctx = { asyncTasks, permissions, role, userId };
+        const ctx = { asyncTasks, permissions, role, traceId, userId };
 
         const result = await handleMutateRequest(
           dbProvider,
@@ -53,7 +57,13 @@ export const Route = createFileRoute("/api/zero/mutate")({
         // pg-boss handles persistence and retries from here.
         for (const [i, task] of asyncTasks.entries()) {
           withFireAndForgetLog(
-            { ...task.meta, handler: "mutate", userId, taskIndex: i },
+            {
+              ...task.meta,
+              handler: "mutate",
+              userId,
+              taskIndex: i,
+              ...(traceId ? { traceId } : {}),
+            },
             () => task.fn()
           );
         }

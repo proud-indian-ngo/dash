@@ -59,6 +59,10 @@ export const env = createEnv({
     VOUCHER_ORG_EMAIL: z.string().min(1),
     VOUCHER_ORG_REGISTRATION: z.string().min(1),
     VOUCHER_FINANCE_ADMIN_NAME: z.string().min(1),
+    POSTHOG_API_KEY: z.string().min(1).optional(),
+    POSTHOG_HOST: z.url().default("https://us.i.posthog.com"),
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
+    OTEL_SERVICE_NAME: z.string().default("pi-dash"),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

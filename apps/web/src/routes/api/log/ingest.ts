@@ -22,9 +22,11 @@ export const Route = createFileRoute("/api/log/ingest")({
             continue;
           }
 
+          const traceId = event.traceId as string | undefined;
           const log = createRequestLogger({
             method: "POST",
             path: "/api/log/ingest",
+            ...(traceId ? { requestId: traceId } : {}),
           });
           const level = event.level as string | undefined;
           log.set({ ...event, source: "client" });

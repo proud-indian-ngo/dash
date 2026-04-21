@@ -4,6 +4,7 @@ import {
   setIdentity as evlogSetIdentity,
 } from "evlog/client";
 import { createHttpLogDrain } from "evlog/http";
+import { installFetchTracing } from "./tracing";
 
 let initialized = false;
 
@@ -12,6 +13,8 @@ export function initClientLogger() {
     return;
   }
   initialized = true;
+
+  installFetchTracing();
 
   const drain = createHttpLogDrain({
     drain: { endpoint: "/api/log/ingest" },

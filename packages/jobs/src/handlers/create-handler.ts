@@ -1,8 +1,36 @@
 import { captureSends } from "@pi-dash/notifications/send-message";
+import { runWithTraceId } from "@pi-dash/observability/trace-store";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
 type HandlerOutput = Record<string, unknown>;
+
+function extractTraceId<T extends object>(
+  data: T
+): { traceId: string | undefined; cleanData: T } {
+  const { __traceId: traceId, ...rest } = data as T & {
+    __traceId?: string;
+  };
+  return { traceId, cleanData: rest as T };
+}
+
+function buildOutput(
+  startedAt: number,
+  result: unknown,
+  sends: unknown[]
+): HandlerOutput {
+  const output: HandlerOutput = {
+    ok: true,
+    durationMs: Date.now() - startedAt,
+  };
+  if (sends.length > 0) {
+    output.sends = sends;
+  }
+  if (result && typeof result === "object") {
+    output.result = result;
+  }
+  return output;
+}
 
 export function withDefaultOutput<T extends object>(
   handler: (jobs: Job<T>[]) => Promise<unknown>
@@ -36,23 +64,21 @@ export function createNotifyHandler<T extends object, R = void>(
     const outputs: HandlerOutput[] = [];
     for (const job of jobs) {
       const log = createRequestLogger({ method: "JOB", path: queueName });
-      log.set({ ...job.data, jobId: job.id });
+      const { traceId, cleanData } = extractTraceId(job.data);
+      log.set({
+        ...cleanData,
+        jobId: job.id,
+        ...(traceId ? { traceId } : {}),
+      });
       const startedAt = Date.now();
       try {
-        const { result, sends } = await captureSends(() => handler(job.data));
+        const run = () => captureSends(() => handler(cleanData));
+        const { result, sends } = traceId
+          ? await runWithTraceId(traceId, run)
+          : await run();
         log.set({ event: "job_complete" });
         log.emit();
-        const output: HandlerOutput = {
-          ok: true,
-          durationMs: Date.now() - startedAt,
-        };
-        if (sends.length > 0) {
-          output.sends = sends;
-        }
-        if (result && typeof result === "object") {
-          output.result = result;
-        }
-        outputs.push(output);
+        outputs.push(buildOutput(startedAt, result, sends));
       } catch (error) {
         log.set({ event: "job_failed" });
         log.error(error instanceof Error ? error : String(error));

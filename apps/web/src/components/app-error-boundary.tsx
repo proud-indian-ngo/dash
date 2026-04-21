@@ -110,6 +110,15 @@ function handleError(error: unknown, info: { componentStack?: string | null }) {
     message,
     componentStack: info.componentStack ?? "",
   });
+  if (error instanceof Error) {
+    Promise.all([import("@/lib/posthog"), import("@/lib/tracing")])
+      .then(([{ captureException }, { generateTraceId }]) =>
+        captureException(error, { traceId: generateTraceId() })
+      )
+      .catch(() => {
+        // Non-critical
+      });
+  }
 }
 
 export function AppErrorBoundary({

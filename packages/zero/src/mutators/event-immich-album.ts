@@ -61,7 +61,11 @@ export const eventImmichAlbumMutators = {
               meta: { mutator: MUTATOR_NAME, photoId: photo.id },
               fn: async () => {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                await enqueue("delete-r2-object", { r2Key });
+                await enqueue(
+                  "delete-r2-object",
+                  { r2Key },
+                  { traceId: ctx.traceId }
+                );
               },
             });
           }
@@ -72,7 +76,11 @@ export const eventImmichAlbumMutators = {
               meta: { mutator: MUTATOR_NAME, photoId: photo.id },
               fn: async () => {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                await enqueue("immich-delete-asset", { immichAssetId });
+                await enqueue(
+                  "immich-delete-asset",
+                  { immichAssetId },
+                  { traceId: ctx.traceId }
+                );
               },
             });
           }
@@ -83,7 +91,11 @@ export const eventImmichAlbumMutators = {
           meta: { mutator: MUTATOR_NAME, albumId: album.id },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("immich-delete-album", { immichAlbumId });
+            await enqueue(
+              "immich-delete-album",
+              { immichAlbumId },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

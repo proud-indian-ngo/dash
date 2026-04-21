@@ -1,3 +1,4 @@
+import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
 import type { PgBoss, SendOptions } from "pg-boss";
 import { ensureBossReady, getBoss } from "./boss-instance";
 import type { JobName, JobPayloads } from "./types";
@@ -95,10 +96,20 @@ export const PHOTO_NOTIFICATION_DELAY_SECONDS =
 
 // -- Enqueue -------------------------------------------------------------------
 
+export interface EnqueueOptions extends SendOptions {
+  /** Explicit trace ID. Falls back to AsyncLocalStorage via getCurrentTraceId(). */
+  traceId?: string;
+}
+
+/**
+ * Enqueue a pg-boss job. Injects `__traceId` into the payload for end-to-end
+ * trace correlation. Handlers extract and strip this field before passing
+ * clean data to business logic (see create-handler.ts extractTraceId).
+ */
 export async function enqueue<T extends JobName>(
   name: T,
   data: JobPayloads[T],
-  options?: SendOptions
+  options?: EnqueueOptions
 ): Promise<string | null> {
   let boss: PgBoss;
   try {
@@ -106,5 +117,10 @@ export async function enqueue<T extends JobName>(
   } catch {
     boss = await ensureBossReady();
   }
-  return await boss.send(name, data as object, options ?? {});
+  const { traceId: explicitTraceId, ...sendOptions } = options ?? {};
+  const resolvedTraceId = explicitTraceId ?? getCurrentTraceId();
+  const payload = resolvedTraceId
+    ? { ...(data as object), __traceId: resolvedTraceId }
+    : (data as object);
+  return await boss.send(name, payload, sendOptions);
 }

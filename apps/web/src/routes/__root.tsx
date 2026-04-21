@@ -91,7 +91,12 @@ function RootDocument() {
     import("@/lib/client-logger")
       .then(({ initClientLogger }) => initClientLogger())
       .catch(() => {
-        // Logger init is non-critical
+        // Non-critical
+      });
+    import("@/lib/posthog")
+      .then(({ initPostHog }) => initPostHog())
+      .catch(() => {
+        // Non-critical
       });
   }, []);
 

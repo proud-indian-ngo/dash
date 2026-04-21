@@ -118,11 +118,15 @@ export const vendorMutators = {
           meta: { mutator: "approveVendor", vendorId, creatorId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-vendor-approved", {
-              vendorId,
-              vendorName,
-              creatorId,
-            });
+            await enqueue(
+              "notify-vendor-approved",
+              {
+                vendorId,
+                vendorName,
+                creatorId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -164,11 +168,15 @@ export const vendorMutators = {
           meta: { mutator: "unapproveVendor", vendorId, creatorId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-vendor-unapproved", {
-              vendorId,
-              vendorName,
-              creatorId,
-            });
+            await enqueue(
+              "notify-vendor-unapproved",
+              {
+                vendorId,
+                vendorName,
+                creatorId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

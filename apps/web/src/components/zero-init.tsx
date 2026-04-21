@@ -14,6 +14,17 @@ import {
 } from "react";
 import { getPermissions } from "@/functions/get-permissions";
 import { authClient } from "@/lib/auth-client";
+import {
+  formatTraceparent,
+  generateSpanId,
+  generateTraceId,
+} from "@/lib/tracing";
+
+// Called per WebSocket message (push, changeDesiredQueries, initConnection).
+// Each message is a distinct traceable operation — new traceId per call is correct.
+function getTraceparent(): string {
+  return formatTraceparent(generateTraceId(), generateSpanId());
+}
 
 interface ZeroInitProps {
   children: ReactNode;
@@ -69,6 +80,7 @@ export function ZeroInit({ children }: ZeroInitProps) {
     <ZeroProvider
       cacheURL={env.VITE_ZERO_URL}
       context={context}
+      getTraceparent={getTraceparent}
       init={init}
       mutators={mutators}
       schema={schema}

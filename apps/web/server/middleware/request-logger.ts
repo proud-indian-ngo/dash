@@ -1,6 +1,12 @@
+import {
+  formatTraceparent,
+  generateSpanId,
+  generateTraceId,
+  parseTraceparent,
+} from "@pi-dash/observability/trace-context";
+import { runWithTraceId } from "@pi-dash/observability/trace-store";
 import { createRequestLogger } from "evlog";
 import { defineMiddleware } from "nitro/h3";
-import { uuidv7 } from "uuidv7";
 
 const SKIP_PREFIXES = ["/_build/", "/assets/", "/_server/"];
 const SKIP_EXACT = new Set(["/api/log/ingest", "/api/health"]);
@@ -15,21 +21,32 @@ export default defineMiddleware(async (event, next) => {
     return next();
   }
 
-  const requestId = uuidv7();
-  const start = performance.now();
-  event.res.headers.set("X-Request-Id", requestId);
+  const incoming = parseTraceparent(
+    event.req.headers.get("traceparent") ?? undefined
+  );
+  const traceId = incoming?.traceId ?? generateTraceId();
+  const spanId = generateSpanId();
 
-  const result = await next();
+  event.context.traceId = traceId;
+  event.context.spanId = spanId;
+
+  const start = performance.now();
+  event.res.headers.set("X-Request-Id", traceId);
+  event.res.headers.set("traceparent", formatTraceparent(traceId, spanId));
+
+  const result = await runWithTraceId(traceId, () => next());
 
   const log = createRequestLogger({
     method: event.req.method,
     path,
-    requestId,
+    requestId: traceId,
   });
   const status =
     event.res.status ??
     (result instanceof Response ? result.status : undefined);
   log.set({
+    traceId,
+    spanId,
     ...(status === undefined ? {} : { status }),
     durationMs: Math.round(performance.now() - start),
   });

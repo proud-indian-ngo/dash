@@ -86,6 +86,21 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | `APP_URL` | App URL shown in notification footers |
 | `VOUCHER_FINANCE_ADMIN_NAME` | Finance admin name printed on cash vouchers |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | For `auth:seed-admin` script |
+| `POSTHOG_API_KEY` | Server-side PostHog API key used for OTLP log export when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset |
+| `POSTHOG_HOST` | PostHog host for server-side OTLP export fallback (default `https://us.i.posthog.com`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Explicit OTLP logs endpoint; overrides PostHog fallback when set |
+| `OTEL_SERVICE_NAME` | Service name attached to server logs/traces (default `pi-dash`) |
+| `VITE_POSTHOG_KEY` | Public PostHog project key for browser analytics and exception capture |
+| `VITE_POSTHOG_HOST` | Public PostHog host for browser SDK (default `https://us.i.posthog.com`) |
+
+### Observability / Analytics
+
+- Server logs export over OTLP when either `OTEL_EXPORTER_OTLP_ENDPOINT` is set or `POSTHOG_API_KEY` is present.
+- OTLP drain is fire-and-forget — if the endpoint is unreachable, logs are dropped silently (evlog retries up to 2 times).
+- Browser analytics and client-side exception capture stay disabled unless `VITE_POSTHOG_KEY` is set.
+- `OTEL_SERVICE_NAME` controls service name attached to server-side exported events.
+- All server-side logs are automatically enriched with `traceId` from the request context via `evlog:enrich` hook.
+- Job payloads carry `__traceId` internally for trace propagation; this field is stripped before reaching business logic.
 
 ### Zero Cache Process
 

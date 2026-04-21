@@ -89,11 +89,15 @@ export const advancePaymentMutators = {
         },
         fn: async () => {
           const { enqueue } = await import("@pi-dash/jobs/enqueue");
-          await enqueue("notify-advance-payment-submitted", {
-            advancePaymentId,
-            title,
-            submitterName,
-          });
+          await enqueue(
+            "notify-advance-payment-submitted",
+            {
+              advancePaymentId,
+              title,
+              submitterName,
+            },
+            { traceId: ctx.traceId }
+          );
         },
       });
     }
@@ -189,13 +193,17 @@ export const advancePaymentMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-advance-payment-approved", {
-              advancePaymentId: id,
-              title,
-              submitterId: ownerId,
-              note,
-              approvalScreenshotKey,
-            });
+            await enqueue(
+              "notify-advance-payment-approved",
+              {
+                advancePaymentId: id,
+                title,
+                submitterId: ownerId,
+                note,
+                approvalScreenshotKey,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -273,12 +281,16 @@ export const advancePaymentMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-advance-payment-rejected", {
-              advancePaymentId: id,
-              title,
-              submitterId: ownerId,
-              reason,
-            });
+            await enqueue(
+              "notify-advance-payment-rejected",
+              {
+                advancePaymentId: id,
+                title,
+                submitterId: ownerId,
+                reason,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

@@ -8,6 +8,7 @@ export interface Context {
   asyncTasks?: AsyncTask[];
   permissions: string[];
   role: string;
+  traceId?: string;
   userId: string;
 }
 

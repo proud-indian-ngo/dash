@@ -97,7 +97,10 @@ export const eventPhotoMutators = {
                 eventName: event.name,
                 r2Key,
               },
-              { singletonKey: args.id }
+              {
+                traceId: ctx.traceId,
+                singletonKey: args.id,
+              }
             );
           },
         });
@@ -158,7 +161,10 @@ export const eventPhotoMutators = {
                   eventName: event.name,
                   r2Key,
                 },
-                { singletonKey: args.id }
+                {
+                  traceId: ctx.traceId,
+                  singletonKey: args.id,
+                }
               );
             },
           });
@@ -184,6 +190,7 @@ export const eventPhotoMutators = {
                   uploaderId: photo.uploadedBy,
                 },
                 {
+                  traceId: ctx.traceId,
                   startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
                 }
               );
@@ -250,7 +257,10 @@ export const eventPhotoMutators = {
                     eventName,
                     r2Key,
                   },
-                  { singletonKey: id }
+                  {
+                    traceId: ctx.traceId,
+                    singletonKey: id,
+                  }
                 );
               },
             });
@@ -276,6 +286,7 @@ export const eventPhotoMutators = {
                     uploaderId: photo.uploadedBy,
                   },
                   {
+                    traceId: ctx.traceId,
                     startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
                   }
                 );
@@ -332,7 +343,11 @@ export const eventPhotoMutators = {
             meta: { mutator: "rejectEventPhoto", photoId: args.id },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("delete-r2-object", { r2Key });
+              await enqueue(
+                "delete-r2-object",
+                { r2Key },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -357,6 +372,7 @@ export const eventPhotoMutators = {
                   uploaderId: photo.uploadedBy,
                 },
                 {
+                  traceId: ctx.traceId,
                   startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
                 }
               );
@@ -410,7 +426,11 @@ export const eventPhotoMutators = {
             meta: { mutator: "deleteEventPhoto", photoId: args.id },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("delete-r2-object", { r2Key });
+              await enqueue(
+                "delete-r2-object",
+                { r2Key },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -421,7 +441,11 @@ export const eventPhotoMutators = {
             meta: { mutator: "deleteEventPhoto", photoId: args.id },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("immich-delete-asset", { immichAssetId });
+              await enqueue(
+                "immich-delete-asset",
+                { immichAssetId },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }

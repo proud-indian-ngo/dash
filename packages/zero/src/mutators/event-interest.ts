@@ -107,13 +107,17 @@ export const eventInterestMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-interest-received", {
-              eventId,
-              eventName,
-              leadUserIds,
-              teamId,
-              volunteerName,
-            });
+            await enqueue(
+              "notify-event-interest-received",
+              {
+                eventId,
+                eventName,
+                leadUserIds,
+                teamId,
+                volunteerName,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -182,10 +186,14 @@ export const eventInterestMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("whatsapp-add-member", {
-                groupId: whatsappGroupId,
-                userId,
-              });
+              await enqueue(
+                "whatsapp-add-member",
+                {
+                  groupId: whatsappGroupId,
+                  userId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -199,11 +207,15 @@ export const eventInterestMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-interest-approved", {
-              eventId,
-              eventName,
-              userId,
-            });
+            await enqueue(
+              "notify-event-interest-approved",
+              {
+                eventId,
+                eventName,
+                userId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -262,11 +274,15 @@ export const eventInterestMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-interest-rejected", {
-              eventId,
-              eventName,
-              userId,
-            });
+            await enqueue(
+              "notify-event-interest-rejected",
+              {
+                eventId,
+                eventName,
+                userId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

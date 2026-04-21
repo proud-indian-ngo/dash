@@ -43,6 +43,7 @@ interface MutatorCtx {
     // biome-ignore lint/suspicious/noExplicitAny: matches Zero's internal push signature
     push: (task: any) => void;
   };
+  traceId?: string;
   userId: string;
 }
 
@@ -180,12 +181,16 @@ async function pushCreateServerTasks(
       meta: { mutator: "createTeamEvent", eventId, eventName },
       fn: async () => {
         const { enqueue } = await import("@pi-dash/jobs/enqueue");
-        await enqueue("whatsapp-create-group", {
-          entityType: "event",
-          entityId: eventId,
-          groupName: eventName,
-          creatorUserId,
-        });
+        await enqueue(
+          "whatsapp-create-group",
+          {
+            entityType: "event",
+            entityId: eventId,
+            groupName: eventName,
+            creatorUserId,
+          },
+          { traceId: ctx.traceId }
+        );
       },
     });
   }
@@ -211,14 +216,18 @@ async function pushCreateServerTasks(
       },
       fn: async () => {
         const { enqueue } = await import("@pi-dash/jobs/enqueue");
-        await enqueue("notify-event-created", {
-          eventId,
-          eventName,
-          location: location ?? null,
-          startTime,
-          teamId,
-          teamMemberIds,
-        });
+        await enqueue(
+          "notify-event-created",
+          {
+            eventId,
+            eventName,
+            location: location ?? null,
+            startTime,
+            teamId,
+            teamMemberIds,
+          },
+          { traceId: ctx.traceId }
+        );
       },
     });
   }
@@ -376,15 +385,19 @@ export const teamEventMutators = {
           meta: { mutator: "updateTeamEvent", eventId, eventName, teamId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-updated", {
-              eventId,
-              eventMemberIds,
-              eventName,
-              location: location ?? null,
-              startTime,
-              teamId,
-              updatedAt,
-            });
+            await enqueue(
+              "notify-event-updated",
+              {
+                eventId,
+                eventMemberIds,
+                eventName,
+                location: location ?? null,
+                startTime,
+                teamId,
+                updatedAt,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
 
@@ -403,11 +416,15 @@ export const teamEventMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-event-feedback-open", {
-                eventId,
-                eventName,
-                memberUserIds: eventMemberIds,
-              });
+              await enqueue(
+                "notify-event-feedback-open",
+                {
+                  eventId,
+                  eventName,
+                  memberUserIds: eventMemberIds,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -468,19 +485,27 @@ export const teamEventMutators = {
           meta: { mutator: "cancelTeamEvent", eventId, eventName, teamId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-cancelled", {
-              cancelledAt,
-              eventId,
-              eventMemberIds,
-              eventName,
-              reason,
-              teamId,
-            });
-            await enqueue("close-rsvp-poll-on-cancel", {
-              eventId,
-              eventName,
-              reason,
-            });
+            await enqueue(
+              "notify-event-cancelled",
+              {
+                cancelledAt,
+                eventId,
+                eventMemberIds,
+                eventName,
+                reason,
+                teamId,
+              },
+              { traceId: ctx.traceId }
+            );
+            await enqueue(
+              "close-rsvp-poll-on-cancel",
+              {
+                eventId,
+                eventName,
+                reason,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -691,19 +716,27 @@ export const teamEventMutators = {
           meta: { mutator: "cancelSeriesEvent", eventId, eventName, teamId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-cancelled", {
-              cancelledAt,
-              eventId,
-              eventMemberIds,
-              eventName,
-              reason,
-              teamId,
-            });
-            await enqueue("close-rsvp-poll-on-cancel", {
-              eventId,
-              eventName,
-              reason,
-            });
+            await enqueue(
+              "notify-event-cancelled",
+              {
+                cancelledAt,
+                eventId,
+                eventMemberIds,
+                eventName,
+                reason,
+                teamId,
+              },
+              { traceId: ctx.traceId }
+            );
+            await enqueue(
+              "close-rsvp-poll-on-cancel",
+              {
+                eventId,
+                eventName,
+                reason,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -764,10 +797,14 @@ export const teamEventMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("whatsapp-add-member", {
-                groupId: whatsappGroupId,
-                userId,
-              });
+              await enqueue(
+                "whatsapp-add-member",
+                {
+                  groupId: whatsappGroupId,
+                  userId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -787,14 +824,18 @@ export const teamEventMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-added-to-event", {
-              eventId,
-              eventName,
-              location: location ?? null,
-              startTime,
-              teamId,
-              userId,
-            });
+            await enqueue(
+              "notify-added-to-event",
+              {
+                eventId,
+                eventName,
+                location: location ?? null,
+                startTime,
+                teamId,
+                userId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -853,10 +894,14 @@ export const teamEventMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("whatsapp-add-members", {
-                groupId: whatsappGroupId,
-                userIds,
-              });
+              await enqueue(
+                "whatsapp-add-members",
+                {
+                  groupId: whatsappGroupId,
+                  userIds,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -876,14 +921,18 @@ export const teamEventMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-users-added-to-event", {
-              userIds,
-              eventId,
-              eventName,
-              startTime,
-              location: location ?? null,
-              teamId,
-            });
+            await enqueue(
+              "notify-users-added-to-event",
+              {
+                userIds,
+                eventId,
+                eventName,
+                startTime,
+                location: location ?? null,
+                teamId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -949,10 +998,14 @@ export const teamEventMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("whatsapp-add-member", {
-                groupId: whatsappGroupId,
-                userId,
-              });
+              await enqueue(
+                "whatsapp-add-member",
+                {
+                  groupId: whatsappGroupId,
+                  userId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -968,14 +1021,18 @@ export const teamEventMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-added-to-event", {
-              eventId: target.eventId,
-              eventName: target.name,
-              location: target.location ?? null,
-              startTime: target.startTime,
-              teamId,
-              userId,
-            });
+            await enqueue(
+              "notify-added-to-event",
+              {
+                eventId: target.eventId,
+                eventName: target.name,
+                location: target.location ?? null,
+                startTime: target.startTime,
+                teamId,
+                userId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -1130,10 +1187,14 @@ export const teamEventMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("whatsapp-remove-member", {
-                groupId: whatsappGroupId,
-                userId: volunteerUserId,
-              });
+              await enqueue(
+                "whatsapp-remove-member",
+                {
+                  groupId: whatsappGroupId,
+                  userId: volunteerUserId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -1148,15 +1209,19 @@ export const teamEventMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-event-volunteer-left", {
-              eventId,
-              eventName,
-              leadUserIds,
-              leftAt,
-              teamId,
-              volunteerName,
-              volunteerUserId,
-            });
+            await enqueue(
+              "notify-event-volunteer-left",
+              {
+                eventId,
+                eventName,
+                leadUserIds,
+                leftAt,
+                teamId,
+                volunteerName,
+                volunteerUserId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -1206,10 +1271,14 @@ export const teamEventMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("whatsapp-remove-member", {
-                groupId: whatsappGroupId,
-                userId: memberUserId,
-              });
+              await enqueue(
+                "whatsapp-remove-member",
+                {
+                  groupId: whatsappGroupId,
+                  userId: memberUserId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -1227,12 +1296,16 @@ export const teamEventMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-removed-from-event", {
-              eventId,
-              eventName,
-              teamId,
-              userId: memberUserId,
-            });
+            await enqueue(
+              "notify-removed-from-event",
+              {
+                eventId,
+                eventName,
+                teamId,
+                userId: memberUserId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

@@ -41,6 +41,7 @@
     "libphonenumber-js": "^1.12.41",
     "lodash": "catalog:",
     "nuqs": "^2.8.9",
+    "posthog-js": "^1.369.2",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-error-boundary": "^6.1.1",

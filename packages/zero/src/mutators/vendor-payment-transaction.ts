@@ -209,11 +209,15 @@ export const vendorPaymentTransactionMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-vp-fully-paid", {
-                vendorPaymentId: vpId,
-                title: vpTitle,
-                submitterId: vpOwnerId,
-              });
+              await enqueue(
+                "notify-vp-fully-paid",
+                {
+                  vendorPaymentId: vpId,
+                  title: vpTitle,
+                  submitterId: vpOwnerId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -229,13 +233,17 @@ export const vendorPaymentTransactionMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-vpt-submitted", {
-              transactionId,
-              vendorPaymentId: vpId,
-              vendorPaymentTitle: vpTitle,
-              amount: args.amount,
-              submitterName,
-            });
+            await enqueue(
+              "notify-vpt-submitted",
+              {
+                transactionId,
+                vendorPaymentId: vpId,
+                vendorPaymentTitle: vpTitle,
+                amount: args.amount,
+                submitterName,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -389,14 +397,18 @@ export const vendorPaymentTransactionMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-vpt-approved", {
-              transactionId,
-              vendorPaymentId: vpId,
-              vendorPaymentTitle: vpTitle,
-              amount: Number(entity.amount),
-              submitterId,
-              note: args.note,
-            });
+            await enqueue(
+              "notify-vpt-approved",
+              {
+                transactionId,
+                vendorPaymentId: vpId,
+                vendorPaymentTitle: vpTitle,
+                amount: Number(entity.amount),
+                submitterId,
+                note: args.note,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
 
@@ -409,11 +421,15 @@ export const vendorPaymentTransactionMutators = {
             },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-vp-fully-paid", {
-                vendorPaymentId: vpId,
-                title: vpTitle,
-                submitterId: vpOwnerId,
-              });
+              await enqueue(
+                "notify-vp-fully-paid",
+                {
+                  vendorPaymentId: vpId,
+                  title: vpTitle,
+                  submitterId: vpOwnerId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -467,14 +483,18 @@ export const vendorPaymentTransactionMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-vpt-rejected", {
-              transactionId,
-              vendorPaymentId: vpId,
-              vendorPaymentTitle: vpTitle,
-              amount: Number(entity.amount),
-              submitterId,
-              reason: args.reason,
-            });
+            await enqueue(
+              "notify-vpt-rejected",
+              {
+                transactionId,
+                vendorPaymentId: vpId,
+                vendorPaymentTitle: vpTitle,
+                amount: Number(entity.amount),
+                submitterId,
+                reason: args.reason,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

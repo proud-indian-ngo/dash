@@ -46,10 +46,32 @@ function LogIdentitySync() {
     import("@/lib/client-logger").then(({ setLogIdentity }) =>
       setLogIdentity(user.id, user.role ?? "volunteer")
     );
+    import("@/lib/posthog")
+      .then(({ identifyUser }) =>
+        identifyUser(user.id, { role: user.role ?? "volunteer" })
+      )
+      .catch((error) => {
+        log.error({
+          component: "LogIdentitySync",
+          action: "identifyPostHogUser",
+          userId: user.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     return () => {
       import("@/lib/client-logger").then(({ clearLogIdentity }) =>
         clearLogIdentity()
       );
+      import("@/lib/posthog")
+        .then(({ resetUser }) => resetUser())
+        .catch((error) => {
+          log.error({
+            component: "LogIdentitySync",
+            action: "resetPostHogUser",
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
     };
   }, [user.id, user.role]);
 

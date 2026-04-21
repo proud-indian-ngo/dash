@@ -117,11 +117,15 @@ export const reimbursementMutators = {
         },
         fn: async () => {
           const { enqueue } = await import("@pi-dash/jobs/enqueue");
-          await enqueue("notify-reimbursement-submitted", {
-            reimbursementId,
-            title,
-            submitterName,
-          });
+          await enqueue(
+            "notify-reimbursement-submitted",
+            {
+              reimbursementId,
+              title,
+              submitterName,
+            },
+            { traceId: ctx.traceId }
+          );
         },
       });
     }
@@ -225,13 +229,17 @@ export const reimbursementMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-reimbursement-approved", {
-              reimbursementId: id,
-              title,
-              submitterId: ownerId,
-              note,
-              approvalScreenshotKey,
-            });
+            await enqueue(
+              "notify-reimbursement-approved",
+              {
+                reimbursementId: id,
+                title,
+                submitterId: ownerId,
+                note,
+                approvalScreenshotKey,
+              },
+              { traceId: ctx.traceId }
+            );
             for (const li of voucherLineItems) {
               await enqueue(
                 "generate-cash-voucher",
@@ -240,7 +248,10 @@ export const reimbursementMutators = {
                   reimbursementId: id,
                   approverUserId,
                 },
-                { singletonKey: `voucher-${li.id}` }
+                {
+                  traceId: ctx.traceId,
+                  singletonKey: `voucher-${li.id}`,
+                }
               );
             }
           },
@@ -314,12 +325,16 @@ export const reimbursementMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-reimbursement-rejected", {
-              reimbursementId: id,
-              title,
-              submitterId: ownerId,
-              reason,
-            });
+            await enqueue(
+              "notify-reimbursement-rejected",
+              {
+                reimbursementId: id,
+                title,
+                submitterId: ownerId,
+                reason,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -369,7 +384,10 @@ export const reimbursementMutators = {
                 reimbursementId,
                 approverUserId,
               },
-              { singletonKey: `voucher-${lineItemId}` }
+              {
+                traceId: ctx.traceId,
+                singletonKey: `voucher-${lineItemId}`,
+              }
             );
           },
         });

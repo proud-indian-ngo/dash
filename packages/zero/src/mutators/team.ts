@@ -42,12 +42,16 @@ export const teamMutators = {
           meta: { mutator: "createTeam", teamId, teamName },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("whatsapp-create-group", {
-              entityType: "team",
-              entityId: teamId,
-              groupName: teamName,
-              creatorUserId,
-            });
+            await enqueue(
+              "whatsapp-create-group",
+              {
+                entityType: "team",
+                entityId: teamId,
+                groupName: teamName,
+                creatorUserId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -86,12 +90,16 @@ export const teamMutators = {
           meta: { mutator: "updateTeam", teamId, teamName },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-team-updated", {
-              memberIds,
-              teamId,
-              teamName,
-              updatedAt,
-            });
+            await enqueue(
+              "notify-team-updated",
+              {
+                memberIds,
+                teamId,
+                teamName,
+                updatedAt,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -127,11 +135,15 @@ export const teamMutators = {
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-team-deleted", {
-              deletedAt,
-              memberIds: memberUserIds,
-              teamName,
-            });
+            await enqueue(
+              "notify-team-deleted",
+              {
+                deletedAt,
+                memberIds: memberUserIds,
+                teamName,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }
@@ -181,7 +193,11 @@ export const teamMutators = {
           meta: { mutator: "addTeamMember", teamId, userId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("whatsapp-add-member-team", { teamId, userId });
+            await enqueue(
+              "whatsapp-add-member-team",
+              { teamId, userId },
+              { traceId: ctx.traceId }
+            );
           },
         });
 
@@ -192,11 +208,15 @@ export const teamMutators = {
             meta: { mutator: "addTeamMember", teamId, teamName, userId },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-added-to-team", {
-                userId,
-                teamName,
-                teamId,
-              });
+              await enqueue(
+                "notify-added-to-team",
+                {
+                  userId,
+                  teamName,
+                  teamId,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -242,10 +262,14 @@ export const teamMutators = {
           meta: { mutator: "removeTeamMember", teamId, memberUserId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("whatsapp-remove-member-team", {
-              teamId,
-              userId: memberUserId,
-            });
+            await enqueue(
+              "whatsapp-remove-member-team",
+              {
+                teamId,
+                userId: memberUserId,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
 
@@ -255,11 +279,15 @@ export const teamMutators = {
             meta: { mutator: "removeTeamMember", memberUserId, teamName },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue("notify-removed-from-team", {
-                removedAt,
-                userId: memberUserId,
-                teamName,
-              });
+              await enqueue(
+                "notify-removed-from-team",
+                {
+                  removedAt,
+                  userId: memberUserId,
+                  teamName,
+                },
+                { traceId: ctx.traceId }
+              );
             },
           });
         }
@@ -304,12 +332,16 @@ export const teamMutators = {
           meta: { mutator: "setMemberRole", memberId, newRole },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue("notify-team-role-changed", {
-              userId: targetUserId,
-              teamId,
-              teamName,
-              newRole,
-            });
+            await enqueue(
+              "notify-team-role-changed",
+              {
+                userId: targetUserId,
+                teamId,
+                teamName,
+                newRole,
+              },
+              { traceId: ctx.traceId }
+            );
           },
         });
       }

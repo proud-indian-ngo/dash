@@ -125,7 +125,10 @@ export const scheduledMessageMutators = {
                     attachments: attachments ?? undefined,
                     enqueuedAt,
                   },
-                  { startAfter: new Date(scheduledAt).toISOString() }
+                  {
+                    traceId: ctx.traceId,
+                    startAfter: new Date(scheduledAt).toISOString(),
+                  }
                 );
               } catch (error) {
                 await markRecipientFailed(row.id, error);
@@ -246,7 +249,10 @@ export const scheduledMessageMutators = {
                     attachments: attachments ?? undefined,
                     enqueuedAt,
                   },
-                  { startAfter: new Date(scheduledAt).toISOString() }
+                  {
+                    traceId: ctx.traceId,
+                    startAfter: new Date(scheduledAt).toISOString(),
+                  }
                 );
               } catch (error) {
                 await markRecipientFailed(row.id, error);
@@ -402,7 +408,10 @@ export const scheduledMessageMutators = {
                   attachments: parent.attachments ?? undefined,
                   enqueuedAt: Date.now(),
                 },
-                { startAfter }
+                {
+                  traceId: ctx.traceId,
+                  startAfter,
+                }
               );
             } catch (error) {
               await markRecipientFailed(recipientId, error);
