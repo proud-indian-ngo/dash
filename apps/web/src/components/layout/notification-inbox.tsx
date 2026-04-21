@@ -3,16 +3,10 @@ import {
   InboxIcon,
   MailOpen01Icon,
   MailOpenIcon,
-  MoreVerticalIcon,
   Tick02Icon,
+  TickDouble02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { ScrollArea } from "@pi-dash/design-system/components/ui/scroll-area";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
@@ -260,21 +254,17 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
           />
           <span className="font-semibold text-sm">Inbox</span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <HugeiconsIcon icon={MoreVerticalIcon} size={18} strokeWidth={2} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48 p-1">
-            <DropdownMenuItem
-              className="gap-2 px-3 py-2 text-sm"
-              disabled={!hasUnread}
-              onClick={handleMarkAllRead}
-            >
-              <HugeiconsIcon icon={Tick02Icon} size={16} strokeWidth={2} />
-              Mark all as read
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            disabled={!hasUnread}
+            onClick={handleMarkAllRead}
+            type="button"
+          >
+            <HugeiconsIcon icon={TickDouble02Icon} size={18} strokeWidth={2} />
+          </TooltipTrigger>
+          <TooltipContent>Mark all as read</TooltipContent>
+        </Tooltip>
       </div>
       <ScrollArea className="flex-1">{renderContent()}</ScrollArea>
     </div>
