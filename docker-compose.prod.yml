@@ -24,6 +24,8 @@ services:
         VITE_ZERO_URL: ${VITE_ZERO_URL}
         VITE_CDN_URL: ${VITE_CDN_URL}
         VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
+        VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
+        VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
     ports:
       - 3000
     environment:
@@ -64,6 +66,10 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
+      POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
       TZ: Asia/Kolkata
       NODE_ENV: production
     healthcheck:
@@ -173,6 +179,10 @@ services:
       ZERO_QUERY_FORWARD_COOKIES: "true"
       ZERO_QUERY_URL: http://web:${PORT:-3000}/api/zero/query
       ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.name=zero-cache}
+      OTEL_NODE_RESOURCE_DETECTORS: ${OTEL_NODE_RESOURCE_DETECTORS:-env,host,os}
     volumes:
       - zero_cache_data:/data
     depends_on:
