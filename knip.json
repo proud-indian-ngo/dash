@@ -28,7 +28,6 @@
       "ignoreDependencies": ["better-auth"]
     },
     "packages/jobs": {
-      "ignoreDependencies": ["@pi-dash/observability"],
       "entry": ["src/*.ts", "src/handlers/*.ts", "src/lib/*.ts"]
     },
     "packages/notifications": {
@@ -36,11 +35,7 @@
     },
     "packages/whatsapp": {},
     "packages/email": {
-      "ignoreFiles": [
-        "src/templates/notification-approval-with-image.tsx",
-        "src/templates/notification-minimal.tsx",
-        "src/templates/notification-with-line-items.tsx"
-      ]
+      "ignoreDependencies": ["react", "@types/react"]
     },
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],

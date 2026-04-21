@@ -15,15 +15,15 @@
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",
-    "@react-email/components": "^1.0.12",
     "nodemailer": "^8.0.5",
-    "react": "catalog:"
+    "react": "catalog:",
+    "react-email": "^6.0.0"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
+    "@react-email/preview-server": "^5.2.10",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "catalog:",
-    "react-email": "^5.2.11",
     "typescript": "catalog:"
   }
 }

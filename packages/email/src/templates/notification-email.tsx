@@ -12,7 +12,7 @@ import {
   Section,
   Tailwind,
   Text,
-} from "@react-email/components";
+} from "react-email";
 import { EmailFooterBar, EmailPreferencesLink } from "./email-footer";
 import type { LineItemDetail } from "./types";
 

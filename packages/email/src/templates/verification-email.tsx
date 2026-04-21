@@ -12,7 +12,7 @@ import {
   Section,
   Tailwind,
   Text,
-} from "@react-email/components";
+} from "react-email";
 import { EmailFooterBar } from "./email-footer";
 
 const DEFAULT_APP_NAME = "Proud Indian Dashboard";

@@ -4,7 +4,7 @@ import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import "@pi-dash/env";
 
 const RE_REACT = /node_modules[\\/](react|react-dom|scheduler)\//;
@@ -30,75 +30,78 @@ const RE_RECHARTS =
   /node_modules[\\/](recharts|react-redux|@reduxjs[\\/]toolkit|redux|redux-thunk|reselect|immer|use-sync-external-store|victory-vendor|decimal\.js-light|eventemitter3)\//;
 const RE_VENDOR = /node_modules/;
 
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    devtools(),
-    tailwindcss(),
-    tanstackStart(),
-    nitro({
-      preset: "bun",
-      serverDir: "server",
-      experimental: {
-        vite: {},
+export default defineConfig(async ({ mode }): Promise<UserConfig> => {
+  const reactCompiler = await babel({
+    presets: [reactCompilerPreset()],
+  });
+
+  return {
+    plugins: [
+      ...devtools(),
+      ...tailwindcss(),
+      ...tanstackStart(),
+      ...nitro({
+        preset: "bun",
+        serverDir: "server",
+        experimental: {
+          vite: {},
+        },
+      }),
+      ...react(),
+      reactCompiler,
+    ],
+    build: {
+      chunkSizeWarningLimit: 600,
+      rolldownOptions: {
+        external: ["bun", "bun:sqlite"],
       },
-    }),
-    react(),
-    babel({
-      presets: [reactCompilerPreset()],
-    }),
-  ],
-  build: {
-    chunkSizeWarningLimit: 600,
-    rolldownOptions: {
-      external: ["bun", "bun:sqlite"],
     },
-  },
-  environments: {
-    client: {
-      build: {
-        rolldownOptions: {
-          output: {
-            codeSplitting: {
-              groups: [
-                { name: "vendor-react", test: RE_REACT, priority: 20 },
-                { name: "vendor-router", test: RE_ROUTER, priority: 20 },
-                { name: "vendor-zero", test: RE_ZERO, priority: 20 },
-                { name: "vendor-slate", test: RE_SLATE, priority: 25 },
-                { name: "vendor-plate", test: RE_PLATE, priority: 20 },
-                { name: "vendor-table", test: RE_TABLE, priority: 20 },
-                { name: "vendor-form", test: RE_FORM, priority: 20 },
-                { name: "vendor-dnd", test: RE_DND, priority: 20 },
-                { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
-                { name: "vendor-icons", test: RE_ICONS, priority: 20 },
-                { name: "vendor-phone", test: RE_PHONE, priority: 20 },
-                { name: "vendor-recharts", test: RE_RECHARTS, priority: 20 },
-                { name: "vendor-date", test: RE_DATE, priority: 15 },
-                { name: "vendor-auth", test: RE_AUTH, priority: 15 },
-                { name: "vendor-drizzle", test: RE_DRIZZLE, priority: 15 },
-                { name: "vendor-zod", test: RE_ZOD, priority: 15 },
-                { name: "vendor", test: RE_VENDOR, priority: 5 },
-              ],
+    environments: {
+      client: {
+        build: {
+          rolldownOptions: {
+            output: {
+              codeSplitting: {
+                groups: [
+                  { name: "vendor-react", test: RE_REACT, priority: 20 },
+                  { name: "vendor-router", test: RE_ROUTER, priority: 20 },
+                  { name: "vendor-zero", test: RE_ZERO, priority: 20 },
+                  { name: "vendor-slate", test: RE_SLATE, priority: 25 },
+                  { name: "vendor-plate", test: RE_PLATE, priority: 20 },
+                  { name: "vendor-table", test: RE_TABLE, priority: 20 },
+                  { name: "vendor-form", test: RE_FORM, priority: 20 },
+                  { name: "vendor-dnd", test: RE_DND, priority: 20 },
+                  { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
+                  { name: "vendor-icons", test: RE_ICONS, priority: 20 },
+                  { name: "vendor-phone", test: RE_PHONE, priority: 20 },
+                  { name: "vendor-recharts", test: RE_RECHARTS, priority: 20 },
+                  { name: "vendor-date", test: RE_DATE, priority: 15 },
+                  { name: "vendor-auth", test: RE_AUTH, priority: 15 },
+                  { name: "vendor-drizzle", test: RE_DRIZZLE, priority: 15 },
+                  { name: "vendor-zod", test: RE_ZOD, priority: 15 },
+                  { name: "vendor", test: RE_VENDOR, priority: 5 },
+                ],
+              },
             },
           },
         },
       },
     },
-  },
-  optimizeDeps: {
-    exclude: ["bun"],
-    include: ["use-sync-external-store/shim/with-selector"],
-  },
-  resolve: {
-    alias: {
-      // agentation is dev-only; stub it out in production to prevent bundling
-      ...(mode === "production" && {
-        agentation: `${import.meta.dirname}/src/stubs/empty.ts`,
-      }),
+    optimizeDeps: {
+      exclude: ["bun"],
+      include: ["use-sync-external-store/shim/with-selector"],
     },
-    tsconfigPaths: true,
-  },
-  server: {
-    allowedHosts: ["host.docker.internal"],
-    port: Number(process.env.DEV_WEB_PORT) || 3001,
-  },
-}));
+    resolve: {
+      alias: {
+        ...(mode === "production" && {
+          agentation: `${import.meta.dirname}/src/stubs/empty.ts`,
+        }),
+      },
+      tsconfigPaths: true,
+    },
+    server: {
+      allowedHosts: ["host.docker.internal"],
+      port: Number(process.env.DEV_WEB_PORT) || 3001,
+    },
+  };
+});

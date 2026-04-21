@@ -1,5 +1,5 @@
 import { env } from "@pi-dash/env/server";
-import { render } from "@react-email/components";
+import { render } from "react-email";
 
 import { transporter } from "./mailer";
 import type { NotificationEmailProps } from "./templates/notification-email";
