@@ -283,7 +283,7 @@ export const teamEventMutators = {
         tx.location === "server"
           ? args.startTime < Date.now()
           : args.startTime < args.now;
-      if (isBackdated && !can(ctx, "events.create_backdated")) {
+      if (isBackdated && !can(ctx, "events.create_backdated") && !isTeamLead) {
         throw new Error("Start time must be in the future");
       }
 

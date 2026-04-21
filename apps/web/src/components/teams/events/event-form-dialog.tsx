@@ -29,6 +29,7 @@ import {
 import { useApp } from "@/context/app-context";
 import { cityOptions } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { isTeamLead } from "@/lib/team-utils";
 import type { EditScope } from "./edit-scope-dialog";
 import { RecurrenceBuilder } from "./recurrence-builder";
 import { ReminderIntervalsField } from "./reminder-intervals-field";
@@ -311,6 +312,7 @@ function EventFormContent({
   originalDate,
   teamHasWhatsAppGroup,
   teamId,
+  userIsTeamLead,
   waGroupOptions,
 }: {
   editScope?: EditScope;
@@ -320,11 +322,13 @@ function EventFormContent({
   originalDate?: string;
   teamHasWhatsAppGroup: boolean;
   teamId: string;
+  userIsTeamLead: boolean;
   waGroupOptions: { label: string; value: string }[];
 }) {
   const zero = useZero();
   const { hasPermission } = useApp();
-  const canBackdate = hasPermission("events.create_backdated");
+  const canBackdate =
+    hasPermission("events.create_backdated") || userIsTeamLead;
 
   const form = useForm({
     defaultValues: getDefaultValues(initialValues),
@@ -590,6 +594,8 @@ export function EventFormDialog({
 
   const team = (allTeams ?? []).find((t: { id: string }) => t.id === teamId);
   const teamHasWhatsAppGroup = !!team?.whatsappGroupId;
+  const { user } = useApp();
+  const userIsTeamLead = isTeamLead(team?.members ?? [], user.id);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
@@ -616,6 +622,7 @@ export function EventFormDialog({
           originalDate={originalDate}
           teamHasWhatsAppGroup={teamHasWhatsAppGroup}
           teamId={teamId}
+          userIsTeamLead={userIsTeamLead}
           waGroupOptions={waGroupOptions}
         />
       </DialogContent>
