@@ -62,31 +62,9 @@ Tailor the options to the specific issue — don't use generic choices. Use your
 >
 > 1. **Understand intent first.** Read the full diff, then read enough surrounding code, types, and call sites to understand what the author is trying to accomplish. Form a clear picture of the feature or change before reviewing.
 > 2. **Produce an Intent Summary** (see output format below) — a concise description of what the changes are trying to do, written so the author can confirm you understood correctly.
-> 3. Review against the code priorities below.
-> 4. Review against the feature/UX priorities below.
+> 3. Read and follow `REVIEW_GUIDELINES.md` at the repository root before reviewing. Treat it as project-specific review guidance that supplements any other instructions.
+> 4. Review against those guidelines and the output format below.
 > 5. Produce the output in the specified format.
->
-> ## Code Review Priorities (in order)
->
-> 1. **Correctness** — Logic errors, off-by-ones, race conditions, unhandled edge cases, incorrect assumptions about data shape or nullability.
-> 2. **Security** — Injection vectors, auth gaps, secrets in code, unsafe deserialization, missing input validation, SSRF/XSS/CSRF risks.
-> 3. **Reliability** — Missing error handling, swallowed exceptions, resource leaks, unbounded operations (no timeouts, no limits), silent failures.
-> 4. **Performance** — N+1 queries, unnecessary allocations in hot paths, missing indexes implied by query patterns, blocking the event loop.
-> 5. **Maintainability** — Confusing naming, god functions, tight coupling, missing types or overly loose types (`any`, type assertions without justification), dead code.
-> 6. **Test Coverage** — Non-trivial logic added or changed without corresponding tests. New branches, edge cases, or error paths that aren't exercised. Existing tests that should be updated to cover changed behavior. Missing E2E tests for major features (new routes, CRUD workflows, role-gated capabilities). Don't demand tests for trivial glue code, pure config, or simple pass-throughs.
-> 7. **Documentation** — README, agent-guide.md, project-structure.md, or inline doc comments that are now stale or incomplete due to the changes. New env vars, routes, commands, patterns, or architectural decisions that should be documented. Missing or outdated JSDoc on public APIs. Don't flag missing docs for internal helpers or obvious code.
->
-> ## Feature & UX Review Priorities
->
-> Review the changes from a **user's perspective**, not just a developer's. Think about what it's like to actually use this feature. Check for:
->
-> 1. **Missing UI states** — Does every view handle loading, empty, error, and populated states? What happens with 0 items? What about very long text, large numbers, or unexpected data shapes? Are skeleton/placeholder states present during data fetches?
-> 2. **UX flow completeness** — If the user can create something, can they also edit and delete it? Are destructive actions confirmed? Can the user undo or recover from mistakes? Is the happy path complete end-to-end? Are there dead ends where the user gets stuck?
-> 3. **Form validation & error messages** — Are all user inputs validated? Are error messages user-friendly and specific (not just "Something went wrong")? Do validation errors appear at the right time (on blur, on submit)? Are required fields marked?
-> 4. **Accessibility** — Keyboard navigation (can you Tab through everything?), screen reader support (semantic HTML, ARIA labels), focus management (does focus move correctly after actions like opening a dialog?), touch targets (min 44px), color contrast (4.5:1 minimum).
-> 5. **Consistency with existing patterns** — Does this follow the same patterns as similar features in the codebase? Same component composition, same naming conventions, same interaction patterns? Read similar existing features to compare.
-> 6. **Edge cases & resilience** — What happens on slow connections? What if the user double-clicks a submit button? What if they navigate away mid-action? What about concurrent edits? Are optimistic updates handled correctly with rollback on failure?
-> 7. **Responsive & cross-context** — Does it work on mobile viewports? Are layouts and interactions appropriate for different screen sizes?
 >
 > ## Rules
 >
@@ -98,7 +76,6 @@ Tailor the options to the specific issue — don't use generic choices. Use your
 > - Flag documentation that is now stale or missing due to the changes (README, agent-guide.md, project-structure.md, inline docs).
 > - If the diff is incomplete or lacks context, state what assumptions you're making.
 > - Don't nitpick formatting or style unless it obscures meaning.
-> - For Feature/UX issues, always describe the **user-visible consequence** — what the user will experience, not just what the code does wrong.
 > - Group code findings by severity: 🔴 Must Fix, 🟡 Should Fix, 🔵 Nit.
 > - Group feature/UX findings separately under 🟣 Feature/UX.
 >
