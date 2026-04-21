@@ -674,6 +674,7 @@ function buildEditInitialValues(
     reminderIntervals: (event.reminderIntervals as number[] | null) ?? null,
     reminderTarget: (event.reminderTarget as string) ?? "group",
     postEventNudgesEnabled: event.postEventNudgesEnabled ?? true,
+    inheritVolunteers: !!event.inheritVolunteers,
   };
 }
 
@@ -698,6 +699,7 @@ function buildDuplicateInitialValues(event: EventRow) {
     reminderIntervals: (event.reminderIntervals as number[] | null) ?? null,
     reminderTarget: (event.reminderTarget as string) ?? "group",
     postEventNudgesEnabled: event.postEventNudgesEnabled ?? true,
+    inheritVolunteers: !event.seriesId && !!event.inheritVolunteers,
   };
 }
 

@@ -59,6 +59,7 @@ const SERIES_BASE = {
   whatsappGroupId: "wg-1",
   reminderTarget: "group" as const,
   postEventNudgesEnabled: true,
+  inheritVolunteers: false,
   createdBy: "user-1",
   createdAt: NOW,
   updatedAt: NOW,
@@ -93,9 +94,25 @@ describe("buildExceptionInsert", () => {
     expect(result.reminderTarget).toBe("group");
     expect(result.postEventNudgesEnabled).toBe(true);
     expect(result.whatsappGroupId).toBe("wg-1");
+    expect(result.inheritVolunteers).toBe(false);
     expect(result.createdBy).toBe("user-2");
     expect(result.createdAt).toBe(NOW + 1000);
     expect(result.updatedAt).toBe(NOW + 1000);
+  });
+
+  it("propagates inheritVolunteers from series to exception", () => {
+    const seriesWithInherit = {
+      ...SERIES_BASE,
+      inheritVolunteers: true,
+    };
+    const result = buildExceptionInsert(
+      "exc-inherit",
+      seriesWithInherit,
+      "2026-06-01",
+      "user-1",
+      NOW
+    );
+    expect(result.inheritVolunteers).toBe(true);
   });
 
   it("applies overrides over series values", () => {

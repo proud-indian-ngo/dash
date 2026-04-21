@@ -69,6 +69,7 @@ export const teamEvent = pgTable(
     postEventNudgesEnabled: boolean("post_event_nudges_enabled")
       .default(true)
       .notNull(),
+    inheritVolunteers: boolean("inherit_volunteers").default(false).notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),

@@ -58,6 +58,20 @@ To keep them visible, the team detail display applies **no range filter** to exc
 
 Auth gate: must be a member of `event.teamId` via `teamMember` table.
 
+## Volunteer Inheritance
+
+Series parents have an `inheritVolunteers` boolean column (default `false`). When `true`, all materialized occurrences copy `teamEventMember` rows from the series parent.
+
+Three materialization paths check this flag:
+
+| Path | File | Trigger |
+|---|---|---|
+| Background job | `packages/jobs/src/lib/materialize-occurrences.ts` | Cron: past occurrences with members |
+| `materialize` mutator | `packages/zero/src/mutators/team-event.ts` | UI: edit/add-member on virtual occurrence |
+| `resolveJoinTarget` | `packages/zero/src/mutators/team-event.ts` | Self-join on virtual occurrence |
+
+UI: "Inherit volunteers" checkbox in event form, visible only when recurrence is configured. The setting propagates to exceptions via `buildExceptionInsert` and to new series via `updateSeriesFollowing`.
+
 ## RRULE Utilities
 
 `packages/zero/src/lib/rrule-utils.ts` → exported as `@pi-dash/zero/rrule-utils`:

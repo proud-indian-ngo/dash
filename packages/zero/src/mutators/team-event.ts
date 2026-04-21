@@ -5,6 +5,7 @@ import {
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
 import { defineMutator } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 import "../context";
 import {
@@ -145,11 +146,27 @@ async function resolveJoinTarget(
     reminderIntervals: event.reminderIntervals,
     reminderTarget: event.reminderTarget ?? "group",
     postEventNudgesEnabled: event.postEventNudgesEnabled,
+    inheritVolunteers: event.inheritVolunteers ?? false,
     whatsappGroupId: event.whatsappGroupId,
     createdBy: ctx.userId,
     createdAt: args.now,
     updatedAt: args.now,
   });
+
+  if (event.inheritVolunteers) {
+    const members = (await tx.run(
+      zql.teamEventMember.where("eventId", args.eventId)
+    )) as TeamEventMember[];
+    for (const member of members) {
+      await tx.mutate.teamEventMember.insert({
+        id: uuidv7(),
+        eventId: args.materializedId,
+        userId: member.userId,
+        addedAt: member.addedAt,
+      });
+    }
+  }
+
   return {
     eventId: args.materializedId,
     startTime: occStart,
@@ -263,8 +280,10 @@ export const teamEventMutators = {
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
       postEventNudgesEnabled: z.boolean().optional(),
+      inheritVolunteers: z.boolean().optional(),
       now: z.number(),
     }),
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: insert maps many optional fields + server-side tasks
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       if (args.endTime !== undefined && args.endTime <= args.startTime) {
@@ -306,6 +325,7 @@ export const teamEventMutators = {
         reminderIntervals: args.reminderIntervals ?? null,
         reminderTarget: args.reminderTarget ?? "group",
         postEventNudgesEnabled: args.postEventNudgesEnabled ?? true,
+        inheritVolunteers: args.inheritVolunteers ?? false,
         whatsappGroupId: args.whatsappGroupId ?? null,
         seriesId: null,
         originalDate: null,
@@ -339,6 +359,7 @@ export const teamEventMutators = {
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
       postEventNudgesEnabled: z.boolean().optional(),
+      inheritVolunteers: z.boolean().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -571,10 +592,25 @@ export const teamEventMutators = {
         reminderIntervals: series.reminderIntervals,
         reminderTarget: series.reminderTarget ?? "group",
         whatsappGroupId: series.whatsappGroupId,
+        inheritVolunteers: series.inheritVolunteers ?? false,
         createdBy: ctx.userId,
         createdAt: args.now,
         updatedAt: args.now,
       });
+
+      if (series.inheritVolunteers) {
+        const members = (await tx.run(
+          zql.teamEventMember.where("eventId", series.id)
+        )) as TeamEventMember[];
+        for (const member of members) {
+          await tx.mutate.teamEventMember.insert({
+            id: uuidv7(),
+            eventId: args.id,
+            userId: member.userId,
+            addedAt: member.addedAt,
+          });
+        }
+      }
     }
   ),
 
@@ -602,6 +638,7 @@ export const teamEventMutators = {
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
       postEventNudgesEnabled: z.boolean().optional(),
+      inheritVolunteers: z.boolean().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {

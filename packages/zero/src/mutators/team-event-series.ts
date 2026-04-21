@@ -49,6 +49,7 @@ export function buildExceptionInsert(
     reminderIntervals: number[] | null;
     reminderTarget: string;
     whatsappGroupId: string;
+    inheritVolunteers: boolean;
     cancelledAt: number | null;
   }> = {}
 ) {
@@ -80,6 +81,8 @@ export function buildExceptionInsert(
       overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
     whatsappGroupId:
       overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
+    inheritVolunteers:
+      overrides.inheritVolunteers ?? series.inheritVolunteers ?? false,
     createdBy,
     createdAt: now,
     updatedAt: now,
@@ -93,6 +96,7 @@ export interface UpdateArgs {
   feedbackDeadline?: number | null;
   feedbackEnabled?: boolean;
   id: string;
+  inheritVolunteers?: boolean;
   isPublic?: boolean;
   location?: string;
   name?: string;
@@ -106,6 +110,7 @@ export interface UpdateArgs {
   whatsappGroupId?: string;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one conditional spread per optional field
 export function buildUpdateFields(args: UpdateArgs) {
   return {
     id: args.id,
@@ -139,6 +144,9 @@ export function buildUpdateFields(args: UpdateArgs) {
     ...(args.postEventNudgesEnabled !== undefined && {
       postEventNudgesEnabled: args.postEventNudgesEnabled,
     }),
+    ...(args.inheritVolunteers !== undefined && {
+      inheritVolunteers: args.inheritVolunteers,
+    }),
     ...(args.whatsappGroupId !== undefined && {
       whatsappGroupId: args.whatsappGroupId || null,
     }),
@@ -159,6 +167,10 @@ export interface Tx {
       insert: (args: any) => Promise<void>;
       // biome-ignore lint/suspicious/noExplicitAny: same as above
       update: (args: any) => Promise<void>;
+    };
+    teamEventMember: {
+      // biome-ignore lint/suspicious/noExplicitAny: row shapes vary per call
+      insert: (args: any) => Promise<void>;
     };
   };
   // biome-ignore lint/suspicious/noExplicitAny: Zero's Query type is deeply generic
@@ -263,6 +275,7 @@ export async function updateSeriesFollowing(
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
     whatsappGroupId?: string;
+    inheritVolunteers?: boolean;
     recurrenceRule?: RecurrenceRuleValue;
   },
   existing: TeamEvent,
@@ -309,6 +322,8 @@ export async function updateSeriesFollowing(
     postEventNudgesEnabled:
       args.postEventNudgesEnabled ?? existing.postEventNudgesEnabled,
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
+    inheritVolunteers:
+      args.inheritVolunteers ?? existing.inheritVolunteers ?? false,
     createdBy: userId,
     createdAt: args.now,
     updatedAt: args.now,

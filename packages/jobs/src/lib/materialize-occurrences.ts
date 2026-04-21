@@ -29,6 +29,7 @@ function querySeriesParents() {
       reminderIntervals: teamEvent.reminderIntervals,
       whatsappGroupId: teamEvent.whatsappGroupId,
       createdBy: teamEvent.createdBy,
+      inheritVolunteers: teamEvent.inheritVolunteers,
     })
     .from(teamEvent)
     .where(
@@ -98,25 +99,26 @@ async function materializeOccurrence(
 
   const newEventId = (inserted[0] as { id: string }).id;
 
-  // Copy members from the series parent
-  const members = await db
-    .select({
-      userId: teamEventMember.userId,
-      addedAt: teamEventMember.addedAt,
-    })
-    .from(teamEventMember)
-    .where(eq(teamEventMember.eventId, parent.id));
-
-  for (const member of members) {
-    await db
-      .insert(teamEventMember)
-      .values({
-        id: uuidv7(),
-        eventId: newEventId,
-        userId: member.userId,
-        addedAt: member.addedAt,
+  if (parent.inheritVolunteers) {
+    const members = await db
+      .select({
+        userId: teamEventMember.userId,
+        addedAt: teamEventMember.addedAt,
       })
-      .onConflictDoNothing();
+      .from(teamEventMember)
+      .where(eq(teamEventMember.eventId, parent.id));
+
+    for (const member of members) {
+      await db
+        .insert(teamEventMember)
+        .values({
+          id: uuidv7(),
+          eventId: newEventId,
+          userId: member.userId,
+          addedAt: member.addedAt,
+        })
+        .onConflictDoNothing();
+    }
   }
 
   return newEventId;

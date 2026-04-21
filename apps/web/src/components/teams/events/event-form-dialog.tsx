@@ -56,6 +56,7 @@ const eventFormSchema = z.object({
   reminderIntervals: z.array(z.number()),
   reminderTarget: z.enum(reminderTargetValues),
   postEventNudgesEnabled: z.boolean(),
+  inheritVolunteers: z.boolean(),
 });
 
 const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
@@ -89,6 +90,7 @@ interface InitialValues {
   feedbackDeadline: number | null;
   feedbackEnabled: boolean;
   id: string;
+  inheritVolunteers: boolean;
   isPublic: boolean;
   location: string | null;
   name: string;
@@ -146,6 +148,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
       (initialValues?.reminderTarget as
         | (typeof reminderTargetValues)[number]
         | null) ?? "group",
+    inheritVolunteers: initialValues?.inheritVolunteers ?? false,
   };
 }
 
@@ -177,6 +180,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
       : null,
     reminderTarget: value.reminderTarget,
     postEventNudgesEnabled: value.postEventNudgesEnabled,
+    inheritVolunteers: value.inheritVolunteers,
   };
 }
 
@@ -207,6 +211,7 @@ function buildUpdateSeriesArgs(
       : null,
     reminderTarget: value.reminderTarget,
     postEventNudgesEnabled: value.postEventNudgesEnabled,
+    inheritVolunteers: value.inheritVolunteers,
     recurrenceRule: value.rrule
       ? {
           rrule: value.rrule,
@@ -258,6 +263,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
       : null,
     reminderTarget: value.reminderTarget,
     postEventNudgesEnabled: value.postEventNudgesEnabled,
+    inheritVolunteers: value.inheritVolunteers,
   };
 }
 
@@ -435,6 +441,18 @@ function EventFormContent({
           )}
         </form.Field>
       )}
+
+      <form.Subscribe selector={(s) => s.values.rrule}>
+        {(rrule) =>
+          rrule ? (
+            <CheckboxField
+              description="Copy volunteers from the series to each occurrence"
+              label="Inherit volunteers"
+              name="inheritVolunteers"
+            />
+          ) : null
+        }
+      </form.Subscribe>
 
       <FormSectionHeading>Notifications</FormSectionHeading>
       <div className="grid items-end gap-4 sm:grid-cols-2">

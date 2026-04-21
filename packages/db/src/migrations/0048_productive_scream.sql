@@ -1,0 +1,1 @@
+ALTER TABLE "team_event" ADD COLUMN "inherit_volunteers" boolean DEFAULT false NOT NULL;

@@ -25,6 +25,7 @@ interface PollCandidate {
   feedbackDeadline: Date | null;
   feedbackEnabled: boolean;
   id: string;
+  inheritVolunteers: boolean;
   isPublic: boolean;
   location: string | null;
   name: string;
@@ -71,6 +72,7 @@ function toSeriesParent(event: PollCandidate): SeriesParent {
     reminderIntervals: event.reminderIntervals,
     whatsappGroupId: event.whatsappGroupId,
     createdBy: event.createdBy,
+    inheritVolunteers: event.inheritVolunteers,
   };
 }
 
@@ -172,6 +174,7 @@ async function loadCandidates(): Promise<PollCandidate[]> {
       reminderIntervals: teamEvent.reminderIntervals,
       whatsappGroupId: teamEvent.whatsappGroupId,
       createdBy: teamEvent.createdBy,
+      inheritVolunteers: teamEvent.inheritVolunteers,
       rsvpPollLeadMinutes: teamEvent.rsvpPollLeadMinutes,
     })
     .from(teamEvent)
