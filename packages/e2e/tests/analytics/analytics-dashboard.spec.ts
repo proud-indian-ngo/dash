@@ -35,15 +35,10 @@ test.describe("Analytics dashboard (admin)", () => {
     // Charts render as SVGs or named containers
     await expect(
       page
-        .locator("svg")
-        .first()
-        .or(
-          page
-            .getByText(
-              /Submission Trends|Category Breakdown|Request Submitters|Top Vendors/i
-            )
-            .first()
+        .locator(
+          'svg, :text-matches("Submission Trends|Category Breakdown|Request Submitters|Top Vendors", "i")'
         )
+        .first()
     ).toBeVisible({ timeout: 15_000 });
   });
 });

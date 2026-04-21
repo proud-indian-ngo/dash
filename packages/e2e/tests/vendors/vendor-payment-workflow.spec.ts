@@ -35,7 +35,7 @@ test.describe("Vendor payment workflow (admin)", () => {
       await page.keyboard.press("Escape");
       await expect(
         page.locator('div[role="presentation"][data-base-ui-inert]')
-      ).toBeHidden({ timeout: 5000 });
+      ).toHaveCount(0, { timeout: 5000 });
       await page.getByRole("button", { name: "Add new vendor" }).click();
       const dialog = page.getByRole("dialog", { name: /vendor/i });
       await expect(dialog).toBeVisible({ timeout: 5000 });
@@ -262,7 +262,7 @@ test.describe("Vendor payment workflow (volunteer)", () => {
       await page.keyboard.press("Escape");
       await expect(
         page.locator('div[role="presentation"][data-base-ui-inert]')
-      ).toBeHidden({ timeout: 5000 });
+      ).toHaveCount(0, { timeout: 5000 });
       await page.getByRole("button", { name: "Add new vendor" }).click();
       const dialog = page.getByRole("dialog", { name: /vendor/i });
       await expect(dialog).toBeVisible({ timeout: 5000 });
