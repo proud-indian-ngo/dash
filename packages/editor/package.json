@@ -10,8 +10,8 @@
     "check:types": "tsc --noEmit"
   },
   "dependencies": {
-    "@ariakit/react": "^0.4.25",
-    "@base-ui/react": "^1.4.0",
+    "@ariakit/react": "^0.4.26",
+    "@base-ui/react": "^1.4.1",
     "@emoji-mart/data": "1.2.1",
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
