@@ -23,7 +23,7 @@
     "@pi-dash/config": "workspace:*",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "catalog:",
-    "react-email": "^5.2.11",
+    "react-email": "^6.0.0",
     "typescript": "catalog:"
   }
 }
