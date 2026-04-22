@@ -16,10 +16,11 @@ export function initPostHog(): void {
   posthogJs.init(key, {
     api_host: env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com",
     autocapture: false,
-    capture_exceptions: true,
+    capture_exceptions: false,
     capture_pageview: true,
     capture_pageleave: true,
-    session_recording: { recordCrossOriginIframes: false },
+    disable_session_recording: true,
+    disable_surveys: true,
     persistence: "localStorage+cookie",
   });
 }
