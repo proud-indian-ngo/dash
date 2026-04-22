@@ -66,13 +66,21 @@ function NotificationItem({
   onToggleRead: (e: React.MouseEvent, id: string, isRead: boolean) => void;
 }) {
   return (
-    <button
+    // biome-ignore lint/a11y/useSemanticElements: can't use <button> — contains child <button> elements (TooltipTrigger)
+    <div
       className={cn(
         "group relative flex w-full gap-0 border-border border-b text-left transition-colors last:border-b-0",
         n.clickAction ? "cursor-pointer hover:bg-muted/40" : "cursor-default"
       )}
       onClick={() => onClick(n.id, n.clickAction)}
-      type="button"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(n.id, n.clickAction);
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <div className={cn("w-1 flex-shrink-0", !n.read && "bg-primary")} />
 
@@ -129,7 +137,7 @@ function NotificationItem({
           <TooltipContent side="bottom">Archive</TooltipContent>
         </Tooltip>
       </div>
-    </button>
+    </div>
   );
 }
 
