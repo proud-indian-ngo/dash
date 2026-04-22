@@ -13,9 +13,10 @@ function getParentDomain(): string {
 
 function buildCsp(): string {
   const parentDomain = getParentDomain();
+  const posthogOrigin = new URL(env.POSTHOG_HOST).origin;
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com ${posthogOrigin}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo`,
     `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
