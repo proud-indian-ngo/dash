@@ -72,8 +72,9 @@ test.describe("Event detail — info display", () => {
 
     await expect(
       page
-        .locator('[data-slot="card-content"]', { hasText: "Location" })
+        .locator('#main [data-slot="card-content"]')
         .getByText("MG Road, Bangalore")
+        .first()
     ).toBeVisible({ timeout: 10_000 });
   });
 
