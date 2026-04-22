@@ -25,6 +25,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string (pooled) |
+| `DB_PORT` | Active Postgres port for `docker-compose.prod.yml` cutovers (default `5432`; set `5433` after PG18 cutover) |
 | `ZERO_UPSTREAM_DB` | PostgreSQL connection string (unpooled, for WAL replication) |
 | `BETTER_AUTH_SECRET` | Session encryption secret (min 32 chars) |
 | `BETTER_AUTH_URL` | Auth base URL (e.g., `https://dash.example.com`) |
@@ -118,6 +119,25 @@ These are consumed directly by the `zero-cache` binary:
 | `ZERO_REPLICA_FILE` | Path for local SQLite replica |
 
 ## Database Setup
+
+### PG17 → PG18 cutover (Docker Compose / Dokploy)
+
+`docker-compose.prod.yml` supports a side-by-side major-version cutover:
+
+- `postgres` (existing PG17 service) listens on internal port `5432`
+- `postgres18` listens on internal port `5433`
+- `DB_PORT` selects which one `migrate`, `web`, and `zero-cache` use
+
+Recommended flow:
+
+1. Deploy the updated compose file so both `postgres` and `postgres18` exist.
+2. From your laptop or any machine with Docker CLI access to the prod daemon, run `bash scripts/pg-prod-cutover.sh --docker-host ssh://<user>@<host> bootstrap-pg18` to copy data from `postgres` (PG17) into `postgres18` and compare row counts.
+3. During the maintenance window, run `bash scripts/pg-prod-cutover.sh --docker-host ssh://<user>@<host> final-sync`.
+4. In Dokploy, set `DB_PORT=5433` and redeploy so the app + Zero switch to PG18.
+5. Verify with `bash scripts/pg-prod-cutover.sh --docker-host ssh://<user>@<host> verify`.
+6. After the rollback window ends, remove `postgres` from compose and run `bash scripts/pg-prod-cutover.sh --docker-host ssh://<user>@<host> cleanup-pg17`.
+
+The cutover script uses your local `docker-compose.prod.yml` and can talk to a remote Docker daemon over SSH, so it does **not** require a full repo checkout inside the running containers. Provide prod secrets locally via your shell environment or `--env-file`.
 
 ### 1. PostgreSQL
 

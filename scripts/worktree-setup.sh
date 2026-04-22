@@ -120,9 +120,10 @@ EOF
 name: pi-dash-wt${WORKTREE_ID}
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18.3
     container_name: ${DB_CONTAINER}
     environment:
+      PGDATA: /var/lib/postgresql/18/docker
       POSTGRES_DB: pi-dash
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "${DEV_DB_PASSWORD}"

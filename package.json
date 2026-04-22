@@ -74,6 +74,7 @@
     "db:watch": "turbo run --filter=@pi-dash/db db:watch",
     "db:stop": "turbo run --filter=@pi-dash/db db:stop",
     "db:down": "turbo run --filter=@pi-dash/db db:down",
+    "db:cutover:prod": "bash scripts/pg-prod-cutover.sh",
     "whatsapp:start": "turbo run --filter=@pi-dash/db whatsapp:start",
     "whatsapp:stop": "turbo run --filter=@pi-dash/db whatsapp:stop",
     "auth:seed-admin": "turbo run --filter=@pi-dash/auth auth:seed-admin",
