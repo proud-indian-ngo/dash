@@ -106,7 +106,7 @@
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "knip": "^6.5.0",
-    "lefthook": "2.1.5",
+    "lefthook": "2.1.6",
     "turbo": "^2.9.6",
     "typescript": "catalog:",
     "ultracite": "7.5.8",
