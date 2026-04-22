@@ -34,7 +34,7 @@ export function ZeroInit({ children }: ZeroInitProps) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const role = session?.user.role ?? "unoriented_volunteer";
-  const userID = session?.user.id ?? "anon";
+  const userID = session?.user.id;
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const userId = session?.user?.id;
@@ -57,9 +57,9 @@ export function ZeroInit({ children }: ZeroInitProps) {
 
   const context = useMemo(
     () =>
-      userID === "anon"
-        ? { permissions: [], role: "unoriented_volunteer", userId: "anon" }
-        : { permissions, role, userId: userID },
+      userID
+        ? { permissions, role, userId: userID }
+        : { permissions: [], role: "unoriented_volunteer", userId: "anon" },
     [permissions, role, userID]
   );
 
