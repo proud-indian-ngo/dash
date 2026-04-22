@@ -61,6 +61,7 @@ export const env = createEnv({
     VOUCHER_FINANCE_ADMIN_NAME: z.string().min(1),
     POSTHOG_API_KEY: z.string().min(1).optional(),
     POSTHOG_HOST: z.url().default("https://us.i.posthog.com"),
+    VITE_POSTHOG_HOST: z.url().optional(),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
     OTEL_SERVICE_NAME: z.string().default("pi-dash"),
     NODE_ENV: z

@@ -13,7 +13,9 @@ function getParentDomain(): string {
 
 function buildCsp(): string {
   const parentDomain = getParentDomain();
-  const posthogOrigin = new URL(env.POSTHOG_HOST).origin;
+  const posthogOrigin = env.VITE_POSTHOG_HOST
+    ? new URL(env.VITE_POSTHOG_HOST).origin
+    : new URL(env.POSTHOG_HOST).origin;
   return [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com ${posthogOrigin}`,
