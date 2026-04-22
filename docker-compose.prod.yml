@@ -1,6 +1,6 @@
 name: pi-dash
 
-x-db-url: &db-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@tailscale-postgres:${DB_PORT:-5432}/${POSTGRES_DB:-pi-dash}
+x-db-url: &db-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@tailscale-postgres:5432/${POSTGRES_DB:-pi-dash}
 
 services:
   migrate:
@@ -13,8 +13,6 @@ services:
       DATABASE_URL: *db-url
     depends_on:
       postgres:
-        condition: service_healthy
-      postgres18:
         condition: service_healthy
     restart: "no"
 
@@ -85,8 +83,6 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
-      postgres18:
-        condition: service_healthy
       zero-cache:
         condition: service_healthy
     restart: unless-stopped
@@ -132,26 +128,6 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:17.9
-    environment:
-      TZ: Asia/Kolkata
-      POSTGRES_DB: ${POSTGRES_DB:-pi-dash}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    command: postgres -p 5432 -c wal_level=logical
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    depends_on:
-      - tailscale-postgres
-    network_mode: service:tailscale-postgres
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -p 5432 -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  postgres18:
     image: postgres:18.3
     environment:
       TZ: Asia/Kolkata
@@ -159,14 +135,14 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-pi-dash}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    command: postgres -p 5433 -c wal_level=logical
+    command: postgres -c wal_level=logical
     volumes:
       - postgres18_data:/var/lib/postgresql
     depends_on:
       - tailscale-postgres
     network_mode: service:tailscale-postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -p 5433 -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -215,8 +191,6 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
-      postgres18:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4848/keepalive"]
       interval: 5s
@@ -225,7 +199,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
   postgres18_data:
   zero_cache_data:
   whatsapp_data:
