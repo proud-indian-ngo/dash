@@ -53,15 +53,21 @@ test.describe("Banking settings — bank account management", () => {
         await expect(e2eCard).toBeHidden({ timeout: 5000 });
       }
     };
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
         cleanup(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("cleanup timeout")), 30_000)
-        ),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("cleanup timeout")),
+            30_000
+          );
+        }),
       ]);
     } catch (error) {
       console.warn("[afterEach cleanup] failed to delete E2E accounts:", error);
+    } finally {
+      clearTimeout(timer);
     }
   });
 
