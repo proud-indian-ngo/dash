@@ -26,6 +26,69 @@ export interface PublicDisplayRow {
   teamId: string;
 }
 
+function expandSeriesRows(
+  event: PublicEventRow,
+  base: Omit<PublicDisplayRow, "startTime" | "occDate" | "isVirtualOccurrence">,
+  rangeStart: number,
+  rangeEnd: number
+): PublicDisplayRow[] {
+  const rule = parseRecurrenceRule(event.recurrenceRule);
+  if (!rule) {
+    return [];
+  }
+
+  const rows: PublicDisplayRow[] = [];
+  const exceptionDates = new Set<string>();
+  for (const exc of event.exceptions) {
+    if (exc.originalDate) {
+      exceptionDates.add(exc.originalDate);
+    }
+  }
+
+  const occs = expandSeries(
+    rule,
+    event.startTime,
+    event.endTime,
+    rangeStart,
+    rangeEnd,
+    exceptionDates
+  );
+  const virtualMembers = event.inheritVolunteers ? event.members : [];
+  for (const occ of occs) {
+    rows.push({
+      ...base,
+      endTime: occ.endTime,
+      members: virtualMembers,
+      startTime: occ.startTime,
+      occDate: occ.date,
+      isVirtualOccurrence: true,
+    });
+  }
+
+  for (const exc of event.exceptions) {
+    if (
+      !exc.cancelledAt &&
+      exc.startTime >= rangeStart &&
+      exc.startTime <= rangeEnd
+    ) {
+      rows.push({
+        ...base,
+        endTime: exc.endTime,
+        eventId: exc.id,
+        isPublic: exc.isPublic,
+        location: exc.location,
+        startTime: exc.startTime,
+        members: exc.members,
+        name: exc.name,
+        occDate: exc.originalDate,
+        isVirtualOccurrence: false,
+      });
+    }
+  }
+
+  return rows;
+}
+
 export function buildPublicDisplayRows(
   data: PublicEventRow[],
   rangeStart = Date.now() - 4 * 7 * 24 * 60 * 60 * 1000,
@@ -35,7 +98,6 @@ export function buildPublicDisplayRows(
   const rows: PublicDisplayRow[] = [];
 
   for (const event of data) {
-    const rule = parseRecurrenceRule(event.recurrenceRule);
     const base = {
       city: event.city,
       endTime: event.endTime,
@@ -48,7 +110,7 @@ export function buildPublicDisplayRows(
       teamId: event.teamId,
     };
 
-    if (!rule) {
+    if (!event.recurrenceRule) {
       if (event.startTime >= rangeStart && event.startTime <= rangeEnd) {
         rows.push({
           ...base,
@@ -60,51 +122,7 @@ export function buildPublicDisplayRows(
       continue;
     }
 
-    const exceptionDates = new Set<string>();
-    for (const exc of event.exceptions) {
-      if (exc.originalDate) {
-        exceptionDates.add(exc.originalDate);
-      }
-    }
-
-    const occs = expandSeries(
-      rule,
-      event.startTime,
-      event.endTime,
-      rangeStart,
-      rangeEnd,
-      exceptionDates
-    );
-    for (const occ of occs) {
-      rows.push({
-        ...base,
-        endTime: occ.endTime,
-        startTime: occ.startTime,
-        occDate: occ.date,
-        isVirtualOccurrence: true,
-      });
-    }
-
-    for (const exc of event.exceptions) {
-      if (
-        !exc.cancelledAt &&
-        exc.startTime >= rangeStart &&
-        exc.startTime <= rangeEnd
-      ) {
-        rows.push({
-          ...base,
-          endTime: exc.endTime,
-          eventId: exc.id,
-          isPublic: exc.isPublic,
-          location: exc.location,
-          startTime: exc.startTime,
-          members: exc.members,
-          name: exc.name,
-          occDate: exc.originalDate,
-          isVirtualOccurrence: false,
-        });
-      }
-    }
+    rows.push(...expandSeriesRows(event, base, rangeStart, rangeEnd));
   }
 
   // Upcoming first (ascending), then past (most recent first)

@@ -84,6 +84,22 @@ function expandSeriesEvent(
   // IS the series parent — not a virtual occurrence.
   const seriesStartDate = format(new Date(event.startTime), "yyyy-MM-dd");
 
+  // Legacy data may have a materialized exception on the parent's start date,
+  // which causes expandSeries to skip it. Ensure the parent row always exists.
+  if (exceptionDates.has(seriesStartDate)) {
+    rows.push({
+      key: event.id,
+      event,
+      eventId: event.id,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      members: event.members,
+      isVirtual: false,
+      seriesId: null,
+      originalDate: null,
+    });
+  }
+
   for (const occ of virtualOccs) {
     const isSeriesParent = occ.date === seriesStartDate;
     rows.push({
@@ -93,7 +109,7 @@ function expandSeriesEvent(
       virtual: isSeriesParent ? undefined : occ,
       startTime: occ.startTime,
       endTime: occ.endTime,
-      members: event.members,
+      members: isSeriesParent || event.inheritVolunteers ? event.members : [],
       isVirtual: !isSeriesParent,
       seriesId: isSeriesParent ? null : event.id,
       originalDate: isSeriesParent ? null : occ.date,

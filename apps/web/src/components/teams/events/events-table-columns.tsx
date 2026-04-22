@@ -1,4 +1,4 @@
-import { RepeatIcon } from "@hugeicons/core-free-icons";
+import { GitForkIcon, RepeatIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
@@ -28,6 +28,16 @@ interface ColumnCallbacks {
   onSelectEvent: (row: EventDisplayRow) => void;
 }
 
+function getSeriesIcon(row: EventDisplayRow) {
+  if (row.seriesId) {
+    return RepeatIcon;
+  }
+  if (row.event.recurrenceRule) {
+    return GitForkIcon;
+  }
+  return null;
+}
+
 export function createEventsTableColumns({
   canCancelPast,
   canCreate,
@@ -47,16 +57,16 @@ export function createEventsTableColumns({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       cell: ({ row }) => {
-        const isSeries = !!row.original.seriesId;
+        const seriesIcon = getSeriesIcon(row.original);
         return (
           <div className="flex min-w-0 items-center gap-1.5">
-            {isSeries ? (
+            {seriesIcon && (
               <HugeiconsIcon
                 className="size-3.5 shrink-0 text-muted-foreground"
-                icon={RepeatIcon}
+                icon={seriesIcon}
                 strokeWidth={2}
               />
-            ) : null}
+            )}
             <button
               className="truncate text-left font-medium text-sm hover:underline"
               onClick={(e) => {

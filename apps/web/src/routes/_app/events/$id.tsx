@@ -12,6 +12,41 @@ import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
 import { isTeamLead } from "@/lib/team-utils";
 
+function deriveDisplayEvent(
+  event: EventRow,
+  occDate: string | undefined
+): { displayEvent: EventRow; isVirtualOccurrence: boolean } {
+  const isVirtualOccurrence =
+    !!occDate && !!event.recurrenceRule && !event.seriesId;
+  if (!isVirtualOccurrence) {
+    return { displayEvent: event, isVirtualOccurrence: false };
+  }
+  return {
+    displayEvent: {
+      ...event,
+      ...applyOccurrenceDate(event.startTime, event.endTime, occDate),
+      ...(event.inheritVolunteers
+        ? {}
+        : { members: [] as typeof event.members }),
+    },
+    isVirtualOccurrence: true,
+  };
+}
+
+function deriveSeriesParent(
+  event: EventRow,
+  parentEvent: EventRow | null,
+  displayEvent: EventRow
+): EventRow | undefined {
+  if (event.seriesId) {
+    return parentEvent ?? undefined;
+  }
+  if (displayEvent !== event) {
+    return event;
+  }
+  return undefined;
+}
+
 export const Route = createFileRoute("/_app/events/$id")({
   validateSearch: z.object({
     occDate: z
@@ -60,6 +95,12 @@ function EventDetailRouteComponent() {
   );
   const team = (teamResult ?? null) as TeamDetailData | null;
 
+  const [parentResult] = useQuery(
+    queries.teamEvent.byId({ id: event?.seriesId ?? "" }),
+    { enabled: !!event?.seriesId }
+  );
+  const parentEvent = (parentResult ?? null) as EventRow | null;
+
   const [interests] = useQuery(queries.eventInterest.byEvent({ eventId: id }));
 
   if (!event && eventStatus.type !== "complete") {
@@ -95,14 +136,9 @@ function EventDetailRouteComponent() {
   const isTeamMember =
     team?.members.some((m) => m.userId === session.user.id) ?? false;
 
-  // For virtual occurrences, override the displayed start/end with the occurrence date
-  const displayEvent =
-    occDate && event.recurrenceRule
-      ? {
-          ...event,
-          ...applyOccurrenceDate(event.startTime, event.endTime, occDate),
-        }
-      : event;
+  const { displayEvent } = deriveDisplayEvent(event, occDate);
+
+  const seriesParent = deriveSeriesParent(event, parentEvent, displayEvent);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -126,7 +162,7 @@ function EventDetailRouteComponent() {
         isTeamMember={isTeamMember}
         myInterest={myInterest ?? null}
         occDate={occDate}
-        parentEvent={displayEvent === event ? undefined : event}
+        parentEvent={seriesParent}
         team={team}
       />
     </div>
