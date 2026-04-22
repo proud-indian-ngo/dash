@@ -69,7 +69,7 @@ test.describe("Event detail — info display", () => {
       return;
     }
 
-    await expect(page.getByText("MG Road, Bangalore")).toBeVisible();
+    await expect(page.getByText("MG Road, Bangalore").first()).toBeVisible();
   });
 
   test("shows Public or Private badge", async ({ page }, testInfo) => {
