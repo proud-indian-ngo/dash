@@ -24,6 +24,12 @@ export function installFetchTracing(): void {
   const originalFetch = window.fetch;
   const tracedFetch: typeof fetch = Object.assign(
     (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = input instanceof Request ? input.url : String(input);
+      const isSameOrigin =
+        url.startsWith("/") || url.startsWith(window.location.origin);
+      if (!isSameOrigin) {
+        return originalFetch(input, init);
+      }
       const headers = new Headers(init?.headers);
       if (!headers.has("traceparent")) {
         const traceId = generateTraceId();

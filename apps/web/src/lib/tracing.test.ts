@@ -9,7 +9,10 @@ describe("installFetchTracing", () => {
 
   beforeEach(() => {
     fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
-    vi.stubGlobal("window", { fetch: fetchMock });
+    vi.stubGlobal("window", {
+      fetch: fetchMock,
+      location: { origin: "http://localhost:3001" },
+    });
   });
 
   afterEach(() => {
@@ -50,5 +53,27 @@ describe("installFetchTracing", () => {
     expect(
       new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("traceparent")
     ).toBe(traceparent);
+  });
+
+  it("skips traceparent for cross-origin requests", async () => {
+    installFetchTracing();
+
+    await window.fetch("https://r2.cloudflarestorage.com/bucket/file.jpg", {
+      method: "PUT",
+      headers: { "Content-Type": "image/jpeg" },
+    });
+
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.has("traceparent")).toBe(false);
+    expect(headers.get("Content-Type")).toBe("image/jpeg");
+  });
+
+  it("adds traceparent for same-origin absolute URLs", async () => {
+    installFetchTracing();
+
+    await window.fetch("http://localhost:3001/api/test");
+
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("traceparent")).toMatch(TRACEPARENT_RE);
   });
 });
