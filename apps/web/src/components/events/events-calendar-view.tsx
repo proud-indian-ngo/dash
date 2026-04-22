@@ -18,6 +18,7 @@ import {
   subWeeks,
 } from "date-fns";
 import capitalize from "lodash/capitalize";
+import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { EventDateGroup } from "@/components/events/event-date-group";
 import { MobileWeekStrip } from "@/components/events/mobile-week-strip";
@@ -138,10 +139,25 @@ export function EventsCalendarView({
 }: EventsCalendarViewProps) {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [filter, setFilter] = useState<EventFilter>("all");
-  const [timeScope, setTimeScope] = useState<TimeScope>("all");
-  const [cityFilter, setCityFilter] = useState<string>("all");
-  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useQueryState(
+    "show",
+    parseAsStringLiteral(["all", "my-teams", "public"] as const).withDefault(
+      "all"
+    )
+  );
+  const [timeScope, setTimeScope] = useQueryState(
+    "time",
+    parseAsStringLiteral([
+      "all",
+      "this-week",
+      "this-month",
+    ] as const).withDefault("all")
+  );
+  const [cityFilter, setCityFilter] = useQueryState(
+    "city",
+    parseAsString.withDefault("all")
+  );
+  const [search, setSearch] = useQueryState("s", parseAsString.withDefault(""));
 
   const calendarRangeStart = useMemo(
     () => subWeeks(startOfMonth(selectedMonth), 1).getTime(),
