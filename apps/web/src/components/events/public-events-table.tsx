@@ -1,9 +1,9 @@
-import {
-  expandSeries,
-  parseRecurrenceRule,
-} from "@pi-dash/shared/rrule-expand";
 import type { TeamEvent, TeamEventMember } from "@pi-dash/zero/schema";
-import { addWeeks, format } from "date-fns";
+import { addWeeks } from "date-fns";
+import {
+  expandSeriesOccurrences,
+  sortUpcomingFirstThenPast,
+} from "@/lib/event-display-utils";
 
 export type PublicEventRow = TeamEvent & {
   exceptions: readonly (TeamEvent & { members: readonly TeamEventMember[] })[];
@@ -32,38 +32,29 @@ function expandSeriesRows(
   rangeStart: number,
   rangeEnd: number
 ): PublicDisplayRow[] {
-  const rule = parseRecurrenceRule(event.recurrenceRule);
-  if (!rule) {
+  const result = expandSeriesOccurrences(
+    event.recurrenceRule,
+    event.startTime,
+    event.endTime,
+    event.exceptions,
+    rangeStart,
+    rangeEnd
+  );
+  if (!result) {
     return [];
   }
 
   const rows: PublicDisplayRow[] = [];
-  const exceptionDates = new Set<string>();
-  for (const exc of event.exceptions) {
-    if (exc.originalDate) {
-      exceptionDates.add(exc.originalDate);
-    }
-  }
-
-  const occs = expandSeries(
-    rule,
-    event.startTime,
-    event.endTime,
-    rangeStart,
-    rangeEnd,
-    exceptionDates
-  );
-  const seriesStartDate = format(new Date(event.startTime), "yyyy-MM-dd");
   const virtualMembers = event.inheritVolunteers ? event.members : [];
-  for (const occ of occs) {
-    const isSeriesParent = occ.date === seriesStartDate;
+
+  for (const occ of result.occurrences) {
     rows.push({
       ...base,
       endTime: occ.endTime,
-      members: isSeriesParent ? event.members : virtualMembers,
+      members: occ.isSeriesParent ? event.members : virtualMembers,
       startTime: occ.startTime,
-      occDate: isSeriesParent ? null : occ.date,
-      isVirtualOccurrence: !isSeriesParent,
+      occDate: occ.isSeriesParent ? null : occ.date,
+      isVirtualOccurrence: !occ.isSeriesParent,
     });
   }
 
@@ -96,7 +87,6 @@ export function buildPublicDisplayRows(
   rangeStart = Date.now() - 4 * 7 * 24 * 60 * 60 * 1000,
   rangeEnd = addWeeks(new Date(), 4).getTime()
 ): PublicDisplayRow[] {
-  const now = Date.now();
   const rows: PublicDisplayRow[] = [];
 
   for (const event of data) {
@@ -127,20 +117,5 @@ export function buildPublicDisplayRows(
     rows.push(...expandSeriesRows(event, base, rangeStart, rangeEnd));
   }
 
-  // Upcoming first (ascending), then past (most recent first)
-  rows.sort((a, b) => {
-    const aUpcoming = a.startTime >= now;
-    const bUpcoming = b.startTime >= now;
-    if (aUpcoming && !bUpcoming) {
-      return -1;
-    }
-    if (!aUpcoming && bUpcoming) {
-      return 1;
-    }
-    if (aUpcoming) {
-      return a.startTime - b.startTime;
-    }
-    return b.startTime - a.startTime;
-  });
-  return rows;
+  return sortUpcomingFirstThenPast(rows);
 }

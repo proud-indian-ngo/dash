@@ -13,7 +13,7 @@ import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
-import { subDays } from "date-fns";
+import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -248,14 +248,13 @@ const SEED_PENDING_UPDATE_CONTENT =
 async function ensureEventWithPendingUpdate(
   adminUserId: string,
   volunteerUserId: string
-): Promise<void> {
-  // Check if team already exists
+): Promise<string> {
   const existingTeam = await db.query.team.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_TEAM_NAME),
   });
   if (existingTeam) {
     log("E2E Updates Team already exists — skipping");
-    return;
+    return existingTeam.id;
   }
 
   const now = new Date();
@@ -267,7 +266,6 @@ async function ensureEventWithPendingUpdate(
     id: teamId,
     name: SEED_TEAM_NAME,
     description: "Team for E2E update approval tests",
-    createdBy: adminUserId,
     createdAt: now,
     updatedAt: now,
   });
@@ -332,6 +330,116 @@ async function ensureEventWithPendingUpdate(
   });
 
   log("Created E2E team, past event, and pending update");
+  return teamId;
+}
+
+interface FilterTestEvent {
+  cancelled?: boolean;
+  city: "bangalore" | "mumbai";
+  isPublic: boolean;
+  location: string;
+  name: string;
+  recurrenceRule?: { rrule: string };
+  start: (now: Date) => Date;
+}
+
+const FILTER_TEST_EVENTS: FilterTestEvent[] = [
+  {
+    name: "E2E Upcoming Public Bangalore",
+    isPublic: true,
+    start: (now: Date) => addDays(now, 3),
+    city: "bangalore",
+    location: "MG Road, Bangalore",
+  },
+  {
+    name: "E2E Upcoming Private Mumbai",
+    isPublic: false,
+    start: (now: Date) => addDays(now, 5),
+    city: "mumbai",
+    location: "Andheri West, Mumbai",
+  },
+  {
+    name: "E2E Upcoming Recurring Public",
+    isPublic: true,
+    start: (now: Date) => subDays(now, 14),
+    city: "bangalore",
+    location: "Indiranagar, Bangalore",
+    recurrenceRule: { rrule: "FREQ=WEEKLY" },
+  },
+  {
+    name: "E2E Past Public Mumbai",
+    isPublic: true,
+    start: (now: Date) => subDays(now, 10),
+    city: "mumbai",
+    location: "Dadar, Mumbai",
+  },
+  {
+    name: "E2E Past Private Bangalore",
+    isPublic: false,
+    start: (now: Date) => subDays(now, 5),
+    city: "bangalore",
+    location: "Koramangala, Bangalore",
+  },
+  {
+    name: "E2E Cancelled Future Event",
+    isPublic: true,
+    start: (now: Date) => addDays(now, 7),
+    city: "bangalore",
+    location: "Cubbon Park, Bangalore",
+    cancelled: true,
+  },
+  {
+    name: "E2E Past Cancelled Event",
+    isPublic: false,
+    start: (now: Date) => subDays(now, 3),
+    city: "mumbai",
+    location: "Bandra, Mumbai",
+    cancelled: true,
+  },
+];
+
+async function ensureFilterTestEvents(
+  teamId: string,
+  adminUserId: string,
+  volunteerUserId: string
+): Promise<void> {
+  const first = await db.query.teamEvent.findFirst({
+    where: (table, ops) => ops.eq(table.name, "E2E Upcoming Public Bangalore"),
+  });
+  if (first) {
+    log("Filter test events already exist — skipping");
+    return;
+  }
+
+  const now = new Date();
+
+  for (const e of FILTER_TEST_EVENTS) {
+    const startTime = e.start(now);
+    const id = uuidv7();
+    await db.insert(teamEvent).values({
+      id,
+      teamId,
+      name: e.name,
+      description: `${e.name} — E2E filter test event`,
+      startTime,
+      endTime: addHours(startTime, 2),
+      isPublic: e.isPublic,
+      city: e.city,
+      location: e.location,
+      recurrenceRule: e.recurrenceRule,
+      cancelledAt: e.cancelled ? now : undefined,
+      createdBy: adminUserId,
+      createdAt: subDays(now, 7),
+      updatedAt: subDays(now, 7),
+    });
+
+    await db.insert(teamEventMember).values([
+      { id: uuidv7(), eventId: id, userId: adminUserId, addedAt: now },
+      { id: uuidv7(), eventId: id, userId: volunteerUserId, addedAt: now },
+    ]);
+  }
+
+  log(`Created ${FILTER_TEST_EVENTS.length} filter test events`);
 }
 
 async function seed(): Promise<void> {
@@ -354,7 +462,11 @@ async function seed(): Promise<void> {
   }
 
   await ensureReimbursement(superAdminUserId);
-  await ensureEventWithPendingUpdate(superAdminUserId, volunteerUserId);
+  const teamId = await ensureEventWithPendingUpdate(
+    superAdminUserId,
+    volunteerUserId
+  );
+  await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
 }
 
 seed().catch((error: unknown) => {
