@@ -3,7 +3,7 @@ import {
   parseRecurrenceRule,
 } from "@pi-dash/shared/rrule-expand";
 import type { TeamEvent, TeamEventMember } from "@pi-dash/zero/schema";
-import { addWeeks } from "date-fns";
+import { addWeeks, format } from "date-fns";
 
 export type PublicEventRow = TeamEvent & {
   exceptions: readonly (TeamEvent & { members: readonly TeamEventMember[] })[];
@@ -53,15 +53,17 @@ function expandSeriesRows(
     rangeEnd,
     exceptionDates
   );
+  const seriesStartDate = format(new Date(event.startTime), "yyyy-MM-dd");
   const virtualMembers = event.inheritVolunteers ? event.members : [];
   for (const occ of occs) {
+    const isSeriesParent = occ.date === seriesStartDate;
     rows.push({
       ...base,
       endTime: occ.endTime,
-      members: virtualMembers,
+      members: isSeriesParent ? event.members : virtualMembers,
       startTime: occ.startTime,
-      occDate: occ.date,
-      isVirtualOccurrence: true,
+      occDate: isSeriesParent ? null : occ.date,
+      isVirtualOccurrence: !isSeriesParent,
     });
   }
 
