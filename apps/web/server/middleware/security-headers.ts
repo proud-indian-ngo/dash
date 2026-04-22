@@ -11,24 +11,11 @@ function getParentDomain(): string {
   return parts.length > 2 ? parts.slice(1).join(".") : hostname;
 }
 
-function getPosthogOrigin(): string | undefined {
-  const host = process.env.VITE_POSTHOG_HOST || process.env.POSTHOG_HOST;
-  if (!host) {
-    return undefined;
-  }
-  try {
-    return new URL(host).origin;
-  } catch {
-    return undefined;
-  }
-}
-
 function buildCsp(): string {
   const parentDomain = getParentDomain();
-  const posthogOrigin = getPosthogOrigin();
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com${posthogOrigin ? ` ${posthogOrigin}` : ""}`,
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo`,
     `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
