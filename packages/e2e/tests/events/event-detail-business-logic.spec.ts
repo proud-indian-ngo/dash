@@ -70,9 +70,12 @@ test.describe("Event detail — info display", () => {
       return;
     }
 
-    const location = page.getByText("MG Road, Bangalore").first();
-    await location.scrollIntoViewIfNeeded();
-    await expect(location).toBeVisible({ timeout: 10_000 });
+    const detailsCard = page.locator('[data-slot="card"]').filter({
+      hasText: "Details",
+    });
+    await expect(detailsCard.getByText("MG Road, Bangalore")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("shows Public or Private badge", async ({ page }, testInfo) => {
