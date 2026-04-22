@@ -70,12 +70,11 @@ test.describe("Event detail — info display", () => {
       return;
     }
 
-    const detailsCard = page.locator('[data-slot="card"]').filter({
-      hasText: "Details",
-    });
-    await expect(detailsCard.getByText("MG Road, Bangalore")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page
+        .locator('[data-slot="card-content"]', { hasText: "Location" })
+        .getByText("MG Road, Bangalore")
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("shows Public or Private badge", async ({ page }, testInfo) => {
