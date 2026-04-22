@@ -16,6 +16,7 @@ export function initPostHog(): void {
   posthogJs.init(key, {
     api_host: env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com",
     autocapture: false,
+    capture_exceptions: true,
     capture_pageview: true,
     capture_pageleave: true,
     session_recording: { recordCrossOriginIframes: false },

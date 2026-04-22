@@ -1,5 +1,7 @@
+import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
+import { sendToPostHogEvents } from "evlog/posthog";
 
 export const Route = createFileRoute("/api/log/ingest")({
   server: {
@@ -35,6 +37,24 @@ export const Route = createFileRoute("/api/log/ingest")({
             log.error(
               typeof event.message === "string" ? event.message : "Client error"
             );
+            if (env.POSTHOG_API_KEY) {
+              sendToPostHogEvents(
+                {
+                  ...event,
+                  source: "client",
+                  timestamp: new Date().toISOString(),
+                  level: "error" as const,
+                  service: "pi-dash-client",
+                  environment: process.env.NODE_ENV ?? "development",
+                },
+                {
+                  apiKey: env.POSTHOG_API_KEY,
+                  host: env.POSTHOG_HOST,
+                }
+              ).catch(() => {
+                // Non-critical: don't block log ingestion if PostHog is down
+              });
+            }
           } else {
             log.emit();
           }
