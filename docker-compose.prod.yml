@@ -68,7 +68,7 @@ services:
       VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
       POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
       POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
-      VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
       TZ: Asia/Kolkata
       NODE_ENV: production
@@ -136,7 +136,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     command: postgres -c wal_level=logical
     volumes:
-      - postgres17_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     depends_on:
       - tailscale-postgres
     network_mode: service:tailscale-postgres
@@ -179,10 +179,8 @@ services:
       ZERO_QUERY_FORWARD_COOKIES: "true"
       ZERO_QUERY_URL: http://web:${PORT:-3000}/api/zero/query
       ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
-      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${POSTHOG_HOST:-https://us.i.posthog.com}/i/v1/logs
-      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer ${POSTHOG_API_KEY:-}"
-      OTEL_METRICS_EXPORTER: "none"
-      OTEL_TRACES_EXPORTER: "none"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.name=zero-cache}
       OTEL_NODE_RESOURCE_DETECTORS: ${OTEL_NODE_RESOURCE_DETECTORS:-env,host,os}
     volumes:
@@ -200,7 +198,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres17_data:
+  postgres_data:
   zero_cache_data:
   whatsapp_data:
   tailscale_gowa_data:

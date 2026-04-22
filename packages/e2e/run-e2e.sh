@@ -62,10 +62,9 @@ cat > "$E2E_COMPOSE_FILE" <<YAML
 name: ${COMPOSE_PROJECT}
 services:
   postgres-test:
-    image: postgres:18.3
+    image: postgres:17
     container_name: ${TEST_CONTAINER}
     environment:
-      PGDATA: /var/lib/postgresql/18/docker
       POSTGRES_DB: pi-dash-test
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}

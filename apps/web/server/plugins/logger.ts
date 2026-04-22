@@ -5,9 +5,11 @@ import { definePlugin } from "nitro";
 
 function buildDrain() {
   const apiKey = process.env.POSTHOG_API_KEY;
-  const endpoint = apiKey
-    ? `${process.env.POSTHOG_HOST ?? "https://us.i.posthog.com"}/i`
-    : process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  const endpoint =
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
+    (apiKey
+      ? `${process.env.POSTHOG_HOST ?? "https://us.i.posthog.com"}/i/v1/logs`
+      : undefined);
 
   if (!endpoint) {
     return undefined;

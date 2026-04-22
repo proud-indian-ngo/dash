@@ -13,12 +13,9 @@ function getParentDomain(): string {
 
 function buildCsp(): string {
   const parentDomain = getParentDomain();
-  const posthogOrigin = env.VITE_POSTHOG_HOST
-    ? new URL(env.VITE_POSTHOG_HOST).origin
-    : new URL(env.POSTHOG_HOST).origin;
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com ${posthogOrigin}`,
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo`,
     `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
