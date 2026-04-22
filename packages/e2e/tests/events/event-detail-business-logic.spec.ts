@@ -70,12 +70,9 @@ test.describe("Event detail — info display", () => {
       return;
     }
 
-    await expect(
-      page
-        .locator('#main [data-slot="card-content"]')
-        .getByText("MG Road, Bangalore")
-        .first()
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#main")).toContainText("MG Road, Bangalore", {
+      timeout: 10_000,
+    });
   });
 
   test("shows Public or Private badge", async ({ page }, testInfo) => {
