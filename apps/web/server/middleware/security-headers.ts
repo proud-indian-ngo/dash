@@ -15,7 +15,7 @@ function buildCsp(): string {
   const parentDomain = getParentDomain();
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://*.${parentDomain}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo`,
     `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
