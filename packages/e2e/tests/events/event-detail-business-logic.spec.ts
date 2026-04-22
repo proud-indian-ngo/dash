@@ -33,6 +33,7 @@ async function navigateToTeamEvent(
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
     timeout: 10_000,
   });
+  await waitForZeroReady(page);
   return true;
 }
 
@@ -69,7 +70,9 @@ test.describe("Event detail — info display", () => {
       return;
     }
 
-    await expect(page.getByText("MG Road, Bangalore")).toBeVisible();
+    await expect(page.locator("#main")).toContainText("MG Road, Bangalore", {
+      timeout: 10_000,
+    });
   });
 
   test("shows Public or Private badge", async ({ page }, testInfo) => {

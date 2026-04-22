@@ -31,12 +31,10 @@ test.describe("Analytics dashboard (admin)", () => {
   });
 
   test("chart containers render after data loads", async ({ page }) => {
-    // Charts are lazy-loaded via Suspense; wait for at least one chart container
-    // Charts render as SVGs or named containers
     await expect(
       page
-        .locator(
-          'svg, :text-matches("Submission Trends|Category Breakdown|Request Submitters|Top Vendors", "i")'
+        .getByText(
+          /Submission Trends|Category Breakdown|Request Submitters|Top Vendors/i
         )
         .first()
     ).toBeVisible({ timeout: 15_000 });

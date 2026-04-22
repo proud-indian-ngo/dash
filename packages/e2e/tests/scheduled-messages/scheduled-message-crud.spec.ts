@@ -20,7 +20,7 @@ test.describe("Scheduled messages (admin)", () => {
 
   test("cancel closes dialog", async ({ page }) => {
     await page.getByRole("button", { name: "Schedule message" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Schedule message" });
     await expect(dialog).toBeVisible();
 
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -36,7 +36,7 @@ test.describe("Scheduled messages (admin)", () => {
 
     // -- Create --
     await page.getByRole("button", { name: "Schedule message" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Schedule message" });
     await expect(dialog).toBeVisible();
 
     // Fill message

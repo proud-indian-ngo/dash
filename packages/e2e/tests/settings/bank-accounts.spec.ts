@@ -23,9 +23,7 @@ function uniqueAccountNumber(suffix: string) {
 
 test.describe("Banking settings — bank account management", () => {
   test.afterEach(async ({ page }) => {
-    // Delete E2E accounts to prevent pollution of bank-account-selection.spec.ts
-    // (which expects exactly 2 combobox options).
-    try {
+    const cleanup = async () => {
       const dialog = await openBankingSettings(page);
       for (let i = 0; i < 5; i++) {
         const e2eCard = dialog
@@ -54,9 +52,22 @@ test.describe("Banking settings — bank account management", () => {
           .click({ timeout: 5000 });
         await expect(e2eCard).toBeHidden({ timeout: 5000 });
       }
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        cleanup(),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("cleanup timeout")),
+            30_000
+          );
+        }),
+      ]);
     } catch (error) {
-      // Log but don't swallow — test runner will see this in output
       console.warn("[afterEach cleanup] failed to delete E2E accounts:", error);
+    } finally {
+      clearTimeout(timer);
     }
   });
 
