@@ -42,11 +42,16 @@ export function resetUser(): void {
   posthogJs.reset();
 }
 
+const IGNORED_ERRORS = ["_nonReactive", "WebSocket connection closed abruptly"];
+
 export function captureException(
   error: Error,
   properties?: Record<string, unknown>
 ): void {
   if (!initialized) {
+    return;
+  }
+  if (IGNORED_ERRORS.some((msg) => error.message?.includes(msg))) {
     return;
   }
   posthogJs.captureException(error, properties);
