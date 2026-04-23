@@ -1,5 +1,11 @@
+import { db } from "@pi-dash/db";
+import { team as teamTable } from "@pi-dash/db/schema/team";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
+import { eq } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -174,7 +180,43 @@ export async function notifyEventCreated({
     clickAction: `/teams/${teamId}`,
     idempotencyKey: `event-created-${eventId}`,
     topic: TOPICS.EVENTS_SCHEDULE,
+    skipWhatsApp: true,
   });
+
+  const [row] = await db
+    .select({ groupId: teamTable.whatsappGroupId })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId))
+    .limit(1);
+  const waGroupId = row?.groupId;
+  if (!waGroupId) {
+    const log = createRequestLogger();
+    log.set({
+      handler: "notifyEventCreated",
+      event: "no_whatsapp_group",
+      teamId,
+      eventId,
+    });
+    log.warn("Team has no WhatsApp group configured — skipping group message");
+    log.emit();
+    return;
+  }
+
+  const [group] = await db
+    .select({ jid: whatsappGroup.jid })
+    .from(whatsappGroup)
+    .where(eq(whatsappGroup.id, waGroupId))
+    .limit(1);
+  if (group) {
+    const lines = [
+      "*🗓️ New event!*",
+      `${eventName} is happening${formatEventDetails(startTime, location)} — mark your calendar!`,
+    ];
+    if (env.APP_URL) {
+      lines.push(`\nView: ${env.APP_URL}/teams/${teamId}`);
+    }
+    await sendWhatsAppGroupMessage(group.jid, lines.join("\n"));
+  }
 }
 
 export async function notifyEventUpdated({

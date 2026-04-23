@@ -166,6 +166,8 @@ interface SendBulkMessageOptions {
   emailHtml?: string;
   idempotencyKey: string;
   inboxBody?: string;
+  /** Skip individual WhatsApp DMs — use when sending to a group separately. */
+  skipWhatsApp?: boolean;
   title: string;
   topic: Topic;
   userIds: string[];
@@ -208,6 +210,7 @@ export async function sendBulkMessage({
   clickAction,
   idempotencyKey,
   inboxBody,
+  skipWhatsApp,
   topic,
 }: SendBulkMessageOptions): Promise<SendBulkMessageResult> {
   if (userIds.length === 0) {
@@ -306,6 +309,9 @@ export async function sendBulkMessage({
   })();
 
   const whatsappPromise = (async (): Promise<number> => {
+    if (skipWhatsApp) {
+      return 0;
+    }
     try {
       const phoneMap = await getEnabledUserPhonesForTopic(userIds, topic);
       if (phoneMap.size === 0) {
