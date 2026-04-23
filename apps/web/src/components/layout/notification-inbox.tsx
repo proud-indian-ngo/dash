@@ -274,7 +274,7 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
           <TooltipContent>Mark all as read</TooltipContent>
         </Tooltip>
       </div>
-      <ScrollArea className="flex-1">{renderContent()}</ScrollArea>
+      <ScrollArea className="min-h-0 flex-1">{renderContent()}</ScrollArea>
     </div>
   );
 }
