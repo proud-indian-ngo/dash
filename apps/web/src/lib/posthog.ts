@@ -31,11 +31,9 @@ export function initPostHog(): void {
       if (!event) {
         return null;
       }
-      if (event.event === "$log_entry") {
-        const msg = String(event.properties?.$log_entry ?? "");
-        if (IGNORED_LOG_PATTERNS.some((p) => msg.includes(p))) {
-          return null;
-        }
+      const payload = JSON.stringify(event.properties ?? {});
+      if (IGNORED_LOG_PATTERNS.some((p) => payload.includes(p))) {
+        return null;
       }
       return event;
     },
