@@ -81,3 +81,6 @@ packages/e2e/.test-durations.json
 packages/e2e/shard-lists/
 packages/e2e/test-results/
 packages/e2e/playwright-report/
+
+# Migration scripts (local-only, not committed)
+scripts/pg18-migrate.sh

@@ -128,7 +128,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       TZ: Asia/Kolkata
       POSTGRES_DB: ${POSTGRES_DB:-pi-dash}
@@ -136,7 +136,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     command: postgres -c wal_level=logical
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres18_data:/var/lib/postgresql/data
     depends_on:
       - tailscale-postgres
     network_mode: service:tailscale-postgres
@@ -200,7 +200,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  postgres18_data:
   zero_cache_data:
   whatsapp_data:
   tailscale_gowa_data:
