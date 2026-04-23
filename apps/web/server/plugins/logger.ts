@@ -27,6 +27,7 @@ export default definePlugin((nitroApp) => {
       environment: process.env.NODE_ENV ?? "production",
     },
     pretty: process.env.NODE_ENV !== "production",
+    redact: { builtins: ["creditCard", "email", "jwt", "bearer", "iban"] },
     drain: buildDrain(),
   });
 
