@@ -16,6 +16,7 @@ export function initPostHog(): void {
   const IGNORED_LOG_PATTERNS = [
     "_nonReactive",
     "WebSocket connection closed abruptly",
+    "Failed to connect",
   ];
 
   posthogJs.init(key, {
