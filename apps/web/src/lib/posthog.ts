@@ -13,6 +13,11 @@ export function initPostHog(): void {
   }
 
   initialized = true;
+  const IGNORED_LOG_PATTERNS = [
+    "_nonReactive",
+    "WebSocket connection closed abruptly",
+  ];
+
   posthogJs.init(key, {
     api_host: env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com",
     autocapture: false,
@@ -22,6 +27,18 @@ export function initPostHog(): void {
     disable_session_recording: true,
     disable_surveys: true,
     persistence: "localStorage+cookie",
+    before_send: (event) => {
+      if (!event) {
+        return null;
+      }
+      if (event.event === "$log_entry") {
+        const msg = String(event.properties?.$log_entry ?? "");
+        if (IGNORED_LOG_PATTERNS.some((p) => msg.includes(p))) {
+          return null;
+        }
+      }
+      return event;
+    },
   });
 }
 
