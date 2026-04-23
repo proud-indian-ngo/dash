@@ -136,7 +136,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     command: postgres -c wal_level=logical
     volumes:
-      - postgres18_data:/var/lib/postgresql/data
+      - postgres18_data:/var/lib/postgresql
     depends_on:
       - tailscale-postgres
     network_mode: service:tailscale-postgres
