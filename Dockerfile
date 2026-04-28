@@ -41,6 +41,10 @@ RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then 
       export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID" && \
       export POSTHOG_CLI_HOST="${POSTHOG_CLI_HOST:-https://us.posthog.com}" && \
       bunx posthog-cli sourcemap inject --directory apps/web/.output/public && \
+      if ! grep -rq 'chunkId' apps/web/.output/public/assets/; then \
+        echo "ERROR: posthog-cli inject did not write chunkId to JS files" && exit 1; \
+      fi && \
+      echo "Verified: chunkId found in JS files" && \
       bunx posthog-cli sourcemap upload --directory apps/web/.output/public --delete-after; \
     fi
 
