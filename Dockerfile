@@ -36,18 +36,10 @@ ARG POSTHOG_PROJECT_ID
 ENV POSTHOG_PERSONAL_API_KEY=$POSTHOG_PERSONAL_API_KEY
 ENV POSTHOG_PROJECT_ID=$POSTHOG_PROJECT_ID
 RUN cd apps/web && bunx --bun vite build
-RUN bun -e "const r=await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.7.8/posthog-cli-x86_64-unknown-linux-gnu.tar.gz');require('fs').writeFileSync('/tmp/ph.tar.gz',Buffer.from(await r.arrayBuffer()))" \
-    && tar xzf /tmp/ph.tar.gz -C /tmp --strip-components=1 && mv /tmp/posthog-cli /usr/local/bin/ && rm /tmp/ph.tar.gz
+COPY scripts/upload-sourcemaps.ts scripts/upload-sourcemaps.ts
 RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then \
-      export POSTHOG_CLI_API_KEY="$POSTHOG_PERSONAL_API_KEY" && \
-      export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID" && \
-      export POSTHOG_CLI_HOST="${POSTHOG_CLI_HOST:-https://us.posthog.com}" && \
-      posthog-cli sourcemap inject --directory apps/web/.output/public && \
-      if ! grep -rq 'chunkId' apps/web/.output/public/assets/; then \
-        echo "ERROR: posthog-cli inject did not write chunkId to JS files" && exit 1; \
-      fi && \
-      echo "Verified: chunkId found in JS files" && \
-      posthog-cli sourcemap upload --directory apps/web/.output/public --delete-after; \
+      bun scripts/upload-sourcemaps.ts && \
+      find apps/web/.output/public -name '*.map' -delete; \
     fi
 
 # Stage 2: Migrator (runs pending DB migrations)
