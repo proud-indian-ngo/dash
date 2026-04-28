@@ -38,6 +38,13 @@ ENV POSTHOG_PERSONAL_API_KEY=$POSTHOG_PERSONAL_API_KEY
 ENV POSTHOG_PROJECT_ID=$POSTHOG_PROJECT_ID
 ENV POSTHOG_HOST=$POSTHOG_HOST
 RUN cd apps/web && bunx --bun vite build
+RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then \
+      export POSTHOG_CLI_API_KEY="$POSTHOG_PERSONAL_API_KEY" && \
+      export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID" && \
+      HOST_FLAG="" && [ -n "$POSTHOG_HOST" ] && HOST_FLAG="--host $POSTHOG_HOST" && \
+      npx posthog-cli $HOST_FLAG sourcemap inject --directory apps/web/.output/public && \
+      npx posthog-cli $HOST_FLAG sourcemap upload --directory apps/web/.output/public --delete-after; \
+    fi
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.3.13-slim AS migrator

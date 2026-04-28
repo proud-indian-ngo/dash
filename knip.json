@@ -1,7 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "tags": ["-lintignore"],
-  "ignoreDependencies": ["@biomejs/biome", "@commitlint/cli", "@posthog/cli", "uuidv7"],
+  "ignoreDependencies": [
+    "@biomejs/biome",
+    "@commitlint/cli",
+    "@posthog/cli",
+    "uuidv7"
+  ],
   "ignoreIssues": {
     "src/generated/**": ["exports", "types"],
     "**/*.generated.ts": ["exports", "types"],
