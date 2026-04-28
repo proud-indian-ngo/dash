@@ -119,6 +119,7 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
     row.city ?? "",
     row.status,
     row.user?.name ?? "",
+    "event" in row ? (row.event?.name ?? "") : "",
     REQUEST_TYPE_LABELS[row.type],
   ]
     .join(" ")
@@ -217,6 +218,26 @@ export function ReimbursementsTable({
       meta: { headerTitle: "City", skeleton: SKELETON_TYPE },
       size: 120,
       minSize: 100,
+    },
+    {
+      id: "event",
+      accessorFn: (row) =>
+        isReimbursement(row) ? (row.event?.name ?? "") : "",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Event" visibility={true} />
+      ),
+      cell: ({ row }) => {
+        const r = row.original;
+        const name = isReimbursement(r) ? r.event?.name : undefined;
+        return (
+          <span className="truncate text-muted-foreground text-sm">
+            {name ?? "—"}
+          </span>
+        );
+      },
+      meta: { headerTitle: "Event", skeleton: SKELETON_TYPE },
+      size: 180,
+      minSize: 120,
     },
     {
       id: "createdBy",
@@ -363,6 +384,7 @@ export function ReimbursementsTable({
       <DataTableWrapper<RequestRow>
         columns={columns}
         data={data}
+        defaultColumnVisibility={{ event: false }}
         emptyMessage="No reimbursements found."
         getRowId={(row) => row.id}
         hasActiveFilters={hasActiveFilters}

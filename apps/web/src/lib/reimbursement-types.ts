@@ -8,6 +8,7 @@ import type {
   ReimbursementAttachment,
   ReimbursementHistory,
   ReimbursementLineItem,
+  TeamEvent,
   User,
 } from "@pi-dash/zero/schema";
 
@@ -19,6 +20,7 @@ export type ReimbursementRequestRow = Reimbursement & {
     ReimbursementLineItem & { category: ExpenseCategory | undefined }
   >;
   user: User | undefined;
+  event: TeamEvent | undefined;
 };
 
 export type AdvancePaymentRequestRow = AdvancePayment & {
@@ -39,6 +41,7 @@ export type ReimbursementDetailData = Reimbursement & {
   attachments: readonly ReimbursementAttachment[];
   history: ReadonlyArray<ReimbursementHistory & { actor?: User | undefined }>;
   user: User | undefined;
+  event: TeamEvent | undefined;
 };
 
 export type AdvancePaymentDetailData = AdvancePayment & {

@@ -70,6 +70,7 @@ function VendorPaymentDetailRouteComponent() {
     title: vendorPayment.title as string,
     city: vendorPayment.city as "bangalore" | "mumbai",
     vendorId: vendorPayment.vendorId as string,
+    eventId: vendorPayment.eventId ?? undefined,
     lineItems: mapLineItemsToFormValues(vendorPayment.lineItems ?? []),
     attachments: mapAttachmentsToFormValues(vendorPayment.attachments ?? []),
   };

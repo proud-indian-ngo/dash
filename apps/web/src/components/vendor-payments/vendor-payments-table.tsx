@@ -56,6 +56,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
     row.status,
     row.user?.name ?? "",
     row.invoiceNumber ?? "",
+    row.event?.name ?? "",
   ]
     .join(" ")
     .toLowerCase()
@@ -146,6 +147,21 @@ export function VendorPaymentsTable({
       meta: { headerTitle: "City", skeleton: SKELETON_TEXT },
       size: 120,
       minSize: 100,
+    },
+    {
+      id: "event",
+      accessorFn: (row) => row.event?.name ?? "",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Event" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.event?.name ?? "—"}
+        </span>
+      ),
+      meta: { headerTitle: "Event", skeleton: SKELETON_TEXT },
+      size: 180,
+      minSize: 120,
     },
     {
       id: "submittedBy",
@@ -303,6 +319,7 @@ export function VendorPaymentsTable({
       <DataTableWrapper<VendorPaymentWithRelations>
         columns={columns}
         data={data}
+        defaultColumnVisibility={{ event: false }}
         emptyMessage="No vendor payments found."
         getRowId={(row) => row.id as string}
         hasActiveFilters={hasActiveFilters}

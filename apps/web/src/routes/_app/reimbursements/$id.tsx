@@ -112,6 +112,7 @@ function buildInitialValues(resolved: ResolvedRequest) {
           bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
         }
       : {}),
+    ...("eventId" in request ? { eventId: request.eventId ?? undefined } : {}),
     lineItems: mapLineItemsToFormValues(request.lineItems),
     attachments: mapAttachmentsToFormValues(request.attachments),
     ...(expenseDate ? { expenseDate } : {}),

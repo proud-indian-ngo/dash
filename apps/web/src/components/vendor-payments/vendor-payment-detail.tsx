@@ -8,6 +8,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+import capitalize from "lodash/capitalize";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
@@ -106,8 +107,9 @@ export function VendorPaymentDetail({
                 <span>Vendor: {request.vendor.name}</span>
               ) : null}
               {request.city ? (
-                <span className="capitalize">City: {request.city}</span>
+                <span>City: {capitalize(request.city)}</span>
               ) : null}
+              {request.event ? <span>Event: {request.event.name}</span> : null}
             </div>
             {request.user ? (
               <div className="mt-1 flex items-center gap-2">

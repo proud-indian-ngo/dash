@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import capitalize from "lodash/capitalize";
 import { LONG_DATE } from "@/lib/date-formats";
 import {
   isReimbursement,
@@ -12,7 +13,10 @@ export function ReimbursementHeaderMeta({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-      {request.city ? <span>{request.city}</span> : null}
+      {request.city ? <span>{capitalize(request.city)}</span> : null}
+      {isReimbursement(request) && request.event ? (
+        <span>{request.event.name}</span>
+      ) : null}
       {isReimbursement(request) ? (
         <span>{format(request.expenseDate, LONG_DATE)}</span>
       ) : null}
