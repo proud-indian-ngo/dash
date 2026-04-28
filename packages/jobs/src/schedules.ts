@@ -35,6 +35,14 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { retryLimit: 2, expireInSeconds: 600, tz: IST_TIMEZONE }
   );
 
+  // Monthly on 1st at 4:00 AM IST — clean up orphaned R2 objects
+  await boss.schedule(
+    "cleanup-r2-orphans",
+    "0 4 1 * *",
+    { dryRun: false },
+    { retryLimit: 2, expireInSeconds: 3600, tz: IST_TIMEZONE }
+  );
+
   // Monthly on 1st at 3:00 AM IST — clean up stale scheduled message recipients
   await boss.schedule(
     "cleanup-stale-scheduled-recipients",

@@ -1,6 +1,7 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 import { type JobName, QUEUE_NAMES } from "../enqueue";
 import { handleCleanupNotifications } from "./cleanup-notifications";
+import { handleCleanupR2Orphans } from "./cleanup-r2-orphans";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
 import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
@@ -125,6 +126,7 @@ const QUEUE_DEFAULTS: Omit<Queue, "name"> = {
 const QUEUE_OVERRIDES: Partial<
   Record<JobName | typeof DEAD_LETTER_QUEUE, Partial<Omit<Queue, "name">>>
 > = {
+  "cleanup-r2-orphans": { expireInSeconds: 3600 },
   "immich-sync-photo": { expireInSeconds: 1800 },
   "whatsapp-create-group": { expireInSeconds: 1800 },
   "send-scheduled-whatsapp": { deadLetter: DEAD_LETTER_SCHEDULED_WHATSAPP },
@@ -399,6 +401,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "cleanup-notifications",
     NOTIFY_POLL,
     withDefaultOutput(handleCleanupNotifications)
+  );
+  await boss.work(
+    "cleanup-r2-orphans",
+    NOTIFY_POLL,
+    withDefaultOutput(handleCleanupR2Orphans)
   );
   await boss.work(
     "cleanup-stale-scheduled-recipients",

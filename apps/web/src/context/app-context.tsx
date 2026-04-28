@@ -14,7 +14,8 @@ export type Section =
   | "notifications"
   | "banking"
   | "expense-categories"
-  | "whatsapp-groups";
+  | "whatsapp-groups"
+  | "admin-actions";
 
 interface AppUser {
   email: string;

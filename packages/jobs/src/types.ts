@@ -498,10 +498,15 @@ export interface DeleteR2ObjectPayload {
   r2Key: string;
 }
 
+export interface CleanupR2OrphansPayload {
+  dryRun?: boolean;
+}
+
 // -- Payload map ---------------------------------------------------------------
 
 export interface JobPayloads {
   "cleanup-notifications": Record<string, never>;
+  "cleanup-r2-orphans": CleanupR2OrphansPayload;
   "cleanup-stale-scheduled-recipients": CleanupStaleScheduledRecipientsPayload;
   "close-expired-rsvp-polls": CloseExpiredRsvpPollsPayload;
   "close-rsvp-poll-on-cancel": CloseRsvpPollOnCancelPayload;

@@ -472,25 +472,3 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
 
     return data.userId;
   });
-
-export const triggerWhatsAppGroupScan = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const ctx = await ensurePermission(context, "users.create");
-    const log = createRequestLogger({
-      method: "POST",
-      path: "triggerWhatsAppGroupScan",
-    });
-    log.set({ userId: ctx.session.user.id });
-    try {
-      await enqueue("scan-whatsapp-groups", {
-        triggeredAt: new Date().toISOString(),
-      });
-      log.set({ event: "scan_enqueued" });
-      log.emit();
-    } catch (error) {
-      log.error(error instanceof Error ? error : String(error));
-      log.emit();
-      throw error;
-    }
-  });

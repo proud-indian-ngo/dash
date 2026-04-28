@@ -1,7 +1,4 @@
-import {
-  ArrowReloadHorizontalIcon,
-  PlusSignIcon,
-} from "@hugeicons/core-free-icons";
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
@@ -16,7 +13,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormModal } from "@/components/form/form-modal";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { UserDetailSheet } from "@/components/users/user-detail-sheet";
 import {
@@ -27,14 +23,12 @@ import {
 } from "@/components/users/user-form";
 import { computeUserStats } from "@/components/users/user-stats";
 import { UsersTable } from "@/components/users/users-table";
-import { useApp } from "@/context/app-context";
 import { getRoleOptions } from "@/functions/role-admin";
 import {
   createUserAdmin,
   deleteUserAdmin,
   setUserBanAdmin,
   setUserPasswordAdmin,
-  triggerWhatsAppGroupScan,
   updateUserAdmin,
 } from "@/functions/user-admin";
 import { getErrorMessage } from "@/lib/errors";
@@ -65,15 +59,11 @@ const BANNED_OPTIONS = [
 ];
 
 function UsersRouteComponent() {
-  const { hasPermission } = useApp();
   const createUser = useServerFn(createUserAdmin);
   const updateUser = useServerFn(updateUserAdmin);
   const setUserBan = useServerFn(setUserBanAdmin);
   const setPassword = useServerFn(setUserPasswordAdmin);
   const deleteUser = useServerFn(deleteUserAdmin);
-  const scanWhatsAppGroups = useServerFn(triggerWhatsAppGroupScan);
-  const [scanningGroups, setScanningGroups] = useState(false);
-  const [scanConfirmOpen, setScanConfirmOpen] = useState(false);
   const [usersData, queryResult] = useQuery(queries.user.all());
   const isLoading = usersData.length === 0 && queryResult.type !== "complete";
 
@@ -279,26 +269,6 @@ function UsersRouteComponent() {
     }
   };
 
-  const handleScanGroups = async () => {
-    setScanningGroups(true);
-    try {
-      await scanWhatsAppGroups();
-      toast.success(
-        "Scan started — results will come through as a notification"
-      );
-    } catch (error) {
-      log.error({
-        component: "UsersPage",
-        action: "triggerWhatsAppGroupScan",
-        error: getErrorMessage(error),
-      });
-      toast.error("Couldn't trigger scan");
-    } finally {
-      setScanningGroups(false);
-      setScanConfirmOpen(false);
-    }
-  };
-
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <h1 className="font-display font-semibold text-2xl tracking-tight">
@@ -319,38 +289,20 @@ function UsersRouteComponent() {
           onUpdateUser={handleUpdateUser}
           roleOptions={roleSelectOptions}
           toolbarActions={
-            <>
-              {hasPermission("users.create") && (
-                <Button
-                  disabled={scanningGroups}
-                  onClick={() => setScanConfirmOpen(true)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={ArrowReloadHorizontalIcon}
-                    strokeWidth={2}
-                  />
-                  {scanningGroups ? "Scanning..." : "Scan groups"}
-                </Button>
-              )}
-              <Button
-                onClick={() => {
-                  setCreateModalOpen(true);
-                }}
-                size="sm"
-                type="button"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                />
-                Add user
-              </Button>
-            </>
+            <Button
+              onClick={() => {
+                setCreateModalOpen(true);
+              }}
+              size="sm"
+              type="button"
+            >
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add user
+            </Button>
           }
           toolbarFilters={
             <>
@@ -409,17 +361,6 @@ function UsersRouteComponent() {
           />
         ) : null}
       </FormModal>
-
-      <ConfirmDialog
-        confirmLabel="Scan now"
-        description="This will scan WhatsApp groups and auto-deactivate users not found in any group, reactivate inactive users found in groups, and report unregistered phone numbers."
-        loading={scanningGroups}
-        loadingLabel="Scanning..."
-        onConfirm={handleScanGroups}
-        onOpenChange={setScanConfirmOpen}
-        open={scanConfirmOpen}
-        title="Scan WhatsApp groups?"
-      />
     </div>
   );
 }

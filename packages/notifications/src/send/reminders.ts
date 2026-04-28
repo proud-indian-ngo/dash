@@ -213,6 +213,64 @@ export async function notifyWhatsAppScanResults({
   log.emit();
 }
 
+interface R2CleanupResultsOptions {
+  deletedKeys: string[];
+  failedKeys: string[];
+  orphanCount: number;
+  r2ObjectCount: number;
+  userIds: string[];
+}
+
+export async function notifyR2CleanupResults({
+  userIds,
+  r2ObjectCount,
+  orphanCount,
+  deletedKeys,
+  failedKeys,
+}: R2CleanupResultsOptions): Promise<void> {
+  if (userIds.length === 0 || orphanCount === 0) {
+    return;
+  }
+
+  const dateKey = new Date().toISOString().slice(0, 10);
+
+  const parts: string[] = [
+    `Scanned ${r2ObjectCount} R2 objects. Found ${orphanCount} orphaned files. Deleted ${deletedKeys.length}.`,
+  ];
+
+  if (deletedKeys.length > 0) {
+    parts.push(
+      `Deleted files:\n${deletedKeys.map((k) => `  - ${k}`).join("\n")}`
+    );
+  }
+
+  if (failedKeys.length > 0) {
+    parts.push(
+      `Failed to delete ${failedKeys.length} file(s):\n${failedKeys.map((k) => `  - ${k}`).join("\n")}`
+    );
+  }
+
+  const body = parts.join("\n\n");
+
+  const emailHtml = await renderNotificationEmail({
+    heading: "R2 cleanup results",
+    paragraphs: parts,
+    ctaUrl: `${env.APP_URL}/jobs?queue=cleanup-r2-orphans`,
+    ctaLabel: "View jobs",
+  });
+
+  await sendBulkMessage({
+    userIds,
+    title: "🗑️ R2 cleanup results",
+    body,
+    emailHtml,
+    clickAction: "/jobs?queue=cleanup-r2-orphans",
+    idempotencyKey: `r2-cleanup-${dateKey}`,
+    inboxBody: `${orphanCount} orphaned files found, ${deletedKeys.length} deleted`,
+    topic: TOPICS.ACCOUNT,
+  });
+}
+
 export async function notifyPhotoApprovalReminder({
   userIds,
   pendingCount,

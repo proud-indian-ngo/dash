@@ -7,6 +7,7 @@ export type * from "./types";
 
 export const QUEUE_NAMES: JobName[] = [
   "cleanup-notifications",
+  "cleanup-r2-orphans",
   "cleanup-stale-scheduled-recipients",
   "close-expired-rsvp-polls",
   "close-rsvp-poll-on-cancel",

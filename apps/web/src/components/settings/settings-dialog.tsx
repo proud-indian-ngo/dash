@@ -1,5 +1,6 @@
 import {
   BankIcon,
+  CommandIcon,
   NotificationIcon,
   Settings01Icon,
   ShieldIcon,
@@ -42,6 +43,7 @@ import {
 } from "@/components/shared/responsive-dialog";
 import { type Section, useApp } from "@/context/app-context";
 import { AccountSection } from "./sections/account-section";
+import { AdminActionsSection } from "./sections/admin-actions-section";
 import { BankingSection } from "./sections/banking-section";
 import { ExpenseCategoriesSection } from "./sections/expense-categories-section";
 import { GeneralSection } from "./sections/general-section";
@@ -95,6 +97,12 @@ const NAV_ITEMS_BASE: NavItem[] = [
     icon: SmartPhone01Icon,
     permission: "settings.whatsapp_groups",
   },
+  {
+    id: "admin-actions",
+    label: "Admin Actions",
+    icon: CommandIcon,
+    permission: "jobs.manage",
+  },
 ];
 
 const SECTION_CONTENT: Record<Section, React.ReactNode> = {
@@ -105,6 +113,7 @@ const SECTION_CONTENT: Record<Section, React.ReactNode> = {
   banking: <BankingSection />,
   "expense-categories": <ExpenseCategoriesSection />,
   "whatsapp-groups": <WhatsAppGroupsSection />,
+  "admin-actions": <AdminActionsSection />,
 };
 
 export function SettingsDialog() {
