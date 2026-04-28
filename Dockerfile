@@ -31,11 +31,13 @@ ENV VITE_CDN_URL=$VITE_CDN_URL
 ENV VITE_IMMICH_URL=$VITE_IMMICH_URL
 ENV VITE_POSTHOG_KEY=$VITE_POSTHOG_KEY
 ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST
+ARG POSTHOG_PERSONAL_API_KEY
+ARG POSTHOG_PROJECT_ID
+ARG POSTHOG_HOST
+ENV POSTHOG_PERSONAL_API_KEY=$POSTHOG_PERSONAL_API_KEY
+ENV POSTHOG_PROJECT_ID=$POSTHOG_PROJECT_ID
+ENV POSTHOG_HOST=$POSTHOG_HOST
 RUN cd apps/web && bunx --bun vite build
-
-# Stage: Upload source maps to PostHog (one-shot)
-FROM build AS sourcemap-uploader
-CMD ["bun", "scripts/upload-sourcemaps.ts"]
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.3.13-slim AS migrator
@@ -51,7 +53,6 @@ FROM oven/bun:1.3.13-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
-RUN find .output -name '*.map' -delete
 # SSR chunks use runtime require("react") via CJS interop (use-sync-external-store)
 RUN bun add react@19
 EXPOSE 3000

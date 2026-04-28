@@ -1,3 +1,4 @@
+import posthog from "@posthog/rollup-plugin";
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
@@ -49,6 +50,19 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       }),
       ...react(),
       reactCompiler,
+      ...(process.env.POSTHOG_PERSONAL_API_KEY && process.env.POSTHOG_PROJECT_ID
+        ? [
+            posthog({
+              personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
+              projectId: process.env.POSTHOG_PROJECT_ID,
+              host: process.env.POSTHOG_HOST,
+              sourcemaps: {
+                enabled: true,
+                deleteAfterUpload: true,
+              },
+            }),
+          ]
+        : []),
     ],
     build: {
       chunkSizeWarningLimit: 600,
@@ -59,7 +73,6 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     environments: {
       client: {
         build: {
-          sourcemap: "hidden",
           rolldownOptions: {
             output: {
               codeSplitting: {

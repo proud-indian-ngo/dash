@@ -14,9 +14,7 @@
   },
   "ignoreExportsUsedInFile": true,
   "workspaces": {
-    ".": {
-      "entry": ["scripts/*.ts"]
-    },
+    ".": {},
     "apps/web": {
       "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },
