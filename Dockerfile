@@ -33,17 +33,15 @@ ENV VITE_POSTHOG_KEY=$VITE_POSTHOG_KEY
 ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST
 ARG POSTHOG_PERSONAL_API_KEY
 ARG POSTHOG_PROJECT_ID
-ARG POSTHOG_HOST
 ENV POSTHOG_PERSONAL_API_KEY=$POSTHOG_PERSONAL_API_KEY
 ENV POSTHOG_PROJECT_ID=$POSTHOG_PROJECT_ID
-ENV POSTHOG_HOST=$POSTHOG_HOST
 RUN cd apps/web && bunx --bun vite build
 RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then \
       export POSTHOG_CLI_API_KEY="$POSTHOG_PERSONAL_API_KEY" && \
       export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID" && \
-      HOST_FLAG="" && [ -n "$POSTHOG_HOST" ] && HOST_FLAG="--host $POSTHOG_HOST" && \
-      bunx posthog-cli $HOST_FLAG sourcemap inject --directory apps/web/.output/public && \
-      bunx posthog-cli $HOST_FLAG sourcemap upload --directory apps/web/.output/public --delete-after; \
+      export POSTHOG_CLI_HOST="${POSTHOG_CLI_HOST:-https://us.posthog.com}" && \
+      bunx posthog-cli sourcemap inject --directory apps/web/.output/public && \
+      bunx posthog-cli sourcemap upload --directory apps/web/.output/public --delete-after; \
     fi
 
 # Stage 2: Migrator (runs pending DB migrations)
