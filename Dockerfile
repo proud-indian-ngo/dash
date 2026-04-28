@@ -42,8 +42,8 @@ RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then 
       export POSTHOG_CLI_API_KEY="$POSTHOG_PERSONAL_API_KEY" && \
       export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID" && \
       HOST_FLAG="" && [ -n "$POSTHOG_HOST" ] && HOST_FLAG="--host $POSTHOG_HOST" && \
-      npx posthog-cli $HOST_FLAG sourcemap inject --directory apps/web/.output/public && \
-      npx posthog-cli $HOST_FLAG sourcemap upload --directory apps/web/.output/public --delete-after; \
+      bunx posthog-cli $HOST_FLAG sourcemap inject --directory apps/web/.output/public && \
+      bunx posthog-cli $HOST_FLAG sourcemap upload --directory apps/web/.output/public --delete-after; \
     fi
 
 # Stage 2: Migrator (runs pending DB migrations)
