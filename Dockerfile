@@ -37,7 +37,7 @@ ENV POSTHOG_PERSONAL_API_KEY=$POSTHOG_PERSONAL_API_KEY
 ENV POSTHOG_PROJECT_ID=$POSTHOG_PROJECT_ID
 RUN cd apps/web && bunx --bun vite build
 RUN bun -e "const r=await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.7.10/posthog-cli-x86_64-unknown-linux-gnu.tar.gz');require('fs').writeFileSync('/tmp/ph.tar.gz',Buffer.from(await r.arrayBuffer()))" \
-    && mkdir -p /tmp/ph && tar xzf /tmp/ph.tar.gz -C /tmp/ph && cp /tmp/ph/posthog-cli /usr/local/bin/posthog-cli && chmod +x /usr/local/bin/posthog-cli && rm -rf /tmp/ph /tmp/ph.tar.gz
+    && tar xzf /tmp/ph.tar.gz -C /tmp --strip-components=1 && mv /tmp/posthog-cli /usr/local/bin/ && rm /tmp/ph.tar.gz
 RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then \
       export POSTHOG_CLI_API_KEY="$POSTHOG_PERSONAL_API_KEY" && \
       export POSTHOG_CLI_PROJECT_ID="$POSTHOG_PROJECT_ID" && \
