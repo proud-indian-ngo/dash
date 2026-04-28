@@ -16,6 +16,24 @@ services:
         condition: service_healthy
     restart: "no"
 
+  sourcemap-upload:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: sourcemap-uploader
+      args:
+        VITE_ZERO_URL: ${VITE_ZERO_URL}
+        VITE_CDN_URL: ${VITE_CDN_URL}
+        VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
+        VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
+        VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
+    environment:
+      POSTHOG_PERSONAL_API_KEY: ${POSTHOG_PERSONAL_API_KEY}
+      POSTHOG_PROJECT_ID: ${POSTHOG_PROJECT_ID}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
+      BASE_URL: ${VITE_CDN_URL}
+    restart: "no"
+
   web:
     build:
       context: .
