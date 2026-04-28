@@ -62,7 +62,8 @@ export function EventDetailsCard({
   event: EventRow;
 }) {
   const navigate = useNavigate();
-  const reminderIntervals = (event.reminderIntervals as number[] | null) ?? [];
+  const raw = event.reminderIntervals;
+  const reminderIntervals = Array.isArray(raw) ? raw : [];
   const recurrence = event.recurrenceRule as
     | { rrule: string; exdates?: string[] }
     | null
@@ -142,7 +143,7 @@ export function EventDetailsCard({
         {canManage && reminderIntervals.length > 0 ? (
           <PropertyRow icon={NotificationIcon} label="Reminders">
             <div className="flex flex-wrap gap-1">
-              {reminderIntervals
+              {[...reminderIntervals]
                 .sort((a, b) => b - a)
                 .map((m) => (
                   <Badge key={m} size="xs" variant="secondary">
