@@ -1,3 +1,10 @@
+import { ArrowDown01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
@@ -27,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cityOptions } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { isTeamLead } from "@/lib/team-utils";
@@ -150,6 +158,17 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
         | null) ?? "group",
     inheritVolunteers: initialValues?.inheritVolunteers ?? false,
   };
+}
+
+function hasAdvancedValues(values: EventFormValues): boolean {
+  return !!(
+    values.rrule ||
+    values.whatsappGroupId ||
+    values.feedbackEnabled ||
+    values.reminderIntervals.length > 0 ||
+    values.postRsvpPoll ||
+    values.feedbackDeadline
+  );
 }
 
 function getStartTimeEpoch(value: EventFormValues): number {
@@ -372,6 +391,14 @@ function EventFormContent({
     },
   });
 
+  const autoExpand = isEdit && hasAdvancedValues(form.state.values);
+  const [showAdvanced, setShowAdvanced] = useLocalStorage(
+    "event-form-advanced",
+    autoExpand
+  );
+
+  const configured = !showAdvanced && hasAdvancedValues(form.state.values);
+
   return (
     <FormLayout form={form}>
       <InputField
@@ -421,136 +448,155 @@ function EventFormContent({
 
       <CheckboxField label="Public" name="isPublic" />
 
-      {(!isEdit ||
-        editScope === "all" ||
-        editScope === "following" ||
-        (!editScope && !!initialValues?.recurrenceRule)) && (
-        <form.Field name="rrule">
-          {(rruleField) => (
-            <form.Field name="excludeRules">
-              {(excludeField) => (
-                <RecurrenceBuilder
-                  excludeRules={excludeField.state.value ?? []}
-                  onChange={(v) => rruleField.handleChange(v)}
-                  onExcludeRulesChange={(v) => excludeField.handleChange(v)}
-                  startTime={form.state.values.startTime}
-                  value={rruleField.state.value ?? ""}
-                />
+      <Collapsible onOpenChange={setShowAdvanced} open={showAdvanced}>
+        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 pt-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+          <HugeiconsIcon
+            className="size-3.5 transition-transform duration-150"
+            icon={showAdvanced ? ArrowDown01Icon : ArrowRight01Icon}
+            strokeWidth={2}
+          />
+          Advanced settings
+          {configured ? (
+            <span className="text-[10px] normal-case tracking-normal">
+              (configured)
+            </span>
+          ) : null}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-4">
+          {(!isEdit ||
+            editScope === "all" ||
+            editScope === "following" ||
+            (!editScope && !!initialValues?.recurrenceRule)) && (
+            <form.Field name="rrule">
+              {(rruleField) => (
+                <form.Field name="excludeRules">
+                  {(excludeField) => (
+                    <RecurrenceBuilder
+                      excludeRules={excludeField.state.value ?? []}
+                      onChange={(v) => rruleField.handleChange(v)}
+                      onExcludeRulesChange={(v) => excludeField.handleChange(v)}
+                      startTime={form.state.values.startTime}
+                      value={rruleField.state.value ?? ""}
+                    />
+                  )}
+                </form.Field>
               )}
             </form.Field>
           )}
-        </form.Field>
-      )}
 
-      <form.Subscribe selector={(s) => s.values.rrule}>
-        {(rrule) =>
-          rrule ? (
-            <CheckboxField
-              description="Copy volunteers from the series to each occurrence"
-              label="Inherit volunteers"
-              name="inheritVolunteers"
+          <form.Subscribe selector={(s) => s.values.rrule}>
+            {(rrule) =>
+              rrule ? (
+                <CheckboxField
+                  description="Copy volunteers from the series to each occurrence"
+                  label="Inherit volunteers"
+                  name="inheritVolunteers"
+                />
+              ) : null
+            }
+          </form.Subscribe>
+
+          <FormSectionHeading>Notifications</FormSectionHeading>
+          <div className="grid items-end gap-4 sm:grid-cols-2">
+            <SelectField
+              label="WhatsApp Group"
+              name="whatsappGroupId"
+              options={waGroupOptions}
+              placeholder="None"
             />
-          ) : null
-        }
-      </form.Subscribe>
-
-      <FormSectionHeading>Notifications</FormSectionHeading>
-      <div className="grid items-end gap-4 sm:grid-cols-2">
-        <SelectField
-          label="WhatsApp Group"
-          name="whatsappGroupId"
-          options={waGroupOptions}
-          placeholder="None"
-        />
-        <form.Subscribe
-          selector={(state) => ({
-            whatsappGroupId: state.values.whatsappGroupId,
-          })}
-        >
-          {({ whatsappGroupId }) =>
-            isEdit || whatsappGroupId ? (
-              <div />
-            ) : (
-              <CheckboxField
-                label="Create WhatsApp group"
-                name="createWaGroup"
-              />
-            )
-          }
-        </form.Subscribe>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <CheckboxField
-          description="Participants can share anonymous feedback after the event ends"
-          label="Enable anonymous feedback"
-          name="feedbackEnabled"
-        />
-        <CheckboxField
-          description="Photo upload and attendance marking reminders after the event"
-          label="Send post-event reminders"
-          name="postEventNudgesEnabled"
-        />
-        <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
-          {(whatsappGroupId) => {
-            const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
-            return (
-              <CheckboxField
-                description={
-                  hasGroup
-                    ? "Post a WhatsApp RSVP poll before the event"
-                    : "Link a WhatsApp group to the event or team first"
-                }
-                label="Post RSVP poll on WhatsApp"
-                name="postRsvpPoll"
-                readonly={!hasGroup}
-              />
-            );
-          }}
-        </form.Subscribe>
-        <form.Subscribe selector={(state) => state.values.postRsvpPoll}>
-          {(postRsvpPoll) =>
-            postRsvpPoll ? (
-              <SelectField
-                label="Post poll"
-                name="rsvpPollLeadMinutes"
-                options={rsvpPollLeadOptions}
-              />
-            ) : null
-          }
-        </form.Subscribe>
-      </div>
-
-      <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
-        {(feedbackEnabled) =>
-          feedbackEnabled ? (
-            <DateTimeField
-              description="Leave empty for no deadline"
-              label="Feedback deadline (optional)"
-              name="feedbackDeadline"
-            />
-          ) : null
-        }
-      </form.Subscribe>
-
-      <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
-        {(whatsappGroupId) => (
-          <form.Field name="reminderIntervals">
-            {(intervalsField) => (
-              <form.Field name="reminderTarget">
-                {(targetField) => (
-                  <ReminderIntervalsField
-                    hasWhatsappGroup={!!whatsappGroupId || teamHasWhatsAppGroup}
-                    onChange={(v) => intervalsField.handleChange(v)}
-                    onTargetChange={(v) => targetField.handleChange(v)}
-                    reminderTarget={targetField.state.value}
-                    value={intervalsField.state.value}
+            <form.Subscribe
+              selector={(state) => ({
+                whatsappGroupId: state.values.whatsappGroupId,
+              })}
+            >
+              {({ whatsappGroupId }) =>
+                isEdit || whatsappGroupId ? (
+                  <div />
+                ) : (
+                  <CheckboxField
+                    label="Create WhatsApp group"
+                    name="createWaGroup"
                   />
+                )
+              }
+            </form.Subscribe>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <CheckboxField
+              description="Participants can share anonymous feedback after the event ends"
+              label="Enable anonymous feedback"
+              name="feedbackEnabled"
+            />
+            <CheckboxField
+              description="Photo upload and attendance marking reminders after the event"
+              label="Send post-event reminders"
+              name="postEventNudgesEnabled"
+            />
+            <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
+              {(whatsappGroupId) => {
+                const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
+                return (
+                  <CheckboxField
+                    description={
+                      hasGroup
+                        ? "Post a WhatsApp RSVP poll before the event"
+                        : "Link a WhatsApp group to the event or team first"
+                    }
+                    label="Post RSVP poll on WhatsApp"
+                    name="postRsvpPoll"
+                    readonly={!hasGroup}
+                  />
+                );
+              }}
+            </form.Subscribe>
+            <form.Subscribe selector={(state) => state.values.postRsvpPoll}>
+              {(postRsvpPoll) =>
+                postRsvpPoll ? (
+                  <SelectField
+                    label="Post poll"
+                    name="rsvpPollLeadMinutes"
+                    options={rsvpPollLeadOptions}
+                  />
+                ) : null
+              }
+            </form.Subscribe>
+          </div>
+
+          <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
+            {(feedbackEnabled) =>
+              feedbackEnabled ? (
+                <DateTimeField
+                  description="Leave empty for no deadline"
+                  label="Feedback deadline (optional)"
+                  name="feedbackDeadline"
+                />
+              ) : null
+            }
+          </form.Subscribe>
+
+          <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
+            {(whatsappGroupId) => (
+              <form.Field name="reminderIntervals">
+                {(intervalsField) => (
+                  <form.Field name="reminderTarget">
+                    {(targetField) => (
+                      <ReminderIntervalsField
+                        hasWhatsappGroup={
+                          !!whatsappGroupId || teamHasWhatsAppGroup
+                        }
+                        onChange={(v) => intervalsField.handleChange(v)}
+                        onTargetChange={(v) => targetField.handleChange(v)}
+                        reminderTarget={targetField.state.value}
+                        value={intervalsField.state.value}
+                      />
+                    )}
+                  </form.Field>
                 )}
               </form.Field>
             )}
-          </form.Field>
-        )}
-      </form.Subscribe>
+          </form.Subscribe>
+        </CollapsibleContent>
+      </Collapsible>
 
       <FormActions
         onCancel={() => onOpenChange(false)}
