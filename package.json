@@ -104,6 +104,7 @@
     "@commitlint/config-conventional": "^20.5.0",
     "@pi-dash/config": "workspace:*",
     "@playwright/test": "catalog:",
+    "@posthog/cli": "^0.7.10",
     "@types/node": "catalog:",
     "knip": "^6.5.0",
     "lefthook": "2.1.6",
