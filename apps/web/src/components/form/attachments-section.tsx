@@ -7,7 +7,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
-  type FileUploadActions,
   type FileWithPreview,
   formatBytes,
   useFileUpload,
@@ -118,7 +117,7 @@ export function AttachmentsSection({
     current: 0,
     total: 0,
   });
-  const uploadActionsRef = useRef<FileUploadActions | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { deletingIds, removeAttachment } = useAttachmentActions({
     onChange,
     value,
@@ -204,24 +203,43 @@ export function AttachmentsSection({
     [entityId, getUploadUrl, onChange, remainingFileSlots]
   );
 
+  const uploadFilesRef = useRef(uploadFiles);
+  useEffect(() => {
+    uploadFilesRef.current = uploadFiles;
+  }, [uploadFiles]);
+
+  const openFileBrowser = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = e.target.files;
+      if (!selectedFiles || selectedFiles.length === 0) {
+        return;
+      }
+      const files = Array.from(selectedFiles);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      uploadFilesRef.current(files);
+    },
+    []
+  );
+
   const [{ isDragging, errors }, uploadActions] = useFileUpload({
     accept: ATTACHMENT_ACCEPT,
-    maxFiles: remainingFileSlots,
     maxSize: MAX_ATTACHMENT_FILE_SIZE_BYTES,
     multiple: true,
     onFilesAdded: (addedFiles: FileWithPreview[]) => {
       const files = addedFiles
         .map((item) => item.file)
         .filter((candidate): candidate is File => candidate instanceof File);
-      uploadFiles(files).finally(() => {
-        uploadActionsRef.current?.clearFiles();
+      uploadFilesRef.current(files).finally(() => {
+        uploadActions.clearFiles();
       });
     },
   });
-
-  useEffect(() => {
-    uploadActionsRef.current = uploadActions;
-  }, [uploadActions]);
 
   const handleAddUrl = (url: string): boolean => {
     if (!url.trim()) {
@@ -250,6 +268,15 @@ export function AttachmentsSection({
         </span>
       </div>
 
+      <input
+        accept={ATTACHMENT_ACCEPT}
+        className="hidden"
+        multiple
+        onChange={handleFileInputChange}
+        ref={fileInputRef}
+        type="file"
+      />
+
       <button
         aria-label="Drop files here or click to browse files for upload"
         className={cn(
@@ -259,15 +286,13 @@ export function AttachmentsSection({
             : "border-muted-foreground/25 hover:border-muted-foreground/50"
         )}
         disabled={remainingFileSlots === 0 || isUploading}
-        onClick={uploadActions.openFileDialog}
+        onClick={openFileBrowser}
         onDragEnter={uploadActions.handleDragEnter}
         onDragLeave={uploadActions.handleDragLeave}
         onDragOver={uploadActions.handleDragOver}
         onDrop={uploadActions.handleDrop}
         type="button"
       >
-        <input {...uploadActions.getInputProps()} className="sr-only" />
-
         <div className="flex flex-col items-center gap-4">
           <div className="flex size-12 items-center justify-center rounded-full bg-muted">
             <HugeiconsIcon
@@ -315,7 +340,7 @@ export function AttachmentsSection({
       <div className="flex gap-2">
         <Button
           disabled={remainingFileSlots === 0 || isUploading}
-          onClick={uploadActions.openFileDialog}
+          onClick={openFileBrowser}
           size="sm"
           type="button"
           variant="outline"
