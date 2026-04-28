@@ -1,12 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "tags": ["-lintignore"],
-  "ignoreDependencies": [
-    "@biomejs/biome",
-    "@commitlint/cli",
-    "@posthog/cli",
-    "uuidv7"
-  ],
+  "ignoreDependencies": ["@biomejs/biome", "@commitlint/cli", "uuidv7"],
   "ignoreIssues": {
     "src/generated/**": ["exports", "types"],
     "**/*.generated.ts": ["exports", "types"],
@@ -19,9 +14,7 @@
   },
   "ignoreExportsUsedInFile": true,
   "workspaces": {
-    ".": {
-      "entry": ["scripts/*.ts"]
-    },
+    ".": {},
     "apps/web": {
       "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },

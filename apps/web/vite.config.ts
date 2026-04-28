@@ -59,7 +59,6 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     environments: {
       client: {
         build: {
-          sourcemap: "hidden",
           rolldownOptions: {
             output: {
               codeSplitting: {

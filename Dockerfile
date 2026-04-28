@@ -31,16 +31,7 @@ ENV VITE_CDN_URL=$VITE_CDN_URL
 ENV VITE_IMMICH_URL=$VITE_IMMICH_URL
 ENV VITE_POSTHOG_KEY=$VITE_POSTHOG_KEY
 ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST
-ARG POSTHOG_PERSONAL_API_KEY
-ARG POSTHOG_PROJECT_ID
-ENV POSTHOG_PERSONAL_API_KEY=$POSTHOG_PERSONAL_API_KEY
-ENV POSTHOG_PROJECT_ID=$POSTHOG_PROJECT_ID
 RUN cd apps/web && bunx --bun vite build
-COPY scripts/upload-sourcemaps.ts scripts/upload-sourcemaps.ts
-RUN if [ -n "$POSTHOG_PERSONAL_API_KEY" ] && [ -n "$POSTHOG_PROJECT_ID" ]; then \
-      bun scripts/upload-sourcemaps.ts && \
-      find apps/web/.output/public -name '*.map' -delete; \
-    fi
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.3.13-slim AS migrator
