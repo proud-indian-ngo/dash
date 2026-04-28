@@ -52,15 +52,19 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       reactCompiler,
       ...(process.env.POSTHOG_PERSONAL_API_KEY && process.env.POSTHOG_PROJECT_ID
         ? [
-            posthog({
-              personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
-              projectId: process.env.POSTHOG_PROJECT_ID,
-              host: process.env.POSTHOG_HOST,
-              sourcemaps: {
-                enabled: true,
-                deleteAfterUpload: true,
-              },
-            }),
+            {
+              ...posthog({
+                personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
+                projectId: process.env.POSTHOG_PROJECT_ID,
+                host: process.env.POSTHOG_HOST,
+                sourcemaps: {
+                  enabled: true,
+                  deleteAfterUpload: true,
+                },
+              }),
+              applyToEnvironment: (env: { name: string }) =>
+                env.name === "client",
+            },
           ]
         : []),
     ],
