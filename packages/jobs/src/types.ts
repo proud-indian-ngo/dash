@@ -226,7 +226,6 @@ export interface NotifyAddedToEventPayload {
   eventName: string;
   location: string | null;
   startTime: number;
-  teamId: string;
   userId: string;
 }
 export interface NotifyUsersAddedToEventPayload {
@@ -234,7 +233,6 @@ export interface NotifyUsersAddedToEventPayload {
   eventName: string;
   location: string | null;
   startTime: number;
-  teamId: string;
   userIds: string[];
 }
 export interface NotifyRemovedFromEventPayload {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import z from "zod";
+import { computeOccurrenceStart } from "../team-event";
 
 const recurrenceRuleSchema = z
   .object({
@@ -413,6 +414,26 @@ describe("teamEvent mutator schemas", () => {
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("computeOccurrenceStart", () => {
+    it("returns occurrence date at series wall-clock time", () => {
+      const seriesStart = new Date(2026, 0, 1, 10, 30, 0, 0).getTime();
+      const result = computeOccurrenceStart(seriesStart, "2026-01-15");
+      const resultDate = new Date(result);
+      expect(resultDate.getFullYear()).toBe(2026);
+      expect(resultDate.getMonth()).toBe(0);
+      expect(resultDate.getDate()).toBe(15);
+      expect(resultDate.getHours()).toBe(10);
+      expect(resultDate.getMinutes()).toBe(30);
+    });
+
+    it("does not return the series parent's startTime", () => {
+      const seriesStart = new Date(2026, 0, 1, 10, 0, 0, 0).getTime();
+      const result = computeOccurrenceStart(seriesStart, "2026-01-15");
+      expect(result).not.toBe(seriesStart);
+      expect(result).toBeGreaterThan(seriesStart);
     });
   });
 

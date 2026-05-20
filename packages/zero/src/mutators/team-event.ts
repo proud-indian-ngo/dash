@@ -48,7 +48,7 @@ interface MutatorCtx {
   userId: string;
 }
 
-function computeOccurrenceStart(
+export function computeOccurrenceStart(
   seriesStartTime: number,
   occDate: string
 ): number {
@@ -572,14 +572,22 @@ export const teamEventMutators = {
         throw new Error("Occurrence already materialized");
       }
 
+      const occStart = computeOccurrenceStart(
+        series.startTime,
+        args.originalDate
+      );
+      const duration =
+        series.endTime == null ? null : series.endTime - series.startTime;
+      const occEnd = duration == null ? null : occStart + duration;
+
       await tx.mutate.teamEvent.insert({
         id: args.id,
         teamId: series.teamId,
         name: series.name,
         description: series.description,
         location: series.location,
-        startTime: series.startTime,
-        endTime: series.endTime,
+        startTime: occStart,
+        endTime: occEnd,
         isPublic: series.isPublic,
         recurrenceRule: null,
         seriesId: args.seriesId,
@@ -850,14 +858,12 @@ export const teamEventMutators = {
         const eventName = event.name;
         const startTime = event.startTime;
         const location = event.location;
-        const teamId = event.teamId;
         ctx.asyncTasks?.push({
           meta: {
             mutator: "addEventMember",
             eventId,
             eventName,
             userId,
-            teamId,
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -868,7 +874,6 @@ export const teamEventMutators = {
                 eventName,
                 location: location ?? null,
                 startTime,
-                teamId,
                 userId,
               },
               { traceId: ctx.traceId }
@@ -947,13 +952,11 @@ export const teamEventMutators = {
         const eventName = event.name;
         const startTime = event.startTime;
         const location = event.location;
-        const teamId = event.teamId;
         ctx.asyncTasks?.push({
           meta: {
             mutator: "addEventMembers",
             eventId,
             eventName,
-            teamId,
             userCount: userIds.length,
           },
           fn: async () => {
@@ -966,7 +969,6 @@ export const teamEventMutators = {
                 eventName,
                 startTime,
                 location: location ?? null,
-                teamId,
               },
               { traceId: ctx.traceId }
             );
@@ -1047,14 +1049,12 @@ export const teamEventMutators = {
           });
         }
 
-        const teamId = event.teamId;
         ctx.asyncTasks?.push({
           meta: {
             mutator: "joinEventAsMember",
             eventId: target.eventId,
             eventName: target.name,
             userId,
-            teamId,
           },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -1065,7 +1065,6 @@ export const teamEventMutators = {
                 eventName: target.name,
                 location: target.location ?? null,
                 startTime: target.startTime,
-                teamId,
                 userId,
               },
               { traceId: ctx.traceId }

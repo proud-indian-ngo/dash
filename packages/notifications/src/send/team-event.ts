@@ -32,7 +32,6 @@ interface AddedToEventOptions {
   eventName: string;
   location: string | null;
   startTime: number;
-  teamId: string;
   userId: string;
 }
 
@@ -41,7 +40,6 @@ interface UsersAddedToEventOptions {
   eventName: string;
   location: string | null;
   startTime: number;
-  teamId: string;
   userIds: string[];
 }
 
@@ -84,7 +82,6 @@ export async function notifyAddedToEvent({
   eventName,
   startTime,
   location,
-  teamId,
   eventId,
 }: AddedToEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
@@ -92,7 +89,7 @@ export async function notifyAddedToEvent({
     paragraphs: [
       `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     ],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     ctaLabel: "View event",
   });
   await sendMessage({
@@ -100,7 +97,7 @@ export async function notifyAddedToEvent({
     title: "✅ You're in!",
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     emailHtml,
-    clickAction: `/teams/${teamId}`,
+    clickAction: `/events/${eventId}`,
     idempotencyKey: `event-member-added-${eventId}-${userId}`,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
@@ -111,7 +108,6 @@ export async function notifyUsersAddedToEvent({
   eventName,
   startTime,
   location,
-  teamId,
   eventId,
 }: UsersAddedToEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
@@ -119,7 +115,7 @@ export async function notifyUsersAddedToEvent({
     paragraphs: [
       `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     ],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     ctaLabel: "View event",
   });
   await sendBulkMessage({
@@ -127,7 +123,7 @@ export async function notifyUsersAddedToEvent({
     title: "✅ You're in!",
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     emailHtml,
-    clickAction: `/teams/${teamId}`,
+    clickAction: `/events/${eventId}`,
     idempotencyKey: `event-members-added-${eventId}-${userIds.sort().join(",")}`,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
