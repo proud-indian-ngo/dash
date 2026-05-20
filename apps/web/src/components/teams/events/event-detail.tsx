@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
 import type { TeamDetailData } from "@/components/teams/team-detail";
+import { postEventRsvpPoll } from "@/functions/event-poll";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
@@ -358,20 +359,24 @@ function EventHeader({
   canCancel,
   canCreate,
   canManage,
+  canPostPoll,
   event,
   onCancel,
   onDuplicate,
   onEdit,
+  onPostPoll,
   status,
   teamName,
 }: {
   canCancel: boolean;
   canCreate: boolean;
   canManage: boolean;
+  canPostPoll: boolean;
   event: EventRow;
   onCancel: () => void;
   onDuplicate: () => void;
   onEdit: () => void;
+  onPostPoll: () => void;
   status: EventStatus;
   teamName: string | null;
 }) {
@@ -399,11 +404,16 @@ function EventHeader({
           {teamName ?? "Team"}
         </button>
       </div>
-      {canManage || canCancel || canCreate ? (
+      {canManage || canCancel || canCreate || canPostPoll ? (
         <div className="flex gap-2">
           {canCreate ? (
             <Button onClick={onDuplicate} size="sm" variant="outline">
               Duplicate
+            </Button>
+          ) : null}
+          {canPostPoll ? (
+            <Button onClick={onPostPoll} size="sm" variant="outline">
+              Post Poll
             </Button>
           ) : null}
           {canManage ? (
@@ -787,6 +797,87 @@ export function EventDetail({
     deriveEventState(event, isVirtualOccurrence);
   const canCancel = hasStarted ? canCancelPast : canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
+  const canPostPoll =
+    canManage && !!event.postRsvpPoll && !event.cancelledAt && !isPastEvent;
+  const [postPollDialogOpen, setPostPollDialogOpen] = useState(false);
+  const [isPostingPoll, setIsPostingPoll] = useState(false);
+
+  const handlePostPollClick = useCallback(() => {
+    setPostPollDialogOpen(true);
+  }, []);
+
+  const handlePostPollConfirm = useCallback(async () => {
+    setIsPostingPoll(true);
+    let targetId = event.id;
+    let materialized = false;
+    try {
+      if (isVirtualOccurrence && occDate) {
+        const newId = uuidv7();
+        const mat = await zero.mutate(
+          mutators.teamEvent.materialize({
+            id: newId,
+            seriesId: event.id,
+            originalDate: occDate,
+            now: Date.now(),
+          })
+        ).server;
+        if (mat.type === "error") {
+          toast.error("Couldn't create occurrence");
+          return;
+        }
+        targetId = newId;
+        materialized = true;
+      }
+
+      const res = await postEventRsvpPoll({ data: { eventId: targetId } });
+      if (res.type === "ok") {
+        toast.success("Poll queued");
+        return;
+      }
+      switch (res.code) {
+        case "poll_exists":
+          toast.info("Poll already posted for this event");
+          break;
+        case "not_eligible":
+          toast.error("Event is not eligible for an RSVP poll");
+          break;
+        case "no_whatsapp_group":
+          toast.error("No WhatsApp group linked to this event or team");
+          break;
+        case "not_found":
+          toast.error("Event not found or was deleted");
+          break;
+        case "unauthorized":
+          toast.error("You are not signed in");
+          break;
+        case "forbidden":
+          toast.error("You don't have permission to post polls");
+          break;
+        default:
+          log.error({
+            component: "EventDetail",
+            fn: "postEventRsvpPoll",
+            entityId: targetId,
+            error: res.code,
+          });
+          toast.error("Couldn't post poll");
+      }
+    } catch (error) {
+      log.error({
+        component: "EventDetail",
+        fn: "postEventRsvpPoll",
+        entityId: targetId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error("Couldn't post poll");
+    } finally {
+      setIsPostingPoll(false);
+      setPostPollDialogOpen(false);
+      if (materialized) {
+        navigate({ to: "/events/$id", params: { id: targetId } });
+      }
+    }
+  }, [isVirtualOccurrence, occDate, event.id, zero, navigate]);
 
   const {
     approvedUpdates,
@@ -878,10 +969,12 @@ export function EventDetail({
           canCancel={canCancel}
           canCreate={canCreate}
           canManage={canManage}
+          canPostPoll={canPostPoll}
           event={event}
           onCancel={handleCancelClick}
           onDuplicate={() => dialog.open({ type: "duplicate" })}
           onEdit={handleEditClick}
+          onPostPoll={handlePostPollClick}
           status={status}
           teamName={team?.name ?? null}
         />
@@ -1110,6 +1203,27 @@ export function EventDetail({
         }}
         open={leaveEventAction.isOpen}
         title="Leave event"
+      />
+
+      <ConfirmDialog
+        confirmLabel="Post Poll"
+        description={
+          <>
+            Post RSVP poll for <strong>{event.name}</strong> to the WhatsApp
+            group now?
+          </>
+        }
+        loading={isPostingPoll}
+        loadingLabel="Posting..."
+        onConfirm={handlePostPollConfirm}
+        onOpenChange={(open) => {
+          if (!isPostingPoll) {
+            setPostPollDialogOpen(open);
+          }
+        }}
+        open={postPollDialogOpen}
+        title="Post RSVP poll"
+        variant="default"
       />
 
       <ShowInterestDialog
