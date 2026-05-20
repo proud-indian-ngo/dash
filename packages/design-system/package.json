@@ -23,7 +23,7 @@
     "cmdk": "^1.1.1",
     "next-themes": "^0.4.6",
     "react": "catalog:",
-    "react-day-picker": "^9.14.0",
+    "react-day-picker": "^10.0.0",
     "react-phone-number-input": "^3.4.16",
     "recharts": "3.8.1",
     "sonner": "catalog:",
