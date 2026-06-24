@@ -55,7 +55,7 @@
     "@babel/core": "^7.29.0",
     "@pi-dash/config": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
-    "@tanstack/devtools-vite": "^0.6.0",
+    "@tanstack/devtools-vite": "^0.8.0",
     "@tanstack/react-devtools": "^0.10.2",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@types/babel__core": "^7.20.5",
