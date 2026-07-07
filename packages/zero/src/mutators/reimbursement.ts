@@ -134,13 +134,15 @@ export const reimbursementMutators = {
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const userId = ctx.userId;
+    const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
     assertCanModify(
       entity,
       userId,
-      can(ctx, "requests.edit_all"),
-      "reimbursement"
+      can(ctx, "requests.edit_all") || canEditAnyStatus,
+      "reimbursement",
+      canEditAnyStatus
     );
 
     const now = Date.now();
@@ -185,15 +187,17 @@ export const reimbursementMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
+      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
-      assertPending(entity, "reimbursement", "approved");
+      assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
 
       const now = Date.now();
 
       await tx.mutate.reimbursement.update({
         id: args.id,
         status: "approved",
+        rejectionReason: null,
         approvalScreenshotKey: args.approvalScreenshotKey ?? null,
         reviewedBy: userId,
         reviewedAt: now,
@@ -291,9 +295,10 @@ export const reimbursementMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
+      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
-      assertPending(entity, "reimbursement", "rejected");
+      assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
 
       const now = Date.now();
 
@@ -338,6 +343,37 @@ export const reimbursementMutators = {
           },
         });
       }
+    }
+  ),
+
+  resetToPending: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.edit_all_statuses");
+      const userId = ctx.userId;
+      const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+      assertEntityExists(entity, "Reimbursement");
+
+      if (entity.status === "pending") {
+        throw new Error("Reimbursement is already pending");
+      }
+
+      const now = Date.now();
+
+      await tx.mutate.reimbursement.update({
+        id: args.id,
+        status: "pending",
+        rejectionReason: null,
+        approvalScreenshotKey: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        updatedAt: now,
+      });
+
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
+        reimbursementId: args.id,
+      });
     }
   ),
 

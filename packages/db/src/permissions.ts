@@ -31,6 +31,13 @@ export const PERMISSIONS = [
     description: "Edit any user's pending reimbursements",
   },
   {
+    id: "requests.edit_all_statuses",
+    name: "Edit All Reimbursement Statuses",
+    category: "reimbursements",
+    description:
+      "Edit any user's reimbursements, advance payments, and vendor payments regardless of status",
+  },
+  {
     id: "requests.delete_own",
     name: "Delete Own Reimbursements",
     category: "reimbursements",
@@ -388,6 +395,7 @@ export const ADMIN_TIER_ROLES = new Set([
 
 const adminExcluded = new Set<PermissionId>([
   "requests.approve",
+  "requests.edit_all_statuses",
   "vendors.approve",
   "users.create",
   "users.edit",
@@ -403,6 +411,7 @@ const adminExcluded = new Set<PermissionId>([
 ]);
 
 const financeAdminExcluded = new Set<PermissionId>([
+  "requests.edit_all_statuses",
   "users.create",
   "users.edit",
   "users.delete",

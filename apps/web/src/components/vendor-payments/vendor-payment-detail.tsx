@@ -1,6 +1,7 @@
 import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
+  RepeatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
@@ -31,12 +32,239 @@ import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
 interface VendorPaymentDetailProps {
   canApprove: boolean;
+  canUpdateAnyStatus?: boolean;
   isOwner: boolean;
   request: VendorPaymentWithRelations;
 }
 
+function VendorPaymentStatusActions({
+  onApprove,
+  onReject,
+  onReset,
+  showApproveAction,
+  showRejectAction,
+  showResetAction,
+}: {
+  onApprove: () => void;
+  onReject: () => void;
+  onReset: () => void;
+  showApproveAction: boolean;
+  showRejectAction: boolean;
+  showResetAction: boolean;
+}) {
+  return (
+    <>
+      <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-(--ease-out-expo)">
+        {showApproveAction ? (
+          <Button onClick={onApprove} type="button" variant="default">
+            <HugeiconsIcon
+              className="size-4"
+              icon={CheckmarkCircle01Icon}
+              strokeWidth={2}
+            />
+            Approve
+          </Button>
+        ) : null}
+        {showRejectAction ? (
+          <Button onClick={onReject} type="button" variant="destructive">
+            <HugeiconsIcon
+              className="size-4"
+              icon={Cancel01Icon}
+              strokeWidth={2}
+            />
+            Reject
+          </Button>
+        ) : null}
+        {showResetAction ? (
+          <Button onClick={onReset} type="button" variant="outline">
+            <HugeiconsIcon
+              className="size-4"
+              icon={RepeatIcon}
+              strokeWidth={2}
+            />
+            Reset to pending
+          </Button>
+        ) : null}
+      </div>
+      <Separator />
+    </>
+  );
+}
+
+function VendorPaymentLineItemsTable({
+  lineItems,
+  total,
+}: {
+  lineItems: NonNullable<VendorPaymentWithRelations["lineItems"]>;
+  total: number;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="font-medium text-sm">Line items</h2>
+      {lineItems.length > 0 ? (
+        <div className="overflow-hidden rounded-md border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-3 py-2 text-left font-medium">Category</th>
+                <th className="px-3 py-2 text-left font-medium">Description</th>
+                <th className="px-3 py-2 text-right font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lineItems.map(
+                (item: {
+                  id: string;
+                  amount: number | string;
+                  description?: string | null;
+                  category?: { name: string } | undefined;
+                }) => (
+                  <tr className="border-b last:border-0" key={item.id}>
+                    <td className="px-3 py-2">{item.category?.name ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {item.description ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatINR(Number(item.amount))}
+                    </td>
+                  </tr>
+                )
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="border-t bg-muted/50">
+                <td className="px-3 py-2 font-medium" colSpan={2}>
+                  Total
+                </td>
+                <td className="px-3 py-2 text-right font-medium tabular-nums">
+                  {formatINR(total)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ) : (
+        <p className="text-center text-muted-foreground text-sm">
+          No line items.
+        </p>
+      )}
+    </div>
+  );
+}
+
+interface QuotationAttachment {
+  filename?: string | null;
+  id: string;
+  mimeType?: string | null;
+  objectKey?: string | null;
+  type: "file" | "url";
+  url?: string | null;
+}
+
+function QuotationAttachmentList({
+  attachments,
+}: {
+  attachments: QuotationAttachment[];
+}) {
+  if (attachments.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="font-medium text-sm">Quotation / Supporting Documents</h2>
+      <div className="flex flex-col gap-1.5">
+        {attachments.map((att) => (
+          <div
+            className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
+            key={att.id}
+          >
+            <span className="min-w-0 truncate text-sm">
+              {getAttachmentLabel(att)}
+            </span>
+            <div className="flex items-center gap-3">
+              {att.type === "url" ? (
+                <a
+                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                  href={getAttachmentPreviewHref(att)}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  View link
+                </a>
+              ) : (
+                <>
+                  <a
+                    className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                    href={getAttachmentPreviewHref(att)}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Preview
+                  </a>
+                  <a
+                    className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                    download
+                    href={getAttachmentDownloadHref(att)}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Download
+                  </a>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VendorPaymentHeader({
+  label,
+  request,
+  variant,
+}: {
+  label: string;
+  request: VendorPaymentWithRelations;
+  variant: React.ComponentProps<typeof Badge>["variant"];
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display font-semibold text-2xl tracking-tight">
+          {request.title}
+        </h1>
+        <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+          {request.vendor ? <span>Vendor: {request.vendor.name}</span> : null}
+          {request.city ? <span>City: {capitalize(request.city)}</span> : null}
+          {request.event ? <span>Event: {request.event.name}</span> : null}
+        </div>
+        {request.user ? (
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">Requested by</span>
+            <UserHoverCard user={request.user}>
+              <div className="flex items-center gap-2">
+                <UserAvatar
+                  className="size-6"
+                  fallbackClassName="text-xs"
+                  user={request.user}
+                />
+                <span className="font-medium text-sm">{request.user.name}</span>
+              </div>
+            </UserHoverCard>
+          </div>
+        ) : null}
+      </div>
+      <Badge variant={variant}>{label}</Badge>
+    </div>
+  );
+}
+
 export function VendorPaymentDetail({
   canApprove,
+  canUpdateAnyStatus = false,
   isOwner,
   request,
 }: VendorPaymentDetailProps) {
@@ -44,7 +272,17 @@ export function VendorPaymentDetail({
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
+  const status = request.status as string;
   const { label, variant } = getStatusBadge(request.status);
+  const canResetToPending =
+    status !== "pending" &&
+    (request.transactions ?? []).length === 0 &&
+    !(request.invoiceNumber || request.invoiceDate);
+  const showAdminActions =
+    canApprove && (status === "pending" || canUpdateAnyStatus);
+  const showApproveAction = showAdminActions && status !== "approved";
+  const showRejectAction = showAdminActions && status !== "rejected";
+  const showResetAction = showAdminActions && canResetToPending;
 
   const total = (request.lineItems ?? []).reduce(
     (sum: number, item: { amount: number | string }) =>
@@ -85,7 +323,18 @@ export function VendorPaymentDetail({
     }
   };
 
-  const status = request.status as string;
+  const handleResetToPending = async () => {
+    const res = await zero.mutate(
+      mutators.vendorPayment.resetToPending({ id: request.id })
+    ).server;
+    handleMutationResult(res, {
+      mutation: "vendorPayment.resetToPending",
+      entityId: request.id,
+      successMsg: "Vendor payment reset to pending",
+      errorMsg: "Couldn't reset vendor payment to pending",
+    });
+  };
+
   const invoiceAttachments = (request.attachments ?? []).filter(
     (att) => att.purpose === "invoice"
   );
@@ -96,43 +345,11 @@ export function VendorPaymentDetail({
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-display font-semibold text-2xl tracking-tight">
-              {request.title}
-            </h1>
-            <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-              {request.vendor ? (
-                <span>Vendor: {request.vendor.name}</span>
-              ) : null}
-              {request.city ? (
-                <span>City: {capitalize(request.city)}</span>
-              ) : null}
-              {request.event ? <span>Event: {request.event.name}</span> : null}
-            </div>
-            {request.user ? (
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-muted-foreground text-sm">
-                  Requested by
-                </span>
-                <UserHoverCard user={request.user}>
-                  <div className="flex items-center gap-2">
-                    <UserAvatar
-                      className="size-6"
-                      fallbackClassName="text-xs"
-                      user={request.user}
-                    />
-                    <span className="font-medium text-sm">
-                      {request.user.name}
-                    </span>
-                  </div>
-                </UserHoverCard>
-              </div>
-            ) : null}
-          </div>
-          <Badge variant={variant}>{label}</Badge>
-        </div>
+        <VendorPaymentHeader
+          label={label}
+          request={request}
+          variant={variant}
+        />
 
         {/* Vendor details */}
         <VendorDetailsCard vendor={request.vendor} />
@@ -141,36 +358,15 @@ export function VendorPaymentDetail({
         <VendorBankCard vendor={request.vendor} />
 
         {/* Admin actions */}
-        {canApprove && request.status === "pending" ? (
-          <>
-            <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-(--ease-out-expo)">
-              <Button
-                onClick={() => setApproveOpen(true)}
-                type="button"
-                variant="default"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={CheckmarkCircle01Icon}
-                  strokeWidth={2}
-                />
-                Approve
-              </Button>
-              <Button
-                onClick={() => setRejectOpen(true)}
-                type="button"
-                variant="destructive"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Cancel01Icon}
-                  strokeWidth={2}
-                />
-                Reject
-              </Button>
-            </div>
-            <Separator />
-          </>
+        {showAdminActions ? (
+          <VendorPaymentStatusActions
+            onApprove={() => setApproveOpen(true)}
+            onReject={() => setRejectOpen(true)}
+            onReset={handleResetToPending}
+            showApproveAction={showApproveAction}
+            showRejectAction={showRejectAction}
+            showResetAction={showResetAction}
+          />
         ) : null}
 
         {/* Rejection reason */}
@@ -181,125 +377,12 @@ export function VendorPaymentDetail({
           </div>
         ) : null}
 
-        {/* Line items */}
-        <div className="flex flex-col gap-3">
-          <h2 className="font-medium text-sm">Line items</h2>
-          {(request.lineItems ?? []).length > 0 ? (
-            <div className="overflow-hidden rounded-md border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="px-3 py-2 text-left font-medium">
-                      Category
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium">
-                      Description
-                    </th>
-                    <th className="px-3 py-2 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(request.lineItems ?? []).map(
-                    (item: {
-                      id: string;
-                      amount: number | string;
-                      description?: string | null;
-                      category?: { name: string } | undefined;
-                    }) => (
-                      <tr className="border-b last:border-0" key={item.id}>
-                        <td className="px-3 py-2">
-                          {item.category?.name ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {item.description ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          {formatINR(Number(item.amount))}
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t bg-muted/50">
-                    <td className="px-3 py-2 font-medium" colSpan={2}>
-                      Total
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatINR(total)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground text-sm">
-              No line items.
-            </p>
-          )}
-        </div>
+        <VendorPaymentLineItemsTable
+          lineItems={request.lineItems ?? []}
+          total={total}
+        />
 
-        {/* Quotation / Supporting Documents */}
-        {quotationAttachments.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            <h2 className="font-medium text-sm">
-              Quotation / Supporting Documents
-            </h2>
-            <div className="flex flex-col gap-1.5">
-              {quotationAttachments.map(
-                (att: {
-                  id: string;
-                  type: "file" | "url";
-                  filename?: string | null;
-                  objectKey?: string | null;
-                  url?: string | null;
-                  mimeType?: string | null;
-                }) => (
-                  <div
-                    className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
-                    key={att.id}
-                  >
-                    <span className="min-w-0 truncate text-sm">
-                      {getAttachmentLabel(att)}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      {att.type === "url" ? (
-                        <a
-                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                          href={getAttachmentPreviewHref(att)}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          View link
-                        </a>
-                      ) : (
-                        <>
-                          <a
-                            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                            href={getAttachmentPreviewHref(att)}
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            Preview
-                          </a>
-                          <a
-                            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                            download
-                            href={getAttachmentDownloadHref(att)}
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            Download
-                          </a>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        ) : null}
+        <QuotationAttachmentList attachments={quotationAttachments} />
 
         {/* Transactions */}
         <VendorPaymentTransactions isOwner={isOwner} request={request} />

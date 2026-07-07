@@ -15,10 +15,12 @@ type LineItemInput = z.infer<typeof mutatorLineItemSchema>;
  */
 export function assertVendorUsable(
   vendor: Pick<Vendor, "status" | "createdBy">,
-  userId: string
+  userId: string,
+  allowPendingFromAnyCreator = false
 ): void {
   if (
     vendor.status !== "approved" &&
+    !(allowPendingFromAnyCreator && vendor.status === "pending") &&
     !(vendor.status === "pending" && vendor.createdBy === userId)
   ) {
     throw new Error("Vendor is not available");
@@ -102,9 +104,10 @@ export function assertEntityExists<T>(
 export function assertPending(
   entity: { status: string | null },
   entityName: string,
-  action: string
+  action: string,
+  allowAnyStatus = false
 ) {
-  if (entity.status !== "pending") {
+  if (!allowAnyStatus && entity.status !== "pending") {
     throw new Error(`Only pending ${entityName}s can be ${action}`);
   }
 }
@@ -113,12 +116,13 @@ export function assertCanModify(
   entity: { userId: string | null; status: string | null },
   userId: string,
   hasEditAll: boolean,
-  entityName: string
+  entityName: string,
+  allowAnyStatus = false
 ) {
   if (!(hasEditAll || entity.userId === userId)) {
     throw new Error("Unauthorized");
   }
-  if (entity.status !== "pending") {
+  if (!allowAnyStatus && entity.status !== "pending") {
     throw new Error(`Only pending ${entityName}s can be updated`);
   }
 }

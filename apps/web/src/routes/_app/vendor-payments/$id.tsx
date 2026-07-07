@@ -24,6 +24,47 @@ export const Route = createFileRoute("/_app/vendor-payments/$id")({
   component: VendorPaymentDetailRouteComponent,
 });
 
+function VendorPaymentEditPane({
+  initialValues,
+  onCancel,
+  onSaved,
+  onViewDetails,
+  ownerEditingPending,
+}: {
+  initialValues: React.ComponentProps<
+    typeof VendorPaymentForm
+  >["initialValues"];
+  onCancel: () => void;
+  onSaved: () => void;
+  onViewDetails: () => void;
+  ownerEditingPending: boolean;
+}) {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display font-semibold text-2xl tracking-tight">
+          Edit Vendor Payment
+        </h1>
+        {ownerEditingPending ? null : (
+          <Button onClick={onViewDetails} type="button" variant="outline">
+            View details
+          </Button>
+        )}
+      </div>
+      <p className="mt-2 text-muted-foreground text-sm">
+        Update submission details.
+      </p>
+      <div className="mt-6">
+        <VendorPaymentForm
+          initialValues={initialValues}
+          onCancel={onCancel}
+          onSaved={onSaved}
+        />
+      </div>
+    </>
+  );
+}
+
 function VendorPaymentDetailRouteComponent() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
@@ -54,15 +95,19 @@ function VendorPaymentDetailRouteComponent() {
   }
 
   const canEditAll = hasPermission("requests.edit_all");
+  const canEditAnyStatus = hasPermission("requests.edit_all_statuses");
   const canApprove = hasPermission("requests.approve");
   const isPending = vendorPayment.status === "pending";
   const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(
     vendorPayment.status as string
   );
   const isOwner = vendorPayment.userId === session.user.id;
-  const canEdit = (canEditAll && !isInvoiceLocked) || (isPending && isOwner);
+  const canPrivilegedEdit =
+    canEditAnyStatus || (canEditAll && !isInvoiceLocked);
+  const canEdit = canPrivilegedEdit || (isPending && isOwner);
   const showAdminActions = canApprove && isPending;
-  const ownerEditingPending = canEdit && !canEditAll && !showAdminActions;
+  const ownerEditingPending =
+    canEdit && !(canEditAll || canEditAnyStatus) && !showAdminActions;
   const showEditForm = ownerEditingPending || (canEdit && adminEditMode);
 
   const initialValues = {
@@ -82,36 +127,17 @@ function VendorPaymentDetailRouteComponent() {
         key={showEditForm ? "edit" : "view"}
       >
         {showEditForm ? (
-          <>
-            <div className="flex items-center justify-between gap-3">
-              <h1 className="font-display font-semibold text-2xl tracking-tight">
-                Edit Vendor Payment
-              </h1>
-              {canEdit && !ownerEditingPending ? (
-                <Button
-                  onClick={() => setAdminEditMode(false)}
-                  type="button"
-                  variant="outline"
-                >
-                  View details
-                </Button>
-              ) : null}
-            </div>
-            <p className="mt-2 text-muted-foreground text-sm">
-              Update your submission before it is reviewed.
-            </p>
-            <div className="mt-6">
-              <VendorPaymentForm
-                initialValues={initialValues}
-                onCancel={() => {
-                  navigate({ to: "/vendor-payments" });
-                }}
-                onSaved={() => {
-                  setAdminEditMode(false);
-                }}
-              />
-            </div>
-          </>
+          <VendorPaymentEditPane
+            initialValues={initialValues}
+            onCancel={() => {
+              navigate({ to: "/vendor-payments" });
+            }}
+            onSaved={() => {
+              setAdminEditMode(false);
+            }}
+            onViewDetails={() => setAdminEditMode(false)}
+            ownerEditingPending={ownerEditingPending}
+          />
         ) : (
           <>
             {canEdit ? (
@@ -127,6 +153,7 @@ function VendorPaymentDetailRouteComponent() {
             ) : null}
             <VendorPaymentDetail
               canApprove={canApprove}
+              canUpdateAnyStatus={canEditAnyStatus}
               isOwner={isOwner}
               request={vendorPayment}
             />

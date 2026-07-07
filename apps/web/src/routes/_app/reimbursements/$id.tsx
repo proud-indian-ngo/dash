@@ -128,14 +128,18 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const { data: request, type: requestType } = resolved;
 
   const canEditAll = hasPermission("requests.edit_all");
+  const canEditAnyStatus = hasPermission("requests.edit_all_statuses");
   const canApprove = hasPermission("requests.approve");
   const isPending = request.status === "pending";
   const isOwner = request.userId === session.user.id;
-  const canEdit = isPending && (isOwner || canEditAll);
+  const canEdit = canEditAnyStatus || (isPending && (isOwner || canEditAll));
   const showAdminActions = canApprove && isPending;
   const isAdminEditingAnotherUser =
-    canEditAll && request.userId !== session.user.id;
-  const showEditForm = canEdit && (!showAdminActions || adminEditMode);
+    (canEditAll || canEditAnyStatus) && request.userId !== session.user.id;
+  const showEditForm =
+    canEdit && (!(canEditAnyStatus || showAdminActions) || adminEditMode);
+  const showViewDetailsButton =
+    canEdit && (showAdminActions || canEditAnyStatus);
 
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
 
@@ -151,7 +155,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               <h1 className="font-display font-semibold text-2xl tracking-tight">
                 Edit {typeLabel}
               </h1>
-              {showAdminActions ? (
+              {showViewDetailsButton ? (
                 <Button
                   onClick={() => setAdminEditMode(false)}
                   type="button"
@@ -162,7 +166,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               ) : null}
             </div>
             <p className="mt-2 text-muted-foreground text-sm">
-              Update your submission before it is reviewed.
+              Update submission details.
             </p>
             <div className="mt-6">
               <ReimbursementForm
@@ -180,7 +184,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
           </>
         ) : (
           <>
-            {showAdminActions ? (
+            {canEdit ? (
               <div className="mb-4 flex justify-end">
                 <Button
                   onClick={() => setAdminEditMode(true)}
@@ -191,7 +195,11 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
                 </Button>
               </div>
             ) : null}
-            <ReimbursementDetail canApprove={canApprove} request={request} />
+            <ReimbursementDetail
+              canApprove={canApprove}
+              canUpdateAnyStatus={canEditAnyStatus}
+              request={request}
+            />
           </>
         )}
       </div>

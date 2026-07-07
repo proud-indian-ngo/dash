@@ -192,4 +192,14 @@ describe("vendor validation for payments (assertVendorUsable)", () => {
       )
     ).toThrow("Vendor is not available");
   });
+
+  it("allows pending vendor created by another user when bypass is enabled", () => {
+    expect(() =>
+      assertVendorUsable(
+        { status: "pending", createdBy: "other-user" },
+        "user-1",
+        true
+      )
+    ).not.toThrow();
+  });
 });

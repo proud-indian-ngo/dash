@@ -45,6 +45,12 @@ describe("assertPending", () => {
       assertPending({ status: null }, "reimbursement", "approved")
     ).toThrow("Only pending reimbursements can be approved");
   });
+
+  it("passes when status bypass is enabled", () => {
+    expect(() =>
+      assertPending({ status: "approved" }, "reimbursement", "rejected", true)
+    ).not.toThrow();
+  });
 });
 
 describe("assertCanModify", () => {
@@ -101,6 +107,18 @@ describe("assertCanModify", () => {
         "reimbursement"
       )
     ).toThrow("Only pending reimbursements can be updated");
+  });
+
+  it("passes for admin with non-pending status when status bypass is enabled", () => {
+    expect(() =>
+      assertCanModify(
+        { userId: "user-1", status: "approved" },
+        "admin-1",
+        true,
+        "reimbursement",
+        true
+      )
+    ).not.toThrow();
   });
 });
 

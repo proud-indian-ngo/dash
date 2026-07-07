@@ -40,11 +40,13 @@ import { getStatusBadge } from "@/lib/status-badge";
 
 interface ReimbursementDetailProps {
   canApprove: boolean;
+  canUpdateAnyStatus?: boolean;
   request: RequestDetailData;
 }
 
 export function ReimbursementDetail({
   canApprove,
+  canUpdateAnyStatus = false,
   request,
 }: ReimbursementDetailProps) {
   const zero = useZero();
@@ -63,6 +65,12 @@ export function ReimbursementDetail({
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
   const { label, variant } = getStatusBadge(request.status);
+  const canOverrideStatus = canUpdateAnyStatus;
+  const showAdminActions =
+    canApprove && (request.status === "pending" || canOverrideStatus);
+  const showApproveAction = showAdminActions && request.status !== "approved";
+  const showRejectAction = showAdminActions && request.status !== "rejected";
+  const showResetAction = showAdminActions && request.status !== "pending";
 
   const total = request.lineItems.reduce(
     (sum, item) => sum + Number(item.amount),
@@ -137,6 +145,17 @@ export function ReimbursementDetail({
     }
   };
 
+  const handleResetToPending = async () => {
+    const res = await zero.mutate(mutatorNs.resetToPending({ id: request.id }))
+      .server;
+    handleMutationResult(res, {
+      mutation: `${mutatorName}.resetToPending`,
+      entityId: request.id,
+      successMsg: `${typeLabel} reset to pending`,
+      errorMsg: `Couldn't reset ${typeLabel.toLowerCase()} to pending`,
+    });
+  };
+
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
@@ -177,33 +196,51 @@ export function ReimbursementDetail({
         <BankAccountCard request={request} />
 
         {/* Admin actions */}
-        {canApprove && request.status === "pending" ? (
+        {showAdminActions ? (
           <>
             <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-out-expo">
-              <Button
-                onClick={() => setApproveOpen(true)}
-                type="button"
-                variant="default"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={CheckmarkCircle01Icon}
-                  strokeWidth={2}
-                />
-                Approve
-              </Button>
-              <Button
-                onClick={() => setRejectOpen(true)}
-                type="button"
-                variant="destructive"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Cancel01Icon}
-                  strokeWidth={2}
-                />
-                Reject
-              </Button>
+              {showApproveAction ? (
+                <Button
+                  onClick={() => setApproveOpen(true)}
+                  type="button"
+                  variant="default"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={CheckmarkCircle01Icon}
+                    strokeWidth={2}
+                  />
+                  Approve
+                </Button>
+              ) : null}
+              {showRejectAction ? (
+                <Button
+                  onClick={() => setRejectOpen(true)}
+                  type="button"
+                  variant="destructive"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Cancel01Icon}
+                    strokeWidth={2}
+                  />
+                  Reject
+                </Button>
+              ) : null}
+              {showResetAction ? (
+                <Button
+                  onClick={handleResetToPending}
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={RepeatIcon}
+                    strokeWidth={2}
+                  />
+                  Reset to pending
+                </Button>
+              ) : null}
             </div>
             <Separator />
           </>

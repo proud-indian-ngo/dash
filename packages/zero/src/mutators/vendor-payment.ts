@@ -122,11 +122,15 @@ export const vendorPaymentMutators = {
     assertIsLoggedIn(ctx);
     const userId = ctx.userId;
     const hasEditAll = can(ctx, "requests.edit_all");
+    const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
-    if (!hasEditAll) {
+    if (!(hasEditAll || canEditAnyStatus)) {
       assertCanModify(entity, userId, false, "vendor payment");
-    } else if (INVOICE_LOCKED_STATUSES.has(entity.status as string)) {
+    } else if (
+      !canEditAnyStatus &&
+      INVOICE_LOCKED_STATUSES.has(entity.status as string)
+    ) {
       throw new Error(
         "Cannot edit vendor payment details while invoice is pending or completed"
       );
@@ -136,7 +140,7 @@ export const vendorPaymentMutators = {
     if (!vendor) {
       throw new Error("Vendor not found");
     }
-    assertVendorUsable(vendor, userId);
+    assertVendorUsable(vendor, userId, canEditAnyStatus);
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
@@ -193,15 +197,17 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
+      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
-      assertPending(entity, "vendor payment", "approved");
+      assertPending(entity, "vendor payment", "approved", canEditAnyStatus);
 
       const now = Date.now();
 
       await tx.mutate.vendorPayment.update({
         id: args.id,
         status: "approved",
+        rejectionReason: null,
         approvalScreenshotKey: args.approvalScreenshotKey ?? null,
         reviewedBy: userId,
         reviewedAt: now,
@@ -316,9 +322,10 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
+      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
-      assertPending(entity, "vendor payment", "rejected");
+      assertPending(entity, "vendor payment", "rejected", canEditAnyStatus);
 
       const now = Date.now();
 
@@ -690,6 +697,61 @@ export const vendorPaymentMutators = {
           },
         });
       }
+    }
+  ),
+
+  resetToPending: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.edit_all_statuses");
+      const userId = ctx.userId;
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+
+      if (entity.status === "pending") {
+        throw new Error("Vendor payment is already pending");
+      }
+
+      const transactions = await tx.run(
+        zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+      );
+      if (transactions.length > 0) {
+        throw new Error(
+          "Cannot reset vendor payment to pending after payments exist"
+        );
+      }
+
+      const invoiceAttachments = await tx.run(
+        zql.vendorPaymentAttachment
+          .where("vendorPaymentId", args.id)
+          .where("purpose", "invoice")
+      );
+      if (
+        entity.invoiceNumber ||
+        entity.invoiceDate ||
+        invoiceAttachments.length > 0
+      ) {
+        throw new Error(
+          "Cannot reset vendor payment to pending after invoice data exists"
+        );
+      }
+
+      const now = Date.now();
+
+      await tx.mutate.vendorPayment.update({
+        id: args.id,
+        status: "pending",
+        rejectionReason: null,
+        approvalScreenshotKey: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        updatedAt: now,
+      });
+
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
+        vendorPaymentId: args.id,
+      });
     }
   ),
 };

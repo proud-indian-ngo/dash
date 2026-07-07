@@ -106,13 +106,15 @@ export const advancePaymentMutators = {
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const userId = ctx.userId;
+    const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.advancePayment.where("id", args.id).one());
     assertEntityExists(entity, "Advance payment");
     assertCanModify(
       entity,
       userId,
-      can(ctx, "requests.edit_all"),
-      "advance payment"
+      can(ctx, "requests.edit_all") || canEditAnyStatus,
+      "advance payment",
+      canEditAnyStatus
     );
 
     const now = Date.now();
@@ -157,17 +159,19 @@ export const advancePaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
+      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(
         zql.advancePayment.where("id", args.id).one()
       );
       assertEntityExists(entity, "Advance payment");
-      assertPending(entity, "advance payment", "approved");
+      assertPending(entity, "advance payment", "approved", canEditAnyStatus);
 
       const now = Date.now();
 
       await tx.mutate.advancePayment.update({
         id: args.id,
         status: "approved",
+        rejectionReason: null,
         approvalScreenshotKey: args.approvalScreenshotKey ?? null,
         reviewedBy: userId,
         reviewedAt: now,
@@ -245,11 +249,12 @@ export const advancePaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const userId = ctx.userId;
+      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(
         zql.advancePayment.where("id", args.id).one()
       );
       assertEntityExists(entity, "Advance payment");
-      assertPending(entity, "advance payment", "rejected");
+      assertPending(entity, "advance payment", "rejected", canEditAnyStatus);
 
       const now = Date.now();
 
@@ -294,6 +299,39 @@ export const advancePaymentMutators = {
           },
         });
       }
+    }
+  ),
+
+  resetToPending: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.edit_all_statuses");
+      const userId = ctx.userId;
+      const entity = await tx.run(
+        zql.advancePayment.where("id", args.id).one()
+      );
+      assertEntityExists(entity, "Advance payment");
+
+      if (entity.status === "pending") {
+        throw new Error("Advance payment is already pending");
+      }
+
+      const now = Date.now();
+
+      await tx.mutate.advancePayment.update({
+        id: args.id,
+        status: "pending",
+        rejectionReason: null,
+        approvalScreenshotKey: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        updatedAt: now,
+      });
+
+      await tx.mutate.advancePaymentHistory.insert({
+        ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
+        advancePaymentId: args.id,
+      });
     }
   ),
 };
