@@ -1,0 +1,65 @@
+packages/zero/src/mutators/submission-helpers.ts
+  s_c13cb8e11f8588::t_e3ddb08470ae50 18-19,23,119-120,125
+  s_c13cb8e11f8588::t_165ff8a83ebeb3 107-108,110
+packages/zero/src/mutators/__tests__/vendor-payment.test.ts
+  s_c13cb8e11f8588::t_e3ddb08470ae50 195-204
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_c13cb8e11f8588::t_2122b57260a8a5 73,148-158,228-241
+  s_c13cb8e11f8588::t_69ca3a8cd63124 68
+  s_c13cb8e11f8588::t_43aa6b5fb81850 43,49,69-72,199,202-227,242-243
+packages/db/src/permissions.ts
+  s_c13cb8e11f8588::t_e3ddb08470ae50 34-37,39,398,414
+  s_c13cb8e11f8588::t_69ca3a8cd63124 38
+  s_c13cb8e11f8588::t_d1f7f21a4306c7 33
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_c13cb8e11f8588::t_1bc88cda054c35 94-109,111-122,124-154,156-161,163-218,259,261-264,380-383,385
+  s_c13cb8e11f8588::t_65d8ba06fc1025 275
+  s_c13cb8e11f8588::t_ab13563510b92a 110,123,155,162,219-253,255-258,260
+  s_c13cb8e11f8588::t_0c625782dbaaba 281-285
+  s_c13cb8e11f8588::t_f45bba8e9e50f4 40-42,44-45,47-49,51-52,54-77,88-93,362-364,366-367,369
+  s_c13cb8e11f8588::t_2122b57260a8a5 4,43,46,50,53,78-87,277-280,326-335,365,368
+  s_c13cb8e11f8588::t_43aa6b5fb81850 35,267,361
+  s_c13cb8e11f8588::t_18eb8493cd9909 254,348-352
+  s_c13cb8e11f8588::t_00046bc04cb3b7 336-337
+apps/web/src/routes/_app/vendor-payments/$id.tsx
+  s_c13cb8e11f8588::t_0c625782dbaaba 107
+  s_c13cb8e11f8588::t_43aa6b5fb81850 156
+  s_c13cb8e11f8588::t_1bc88cda054c35 27-33,37-67,105-106,130-140
+  s_c13cb8e11f8588::t_ab13563510b92a 34-36
+  s_c13cb8e11f8588::t_e3ddb08470ae50 98,109-110
+packages/zero/src/mutators/advance-payment.ts
+  s_c13cb8e11f8588::t_69ca3a8cd63124 109,115-117,162,167,174,252,257
+  s_c13cb8e11f8588::t_1709dbce686f62 304-336
+apps/web/src/routes/_app/reimbursements/$id.tsx
+  s_c13cb8e11f8588::t_b1c2a0c18ef0da 139,158
+  s_c13cb8e11f8588::t_e3ddb08470ae50 131,135,138,169,187
+  s_c13cb8e11f8588::t_0a62f7d8947130 140-142
+  s_c13cb8e11f8588::t_43aa6b5fb81850 198-202
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_c13cb8e11f8588::t_165ff8a83ebeb3 48-53
+  s_c13cb8e11f8588::t_e3ddb08470ae50 111-122
+packages/zero/src/mutators/reimbursement.ts
+  s_c13cb8e11f8588::t_165ff8a83ebeb3 190,193,200,298,301
+  s_c13cb8e11f8588::t_1709dbce686f62 349-379
+  s_c13cb8e11f8588::t_e3ddb08470ae50 137,143-145
+packages/zero/src/mutators/vendor-payment.ts
+  s_c13cb8e11f8588::t_1709dbce686f62 702-756
+  s_c13cb8e11f8588::t_e3ddb08470ae50 125,128,130-133,143
+  s_c13cb8e11f8588::t_165ff8a83ebeb3 200,203,210,325,328
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9f0381dea8d25dc5d46505ae6f0f297412556efb",
+  "prompts": {},
+  "sessions": {
+    "s_c13cb8e11f8588": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3c4e-4937-7f62-ae00-e162789de485",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
