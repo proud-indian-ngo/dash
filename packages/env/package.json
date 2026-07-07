@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./server": "./src/server.ts",
+    "./server": {
+      "browser": "./src/web.ts",
+      "default": "./src/server.ts"
+    },
     "./web": "./src/web.ts",
-    ".": "./src/index.ts"
+    ".": {
+      "browser": "./src/browser.ts",
+      "default": "./src/index.ts"
+    }
   },
   "scripts": {
     "check:types": "tsc --noEmit"

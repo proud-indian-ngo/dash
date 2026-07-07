@@ -1,6 +1,6 @@
-import { CodeLeafStatic } from "@pi-dash/editor/components/ui/code-node-static";
-import { HighlightLeafStatic } from "@pi-dash/editor/components/ui/highlight-node-static";
-import { KbdLeafStatic } from "@pi-dash/editor/components/ui/kbd-node-static";
+import { CodeLeafStatic } from "../../ui/code-node-static";
+import { HighlightLeafStatic } from "../../ui/highlight-node-static";
+import { KbdLeafStatic } from "../../ui/kbd-node-static";
 import {
   BaseBoldPlugin,
   BaseCodePlugin,

@@ -58,7 +58,7 @@ export interface TransactionExportRow {
 
 export const exportVendorPaymentsCsv = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(exportSchema)
+  .validator(exportSchema)
   .handler(async ({ context, data }) => {
     try {
       await assertServerPermission(context.session, "requests.export");

@@ -1,7 +1,7 @@
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { Button } from "@pi-dash/editor/components/ui/button";
-import { Input } from "@pi-dash/editor/components/ui/input";
-import { Textarea } from "@pi-dash/editor/components/ui/textarea";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Textarea } from "./textarea";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 

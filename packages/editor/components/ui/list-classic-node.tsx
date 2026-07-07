@@ -1,6 +1,6 @@
 "use client";
 
-import { Checkbox } from "@pi-dash/components/ui/checkbox";
+import { Checkbox } from "./checkbox";
 import { cn } from "@pi-dash/design-system/lib/utils";
 
 import {

@@ -5,6 +5,7 @@ import { log } from "evlog";
 import { type ReactNode, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { AppContext } from "@/context/app-context";
+import { generateTraceId } from "@/lib/tracing";
 
 type Level = "root" | "section" | "inline";
 
@@ -111,8 +112,8 @@ function handleError(error: unknown, info: { componentStack?: string | null }) {
     componentStack: info.componentStack ?? "",
   });
   if (error instanceof Error) {
-    Promise.all([import("@/lib/posthog"), import("@/lib/tracing")])
-      .then(([{ captureException }, { generateTraceId }]) =>
+    import("@/lib/posthog")
+      .then(({ captureException }) =>
         captureException(error, { traceId: generateTraceId() })
       )
       .catch(() => {

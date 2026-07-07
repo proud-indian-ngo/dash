@@ -1,11 +1,11 @@
 "use client";
 
-import { Button } from "@pi-dash/components/ui/button";
+import { Button } from "./button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@pi-dash/components/ui/tooltip";
+} from "./tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { DndPlugin, useDraggable, useDropLine } from "@platejs/dnd";
 import { BlockSelectionPlugin } from "@platejs/selection/react";

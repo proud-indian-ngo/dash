@@ -1,4 +1,4 @@
-import { BlockquoteElementStatic } from "@pi-dash/editor/components/ui/blockquote-node-static";
+import { BlockquoteElementStatic } from "../../ui/blockquote-node-static";
 import {
   H1ElementStatic,
   H2ElementStatic,
@@ -6,9 +6,9 @@ import {
   H4ElementStatic,
   H5ElementStatic,
   H6ElementStatic,
-} from "@pi-dash/editor/components/ui/heading-node-static";
-import { HrElementStatic } from "@pi-dash/editor/components/ui/hr-node-static";
-import { ParagraphElementStatic } from "@pi-dash/editor/components/ui/paragraph-node-static";
+} from "../../ui/heading-node-static";
+import { HrElementStatic } from "../../ui/hr-node-static";
+import { ParagraphElementStatic } from "../../ui/paragraph-node-static";
 import {
   BaseBlockquotePlugin,
   BaseH1Plugin,

@@ -23,7 +23,7 @@
     "@pi-dash/shared": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "drizzle-orm": "catalog:",
-    "drizzle-zero": "^0.18.0",
+    "drizzle-zero": "^0.19.0",
     "rrule": "^2.8.1",
     "uuidv7": "catalog:",
     "zod": "catalog:"

@@ -1,7 +1,7 @@
 "use client";
 
-import { buttonVariants } from "@pi-dash/components/ui/button";
-import { Separator } from "@pi-dash/components/ui/separator";
+import { buttonVariants } from "./button";
+import { Separator } from "./separator";
 
 import {
   flip,

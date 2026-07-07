@@ -51,13 +51,6 @@ export const requestFormSchema = z.discriminatedUnion("type", [
 
 export type RequestFormValues = z.infer<typeof requestFormSchema>;
 
-export function getFormSchema(type: RequestType) {
-  if (type === "reimbursement") {
-    return reimbursementRequestFormSchema;
-  }
-  return advancePaymentRequestFormSchema;
-}
-
 export function getDefaultValues(type: RequestType): RequestFormValues {
   const base = {
     title: "",

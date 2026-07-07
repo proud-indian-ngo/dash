@@ -1,6 +1,6 @@
 "use client";
 
-import { insertBlock } from "@pi-dash/editor/components/editor/transforms";
+import { insertBlock } from "../editor/transforms";
 import {
   ArrowRight01Icon,
   CheckmarkSquare01Icon,

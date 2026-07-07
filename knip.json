@@ -34,9 +34,7 @@
       "entry": ["src/*.ts", "src/send/*.ts"]
     },
     "packages/whatsapp": {},
-    "packages/email": {
-      "ignoreDependencies": ["react", "@types/react"]
-    },
+    "packages/email": {},
     "packages/design-system": {
       "ignoreFiles": ["components/**", "hooks/**"],
       "ignoreDependencies": ["@tailwindcss/.*"]

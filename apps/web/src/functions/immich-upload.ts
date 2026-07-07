@@ -57,7 +57,7 @@ function buildImmichAlbumName(
 
 export const uploadPhotoToImmich = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator((input: unknown) => {
+  .validator((input: unknown) => {
     if (!(input instanceof FormData)) {
       throw new Error("Expected FormData");
     }

@@ -3,15 +3,15 @@
 /* eslint-disable react-hooks/refs */
 
 import type { Emoji } from "@emoji-mart/data";
-import { Button } from "@pi-dash/components/ui/button";
+import { Button } from "./button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@pi-dash/components/ui/tooltip";
+} from "./tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { ToolbarButton } from "@pi-dash/editor/components/ui/toolbar";
+import { ToolbarButton } from "./toolbar";
 import {
   type EmojiCategoryList,
   type EmojiIconList,
@@ -27,7 +27,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@pi-dash/components/ui/popover";
+} from "./popover";
 import {
   Apple01Icon,
   BulbIcon,

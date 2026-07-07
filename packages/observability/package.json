@@ -6,7 +6,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./trace-context": "./src/trace-context.ts",
-    "./trace-store": "./src/trace-store.ts"
+    "./trace-store": {
+      "browser": "./src/trace-store.browser.ts",
+      "default": "./src/trace-store.ts"
+    }
   },
   "scripts": {
     "check:types": "tsc --noEmit",

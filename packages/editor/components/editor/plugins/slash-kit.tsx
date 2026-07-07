@@ -1,6 +1,6 @@
 "use client";
 
-import { SlashInputElement } from "@pi-dash/editor/components/ui/slash-node";
+import { SlashInputElement } from "../../ui/slash-node";
 import { SlashInputPlugin, SlashPlugin } from "@platejs/slash-command/react";
 import { KEYS, type SlateEditor } from "platejs";
 

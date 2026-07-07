@@ -1,4 +1,9 @@
-import { notifyEventUpdatePosted } from "@pi-dash/notifications/send/event-update";
+import {
+  notifyEventUpdateApproved,
+  notifyEventUpdatePending,
+  notifyEventUpdatePosted,
+  notifyEventUpdateRejected,
+} from "@pi-dash/notifications/send/event-update";
 import type {
   NotifyEventUpdateApprovedPayload,
   NotifyEventUpdatePendingPayload,
@@ -16,23 +21,17 @@ export const handleNotifyEventUpdatePosted =
 export const handleNotifyEventUpdateApproved =
   createNotifyHandler<NotifyEventUpdateApprovedPayload>(
     "notify-event-update-approved",
-    async () =>
-      (await import("@pi-dash/notifications/send/event-update"))
-        .notifyEventUpdateApproved
+    async () => notifyEventUpdateApproved
   );
 
 export const handleNotifyEventUpdateRejected =
   createNotifyHandler<NotifyEventUpdateRejectedPayload>(
     "notify-event-update-rejected",
-    async () =>
-      (await import("@pi-dash/notifications/send/event-update"))
-        .notifyEventUpdateRejected
+    async () => notifyEventUpdateRejected
   );
 
 export const handleNotifyEventUpdatePending =
   createNotifyHandler<NotifyEventUpdatePendingPayload>(
     "notify-event-update-pending",
-    async () =>
-      (await import("@pi-dash/notifications/send/event-update"))
-        .notifyEventUpdatePending
+    async () => notifyEventUpdatePending
   );

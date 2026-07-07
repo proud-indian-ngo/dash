@@ -8,11 +8,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/editor/components/ui/dialog";
+} from "./dialog";
 import {
   InputGroup,
   InputGroupAddon,
-} from "@pi-dash/editor/components/ui/input-group";
+} from "./input-group";
 import { Command as CommandPrimitive } from "cmdk";
 import type * as React from "react";
 

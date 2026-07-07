@@ -4,7 +4,8 @@ import {
   CodeBlockElement,
   CodeLineElement,
   CodeSyntaxLeaf,
-} from "@pi-dash/editor/components/ui/code-block-node";
+} from "../../ui/code-block-node";
+import { CodeBlockRules } from "@platejs/code-block";
 import {
   CodeBlockPlugin,
   CodeLinePlugin,
@@ -17,6 +18,7 @@ const lowlight = createLowlight(all);
 export const CodeBlockKit = [
   CodeBlockPlugin.configure({
     node: { component: CodeBlockElement },
+    inputRules: [CodeBlockRules.markdown({ on: "match" })],
     options: { lowlight },
     shortcuts: { toggle: { keys: "mod+alt+8" } },
   }),

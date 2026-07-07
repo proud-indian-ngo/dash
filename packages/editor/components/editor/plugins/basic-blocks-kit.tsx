@@ -1,6 +1,6 @@
 "use client";
 
-import { BlockquoteElement } from "@pi-dash/editor/components/ui/blockquote-node";
+import { BlockquoteElement } from "../../ui/blockquote-node";
 import {
   H1Element,
   H2Element,
@@ -8,9 +8,14 @@ import {
   H4Element,
   H5Element,
   H6Element,
-} from "@pi-dash/editor/components/ui/heading-node";
-import { HrElement } from "@pi-dash/editor/components/ui/hr-node";
-import { ParagraphElement } from "@pi-dash/editor/components/ui/paragraph-node";
+} from "../../ui/heading-node";
+import { HrElement } from "../../ui/hr-node";
+import { ParagraphElement } from "../../ui/paragraph-node";
+import {
+  BlockquoteRules,
+  HeadingRules,
+  HorizontalRuleRules,
+} from "@platejs/basic-nodes";
 import {
   BlockquotePlugin,
   H1Plugin,
@@ -32,6 +37,7 @@ export const BasicBlocksKit = [
     rules: {
       break: { empty: "reset" },
     },
+    inputRules: [HeadingRules.markdown()],
     shortcuts: { toggle: { keys: "mod+alt+1" } },
   }),
   H2Plugin.configure({
@@ -41,6 +47,7 @@ export const BasicBlocksKit = [
     rules: {
       break: { empty: "reset" },
     },
+    inputRules: [HeadingRules.markdown()],
     shortcuts: { toggle: { keys: "mod+alt+2" } },
   }),
   H3Plugin.configure({
@@ -50,6 +57,7 @@ export const BasicBlocksKit = [
     rules: {
       break: { empty: "reset" },
     },
+    inputRules: [HeadingRules.markdown()],
     shortcuts: { toggle: { keys: "mod+alt+3" } },
   }),
   H4Plugin.configure({
@@ -59,6 +67,7 @@ export const BasicBlocksKit = [
     rules: {
       break: { empty: "reset" },
     },
+    inputRules: [HeadingRules.markdown()],
     shortcuts: { toggle: { keys: "mod+alt+4" } },
   }),
   H5Plugin.configure({
@@ -68,6 +77,7 @@ export const BasicBlocksKit = [
     rules: {
       break: { empty: "reset" },
     },
+    inputRules: [HeadingRules.markdown()],
     shortcuts: { toggle: { keys: "mod+alt+5" } },
   }),
   H6Plugin.configure({
@@ -77,11 +87,19 @@ export const BasicBlocksKit = [
     rules: {
       break: { empty: "reset" },
     },
+    inputRules: [HeadingRules.markdown()],
     shortcuts: { toggle: { keys: "mod+alt+6" } },
   }),
   BlockquotePlugin.configure({
     node: { component: BlockquoteElement },
+    inputRules: [BlockquoteRules.markdown()],
     shortcuts: { toggle: { keys: "mod+shift+period" } },
   }),
-  HorizontalRulePlugin.withComponent(HrElement),
+  HorizontalRulePlugin.configure({
+    node: { component: HrElement },
+    inputRules: [
+      HorizontalRuleRules.markdown({ variant: "-" }),
+      HorizontalRuleRules.markdown({ variant: "_" }),
+    ],
+  }),
 ];

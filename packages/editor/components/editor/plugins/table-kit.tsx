@@ -5,7 +5,7 @@ import {
   TableCellHeaderElement,
   TableElement,
   TableRowElement,
-} from "@pi-dash/editor/components/ui/table-node";
+} from "../../ui/table-node";
 import {
   TableCellHeaderPlugin,
   TableCellPlugin,

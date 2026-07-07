@@ -64,7 +64,7 @@ const sanitizeFileName = (fileName: string): string =>
 
 export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     z
       .object({
         fileName: z.string().min(1),
@@ -136,7 +136,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
 
 export const deleteUploadedAsset = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     z.object({
       key: z.string().startsWith(`${env.R2_KEY_PREFIX}/`),
       subfolder: z.enum([
@@ -173,7 +173,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
 
 export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     z.object({
       fileName: z.string().min(1),
       fileSize: z.number().int().positive().max(MAX_AVATAR_FILE_SIZE_BYTES),
@@ -210,7 +210,7 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
 
 export const deleteProfilePicture = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     z.object({
       key: z.string().min(1),
     })
@@ -242,7 +242,7 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
 
 export const deleteUploadedAssets = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     z.object({
       keys: z.array(z.string().startsWith(`${env.R2_KEY_PREFIX}/`)),
       subfolder: z.enum([

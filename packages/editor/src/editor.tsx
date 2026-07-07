@@ -22,7 +22,6 @@ import { ExitBreakPlugin, KEYS, TrailingBlockPlugin } from "platejs";
 import { Plate, useEditorSelector, usePlateEditor } from "platejs/react";
 import { type ChangeEvent, type MouseEvent, useRef } from "react";
 import { toast } from "sonner";
-import { AutoformatKit } from "../components/editor/plugins/autoformat-classic-kit";
 import { BasicBlocksKit } from "../components/editor/plugins/basic-blocks-kit";
 import { BasicMarksKit } from "../components/editor/plugins/basic-marks-kit";
 import { CodeBlockKit } from "../components/editor/plugins/code-block-kit";
@@ -85,7 +84,6 @@ const editorPlugins = [
   ...IndentKit,
   ...ToggleKit,
   ...EmojiKit,
-  ...AutoformatKit,
   ExitBreakPlugin,
   TrailingBlockPlugin,
 ];

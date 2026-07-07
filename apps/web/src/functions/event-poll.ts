@@ -26,7 +26,7 @@ export type PostEventRsvpPollResult =
 
 export const postEventRsvpPoll = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(z.object({ eventId: z.string() }))
+  .validator(z.object({ eventId: z.string() }))
   .handler(async ({ data, context }): Promise<PostEventRsvpPollResult> => {
     const log = createRequestLogger({
       method: "POST",

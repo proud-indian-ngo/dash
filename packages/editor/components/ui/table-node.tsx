@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@pi-dash/components/ui/button";
+import { Button } from "./button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -9,12 +9,12 @@ import {
   DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuTrigger,
-} from "@pi-dash/components/ui/dropdown-menu";
+} from "./dropdown-menu";
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-} from "@pi-dash/components/ui/popover";
+} from "./popover";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { resizeLengthClampStatic } from "@platejs/resizable";
 import {

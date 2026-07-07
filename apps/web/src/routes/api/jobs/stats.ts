@@ -26,7 +26,10 @@ export const Route = createFileRoute("/api/jobs/stats")({
           const stats = await Promise.all(
             QUEUE_NAMES.map(async (queue) => {
               try {
-                const result = await boss.getQueueStats(queue);
+                const [result] = await boss.getQueueStats(queue);
+                if (!result) {
+                  return { queue, size: 0, active: 0, total: 0 };
+                }
                 return {
                   queue,
                   size: result.queuedCount,

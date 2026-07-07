@@ -1,7 +1,7 @@
 "use client";
 
 import emojiMartData from "@emoji-mart/data";
-import { EmojiInputElement } from "@pi-dash/editor/components/ui/emoji-node";
+import { EmojiInputElement } from "../../ui/emoji-node";
 import { EmojiInputPlugin, EmojiPlugin } from "@platejs/emoji/react";
 
 export const EmojiKit = [

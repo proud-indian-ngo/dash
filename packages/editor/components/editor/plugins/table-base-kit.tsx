@@ -3,7 +3,7 @@ import {
   TableCellHeaderElementStatic,
   TableElementStatic,
   TableRowElementStatic,
-} from "@pi-dash/editor/components/ui/table-node-static";
+} from "../../ui/table-node-static";
 import {
   BaseTableCellHeaderPlugin,
   BaseTableCellPlugin,

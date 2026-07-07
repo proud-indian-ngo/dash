@@ -4,14 +4,14 @@ import {
   DropdownMenuGroup,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
-} from "@pi-dash/components/ui/dropdown-menu";
-import { Separator } from "@pi-dash/components/ui/separator";
+} from "./dropdown-menu";
+import { Separator } from "./separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@pi-dash/components/ui/tooltip";
+} from "./tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import * as ToolbarPrimitive from "@radix-ui/react-toolbar";
 import { cva, type VariantProps } from "class-variance-authority";

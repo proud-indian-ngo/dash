@@ -9,7 +9,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@pi-dash/components/ui/dropdown-menu";
+} from "./dropdown-menu";
 import { cn } from "@pi-dash/design-system/lib/utils";
 
 import { TablePlugin, useTableMergeState } from "@platejs/table/react";

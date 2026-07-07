@@ -17,7 +17,6 @@ import type { RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import {
   getDefaultValues,
-  getFormSchema,
   type RequestFormValues,
   requestFormSchema,
 } from "./form/reimbursement-form.schema";
@@ -112,21 +111,23 @@ function ReimbursementFormInner({
     return rest;
   })();
 
+  const defaultValues: RequestFormValues = {
+    ...getDefaultValues(requestType),
+    ...(defaultBankAccount && !("bankAccountName" in (initialValues ?? {}))
+      ? {
+          bankAccountName: defaultBankAccount.accountName,
+          bankAccountNumber: defaultBankAccount.accountNumber,
+          bankAccountIfscCode: defaultBankAccount.ifscCode,
+        }
+      : {}),
+    ...strippedInitialValues,
+    type: requestType,
+    lineItems: initialValues?.lineItems ?? [newLineItem()],
+    attachments: initialValues?.attachments ?? [],
+  } as RequestFormValues;
+
   const form = useForm({
-    defaultValues: {
-      ...getDefaultValues(requestType),
-      ...(defaultBankAccount && !("bankAccountName" in (initialValues ?? {}))
-        ? {
-            bankAccountName: defaultBankAccount.accountName,
-            bankAccountNumber: defaultBankAccount.accountNumber,
-            bankAccountIfscCode: defaultBankAccount.ifscCode,
-          }
-        : {}),
-      ...strippedInitialValues,
-      type: requestType,
-      lineItems: initialValues?.lineItems ?? [newLineItem()],
-      attachments: initialValues?.attachments ?? [],
-    },
+    defaultValues,
     onSubmit: async ({ value: rawValue }) => {
       const value = requestFormSchema.parse(rawValue);
       const id = entityId;
@@ -158,8 +159,8 @@ function ReimbursementFormInner({
       }
     },
     validators: {
-      onChange: getFormSchema(requestType),
-      onSubmit: getFormSchema(requestType),
+      onChange: requestFormSchema,
+      onSubmit: requestFormSchema,
     },
   });
 

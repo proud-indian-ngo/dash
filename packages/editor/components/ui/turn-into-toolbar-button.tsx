@@ -25,7 +25,7 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@pi-dash/components/ui/dropdown-menu";
+} from "./dropdown-menu";
 
 import { getBlockType, setBlockType } from "../editor/transforms";
 import { ToolbarButton, ToolbarMenuGroup } from "./toolbar";

@@ -50,7 +50,7 @@ export const triggerWhatsAppGroupScan = createServerFn({ method: "POST" })
 
 export const triggerR2Cleanup = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(z.object({ dryRun: z.boolean() }))
+  .validator(z.object({ dryRun: z.boolean() }))
   .handler(async ({ data, context }) => {
     const session = await ensurePermission(context, "jobs.manage");
     const log = createRequestLogger({

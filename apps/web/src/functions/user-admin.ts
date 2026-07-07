@@ -159,7 +159,7 @@ const setBanState = async ({
 
 export const createUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(createUserSchema)
+  .validator(createUserSchema)
   .handler(async ({ context, data }) => {
     await ensurePermission(context, "users.create");
 
@@ -234,7 +234,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
 
 export const updateUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(updateUserSchema)
+  .validator(updateUserSchema)
   .handler(async ({ context, data }) => {
     await ensurePermission(context, "users.edit");
 
@@ -351,7 +351,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
 
 export const setUserPasswordAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(setUserPasswordSchema)
+  .validator(setUserPasswordSchema)
   .handler(async ({ context, data }) => {
     await ensurePermission(context, "users.set_password");
 
@@ -375,7 +375,7 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
 
 export const deleteUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(deleteUserSchema)
+  .validator(deleteUserSchema)
   .handler(async ({ context, data }) => {
     const authed = await ensurePermission(context, "users.delete");
 
@@ -430,7 +430,7 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
 
 export const setUserBanAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(setUserBanSchema)
+  .validator(setUserBanSchema)
   .handler(async ({ context, data }) => {
     const authed = await ensurePermission(context, "users.ban");
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { IndentKit } from "@pi-dash/editor/components/editor/plugins/indent-kit";
-import { ToggleElement } from "@pi-dash/editor/components/ui/toggle-node";
+import { IndentKit } from "./indent-kit";
+import { ToggleElement } from "../../ui/toggle-node";
 import { TogglePlugin } from "@platejs/toggle/react";
 
 export const ToggleKit = [

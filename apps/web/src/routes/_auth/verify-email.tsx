@@ -9,7 +9,7 @@ import { LoginInfoPanel } from "@/components/login/auth-info-panel";
 import { AuthLayout } from "@/components/login/auth-layout";
 
 const verifyEmailToken = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ token: z.string().min(1) }))
+  .validator(z.object({ token: z.string().min(1) }))
   .handler(async ({ data }) => {
     try {
       const result = await auth.api.verifyEmail({

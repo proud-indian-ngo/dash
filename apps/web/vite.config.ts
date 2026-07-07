@@ -51,8 +51,11 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       reactCompiler,
     ],
     build: {
-      chunkSizeWarningLimit: 600,
+      chunkSizeWarningLimit: 2300,
       rolldownOptions: {
+        checks: {
+          pluginTimings: false,
+        },
         external: ["bun", "bun:sqlite"],
       },
     },

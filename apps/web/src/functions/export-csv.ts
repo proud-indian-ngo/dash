@@ -209,7 +209,7 @@ const advancePaymentConfig: QueryConfig = {
 
 export const exportCsvData = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(exportCsvSchema)
+  .validator(exportCsvSchema)
   .handler(async ({ context, data }) => {
     try {
       await assertServerPermission(context.session, "requests.export");

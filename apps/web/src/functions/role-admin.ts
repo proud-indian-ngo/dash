@@ -85,7 +85,7 @@ const getRoleByIdSchema = z.object({
 
 export const getRoleById = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .inputValidator(getRoleByIdSchema)
+  .validator(getRoleByIdSchema)
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
@@ -184,7 +184,7 @@ const createRoleSchema = z.object({
 
 export const createRole = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(createRoleSchema)
+  .validator(createRoleSchema)
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
@@ -252,7 +252,7 @@ const updateRoleSchema = z.object({
 
 export const updateRole = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(updateRoleSchema)
+  .validator(updateRoleSchema)
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 
@@ -324,7 +324,7 @@ const deleteRoleSchema = z.object({
 
 export const deleteRole = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(deleteRoleSchema)
+  .validator(deleteRoleSchema)
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
 

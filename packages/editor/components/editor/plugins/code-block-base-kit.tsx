@@ -2,7 +2,7 @@ import {
   CodeBlockElementStatic,
   CodeLineElementStatic,
   CodeSyntaxLeafStatic,
-} from "@pi-dash/editor/components/ui/code-block-node-static";
+} from "../../ui/code-block-node-static";
 import {
   BaseCodeBlockPlugin,
   BaseCodeLinePlugin,

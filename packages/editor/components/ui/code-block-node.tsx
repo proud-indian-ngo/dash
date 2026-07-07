@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@pi-dash/components/ui/button";
+import { Button } from "./button";
 import {
   Command,
   CommandEmpty,
@@ -8,12 +8,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@pi-dash/components/ui/command";
+} from "./command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@pi-dash/components/ui/popover";
+} from "./popover";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { formatCodeBlock, isLangSupported } from "@platejs/code-block";
 import { Copy01Icon, SourceCodeSquareIcon, Tick02Icon } from "@hugeicons/core-free-icons";

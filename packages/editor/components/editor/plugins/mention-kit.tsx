@@ -3,7 +3,7 @@
 import {
   MentionElement,
   MentionInputElement,
-} from "@pi-dash/editor/components/ui/mention-node";
+} from "../../ui/mention-node";
 import { MentionInputPlugin, MentionPlugin } from "@platejs/mention/react";
 
 export const MentionKit = [

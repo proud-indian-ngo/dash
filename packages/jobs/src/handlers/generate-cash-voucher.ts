@@ -88,7 +88,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     .select()
     .from(reimbursement)
     .where(eq(reimbursement.id, data.reimbursementId));
-  if (!reimb || reimb.status !== "approved") {
+  if (reimb?.status !== "approved") {
     log.set({
       event: "reimbursement_not_approved",
       reimbStatus: reimb?.status ?? "not_found",

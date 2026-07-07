@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@pi-dash/components/ui/button";
+import { Button } from "./button";
 import { cn } from "@pi-dash/design-system/lib/utils";
 
 import {

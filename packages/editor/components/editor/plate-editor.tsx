@@ -1,7 +1,7 @@
 "use client";
 
-import { BasicNodesKit } from "@pi-dash/editor/components/editor/plugins/basic-nodes-kit";
-import { Editor, EditorContainer } from "@pi-dash/editor/components/ui/editor";
+import { BasicNodesKit } from "./plugins/basic-nodes-kit";
+import { Editor, EditorContainer } from "../ui/editor";
 import { normalizeStaticValue } from "platejs";
 import { Plate, usePlateEditor } from "platejs/react";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { BlockDraggable } from "@pi-dash/editor/components/ui/block-draggable";
+import { BlockDraggable } from "../../ui/block-draggable";
 import { DndPlugin } from "@platejs/dnd";
 import { PlaceholderPlugin } from "@platejs/media/react";
 import { DndProvider } from "react-dnd";

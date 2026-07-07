@@ -1,4 +1,4 @@
-import { MentionElementStatic } from "@pi-dash/editor/components/ui/mention-node-static";
+import { MentionElementStatic } from "../../ui/mention-node-static";
 import { BaseMentionPlugin } from "@platejs/mention";
 
 export const BaseMentionKit = [

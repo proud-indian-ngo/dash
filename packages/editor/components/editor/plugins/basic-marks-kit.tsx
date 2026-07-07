@@ -1,8 +1,19 @@
 "use client";
 
-import { CodeLeaf } from "@pi-dash/editor/components/ui/code-node";
-import { HighlightLeaf } from "@pi-dash/editor/components/ui/highlight-node";
-import { KbdLeaf } from "@pi-dash/editor/components/ui/kbd-node";
+import { CodeLeaf } from "../../ui/code-node";
+import { HighlightLeaf } from "../../ui/highlight-node";
+import { KbdLeaf } from "../../ui/kbd-node";
+import {
+  BoldRules,
+  CodeRules,
+  HighlightRules,
+  ItalicRules,
+  MarkComboRules,
+  StrikethroughRules,
+  SubscriptRules,
+  SuperscriptRules,
+  UnderlineRules,
+} from "@platejs/basic-nodes";
 import {
   BoldPlugin,
   CodePlugin,
@@ -16,24 +27,48 @@ import {
 } from "@platejs/basic-nodes/react";
 
 export const BasicMarksKit = [
-  BoldPlugin,
-  ItalicPlugin,
-  UnderlinePlugin,
+  BoldPlugin.configure({
+    inputRules: [
+      BoldRules.markdown({ variant: "*" }),
+      BoldRules.markdown({ variant: "_" }),
+      MarkComboRules.markdown({ variant: "boldItalic" }),
+      MarkComboRules.markdown({ variant: "boldUnderline" }),
+      MarkComboRules.markdown({ variant: "boldItalicUnderline" }),
+      MarkComboRules.markdown({ variant: "italicUnderline" }),
+    ],
+  }),
+  ItalicPlugin.configure({
+    inputRules: [
+      ItalicRules.markdown({ variant: "*" }),
+      ItalicRules.markdown({ variant: "_" }),
+    ],
+  }),
+  UnderlinePlugin.configure({
+    inputRules: [UnderlineRules.markdown()],
+  }),
   CodePlugin.configure({
     node: { component: CodeLeaf },
+    inputRules: [CodeRules.markdown()],
     shortcuts: { toggle: { keys: "mod+e" } },
   }),
   StrikethroughPlugin.configure({
+    inputRules: [StrikethroughRules.markdown()],
     shortcuts: { toggle: { keys: "mod+shift+x" } },
   }),
   SubscriptPlugin.configure({
+    inputRules: [SubscriptRules.markdown()],
     shortcuts: { toggle: { keys: "mod+comma" } },
   }),
   SuperscriptPlugin.configure({
+    inputRules: [SuperscriptRules.markdown()],
     shortcuts: { toggle: { keys: "mod+period" } },
   }),
   HighlightPlugin.configure({
     node: { component: HighlightLeaf },
+    inputRules: [
+      HighlightRules.markdown({ variant: "==" }),
+      HighlightRules.markdown({ variant: "≡" }),
+    ],
     shortcuts: { toggle: { keys: "mod+shift+h" } },
   }),
   KbdPlugin.withComponent(KbdLeaf),

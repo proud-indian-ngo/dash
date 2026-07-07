@@ -1,5 +1,5 @@
 import type { User } from "@pi-dash/zero/schema";
-import { useForm } from "@tanstack/react-form";
+import { type FormValidateOrFn, useForm } from "@tanstack/react-form";
 import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { DateField } from "@/components/form/date-field";
@@ -46,6 +46,7 @@ export const editUserFormSchema = baseUserFormSchema.extend({
 
 export type CreateUserFormValues = z.infer<typeof createUserFormSchema>;
 export type EditUserFormValues = z.infer<typeof editUserFormSchema>;
+type UserFormValues = CreateUserFormValues | EditUserFormValues;
 
 export const toEditUserFormValues = (user: User): EditUserFormValues => {
   return {
@@ -105,11 +106,12 @@ type UserFormProps = {
 );
 
 export function UserForm(props: UserFormProps) {
-  const schema =
-    props.mode === "create" ? createUserFormSchema : editUserFormSchema;
+  const schema = (props.mode === "create"
+    ? createUserFormSchema
+    : editUserFormSchema) as unknown as FormValidateOrFn<UserFormValues>;
 
   const form = useForm({
-    defaultValues: props.initialValues,
+    defaultValues: props.initialValues as UserFormValues,
     onSubmit: async ({ value }) => {
       if (props.mode === "create") {
         await props.onSubmit(value as CreateUserFormValues);
@@ -120,7 +122,7 @@ export function UserForm(props: UserFormProps) {
       await props.onSubmit(value as EditUserFormValues);
     },
     validators: {
-      onSubmit: schema,
+      onSubmit: schema as never,
     },
   });
 

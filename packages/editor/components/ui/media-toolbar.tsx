@@ -1,12 +1,12 @@
 "use client";
 
-import { Button, buttonVariants } from "@pi-dash/components/ui/button";
+import { Button, buttonVariants } from "./button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@pi-dash/components/ui/popover";
-import { Separator } from "@pi-dash/components/ui/separator";
+} from "./popover";
+import { Separator } from "./separator";
 import {
   FloatingMedia as FloatingMediaPrimitive,
   FloatingMediaStore,

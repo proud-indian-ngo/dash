@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@pi-dash/components/ui/button";
+import { Button } from "./button";
 import { useToggleButton, useToggleButtonState } from "@platejs/toggle/react";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";

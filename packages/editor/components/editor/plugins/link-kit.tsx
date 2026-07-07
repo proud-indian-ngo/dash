@@ -1,7 +1,7 @@
 "use client";
 
-import { LinkElement } from "@pi-dash/editor/components/ui/link-node";
-import { LinkFloatingToolbar } from "@pi-dash/editor/components/ui/link-toolbar";
+import { LinkElement } from "../../ui/link-node";
+import { LinkFloatingToolbar } from "../../ui/link-toolbar";
 import { LinkPlugin } from "@platejs/link/react";
 
 export const LinkKit = [
