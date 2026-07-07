@@ -87,6 +87,13 @@ function VendorPaymentsRouteComponent() {
             setCityFilter(null);
           }}
           onDelete={handleDelete}
+          onEdit={(id) => {
+            navigate({
+              to: "/vendor-payments/$id",
+              params: { id },
+              search: { mode: "edit" },
+            });
+          }}
           onNavigate={(id) => {
             navigate({ to: "/vendor-payments/$id", params: { id } });
           }}

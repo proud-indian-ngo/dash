@@ -19,9 +19,12 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { authClient } from "@/lib/auth-client";
 import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
+import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
@@ -72,6 +75,7 @@ interface VendorPaymentsTableProps {
   onDelete?: (
     id: string
   ) => Promise<{ type: string; error?: { message?: string } }>;
+  onEdit: (id: string) => void;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
@@ -82,12 +86,16 @@ export function VendorPaymentsTable({
   data,
   isLoading,
   onDelete,
+  onEdit,
   onNavigate,
   toolbarActions,
   toolbarFilters,
   hasActiveFilters,
   onClearFilters,
 }: VendorPaymentsTableProps) {
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? "";
+  const { hasPermission } = useApp();
   const deleteAction = useConfirmAction<{ id: string; title: string }>({
     onConfirm: (payload) =>
       onDelete?.(payload.id) ??
@@ -258,52 +266,65 @@ export function VendorPaymentsTable({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                aria-label="Row actions"
-                className="size-8"
-                data-testid="row-actions"
-                onClick={(e) => e.stopPropagation()}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={MoreVerticalIcon}
-                  strokeWidth={2}
-                />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-32">
-            <DropdownMenuItem
-              onClick={() => onNavigate(row.original.id as string)}
-            >
-              View
-            </DropdownMenuItem>
-            {canDelete && onDelete ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() =>
-                    deleteAction.trigger({
-                      id: row.original.id as string,
-                      title: row.original.title,
-                    })
-                  }
-                  variant="destructive"
+      cell: ({ row }) => {
+        const request = row.original;
+        const id = request.id as string;
+        const canEdit = canEditVendorPaymentSubmission(
+          request,
+          currentUserId,
+          hasPermission
+        );
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="Row actions"
+                  className="size-8"
+                  data-testid="row-actions"
+                  onClick={(e) => e.stopPropagation()}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
                 >
-                  Delete
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={MoreVerticalIcon}
+                    strokeWidth={2}
+                  />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-32">
+              <DropdownMenuItem onClick={() => onNavigate(id)}>
+                View
+              </DropdownMenuItem>
+              {canEdit ? (
+                <DropdownMenuItem onClick={() => onEdit(id)}>
+                  Edit
                 </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+              ) : null}
+              {canDelete && onDelete ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      deleteAction.trigger({
+                        id,
+                        title: request.title,
+                      })
+                    }
+                    variant="destructive"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,

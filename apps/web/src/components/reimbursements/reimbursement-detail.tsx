@@ -65,9 +65,8 @@ export function ReimbursementDetail({
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
   const { label, variant } = getStatusBadge(request.status);
-  const canOverrideStatus = canUpdateAnyStatus;
   const showAdminActions =
-    canApprove && (request.status === "pending" || canOverrideStatus);
+    canApprove && (request.status === "pending" || canUpdateAnyStatus);
   const showApproveAction = showAdminActions && request.status !== "approved";
   const showRejectAction = showAdminActions && request.status !== "rejected";
   const showResetAction = showAdminActions && request.status !== "pending";

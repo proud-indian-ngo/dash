@@ -121,12 +121,20 @@ export const vendorPaymentMutators = {
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const userId = ctx.userId;
+    const hasEditOwn = can(ctx, "requests.edit_own");
     const hasEditAll = can(ctx, "requests.edit_all");
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     if (!(hasEditAll || canEditAnyStatus)) {
-      assertCanModify(entity, userId, false, "vendor payment");
+      assertCanModify(
+        entity,
+        userId,
+        false,
+        "vendor payment",
+        false,
+        hasEditOwn
+      );
     } else if (
       !canEditAnyStatus &&
       INVOICE_LOCKED_STATUSES.has(entity.status as string)

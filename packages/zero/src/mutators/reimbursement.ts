@@ -142,7 +142,8 @@ export const reimbursementMutators = {
       userId,
       can(ctx, "requests.edit_all") || canEditAnyStatus,
       "reimbursement",
-      canEditAnyStatus
+      canEditAnyStatus,
+      can(ctx, "requests.edit_own")
     );
 
     const now = Date.now();

@@ -3,19 +3,23 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { z } from "zod";
 import { Loader } from "@/components/loader";
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 import { useApp } from "@/context/app-context";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
+import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/reimbursements/$id")({
+  validateSearch: z.object({
+    mode: z.enum(["edit"]).optional(),
+  }),
   head: () => ({
     meta: [{ title: `Reimbursement Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -121,8 +125,8 @@ function buildInitialValues(resolved: ResolvedRequest) {
 
 function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const { session } = Route.useRouteContext();
+  const { mode } = Route.useSearch();
   const navigate = useNavigate();
-  const [adminEditMode, setAdminEditMode] = useState(false);
   const { hasPermission } = useApp();
 
   const { data: request, type: requestType } = resolved;
@@ -130,18 +134,24 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const canEditAll = hasPermission("requests.edit_all");
   const canEditAnyStatus = hasPermission("requests.edit_all_statuses");
   const canApprove = hasPermission("requests.approve");
-  const isPending = request.status === "pending";
-  const isOwner = request.userId === session.user.id;
-  const canEdit = canEditAnyStatus || (isPending && (isOwner || canEditAll));
-  const showAdminActions = canApprove && isPending;
+  const canEdit = canEditRequestSubmission(
+    request,
+    session.user.id,
+    hasPermission
+  );
   const isAdminEditingAnotherUser =
     (canEditAll || canEditAnyStatus) && request.userId !== session.user.id;
-  const showEditForm =
-    canEdit && (!(canEditAnyStatus || showAdminActions) || adminEditMode);
-  const showViewDetailsButton =
-    canEdit && (showAdminActions || canEditAnyStatus);
+  const showEditForm = canEdit && mode === "edit";
 
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
+  const setEditMode = (enabled: boolean) => {
+    navigate({
+      to: "/reimbursements/$id",
+      params: { id: request.id },
+      search: enabled ? { mode: "edit" } : {},
+      replace: true,
+    });
+  };
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
@@ -155,15 +165,13 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               <h1 className="font-display font-semibold text-2xl tracking-tight">
                 Edit {typeLabel}
               </h1>
-              {showViewDetailsButton ? (
-                <Button
-                  onClick={() => setAdminEditMode(false)}
-                  type="button"
-                  variant="outline"
-                >
-                  View details
-                </Button>
-              ) : null}
+              <Button
+                onClick={() => setEditMode(false)}
+                type="button"
+                variant="outline"
+              >
+                View details
+              </Button>
             </div>
             <p className="mt-2 text-muted-foreground text-sm">
               Update submission details.
@@ -176,7 +184,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
                   navigate({ to: "/reimbursements" });
                 }}
                 onSaved={() => {
-                  setAdminEditMode(false);
+                  setEditMode(false);
                 }}
                 requestType={requestType}
               />
@@ -187,7 +195,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             {canEdit ? (
               <div className="mb-4 flex justify-end">
                 <Button
-                  onClick={() => setAdminEditMode(true)}
+                  onClick={() => setEditMode(true)}
                   type="button"
                   variant="outline"
                 >

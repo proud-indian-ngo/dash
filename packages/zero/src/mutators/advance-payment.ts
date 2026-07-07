@@ -114,7 +114,8 @@ export const advancePaymentMutators = {
       userId,
       can(ctx, "requests.edit_all") || canEditAnyStatus,
       "advance payment",
-      canEditAnyStatus
+      canEditAnyStatus,
+      can(ctx, "requests.edit_own")
     );
 
     const now = Date.now();

@@ -54,15 +54,30 @@ describe("assertPending", () => {
 });
 
 describe("assertCanModify", () => {
-  it("passes for owner with pending status", () => {
+  it("passes for owner with pending status and edit permission", () => {
     expect(() =>
       assertCanModify(
         { userId: "user-1", status: "pending" },
         "user-1",
         false,
-        "reimbursement"
+        "reimbursement",
+        false,
+        true
       )
     ).not.toThrow();
+  });
+
+  it("throws for owner with pending status without edit permission", () => {
+    expect(() =>
+      assertCanModify(
+        { userId: "user-1", status: "pending" },
+        "user-1",
+        false,
+        "reimbursement",
+        false,
+        false
+      )
+    ).toThrow("Unauthorized");
   });
 
   it("passes for admin with pending status", () => {

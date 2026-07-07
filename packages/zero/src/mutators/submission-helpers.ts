@@ -117,9 +117,10 @@ export function assertCanModify(
   userId: string,
   hasEditAll: boolean,
   entityName: string,
-  allowAnyStatus = false
+  allowAnyStatus = false,
+  hasEditOwn = true
 ) {
-  if (!(hasEditAll || entity.userId === userId)) {
+  if (!(hasEditAll || (entity.userId === userId && hasEditOwn))) {
     throw new Error("Unauthorized");
   }
   if (!allowAnyStatus && entity.status !== "pending") {

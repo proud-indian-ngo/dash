@@ -1,20 +1,23 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
-import { INVOICE_LOCKED_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { z } from "zod";
 import { Loader } from "@/components/loader";
 import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment-detail";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
+import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/vendor-payments/$id")({
+  validateSearch: z.object({
+    mode: z.enum(["edit"]).optional(),
+  }),
   head: () => ({
     meta: [{ title: `Vendor Payment Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -29,7 +32,6 @@ function VendorPaymentEditPane({
   onCancel,
   onSaved,
   onViewDetails,
-  ownerEditingPending,
 }: {
   initialValues: React.ComponentProps<
     typeof VendorPaymentForm
@@ -37,7 +39,6 @@ function VendorPaymentEditPane({
   onCancel: () => void;
   onSaved: () => void;
   onViewDetails: () => void;
-  ownerEditingPending: boolean;
 }) {
   return (
     <>
@@ -45,11 +46,9 @@ function VendorPaymentEditPane({
         <h1 className="font-display font-semibold text-2xl tracking-tight">
           Edit Vendor Payment
         </h1>
-        {ownerEditingPending ? null : (
-          <Button onClick={onViewDetails} type="button" variant="outline">
-            View details
-          </Button>
-        )}
+        <Button onClick={onViewDetails} type="button" variant="outline">
+          View details
+        </Button>
       </div>
       <p className="mt-2 text-muted-foreground text-sm">
         Update submission details.
@@ -68,8 +67,8 @@ function VendorPaymentEditPane({
 function VendorPaymentDetailRouteComponent() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
+  const { mode } = Route.useSearch();
   const navigate = useNavigate();
-  const [adminEditMode, setAdminEditMode] = useState(false);
   const { hasPermission } = useApp();
 
   const [vendorPayment, result] = useQuery(queries.vendorPayment.byId({ id }));
@@ -94,21 +93,23 @@ function VendorPaymentDetailRouteComponent() {
     );
   }
 
-  const canEditAll = hasPermission("requests.edit_all");
   const canEditAnyStatus = hasPermission("requests.edit_all_statuses");
   const canApprove = hasPermission("requests.approve");
-  const isPending = vendorPayment.status === "pending";
-  const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(
-    vendorPayment.status as string
-  );
   const isOwner = vendorPayment.userId === session.user.id;
-  const canPrivilegedEdit =
-    canEditAnyStatus || (canEditAll && !isInvoiceLocked);
-  const canEdit = canPrivilegedEdit || (isPending && isOwner);
-  const showAdminActions = canApprove && isPending;
-  const ownerEditingPending =
-    canEdit && !(canEditAll || canEditAnyStatus) && !showAdminActions;
-  const showEditForm = ownerEditingPending || (canEdit && adminEditMode);
+  const canEdit = canEditVendorPaymentSubmission(
+    vendorPayment,
+    session.user.id,
+    hasPermission
+  );
+  const showEditForm = canEdit && mode === "edit";
+  const setEditMode = (enabled: boolean) => {
+    navigate({
+      to: "/vendor-payments/$id",
+      params: { id: vendorPayment.id as string },
+      search: enabled ? { mode: "edit" } : {},
+      replace: true,
+    });
+  };
 
   const initialValues = {
     id: vendorPayment.id as string,
@@ -133,17 +134,16 @@ function VendorPaymentDetailRouteComponent() {
               navigate({ to: "/vendor-payments" });
             }}
             onSaved={() => {
-              setAdminEditMode(false);
+              setEditMode(false);
             }}
-            onViewDetails={() => setAdminEditMode(false)}
-            ownerEditingPending={ownerEditingPending}
+            onViewDetails={() => setEditMode(false)}
           />
         ) : (
           <>
             {canEdit ? (
               <div className="mb-4 flex justify-end">
                 <Button
-                  onClick={() => setAdminEditMode(true)}
+                  onClick={() => setEditMode(true)}
                   type="button"
                   variant="outline"
                 >

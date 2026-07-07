@@ -30,6 +30,7 @@ import {
   REQUEST_TYPE_LABELS,
   type RequestRow,
 } from "@/lib/reimbursement-types";
+import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
@@ -57,6 +58,7 @@ interface ReimbursementsTableProps {
   isLoading?: boolean;
   onClearFilters?: () => void;
   onDelete: (row: RequestRow) => Promise<void>;
+  onEdit: (row: RequestRow) => void;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
@@ -64,12 +66,16 @@ interface ReimbursementsTableProps {
 
 function RowActions({
   canDelete,
+  canEdit,
   id,
+  onEdit,
   onNavigate,
   onRequestDelete,
 }: {
   canDelete: boolean;
+  canEdit: boolean;
   id: string;
+  onEdit: () => void;
   onNavigate: (id: string) => void;
   onRequestDelete: () => void;
 }) {
@@ -96,6 +102,9 @@ function RowActions({
       />
       <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
+        {canEdit ? (
+          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={!canDelete}
@@ -131,6 +140,7 @@ export function ReimbursementsTable({
   data,
   isLoading,
   onDelete,
+  onEdit,
   onNavigate,
   toolbarActions,
   toolbarFilters,
@@ -356,10 +366,17 @@ export function ReimbursementsTable({
         const r = row.original;
         const isOwner = r.userId === currentUserId;
         const canDelete = canDeleteAll || (isOwner && r.status === "pending");
+        const canEdit = canEditRequestSubmission(
+          r,
+          currentUserId,
+          hasPermission
+        );
         return (
           <RowActions
             canDelete={canDelete}
+            canEdit={canEdit}
             id={r.id}
+            onEdit={() => onEdit(r)}
             onNavigate={onNavigate}
             onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
           />
