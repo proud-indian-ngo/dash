@@ -1,0 +1,21 @@
+apps/web/src/components/vendor-payments/vendor-payments-table.tsx
+  s_168d5c41bda91e::t_b27cbc406cc484 14,299-301,305-313
+apps/web/src/components/reimbursements/reimbursements-table.tsx
+  s_168d5c41bda91e::t_993d108fe35bbb 14,100-104,106-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a0eea1cbdc682a2f9c6865b3e71796b6d88567fa",
+  "prompts": {},
+  "sessions": {
+    "s_168d5c41bda91e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3c8d-8392-7db1-b2bf-fcdf5cd80a92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
