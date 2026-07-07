@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { log } from "evlog";
@@ -58,7 +59,6 @@ interface ReimbursementsTableProps {
   isLoading?: boolean;
   onClearFilters?: () => void;
   onDelete: (row: RequestRow) => Promise<void>;
-  onEdit: (row: RequestRow) => void;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
@@ -68,15 +68,11 @@ function RowActions({
   canDelete,
   canEdit,
   id,
-  onEdit,
-  onNavigate,
   onRequestDelete,
 }: {
   canDelete: boolean;
   canEdit: boolean;
   id: string;
-  onEdit: () => void;
-  onNavigate: (id: string) => void;
   onRequestDelete: () => void;
 }) {
   return (
@@ -101,9 +97,23 @@ function RowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
+        <DropdownMenuItem
+          render={<Link params={{ id }} to="/reimbursements/$id" />}
+        >
+          View
+        </DropdownMenuItem>
         {canEdit ? (
-          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+          <DropdownMenuItem
+            render={
+              <Link
+                params={{ id }}
+                search={{ mode: "edit" }}
+                to="/reimbursements/$id"
+              />
+            }
+          >
+            Edit
+          </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -140,7 +150,6 @@ export function ReimbursementsTable({
   data,
   isLoading,
   onDelete,
-  onEdit,
   onNavigate,
   toolbarActions,
   toolbarFilters,
@@ -376,8 +385,6 @@ export function ReimbursementsTable({
             canDelete={canDelete}
             canEdit={canEdit}
             id={r.id}
-            onEdit={() => onEdit(r)}
-            onNavigate={onNavigate}
             onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
           />
         );

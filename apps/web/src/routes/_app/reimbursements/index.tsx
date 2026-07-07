@@ -152,13 +152,6 @@ function ReimbursementsRouteComponent() {
             setCityFilter("");
           }}
           onDelete={handleDelete}
-          onEdit={(row) => {
-            navigate({
-              to: "/reimbursements/$id",
-              params: { id: row.id },
-              search: { mode: "edit" },
-            });
-          }}
           onNavigate={(id) => {
             navigate({ to: "/reimbursements/$id", params: { id } });
           }}

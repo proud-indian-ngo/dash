@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
@@ -75,7 +76,6 @@ interface VendorPaymentsTableProps {
   onDelete?: (
     id: string
   ) => Promise<{ type: string; error?: { message?: string } }>;
-  onEdit: (id: string) => void;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
@@ -86,7 +86,6 @@ export function VendorPaymentsTable({
   data,
   isLoading,
   onDelete,
-  onEdit,
   onNavigate,
   toolbarActions,
   toolbarFilters,
@@ -297,11 +296,21 @@ export function VendorPaymentsTable({
               }
             />
             <DropdownMenuContent align="end" className="w-32">
-              <DropdownMenuItem onClick={() => onNavigate(id)}>
+              <DropdownMenuItem
+                render={<Link params={{ id }} to="/vendor-payments/$id" />}
+              >
                 View
               </DropdownMenuItem>
               {canEdit ? (
-                <DropdownMenuItem onClick={() => onEdit(id)}>
+                <DropdownMenuItem
+                  render={
+                    <Link
+                      params={{ id }}
+                      search={{ mode: "edit" }}
+                      to="/vendor-payments/$id"
+                    />
+                  }
+                >
                   Edit
                 </DropdownMenuItem>
               ) : null}
