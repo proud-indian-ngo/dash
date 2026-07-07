@@ -1,0 +1,49 @@
+apps/web/src/routes/_app/vendor-payments/$id.tsx
+  s_168d5c41bda91e::t_0848992b8bcaee 6,11,18-20,49-51,70,99-112,137,139,146
+apps/web/src/routes/_app/reimbursements/$id.tsx
+  s_168d5c41bda91e::t_f6f3ec771c629d 13
+  s_168d5c41bda91e::t_0848992b8bcaee 6,20-22,128,137-141,144,147-154,168-174,187,198
+packages/zero/src/mutators/submission-helpers.ts
+  s_168d5c41bda91e::t_49908d00677cee 120-121,123
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_168d5c41bda91e::t_49908d00677cee 57,63-65,70-80
+  s_168d5c41bda91e::t_d9c291814c331a 81-82
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_168d5c41bda91e::t_100d90ca04d3b5 69
+apps/web/src/lib/request-edit-permissions.test.ts
+  s_168d5c41bda91e::t_684ba4a662e598 1-123
+apps/web/src/lib/request-edit-permissions.ts
+  s_168d5c41bda91e::t_684ba4a662e598 1-55
+packages/zero/src/mutators/vendor-payment.ts
+  s_168d5c41bda91e::t_49908d00677cee 124,130-137
+apps/web/src/components/vendor-payments/vendor-payments-table.tsx
+  s_168d5c41bda91e::t_3d2bdd8bcc4451 22,24,27,78,89,96-98,269-289,291-305,307-327
+packages/zero/src/mutators/reimbursement.ts
+  s_168d5c41bda91e::t_49908d00677cee 145-146
+packages/zero/src/mutators/advance-payment.ts
+  s_168d5c41bda91e::t_49908d00677cee 117-118
+apps/web/src/routes/_app/reimbursements/index.tsx
+  s_168d5c41bda91e::t_0848992b8bcaee 155-161
+apps/web/src/routes/_app/vendor-payments/index.tsx
+  s_168d5c41bda91e::t_0848992b8bcaee 90-96
+apps/web/src/components/reimbursements/reimbursements-table.tsx
+  s_168d5c41bda91e::t_3d2bdd8bcc4451 61,69,71,76,78,143,369-373,377,379
+  s_168d5c41bda91e::t_f6f3ec771c629d 33
+  s_168d5c41bda91e::t_1a82fe9976baf6 105-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "55b0e5430d8570cc5a9a7c3f05eadb3b6fdd5208",
+  "prompts": {},
+  "sessions": {
+    "s_168d5c41bda91e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3c8d-8392-7db1-b2bf-fcdf5cd80a92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
