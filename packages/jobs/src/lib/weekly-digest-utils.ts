@@ -25,9 +25,9 @@ export function computeWeekRange(nowUtc = Date.now()): {
   const weekEnd = new Date(weekEndMs);
 
   return {
-    weekStart,
     weekEnd,
-    weekStartMs,
     weekEndMs,
+    weekStart,
+    weekStartMs,
   };
 }

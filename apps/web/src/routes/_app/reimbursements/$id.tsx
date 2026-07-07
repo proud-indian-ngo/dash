@@ -17,9 +17,7 @@ import {
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/reimbursements/$id")({
-  validateSearch: z.object({
-    mode: z.enum(["edit"]).optional(),
-  }),
+  component: ReimbursementDetailRouteComponent,
   head: () => ({
     meta: [{ title: `Reimbursement Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -27,7 +25,9 @@ export const Route = createFileRoute("/_app/reimbursements/$id")({
     context.zero?.preload(queries.reimbursement.byId({ id: params.id }));
     context.zero?.preload(queries.advancePayment.byId({ id: params.id }));
   },
-  component: ReimbursementDetailRouteComponent,
+  validateSearch: z.object({
+    mode: z.enum(["edit"]).optional(),
+  }),
 });
 
 interface ResolvedRequest {
@@ -53,8 +53,8 @@ function useResolvedRequest(id: string): {
       isLoading: false,
       resolved: {
         data: { ...reimbursement, type: "reimbursement" } as RequestDetailData,
-        type: "reimbursement",
         expenseDate: new Date(reimbursement.expenseDate),
+        type: "reimbursement",
       },
     };
   }
@@ -67,8 +67,8 @@ function useResolvedRequest(id: string): {
           ...advancePayment,
           type: "advance_payment",
         } as RequestDetailData,
-        type: "advance_payment",
         expenseDate: undefined,
+        type: "advance_payment",
       },
     };
   }
@@ -106,19 +106,19 @@ function buildInitialValues(resolved: ResolvedRequest) {
 
   return {
     id: request.id,
-    type: requestType,
     title: request.title,
+    type: requestType,
     ...("city" in request ? { city: request.city ?? undefined } : {}),
     ...("bankAccountName" in request
       ? {
+          bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
           bankAccountName: request.bankAccountName ?? undefined,
           bankAccountNumber: request.bankAccountNumber ?? undefined,
-          bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
         }
       : {}),
     ...("eventId" in request ? { eventId: request.eventId ?? undefined } : {}),
-    lineItems: mapLineItemsToFormValues(request.lineItems),
     attachments: mapAttachmentsToFormValues(request.attachments),
+    lineItems: mapLineItemsToFormValues(request.lineItems),
     ...(expenseDate ? { expenseDate } : {}),
   };
 }
@@ -146,12 +146,20 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
   const setEditMode = (enabled: boolean) => {
     navigate({
-      to: "/reimbursements/$id",
       params: { id: request.id },
-      search: enabled ? { mode: "edit" } : {},
       replace: true,
+      search: enabled ? { mode: "edit" } : {},
+      to: "/reimbursements/$id",
     });
   };
+  const stableOnClick0 = () => setEditMode(false);
+  const stableOnCancel1 = () => {
+    navigate({ to: "/reimbursements" });
+  };
+  const stableOnSaved2 = () => {
+    setEditMode(false);
+  };
+  const stableOnClick3 = () => setEditMode(true);
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
@@ -165,11 +173,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               <h1 className="font-display font-semibold text-2xl tracking-tight">
                 Edit {typeLabel}
               </h1>
-              <Button
-                onClick={() => setEditMode(false)}
-                type="button"
-                variant="outline"
-              >
+              <Button onClick={stableOnClick0} type="button" variant="outline">
                 View details
               </Button>
             </div>
@@ -180,12 +184,8 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               <ReimbursementForm
                 disableBankAccountSelection={isAdminEditingAnotherUser}
                 initialValues={buildInitialValues(resolved)}
-                onCancel={() => {
-                  navigate({ to: "/reimbursements" });
-                }}
-                onSaved={() => {
-                  setEditMode(false);
-                }}
+                onCancel={stableOnCancel1}
+                onSaved={stableOnSaved2}
                 requestType={requestType}
               />
             </div>
@@ -195,7 +195,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             {canEdit ? (
               <div className="mb-4 flex justify-end">
                 <Button
-                  onClick={() => setEditMode(true)}
+                  onClick={stableOnClick3}
                   type="button"
                   variant="outline"
                 >

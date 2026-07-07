@@ -21,7 +21,7 @@ export interface VirtualOccurrence {
 
 /** Narrow an `unknown` JSON column value to `RecurrenceRule | null`. */
 export function parseRecurrenceRule(value: unknown): RecurrenceRule | null {
-  if (value == null) {
+  if (value === null) {
     return null;
   }
   if (
@@ -76,7 +76,7 @@ export function expandSeries(
 
   const dates = rrule.between(new Date(rangeStart), new Date(rangeEnd), true);
 
-  const duration = seriesEnd == null ? null : seriesEnd - seriesStart;
+  const duration = seriesEnd === null ? null : seriesEnd - seriesStart;
   const seriesDate = new Date(seriesStart);
 
   const occurrences: VirtualOccurrence[] = [];
@@ -101,9 +101,9 @@ export function expandSeries(
     );
 
     const startTime = occStart.getTime();
-    const endTime = duration == null ? null : startTime + duration;
+    const endTime = duration === null ? null : startTime + duration;
 
-    occurrences.push({ date: isoDate, startTime, endTime });
+    occurrences.push({ date: isoDate, endTime, startTime });
   }
 
   return occurrences;

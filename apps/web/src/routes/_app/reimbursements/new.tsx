@@ -3,14 +3,20 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 
 export const Route = createFileRoute("/_app/reimbursements/new")({
+  component: NewReimbursementRouteComponent,
   head: () => ({
     meta: [{ title: `New Reimbursement | ${env.VITE_APP_NAME}` }],
   }),
-  component: NewReimbursementRouteComponent,
 });
 
 function NewReimbursementRouteComponent() {
   const navigate = useNavigate();
+  const stableOnCancel0 = () => {
+    navigate({ to: "/reimbursements" });
+  };
+  const stableOnSaved1 = (id: any) => {
+    navigate({ params: { id }, to: "/reimbursements/$id" });
+  };
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
@@ -22,12 +28,8 @@ function NewReimbursementRouteComponent() {
       </p>
       <div className="mt-6">
         <ReimbursementForm
-          onCancel={() => {
-            navigate({ to: "/reimbursements" });
-          }}
-          onSaved={(id) => {
-            navigate({ to: "/reimbursements/$id", params: { id } });
-          }}
+          onCancel={stableOnCancel0}
+          onSaved={stableOnSaved1}
           requestType="reimbursement"
         />
       </div>

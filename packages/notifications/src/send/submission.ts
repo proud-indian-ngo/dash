@@ -6,8 +6,8 @@ import { sendBulkMessage, sendMessage } from "../send-message";
 import type { Topic } from "../topics";
 
 const currencyFormat = new Intl.NumberFormat("en-IN", {
-  style: "currency",
   currency: "INR",
+  style: "currency",
 });
 
 function computeTotal(items: LineItemDetail[]): number {
@@ -66,32 +66,6 @@ export function createSubmissionNotifier({
   statusTopic,
 }: SubmissionNotifierConfig): SubmissionNotifier {
   return {
-    async notifySubmitted({ entityId, title, submitterName }) {
-      const [approverIds, lineItems] = await Promise.all([
-        getUserIdsWithPermission("requests.approve"),
-        getLineItems(entityId),
-      ]);
-      const totalSuffix = formatTotalSuffix(lineItems);
-      const baseMessage = `${submitterName} submitted "${title}" — it needs your review.`;
-      const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
-      const emailHtml = await renderNotificationEmail({
-        heading: `New ${entityLabel.toLowerCase()} to review`,
-        paragraphs: [baseMessage],
-        lineItems,
-        ctaUrl: fullUrl,
-        ctaLabel: `Review ${entityLabel.toLowerCase()}`,
-      });
-      await sendBulkMessage({
-        userIds: approverIds,
-        title: `👀 New ${entityLabel.toLowerCase()} to review`,
-        body: `${baseMessage}${totalSuffix}`,
-        emailHtml,
-        clickAction: `/${routePrefix}/${entityId}`,
-        idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
-        topic: submittedTopic,
-      });
-    },
-
     async notifyApproved({
       entityId,
       title,
@@ -104,22 +78,22 @@ export function createSubmissionNotifier({
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved!`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       const emailHtml = await renderNotificationEmail({
+        ctaLabel: `View ${entityLabel.toLowerCase()}`,
+        ctaUrl: fullUrl,
         heading: `${entityLabel} approved!`,
-        paragraphs: [baseMessage],
+        imageUrl: screenshotUrl,
         lineItems,
         note: note ?? undefined,
-        imageUrl: screenshotUrl,
-        ctaUrl: fullUrl,
-        ctaLabel: `View ${entityLabel.toLowerCase()}`,
+        paragraphs: [baseMessage],
       });
       await sendMessage({
-        to: submitterId,
-        title: `✅ ${entityLabel} approved!`,
         body: `${baseMessage}${totalSuffix}${note ? `\n\nMessage: ${note}` : ""}`,
-        emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
+        emailHtml,
         idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
         imageUrl: screenshotUrl,
+        title: `✅ ${entityLabel} approved!`,
+        to: submitterId,
         topic: statusTopic,
       });
     },
@@ -130,20 +104,45 @@ export function createSubmissionNotifier({
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" wasn't approved.`;
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       const emailHtml = await renderNotificationEmail({
-        heading: `${entityLabel} not approved`,
-        paragraphs: [baseMessage, `Reason: ${reason}`],
-        lineItems,
-        ctaUrl: fullUrl,
         ctaLabel: `View ${entityLabel.toLowerCase()}`,
+        ctaUrl: fullUrl,
+        heading: `${entityLabel} not approved`,
+        lineItems,
+        paragraphs: [baseMessage, `Reason: ${reason}`],
       });
       await sendMessage({
-        to: submitterId,
-        title: `↩️ ${entityLabel} not approved`,
         body: `${baseMessage} ${reason}${totalSuffix}`,
-        emailHtml,
         clickAction: `/${routePrefix}/${entityId}`,
+        emailHtml,
         idempotencyKey: `${idempotencyPrefix}-rejected-${entityId}-${submitterId}`,
+        title: `↩️ ${entityLabel} not approved`,
+        to: submitterId,
         topic: statusTopic,
+      });
+    },
+    async notifySubmitted({ entityId, title, submitterName }) {
+      const [approverIds, lineItems] = await Promise.all([
+        getUserIdsWithPermission("requests.approve"),
+        getLineItems(entityId),
+      ]);
+      const totalSuffix = formatTotalSuffix(lineItems);
+      const baseMessage = `${submitterName} submitted "${title}" — it needs your review.`;
+      const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
+      const emailHtml = await renderNotificationEmail({
+        ctaLabel: `Review ${entityLabel.toLowerCase()}`,
+        ctaUrl: fullUrl,
+        heading: `New ${entityLabel.toLowerCase()} to review`,
+        lineItems,
+        paragraphs: [baseMessage],
+      });
+      await sendBulkMessage({
+        body: `${baseMessage}${totalSuffix}`,
+        clickAction: `/${routePrefix}/${entityId}`,
+        emailHtml,
+        idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
+        title: `👀 New ${entityLabel.toLowerCase()} to review`,
+        topic: submittedTopic,
+        userIds: approverIds,
       });
     },
   };

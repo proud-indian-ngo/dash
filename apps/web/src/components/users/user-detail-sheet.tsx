@@ -22,7 +22,7 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="text-sm">{value ?? "\u2014"}</span>
+      <span className="text-sm">{value}</span>
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function UserDetailSheet({
                 <Badge variant={user.isActive ? "success-light" : "secondary"}>
                   {user.isActive ? "Active" : "Inactive"}
                 </Badge>
-                {user.banned && (
+                {Boolean(user.banned) && (
                   <Badge variant="destructive-light">Banned</Badge>
                 )}
               </div>
@@ -82,12 +82,12 @@ export function UserDetailSheet({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow
                     label="Role"
-                    value={capitalize(user.role ?? "volunteer")}
+                    value={user.role ? capitalize(user.role) : null}
                   />
                 </div>
               </div>
 
-              {user.banned && (
+              {Boolean(user.banned) && (
                 <div className="grid gap-4">
                   <h3 className="font-medium text-sm">Ban Details</h3>
                   <div className="grid gap-3 sm:grid-cols-2">

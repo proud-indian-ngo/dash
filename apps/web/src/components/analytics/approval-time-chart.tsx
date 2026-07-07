@@ -15,13 +15,15 @@ import type { ApprovalTimeBucket } from "@/lib/stats";
 
 const chartConfig = {
   count: {
-    label: "Requests",
     color: "var(--color-brand)",
+    label: "Requests",
   },
 } satisfies ChartConfig;
 
 export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
-  const hasData = data.some((b) => b.count > 0);
+  const hasData = data.some((b: any) => b.count > 0);
+  const stableFormatter0 = (value: unknown) =>
+    `${value} ${Number(value) === 1 ? "request" : "requests"}`;
 
   if (!hasData) {
     return (
@@ -35,7 +37,6 @@ export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
       </Card>
     );
   }
-
   return (
     <Card>
       <CardHeader>
@@ -58,13 +59,7 @@ export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
               width={30}
             />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value) =>
-                    `${value} ${Number(value) === 1 ? "request" : "requests"}`
-                  }
-                />
-              }
+              content={<ChartTooltipContent formatter={stableFormatter0} />}
             />
             <Bar
               dataKey="count"

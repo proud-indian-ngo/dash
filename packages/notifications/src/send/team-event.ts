@@ -14,11 +14,11 @@ function formatEventDetails(
   location?: string | null
 ): string {
   const date = new Date(startTime).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    month: "short",
+    weekday: "short",
   });
   const parts = [` on ${date}`];
   if (location) {
@@ -85,20 +85,20 @@ export async function notifyAddedToEvent({
   eventId,
 }: AddedToEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "You're in!",
     paragraphs: [
       `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     ],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: userId,
-    title: "✅ You're in!",
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-member-added-${eventId}-${userId}`,
+    title: "✅ You're in!",
+    to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
@@ -111,21 +111,21 @@ export async function notifyUsersAddedToEvent({
   eventId,
 }: UsersAddedToEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "You're in!",
     paragraphs: [
       `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     ],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendBulkMessage({
-    userIds,
-    title: "✅ You're in!",
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
-    idempotencyKey: `event-members-added-${eventId}-${userIds.sort().join(",")}`,
+    emailHtml,
+    idempotencyKey: `event-members-added-${eventId}-${[...userIds].sort((a, b) => a.localeCompare(b)).join(",")}`,
+    title: "✅ You're in!",
     topic: TOPICS.EVENTS_SCHEDULE,
+    userIds,
   });
 }
 
@@ -136,18 +136,18 @@ export async function notifyRemovedFromEvent({
   eventId,
 }: RemovedFromEventOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "Event update",
     paragraphs: [`You've been removed from ${eventName}.`],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: userId,
-    title: "📅 Event update",
     body: `You've been removed from ${eventName}.`,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `event-member-removed-${eventId}-${userId}`,
+    title: "📅 Event update",
+    to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
@@ -161,22 +161,22 @@ export async function notifyEventCreated({
   eventId,
 }: EventCreatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Check it out",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "New event!",
     paragraphs: [
       `${eventName} is happening${formatEventDetails(startTime, location)} — mark your calendar!`,
     ],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "Check it out",
   });
   await sendBulkMessage({
-    userIds: teamMemberIds,
-    title: "🗓️ New event!",
     body: `${eventName} is happening${formatEventDetails(startTime, location)} — mark your calendar!`,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `event-created-${eventId}`,
-    topic: TOPICS.EVENTS_SCHEDULE,
     skipWhatsApp: true,
+    title: "🗓️ New event!",
+    topic: TOPICS.EVENTS_SCHEDULE,
+    userIds: teamMemberIds,
   });
 
   const [row] = await db
@@ -188,10 +188,10 @@ export async function notifyEventCreated({
   if (!waGroupId) {
     const log = createRequestLogger();
     log.set({
-      handler: "notifyEventCreated",
       event: "no_whatsapp_group",
-      teamId,
       eventId,
+      handler: "notifyEventCreated",
+      teamId,
     });
     log.warn("Team has no WhatsApp group configured — skipping group message");
     log.emit();
@@ -226,19 +226,19 @@ export async function notifyEventUpdated({
 }: EventUpdatedOptions): Promise<void> {
   const bodyText = `${eventName} just got updated${formatEventDetails(startTime, location)} — check the latest details.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "See what changed",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "Event update",
     paragraphs: [bodyText],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "See what changed",
   });
   await sendBulkMessage({
-    userIds: eventMemberIds,
-    title: "📅 Event update",
     body: bodyText,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `event-updated-${eventId}-${updatedAt}`,
+    title: "📅 Event update",
     topic: TOPICS.EVENTS_SCHEDULE,
+    userIds: eventMemberIds,
   });
 }
 
@@ -250,18 +250,18 @@ export async function notifyEventCancelled({
   cancelledAt,
 }: EventCancelledOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "Event cancelled",
     paragraphs: [`${eventName} has been cancelled.`],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "View event",
   });
   await sendBulkMessage({
-    userIds: eventMemberIds,
-    title: "❌ Event cancelled",
     body: `${eventName} has been cancelled.`,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `event-cancelled-${eventId}-${cancelledAt}`,
+    title: "❌ Event cancelled",
     topic: TOPICS.EVENTS_SCHEDULE,
+    userIds: eventMemberIds,
   });
 }

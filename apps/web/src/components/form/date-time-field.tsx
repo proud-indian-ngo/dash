@@ -16,14 +16,13 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
-
 import { CustomField } from "./custom-field";
 import { applyTimeChange } from "./date-time-utils";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
 import { getFieldErrorState, useResolvedForm } from "./form-context";
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+const HOURS = Array.from({ length: 12 }, (_: any, i: any) => i + 1);
+const MINUTES = Array.from({ length: 12 }, (_: any, i: any) => i * 5);
 
 function getAmPm(date: Date): "AM" | "PM" {
   return date.getHours() >= 12 ? "PM" : "AM";
@@ -131,11 +130,10 @@ function DateTimePicker({
     [value, onChange]
   );
 
-  const hasDate = value != null;
+  const hasDate = value !== undefined;
   const currentHour = value ? value.getHours() % 12 || 12 : undefined;
   const currentMinute = value ? value.getMinutes() : undefined;
   const currentAmPm = value ? getAmPm(value) : undefined;
-
   const disabledDates = [
     ...(minDate ? [{ before: minDate }] : []),
     ...(maxDate ? [{ after: maxDate }] : []),
@@ -172,7 +170,7 @@ function DateTimePicker({
           <Calendar
             autoFocus
             captionLayout="dropdown"
-            defaultMonth={value ?? new Date()}
+            defaultMonth={value}
             disabled={disabledDates.length > 0 ? disabledDates : undefined}
             mode="single"
             month={month}
@@ -188,7 +186,7 @@ function DateTimePicker({
           >
             <ScrollArea className="w-64 sm:w-auto" ref={hourRef}>
               <div className="flex p-2 sm:flex-col">
-                {HOURS.map((hour) => (
+                {HOURS.map((hour: any) => (
                   <Button
                     className="aspect-square shrink-0 sm:w-full"
                     disabled={!hasDate}
@@ -206,7 +204,7 @@ function DateTimePicker({
             </ScrollArea>
             <ScrollArea className="w-64 sm:w-auto" ref={minuteRef}>
               <div className="flex p-2 sm:flex-col">
-                {MINUTES.map((minute) => (
+                {MINUTES.map((minute: any) => (
                   <Button
                     className="aspect-square shrink-0 sm:w-full"
                     disabled={!hasDate}
@@ -225,7 +223,7 @@ function DateTimePicker({
               <ScrollBar className="sm:hidden" orientation="horizontal" />
             </ScrollArea>
             <div className="flex p-2 sm:flex-col">
-              {(["AM", "PM"] as const).map((ampm) => (
+              {(["AM", "PM"] as const).map((ampm: any) => (
                 <Button
                   className="aspect-square shrink-0 sm:w-full"
                   disabled={!hasDate}
@@ -270,7 +268,7 @@ export function DateTimeField({
       name={name}
       validators={validators}
     >
-      {(field) => {
+      {(field: any) => {
         const submitted = resolvedForm.state.submissionAttempts > 0;
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
@@ -286,7 +284,7 @@ export function DateTimeField({
             maxDate={maxDate}
             minDate={minDate}
             onBlur={field.handleBlur}
-            onChange={(value) => field.handleChange(value)}
+            onChange={(value: any) => field.handleChange(value)}
             placeholder={placeholder}
             value={field.state.value}
           />

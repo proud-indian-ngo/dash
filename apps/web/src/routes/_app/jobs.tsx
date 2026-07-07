@@ -39,11 +39,11 @@ const STATE_OPTIONS = [
 ];
 
 export const Route = createFileRoute("/_app/jobs")({
+  beforeLoad: ({ context }) => assertPermission(context, "jobs.manage"),
+  component: JobsRouteComponent,
   head: () => ({
     meta: [{ title: `Jobs | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => assertPermission(context, "jobs.manage"),
-  component: JobsRouteComponent,
 });
 
 async function safeJson(res: Response): Promise<Record<string, unknown>> {
@@ -70,7 +70,7 @@ function fetchJobsData(
   if (queueFilter) {
     params.set("queue", queueFilter);
   }
-  return fetch(`/api/jobs?${params.toString()}`).then(async (res) => {
+  return fetch(`/api/jobs?${params.toString()}`).then(async (res: any) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch jobs: ${res.status}`);
     }
@@ -83,7 +83,7 @@ function fetchJobsData(
 }
 
 function fetchStatsData() {
-  return fetch("/api/jobs/stats").then(async (res) => {
+  return fetch("/api/jobs/stats").then(async (res: any) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch stats: ${res.status}`);
     }
@@ -152,8 +152,8 @@ function JobsRouteComponent() {
             return;
           }
           log.error({
-            component: "JobsRoute",
             action: "fetchAll",
+            component: "JobsRoute",
             error: error instanceof Error ? error.message : String(error),
           });
           toast.error("Couldn't load jobs data");
@@ -171,8 +171,8 @@ function JobsRouteComponent() {
   }, [stateFilter, queueFilter, pageIndex, pageSize, refreshKey]);
 
   const queueOptions = queues
-    .map((q) => ({ label: q.queue, value: q.queue }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .map((q: any) => ({ label: q.queue, value: q.queue }))
+    .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
   // Reset page when filter changes
   const handleFilterChange = (value: string) => {
@@ -187,7 +187,7 @@ function JobsRouteComponent() {
 
   const handleRefresh = () => {
     setIsLoading(true);
-    setRefreshKey((k) => k + 1);
+    setRefreshKey((k: any) => k + 1);
   };
 
   const handleView = (job: JobRow) => {
@@ -198,7 +198,20 @@ function JobsRouteComponent() {
   const handleCancelRequest = (job: JobRow) => {
     setCancelTarget(job);
   };
-
+  const stableOnClearFilters0 = () => {
+    handleFilterChange("");
+    handleQueueFilterChange("");
+  };
+  const stableOnOpenChange1 = (open: any) => {
+    if (!open) {
+      setCancelTarget(null);
+    }
+  };
+  const stableOnOpenChange2 = (open: any) => {
+    if (!open) {
+      setRetryTarget(null);
+    }
+  };
   const handleCancelConfirm = async () => {
     if (!cancelTarget) {
       return;
@@ -214,14 +227,14 @@ function JobsRouteComponent() {
       }
       toast.success("Job cancelled");
       setCancelTarget(null);
-      setRefreshKey((k) => k + 1);
+      setRefreshKey((k: any) => k + 1);
     } catch (error) {
       log.error({
-        component: "JobsRoute",
         action: "cancelJob",
+        component: "JobsRoute",
+        error: error instanceof Error ? error.message : String(error),
         jobId: cancelTarget.id,
         queue: cancelTarget.name,
-        error: error instanceof Error ? error.message : String(error),
       });
       toast.error(getErrorMessage(error));
     } finally {
@@ -248,14 +261,14 @@ function JobsRouteComponent() {
       }
       toast.success("Queued for retry");
       setRetryTarget(null);
-      setRefreshKey((k) => k + 1);
+      setRefreshKey((k: any) => k + 1);
     } catch (error) {
       log.error({
-        component: "JobsRoute",
         action: "retryJob",
+        component: "JobsRoute",
+        error: error instanceof Error ? error.message : String(error),
         jobId: retryTarget.id,
         queue: retryTarget.name,
-        error: error instanceof Error ? error.message : String(error),
       });
       toast.error(getErrorMessage(error));
     } finally {
@@ -280,10 +293,7 @@ function JobsRouteComponent() {
           jobs={jobs}
           manualPagination
           onCancel={handleCancelRequest}
-          onClearFilters={() => {
-            handleFilterChange("");
-            handleQueueFilterChange("");
-          }}
+          onClearFilters={stableOnClearFilters0}
           onRetry={handleRetryRequest}
           onView={handleView}
           rowCount={total}
@@ -332,11 +342,7 @@ function JobsRouteComponent() {
         loading={isCancelling}
         loadingLabel="Cancelling\u2026"
         onConfirm={handleCancelConfirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelTarget(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange1}
         open={!!cancelTarget}
         title="Cancel job?"
         variant="destructive"
@@ -352,11 +358,7 @@ function JobsRouteComponent() {
         loading={isRetrying}
         loadingLabel="Retrying\u2026"
         onConfirm={handleRetryConfirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRetryTarget(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange2}
         open={!!retryTarget}
         title="Retry job?"
         variant="destructive"

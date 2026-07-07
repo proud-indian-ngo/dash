@@ -29,7 +29,9 @@ export function MobileWeekStrip({
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = Array.from({ length: 7 }, (_: any, i: any) =>
+    addDays(weekStart, i)
+  );
 
   const handlePrev = () => {
     const newWeekStart = subWeeks(weekStart, 1);
@@ -49,7 +51,7 @@ export function MobileWeekStrip({
         <HugeiconsIcon icon={ArrowLeftIcon} size={16} strokeWidth={2} />
       </Button>
       <div className="flex flex-1 justify-between">
-        {days.map((day) => {
+        {days.map((day: any) => {
           const isoDate = format(day, "yyyy-MM-dd");
           const isSelected = selectedDate === isoDate;
           const hasEvents = datesWithEvents.has(isoDate);

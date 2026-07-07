@@ -10,16 +10,360 @@ import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
 export const eventPhotoMutators = {
+  approve: defineMutator(
+    z.object({ id: z.string(), now: z.number() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
+        | EventPhoto
+        | undefined;
+      if (!photo) {
+        throw new Error("Photo not found");
+      }
+      if (photo.status !== "pending") {
+        throw new Error("Photo is not pending");
+      }
+
+      const event = (await tx.run(
+        zql.teamEvent.where("id", photo.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
+
+      await tx.mutate.eventPhoto.update({
+        id: args.id,
+        reviewedAt: args.now,
+        reviewedBy: ctx.userId,
+        status: "approved",
+      });
+
+      if (tx.location === "server") {
+        if (photo.r2Key) {
+          const { r2Key } = photo;
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "immich-sync-photo",
+                {
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  photoId: args.id,
+                  r2Key,
+                },
+                {
+                  singletonKey: args.id,
+                  traceId: ctx.traceId,
+                }
+              );
+            },
+            meta: { mutator: "approveEventPhoto", photoId: args.id },
+          });
+        }
+
+        if (photo.uploadedBy !== ctx.userId) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
+                await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "notify-photo-approved",
+                {
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  photoId: args.id,
+                  uploaderId: photo.uploadedBy,
+                },
+                {
+                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  traceId: ctx.traceId,
+                }
+              );
+            },
+            meta: {
+              eventId: photo.eventId,
+              mutator: "approveEventPhoto",
+              photoId: args.id,
+              uploadedBy: photo.uploadedBy,
+            },
+          });
+        }
+      }
+    }
+  ),
+
+  approveBatch: defineMutator(
+    z.object({ ids: z.array(z.string()), now: z.number() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      for (const id of args.ids) {
+        const photo = (await tx.run(zql.eventPhoto.where("id", id).one())) as
+          | EventPhoto
+          | undefined;
+        if (!photo) {
+          continue;
+        }
+        if (photo.status !== "pending") {
+          continue;
+        }
+
+        const event = (await tx.run(
+          zql.teamEvent.where("id", photo.eventId).one()
+        )) as TeamEvent | undefined;
+        if (!event) {
+          continue;
+        }
+
+        const isTeamLead = !!(await tx.run(
+          zql.teamMember
+            .where("teamId", event.teamId)
+            .where("userId", ctx.userId)
+            .where("role", "lead")
+            .one()
+        ));
+        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
+
+        await tx.mutate.eventPhoto.update({
+          id,
+          reviewedAt: args.now,
+          reviewedBy: ctx.userId,
+          status: "approved",
+        });
+
+        if (tx.location === "server") {
+          if (photo.r2Key) {
+            const { r2Key } = photo;
+            const { eventId } = photo;
+            const eventName = event.name;
+            ctx.asyncTasks?.push({
+              fn: async () => {
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                await enqueue(
+                  "immich-sync-photo",
+                  {
+                    eventId,
+                    eventName,
+                    photoId: id,
+                    r2Key,
+                  },
+                  {
+                    singletonKey: id,
+                    traceId: ctx.traceId,
+                  }
+                );
+              },
+              meta: { mutator: "approveEventPhotoBatch", photoId: id },
+            });
+          }
+
+          if (photo.uploadedBy !== ctx.userId) {
+            ctx.asyncTasks?.push({
+              fn: async () => {
+                const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
+                  await import("@pi-dash/jobs/enqueue");
+                await enqueue(
+                  "notify-photo-approved",
+                  {
+                    eventId: photo.eventId,
+                    eventName: event.name,
+                    photoId: id,
+                    uploaderId: photo.uploadedBy,
+                  },
+                  {
+                    startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                    traceId: ctx.traceId,
+                  }
+                );
+              },
+              meta: {
+                eventId: photo.eventId,
+                mutator: "approveEventPhotoBatch",
+                photoId: id,
+                uploadedBy: photo.uploadedBy,
+              },
+            });
+          }
+        }
+      }
+    }
+  ),
+
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
+        | EventPhoto
+        | undefined;
+      if (!photo) {
+        throw new Error("Photo not found");
+      }
+
+      const event = (await tx.run(
+        zql.teamEvent.where("id", photo.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      // Allow uploader to delete their own pending photos
+      const isOwnPending =
+        photo.uploadedBy === ctx.userId && photo.status === "pending";
+
+      if (!isOwnPending) {
+        const isTeamLead = !!(await tx.run(
+          zql.teamMember
+            .where("teamId", event.teamId)
+            .where("userId", ctx.userId)
+            .where("role", "lead")
+            .one()
+        ));
+        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
+      }
+
+      await tx.mutate.eventPhoto.delete({ id: args.id });
+
+      if (tx.location === "server") {
+        if (photo.r2Key) {
+          const { r2Key } = photo;
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "delete-r2-object",
+                { r2Key },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: { mutator: "deleteEventPhoto", photoId: args.id },
+          });
+        }
+
+        if (photo.immichAssetId) {
+          const { immichAssetId } = photo;
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "immich-delete-asset",
+                { immichAssetId },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: { mutator: "deleteEventPhoto", photoId: args.id },
+          });
+        }
+      }
+    }
+  ),
+
+  reject: defineMutator(
+    z.object({ id: z.string(), now: z.number() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
+        | EventPhoto
+        | undefined;
+      if (!photo) {
+        throw new Error("Photo not found");
+      }
+      if (photo.status !== "pending") {
+        throw new Error("Photo is not pending");
+      }
+
+      const event = (await tx.run(
+        zql.teamEvent.where("id", photo.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
+
+      await tx.mutate.eventPhoto.update({
+        id: args.id,
+        reviewedAt: args.now,
+        reviewedBy: ctx.userId,
+        status: "rejected",
+      });
+
+      if (tx.location === "server") {
+        if (photo.r2Key) {
+          const { r2Key } = photo;
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "delete-r2-object",
+                { r2Key },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: { mutator: "rejectEventPhoto", photoId: args.id },
+          });
+        }
+
+        if (photo.uploadedBy !== ctx.userId) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
+                await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "notify-photo-rejected",
+                {
+                  eventId: photo.eventId,
+                  eventName: event.name,
+                  photoId: args.id,
+                  uploaderId: photo.uploadedBy,
+                },
+                {
+                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  traceId: ctx.traceId,
+                }
+              );
+            },
+            meta: {
+              eventId: photo.eventId,
+              mutator: "rejectEventPhoto",
+              photoId: args.id,
+              uploadedBy: photo.uploadedBy,
+            },
+          });
+        }
+      }
+    }
+  ),
   upload: defineMutator(
     z
       .object({
-        id: z.string(),
+        caption: z.string().optional(),
         eventId: z.string(),
-        r2Key: z.string().optional(),
+        id: z.string(),
         immichAssetId: z.string().optional(),
         mimeType: z.string().optional(),
-        caption: z.string().optional(),
         now: z.number(),
+        r2Key: z.string().optional(),
       })
       .refine((d) => d.r2Key || d.immichAssetId, {
         message: "Either r2Key or immichAssetId must be provided",
@@ -64,17 +408,17 @@ export const eventPhotoMutators = {
       const status = isAdminOrLead ? "approved" : "pending";
 
       await tx.mutate.eventPhoto.insert({
-        id: args.id,
+        caption: args.caption,
+        createdAt: args.now,
         eventId: args.eventId,
-        r2Key: args.r2Key ?? null,
-        immichAssetId: args.immichAssetId ?? null,
-        mimeType: args.mimeType ?? null,
-        caption: args.caption ?? null,
+        id: args.id,
+        immichAssetId: args.immichAssetId,
+        mimeType: args.mimeType,
+        r2Key: args.r2Key,
+        reviewedAt: isAdminOrLead ? args.now : null,
+        reviewedBy: isAdminOrLead ? ctx.userId : null,
         status,
         uploadedBy: ctx.userId,
-        reviewedBy: isAdminOrLead ? ctx.userId : null,
-        reviewedAt: isAdminOrLead ? args.now : null,
-        createdAt: args.now,
       });
 
       // Enqueue Immich sync for R2-backed photos that are auto-approved
@@ -84,371 +428,26 @@ export const eventPhotoMutators = {
         !args.immichAssetId &&
         tx.location === "server"
       ) {
-        const r2Key = args.r2Key;
+        const { r2Key } = args;
         ctx.asyncTasks?.push({
-          meta: { mutator: "uploadEventPhoto", photoId: args.id },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "immich-sync-photo",
               {
-                photoId: args.id,
                 eventId: args.eventId,
                 eventName: event.name,
+                photoId: args.id,
                 r2Key,
               },
               {
-                traceId: ctx.traceId,
                 singletonKey: args.id,
+                traceId: ctx.traceId,
               }
             );
           },
+          meta: { mutator: "uploadEventPhoto", photoId: args.id },
         });
-      }
-    }
-  ),
-
-  approve: defineMutator(
-    z.object({ id: z.string(), now: z.number() }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-
-      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
-        | EventPhoto
-        | undefined;
-      if (!photo) {
-        throw new Error("Photo not found");
-      }
-      if (photo.status !== "pending") {
-        throw new Error("Photo is not pending");
-      }
-
-      const event = (await tx.run(
-        zql.teamEvent.where("id", photo.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", event.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
-
-      await tx.mutate.eventPhoto.update({
-        id: args.id,
-        status: "approved",
-        reviewedBy: ctx.userId,
-        reviewedAt: args.now,
-      });
-
-      if (tx.location === "server") {
-        if (photo.r2Key) {
-          const r2Key = photo.r2Key;
-          ctx.asyncTasks?.push({
-            meta: { mutator: "approveEventPhoto", photoId: args.id },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "immich-sync-photo",
-                {
-                  photoId: args.id,
-                  eventId: photo.eventId,
-                  eventName: event.name,
-                  r2Key,
-                },
-                {
-                  traceId: ctx.traceId,
-                  singletonKey: args.id,
-                }
-              );
-            },
-          });
-        }
-
-        if (photo.uploadedBy !== ctx.userId) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "approveEventPhoto",
-              photoId: args.id,
-              eventId: photo.eventId,
-              uploadedBy: photo.uploadedBy,
-            },
-            fn: async () => {
-              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
-                await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "notify-photo-approved",
-                {
-                  photoId: args.id,
-                  eventId: photo.eventId,
-                  eventName: event.name,
-                  uploaderId: photo.uploadedBy,
-                },
-                {
-                  traceId: ctx.traceId,
-                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
-                }
-              );
-            },
-          });
-        }
-      }
-    }
-  ),
-
-  approveBatch: defineMutator(
-    z.object({ ids: z.array(z.string()), now: z.number() }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-
-      for (const id of args.ids) {
-        const photo = (await tx.run(zql.eventPhoto.where("id", id).one())) as
-          | EventPhoto
-          | undefined;
-        if (!photo) {
-          continue;
-        }
-        if (photo.status !== "pending") {
-          continue;
-        }
-
-        const event = (await tx.run(
-          zql.teamEvent.where("id", photo.eventId).one()
-        )) as TeamEvent | undefined;
-        if (!event) {
-          continue;
-        }
-
-        const isTeamLead = !!(await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        ));
-        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
-
-        await tx.mutate.eventPhoto.update({
-          id,
-          status: "approved",
-          reviewedBy: ctx.userId,
-          reviewedAt: args.now,
-        });
-
-        if (tx.location === "server") {
-          if (photo.r2Key) {
-            const r2Key = photo.r2Key;
-            const eventId = photo.eventId;
-            const eventName = event.name;
-            ctx.asyncTasks?.push({
-              meta: { mutator: "approveEventPhotoBatch", photoId: id },
-              fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                await enqueue(
-                  "immich-sync-photo",
-                  {
-                    photoId: id,
-                    eventId,
-                    eventName,
-                    r2Key,
-                  },
-                  {
-                    traceId: ctx.traceId,
-                    singletonKey: id,
-                  }
-                );
-              },
-            });
-          }
-
-          if (photo.uploadedBy !== ctx.userId) {
-            ctx.asyncTasks?.push({
-              meta: {
-                mutator: "approveEventPhotoBatch",
-                photoId: id,
-                eventId: photo.eventId,
-                uploadedBy: photo.uploadedBy,
-              },
-              fn: async () => {
-                const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
-                  await import("@pi-dash/jobs/enqueue");
-                await enqueue(
-                  "notify-photo-approved",
-                  {
-                    photoId: id,
-                    eventId: photo.eventId,
-                    eventName: event.name,
-                    uploaderId: photo.uploadedBy,
-                  },
-                  {
-                    traceId: ctx.traceId,
-                    startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
-                  }
-                );
-              },
-            });
-          }
-        }
-      }
-    }
-  ),
-
-  reject: defineMutator(
-    z.object({ id: z.string(), now: z.number() }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-
-      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
-        | EventPhoto
-        | undefined;
-      if (!photo) {
-        throw new Error("Photo not found");
-      }
-      if (photo.status !== "pending") {
-        throw new Error("Photo is not pending");
-      }
-
-      const event = (await tx.run(
-        zql.teamEvent.where("id", photo.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", event.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
-
-      await tx.mutate.eventPhoto.update({
-        id: args.id,
-        status: "rejected",
-        reviewedBy: ctx.userId,
-        reviewedAt: args.now,
-      });
-
-      if (tx.location === "server") {
-        if (photo.r2Key) {
-          const r2Key = photo.r2Key;
-          ctx.asyncTasks?.push({
-            meta: { mutator: "rejectEventPhoto", photoId: args.id },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "delete-r2-object",
-                { r2Key },
-                { traceId: ctx.traceId }
-              );
-            },
-          });
-        }
-
-        if (photo.uploadedBy !== ctx.userId) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "rejectEventPhoto",
-              photoId: args.id,
-              eventId: photo.eventId,
-              uploadedBy: photo.uploadedBy,
-            },
-            fn: async () => {
-              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
-                await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "notify-photo-rejected",
-                {
-                  photoId: args.id,
-                  eventId: photo.eventId,
-                  eventName: event.name,
-                  uploaderId: photo.uploadedBy,
-                },
-                {
-                  traceId: ctx.traceId,
-                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
-                }
-              );
-            },
-          });
-        }
-      }
-    }
-  ),
-
-  delete: defineMutator(
-    z.object({ id: z.string() }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-
-      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
-        | EventPhoto
-        | undefined;
-      if (!photo) {
-        throw new Error("Photo not found");
-      }
-
-      const event = (await tx.run(
-        zql.teamEvent.where("id", photo.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-
-      // Allow uploader to delete their own pending photos
-      const isOwnPending =
-        photo.uploadedBy === ctx.userId && photo.status === "pending";
-
-      if (!isOwnPending) {
-        const isTeamLead = !!(await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        ));
-        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
-      }
-
-      await tx.mutate.eventPhoto.delete({ id: args.id });
-
-      if (tx.location === "server") {
-        if (photo.r2Key) {
-          const r2Key = photo.r2Key;
-          ctx.asyncTasks?.push({
-            meta: { mutator: "deleteEventPhoto", photoId: args.id },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "delete-r2-object",
-                { r2Key },
-                { traceId: ctx.traceId }
-              );
-            },
-          });
-        }
-
-        if (photo.immichAssetId) {
-          const immichAssetId = photo.immichAssetId;
-          ctx.asyncTasks?.push({
-            meta: { mutator: "deleteEventPhoto", photoId: args.id },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "immich-delete-asset",
-                { immichAssetId },
-                { traceId: ctx.traceId }
-              );
-            },
-          });
-        }
       }
     }
   ),

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/health")({
         try {
           await Promise.race([
             db.execute(sql`SELECT 1`),
-            new Promise((_, reject) =>
+            new Promise((_: any, reject: any) =>
               setTimeout(
                 () => reject(new Error("DB health check timeout")),
                 3000
@@ -25,10 +25,10 @@ export const Route = createFileRoute("/api/health")({
         const status = dbConnected ? "ok" : "degraded";
         return Response.json(
           {
-            status,
-            uptime: Math.round(process.uptime()),
             db: { connected: dbConnected },
+            status,
             timestamp: new Date().toISOString(),
+            uptime: Math.round(process.uptime()),
           },
           { status: dbConnected ? 200 : 503 }
         );

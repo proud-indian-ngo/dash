@@ -15,7 +15,7 @@ if (envPath) {
 // and .env.worktree contains dev ports that would clobber the E2E values.
 const worktreeEnvPath = findUp(".env.worktree", process.cwd());
 if (worktreeEnvPath && !process.env.VITE_E2E) {
-  expand(config({ path: worktreeEnvPath, override: true, quiet: true }));
+  expand(config({ override: true, path: worktreeEnvPath, quiet: true }));
 } else if (!process.env.WORKTREE_ID) {
   // Layer 2: Auto-detect git worktree and compute ports from path hash.
   // This makes `claude --worktree` and `isolation: "worktree"` work with zero setup.
@@ -94,7 +94,7 @@ function findUp(name: string, from: string): string | undefined {
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      return undefined;
+      return;
     }
     dir = parent;
   }

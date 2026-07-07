@@ -41,11 +41,11 @@ export const Route = createFileRoute("/api/log/ingest")({
               sendToPostHogEvents(
                 {
                   ...event,
-                  source: "client",
-                  timestamp: new Date().toISOString(),
+                  environment: process.env.NODE_ENV ?? "development",
                   level: "error" as const,
                   service: "pi-dash-client",
-                  environment: process.env.NODE_ENV ?? "development",
+                  source: "client",
+                  timestamp: new Date().toISOString(),
                 },
                 {
                   apiKey: env.POSTHOG_API_KEY,

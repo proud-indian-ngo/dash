@@ -28,7 +28,7 @@ export async function resolvePermissions(roleId: string): Promise<string[]> {
     .where(eq(rolePermission.roleId, roleId));
 
   const permissions = rows.map((r) => r.permissionId);
-  cache.set(roleId, { permissions, expiresAt: Date.now() + CACHE_TTL_MS });
+  cache.set(roleId, { expiresAt: Date.now() + CACHE_TTL_MS, permissions });
   return permissions;
 }
 

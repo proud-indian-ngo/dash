@@ -16,12 +16,15 @@ import type { SubmitterDataPoint } from "@/lib/stats";
 
 const chartConfig = {
   amount: {
-    label: "Amount",
     color: "var(--color-brand)",
+    label: "Amount",
   },
 } satisfies ChartConfig;
 
 export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
+  const stableTickFormatter0 = (v: number) => formatINR(v);
+  const stableFormatter1 = (value: unknown, _name: unknown, props: unknown) =>
+    `${formatINR(Number(value))} (${(props as { payload: SubmitterDataPoint }).payload.count} requests)`;
   if (data.length === 0) {
     return (
       <Card>
@@ -34,7 +37,6 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
       </Card>
     );
   }
-
   return (
     <Card>
       <CardHeader>
@@ -50,7 +52,7 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
             <XAxis
               axisLine={false}
               fontSize={12}
-              tickFormatter={(v: number) => formatINR(v)}
+              tickFormatter={stableTickFormatter0}
               tickLine={false}
               type="number"
             />
@@ -63,13 +65,7 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
               width={120}
             />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value, _name, props) =>
-                    `${formatINR(Number(value))} (${(props as { payload: SubmitterDataPoint }).payload.count} requests)`
-                  }
-                />
-              }
+              content={<ChartTooltipContent formatter={stableFormatter1} />}
             />
             <Bar
               dataKey="amount"

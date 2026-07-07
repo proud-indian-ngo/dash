@@ -37,7 +37,7 @@ export const postEventRsvpPoll = createServerFn({ method: "POST" })
     if (!context.session) {
       log.set({ event: "unauthorized" });
       log.emit();
-      return { type: "error", code: "unauthorized" };
+      return { code: "unauthorized", type: "error" };
     }
     const userId = context.session.user.id;
     log.set({ userId });
@@ -47,46 +47,46 @@ export const postEventRsvpPoll = createServerFn({ method: "POST" })
     if (!perms.includes("events.edit")) {
       log.set({ event: "forbidden", role });
       log.emit();
-      return { type: "error", code: "forbidden" };
+      return { code: "forbidden", type: "error" };
     }
 
     try {
       const eventRow = await db.query.teamEvent.findFirst({
-        where: eq(teamEvent.id, data.eventId),
         columns: {
-          id: true,
           cancelledAt: true,
+          id: true,
           postRsvpPoll: true,
-          whatsappGroupId: true,
           teamId: true,
+          whatsappGroupId: true,
         },
+        where: eq(teamEvent.id, data.eventId),
       });
 
       if (!eventRow) {
         log.set({ event: "not_found" });
         log.emit();
-        return { type: "error", code: "not_found" };
+        return { code: "not_found", type: "error" };
       }
 
       if (eventRow.cancelledAt || !eventRow.postRsvpPoll) {
         log.set({
-          event: "not_eligible",
           cancelled: !!eventRow.cancelledAt,
+          event: "not_eligible",
           postRsvpPoll: eventRow.postRsvpPoll,
         });
         log.emit();
-        return { type: "error", code: "not_eligible" };
+        return { code: "not_eligible", type: "error" };
       }
 
       if (!eventRow.whatsappGroupId) {
         const teamRow = await db.query.team.findFirst({
-          where: eq(team.id, eventRow.teamId),
           columns: { whatsappGroupId: true },
+          where: eq(team.id, eventRow.teamId),
         });
         if (!teamRow?.whatsappGroupId) {
           log.set({ event: "no_whatsapp_group" });
           log.emit();
-          return { type: "error", code: "no_whatsapp_group" };
+          return { code: "no_whatsapp_group", type: "error" };
         }
       }
 
@@ -98,7 +98,7 @@ export const postEventRsvpPoll = createServerFn({ method: "POST" })
       if (existing.length > 0) {
         log.set({ event: "poll_exists" });
         log.emit();
-        return { type: "error", code: "poll_exists" };
+        return { code: "poll_exists", type: "error" };
       }
 
       await enqueue("send-single-rsvp-poll", { eventId: data.eventId });
@@ -108,6 +108,6 @@ export const postEventRsvpPoll = createServerFn({ method: "POST" })
     } catch (error) {
       log.error(error instanceof Error ? error : String(error));
       log.emit();
-      return { type: "error", code: "unknown" };
+      return { code: "unknown", type: "error" };
     }
   });

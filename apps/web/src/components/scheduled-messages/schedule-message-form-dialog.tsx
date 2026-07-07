@@ -12,7 +12,6 @@ import type {
 import { useForm } from "@tanstack/react-form";
 import { addHours, startOfHour } from "date-fns";
 import { useMemo, useState } from "react";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -41,25 +40,25 @@ const attachmentSchema = z.object({
 });
 
 const scheduledFormSchema = z.object({
+  attachments: z.array(attachmentSchema).max(5),
   message: z.string().min(1, "Message is required"),
-  scheduledAt: z.date().refine((val) => val.getTime() > Date.now(), {
-    message: "Must be in the future",
-  }),
   recipients: z
     .array(recipientSchema)
     .min(1, "At least one recipient is required")
     .max(10),
-  attachments: z.array(attachmentSchema).max(5),
+  scheduledAt: z.date().refine((val: any) => val.getTime() > Date.now(), {
+    message: "Must be in the future",
+  }),
 });
 
 const sendNowFormSchema = z.object({
+  attachments: z.array(attachmentSchema).max(5),
   message: z.string().min(1, "Message is required"),
-  scheduledAt: z.date(),
   recipients: z
     .array(recipientSchema)
     .min(1, "At least one recipient is required")
     .max(10),
-  attachments: z.array(attachmentSchema).max(5),
+  scheduledAt: z.date(),
 });
 
 type ScheduledMessageWithRecipients = ScheduledMessage & {
@@ -89,7 +88,7 @@ export function ScheduleMessageFormDialog({
   const [formKey, setFormKey] = useState(0);
   const [sendNow, setSendNow] = useState(false);
   const entityId = useMemo(
-    () => initialValues?.id ?? uuidv7(),
+    () => initialValues?.id ?? "scheduled-message-draft",
     [initialValues?.id]
   );
 
@@ -97,24 +96,24 @@ export function ScheduleMessageFormDialog({
 
   const form = useForm({
     defaultValues: {
+      attachments: (initialValues?.attachments ?? []) as MediaAttachment[],
       message: initialValues?.message ?? "",
-      scheduledAt: initialValues
-        ? new Date(initialValues.scheduledAt)
-        : addHours(startOfHour(new Date()), 1),
-      recipients: (initialValues?.recipients ?? []).map((r) => ({
+      recipients: (initialValues?.recipients ?? []).map((r: any) => ({
         id: r.recipientId,
         label: r.label,
         type: r.type as "group" | "user",
       })),
-      attachments: (initialValues?.attachments ?? []) as MediaAttachment[],
+      scheduledAt: initialValues
+        ? new Date(initialValues.scheduledAt)
+        : addHours(startOfHour(new Date()), 1),
     },
     onSubmit: async ({ value }) => {
       await onSubmit({
-        message: value.message,
-        scheduledAt: sendNow ? Date.now() : value.scheduledAt.getTime(),
-        recipients: value.recipients,
         attachments:
           value.attachments.length > 0 ? value.attachments : undefined,
+        message: value.message,
+        recipients: value.recipients,
+        scheduledAt: sendNow ? Date.now() : value.scheduledAt.getTime(),
         sendNow: sendNow || undefined,
       });
     },
@@ -123,6 +122,13 @@ export function ScheduleMessageFormDialog({
       onSubmit: formSchema,
     },
   });
+  const stableOnOpenChange0 = (v: any) => {
+    if (!v) {
+      setFormKey((k: any) => k + 1);
+      setSendNow(false);
+      onClose();
+    }
+  };
 
   return (
     <FormModal
@@ -131,13 +137,7 @@ export function ScheduleMessageFormDialog({
           ? "Edit the scheduled message"
           : `${sendNow ? "Send" : "Schedule"} a WhatsApp message`
       }
-      onOpenChange={(v) => {
-        if (!v) {
-          setFormKey((k) => k + 1);
-          setSendNow(false);
-          onClose();
-        }
-      }}
+      onOpenChange={stableOnOpenChange0}
       open={open}
       title={isEdit ? "Edit scheduled message" : "Schedule message"}
     >
@@ -150,7 +150,7 @@ export function ScheduleMessageFormDialog({
           rows={4}
         />
 
-        {!isEdit && (
+        {Boolean(!isEdit) && (
           <div className="flex items-center gap-2">
             <Switch
               checked={sendNow}
@@ -161,7 +161,7 @@ export function ScheduleMessageFormDialog({
           </div>
         )}
 
-        {!sendNow && (
+        {Boolean(!sendNow) && (
           <DateTimeField
             isRequired
             label="Scheduled at"
@@ -172,7 +172,7 @@ export function ScheduleMessageFormDialog({
         )}
 
         <form.Field name="recipients">
-          {(field) => {
+          {(field: any) => {
             const submitted = form.state.submissionAttempts > 0;
             const hasError =
               (field.state.meta.isBlurred || submitted) &&
@@ -186,20 +186,22 @@ export function ScheduleMessageFormDialog({
                   </span>
                 </FieldLabel>
                 <RecipientPicker
-                  onChange={(val) => field.handleChange(val)}
+                  onChange={(val: any) => field.handleChange(val)}
                   value={field.state.value}
                 />
-                {hasError && <FieldError errors={field.state.meta.errors} />}
+                {Boolean(hasError) && (
+                  <FieldError errors={field.state.meta.errors} />
+                )}
               </Field>
             );
           }}
         </form.Field>
 
         <form.Field name="attachments">
-          {(field) => (
+          {(field: any) => (
             <MediaUpload
               entityId={entityId}
-              onChange={(val) => field.handleChange(val)}
+              onChange={(val: any) => field.handleChange(val)}
               value={field.state.value}
             />
           )}

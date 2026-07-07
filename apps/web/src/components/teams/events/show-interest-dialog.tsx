@@ -45,24 +45,30 @@ export function ShowInterestDialog({
     const id = uuidv7();
     const res = await zero.mutate(
       mutators.eventInterest.create({
-        id,
         eventId,
+        id,
         message: message.trim() || undefined,
         now: Date.now(),
       })
     ).server;
     setIsSubmitting(false);
     handleMutationResult(res, {
-      mutation: "eventInterest.create",
       entityId: id,
-      successMsg: "Interest submitted!",
       errorMsg: "Failed to submit interest",
+      mutation: "eventInterest.create",
+      successMsg: "Interest submitted!",
     });
     if (res.type !== "error") {
       setMessage("");
       onOpenChange(false);
     }
   };
+  const stableOnSubmit0 = (e: any) => {
+    e.preventDefault();
+    handleSubmit();
+  };
+  const stableOnChange1 = (e: any) => setMessage(e.target.value);
+  const stableOnClick2 = () => onOpenChange(false);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -75,17 +81,12 @@ export function ShowInterestDialog({
             {eventDate ?? "Express your interest in this event"}
           </DialogDescription>
         </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit();
-          }}
-        >
+        <form onSubmit={stableOnSubmit0}>
           <div className="flex flex-col gap-3">
             <Label htmlFor="interest-message">Message (optional)</Label>
             <Textarea
               id="interest-message"
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={stableOnChange1}
               placeholder="Why are you interested in this event?"
               rows={3}
               value={message}
@@ -94,7 +95,7 @@ export function ShowInterestDialog({
           <DialogFooter className="mt-4">
             <Button
               disabled={isSubmitting}
-              onClick={() => onOpenChange(false)}
+              onClick={stableOnClick2}
               type="button"
               variant="outline"
             >

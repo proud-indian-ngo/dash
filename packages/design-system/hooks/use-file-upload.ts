@@ -58,7 +58,7 @@ export interface FileUploadActions {
 }
 
 const getFileExtension = (file: File | FileMetadata): string => {
-  const extension = file.name.split(".").pop() ?? "";
+  const extension = file.name.split(".").pop();
   return `.${extension}`;
 };
 
@@ -66,8 +66,8 @@ const isAcceptedFileType = (
   acceptedTypes: string[],
   fileType: string,
   fileExtension: string
-): boolean => {
-  return acceptedTypes.some((acceptedType) => {
+): boolean =>
+  acceptedTypes.some((acceptedType) => {
     if (acceptedType.startsWith(".")) {
       return fileExtension.toLowerCase() === acceptedType.toLowerCase();
     }
@@ -79,21 +79,19 @@ const isAcceptedFileType = (
 
     return fileType === acceptedType;
   });
-};
 
 const isDuplicateFile = (
   existingFiles: FileWithPreview[],
   candidateFile: File
-): boolean => {
-  return existingFiles.some((existingFile) => {
-    const file = existingFile.file;
+): boolean =>
+  existingFiles.some((existingFile) => {
+    const { file } = existingFile;
     if (!(file instanceof File)) {
       return false;
     }
 
     return file.name === candidateFile.name && file.size === candidateFile.size;
   });
-};
 
 const getMaxSizeError = (maxSize: number, multiple: boolean): string => {
   const maxSizeText = formatBytes(maxSize);
@@ -165,13 +163,13 @@ export const useFileUpload = (
   } = options;
 
   const [state, setState] = useState<FileUploadState>({
+    errors: [],
     files: initialFiles.map((file) => ({
       file,
       id: file.id,
       preview: file.url,
     })),
     isDragging: false,
-    errors: [],
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -230,8 +228,8 @@ export const useFileUpload = (
 
       const newState = {
         ...prev,
-        files: [],
         errors: [],
+        files: [],
       };
 
       onFilesChange?.(newState.files);
@@ -272,13 +270,13 @@ export const useFileUpload = (
         }
 
         const { errors, validFiles } = prepareFilesForUpload({
-          incomingFiles: newFilesArray,
-          existingFiles: prev.files,
-          multiple,
-          maxSize,
-          validateFile,
           createPreview,
+          existingFiles: prev.files,
           generateUniqueId,
+          incomingFiles: newFilesArray,
+          maxSize,
+          multiple,
+          validateFile,
         });
 
         // Only update state if we have valid files to add
@@ -287,8 +285,8 @@ export const useFileUpload = (
           updatedFiles = multiple ? [...prev.files, ...validFiles] : validFiles;
           return {
             ...prev,
-            files: updatedFiles,
             errors,
+            files: updatedFiles,
           };
         }
 
@@ -343,8 +341,8 @@ export const useFileUpload = (
 
         return {
           ...prev,
-          files: newFiles,
           errors: [],
+          files: newFiles,
         };
       });
     },
@@ -422,16 +420,14 @@ export const useFileUpload = (
   }, []);
 
   const getInputProps = useCallback(
-    (props: InputHTMLAttributes<HTMLInputElement> = {}) => {
-      return {
-        ...props,
-        type: "file" as const,
-        onChange: handleFileChange,
-        accept: props.accept || accept,
-        multiple: props.multiple === undefined ? multiple : props.multiple,
-        ref: inputRef,
-      };
-    },
+    (props: InputHTMLAttributes<HTMLInputElement> = {}) => ({
+      ...props,
+      accept: props.accept || accept,
+      multiple: props.multiple === undefined ? multiple : props.multiple,
+      onChange: handleFileChange,
+      ref: inputRef,
+      type: "file" as const,
+    }),
     [accept, multiple, handleFileChange]
   );
 
@@ -439,16 +435,16 @@ export const useFileUpload = (
     state,
     {
       addFiles,
-      removeFile,
-      clearFiles,
       clearErrors,
+      clearFiles,
+      getInputProps,
       handleDragEnter,
       handleDragLeave,
       handleDragOver,
       handleDrop,
       handleFileChange,
       openFileDialog,
-      getInputProps,
+      removeFile,
     },
   ];
 };
@@ -464,8 +460,7 @@ export const formatBytes = (bytes: number, decimals = 2): string => {
   const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const unit = sizes[i] ?? "Bytes";
 
-  return (
-    Number.parseFloat((bytes / k ** i).toFixed(dm)) + (sizes[i] ?? "Bytes")
-  );
+  return Number.parseFloat((bytes / k ** i).toFixed(dm)) + unit;
 };

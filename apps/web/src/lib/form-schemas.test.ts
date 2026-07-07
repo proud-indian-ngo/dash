@@ -5,18 +5,18 @@ describe("computeRunningTotal", () => {
   it("sums valid amounts", () => {
     const items = [
       {
-        id: "1",
+        amount: "100.50",
         categoryId: "c",
         description: "a",
         generateVoucher: false,
-        amount: "100.50",
+        id: "1",
       },
       {
-        id: "2",
+        amount: "200",
         categoryId: "c",
         description: "b",
         generateVoucher: false,
-        amount: "200",
+        id: "2",
       },
     ];
     expect(computeRunningTotal(items)).toBeCloseTo(300.5);
@@ -29,25 +29,25 @@ describe("computeRunningTotal", () => {
   it("treats non-numeric amounts as 0", () => {
     const items = [
       {
-        id: "1",
+        amount: "abc",
         categoryId: "c",
         description: "a",
         generateVoucher: false,
-        amount: "abc",
+        id: "1",
       },
       {
-        id: "2",
+        amount: "",
         categoryId: "c",
         description: "b",
         generateVoucher: false,
-        amount: "",
+        id: "2",
       },
       {
-        id: "3",
+        amount: "50",
         categoryId: "c",
         description: "c",
         generateVoucher: false,
-        amount: "50",
+        id: "3",
       },
     ];
     expect(computeRunningTotal(items)).toBe(50);
@@ -68,11 +68,11 @@ describe("formatINR", () => {
 
 describe("lineItemSchema", () => {
   const valid = {
-    id: "li-1",
+    amount: "150.50",
     categoryId: "cat-1",
     description: "Taxi fare",
-    amount: "150.50",
     generateVoucher: false,
+    id: "li-1",
   };
 
   it("accepts valid line item", () => {

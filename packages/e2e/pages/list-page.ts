@@ -64,13 +64,14 @@ export class ListPage {
       name: expectMenuItem,
     });
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       await trigger.click();
       try {
         await expect(viewItem).toBeVisible({ timeout: 3000 });
         return;
       } catch {
         // Menu didn't open — retry click
+        void 0;
       }
     }
     await trigger.click();
@@ -93,19 +94,19 @@ export class ListPage {
     const trigger = row.getByTestId("row-actions");
     const menuItem = this.page.getByRole("menuitem", { name: menuItemName });
 
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         await trigger.click({ timeout: 5000 });
         await menuItem.click({ timeout: 3000 });
         return;
-      } catch (error) {
+      } catch (caughtError) {
         if (this.page.isClosed()) {
-          throw new Error("Page closed during retry");
+          throw new Error("Page closed during retry", { cause: caughtError });
         }
         // Only retry on timeout errors (menu didn't open or item not clickable).
         // Re-throw real failures (element detached, page navigated) immediately.
-        if (!(error instanceof TimeoutError)) {
-          throw error;
+        if (!(caughtError instanceof TimeoutError)) {
+          throw caughtError;
         }
         // Dismiss any partially opened menu before retrying
         await this.page.keyboard.press("Escape").catch(() => {

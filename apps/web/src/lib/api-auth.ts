@@ -28,8 +28,8 @@ export async function requireSession(
     });
     log.set({
       event: "auth_failure",
-      userAgent: request.headers.get("user-agent"),
       origin: request.headers.get("origin"),
+      userAgent: request.headers.get("user-agent"),
     });
     log.emit();
     return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) };

@@ -20,11 +20,11 @@ import { type Attachment, attachmentSchema } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const invoiceFormSchema = z.object({
-  invoiceNumber: z.string().min(1, "Invoice number is required"),
-  invoiceDate: z.date({ message: "Invoice date is required" }),
   attachments: z
     .array(attachmentSchema)
     .min(1, "At least one invoice attachment is required"),
+  invoiceDate: z.date({ message: "Invoice date is required" }),
+  invoiceNumber: z.string().min(1, "Invoice number is required"),
 });
 
 interface InvoiceFormDialogProps {
@@ -56,9 +56,9 @@ function InvoiceFormContent({
 
   const form = useForm({
     defaultValues: {
-      invoiceNumber: initialValues?.invoiceNumber ?? "",
-      invoiceDate: initialValues?.invoiceDate ?? undefined,
       attachments: (initialValues?.attachments ?? []) as Attachment[],
+      invoiceDate: initialValues?.invoiceDate ?? undefined,
+      invoiceNumber: initialValues?.invoiceNumber ?? "",
     },
     onSubmit: async ({ value }) => {
       const parsed = invoiceFormSchema.parse(value);
@@ -67,21 +67,21 @@ function InvoiceFormContent({
 
       const res = await zero.mutate(
         mutators.vendorPayment[mutatorName]({
-          id: vendorPaymentId,
-          invoiceNumber: parsed.invoiceNumber,
-          invoiceDate: parsed.invoiceDate.getTime(),
           attachments: parsed.attachments,
+          id: vendorPaymentId,
+          invoiceDate: parsed.invoiceDate.getTime(),
+          invoiceNumber: parsed.invoiceNumber,
         })
       ).server;
 
       handleMutationResult(res, {
-        mutation: `vendorPayment.${mutatorName}`,
         entityId: vendorPaymentId,
-        successMsg: mode === "submit" ? "Invoice submitted" : "Invoice updated",
         errorMsg:
           mode === "submit"
             ? "Couldn't submit invoice"
             : "Couldn't update invoice",
+        mutation: `vendorPayment.${mutatorName}`,
+        successMsg: mode === "submit" ? "Invoice submitted" : "Invoice updated",
       });
 
       if (res.type !== "error") {
@@ -93,6 +93,7 @@ function InvoiceFormContent({
       onSubmit: invoiceFormSchema,
     },
   });
+  const stableOnCancel0 = () => onOpenChange(false);
 
   return (
     <FormLayout form={form}>
@@ -102,10 +103,10 @@ function InvoiceFormContent({
       </div>
 
       <form.Field name="attachments">
-        {(field) => (
+        {(field: any) => (
           <AttachmentsSection
             entityId={entityId}
-            onChange={(attachments) => field.handleChange(attachments)}
+            onChange={(attachments: any) => field.handleChange(attachments)}
             value={(field.state.value ?? []) as Attachment[]}
           />
         )}
@@ -113,7 +114,7 @@ function InvoiceFormContent({
 
       <FormActions
         cancelLabel="Cancel"
-        onCancel={() => onOpenChange(false)}
+        onCancel={stableOnCancel0}
         submitLabel={mode === "submit" ? "Submit Invoice" : "Update Invoice"}
         submittingLabel={mode === "submit" ? "Submitting..." : "Updating..."}
       />
@@ -132,7 +133,7 @@ export function InvoiceFormDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k) => k + 1);
+      setFormKey((k: any) => k + 1);
     }
     onOpenChange(nextOpen);
   };

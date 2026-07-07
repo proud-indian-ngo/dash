@@ -67,8 +67,8 @@ test.describe
       await reimbursements.form.selectBankAccount();
 
       await reimbursements.form.fillLineItem({
-        description: "Test advance item",
         amount: "1000",
+        description: "Test advance item",
       });
 
       await reimbursements.form.submit();

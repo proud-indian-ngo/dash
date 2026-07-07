@@ -35,19 +35,19 @@ export async function notifyTeamUpdated({
   updatedAt,
 }: TeamUpdatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Check it out",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "Team update",
     paragraphs: [`${teamName} just got an update — take a look!`],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "Check it out",
   });
   await sendBulkMessage({
-    userIds: memberIds,
-    title: "📋 Team update",
     body: `${teamName} just got an update — take a look!`,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `team-updated-${teamId}-${updatedAt}`,
+    title: "📋 Team update",
     topic: TOPICS.TEAMS,
+    userIds: memberIds,
   });
 }
 
@@ -57,19 +57,19 @@ export async function notifyTeamDeleted({
   teamName,
 }: TeamDeletedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View teams",
+    ctaUrl: `${env.APP_URL}/teams`,
     heading: "Team removed",
     paragraphs: [`${teamName} has been removed.`],
-    ctaUrl: `${env.APP_URL}/teams`,
-    ctaLabel: "View teams",
   });
   await sendBulkMessage({
-    userIds: memberIds,
-    title: "📋 Team removed",
     body: `${teamName} has been removed.`,
-    emailHtml,
     clickAction: "/teams",
+    emailHtml,
     idempotencyKey: `team-deleted-${teamName}-${deletedAt}`,
+    title: "📋 Team removed",
     topic: TOPICS.TEAMS,
+    userIds: memberIds,
   });
 }
 
@@ -79,18 +79,18 @@ export async function notifyAddedToTeam({
   teamId,
 }: AddedToTeamOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Meet the team",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "You're on the team!",
     paragraphs: [`You've been added to ${teamName} — welcome aboard!`],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "Meet the team",
   });
   await sendMessage({
-    to: userId,
-    title: "🙌 You're on the team!",
     body: `You've been added to ${teamName} — welcome aboard!`,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `team-member-added-${teamId}-${userId}`,
+    title: "🙌 You're on the team!",
+    to: userId,
     topic: TOPICS.TEAMS,
   });
 }
@@ -101,18 +101,18 @@ export async function notifyRemovedFromTeam({
   teamName,
 }: RemovedFromTeamOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View teams",
+    ctaUrl: `${env.APP_URL}/teams`,
     heading: "Team change",
     paragraphs: [`You've been moved out of ${teamName}.`],
-    ctaUrl: `${env.APP_URL}/teams`,
-    ctaLabel: "View teams",
   });
   await sendMessage({
-    to: userId,
-    title: "📋 Team change",
     body: `You've been moved out of ${teamName}.`,
-    emailHtml,
     clickAction: "/teams",
+    emailHtml,
     idempotencyKey: `team-member-removed-${teamName}-${userId}-${removedAt}`,
+    title: "📋 Team change",
+    to: userId,
     topic: TOPICS.TEAMS,
   });
 }
@@ -137,18 +137,18 @@ export async function notifyTeamRoleChanged({
   const heading = isLead ? "Level up!" : "Team role update";
   const titleEmoji = isLead ? "⭐" : "📋";
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Check it out",
+    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading,
     paragraphs: [bodyText],
-    ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    ctaLabel: "Check it out",
   });
   await sendMessage({
-    to: userId,
-    title: `${titleEmoji} ${heading}`,
     body: bodyText,
-    emailHtml,
     clickAction: `/teams/${teamId}`,
+    emailHtml,
     idempotencyKey: `team-role-changed-${teamId}-${userId}-${newRole}`,
+    title: `${titleEmoji} ${heading}`,
+    to: userId,
     topic: TOPICS.TEAMS,
   });
 }

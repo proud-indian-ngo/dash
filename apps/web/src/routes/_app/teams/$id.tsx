@@ -6,6 +6,7 @@ import { Loader } from "@/components/loader";
 import { TeamDetail } from "@/components/teams/team-detail";
 
 export const Route = createFileRoute("/_app/teams/$id")({
+  component: TeamDetailRouteComponent,
   head: () => ({
     meta: [{ title: `Team Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -13,7 +14,6 @@ export const Route = createFileRoute("/_app/teams/$id")({
     context.zero?.preload(queries.team.byId({ id: params.id }));
     context.zero?.preload(queries.teamEvent.byTeam({ teamId: params.id }));
   },
-  component: TeamDetailRouteComponent,
 });
 
 function TeamDetailRouteComponent() {

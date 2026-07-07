@@ -45,9 +45,9 @@ export async function getBulkChannelPreferences(
 
   const rows = await db
     .select({
-      userId: notificationTopicPreference.userId,
       emailEnabled: notificationTopicPreference.emailEnabled,
       inboxEnabled: notificationTopicPreference.inboxEnabled,
+      userId: notificationTopicPreference.userId,
       whatsappEnabled: notificationTopicPreference.whatsappEnabled,
     })
     .from(notificationTopicPreference)
@@ -82,7 +82,7 @@ export async function getBulkUserEmails(
     return new Map();
   }
 
-  const rows = await db.select({ id: user.id, email: user.email }).from(user);
+  const rows = await db.select({ email: user.email, id: user.id }).from(user);
 
   const map = new Map<string, string>();
   for (const row of rows) {

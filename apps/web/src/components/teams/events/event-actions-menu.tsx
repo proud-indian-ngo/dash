@@ -28,6 +28,8 @@ export function EventActionsMenu({
   onEditEvent,
   onSelectEvent,
 }: EventActionsMenuProps) {
+  const stableOnClick0 = (e: any) => e.stopPropagation();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -36,7 +38,7 @@ export function EventActionsMenu({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
-            onClick={(e) => e.stopPropagation()}
+            onClick={stableOnClick0}
             size="icon"
             type="button"
             variant="ghost"
@@ -51,16 +53,16 @@ export function EventActionsMenu({
       />
       <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={onSelectEvent}>View</DropdownMenuItem>
-        {canCreate && (
+        {Boolean(canCreate) && (
           <DropdownMenuItem onClick={onDuplicateEvent}>
             Duplicate
           </DropdownMenuItem>
         )}
-        {canManage && (
+        {Boolean(canManage) && (
           <DropdownMenuItem onClick={onEditEvent}>Edit</DropdownMenuItem>
         )}
-        {canManage && canCancel && <DropdownMenuSeparator />}
-        {canCancel && (
+        {Boolean(canManage && canCancel) && <DropdownMenuSeparator />}
+        {Boolean(canCancel) && (
           <DropdownMenuItem onClick={onCancelEvent} variant="destructive">
             Cancel
           </DropdownMenuItem>

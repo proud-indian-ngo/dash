@@ -20,8 +20,8 @@ export async function handleRemindPhotoApproval(
   // Count pending photos and distinct events
   const stats = await db
     .select({
-      pendingCount: count(),
       eventCount: countDistinct(eventPhoto.eventId),
+      pendingCount: count(),
     })
     .from(eventPhoto)
     .where(eq(eventPhoto.status, "pending"))
@@ -30,7 +30,7 @@ export async function handleRemindPhotoApproval(
   const pendingCount = stats?.pendingCount ?? 0;
   const eventCount = stats?.eventCount ?? 0;
 
-  log.set({ pendingCount, eventCount });
+  log.set({ eventCount, pendingCount });
 
   if (pendingCount === 0) {
     log.set({ event: "no_pending_photos" });
@@ -92,9 +92,9 @@ export async function handleRemindPhotoApproval(
   }
 
   await notifyPhotoApprovalReminder({
-    userIds: allUserIds,
-    pendingCount,
     eventCount,
+    pendingCount,
+    userIds: allUserIds,
   });
 
   log.set({ event: "job_complete" });

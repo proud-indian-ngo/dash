@@ -46,10 +46,10 @@ function groupPhotoJobs<
       existing.photoIds.push(job.data.photoId);
     } else {
       groups.set(key, {
-        uploaderId: job.data.uploaderId,
         eventId: job.data.eventId,
         eventName: job.data.eventName,
         photoIds: [job.data.photoId],
+        uploaderId: job.data.uploaderId,
       });
     }
   }
@@ -77,9 +77,9 @@ export async function handleNotifyPhotoApproved(
       // one element, but TypeScript infers string[] not [string, ...string[]].
       if (photoIds.length === 1 && photoIds[0]) {
         return notifyPhotoApproved({
-          photoId: photoIds[0],
           eventId,
           eventName,
+          photoId: photoIds[0],
           uploaderId,
         });
       }
@@ -123,9 +123,9 @@ export async function handleNotifyPhotoRejected(
       // photoIds[0] is always defined: see note in handleNotifyPhotoApproved.
       if (photoIds.length === 1 && photoIds[0]) {
         return notifyPhotoRejected({
-          photoId: photoIds[0],
           eventId,
           eventName,
+          photoId: photoIds[0],
           uploaderId,
         });
       }

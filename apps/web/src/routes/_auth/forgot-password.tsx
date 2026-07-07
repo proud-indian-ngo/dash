@@ -6,10 +6,10 @@ import { AuthLayout } from "@/components/login/auth-layout";
 import { ForgotPasswordForm } from "@/components/login/forgot-password-form";
 
 export const Route = createFileRoute("/_auth/forgot-password")({
+  component: RouteComponent,
   head: () => ({
     meta: [{ title: `Forgot Password | ${env.VITE_APP_NAME}` }],
   }),
-  component: RouteComponent,
 });
 
 function RouteComponent() {

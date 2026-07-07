@@ -14,7 +14,7 @@ const getSubmitErrorMessage = (form: FormInstance): string | undefined => {
   const submitError = form.state.errorMap?.onSubmit;
 
   if (!submitError) {
-    return undefined;
+    return;
   }
 
   if (typeof submitError === "string") {
@@ -52,17 +52,18 @@ export function FormLayout({
   const submitErrorMessage = showSubmitError
     ? getSubmitErrorMessage(form)
     : null;
+  const stableOnSubmit0 = (event: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+    form.handleSubmit();
+  };
 
   return (
     <FormContextProvider form={form}>
       <form
         {...props}
         className={cn("min-w-0", className)}
-        onSubmit={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          form.handleSubmit();
-        }}
+        onSubmit={stableOnSubmit0}
       >
         {submitErrorMessage ? (
           <div

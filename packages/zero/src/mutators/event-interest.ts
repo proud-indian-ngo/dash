@@ -11,10 +11,129 @@ import type { EventInterest, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
 export const eventInterestMutators = {
+  approve: defineMutator(
+    z.object({ id: z.string(), now: z.number() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      const interest = (await tx.run(
+        zql.eventInterest.where("id", args.id).one()
+      )) as EventInterest | undefined;
+      if (!interest) {
+        throw new Error("Interest request not found");
+      }
+      if (interest.status !== "pending") {
+        throw new Error("Interest is not pending");
+      }
+
+      const event = (await tx.run(
+        zql.teamEvent.where("id", interest.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_interest", isTeamLead);
+
+      await tx.mutate.eventInterest.update({
+        id: args.id,
+        reviewedAt: args.now,
+        reviewedBy: ctx.userId,
+        status: "approved",
+      });
+
+      const memberId = uuidv7();
+      await tx.mutate.teamEventMember.insert({
+        addedAt: args.now,
+        eventId: interest.eventId,
+        id: memberId,
+        userId: interest.userId,
+      });
+
+      if (tx.location === "server") {
+        const { userId } = interest;
+        const { eventId } = interest;
+        const eventName = event.name;
+        const { whatsappGroupId } = event;
+
+        if (whatsappGroupId) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "whatsapp-add-member",
+                {
+                  groupId: whatsappGroupId,
+                  userId,
+                },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: {
+              eventId,
+              mutator: "approveEventInterest",
+              userId,
+              whatsappGroupId,
+            },
+          });
+        }
+
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-event-interest-approved",
+              {
+                eventId,
+                eventName,
+                userId,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            eventId,
+            eventName,
+            mutator: "approveEventInterest",
+            userId,
+          },
+        });
+      }
+    }
+  ),
+
+  cancel: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+
+      const interest = (await tx.run(
+        zql.eventInterest.where("id", args.id).one()
+      )) as EventInterest | undefined;
+      if (!interest) {
+        throw new Error("Interest request not found");
+      }
+      if (interest.userId !== ctx.userId) {
+        throw new Error("Unauthorized");
+      }
+      if (interest.status !== "pending") {
+        throw new Error("Only pending interests can be cancelled");
+      }
+
+      await tx.mutate.eventInterest.delete({ id: args.id });
+    }
+  ),
   create: defineMutator(
     z.object({
-      id: z.string(),
       eventId: z.string(),
+      id: z.string(),
       message: z.string().optional(),
       now: z.number(),
     }),
@@ -74,20 +193,20 @@ export const eventInterestMutators = {
       }
 
       await tx.mutate.eventInterest.insert({
-        id: args.id,
-        eventId: args.eventId,
-        userId: ctx.userId,
-        status: "pending",
-        message: args.message ?? null,
-        reviewedBy: null,
-        reviewedAt: null,
         createdAt: args.now,
+        eventId: args.eventId,
+        id: args.id,
+        message: args.message,
+        reviewedAt: null,
+        reviewedBy: null,
+        status: "pending",
+        userId: ctx.userId,
       });
 
       if (tx.location === "server") {
-        const eventId = args.eventId;
+        const { eventId } = args;
         const eventName = event.name;
-        const teamId = event.teamId;
+        const { teamId } = event;
         const volunteerUserId = ctx.userId;
         const leads = await tx.run(
           zql.teamMember.where("teamId", teamId).where("role", "lead")
@@ -96,15 +215,8 @@ export const eventInterestMutators = {
         const volunteer = await tx.run(
           zql.user.where("id", volunteerUserId).one()
         );
-        const volunteerName = volunteer?.name ?? "A volunteer";
+        const volunteerName = volunteer?.name;
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "createEventInterest",
-            eventId,
-            eventName,
-            teamId,
-            volunteerUserId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -114,108 +226,17 @@ export const eventInterestMutators = {
                 eventName,
                 leadUserIds,
                 teamId,
-                volunteerName,
+                volunteerName: volunteerName ?? "Someone",
               },
               { traceId: ctx.traceId }
             );
           },
-        });
-      }
-    }
-  ),
-
-  approve: defineMutator(
-    z.object({ id: z.string(), now: z.number() }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-
-      const interest = (await tx.run(
-        zql.eventInterest.where("id", args.id).one()
-      )) as EventInterest | undefined;
-      if (!interest) {
-        throw new Error("Interest request not found");
-      }
-      if (interest.status !== "pending") {
-        throw new Error("Interest is not pending");
-      }
-
-      const event = (await tx.run(
-        zql.teamEvent.where("id", interest.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", event.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.manage_interest", isTeamLead);
-
-      await tx.mutate.eventInterest.update({
-        id: args.id,
-        status: "approved",
-        reviewedBy: ctx.userId,
-        reviewedAt: args.now,
-      });
-
-      const memberId = uuidv7();
-      await tx.mutate.teamEventMember.insert({
-        id: memberId,
-        eventId: interest.eventId,
-        userId: interest.userId,
-        addedAt: args.now,
-      });
-
-      if (tx.location === "server") {
-        const userId = interest.userId;
-        const eventId = interest.eventId;
-        const eventName = event.name;
-        const whatsappGroupId = event.whatsappGroupId;
-
-        if (whatsappGroupId) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "approveEventInterest",
-              eventId,
-              userId,
-              whatsappGroupId,
-            },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "whatsapp-add-member",
-                {
-                  groupId: whatsappGroupId,
-                  userId,
-                },
-                { traceId: ctx.traceId }
-              );
-            },
-          });
-        }
-
-        ctx.asyncTasks?.push({
           meta: {
-            mutator: "approveEventInterest",
             eventId,
             eventName,
-            userId,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-event-interest-approved",
-              {
-                eventId,
-                eventName,
-                userId,
-              },
-              { traceId: ctx.traceId }
-            );
+            mutator: "createEventInterest",
+            teamId,
+            volunteerUserId,
           },
         });
       }
@@ -255,23 +276,17 @@ export const eventInterestMutators = {
 
       await tx.mutate.eventInterest.update({
         id: args.id,
-        status: "rejected",
-        reviewedBy: ctx.userId,
         reviewedAt: args.now,
+        reviewedBy: ctx.userId,
+        status: "rejected",
       });
 
       if (tx.location === "server") {
-        const userId = interest.userId;
-        const eventId = interest.eventId;
+        const { userId } = interest;
+        const { eventId } = interest;
         const eventName = event.name;
 
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "rejectEventInterest",
-            eventId,
-            eventName,
-            userId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -284,30 +299,14 @@ export const eventInterestMutators = {
               { traceId: ctx.traceId }
             );
           },
+          meta: {
+            eventId,
+            eventName,
+            mutator: "rejectEventInterest",
+            userId,
+          },
         });
       }
-    }
-  ),
-
-  cancel: defineMutator(
-    z.object({ id: z.string() }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-
-      const interest = (await tx.run(
-        zql.eventInterest.where("id", args.id).one()
-      )) as EventInterest | undefined;
-      if (!interest) {
-        throw new Error("Interest request not found");
-      }
-      if (interest.userId !== ctx.userId) {
-        throw new Error("Unauthorized");
-      }
-      if (interest.status !== "pending") {
-        throw new Error("Only pending interests can be cancelled");
-      }
-
-      await tx.mutate.eventInterest.delete({ id: args.id });
     }
   ),
 };

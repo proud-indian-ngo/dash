@@ -120,9 +120,9 @@ function VendorPaymentLineItemsTable({
                   category?: { name: string } | undefined;
                 }) => (
                   <tr className="border-b last:border-0" key={item.id}>
-                    <td className="px-3 py-2">{item.category?.name ?? "—"}</td>
+                    <td className="px-3 py-2">{item.category?.name}</td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {item.description ?? "—"}
+                      {item.description}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {formatINR(Number(item.amount))}
@@ -174,7 +174,7 @@ function QuotationAttachmentList({
     <div className="flex flex-col gap-3">
       <h2 className="font-medium text-sm">Quotation / Supporting Documents</h2>
       <div className="flex flex-col gap-1.5">
-        {attachments.map((att) => (
+        {attachments.map((att: any) => (
           <div
             className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
             key={att.id}
@@ -276,7 +276,7 @@ export function VendorPaymentDetail({
   const { label, variant } = getStatusBadge(request.status);
   const canResetToPending =
     status !== "pending" &&
-    (request.transactions ?? []).length === 0 &&
+    request.transactions.length === 0 &&
     !(request.invoiceNumber || request.invoiceDate);
   const showAdminActions =
     canApprove && (status === "pending" || canUpdateAnyStatus);
@@ -284,7 +284,7 @@ export function VendorPaymentDetail({
   const showRejectAction = showAdminActions && status !== "rejected";
   const showResetAction = showAdminActions && canResetToPending;
 
-  const total = (request.lineItems ?? []).reduce(
+  const total = request.lineItems.reduce(
     (sum: number, item: { amount: number | string }) =>
       sum + Number(item.amount),
     0
@@ -298,10 +298,10 @@ export function VendorPaymentDetail({
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPayment.approve",
       entityId: request.id,
-      successMsg: "Vendor payment approved",
       errorMsg: "Couldn't approve vendor payment",
+      mutation: "vendorPayment.approve",
+      successMsg: "Vendor payment approved",
     });
     if (res.type !== "error") {
       setApproveOpen(false);
@@ -313,10 +313,10 @@ export function VendorPaymentDetail({
       mutators.vendorPayment.reject({ id: request.id, reason })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPayment.reject",
       entityId: request.id,
-      successMsg: "Vendor payment rejected",
       errorMsg: "Couldn't reject vendor payment",
+      mutation: "vendorPayment.reject",
+      successMsg: "Vendor payment rejected",
     });
     if (res.type !== "error") {
       setRejectOpen(false);
@@ -328,19 +328,21 @@ export function VendorPaymentDetail({
       mutators.vendorPayment.resetToPending({ id: request.id })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPayment.resetToPending",
       entityId: request.id,
-      successMsg: "Vendor payment reset to pending",
       errorMsg: "Couldn't reset vendor payment to pending",
+      mutation: "vendorPayment.resetToPending",
+      successMsg: "Vendor payment reset to pending",
     });
   };
 
-  const invoiceAttachments = (request.attachments ?? []).filter(
-    (att) => att.purpose === "invoice"
+  const invoiceAttachments = request.attachments.filter(
+    (att: any) => att.purpose === "invoice"
   );
-  const quotationAttachments = (request.attachments ?? []).filter(
-    (att) => att.purpose !== "invoice"
+  const quotationAttachments = request.attachments.filter(
+    (att: any) => att.purpose !== "invoice"
   );
+  const stableOnApprove0 = () => setApproveOpen(true);
+  const stableOnReject1 = () => setRejectOpen(true);
 
   return (
     <AppErrorBoundary level="section">
@@ -360,8 +362,8 @@ export function VendorPaymentDetail({
         {/* Admin actions */}
         {showAdminActions ? (
           <VendorPaymentStatusActions
-            onApprove={() => setApproveOpen(true)}
-            onReject={() => setRejectOpen(true)}
+            onApprove={stableOnApprove0}
+            onReject={stableOnReject1}
             onReset={handleResetToPending}
             showApproveAction={showApproveAction}
             showRejectAction={showRejectAction}
@@ -378,7 +380,7 @@ export function VendorPaymentDetail({
         ) : null}
 
         <VendorPaymentLineItemsTable
-          lineItems={request.lineItems ?? []}
+          lineItems={request.lineItems}
           total={total}
         />
 
@@ -397,13 +399,13 @@ export function VendorPaymentDetail({
         />
 
         {/* History */}
-        {(request.history ?? []).length > 0 ? (
+        {request.history.length > 0 ? (
           <>
             <Separator />
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {(request.history ?? []).map((entry) => (
+                {request.history.map((entry: any) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>

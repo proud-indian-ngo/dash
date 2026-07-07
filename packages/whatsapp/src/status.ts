@@ -50,7 +50,7 @@ export async function syncWhatsAppStatus(
     await db.update(user).set({ isOnWhatsapp }).where(eq(user.id, userId));
   } catch (error) {
     const log = createRequestLogger();
-    log.set({ handler: "syncWhatsAppStatus", userId, phone });
+    log.set({ handler: "syncWhatsAppStatus", phone, userId });
     log.error(error instanceof Error ? error : String(error));
     log.emit();
   }

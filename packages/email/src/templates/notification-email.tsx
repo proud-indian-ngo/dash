@@ -29,8 +29,8 @@ export interface NotificationEmailProps {
 }
 
 const currencyFormat = new Intl.NumberFormat("en-IN", {
-  style: "currency",
   currency: "INR",
+  style: "currency",
 });
 
 const DEFAULT_APP_NAME = "Proud Indian Dashboard";
@@ -42,18 +42,18 @@ const tailwindConfig = {
     extend: {
       colors: {
         bg: "#faf9fb",
-        surface: "#ffffff",
+        border: "#e7e4e7",
         fg: "#0c090c",
-        primary: "#0086a1",
         muted: "#f3f1f3",
         "muted-fg": "#79697b",
-        border: "#e7e4e7",
-        subtle: "#a8999e",
+        primary: "#0086a1",
         row: "#f8f7f9",
+        subtle: "#a8999e",
+        surface: "#ffffff",
       },
       fontFamily: {
-        display: ["Geist", "Inter", "sans-serif"],
         body: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        display: ["Geist", "Inter", "sans-serif"],
       },
     },
   },
@@ -100,10 +100,10 @@ export default function NotificationEmail({
               <Hr
                 className="m-0"
                 style={{
-                  borderTop: "1px solid #e7e4e7",
                   borderBottom: "none",
                   borderLeft: "none",
                   borderRight: "none",
+                  borderTop: "1px solid #e7e4e7",
                 }}
               />
 
@@ -123,7 +123,7 @@ export default function NotificationEmail({
                 ))}
 
                 {/* ── Line items ── */}
-                {hasLineItems && (
+                {Boolean(hasLineItems) && (
                   <table
                     cellPadding="0"
                     cellSpacing="0"
@@ -141,7 +141,7 @@ export default function NotificationEmail({
                       </tr>
                     </thead>
                     <tbody>
-                      {lineItems.map((item, i) => {
+                      {lineItems?.map((item, i) => {
                         const label = item.description
                           ? `${item.categoryName}: ${item.description}`
                           : item.categoryName;
@@ -157,8 +157,8 @@ export default function NotificationEmail({
                               className={`px-3 py-2.5 text-right text-[13px] text-fg leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
                               style={{
                                 borderBottom: "1px solid #e7e4e7",
-                                whiteSpace: "nowrap",
                                 fontVariantNumeric: "tabular-nums",
+                                whiteSpace: "nowrap",
                               }}
                             >
                               {currencyFormat.format(Number(item.amount))}
@@ -182,7 +182,7 @@ export default function NotificationEmail({
                 )}
 
                 {/* ── Note ── */}
-                {note && (
+                {Boolean(note) && (
                   <Section
                     className="mt-5 bg-muted px-4 py-3.5"
                     style={{ borderLeft: "3px solid #0086a1" }}
@@ -194,7 +194,7 @@ export default function NotificationEmail({
                 )}
 
                 {/* ── Image ── */}
-                {imageUrl && (
+                {Boolean(imageUrl) && (
                   <Section className="mt-5">
                     <Img
                       alt="Attachment"
@@ -207,7 +207,7 @@ export default function NotificationEmail({
                 )}
 
                 {/* ── CTA ── */}
-                {ctaUrl && ctaLabel && (
+                {Boolean(ctaUrl && ctaLabel) && (
                   <Section className="mt-6">
                     <Button
                       className="box-border inline-block bg-primary px-5 py-2.5 font-display font-semibold text-[13px] text-white tracking-wide no-underline"
@@ -231,8 +231,8 @@ export default function NotificationEmail({
 }
 
 NotificationEmail.PreviewProps = {
+  ctaLabel: "View Team",
+  ctaUrl: "https://dash.proudindian.ngo/teams/team-123",
   heading: "Added to Team",
   paragraphs: ["You've been added to the Bangalore Volunteers team."],
-  ctaUrl: "https://dash.proudindian.ngo/teams/team-123",
-  ctaLabel: "View Team",
 } satisfies NotificationEmailProps;

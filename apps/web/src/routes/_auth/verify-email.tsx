@@ -28,7 +28,7 @@ const verifyEmailToken = createServerFn({ method: "GET" })
         message.includes("already verified") ||
         message.includes("already been verified")
       ) {
-        return { error: null, alreadyVerified: true };
+        return { alreadyVerified: true, error: null };
       }
       const log = createRequestLogger();
       log.set({ handler: "verifyEmailToken", token: data.token });
@@ -39,12 +39,6 @@ const verifyEmailToken = createServerFn({ method: "GET" })
   });
 
 export const Route = createFileRoute("/_auth/verify-email")({
-  head: () => ({
-    meta: [{ title: `Verify Email | ${env.VITE_APP_NAME}` }],
-  }),
-  validateSearch: z.object({
-    token: z.string().optional(),
-  }),
   beforeLoad: async ({ search }) => {
     if (!search.token) {
       throw redirect({ to: "/login" });
@@ -54,14 +48,20 @@ export const Route = createFileRoute("/_auth/verify-email")({
 
     if (!result.error) {
       throw redirect({
-        to: "/login",
         search: { status: "email-verified" },
+        to: "/login",
       });
     }
 
     return { verificationError: result.error };
   },
   component: VerifyEmailPage,
+  head: () => ({
+    meta: [{ title: `Verify Email | ${env.VITE_APP_NAME}` }],
+  }),
+  validateSearch: z.object({
+    token: z.string().optional(),
+  }),
 });
 
 function VerifyEmailPage() {

@@ -28,13 +28,13 @@ export const useAttachmentActions = ({
         });
       }
 
-      onChange(value.filter((item) => item.id !== attachmentId));
+      onChange(value.filter((item: any) => item.id !== attachmentId));
     } catch (error) {
       log.error({
-        component: "useAttachmentActions",
         action: "deleteAttachment",
         attachmentId,
         attachmentType: attachment.type,
+        component: "useAttachmentActions",
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Couldn't delete attachment");

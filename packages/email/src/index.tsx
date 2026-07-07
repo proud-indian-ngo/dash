@@ -16,9 +16,9 @@ export async function sendVerificationEmail(to: string, url: string) {
   );
   await transporter.sendMail({
     from: env.SMTP_FROM,
-    to,
-    subject: "Verify your email address",
     html,
+    subject: "Verify your email address",
+    to,
   });
 }
 
@@ -28,9 +28,9 @@ export async function sendResetPasswordEmail(to: string, url: string) {
   );
   await transporter.sendMail({
     from: env.SMTP_FROM,
-    to,
-    subject: "Reset your password",
     html,
+    subject: "Reset your password",
+    to,
   });
 }
 

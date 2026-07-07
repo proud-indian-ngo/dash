@@ -26,7 +26,7 @@ export function downloadCsv(
 ): void {
   const lines = [
     headers.map(escapeCsvValue).join(","),
-    ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+    ...rows.map((row: any) => row.map(escapeCsvValue).join(",")),
   ];
   const csvString = lines.join("\n");
   const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });

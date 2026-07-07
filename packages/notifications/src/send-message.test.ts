@@ -5,19 +5,19 @@ vi.mock("./kill-switch", () => ({
 }));
 
 vi.mock("./preferences", () => ({
+  getBulkChannelPreferences: vi.fn(async () => new Map()),
+  getBulkUserEmails: vi.fn(async () => new Map()),
   getChannelPreferences: vi.fn(async () => ({
     emailEnabled: true,
     inboxEnabled: true,
     whatsappEnabled: true,
   })),
-  getBulkChannelPreferences: vi.fn(async () => new Map()),
   getUserEmail: vi.fn(async () => "test@test.com"),
-  getBulkUserEmails: vi.fn(async () => new Map()),
 }));
 
 vi.mock("./inbox", () => ({
-  insertNotification: vi.fn(async () => true),
   insertBulkNotifications: vi.fn(async () => 0),
+  insertNotification: vi.fn(async () => true),
 }));
 
 vi.mock("./email", () => ({
@@ -38,17 +38,17 @@ vi.mock("@pi-dash/whatsapp/users", () => ({
 }));
 
 vi.mock("@pi-dash/env/server", () => ({
-  env: { APP_URL: "http://test", APP_NAME: "test" },
+  env: { APP_NAME: "test", APP_URL: "http://test" },
 }));
 
 import { captureSends, sendBulkMessage, sendMessage } from "./send-message";
 import { TOPICS } from "./topics";
 
 const baseMessage = {
-  to: "user-1",
-  title: "t",
   body: "b",
   idempotencyKey: "k",
+  title: "t",
+  to: "user-1",
   topic: TOPICS.ACCOUNT,
 };
 
@@ -94,11 +94,11 @@ describe("captureSends", () => {
   it("records sendBulkMessage with bulk kind", async () => {
     const { sends } = await captureSends(() =>
       sendBulkMessage({
-        userIds: ["u1", "u2"],
-        title: "t",
         body: "b",
         idempotencyKey: "k",
+        title: "t",
         topic: TOPICS.ACCOUNT,
+        userIds: ["u1", "u2"],
       })
     );
     expect(sends).toHaveLength(1);

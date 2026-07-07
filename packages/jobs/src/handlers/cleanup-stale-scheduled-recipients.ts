@@ -53,16 +53,18 @@ export async function handleCleanupStaleScheduledRecipients(
   }
 
   // Mark all stale recipients as failed
-  for (const recipient of staleRecipients) {
-    await db
-      .update(scheduledMessageRecipient)
-      .set({
-        status: "failed",
-        error: "Stale: never delivered",
-        updatedAt: new Date(),
-      })
-      .where(eq(scheduledMessageRecipient.id, recipient.id));
-  }
+  await Promise.all(
+    staleRecipients.map(async (recipient) => {
+      await db
+        .update(scheduledMessageRecipient)
+        .set({
+          error: "Stale: never delivered",
+          status: "failed",
+          updatedAt: new Date(),
+        })
+        .where(eq(scheduledMessageRecipient.id, recipient.id));
+    })
+  );
 
   // Check each affected message for R2 cleanup
   const affectedMessageIds = [
@@ -72,8 +74,8 @@ export async function handleCleanupStaleScheduledRecipients(
   for (const messageId of affectedMessageIds) {
     const siblings = await db
       .select({
-        status: scheduledMessageRecipient.status,
         retryCount: scheduledMessageRecipient.retryCount,
+        status: scheduledMessageRecipient.status,
       })
       .from(scheduledMessageRecipient)
       .where(eq(scheduledMessageRecipient.scheduledMessageId, messageId));
@@ -102,18 +104,20 @@ export async function handleCleanupStaleScheduledRecipients(
       continue;
     }
 
-    for (const att of parent.attachments) {
-      try {
-        await enqueue("delete-r2-object", { r2Key: att.r2Key });
-      } catch {
-        log.set({ event: "r2_cleanup_enqueue_failed", r2Key: att.r2Key });
-      }
-    }
+    await Promise.all(
+      parent.attachments.map(async (att) => {
+        try {
+          await enqueue("delete-r2-object", { r2Key: att.r2Key });
+        } catch {
+          log.set({ event: "r2_cleanup_enqueue_failed", r2Key: att.r2Key });
+        }
+      })
+    );
   }
 
   log.set({
-    event: "job_complete",
     cleanedUp: staleRecipients.length,
+    event: "job_complete",
     messagesAffected: affectedMessageIds.length,
   });
   log.emit();

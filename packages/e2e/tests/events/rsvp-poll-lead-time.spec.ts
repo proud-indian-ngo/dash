@@ -79,7 +79,6 @@ test.describe("RSVP poll lead time", () => {
 
     if (!hasLeadTimeOptions) {
       test.skip(true, "Lead time preset options not found");
-      return;
     }
   });
 
@@ -159,7 +158,7 @@ test.describe("RSVP poll lead time", () => {
     }
 
     // Create the event
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     // Verify success
     await expect(dialog).toBeHidden({ timeout: 10_000 });

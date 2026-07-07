@@ -48,11 +48,10 @@ export function RecipientSubTable({
           </tr>
         </thead>
         <tbody>
-          {recipients.map((r) => {
+          {recipients.map((r: any) => {
             const badge = getRecipientStatusBadge(r.status);
             const canRetry =
-              r.status === "failed" &&
-              (r.retryCount ?? 0) < MAX_RECIPIENT_RETRIES;
+              r.status === "failed" && r.retryCount < MAX_RECIPIENT_RETRIES;
 
             return (
               <tr className="border-b last:border-0" key={r.id}>
@@ -70,7 +69,7 @@ export function RecipientSubTable({
                 <td className="py-2 pr-4">
                   <span className="flex items-center gap-2">
                     <Badge variant={badge.variant}>{badge.label}</Badge>
-                    {r.error && (
+                    {Boolean(r.error) && (
                       <Tooltip>
                         <TooltipTrigger
                           render={
@@ -83,7 +82,7 @@ export function RecipientSubTable({
                       </Tooltip>
                     )}
                     {r.status === "failed" &&
-                      (r.retryCount ?? 0) >= MAX_RECIPIENT_RETRIES && (
+                      r.retryCount >= MAX_RECIPIENT_RETRIES && (
                         <span className="text-muted-foreground text-xs">
                           Max retries reached
                         </span>
@@ -91,9 +90,9 @@ export function RecipientSubTable({
                   </span>
                 </td>
                 <td className="py-2">
-                  {canRetry && onRetry && (
+                  {canRetry && onRetry ? (
                     <Button
-                      onClick={(e) => {
+                      onClick={(e: any) => {
                         e.stopPropagation();
                         onRetry(r.id);
                       }}
@@ -107,7 +106,7 @@ export function RecipientSubTable({
                       />
                       Retry
                     </Button>
-                  )}
+                  ) : null}
                 </td>
               </tr>
             );

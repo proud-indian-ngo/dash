@@ -13,10 +13,10 @@ import { teamEvent } from "./team-event";
 export const eventReminderSent = pgTable(
   "event_reminder_sent",
   {
-    id: uuid("id").primaryKey(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
     instanceDate: text("instance_date"),
     intervalMinutes: integer("interval_minutes").notNull(),
     sentAt: timestamp("sent_at").notNull(),

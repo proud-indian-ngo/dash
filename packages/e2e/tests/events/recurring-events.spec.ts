@@ -47,7 +47,7 @@ test.describe("Recurring events", () => {
     // Verify preview shows upcoming dates
     await expect(dialog.getByText("Next")).toBeVisible({ timeout: 5000 });
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
 
@@ -70,7 +70,7 @@ test.describe("Recurring events", () => {
     // Navigate to global events page
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });
@@ -135,7 +135,7 @@ test.describe("Recurring events", () => {
     await countInput.clear();
     await countInput.fill("6");
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });

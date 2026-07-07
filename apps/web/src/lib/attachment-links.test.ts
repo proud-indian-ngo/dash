@@ -23,9 +23,9 @@ describe("getAttachmentLabel", () => {
   it("returns filename for file attachment", () => {
     expect(
       getAttachmentLabel({
-        type: "file",
         filename: "receipt.pdf",
         objectKey: "uploads/receipt.pdf",
+        type: "file",
       })
     ).toBe("receipt.pdf");
   });
@@ -33,16 +33,16 @@ describe("getAttachmentLabel", () => {
   it("falls back to objectKey when filename is null", () => {
     expect(
       getAttachmentLabel({
-        type: "file",
         filename: null,
         objectKey: "uploads/doc.pdf",
+        type: "file",
       })
     ).toBe("uploads/doc.pdf");
   });
 
   it("falls back to 'Attachment' when both null", () => {
     expect(
-      getAttachmentLabel({ type: "file", filename: null, objectKey: null })
+      getAttachmentLabel({ filename: null, objectKey: null, type: "file" })
     ).toBe("Attachment");
   });
 });

@@ -12,7 +12,6 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { LONG_DATE } from "@/lib/date-formats";
-
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
 import { getFieldErrorState, useResolvedForm } from "./form-context";
@@ -59,7 +58,7 @@ function DateInputPicker({
   startMonth,
   value,
 }: DateInputPickerProps) {
-  const [month, setMonth] = useState<Date>(value ?? endMonth);
+  const [month, setMonth] = useState<Date>(value ?? new Date());
 
   useEffect(() => {
     if (value) {
@@ -67,14 +66,15 @@ function DateInputPicker({
     }
   }, [value]);
 
+  const stableOnOpenChange0 = (open: any) => {
+    if (!open) {
+      onBlur();
+    }
+  };
+  const stableOnSelect1 = (date: any) => onChange(date);
+
   return (
-    <Popover
-      onOpenChange={(open) => {
-        if (!open) {
-          onBlur();
-        }
-      }}
-    >
+    <Popover onOpenChange={stableOnOpenChange0}>
       <PopoverTrigger
         render={
           <Button
@@ -102,13 +102,13 @@ function DateInputPicker({
         <Calendar
           autoFocus
           captionLayout="dropdown"
-          defaultMonth={value ?? endMonth}
+          defaultMonth={value}
           disabled={maxDate ? { after: maxDate } : undefined}
           endMonth={endMonth}
           mode="single"
           month={month}
           onMonthChange={setMonth}
-          onSelect={(date) => onChange(date ?? undefined)}
+          onSelect={stableOnSelect1}
           selected={value}
           startMonth={startMonth}
         />
@@ -142,7 +142,7 @@ export function DateField({
       name={name}
       validators={validators}
     >
-      {(field) => {
+      {(field: any) => {
         const submitted = resolvedForm.state.submissionAttempts > 0;
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
@@ -158,7 +158,7 @@ export function DateField({
             id={field.name}
             maxDate={maxDate}
             onBlur={field.handleBlur}
-            onChange={(value) => field.handleChange(value)}
+            onChange={(value: any) => field.handleChange(value)}
             placeholder={placeholder}
             startMonth={startMonth}
             value={field.state.value}

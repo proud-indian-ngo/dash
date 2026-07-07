@@ -17,34 +17,42 @@ export function buildMutation(
   existingId: string | undefined,
   bankAccountList: BankAccount[]
 ) {
-  const lineItems = value.lineItems.map((item, index) => ({
+  const lineItems = value.lineItems.map((item: any, index: any) => ({
     ...item,
     amount: Number(item.amount),
     sortOrder: index,
   }));
-  const attachments = value.attachments;
+  const { attachments } = value;
   const id = existingId ?? entityId;
 
   const selectedAccount = bankAccountList.find(
-    (account) => account.accountNumber === value.bankAccountNumber
+    (account: any) => account.accountNumber === value.bankAccountNumber
   );
   const basePayload = {
-    id,
-    title: value.title,
-    city: value.city,
-    bankAccountName: value.bankAccountName,
-    bankAccountNumber: value.bankAccountNumber ?? "",
-    bankAccountIfscCode:
-      selectedAccount?.ifscCode ?? value.bankAccountIfscCode ?? "",
-    lineItems,
     attachments,
+    city: value.city,
+    id,
+    lineItems,
+    title: value.title,
+    ...((selectedAccount?.ifscCode ?? value.bankAccountIfscCode)
+      ? {
+          bankAccountIfscCode:
+            selectedAccount?.ifscCode ?? value.bankAccountIfscCode,
+        }
+      : {}),
+    ...(value.bankAccountName
+      ? { bankAccountName: value.bankAccountName }
+      : {}),
+    ...(value.bankAccountNumber
+      ? { bankAccountNumber: value.bankAccountNumber }
+      : {}),
   };
 
   if (value.type === "reimbursement") {
     const reimbPayload = {
       ...basePayload,
-      eventId: value.eventId ?? undefined,
       expenseDate: requireDate(value.expenseDate, "expenseDate"),
+      ...(value.eventId ? { eventId: value.eventId } : {}),
     };
     return existingId
       ? zero.mutate(mutators.reimbursement.update(reimbPayload))

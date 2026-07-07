@@ -4,7 +4,6 @@ import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
-
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -41,7 +40,7 @@ export function LoginForm() {
     if (message) {
       handledStatusRef.current = status;
       toast.success(message, { id: status });
-      navigate({ to: "/login", search: {}, replace: true });
+      navigate({ replace: true, search: {}, to: "/login" });
     }
   }, [navigate, status]);
 
@@ -59,21 +58,11 @@ export function LoginForm() {
           password: value.password,
         },
         {
-          onSuccess: () => {
-            const safeRedirect =
-              redirect?.startsWith("/") && !redirect.startsWith("//")
-                ? redirect
-                : "/";
-            navigate({
-              to: safeRedirect,
-            });
-            toast.success("Welcome back!");
-          },
-          onError: (error) => {
+          onError: (error: any) => {
             const message = error.error.message || error.error.statusText;
             log.error({
-              component: "LoginForm",
               action: "signIn",
+              component: "LoginForm",
               email: value.email,
               error: message,
             });
@@ -89,6 +78,16 @@ export function LoginForm() {
             } else {
               setFormError(message);
             }
+          },
+          onSuccess: () => {
+            const safeRedirect =
+              redirect?.startsWith("/") && !redirect.startsWith("//")
+                ? redirect
+                : "/";
+            navigate({
+              to: safeRedirect,
+            });
+            toast.success("Welcome back!");
           },
         }
       );
@@ -106,14 +105,14 @@ export function LoginForm() {
     setResending(true);
     try {
       await authClient.sendVerificationEmail({
-        email: unverifiedEmail,
         callbackURL: "/login",
+        email: unverifiedEmail,
       });
       toast.success("Verification email sent — check your inbox");
     } catch (error) {
       log.error({
-        component: "LoginForm",
         action: "resendVerification",
+        component: "LoginForm",
         email: unverifiedEmail,
         error: error instanceof Error ? error.message : String(error),
       });

@@ -19,20 +19,20 @@ export async function notifyEventFeedbackOpen({
   }
 
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Share feedback",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Your feedback matters",
     paragraphs: [
       `Anonymous feedback is open for ${eventName} — share your honest thoughts, it's completely anonymous.`,
     ],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Share feedback",
   });
   await sendBulkMessage({
-    userIds: memberUserIds,
-    title: "💬 Your feedback matters",
     body: `Anonymous feedback is open for ${eventName} — share your honest thoughts, it's completely anonymous.`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-feedback-open-${eventId}`,
+    title: "💬 Your feedback matters",
     topic: TOPICS.EVENTS_FEEDBACK,
+    userIds: memberUserIds,
   });
 }

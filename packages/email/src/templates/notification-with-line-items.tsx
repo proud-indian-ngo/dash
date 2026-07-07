@@ -8,16 +8,16 @@ export default function WithLineItems() {
       heading="Reimbursement Submitted"
       lineItems={[
         {
+          amount: "450",
           categoryName: "Stationery",
           description: "Pens and notebooks",
-          amount: "450",
         },
         {
+          amount: "1200",
           categoryName: "Printing",
           description: "Event flyers",
-          amount: "1200",
         },
-        { categoryName: "Transport", description: null, amount: "800" },
+        { amount: "800", categoryName: "Transport", description: null },
       ]}
       paragraphs={[
         'Rahul Sharma submitted "March Office Supplies" for review.',

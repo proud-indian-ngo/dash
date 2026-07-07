@@ -83,21 +83,21 @@ function ReimbursementFormInner({
 
   function getFilteredEventOptions(selectedCity: string | undefined) {
     const filtered = selectedCity
-      ? eventList.filter((e) => e.city === selectedCity)
+      ? eventList.filter((e: any) => e.city === selectedCity)
       : eventList;
-    return filtered.map((e) => ({
+    return filtered.map((e: any) => ({
       label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
       value: e.id,
     }));
   }
 
-  const bankAccountOptions = bankAccountList.map((account) => ({
+  const bankAccountOptions = bankAccountList.map((account: any) => ({
     label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
     value: account.id,
   }));
 
   const defaultBankAccount =
-    bankAccountList.find((a) => a.isDefault) ?? bankAccountList[0];
+    bankAccountList.find((a: any) => a.isDefault) ?? bankAccountList[0];
 
   const strippedInitialValues = (() => {
     if (!initialValues || requestType === "reimbursement") {
@@ -115,15 +115,15 @@ function ReimbursementFormInner({
     ...getDefaultValues(requestType),
     ...(defaultBankAccount && !("bankAccountName" in (initialValues ?? {}))
       ? {
+          bankAccountIfscCode: defaultBankAccount.ifscCode,
           bankAccountName: defaultBankAccount.accountName,
           bankAccountNumber: defaultBankAccount.accountNumber,
-          bankAccountIfscCode: defaultBankAccount.ifscCode,
         }
       : {}),
     ...strippedInitialValues,
-    type: requestType,
-    lineItems: initialValues?.lineItems ?? [newLineItem()],
     attachments: initialValues?.attachments ?? [],
+    lineItems: initialValues?.lineItems ?? [newLineItem()],
+    type: requestType,
   } as RequestFormValues;
 
   const form = useForm({
@@ -141,18 +141,18 @@ function ReimbursementFormInner({
       );
 
       const mutatorNameMap = {
-        vendor_payment: "vendorPayment",
-        reimbursement: "reimbursement",
         advance_payment: "advancePayment",
+        reimbursement: "reimbursement",
+        vendor_payment: "vendorPayment",
       } as const;
       const mutatorName = mutatorNameMap[value.type];
 
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: `${mutatorName}.${existingId ? "update" : "create"}`,
         entityId: id,
-        successMsg: `${typeLabel} submitted`,
         errorMsg: `Failed to submit ${typeLabel.toLowerCase()}`,
+        mutation: `${mutatorName}.${existingId ? "update" : "create"}`,
+        successMsg: `${typeLabel} submitted`,
       });
       if (res.type !== "error") {
         onSaved(id);
@@ -184,23 +184,27 @@ function ReimbursementFormInner({
   }, [defaultBankAccount, form, isEdit, hasInitialBankAccount]);
 
   let bankAccountsStatus: "loading" | "complete" | "error" = "complete";
+
   if (bankAccountList.length === 0 && bankAccountsResult.type !== "complete") {
     bankAccountsStatus = "loading";
   } else if (bankAccountsResult.type === "error") {
     bankAccountsStatus = "error";
   }
 
+  const stableSelector0 = (state: any) => ({
+    city: state.values.city,
+    eventId: state.values.eventId,
+  });
+
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
-      <form.Subscribe
-        selector={(state) => ({
-          city: state.values.city,
-          eventId: state.values.eventId,
-        })}
-      >
+      <form.Subscribe selector={stableSelector0}>
         {({ city: selectedCity, eventId }) => {
           const filteredOptions = getFilteredEventOptions(selectedCity);
-          if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
+          if (
+            eventId &&
+            !filteredOptions.some((o: any) => o.value === eventId)
+          ) {
             setTimeout(() => form.setFieldValue("eventId", undefined), 0);
           }
           return (
@@ -214,7 +218,7 @@ function ReimbursementFormInner({
               eventOptions={filteredOptions}
               form={form}
               isEdit={isEdit}
-              onBankAccountSelected={(account) => {
+              onBankAccountSelected={(account: any) => {
                 form.setFieldValue("bankAccountNumber", account.accountNumber);
                 form.setFieldValue("bankAccountIfscCode", account.ifscCode);
               }}

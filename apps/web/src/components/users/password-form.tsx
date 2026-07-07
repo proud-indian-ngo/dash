@@ -19,7 +19,7 @@ const passwordFields = {
 
 const passwordSchema = z
   .object(passwordFields)
-  .refine((value) => value.newPassword === value.confirmPassword, {
+  .refine((value: any) => value.newPassword === value.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });

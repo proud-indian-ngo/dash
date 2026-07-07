@@ -51,10 +51,10 @@ function expandSeriesRows(
     rows.push({
       ...base,
       endTime: occ.endTime,
-      members: occ.isSeriesParent ? event.members : virtualMembers,
-      startTime: occ.startTime,
-      occDate: occ.isSeriesParent ? null : occ.date,
       isVirtualOccurrence: !occ.isSeriesParent,
+      members: occ.isSeriesParent ? event.members : virtualMembers,
+      occDate: occ.isSeriesParent ? null : occ.date,
+      startTime: occ.startTime,
     });
   }
 
@@ -69,12 +69,12 @@ function expandSeriesRows(
         endTime: exc.endTime,
         eventId: exc.id,
         isPublic: exc.isPublic,
+        isVirtualOccurrence: false,
         location: exc.location,
-        startTime: exc.startTime,
         members: exc.members,
         name: exc.name,
         occDate: exc.originalDate,
-        isVirtualOccurrence: false,
+        startTime: exc.startTime,
       });
     }
   }
@@ -95,9 +95,9 @@ export function buildPublicDisplayRows(
       endTime: event.endTime,
       eventId: event.id,
       isPublic: event.isPublic,
-      name: event.name,
       location: event.location,
       members: event.members,
+      name: event.name,
       team: event.team,
       teamId: event.teamId,
     };
@@ -106,9 +106,9 @@ export function buildPublicDisplayRows(
       if (event.startTime >= rangeStart && event.startTime <= rangeEnd) {
         rows.push({
           ...base,
-          startTime: event.startTime,
-          occDate: null,
           isVirtualOccurrence: false,
+          occDate: null,
+          startTime: event.startTime,
         });
       }
       continue;

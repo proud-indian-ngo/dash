@@ -9,21 +9,19 @@ const defaultDeserialize = <T>(value: string): T | undefined => {
   try {
     return JSON.parse(value) as T;
   } catch {
-    return undefined;
+    void 0;
   }
 };
 
-const defaultSerialize = <T>(value: T): string => {
-  return JSON.stringify(value);
-};
+const defaultSerialize = <T>(value: T): string => JSON.stringify(value);
 
 export function useLocalStorage<T>(
   key: string | undefined,
   initialValue: T,
   options: UseLocalStorageOptions<T> = {}
 ): [T, (value: SetStateAction<T>) => void] {
-  const deserialize = options.deserialize ?? defaultDeserialize<T>;
-  const serialize = options.serialize ?? defaultSerialize<T>;
+  const deserialize = options.deserialize ?? defaultDeserialize;
+  const serialize = options.serialize ?? defaultSerialize;
 
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (!key || typeof window === "undefined") {
@@ -63,6 +61,7 @@ export function useLocalStorage<T>(
       window.localStorage.setItem(key, serialize(storedValue));
     } catch {
       // Ignore write errors (e.g. storage full/private mode restrictions).
+      void 0;
     }
   }, [key, serialize, storedValue]);
 

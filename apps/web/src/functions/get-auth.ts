@@ -15,18 +15,18 @@ export const getAuth = createServerFn({ method: "GET" })
 
     try {
       const permissions = await resolvePermissions(role);
-      return { session: context.session, permissions };
+      return { permissions, session: context.session };
     } catch (error) {
       const log = createRequestLogger();
       log.set({
         handler: "getAuth",
-        userId,
         role,
+        userId,
       });
       log.error(error instanceof Error ? error : String(error), {
         step: "resolve-permissions",
       });
       log.emit();
-      return { session: context.session, permissions: [] as string[] };
+      return { permissions: [] as string[], session: context.session };
     }
   });

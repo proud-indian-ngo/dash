@@ -241,7 +241,7 @@ test.describe("Event detail — volunteer permissions", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
     await waitForZeroReady(page);
 
@@ -267,7 +267,7 @@ test.describe("Event detail — volunteer permissions", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
     await waitForZeroReady(page);
 
@@ -292,7 +292,7 @@ test.describe("Event detail — volunteer permissions", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
     await waitForZeroReady(page);
 

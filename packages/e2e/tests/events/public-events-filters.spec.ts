@@ -6,7 +6,7 @@ test.describe("Public events list business logic", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
     await waitForZeroReady(page);
   });
@@ -241,7 +241,7 @@ test.describe("Public events list business logic", () => {
     // Reload page
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
 
     // Filter should still be applied
@@ -251,7 +251,7 @@ test.describe("Public events list business logic", () => {
   test("loading page with query params applies filters", async ({ page }) => {
     await page.goto("/events?show=public&city=bangalore");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
     await waitForZeroReady(page);
 

@@ -45,13 +45,6 @@ describe("scheduledMessage mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input with all fields", () => {
       const result = createSchema.safeParse({
-        id: "msg-1",
-        message: "Hello everyone",
-        recipients: [
-          { id: "grp-1", label: "Group A", type: "group" },
-          { id: "user-1", label: "John", type: "user" },
-        ],
-        scheduledAt: 1_700_000_000_000,
         attachments: [
           {
             fileName: "document.pdf",
@@ -59,6 +52,13 @@ describe("scheduledMessage mutator schemas", () => {
             r2Key: "docs/file.pdf",
           },
         ],
+        id: "msg-1",
+        message: "Hello everyone",
+        recipients: [
+          { id: "grp-1", label: "Group A", type: "group" },
+          { id: "user-1", label: "John", type: "user" },
+        ],
+        scheduledAt: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
     });
@@ -109,30 +109,30 @@ describe("scheduledMessage mutator schemas", () => {
 
     it("rejects >5 attachments", () => {
       const result = createSchema.safeParse({
-        id: "msg-1",
-        message: "Hello",
-        recipients: [{ id: "user-1", label: "John", type: "user" }],
-        scheduledAt: 1_700_000_000_000,
         attachments: Array.from({ length: 6 }, (_, i) => ({
           fileName: `file${i}.pdf`,
           mimeType: "application/pdf",
           r2Key: `docs/file${i}.pdf`,
         })),
+        id: "msg-1",
+        message: "Hello",
+        recipients: [{ id: "user-1", label: "John", type: "user" }],
+        scheduledAt: 1_700_000_000_000,
       });
       expect(result.success).toBe(false);
     });
 
     it("accepts exactly 5 attachments", () => {
       const result = createSchema.safeParse({
-        id: "msg-1",
-        message: "Hello",
-        recipients: [{ id: "user-1", label: "John", type: "user" }],
-        scheduledAt: 1_700_000_000_000,
         attachments: Array.from({ length: 5 }, (_, i) => ({
           fileName: `file${i}.pdf`,
           mimeType: "application/pdf",
           r2Key: `docs/file${i}.pdf`,
         })),
+        id: "msg-1",
+        message: "Hello",
+        recipients: [{ id: "user-1", label: "John", type: "user" }],
+        scheduledAt: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
     });

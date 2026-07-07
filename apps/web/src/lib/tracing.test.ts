@@ -59,8 +59,8 @@ describe("installFetchTracing", () => {
     installFetchTracing();
 
     await window.fetch("https://r2.cloudflarestorage.com/bucket/file.jpg", {
-      method: "PUT",
       headers: { "Content-Type": "image/jpeg" },
+      method: "PUT",
     });
 
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);

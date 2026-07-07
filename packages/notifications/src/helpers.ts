@@ -2,9 +2,9 @@ import { db } from "@pi-dash/db";
 
 export function formatEventDate(startTime: number): string {
   return new Date(startTime).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
     day: "numeric",
+    month: "short",
+    weekday: "short",
   });
 }
 
@@ -51,9 +51,9 @@ export async function getReimbursementLineItems(
 ): Promise<LineItemDetail[]> {
   return await db
     .select({
-      description: reimbursementLineItem.description,
-      categoryName: expenseCategory.name,
       amount: reimbursementLineItem.amount,
+      categoryName: expenseCategory.name,
+      description: reimbursementLineItem.description,
     })
     .from(reimbursementLineItem)
     .innerJoin(
@@ -69,9 +69,9 @@ export async function getAdvancePaymentLineItems(
 ): Promise<LineItemDetail[]> {
   return await db
     .select({
-      description: advancePaymentLineItem.description,
-      categoryName: expenseCategory.name,
       amount: advancePaymentLineItem.amount,
+      categoryName: expenseCategory.name,
+      description: advancePaymentLineItem.description,
     })
     .from(advancePaymentLineItem)
     .innerJoin(
@@ -87,9 +87,9 @@ export async function getVendorPaymentLineItems(
 ): Promise<LineItemDetail[]> {
   return await db
     .select({
-      description: vendorPaymentLineItem.description,
-      categoryName: expenseCategory.name,
       amount: vendorPaymentLineItem.amount,
+      categoryName: expenseCategory.name,
+      description: vendorPaymentLineItem.description,
     })
     .from(vendorPaymentLineItem)
     .innerJoin(

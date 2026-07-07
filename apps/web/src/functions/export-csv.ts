@@ -23,11 +23,11 @@ type StatusValue = (typeof statusValues)[number];
 const statusEnum = z.enum(statusValues);
 
 const exportCsvSchema = z.object({
+  fyStart: z.number().int().min(2020).max(2099),
+  statuses: z.array(statusEnum).optional(),
   types: z
     .array(z.enum(["reimbursement", "advancePayment"]))
     .min(1, "Select at least one type"),
-  fyStart: z.number().int().min(2020).max(2099),
-  statuses: z.array(statusEnum).optional(),
 });
 
 export interface ExportAttachment {
@@ -59,11 +59,11 @@ function groupAttachments<T extends ExportAttachment & { parentId: string }>(
   for (const a of attachments) {
     const list = map.get(a.parentId) ?? [];
     list.push({
-      type: a.type,
       filename: a.filename,
-      objectKey: a.objectKey,
-      url: a.url,
       mimeType: a.mimeType,
+      objectKey: a.objectKey,
+      type: a.type,
+      url: a.url,
     });
     map.set(a.parentId, list);
   }
@@ -117,15 +117,15 @@ async function queryExportRows(
   );
 
   const selectFields: Record<string, AnyPgColumn | ReturnType<typeof sum>> = {
-    id: mainTable.id,
-    title: mainTable.title,
+    city: mainTable.city,
+    createdAt: mainTable.createdAt,
     createdBy: user.name,
     email: user.email,
+    id: mainTable.id,
     status: mainTable.status,
-    total: sum(config.lineItemAmountCol),
-    city: mainTable.city,
     submittedAt: mainTable.submittedAt,
-    createdAt: mainTable.createdAt,
+    title: mainTable.title,
+    total: sum(config.lineItemAmountCol),
   };
   const groupByFields: AnyPgColumn[] = [
     mainTable.id,
@@ -152,17 +152,17 @@ async function queryExportRows(
     .where(whereClause)
     .groupBy(...groupByFields)) as unknown as RawResultRow[];
 
-  const ids: string[] = results.map((r) => r.id);
+  const ids: string[] = results.map((r: any) => r.id);
   const rawAttachments =
     ids.length > 0
       ? await db
           .select({
+            filename: attachmentTable.filename,
+            mimeType: attachmentTable.mimeType,
+            objectKey: attachmentTable.objectKey,
             parentId: config.attachmentJoinCol,
             type: attachmentTable.type,
-            filename: attachmentTable.filename,
-            objectKey: attachmentTable.objectKey,
             url: attachmentTable.url,
-            mimeType: attachmentTable.mimeType,
           })
           .from(attachmentTable)
           .where(inArray(config.attachmentJoinCol, ids))
@@ -170,41 +170,41 @@ async function queryExportRows(
 
   const attachmentsByRecord = groupAttachments(rawAttachments);
 
-  return results.map((r) => ({
-    type: typeLabel,
-    title: r.title,
+  return results.map((r: any) => ({
+    attachments: attachmentsByRecord.get(r.id) ?? [],
+    city: r.city ?? "",
+    createdAt: r.createdAt.toISOString(),
     createdBy: r.createdBy ?? "",
     email: r.email,
-    status: r.status,
-    total: r.total ?? "0",
-    city: r.city ?? "",
     expenseDate: r.expenseDate ?? "",
+    status: r.status,
     submittedAt: r.submittedAt?.toISOString() ?? "",
-    createdAt: r.createdAt.toISOString(),
-    attachments: attachmentsByRecord.get(r.id) ?? [],
+    title: r.title,
+    total: r.total ?? "0",
+    type: typeLabel,
   }));
 }
 
 const reimbursementConfig: QueryConfig = {
-  typeLabel: "Reimbursement",
-  mainTable: reimbursement,
-  lineItemTable: reimbursementLineItem,
-  lineItemJoinCol: reimbursementLineItem.reimbursementId,
-  lineItemAmountCol: reimbursementLineItem.amount,
-  attachmentTable: reimbursementAttachment,
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
+  attachmentTable: reimbursementAttachment,
   hasExpenseDate: true,
+  lineItemAmountCol: reimbursementLineItem.amount,
+  lineItemJoinCol: reimbursementLineItem.reimbursementId,
+  lineItemTable: reimbursementLineItem,
+  mainTable: reimbursement,
+  typeLabel: "Reimbursement",
 };
 
 const advancePaymentConfig: QueryConfig = {
-  typeLabel: "Advance Payment",
-  mainTable: advancePayment,
-  lineItemTable: advancePaymentLineItem,
-  lineItemJoinCol: advancePaymentLineItem.advancePaymentId,
-  lineItemAmountCol: advancePaymentLineItem.amount,
-  attachmentTable: advancePaymentAttachment,
   attachmentJoinCol: advancePaymentAttachment.advancePaymentId,
+  attachmentTable: advancePaymentAttachment,
   hasExpenseDate: false,
+  lineItemAmountCol: advancePaymentLineItem.amount,
+  lineItemJoinCol: advancePaymentLineItem.advancePaymentId,
+  lineItemTable: advancePaymentLineItem,
+  mainTable: advancePayment,
+  typeLabel: "Advance Payment",
 };
 
 export const exportCsvData = createServerFn({ method: "POST" })
@@ -249,11 +249,11 @@ export const exportCsvData = createServerFn({ method: "POST" })
       logErrorAndRethrow(
         { method: "POST", path: "/fn/exportCsvData" },
         {
-          handler: "exportCsvData",
-          userId: context.session?.user.id,
-          types: data.types,
           fyStart: data.fyStart,
+          handler: "exportCsvData",
           statuses: data.statuses,
+          types: data.types,
+          userId: context.session?.user.id,
         },
         error
       );

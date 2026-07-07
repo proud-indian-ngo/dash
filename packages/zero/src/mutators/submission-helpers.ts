@@ -33,13 +33,13 @@ export function assertVendorUsable(
  */
 export function buildAttachmentInsert(att: AttachmentInput, now: number) {
   return {
-    id: att.id,
-    type: att.type,
-    filename: att.type === "file" ? att.filename : null,
-    objectKey: att.type === "file" ? att.objectKey : null,
-    url: att.type === "url" ? att.url : null,
-    mimeType: att.type === "file" ? (att.mimeType ?? null) : null,
     createdAt: now,
+    filename: att.type === "file" ? att.filename : null,
+    id: att.id,
+    mimeType: att.type === "file" ? (att.mimeType ?? null) : null,
+    objectKey: att.type === "file" ? att.objectKey : null,
+    type: att.type,
+    url: att.type === "url" ? att.url : null,
   };
 }
 
@@ -49,12 +49,12 @@ export function buildAttachmentInsert(att: AttachmentInput, now: number) {
  */
 export function buildLineItemInsert(item: LineItemInput, now: number) {
   return {
-    id: item.id,
-    categoryId: item.categoryId,
-    description: item.description,
     amount: item.amount,
-    sortOrder: item.sortOrder,
+    categoryId: item.categoryId,
     createdAt: now,
+    description: item.description,
+    id: item.id,
+    sortOrder: item.sortOrder,
     updatedAt: now,
   };
 }
@@ -81,12 +81,12 @@ export function buildHistoryInsert(
   note?: string
 ) {
   return {
-    id: uuidv7(),
-    actorId,
     action,
-    note: note ?? null,
-    metadata: null,
+    actorId,
     createdAt: now,
+    id: uuidv7(),
+    metadata: null,
+    note: note ?? null,
   };
 }
 
@@ -173,12 +173,16 @@ export async function insertRelations<TFK extends Record<string, string>>(
   now: number,
   ops: RelationInsertOps<TFK>
 ) {
-  for (const item of lineItems) {
-    await ops.insertLineItem({ ...buildLineItemInsert(item, now), ...fk });
-  }
-  for (const att of attachments) {
-    await ops.insertAttachment({ ...buildAttachmentInsert(att, now), ...fk });
-  }
+  await Promise.all(
+    lineItems.map(async (item) => {
+      await ops.insertLineItem({ ...buildLineItemInsert(item, now), ...fk });
+    })
+  );
+  await Promise.all(
+    attachments.map(async (att) => {
+      await ops.insertAttachment({ ...buildAttachmentInsert(att, now), ...fk });
+    })
+  );
   await ops.insertHistory({
     ...buildHistoryInsert(userId, action, now),
     ...fk,
@@ -194,13 +198,17 @@ export async function replaceRelations<TFK extends Record<string, string>>(
   ops: RelationInsertOps<TFK> & RelationDeleteOps
 ) {
   const existingItems = await ops.queryLineItems();
-  for (const item of existingItems) {
-    await ops.deleteLineItem({ id: item.id });
-  }
+  await Promise.all(
+    existingItems.map(async (item) => {
+      await ops.deleteLineItem({ id: item.id });
+    })
+  );
   const existingAtts = await ops.queryAttachments();
-  for (const att of existingAtts) {
-    await ops.deleteAttachment({ id: att.id });
-  }
+  await Promise.all(
+    existingAtts.map(async (att) => {
+      await ops.deleteAttachment({ id: att.id });
+    })
+  );
   await insertRelations(
     fk,
     lineItems,
@@ -214,15 +222,21 @@ export async function replaceRelations<TFK extends Record<string, string>>(
 
 export async function deleteAllRelations(ops: RelationDeleteAllOps) {
   const lineItems = await ops.queryLineItems();
-  for (const item of lineItems) {
-    await ops.deleteLineItem({ id: item.id });
-  }
+  await Promise.all(
+    lineItems.map(async (item) => {
+      await ops.deleteLineItem({ id: item.id });
+    })
+  );
   const attachments = await ops.queryAttachments();
-  for (const att of attachments) {
-    await ops.deleteAttachment({ id: att.id });
-  }
+  await Promise.all(
+    attachments.map(async (att) => {
+      await ops.deleteAttachment({ id: att.id });
+    })
+  );
   const history = await ops.queryHistory();
-  for (const h of history) {
-    await ops.deleteHistory({ id: h.id });
-  }
+  await Promise.all(
+    history.map(async (h) => {
+      await ops.deleteHistory({ id: h.id });
+    })
+  );
 }

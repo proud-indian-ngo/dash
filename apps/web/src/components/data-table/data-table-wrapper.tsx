@@ -101,7 +101,7 @@ export function DataTableWrapper<TData extends object>({
   storageKey,
   columns,
   data,
-  defaultColumnPinning,
+  defaultColumnPinning = DEFAULT_COLUMN_PINNING,
   defaultColumnVisibility,
   defaultPageSize = 10,
   enableRowSelection = false,
@@ -124,7 +124,7 @@ export function DataTableWrapper<TData extends object>({
   onClearFilters,
 }: DataTableWrapperProps<TData>) {
   const initialColumnOrder = columns
-    .map((column) => column.id)
+    .map((column: any) => column.id)
     .filter((id): id is string => typeof id === "string");
 
   const {
@@ -149,9 +149,9 @@ export function DataTableWrapper<TData extends object>({
   } = useTableState(
     {
       columnOrder: initialColumnOrder,
-      columnPinning: defaultColumnPinning ?? DEFAULT_COLUMN_PINNING,
+      columnPinning: defaultColumnPinning,
       columnSizing: {},
-      columnVisibility: defaultColumnVisibility ?? {},
+      columnVisibility: defaultColumnVisibility,
       pagination: {
         pageIndex: 0,
         pageSize: defaultPageSize,
@@ -177,7 +177,7 @@ export function DataTableWrapper<TData extends object>({
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
   const resetPage = () => {
-    setPagination((current) => ({
+    setPagination((current: any) => ({
       ...current,
       pageIndex: 0,
     }));
@@ -189,19 +189,23 @@ export function DataTableWrapper<TData extends object>({
     }, 300)
   );
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       debouncedSyncRef.current.cancel();
-    };
-  }, []);
+    },
+    []
+  );
 
   // Sync local state when URL changes externally (browser back/forward)
   useEffect(() => {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
 
-  const globalFilterFn: FilterFn<TData> = (row, _columnId, value) =>
-    searchFn(row.original, String(value ?? ""));
+  const globalFilterFn: FilterFn<TData> = (
+    row: any,
+    _columnId: any,
+    value: any
+  ) => searchFn(row.original, String(value));
 
   const onPaginationChange = (updater: Updater<PaginationState>) => {
     const nextPagination = resolveUpdater(updater, pagination);
@@ -215,10 +219,22 @@ export function DataTableWrapper<TData extends object>({
   };
 
   const table = useReactTable({
+    autoResetPageIndex: false,
+    columnResizeMode: "onChange",
     columns,
     data,
+    enableRowSelection,
     getRowId,
     globalFilterFn,
+    manualPagination,
+    onColumnOrderChange: setColumnOrder,
+    onColumnPinningChange: setColumnPinning,
+    onColumnSizingChange: setColumnSizing,
+    onColumnVisibilityChange: setColumnVisibility,
+    onExpandedChange: setExpanded,
+    onPaginationChange,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange,
     state: {
       columnOrder,
       columnPinning,
@@ -230,19 +246,7 @@ export function DataTableWrapper<TData extends object>({
       rowSelection,
       sorting,
     },
-    columnResizeMode: "onChange",
-    onColumnOrderChange: setColumnOrder,
-    onColumnSizingChange: setColumnSizing,
-    onColumnVisibilityChange: setColumnVisibility,
-    onColumnPinningChange: setColumnPinning,
-    onExpandedChange: setExpanded,
-    autoResetPageIndex: false,
-    onPaginationChange,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange,
-    enableRowSelection,
-    manualPagination,
-    ...(rowCount != null && { rowCount }),
+    ...(rowCount !== undefined && { rowCount }),
     ...(getRowCanExpand && { getRowCanExpand }),
     getCoreRowModel: getCoreRowModel(),
     ...(getRowCanExpand && { getExpandedRowModel: getExpandedRowModel() }),
@@ -280,9 +284,21 @@ export function DataTableWrapper<TData extends object>({
   };
 
   const filteredRows = table.getFilteredRowModel().rows;
-  const filteredData = filteredRows.map((row) => row.original);
+  const filteredData = filteredRows.map((row: any) => row.original);
   const displayCount =
-    manualPagination && rowCount != null ? rowCount : filteredRows.length;
+    manualPagination && rowCount !== undefined ? rowCount : filteredRows.length;
+  const stableOnChange0 = (event: any) => {
+    const { value } = event.target;
+    setLocalSearch(value);
+    resetPage();
+    debouncedSyncRef.current(value);
+  };
+  const stableOnClick1 = () => {
+    setLocalSearch("");
+    debouncedSyncRef.current.cancel();
+    resetPage();
+    setSearchQuery("");
+  };
 
   useEffect(() => {
     onFilteredDataChange?.(filteredData);
@@ -316,12 +332,7 @@ export function DataTableWrapper<TData extends object>({
 
                   <InputGroupInput
                     aria-label={searchPlaceholder}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setLocalSearch(value);
-                      resetPage();
-                      debouncedSyncRef.current(value);
-                    }}
+                    onChange={stableOnChange0}
                     placeholder={searchPlaceholder}
                     value={localSearch}
                   />
@@ -330,12 +341,7 @@ export function DataTableWrapper<TData extends object>({
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton
                         aria-label="Clear search"
-                        onClick={() => {
-                          setLocalSearch("");
-                          debouncedSyncRef.current.cancel();
-                          resetPage();
-                          setSearchQuery("");
-                        }}
+                        onClick={stableOnClick1}
                         size="icon-xs"
                         type="button"
                       >

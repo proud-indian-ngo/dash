@@ -42,8 +42,8 @@ export async function handleCleanupNotifications(_jobs: Job[]): Promise<void> {
     .returning({ id: notification.id });
 
   log.set({
-    event: "cleanup_complete",
     archivedDeleted: archivedDeleted.length,
+    event: "cleanup_complete",
     readDeleted: readDeleted.length,
   });
   log.emit();

@@ -33,9 +33,9 @@ export const Route = createFileRoute("/api/immich/original/$id")({
           const upstream = await fetchImmichOriginal(config, id, rangeHeader);
           const contentType =
             upstream.headers.get("content-type") ?? "application/octet-stream";
-          const headers: HeadersInit = {
-            "Content-Type": contentType,
+          const headers: Record<string, string> = {
             "Accept-Ranges": "bytes",
+            "Content-Type": contentType,
           };
 
           // Only cache non-range responses; range responses are partial and shouldn't be cached broadly
@@ -53,19 +53,21 @@ export const Route = createFileRoute("/api/immich/original/$id")({
           }
 
           return new Response(upstream.body, {
-            status: upstream.status,
             headers,
+            status: upstream.status,
           });
-        } catch (error) {
+        } catch (caughtError) {
           const log = createRequestLogger({
             method: "GET",
             path: "/api/immich/original",
           });
           log.set({ assetId: id });
-          log.error(error instanceof Error ? error : String(error));
+          log.error(
+            caughtError instanceof Error ? caughtError : String(caughtError)
+          );
           log.emit();
           return Response.json(
-            { error: "Failed to fetch original image" },
+            { caughtError: "Failed to fetch original image" },
             { status: 502 }
           );
         }

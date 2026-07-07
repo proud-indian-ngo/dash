@@ -49,7 +49,7 @@ const MAX_EVENTS = 5;
 function UpcomingEventsSkeleton() {
   return (
     <div className="space-y-3">
-      {[1, 2, 3].map((i) => (
+      {[1, 2, 3].map((i: any) => (
         <div key={i}>
           <Skeleton className="h-4 w-40" />
           <Skeleton className="mt-1 h-3 w-24" />
@@ -61,13 +61,13 @@ function UpcomingEventsSkeleton() {
 
 const GHOST_EVENTS = [
   {
-    name: "Orientation Session",
     date: "Next Saturday — 10:00 AM",
+    name: "Orientation Session",
     team: "Onboarding",
   },
   {
-    name: "Weekend Drive",
     date: "This Sunday — 9:00 AM",
+    name: "Weekend Drive",
     team: "Outreach",
   },
 ];
@@ -75,7 +75,7 @@ const GHOST_EVENTS = [
 function UpcomingEventsEmpty() {
   return (
     <GhostEmptyState
-      ghostContent={GHOST_EVENTS.map((event) => (
+      ghostContent={GHOST_EVENTS.map((event: any) => (
         <div className="rounded-md p-2" key={event.name}>
           <p className="truncate font-medium text-sm">{event.name}</p>
           <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
@@ -102,7 +102,7 @@ function UpcomingEventsEmpty() {
 function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
   return (
     <div className="space-y-3">
-      {items.map((item) => (
+      {items.map((item: any) => (
         <Link
           className="block rounded-md p-2 transition-colors hover:bg-muted/50"
           key={`${item.eventId}-${item.startTime}`}
@@ -111,7 +111,7 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
         >
           <div className="flex items-center gap-2">
             <p className="truncate font-medium text-sm">{item.name}</p>
-            {item.isPublic && (
+            {Boolean(item.isPublic) && (
               <Badge size="xs" variant="info-light">
                 Public
               </Badge>
@@ -119,7 +119,7 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
             <span>{format(item.startTime, LONG_DATE_TIME)}</span>
-            {item.team && (
+            {Boolean(item.team) && (
               <>
                 <span>&middot;</span>
                 <span>{item.team.name}</span>
@@ -163,10 +163,10 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
     const rule = parseRecurrenceRule(event.recurrenceRule);
     const base = {
       eventId: event.id,
+      interestCount: event.interests.length,
       isPublic: event.isPublic,
       name: event.name,
       team: event.team,
-      interestCount: event.interests.length,
     };
 
     if (!rule) {
@@ -176,7 +176,7 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
       continue;
     }
 
-    const exceptions = event.exceptions ?? [];
+    const exceptions = event.exceptions;
     const exceptionDates = new Set<string>();
     for (const exc of exceptions) {
       if (exc.originalDate) {
@@ -208,7 +208,7 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
     }
   }
 
-  items.sort((a, b) => a.startTime - b.startTime);
+  items.sort((a: any, b: any) => a.startTime - b.startTime);
   return items.slice(0, MAX_EVENTS);
 }
 

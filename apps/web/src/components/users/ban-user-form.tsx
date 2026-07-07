@@ -27,8 +27,8 @@ export function BanUserForm({ onCancel, onSubmit, user }: BanUserFormProps) {
     onSubmit: async ({ value }) => {
       await onSubmit({
         banExpires: value.banExpires || undefined,
-        banReason: value.banReason,
         banned: true,
+        banReason: value.banReason,
         userId: user.id,
       });
       form.reset();

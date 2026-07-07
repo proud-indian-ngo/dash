@@ -43,10 +43,12 @@ function NavMenuItem({
           render={<Link to={item.url} />}
           tooltip={item.title}
         >
-          {item.icon && <HugeiconsIcon icon={item.icon} strokeWidth={2} />}
+          {item.icon ? (
+            <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+          ) : null}
           <span>{item.title}</span>
         </SidebarMenuButton>
-        {item.subItems?.some((s) => !s.isHidden) && (
+        {item.subItems?.some((s: any) => !s.isHidden) && (
           <>
             <CollapsibleTrigger
               aria-label={`Toggle ${item.title} submenu`}
@@ -63,8 +65,8 @@ function NavMenuItem({
             <CollapsibleContent>
               <SidebarMenuSub>
                 {item.subItems
-                  ?.filter((s) => !s.isHidden)
-                  .map((subItem) => (
+                  ?.filter((s: any) => !s.isHidden)
+                  .map((subItem: any) => (
                     <SidebarMenuSubItem key={subItem.title}>
                       <SidebarMenuSubButton render={<Link to={subItem.url} />}>
                         {subItem.title}
@@ -85,13 +87,13 @@ export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
 
   return (
     <>
-      {groups.map((group) => (
-        <SidebarGroup key={group.label ?? "default"}>
+      {groups.map((group: any) => (
+        <SidebarGroup key={group.label}>
           {group.label ? (
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
           ) : null}
           <SidebarMenu>
-            {group.items.map((item) => (
+            {group.items.map((item: any) => (
               <NavMenuItem
                 activePath={activePath}
                 item={item}

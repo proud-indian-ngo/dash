@@ -58,21 +58,21 @@ function inWindow(pollMs: number, now: number): boolean {
 
 function toSeriesParent(event: PollCandidate): SeriesParent {
   return {
-    id: event.id,
-    teamId: event.teamId,
-    name: event.name,
-    description: event.description,
-    location: event.location,
-    startTime: event.startTime,
-    endTime: event.endTime,
-    isPublic: event.isPublic,
-    recurrenceRule: event.recurrenceRule,
-    feedbackEnabled: event.feedbackEnabled,
-    feedbackDeadline: event.feedbackDeadline,
-    reminderIntervals: event.reminderIntervals,
-    whatsappGroupId: event.whatsappGroupId,
     createdBy: event.createdBy,
+    description: event.description,
+    endTime: event.endTime,
+    feedbackDeadline: event.feedbackDeadline,
+    feedbackEnabled: event.feedbackEnabled,
+    id: event.id,
     inheritVolunteers: event.inheritVolunteers,
+    isPublic: event.isPublic,
+    location: event.location,
+    name: event.name,
+    recurrenceRule: event.recurrenceRule,
+    reminderIntervals: event.reminderIntervals,
+    startTime: event.startTime,
+    teamId: event.teamId,
+    whatsappGroupId: event.whatsappGroupId,
   };
 }
 
@@ -124,7 +124,10 @@ async function dispatchSeriesParent(
   const parentStartMs = event.startTime.getTime();
 
   for (const occ of occurrences) {
-    const pollMs = pollTriggerMs(occ.startTime, event.rsvpPollLeadMinutes);
+    const pollMs = pollTriggerMs(
+      occ.startTime ?? event.startTime.getTime(),
+      event.rsvpPollLeadMinutes
+    );
     if (!inWindow(pollMs, now)) {
       continue;
     }
@@ -159,23 +162,23 @@ async function dispatchStandalone(
 async function loadCandidates(): Promise<PollCandidate[]> {
   return await db
     .select({
-      id: teamEvent.id,
-      teamId: teamEvent.teamId,
-      name: teamEvent.name,
-      description: teamEvent.description,
-      location: teamEvent.location,
-      startTime: teamEvent.startTime,
-      endTime: teamEvent.endTime,
-      isPublic: teamEvent.isPublic,
-      recurrenceRule: teamEvent.recurrenceRule,
-      seriesId: teamEvent.seriesId,
-      feedbackEnabled: teamEvent.feedbackEnabled,
-      feedbackDeadline: teamEvent.feedbackDeadline,
-      reminderIntervals: teamEvent.reminderIntervals,
-      whatsappGroupId: teamEvent.whatsappGroupId,
       createdBy: teamEvent.createdBy,
+      description: teamEvent.description,
+      endTime: teamEvent.endTime,
+      feedbackDeadline: teamEvent.feedbackDeadline,
+      feedbackEnabled: teamEvent.feedbackEnabled,
+      id: teamEvent.id,
       inheritVolunteers: teamEvent.inheritVolunteers,
+      isPublic: teamEvent.isPublic,
+      location: teamEvent.location,
+      name: teamEvent.name,
+      recurrenceRule: teamEvent.recurrenceRule,
+      reminderIntervals: teamEvent.reminderIntervals,
       rsvpPollLeadMinutes: teamEvent.rsvpPollLeadMinutes,
+      seriesId: teamEvent.seriesId,
+      startTime: teamEvent.startTime,
+      teamId: teamEvent.teamId,
+      whatsappGroupId: teamEvent.whatsappGroupId,
     })
     .from(teamEvent)
     .where(
@@ -199,8 +202,8 @@ export async function handleSendEventRsvpPolls(
 
   log.set({
     candidateEvents: events.length,
-    windowStart: windowStart.toISOString(),
     windowEnd: windowEnd.toISOString(),
+    windowStart: windowStart.toISOString(),
   });
 
   if (events.length === 0) {
@@ -210,22 +213,24 @@ export async function handleSendEventRsvpPolls(
   }
 
   const enqueued = new Set<string>();
-  const totals: DispatchTotals = { enqueued: 0, skipped: 0, materialized: 0 };
+  const totals: DispatchTotals = { enqueued: 0, materialized: 0, skipped: 0 };
 
-  for (const event of events) {
-    const rule = parseRecurrenceRule(event.recurrenceRule);
-    if (rule != null && event.seriesId == null) {
-      await dispatchSeriesParent(event, rule, now, enqueued, totals);
-    } else {
-      await dispatchStandalone(event, now, enqueued, totals);
-    }
-  }
+  await Promise.all(
+    events.map(async (event) => {
+      const rule = parseRecurrenceRule(event.recurrenceRule);
+      if (rule !== null && event.seriesId === null) {
+        await dispatchSeriesParent(event, rule, now, enqueued, totals);
+      } else {
+        await dispatchStandalone(event, now, enqueued, totals);
+      }
+    })
+  );
 
   log.set({
-    event: "job_complete",
     enqueuedCount: totals.enqueued,
-    skippedCount: totals.skipped,
+    event: "job_complete",
     materializedCount: totals.materialized,
+    skippedCount: totals.skipped,
   });
   log.emit();
 }

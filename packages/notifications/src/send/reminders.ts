@@ -62,18 +62,18 @@ export async function notifyStaleRequests({
 
   const body = `You've got ${parts.join(", ")} waiting for your review — some have been sitting for 3+ days.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Review now",
+    ctaUrl: `${env.APP_URL}/`,
     heading: "Requests need attention",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Review now",
   });
   await sendMessage({
-    to: userId,
-    title: "⏰ Requests need attention",
     body,
-    emailHtml,
     clickAction: "/",
+    emailHtml,
     idempotencyKey: `stale-requests-reminder-${userId}-${dateKey}`,
+    title: "⏰ Requests need attention",
+    to: userId,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
   });
 }
@@ -87,18 +87,18 @@ export async function notifyFeedbackDeadline({
 
   const body = `Feedback for "${eventName}" closes tomorrow — don't miss your chance to share!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Share feedback",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Last chance for feedback",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Share feedback",
   });
   await sendMessage({
-    to: userId,
-    title: "⏰ Last chance for feedback",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `feedback-deadline-${eventId}-${dateKey}`,
+    title: "⏰ Last chance for feedback",
+    to: userId,
     topic: TOPICS.EVENTS_FEEDBACK,
   });
 }
@@ -132,11 +132,11 @@ export async function notifyWhatsAppScanResults({
     0
   );
   log.set({
-    recipientCount: userIds.length,
     deactivatedCount: deactivatedUsers.length,
     reactivatedCount: reactivatedUsers.length,
-    unregisteredCount: totalUnregistered,
+    recipientCount: userIds.length,
     scannedGroups,
+    unregisteredCount: totalUnregistered,
   });
 
   if (userIds.length === 0) {
@@ -192,21 +192,21 @@ export async function notifyWhatsAppScanResults({
   const inboxBody = `${groupList}: ${summaryParts.join(", ")}`;
 
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Manage users",
+    ctaUrl: `${env.APP_URL}/users`,
     heading: "WhatsApp scan results",
     paragraphs: parts,
-    ctaUrl: `${env.APP_URL}/users`,
-    ctaLabel: "Manage users",
   });
 
   await sendBulkMessage({
-    userIds,
-    title: "📊 WhatsApp scan results",
     body,
-    emailHtml,
     clickAction: "/users",
+    emailHtml,
     idempotencyKey: `whatsapp-scan-${dateKey}`,
     inboxBody,
+    title: "📊 WhatsApp scan results",
     topic: TOPICS.ACCOUNT,
+    userIds,
   });
 
   log.set({ event: "notification_sent" });
@@ -253,21 +253,21 @@ export async function notifyR2CleanupResults({
   const body = parts.join("\n\n");
 
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View jobs",
+    ctaUrl: `${env.APP_URL}/jobs?queue=cleanup-r2-orphans`,
     heading: "R2 cleanup results",
     paragraphs: parts,
-    ctaUrl: `${env.APP_URL}/jobs?queue=cleanup-r2-orphans`,
-    ctaLabel: "View jobs",
   });
 
   await sendBulkMessage({
-    userIds,
-    title: "🗑️ R2 cleanup results",
     body,
-    emailHtml,
     clickAction: "/jobs?queue=cleanup-r2-orphans",
+    emailHtml,
     idempotencyKey: `r2-cleanup-${dateKey}`,
     inboxBody: `${orphanCount} orphaned files found, ${deletedKeys.length} deleted`,
+    title: "🗑️ R2 cleanup results",
     topic: TOPICS.ACCOUNT,
+    userIds,
   });
 }
 
@@ -284,19 +284,19 @@ export async function notifyPhotoApprovalReminder({
 
   const body = `${pendingCount} photos across ${eventCount} events are waiting for your review.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Review photos",
+    ctaUrl: `${env.APP_URL}/events`,
     heading: "Photos need review",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events`,
-    ctaLabel: "Review photos",
   });
   await sendBulkMessage({
-    userIds,
-    title: "👀 Photos need review",
     body,
-    emailHtml,
     clickAction: "/events",
+    emailHtml,
     idempotencyKey: `photo-approval-reminder-${dateKey}`,
+    title: "👀 Photos need review",
     topic: TOPICS.EVENTS_PHOTOS,
+    userIds,
   });
 }
 
@@ -323,18 +323,18 @@ export async function notifyEventReminder({
   const when = formatEventTime(startTime);
   const body = `"${eventName}" starts in ${label} (${when}).${location ? ` Location: ${location}` : ""}`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Coming up!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: userId,
-    title: "⏰ Coming up!",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-reminder-${eventId}-${intervalMinutes}-${userId}`,
+    title: "⏰ Coming up!",
+    to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
@@ -391,18 +391,18 @@ export async function notifyFeedbackNudge({
 }: FeedbackNudgeOptions): Promise<void> {
   const body = `How was "${eventName}"? Share your thoughts while it's still fresh!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Share feedback",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "How was it?",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Share feedback",
   });
   await sendMessage({
-    to: userId,
-    title: "💬 How was it?",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `feedback-nudge-${eventId}-${userId}`,
+    title: "💬 How was it?",
+    to: userId,
     topic: TOPICS.EVENTS_FEEDBACK,
   });
 }
@@ -420,18 +420,18 @@ export async function notifyAttendanceNotMarked({
 }: AttendanceNotMarkedOptions): Promise<void> {
   const body = `Attendance for "${eventName}" hasn't been marked yet — could you update it?`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Mark attendance",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Attendance reminder",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Mark attendance",
   });
   await sendMessage({
-    to: userId,
-    title: "📋 Attendance reminder",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `attendance-reminder-${eventId}-${userId}`,
+    title: "📋 Attendance reminder",
+    to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
@@ -452,18 +452,18 @@ export async function notifyPhotoUploadNudge({
   }
   const body = `Got any photos from "${eventName}"? Upload them so the team can see!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Share photos",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Got pics?",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Share photos",
   });
   await sendBulkMessage({
-    userIds,
-    title: "📸 Got pics?",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `photo-nudge-${eventId}`,
+    title: "📸 Got pics?",
     topic: TOPICS.EVENTS_PHOTOS,
+    userIds,
   });
 }

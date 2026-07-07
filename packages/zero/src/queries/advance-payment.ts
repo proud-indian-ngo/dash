@@ -14,6 +14,13 @@ function withRelated(q: typeof zql.advancePayment) {
 }
 
 export const advancePaymentQueries = {
+  all: defineQuery(({ ctx }) =>
+    ctx !== null && can(ctx, "requests.view_all")
+      ? withRelated(zql.advancePayment).orderBy("createdAt", "desc")
+      : withRelated(zql.advancePayment)
+          .where("userId", ctx?.userId)
+          .orderBy("createdAt", "desc")
+  ),
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.advancePayment)
       .where("userId", ctx?.userId)
@@ -24,18 +31,11 @@ export const advancePaymentQueries = {
       id: z.string(),
     }),
     ({ args: { id }, ctx }) =>
-      ctx != null && can(ctx, "requests.view_all")
+      ctx !== null && can(ctx, "requests.view_all")
         ? withRelated(zql.advancePayment).where("id", id).one()
         : withRelated(zql.advancePayment)
             .where("id", id)
             .where("userId", ctx?.userId)
             .one()
-  ),
-  all: defineQuery(({ ctx }) =>
-    ctx != null && can(ctx, "requests.view_all")
-      ? withRelated(zql.advancePayment).orderBy("createdAt", "desc")
-      : withRelated(zql.advancePayment)
-          .where("userId", ctx?.userId)
-          .orderBy("createdAt", "desc")
   ),
 };

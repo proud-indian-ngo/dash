@@ -38,29 +38,33 @@ function EventMemberRow({
     const next = member.attendance === status ? null : status;
     const result = zero.mutate(
       mutators.teamEvent.markAttendance({
+        attendance: next,
         eventId,
         memberId: member.id,
-        attendance: next,
         now: Date.now(),
       })
     );
     result.server
-      .then((res) =>
+      .then((res: any) =>
         handleMutationResult(res, {
-          mutation: "teamEvent.markAttendance",
           entityId: member.id,
           errorMsg: "Failed to update attendance",
+          mutation: "teamEvent.markAttendance",
         })
       )
-      .catch((e) =>
+      .catch((e: any) =>
         log.error({
-          component: "EventMembersSection",
           action: "markAttendance",
+          component: "EventMembersSection",
           entityId: member.id,
           error: e instanceof Error ? e.message : String(e),
         })
       );
   }
+
+  const markAllPresent = () => toggleAttendance("present");
+  const stableOnClick1 = () => toggleAttendance("absent");
+  const stableOnClick2 = () => onRemove(member.id);
 
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
@@ -98,7 +102,7 @@ function EventMemberRow({
                 ? "bg-success/10 text-success hover:bg-success/20"
                 : ""
             }
-            onClick={() => toggleAttendance("present")}
+            onClick={markAllPresent}
             size="icon"
             variant={member.attendance === "present" ? "secondary" : "ghost"}
           >
@@ -110,7 +114,7 @@ function EventMemberRow({
           </Button>
           <Button
             aria-label={`Mark ${displayName} absent`}
-            onClick={() => toggleAttendance("absent")}
+            onClick={stableOnClick1}
             size="icon"
             variant={member.attendance === "absent" ? "destructive" : "ghost"}
           >
@@ -125,7 +129,7 @@ function EventMemberRow({
       {canManage ? (
         <Button
           aria-label={`Remove ${displayName}`}
-          onClick={() => onRemove(member.id)}
+          onClick={stableOnClick2}
           size="icon"
           variant="ghost"
         >
@@ -152,7 +156,9 @@ export function EventMembersSection({
   onRemoveMember: (id: string) => void;
 }) {
   const zero = useZero();
-  const presentCount = members.filter((m) => m.attendance === "present").length;
+  const presentCount = members.filter(
+    (m: any) => m.attendance === "present"
+  ).length;
 
   function markAllPresent() {
     const result = zero.mutate(
@@ -162,18 +168,18 @@ export function EventMembersSection({
       })
     );
     result.server
-      .then((res) =>
+      .then((res: any) =>
         handleMutationResult(res, {
-          mutation: "teamEvent.markAllPresent",
           entityId: eventId,
-          successMsg: "All marked present",
           errorMsg: "Failed to mark attendance",
+          mutation: "teamEvent.markAllPresent",
+          successMsg: "All marked present",
         })
       )
-      .catch((e) =>
+      .catch((e: any) =>
         log.error({
-          component: "EventMembersSection",
           action: "markAllPresent",
+          component: "EventMembersSection",
           entityId: eventId,
           error: e instanceof Error ? e.message : String(e),
         })
@@ -213,7 +219,7 @@ export function EventMembersSection({
       </div>
 
       <div className="flex flex-col gap-2">
-        {members.map((member) => (
+        {members.map((member: any) => (
           <EventMemberRow
             canManage={canManage}
             canMarkAttendance={canMarkAttendance}

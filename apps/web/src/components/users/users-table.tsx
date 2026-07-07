@@ -106,6 +106,25 @@ function UserActionsMenu({
   const { data: session } = authClient.useSession();
   const isSelf = user.id === (session?.user?.id ?? "");
   const isBanned = Boolean(user.banned);
+  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick1 = () => {
+    onOpenForm("edit");
+  };
+  const stableOnClick2 = () => {
+    onOpenForm("password");
+  };
+  const stableOnClick3 = () => {
+    onOpenForm("notifications");
+  };
+  const stableOnClick4 = async () => {
+    await onUnbanUser();
+  };
+  const stableOnClick5 = () => {
+    onOpenForm("ban");
+  };
+  const stableOnClick6 = () => {
+    onOpenForm("delete");
+  };
 
   return (
     <DropdownMenu>
@@ -115,7 +134,7 @@ function UserActionsMenu({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
-            onClick={(e) => e.stopPropagation()}
+            onClick={stableOnClick0}
             size="icon"
             type="button"
             variant="ghost"
@@ -129,42 +148,24 @@ function UserActionsMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem
-          onClick={() => {
-            onOpenForm("edit");
-          }}
-        >
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            onOpenForm("password");
-          }}
-        >
+        <DropdownMenuItem onClick={stableOnClick1}>Edit</DropdownMenuItem>
+        <DropdownMenuItem onClick={stableOnClick2}>
           Reset password
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            onOpenForm("notifications");
-          }}
-        >
+        <DropdownMenuItem onClick={stableOnClick3}>
           Notifications
         </DropdownMenuItem>
         {isBanned ? (
           <DropdownMenuItem
             disabled={isSelf || isBanning}
-            onClick={async () => {
-              await onUnbanUser();
-            }}
+            onClick={stableOnClick4}
           >
             {isBanning ? "Unbanning..." : "Unban user"}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
             disabled={isSelf || isBanning}
-            onClick={() => {
-              onOpenForm("ban");
-            }}
+            onClick={stableOnClick5}
           >
             Ban user
           </DropdownMenuItem>
@@ -172,9 +173,7 @@ function UserActionsMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={isSelf || isDeleting}
-          onClick={() => {
-            onOpenForm("delete");
-          }}
+          onClick={stableOnClick6}
           variant="destructive"
         >
           Delete
@@ -282,16 +281,52 @@ function UserRowActionDialogs({
     activeRowForm?.userId === user.id && activeRowForm.kind === "ban";
   const isNotificationsOpen =
     activeRowForm?.userId === user.id && activeRowForm.kind === "notifications";
+  const stableOnOpenChange7 = (open: any) => {
+    if (!open) {
+      onCloseForm("edit");
+    }
+  };
+  const stableOnCancel8 = () => onCloseForm("edit");
+  const stableOnSubmit9 = async (value: any) => {
+    await onUpdateUser(value);
+    onCloseForm("edit");
+  };
+  const stableOnOpenChange10 = (open: any) => {
+    if (!open) {
+      onCloseForm("password");
+    }
+  };
+  const stableOnCancel11 = () => onCloseForm("password");
+  const stableOnSubmit12 = async (value: any) => {
+    await onSetPassword(value.userId, value.newPassword);
+    onCloseForm("password");
+  };
+  const stableOnOpenChange13 = (open: any) => {
+    if (!open) {
+      onCloseForm("ban");
+    }
+  };
+  const stableOnCancel14 = () => onCloseForm("ban");
+  const stableOnSubmit15 = async (value: any) => {
+    await onBanUser(value.userId, value.banReason ?? "", value.banExpires);
+    onCloseForm("ban");
+  };
+  const stableOnOpenChange16 = (open: any) => {
+    if (!open) {
+      onCloseForm("notifications");
+    }
+  };
+  const stableOnOpenChange17 = (open: boolean) => {
+    if (!open) {
+      onCloseForm("delete");
+    }
+  };
 
   return (
     <>
       <FormModal
         description="Update user profile details, status flags, and role."
-        onOpenChange={(open) => {
-          if (!open) {
-            onCloseForm("edit");
-          }
-        }}
+        onOpenChange={stableOnOpenChange7}
         open={isEditOpen}
         title={`Edit ${user.name}`}
       >
@@ -300,11 +335,8 @@ function UserRowActionDialogs({
             initialValues={toEditUserFormValues(user)}
             key={`edit-${user.id}`}
             mode="edit"
-            onCancel={() => onCloseForm("edit")}
-            onSubmit={async (value) => {
-              await onUpdateUser(value);
-              onCloseForm("edit");
-            }}
+            onCancel={stableOnCancel8}
+            onSubmit={stableOnSubmit9}
             roleOptions={roleOptions}
           />
         ) : null}
@@ -312,22 +344,15 @@ function UserRowActionDialogs({
 
       <FormModal
         description="Set a new password without changing profile details."
-        onOpenChange={(open) => {
-          if (!open) {
-            onCloseForm("password");
-          }
-        }}
+        onOpenChange={stableOnOpenChange10}
         open={isPasswordOpen}
         title={`Reset Password: ${user.name}`}
       >
         {isPasswordOpen ? (
           <PasswordForm
             key={`password-${user.id}`}
-            onCancel={() => onCloseForm("password")}
-            onSubmit={async (value) => {
-              await onSetPassword(value.userId, value.newPassword);
-              onCloseForm("password");
-            }}
+            onCancel={stableOnCancel11}
+            onSubmit={stableOnSubmit12}
             user={user}
           />
         ) : null}
@@ -335,26 +360,15 @@ function UserRowActionDialogs({
 
       <FormModal
         description="Ban this user as a separate admin action."
-        onOpenChange={(open) => {
-          if (!open) {
-            onCloseForm("ban");
-          }
-        }}
+        onOpenChange={stableOnOpenChange13}
         open={isBanOpen}
         title={`Ban ${user.name}`}
       >
         {isBanOpen ? (
           <BanUserForm
             key={`ban-${user.id}`}
-            onCancel={() => onCloseForm("ban")}
-            onSubmit={async (value) => {
-              await onBanUser(
-                value.userId,
-                value.banReason ?? "",
-                value.banExpires
-              );
-              onCloseForm("ban");
-            }}
+            onCancel={stableOnCancel14}
+            onSubmit={stableOnSubmit15}
             user={user}
           />
         ) : null}
@@ -362,11 +376,7 @@ function UserRowActionDialogs({
 
       <FormModal
         description="View and update notification preferences for this user."
-        onOpenChange={(open) => {
-          if (!open) {
-            onCloseForm("notifications");
-          }
-        }}
+        onOpenChange={stableOnOpenChange16}
         open={isNotificationsOpen}
         title={`Notifications: ${user.name}`}
       >
@@ -384,11 +394,7 @@ function UserRowActionDialogs({
         loading={isDeleting}
         loadingLabel="Deleting..."
         onConfirm={onDelete}
-        onOpenChange={(open: boolean) => {
-          if (!open) {
-            onCloseForm("delete");
-          }
-        }}
+        onOpenChange={stableOnOpenChange17}
         open={isDeleteOpen && !isSelf}
         title="Delete user"
       />
@@ -414,22 +420,25 @@ export function UsersTable({
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
 
   const handleFilteredDataChange = (filtered: User[]) => {
-    if (activeRowForm && !filtered.some((u) => u.id === activeRowForm.userId)) {
+    if (
+      activeRowForm &&
+      !filtered.some((u: any) => u.id === activeRowForm.userId)
+    ) {
       setActiveRowForm(null);
     }
   };
 
-  const columns = createUserColumns((user) => (
+  const columns = createUserColumns((user: any) => (
     <UserRowActions
       activeRowForm={activeRowForm}
       onBanUser={onBanUser}
-      onCloseForm={(kind) => {
-        setActiveRowForm((current) =>
+      onCloseForm={(kind: any) => {
+        setActiveRowForm((current: any) =>
           current?.kind === kind && current.userId === user.id ? null : current
         );
       }}
       onDelete={onDelete}
-      onOpenForm={(kind) => {
+      onOpenForm={(kind: any) => {
         setActiveRowForm({
           kind,
           userId: user.id,
@@ -442,6 +451,8 @@ export function UsersTable({
       user={user}
     />
   ));
+  const stableGetRowId18 = (user: any) => user.id;
+  const stableOnFilteredDataChange8 = handleFilteredDataChange;
 
   return (
     <DataTableWrapper<User>
@@ -449,22 +460,22 @@ export function UsersTable({
       data={users}
       defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
       emptyMessage="No users found."
-      getRowId={(user) => user.id}
+      getRowId={stableGetRowId18}
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       onClearFilters={onClearFilters}
-      onFilteredDataChange={handleFilteredDataChange}
+      onFilteredDataChange={stableOnFilteredDataChange8}
       onRowClick={onRowClick}
       paginationSizes={[10, 20, 50]}
       searchFn={searchUser}
       searchPlaceholder="Search users..."
       storageKey="users_table_state_v1"
       tableLayout={{
-        columnsMovable: true,
-        columnsResizable: true,
         columnsDraggable: true,
-        columnsVisibility: true,
+        columnsMovable: true,
         columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
       toolbarFilters={toolbarFilters}

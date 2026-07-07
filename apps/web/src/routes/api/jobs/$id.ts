@@ -45,7 +45,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
             startAfter: string;
           }>(
             sql`SELECT id, name, data, output, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
-              QUEUE_NAMES.map((n) => sql`${n}`),
+              QUEUE_NAMES.map((n: any) => sql`${n}`),
               sql`, `
             )}) LIMIT 1`
           );
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
             method: "GET",
             path: `/api/jobs/${id}`,
           });
-          log.set({ userId: session.user.id, jobId: id });
+          log.set({ jobId: id, userId: session.user.id });
           log.error(err instanceof Error ? err : String(err));
           log.emit();
           return Response.json(

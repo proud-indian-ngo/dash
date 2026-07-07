@@ -27,20 +27,20 @@ export async function notifyUserWelcome({
   name,
 }: WelcomeOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Let's go",
+    ctaUrl: `${env.APP_URL}/`,
     heading: "Welcome aboard!",
     paragraphs: [
       `Hey ${name}, welcome to the team! Your account is all set up and ready to go.`,
     ],
-    ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Let's go",
   });
   await sendMessage({
-    to: userId,
-    title: "🎉 Welcome aboard!",
     body: `Hey ${name}, welcome to the team! Your account is all set up and ready to go.`,
-    emailHtml,
     clickAction: "/",
+    emailHtml,
     idempotencyKey: `user-welcome-${userId}`,
+    title: "🎉 Welcome aboard!",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -50,18 +50,18 @@ export async function notifyRoleChanged({
   newRole,
 }: RoleChangedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Let's go",
+    ctaUrl: `${env.APP_URL}/`,
     heading: "New role for you",
     paragraphs: [`Heads up — you're now a ${newRole}!`],
-    ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Let's go",
   });
   await sendMessage({
-    to: userId,
-    title: "🔑 New role for you",
     body: `Heads up — you're now a ${newRole}!`,
-    emailHtml,
     clickAction: "/",
+    emailHtml,
     idempotencyKey: `role-changed-${userId}-${newRole}`,
+    title: "🔑 New role for you",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -78,11 +78,11 @@ export async function notifyUserBanned({
     paragraphs: [body],
   });
   await sendMessage({
-    to: userId,
-    title: "⚠️ Account suspended",
     body,
     emailHtml,
     idempotencyKey: `user-banned-${userId}`,
+    title: "⚠️ Account suspended",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -91,20 +91,20 @@ export async function notifyUserUnbanned({
   userId,
 }: UnbannedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Jump back in",
+    ctaUrl: `${env.APP_URL}/`,
     heading: "Welcome back!",
     paragraphs: [
       "Great news — your account is back! Jump in whenever you're ready.",
     ],
-    ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Jump back in",
   });
   await sendMessage({
-    to: userId,
-    title: "🎉 Welcome back!",
     body: "Great news — your account is back! Jump in whenever you're ready.",
-    emailHtml,
     clickAction: "/",
+    emailHtml,
     idempotencyKey: `user-unbanned-${userId}`,
+    title: "🎉 Welcome back!",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -135,11 +135,11 @@ export async function notifyPasswordReset({
     ],
   });
   await sendMessage({
-    to: userId,
-    title: "🔒 Password reset",
     body: "Your password was reset by an admin. If this wasn't you, reach out to your admin right away.",
     emailHtml,
     idempotencyKey: `password-reset-admin-${userId}`,
+    title: "🔒 Password reset",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -154,11 +154,11 @@ export async function notifyUserDeactivated({
     ],
   });
   await sendMessage({
-    to: userId,
-    title: "⚠️ Account deactivated",
     body: "Your account has been deactivated. Reach out to your admin if you have questions.",
     emailHtml,
     idempotencyKey: `user-deactivated-${userId}`,
+    title: "⚠️ Account deactivated",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -173,11 +173,11 @@ export async function notifyUserDeleted({
     ],
   });
   await sendMessage({
-    to: userId,
-    title: "⚠️ Account deleted",
     body: "Your account is being removed by an admin. All your data will be deleted.",
     emailHtml,
     idempotencyKey: `user-deleted-${userId}`,
+    title: "⚠️ Account deleted",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }
@@ -186,18 +186,18 @@ export async function notifyUserReactivated({
   userId,
 }: UserReactivatedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Jump back in",
+    ctaUrl: `${env.APP_URL}/`,
     heading: "You're back!",
     paragraphs: ["Your account is active again — welcome back!"],
-    ctaUrl: `${env.APP_URL}/`,
-    ctaLabel: "Jump back in",
   });
   await sendMessage({
-    to: userId,
-    title: "🎉 You're back!",
     body: "Your account is active again — welcome back!",
-    emailHtml,
     clickAction: "/",
+    emailHtml,
     idempotencyKey: `user-reactivated-${userId}`,
+    title: "🎉 You're back!",
+    to: userId,
     topic: TOPICS.ACCOUNT,
   });
 }

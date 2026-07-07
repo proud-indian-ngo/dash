@@ -81,7 +81,7 @@ test.describe("Vendor payment workflow (admin)", () => {
       .getByPlaceholder("Paste URL and press Enter")
       .fill("https://example.com/invoice-e2e.pdf");
     await invoiceDialog
-      .getByRole("button", { name: "Add", exact: true })
+      .getByRole("button", { exact: true, name: "Add" })
       .click();
     await invoiceDialog.getByRole("button", { name: "Submit Invoice" }).click();
     await expect(invoiceDialog).toBeHidden({ timeout: 10_000 });
@@ -122,7 +122,7 @@ test.describe("Vendor payment workflow (admin)", () => {
       .getByPlaceholder("Paste URL and press Enter")
       .fill("https://example.com/wrong-invoice.pdf");
     await invoiceDialog
-      .getByRole("button", { name: "Add", exact: true })
+      .getByRole("button", { exact: true, name: "Add" })
       .click();
     await invoiceDialog.getByRole("button", { name: "Submit Invoice" }).click();
     await expect(invoiceDialog).toBeHidden({ timeout: 10_000 });

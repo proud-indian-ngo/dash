@@ -7,19 +7,19 @@ import { AuthLayout } from "@/components/login/auth-layout";
 import { ResetPasswordForm } from "@/components/login/reset-password-form";
 
 export const Route = createFileRoute("/_auth/reset-password")({
-  head: () => ({
-    meta: [{ title: `Reset Password | ${env.VITE_APP_NAME}` }],
-  }),
-  validateSearch: z.object({
-    token: z.string().optional(),
-    error: z.string().optional(),
-  }),
   beforeLoad: ({ search }) => {
     if (!(search.token || search.error)) {
       throw redirect({ to: "/forgot-password" });
     }
   },
   component: RouteComponent,
+  head: () => ({
+    meta: [{ title: `Reset Password | ${env.VITE_APP_NAME}` }],
+  }),
+  validateSearch: z.object({
+    error: z.string().optional(),
+    token: z.string().optional(),
+  }),
 });
 
 function RouteComponent() {

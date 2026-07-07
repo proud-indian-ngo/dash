@@ -30,60 +30,59 @@ const LazyDevTools = import.meta.env.DEV
   : () => null;
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  component: RootDocument,
   // Typically we don't need the user immediately in landing pages.
   // For protected routes with loader data, see /_app.tsx
   head: () => ({
+    links: import.meta.env.DEV
+      ? []
+      : [
+          {
+            href: appCss,
+            rel: "stylesheet",
+          },
+          {
+            href: "/favicon-96x96.png",
+            rel: "icon",
+            sizes: "96x96",
+            type: "image/png",
+          },
+          {
+            href: "/favicon.svg",
+            rel: "icon",
+            type: "image/svg+xml",
+          },
+          {
+            href: "/favicon.ico",
+            rel: "shortcut icon",
+          },
+          {
+            href: "/apple-touch-icon.png",
+            rel: "apple-touch-icon",
+            sizes: "180x180",
+          },
+          {
+            href: "/site.webmanifest",
+            rel: "manifest",
+          },
+        ],
     meta: [
       {
         charSet: "utf-8",
       },
       {
-        name: "viewport",
         content: "width=device-width, initial-scale=1",
+        name: "viewport",
       },
       {
         title: env.VITE_APP_NAME,
       },
       {
-        name: "apple-mobile-web-app-title",
         content: env.VITE_APP_NAME,
+        name: "apple-mobile-web-app-title",
       },
     ],
-    links: import.meta.env.DEV
-      ? []
-      : [
-          {
-            rel: "stylesheet",
-            href: appCss,
-          },
-          {
-            rel: "icon",
-            type: "image/png",
-            href: "/favicon-96x96.png",
-            sizes: "96x96",
-          },
-          {
-            rel: "icon",
-            type: "image/svg+xml",
-            href: "/favicon.svg",
-          },
-          {
-            rel: "shortcut icon",
-            href: "/favicon.ico",
-          },
-          {
-            rel: "apple-touch-icon",
-            sizes: "180x180",
-            href: "/apple-touch-icon.png",
-          },
-          {
-            rel: "manifest",
-            href: "/site.webmanifest",
-          },
-        ],
   }),
-
-  component: RootDocument,
 });
 
 function RootDocument() {
@@ -92,19 +91,24 @@ function RootDocument() {
       .then(({ initClientLogger }) => initClientLogger())
       .catch(() => {
         // Non-critical
+        void 0;
       });
     import("@/lib/posthog")
       .then(({ initPostHog }) => initPostHog())
       .catch(() => {
         // Non-critical
+        void 0;
       });
   }, []);
 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {import.meta.env.DEV && !import.meta.env.VITE_E2E && (
-          <script src="https://unpkg.com/react-scan@0.4.3/dist/auto.global.js" />
+        {Boolean(import.meta.env.DEV && !import.meta.env.VITE_E2E) && (
+          <script
+            async
+            src="https://unpkg.com/react-scan@0.4.3/dist/auto.global.js"
+          />
         )}
         <HeadContent />
       </head>
@@ -134,12 +138,14 @@ function RootDocument() {
             </TooltipProvider>
           </AppErrorBoundary>
         </ThemeProvider>
-        {import.meta.env.DEV && (
+        {Boolean(import.meta.env.DEV) && (
           <Suspense>
             <LazyDevTools />
           </Suspense>
         )}
-        {import.meta.env.DEV && !import.meta.env.VITE_E2E && <Agentation />}
+        {Boolean(import.meta.env.DEV && !import.meta.env.VITE_E2E) && (
+          <Agentation />
+        )}
         <Scripts />
       </body>
     </html>

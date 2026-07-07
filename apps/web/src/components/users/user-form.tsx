@@ -48,19 +48,17 @@ export type CreateUserFormValues = z.infer<typeof createUserFormSchema>;
 export type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 type UserFormValues = CreateUserFormValues | EditUserFormValues;
 
-export const toEditUserFormValues = (user: User): EditUserFormValues => {
-  return {
-    dob: user.dob == null ? undefined : new Date(user.dob),
-    email: user.email,
-    emailVerified: Boolean(user.emailVerified),
-    gender: user.gender ?? "male",
-    isActive: user.isActive ?? true,
-    name: user.name,
-    phone: user.phone ?? "",
-    role: user.role ?? "volunteer",
-    userId: user.id,
-  };
-};
+export const toEditUserFormValues = (user: User): EditUserFormValues => ({
+  dob: user.dob === null ? undefined : new Date(user.dob),
+  email: user.email,
+  emailVerified: Boolean(user.emailVerified),
+  gender: user.gender ?? "male",
+  isActive: user.isActive ?? true,
+  name: user.name,
+  phone: user.phone ?? "",
+  role: user.role ?? "volunteer",
+  userId: user.id,
+});
 
 type CreateUserFormDefaults = Omit<CreateUserFormValues, "gender"> & {
   gender: "male" | "female" | undefined;

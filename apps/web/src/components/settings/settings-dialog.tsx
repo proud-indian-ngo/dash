@@ -60,60 +60,60 @@ interface NavItem {
 
 const NAV_ITEMS_BASE: NavItem[] = [
   {
+    icon: Settings01Icon,
     id: "general",
     label: "General",
-    icon: Settings01Icon,
     permission: "settings.app_config",
   },
   {
+    icon: UserIcon,
     id: "profile",
     label: "Profile",
-    icon: UserIcon,
   },
   {
+    icon: ShieldIcon,
     id: "account",
     label: "Account",
-    icon: ShieldIcon,
   },
   {
+    icon: NotificationIcon,
     id: "notifications",
     label: "Notifications",
-    icon: NotificationIcon,
   },
   {
+    icon: BankIcon,
     id: "banking",
     label: "Banking",
-    icon: BankIcon,
   },
   {
+    icon: Tag01Icon,
     id: "expense-categories",
     label: "Expense Categories",
-    icon: Tag01Icon,
     permission: "settings.expense_categories",
   },
   {
+    icon: SmartPhone01Icon,
     id: "whatsapp-groups",
     label: "WhatsApp Groups",
-    icon: SmartPhone01Icon,
     permission: "settings.whatsapp_groups",
   },
   {
+    icon: CommandIcon,
     id: "admin-actions",
     label: "Admin Actions",
-    icon: CommandIcon,
     permission: "jobs.manage",
   },
 ];
 
 const SECTION_CONTENT: Record<Section, React.ReactNode> = {
-  general: <GeneralSection />,
-  profile: <ProfileSection />,
   account: <AccountSection />,
-  notifications: <NotificationsSection />,
+  "admin-actions": <AdminActionsSection />,
   banking: <BankingSection />,
   "expense-categories": <ExpenseCategoriesSection />,
+  general: <GeneralSection />,
+  notifications: <NotificationsSection />,
+  profile: <ProfileSection />,
   "whatsapp-groups": <WhatsAppGroupsSection />,
-  "admin-actions": <AdminActionsSection />,
 };
 
 export function SettingsDialog() {
@@ -126,11 +126,12 @@ export function SettingsDialog() {
   } = useApp();
 
   const navItems = NAV_ITEMS_BASE.filter(
-    (item) => !item.permission || hasPermission(item.permission)
+    (item: any) => !item.permission || hasPermission(item.permission)
   );
 
   const activeLabel =
-    navItems.find((item) => item.id === settingsSection)?.label ?? "";
+    navItems.find((item: any) => item.id === settingsSection)?.label ?? "";
+  const stableOnValueChange0 = (v: any) => setSettingsSection(v as Section);
 
   return (
     <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
@@ -148,7 +149,7 @@ export function SettingsDialog() {
               <SidebarGroup>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {navItems.map((item) => (
+                    {navItems.map((item: any) => (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton
                           aria-current={
@@ -171,14 +172,14 @@ export function SettingsDialog() {
             <header className="flex shrink-0 flex-col gap-2 px-4 pt-4">
               <div className="md:hidden">
                 <Select
-                  onValueChange={(v) => setSettingsSection(v as Section)}
+                  onValueChange={stableOnValueChange0}
                   value={settingsSection}
                 >
                   <SelectTrigger aria-label="Settings section">
                     <SelectValue>{activeLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {navItems.map((item) => (
+                    {navItems.map((item: any) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.label}
                       </SelectItem>

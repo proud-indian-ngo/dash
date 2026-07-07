@@ -119,7 +119,7 @@ function EventFeedbackAdmin({
           No feedback submitted yet.
         </p>
       ) : (
-        feedback.map((item, index) => {
+        feedback.map((item: any, index: any) => {
           const isEdited = item.updatedAt !== item.createdAt;
           return (
             <div className="rounded-lg border p-4" key={item.id}>
@@ -170,9 +170,9 @@ async function fetchFeedbackForEvent(
     return null;
   }
   return {
-    id: result.id,
     content: result.content,
     createdAt: new Date(result.createdAt).getTime(),
+    id: result.id,
     updatedAt: new Date(result.updatedAt).getTime(),
   };
 }
@@ -197,18 +197,18 @@ function EventFeedbackParticipant({
   useEffect(() => {
     let cancelled = false;
     fetchFeedbackForEvent(eventId)
-      .then((result) => {
+      .then((result: any) => {
         if (!cancelled) {
           setMyFeedback(result);
         }
       })
-      .catch((err) => {
+      .catch((err: any) => {
         if (!cancelled) {
           log.error({
-            component: "EventFeedbackParticipant",
             action: "fetchMyFeedback",
-            eventId,
+            component: "EventFeedbackParticipant",
             error: err instanceof Error ? err.message : String(err),
+            eventId,
           });
         }
       })
@@ -230,33 +230,33 @@ function EventFeedbackParticipant({
       const now = Date.now();
       const res = await zero.mutate(
         mutators.eventFeedback.submit({
-          feedbackId,
-          submissionId,
-          eventId,
           content,
+          eventId,
+          feedbackId,
           now,
+          submissionId,
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "eventFeedback.submit",
         entityId: feedbackId,
-        successMsg: "Feedback submitted",
         errorMsg: "Failed to submit feedback",
+        mutation: "eventFeedback.submit",
+        successMsg: "Feedback submitted",
       });
       if (res.type !== "error") {
         setMyFeedback({
-          id: feedbackId,
           content,
           createdAt: now,
+          id: feedbackId,
           updatedAt: now,
         });
       }
     } catch (err) {
       log.error({
-        component: "EventFeedbackParticipant",
         action: "submit",
-        eventId,
+        component: "EventFeedbackParticipant",
         error: err instanceof Error ? err.message : String(err),
+        eventId,
       });
     } finally {
       setSaving(false);
@@ -271,17 +271,17 @@ function EventFeedbackParticipant({
     try {
       const res = await zero.mutate(
         mutators.eventFeedback.update({
-          feedbackId: myFeedback.id,
-          eventId,
           content,
+          eventId,
+          feedbackId: myFeedback.id,
           now: Date.now(),
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "eventFeedback.update",
         entityId: myFeedback.id,
-        successMsg: "Feedback updated",
         errorMsg: "Failed to update feedback",
+        mutation: "eventFeedback.update",
+        successMsg: "Feedback updated",
       });
       if (res.type !== "error") {
         const now = Date.now();
@@ -294,15 +294,17 @@ function EventFeedbackParticipant({
       }
     } catch (err) {
       log.error({
-        component: "EventFeedbackParticipant",
         action: "update",
-        eventId,
+        component: "EventFeedbackParticipant",
         error: err instanceof Error ? err.message : String(err),
+        eventId,
       });
     } finally {
       setSaving(false);
     }
   };
+  const stableOnClick0 = () => setEditing(true);
+  const stableOnCancel1 = () => setEditing(false);
 
   if (loading) {
     return (
@@ -323,14 +325,13 @@ function EventFeedbackParticipant({
     }
     return <FeedbackCard feedback={myFeedback} />;
   }
-
   // Has existing feedback — view or edit
   if (myFeedback && !editing) {
     return (
       <div className="flex flex-col gap-4">
         <FeedbackCard feedback={myFeedback} />
         <div>
-          <Button onClick={() => setEditing(true)} size="sm" variant="outline">
+          <Button onClick={stableOnClick0} size="sm" variant="outline">
             Edit
           </Button>
         </div>
@@ -346,7 +347,7 @@ function EventFeedbackParticipant({
           content={myFeedback.content}
           entityId={eventId}
           key={`edit-${myFeedback.id}`}
-          onCancel={() => setEditing(false)}
+          onCancel={stableOnCancel1}
           onSave={handleUpdate}
           saving={saving}
         />

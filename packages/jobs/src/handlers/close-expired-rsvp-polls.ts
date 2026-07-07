@@ -35,6 +35,6 @@ export async function handleCloseExpiredRsvpPolls(
     .set({ closedAt: now })
     .where(inArray(eventRsvpPoll.id, pollIds));
 
-  log.set({ event: "polls_closed", closedCount: pollIds.length });
+  log.set({ closedCount: pollIds.length, event: "polls_closed" });
   log.emit();
 }

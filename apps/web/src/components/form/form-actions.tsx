@@ -33,15 +33,14 @@ export function FormActions({
   submittingLabel = "Submitting...",
 }: FormActionsProps) {
   const resolvedForm = useResolvedForm(form, "FormActions");
+  const stableSelector0 = (state: any) => ({
+    canSubmit: state.canSubmit,
+    isSubmitting: state.isSubmitting,
+  });
 
   return (
-    <resolvedForm.Subscribe
-      selector={(state) => ({
-        canSubmit: state.canSubmit,
-        isSubmitting: state.isSubmitting,
-      })}
-    >
-      {(state) => {
+    <resolvedForm.Subscribe selector={stableSelector0}>
+      {(state: any) => {
         const disableSubmit =
           disabled ||
           (disableWhenInvalid

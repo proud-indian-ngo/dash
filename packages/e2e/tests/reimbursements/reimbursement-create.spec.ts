@@ -66,8 +66,8 @@ test.describe("New reimbursement form", () => {
     await reimbursements.selectExpenseDate();
 
     await reimbursements.form.fillLineItem({
-      description: "Test expense item",
       amount: "500",
+      description: "Test expense item",
     });
 
     await reimbursements.form.submit();

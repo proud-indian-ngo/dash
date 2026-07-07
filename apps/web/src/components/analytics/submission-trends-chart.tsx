@@ -22,17 +22,20 @@ import { formatINR } from "@/lib/form-schemas";
 import type { TrendDataPoint } from "@/lib/stats";
 
 const chartConfig = {
-  count: {
-    label: "Requests",
-    color: "var(--color-brand)",
-  },
   amount: {
-    label: "Amount",
     color: "var(--color-emerald-500)",
+    label: "Amount",
+  },
+  count: {
+    color: "var(--color-brand)",
+    label: "Requests",
   },
 } satisfies ChartConfig;
 
 export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
+  const stableTickFormatter0 = (v: number) => formatINR(v);
+  const stableFormatter1 = (value: unknown, name: unknown) =>
+    name === "amount" ? formatINR(Number(value)) : String(value);
   if (data.length === 0) {
     return (
       <Card>
@@ -45,7 +48,6 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
       </Card>
     );
   }
-
   return (
     <Card>
       <CardHeader>
@@ -72,18 +74,12 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
               axisLine={false}
               fontSize={12}
               orientation="right"
-              tickFormatter={(v: number) => formatINR(v)}
+              tickFormatter={stableTickFormatter0}
               tickLine={false}
               yAxisId="amount"
             />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value, name) =>
-                    name === "amount" ? formatINR(Number(value)) : String(value)
-                  }
-                />
-              }
+              content={<ChartTooltipContent formatter={stableFormatter1} />}
             />
             <Bar
               dataKey="count"

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import z from "zod";
 
 const createSchema = z.object({
-  id: z.string(),
   eventId: z.string(),
+  id: z.string(),
   message: z.string().optional(),
 });
 
@@ -15,8 +15,8 @@ describe("eventInterest mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input with message", () => {
       const result = createSchema.safeParse({
-        id: "uuid-1",
         eventId: "event-1",
+        id: "uuid-1",
         message: "I want to help!",
       });
       expect(result.success).toBe(true);
@@ -24,8 +24,8 @@ describe("eventInterest mutator schemas", () => {
 
     it("accepts valid input without message", () => {
       const result = createSchema.safeParse({
-        id: "uuid-1",
         eventId: "event-1",
+        id: "uuid-1",
       });
       expect(result.success).toBe(true);
     });

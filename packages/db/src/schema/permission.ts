@@ -9,11 +9,11 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const role = pgTable("role", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  isSystem: boolean("is_system").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  description: text("description"),
+  id: text("id").primaryKey(),
+  isSystem: boolean("is_system").default(false).notNull(),
+  name: text("name").notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => new Date())
@@ -21,21 +21,21 @@ export const role = pgTable("role", {
 });
 
 export const permission = pgTable("permission", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
   category: text("category").notNull(),
   description: text("description"),
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
 });
 
 export const rolePermission = pgTable(
   "role_permission",
   {
-    roleId: text("role_id")
-      .notNull()
-      .references(() => role.id, { onDelete: "cascade" }),
     permissionId: text("permission_id")
       .notNull()
       .references(() => permission.id, { onDelete: "cascade" }),
+    roleId: text("role_id")
+      .notNull()
+      .references(() => role.id, { onDelete: "cascade" }),
   },
   (table) => [
     primaryKey({ columns: [table.roleId, table.permissionId] }),
@@ -48,12 +48,12 @@ export const roleRelations = relations(role, ({ many }) => ({
 }));
 
 export const rolePermissionRelations = relations(rolePermission, ({ one }) => ({
-  role: one(role, {
-    fields: [rolePermission.roleId],
-    references: [role.id],
-  }),
   permission: one(permission, {
     fields: [rolePermission.permissionId],
     references: [permission.id],
+  }),
+  role: one(role, {
+    fields: [rolePermission.roleId],
+    references: [role.id],
   }),
 }));

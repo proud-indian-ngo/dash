@@ -69,24 +69,24 @@ export function isReimbursement(row: RequestRow | RequestDetailData): boolean {
 }
 
 export const REQUEST_TYPE_LABELS = {
-  reimbursement: "Reimbursement",
   advance_payment: "Advance Payment",
+  reimbursement: "Reimbursement",
 } satisfies Record<RequestType, string>;
 
 export function normalizeToRequestRows(
   reimbursements: readonly Omit<ReimbursementRequestRow, "type">[],
   advancePayments: readonly Omit<AdvancePaymentRequestRow, "type">[]
 ): RequestRow[] {
-  const reimbursementRows: RequestRow[] = reimbursements.map((r) => ({
+  const reimbursementRows: RequestRow[] = reimbursements.map((r: any) => ({
     ...r,
     type: "reimbursement" as const,
   }));
-  const advancePaymentRows: RequestRow[] = advancePayments.map((ap) => ({
+  const advancePaymentRows: RequestRow[] = advancePayments.map((ap: any) => ({
     ...ap,
     type: "advance_payment" as const,
   }));
 
   return [...reimbursementRows, ...advancePaymentRows].sort(
-    (a, b) => b.createdAt - a.createdAt
+    (a: any, b: any) => b.createdAt - a.createdAt
   );
 }

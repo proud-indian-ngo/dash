@@ -7,9 +7,9 @@ import { zql } from "../schema";
 export const bankAccountMutators = {
   create: defineMutator(
     z.object({
-      id: z.string(),
       accountName: z.string().min(1),
       accountNumber: z.string().min(1),
+      id: z.string(),
       ifscCode: z.string().min(1),
     }),
     async ({ tx, ctx, args }) => {
@@ -18,14 +18,14 @@ export const bankAccountMutators = {
         zql.bankAccount.where("userId", ctx.userId)
       );
       await tx.mutate.bankAccount.insert({
-        id: args.id,
-        userId: ctx.userId,
         accountName: args.accountName,
         accountNumber: args.accountNumber,
+        createdAt: Date.now(),
+        id: args.id,
         ifscCode: args.ifscCode,
         isDefault: existing.length === 0,
-        createdAt: Date.now(),
         updatedAt: Date.now(),
+        userId: ctx.userId,
       });
     }
   ),
@@ -70,15 +70,17 @@ export const bankAccountMutators = {
         throw new Error("Bank account not found");
       }
       // Unset old default(s) first to avoid unique constraint violation
-      for (const acct of accounts) {
-        if (acct.isDefault && acct.id !== args.id) {
-          await tx.mutate.bankAccount.update({
-            id: acct.id,
-            isDefault: false,
-            updatedAt: Date.now(),
-          });
-        }
-      }
+      await Promise.all(
+        accounts.map(async (acct) => {
+          if (acct.isDefault && acct.id !== args.id) {
+            await tx.mutate.bankAccount.update({
+              id: acct.id,
+              isDefault: false,
+              updatedAt: Date.now(),
+            });
+          }
+        })
+      );
       // Then set the new default
       if (!target.isDefault) {
         await tx.mutate.bankAccount.update({

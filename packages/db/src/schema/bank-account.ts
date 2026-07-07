@@ -14,16 +14,16 @@ import { user } from "./auth";
 export const bankAccount = pgTable(
   "bank_account",
   {
+    accountName: text("account_name").notNull(),
+    accountNumber: text("account_number").notNull(),
+    createdAt: timestamp("created_at").notNull(),
     id: uuid("id").primaryKey(),
+    ifscCode: text("ifsc_code").notNull(),
+    isDefault: boolean("is_default").default(false).notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    accountName: text("account_name").notNull(),
-    accountNumber: text("account_number").notNull(),
-    ifscCode: text("ifsc_code").notNull(),
-    isDefault: boolean("is_default").default(false).notNull(),
-    createdAt: timestamp("created_at").notNull(),
-    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
     index("bank_account_userId_idx").on(table.userId),

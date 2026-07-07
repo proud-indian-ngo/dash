@@ -42,7 +42,7 @@ export function ForgotPasswordForm() {
     setCooldown(COOLDOWN_SECONDS);
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setCooldown((prev) => {
+      setCooldown((prev: any) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
           return 0;
@@ -52,9 +52,7 @@ export function ForgotPasswordForm() {
     }, 1000);
   };
 
-  useEffect(() => {
-    return () => clearInterval(timerRef.current);
-  }, []);
+  useEffect(() => () => clearInterval(timerRef.current), []);
 
   const form = useForm({
     defaultValues: {
@@ -67,8 +65,8 @@ export function ForgotPasswordForm() {
       });
       if (error) {
         log.error({
-          component: "ForgotPasswordForm",
           action: "requestPasswordReset",
+          component: "ForgotPasswordForm",
           email: value.email,
           error: error.message || error.statusText,
         });
@@ -97,8 +95,8 @@ export function ForgotPasswordForm() {
     });
     if (error) {
       log.error({
-        component: "ForgotPasswordForm",
         action: "resendPasswordReset",
+        component: "ForgotPasswordForm",
         email: sentEmail,
         error: error.message || error.statusText,
       });

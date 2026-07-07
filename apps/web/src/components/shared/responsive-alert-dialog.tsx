@@ -22,11 +22,10 @@ export function AlertDialog({
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
 }) {
+  const stableOnOpenChange0 = (nextOpen: any) => onOpenChange?.(nextOpen);
+
   return (
-    <DesktopAlertDialog
-      onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}
-      open={open}
-    >
+    <DesktopAlertDialog onOpenChange={stableOnOpenChange0} open={open}>
       {children}
     </DesktopAlertDialog>
   );

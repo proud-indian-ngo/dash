@@ -6,6 +6,7 @@ import { EventsCalendarView } from "@/components/events/events-calendar-view";
 import type { PublicEventRow } from "@/components/events/public-events-table";
 
 export const Route = createFileRoute("/_app/events/")({
+  component: PublicEventsRouteComponent,
   head: () => ({
     meta: [{ title: `Events | ${env.VITE_APP_NAME}` }],
   }),
@@ -14,7 +15,6 @@ export const Route = createFileRoute("/_app/events/")({
     context.zero?.preload(queries.eventInterest.byCurrentUser());
     context.zero?.preload(queries.team.byCurrentUser());
   },
-  component: PublicEventsRouteComponent,
 });
 
 function PublicEventsRouteComponent() {
@@ -23,7 +23,7 @@ function PublicEventsRouteComponent() {
   const isLoading = data.length === 0 && result.type !== "complete";
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());
-  const myTeamIds = new Set(myTeams.map((t) => t.id));
+  const myTeamIds = new Set(myTeams.map((t: any) => t.id));
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -32,7 +32,7 @@ function PublicEventsRouteComponent() {
       </h1>
       <div className="mt-4">
         <EventsCalendarView
-          data={(data as PublicEventRow[]) ?? []}
+          data={data as PublicEventRow[]}
           isLoading={isLoading}
           myInterests={myInterests}
           myTeamIds={myTeamIds}

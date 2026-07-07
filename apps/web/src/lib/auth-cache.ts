@@ -26,7 +26,7 @@ async function fetchAuth(): Promise<AuthResult | null> {
 
 export async function getCachedAuth() {
   if (cached && Date.now() - lastFetchTime < CACHE_TTL) {
-    return { session: cached.session, permissions: cached.permissions };
+    return { permissions: cached.permissions, session: cached.session };
   }
 
   // Dedup concurrent calls — all preload-triggered beforeLoad calls
@@ -39,10 +39,10 @@ export async function getCachedAuth() {
 
   const result = await inflight;
   if (!result) {
-    return { session: null, permissions: [] as string[] };
+    return { permissions: [] as string[], session: null };
   }
 
-  return { session: result.session, permissions: result.permissions };
+  return { permissions: result.permissions, session: result.session };
 }
 
 export function invalidateAuthCache() {

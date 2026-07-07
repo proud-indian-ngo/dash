@@ -36,10 +36,10 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/settings/roles/$roleId")({
+  component: RoleEditPage,
   head: () => ({
     meta: [{ title: `Edit Role | ${env.VITE_APP_NAME}` }],
   }),
-  component: RoleEditPage,
 });
 
 interface RoleData {
@@ -82,10 +82,10 @@ function RoleEditPage() {
       setSelectedPermissions(new Set(r.permissionIds));
     } catch (error) {
       log.error({
-        component: "RoleEditPage",
         action: "loadData",
-        roleId,
+        component: "RoleEditPage",
         error: error instanceof Error ? error.message : String(error),
+        roleId,
       });
       toast.error("Couldn't load role");
     } finally {
@@ -101,26 +101,26 @@ function RoleEditPage() {
 
   const form = useForm({
     defaultValues: {
-      name: roleData?.name ?? "",
       description: roleData?.description ?? "",
+      name: roleData?.name ?? "",
     },
     onSubmit: async ({ value }) => {
       try {
         await updateRoleFn({
           data: {
-            roleId,
-            name: value.name,
             description: value.description,
+            name: value.name,
             permissionIds: [...selectedPermissions],
+            roleId,
           },
         });
         toast.success("Role saved!");
       } catch (error) {
         log.error({
-          component: "RoleEditPage",
           action: "updateRole",
-          roleId,
+          component: "RoleEditPage",
           error: error instanceof Error ? error.message : String(error),
+          roleId,
         });
         toast.error(getErrorMessage(error));
         throw error;
@@ -231,7 +231,7 @@ function RoleEditPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {Object.entries(permissionGroups).map(([category, perms]) => {
-              const allSelected = perms.every((p) =>
+              const allSelected = perms.every((p: any) =>
                 selectedPermissions.has(p.id)
               );
 
@@ -248,8 +248,9 @@ function RoleEditPage() {
                       <span className="ml-2 text-muted-foreground text-xs">
                         (
                         {
-                          perms.filter((p) => selectedPermissions.has(p.id))
-                            .length
+                          perms.filter((p: any) =>
+                            selectedPermissions.has(p.id)
+                          ).length
                         }
                         /{perms.length})
                       </span>
@@ -257,7 +258,7 @@ function RoleEditPage() {
                   </div>
                   <CollapsibleContent>
                     <div className="ml-6 space-y-1 pb-2">
-                      {perms.map((p) => (
+                      {perms.map((p: any) => (
                         <div
                           className="flex items-start gap-2 rounded-md px-2 py-1.5"
                           key={p.id}

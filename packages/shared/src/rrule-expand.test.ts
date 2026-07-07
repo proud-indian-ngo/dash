@@ -21,7 +21,7 @@ describe("parseRecurrenceRule", () => {
   });
 
   it("parses a valid recurrence rule", () => {
-    const rule = { rrule: "FREQ=WEEKLY;BYDAY=MO", exdates: ["2026-04-07"] };
+    const rule = { exdates: ["2026-04-07"], rrule: "FREQ=WEEKLY;BYDAY=MO" };
     expect(parseRecurrenceRule(rule)).toEqual(rule);
   });
 });
@@ -68,17 +68,20 @@ describe("expandSeries", () => {
 
     expect(result).toHaveLength(1);
     const occ = result[0];
-    expect(occ).toBeDefined();
-    expect(occ?.endTime).toBeTypeOf("number");
-    expect((occ?.endTime ?? 0) - (occ?.startTime ?? 0)).toBe(
-      2 * 60 * 60 * 1000
-    ); // 2 hours
+    if (
+      !occ ||
+      typeof occ.startTime !== "number" ||
+      typeof occ.endTime !== "number"
+    ) {
+      throw new Error("Expected occurrence with numeric start and end times");
+    }
+    expect(occ.endTime - occ.startTime).toBe(2 * 60 * 60 * 1000); // 2 hours
   });
 
   it("excludes exdates from rule", () => {
     const ruleWithExdates: RecurrenceRule = {
-      rrule: "FREQ=WEEKLY;BYDAY=MO",
       exdates: ["2026-04-13"],
+      rrule: "FREQ=WEEKLY;BYDAY=MO",
     };
     const rangeStart = Date.UTC(2026, 3, 6, 0, 0);
     const rangeEnd = Date.UTC(2026, 3, 20, 23, 59);
@@ -142,8 +145,8 @@ describe("expandSeries", () => {
     // April 2026 Saturdays: 4(1st), 11(2nd), 18(3rd), 25(4th)
     // May 2026 Saturdays: 2(1st), 9(2nd), 16(3rd), 23(4th), 30(5th)
     const satRule: RecurrenceRule = {
-      rrule: "FREQ=WEEKLY;BYDAY=SA",
       excludeRules: ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3"],
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
     };
     const satStart = Date.UTC(2026, 3, 4, 10, 0); // 2026-04-04 Saturday
     const satEnd = Date.UTC(2026, 3, 4, 12, 0);
@@ -171,11 +174,11 @@ describe("expandSeries", () => {
 
   it("combines multiple excludeRules", () => {
     const satRule: RecurrenceRule = {
-      rrule: "FREQ=WEEKLY;BYDAY=SA",
       excludeRules: [
         "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1",
         "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
       ],
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
     };
     const satStart = Date.UTC(2026, 3, 4, 10, 0);
     const satEnd = Date.UTC(2026, 3, 4, 12, 0);

@@ -4,20 +4,12 @@ import { can } from "../permissions";
 import { zql } from "../schema";
 
 export const eventInterestQueries = {
-  byEvent: defineQuery(
-    z.object({ eventId: z.string() }),
-    ({ args: { eventId } }) =>
-      zql.eventInterest
-        .where("eventId", eventId)
-        .related("user")
-        .orderBy("createdAt", "desc")
-  ),
   /**
    * All pending interest requests the current user can review.
    * Admins with `events.manage_interest` see all; team leads see only their teams' events.
    */
   allPending: defineQuery(({ ctx }) =>
-    ctx != null && can(ctx, "events.manage_interest")
+    ctx !== null && can(ctx, "events.manage_interest")
       ? zql.eventInterest
           .where("status", "pending")
           .related("user")
@@ -40,5 +32,13 @@ export const eventInterestQueries = {
   ),
   byCurrentUser: defineQuery(({ ctx }) =>
     zql.eventInterest.where("userId", ctx?.userId).related("event")
+  ),
+  byEvent: defineQuery(
+    z.object({ eventId: z.string() }),
+    ({ args: { eventId } }) =>
+      zql.eventInterest
+        .where("eventId", eventId)
+        .related("user")
+        .orderBy("createdAt", "desc")
   ),
 };

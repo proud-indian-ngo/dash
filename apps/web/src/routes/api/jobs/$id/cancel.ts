@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/jobs/$id/cancel")({
         try {
           const rows = await db.execute<{ name: string }>(
             sql`SELECT name FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
-              QUEUE_NAMES.map((n) => sql`${n}`),
+              QUEUE_NAMES.map((n: any) => sql`${n}`),
               sql`, `
             )}) LIMIT 1`
           );
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/jobs/$id/cancel")({
             method: "POST",
             path: `/api/jobs/${id}/cancel`,
           });
-          log.set({ userId: session.user.id, jobId: id });
+          log.set({ jobId: id, userId: session.user.id });
           log.error(err instanceof Error ? err : String(err));
           log.emit();
           return Response.json(

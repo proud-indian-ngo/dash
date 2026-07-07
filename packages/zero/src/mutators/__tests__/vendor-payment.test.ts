@@ -3,36 +3,36 @@ import z from "zod";
 import { assertVendorUsable } from "../submission-helpers";
 
 const lineItemSchema = z.object({
-  id: z.string(),
+  amount: z.number(),
   categoryId: z.string(),
   description: z.string().optional(),
-  amount: z.number(),
+  id: z.string(),
   sortOrder: z.number(),
 });
 
 const attachmentSchema = z.object({
-  id: z.string(),
-  type: z.enum(["file", "url"]),
-  objectKey: z.string().optional(),
-  url: z.string().optional(),
   filename: z.string().optional(),
+  id: z.string(),
   mimeType: z.string().optional(),
+  objectKey: z.string().optional(),
+  type: z.enum(["file", "url"]),
+  url: z.string().optional(),
 });
 
 const createSchema = z.object({
-  id: z.string(),
-  vendorId: z.string(),
-  title: z.string().min(1),
-  invoiceNumber: z.string().optional(),
-  invoiceDate: z.number(),
-  lineItems: z.array(lineItemSchema),
   attachments: z.array(attachmentSchema),
+  id: z.string(),
+  invoiceDate: z.number(),
+  invoiceNumber: z.string().optional(),
+  lineItems: z.array(lineItemSchema),
+  title: z.string().min(1),
+  vendorId: z.string(),
 });
 
 const approveSchema = z.object({
+  approvalScreenshotKey: z.string().optional(),
   id: z.string(),
   note: z.string().optional(),
-  approvalScreenshotKey: z.string().optional(),
 });
 
 const deleteSchema = z.object({ id: z.string() });
@@ -46,54 +46,54 @@ describe("vendorPayment mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input", () => {
       const result = createSchema.safeParse({
+        attachments: [],
         id: "vp-1",
-        vendorId: "vendor-1",
-        title: "Office supplies",
         invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [
           {
-            id: "li-1",
-            categoryId: "cat-1",
             amount: 1000,
+            categoryId: "cat-1",
+            id: "li-1",
             sortOrder: 0,
           },
         ],
-        attachments: [],
+        title: "Office supplies",
+        vendorId: "vendor-1",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects empty title", () => {
       const result = createSchema.safeParse({
+        attachments: [],
         id: "vp-1",
-        vendorId: "vendor-1",
-        title: "",
         invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [],
-        attachments: [],
+        title: "",
+        vendorId: "vendor-1",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects missing vendorId", () => {
       const result = createSchema.safeParse({
+        attachments: [],
         id: "vp-1",
-        title: "Test",
         invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [],
-        attachments: [],
+        title: "Test",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects non-number invoiceDate", () => {
       const result = createSchema.safeParse({
+        attachments: [],
         id: "vp-1",
-        vendorId: "vendor-1",
-        title: "Test",
         invoiceDate: "2026-01-15",
         lineItems: [],
-        attachments: [],
+        title: "Test",
+        vendorId: "vendor-1",
       });
       expect(result.success).toBe(false);
     });
@@ -102,9 +102,9 @@ describe("vendorPayment mutator schemas", () => {
   describe("approve", () => {
     it("accepts valid input with note and screenshot", () => {
       const result = approveSchema.safeParse({
+        approvalScreenshotKey: "screenshots/proof.png",
         id: "vp-1",
         note: "Looks good",
-        approvalScreenshotKey: "screenshots/proof.png",
       });
       expect(result.success).toBe(true);
     });
@@ -163,7 +163,7 @@ describe("vendor validation for payments (assertVendorUsable)", () => {
   it("allows approved vendor for any user", () => {
     expect(() =>
       assertVendorUsable(
-        { status: "approved", createdBy: "other-user" },
+        { createdBy: "other-user", status: "approved" },
         "user-1"
       )
     ).not.toThrow();
@@ -171,14 +171,14 @@ describe("vendor validation for payments (assertVendorUsable)", () => {
 
   it("allows pending vendor created by the same user", () => {
     expect(() =>
-      assertVendorUsable({ status: "pending", createdBy: "user-1" }, "user-1")
+      assertVendorUsable({ createdBy: "user-1", status: "pending" }, "user-1")
     ).not.toThrow();
   });
 
   it("blocks rejected vendor even if created by the same user", () => {
     expect(() =>
       assertVendorUsable(
-        { status: "rejected" as "approved", createdBy: "user-1" },
+        { createdBy: "user-1", status: "rejected" as "approved" },
         "user-1"
       )
     ).toThrow("Vendor is not available");
@@ -187,7 +187,7 @@ describe("vendor validation for payments (assertVendorUsable)", () => {
   it("blocks pending vendor created by another user", () => {
     expect(() =>
       assertVendorUsable(
-        { status: "pending", createdBy: "other-user" },
+        { createdBy: "other-user", status: "pending" },
         "user-1"
       )
     ).toThrow("Vendor is not available");
@@ -196,7 +196,7 @@ describe("vendor validation for payments (assertVendorUsable)", () => {
   it("allows pending vendor created by another user when bypass is enabled", () => {
     expect(() =>
       assertVendorUsable(
-        { status: "pending", createdBy: "other-user" },
+        { createdBy: "other-user", status: "pending" },
         "user-1",
         true
       )

@@ -18,8 +18,8 @@ export const getPermissions = createServerFn({ method: "GET" })
       const log = createRequestLogger();
       log.set({
         handler: "getPermissions",
-        userId,
         role,
+        userId,
       });
       log.error(error instanceof Error ? error : String(error), {
         step: "resolve-permissions",

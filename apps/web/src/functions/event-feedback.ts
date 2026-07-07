@@ -37,14 +37,14 @@ export const getMyEventFeedback = createServerFn({ method: "GET" })
 
     const feedback = await db
       .select({
-        id: eventFeedback.id,
         content: eventFeedback.content,
         createdAt: eventFeedback.createdAt,
+        id: eventFeedback.id,
         updatedAt: eventFeedback.updatedAt,
       })
       .from(eventFeedback)
       .where(eq(eventFeedback.id, first.feedbackId))
       .limit(1);
 
-    return feedback[0] ?? null;
+    return feedback[0];
   });

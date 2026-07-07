@@ -38,22 +38,68 @@ if (!HAS_SIGNATURE) {
 }
 
 const styles = StyleSheet.create({
-  page: {
-    padding: 40,
-    fontFamily: "Helvetica",
+  amountCell: {
+    flex: 1,
+    textAlign: "right",
+  },
+  amountInWordsLabel: {
     fontSize: 10,
-    color: "#000000",
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  amountInWordsRow: {
+    border: 1,
+    borderColor: "#e0e0e0",
+    marginBottom: 12,
+    padding: 8,
+  },
+  approvedByLabel: {
+    fontSize: 10,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  approvedByName: {
+    fontSize: 10,
+  },
+  approvedBySection: {
+    alignItems: "flex-end",
+    display: "flex",
+    flexDirection: "column",
+    marginTop: 24,
+  },
+  categoryCell: {
+    borderColor: "#e0e0e0",
+    borderRight: 1,
+    flex: 1,
+  },
+  descriptionCell: {
+    borderColor: "#e0e0e0",
+    borderRight: 1,
+    flex: 2,
   },
   header: {
     display: "flex",
     flexDirection: "row",
-    marginBottom: 24,
     gap: 24,
+    marginBottom: 24,
   },
   logo: {
-    width: 60,
     height: 60,
     objectFit: "contain",
+    width: 60,
+  },
+  metadataLabel: {
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  metadataRow: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  metadataValue: {
+    fontSize: 10,
   },
   orgDetails: {
     flex: 1,
@@ -64,105 +110,59 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   orgText: {
+    color: "#333333",
     fontSize: 9,
     marginBottom: 1,
-    color: "#333333",
   },
-  title: {
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  metadataRow: {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  metadataLabel: {
+  page: {
+    color: "#000000",
+    fontFamily: "Helvetica",
     fontSize: 10,
-    fontWeight: "bold",
-  },
-  metadataValue: {
-    fontSize: 10,
-  },
-  paidToRow: {
-    border: 1,
-    borderColor: "#e0e0e0",
-    padding: 8,
-    marginBottom: 12,
+    padding: 40,
   },
   paidToLabel: {
     fontSize: 10,
     fontWeight: "bold",
     marginBottom: 2,
   },
-  tableContainer: {
-    marginBottom: 12,
+  paidToRow: {
     border: 1,
     borderColor: "#e0e0e0",
+    marginBottom: 12,
+    padding: 8,
+  },
+  signature: {
+    marginBottom: 4,
+    width: 80,
+  },
+  tableCell: {
+    fontSize: 10,
+    padding: 8,
+  },
+  tableContainer: {
+    border: 1,
+    borderColor: "#e0e0e0",
+    marginBottom: 12,
   },
   tableHeader: {
-    display: "flex",
-    flexDirection: "row",
     backgroundColor: "#f5f5f5",
     borderBottom: 1,
     borderColor: "#e0e0e0",
-  },
-  tableRow: {
     display: "flex",
     flexDirection: "row",
+  },
+  tableRow: {
     borderBottom: 1,
     borderColor: "#e0e0e0",
+    display: "flex",
+    flexDirection: "row",
     minHeight: 24,
   },
-  tableCell: {
-    padding: 8,
-    fontSize: 10,
-  },
-  descriptionCell: {
-    flex: 2,
-    borderRight: 1,
-    borderColor: "#e0e0e0",
-  },
-  categoryCell: {
-    flex: 1,
-    borderRight: 1,
-    borderColor: "#e0e0e0",
-  },
-  amountCell: {
-    flex: 1,
-    textAlign: "right",
-  },
-  amountInWordsRow: {
-    border: 1,
-    borderColor: "#e0e0e0",
-    padding: 8,
-    marginBottom: 12,
-  },
-  amountInWordsLabel: {
-    fontSize: 10,
+  title: {
+    fontSize: 16,
     fontWeight: "bold",
-    marginBottom: 4,
-  },
-  approvedBySection: {
-    marginTop: 24,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-  },
-  approvedByLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  signature: {
-    width: 80,
-    marginBottom: 4,
-  },
-  approvedByName: {
-    fontSize: 10,
+    marginBottom: 16,
+    textAlign: "center",
   },
 });
 

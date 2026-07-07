@@ -34,22 +34,24 @@ export const Route = createFileRoute("/api/immich/thumbnail/$id")({
             upstream.headers.get("content-type") ?? "image/jpeg";
 
           return new Response(upstream.body, {
-            status: 200,
             headers: {
               "Cache-Control": "private, max-age=86400",
               "Content-Type": contentType,
             },
+            status: 200,
           });
-        } catch (error) {
+        } catch (caughtError) {
           const log = createRequestLogger({
             method: "GET",
             path: "/api/immich/thumbnail",
           });
           log.set({ assetId: id });
-          log.error(error instanceof Error ? error : String(error));
+          log.error(
+            caughtError instanceof Error ? caughtError : String(caughtError)
+          );
           log.emit();
           return Response.json(
-            { error: "Failed to fetch thumbnail" },
+            { caughtError: "Failed to fetch thumbnail" },
             { status: 502 }
           );
         }

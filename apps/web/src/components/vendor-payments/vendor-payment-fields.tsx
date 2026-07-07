@@ -64,17 +64,17 @@ export function VendorPaymentFields({
           label="Vendor"
           name="vendorId"
         >
-          {(field) => {
+          {(field: any) => {
             const submitted = resolvedForm.state.submissionAttempts > 0;
             return (
               <div className="flex gap-2">
                 <Select
-                  onOpenChange={(open) => {
+                  onOpenChange={(open: any) => {
                     if (!open) {
                       field.handleBlur();
                     }
                   }}
-                  onValueChange={(val) => field.handleChange(val)}
+                  onValueChange={(val: any) => field.handleChange(val)}
                   value={field.state.value ?? ""}
                 >
                   <SelectTrigger
@@ -86,12 +86,13 @@ export function VendorPaymentFields({
                       className="flex flex-1 items-center text-left"
                       data-slot="select-value"
                     >
-                      {vendorOptions.find((o) => o.value === field.state.value)
-                        ?.label ?? "Select vendor"}
+                      {vendorOptions.find(
+                        (o: any) => o.value === field.state.value
+                      )?.label ?? "Select vendor"}
                     </span>
                   </SelectTrigger>
                   <SelectContent>
-                    {vendorOptions.map((option) => (
+                    {vendorOptions.map((option: any) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -112,14 +113,14 @@ export function VendorPaymentFields({
           }}
         </CustomField>
         <CustomField<string | undefined> label="Event" name="eventId">
-          {(field) => (
+          {(field: any) => (
             <Select
-              onOpenChange={(open) => {
+              onOpenChange={(open: any) => {
                 if (!open) {
                   field.handleBlur();
                 }
               }}
-              onValueChange={(val) =>
+              onValueChange={(val: any) =>
                 field.handleChange(val === "" ? undefined : val)
               }
               value={field.state.value ?? ""}
@@ -129,13 +130,13 @@ export function VendorPaymentFields({
                   className="flex flex-1 items-center text-left"
                   data-slot="select-value"
                 >
-                  {eventOptions.find((o) => o.value === field.state.value)
+                  {eventOptions.find((o: any) => o.value === field.state.value)
                     ?.label ?? "No event"}
                 </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">No event</SelectItem>
-                {eventOptions.map((option) => (
+                {eventOptions.map((option: any) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -156,10 +157,10 @@ export function VendorPaymentFields({
         label="Quotation / Supporting Documents"
         name="attachments"
       >
-        {(field) => (
+        {(field: any) => (
           <AttachmentsSection
             entityId={entityId}
-            onChange={(attachments) => field.handleChange(attachments)}
+            onChange={(attachments: any) => field.handleChange(attachments)}
             value={field.state.value ?? []}
           />
         )}

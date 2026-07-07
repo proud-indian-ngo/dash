@@ -70,7 +70,7 @@ export function TeamFormDialog({
     initialValues?.description ?? ""
   );
   const [whatsappGroupId, setWhatsappGroupId] = useState(
-    initialValues?.whatsappGroupId ?? ""
+    initialValues?.whatsappGroupId
   );
   const [createWaGroup, setCreateWaGroup] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,36 +80,37 @@ export function TeamFormDialog({
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
   const usedGroupIds = new Set<string>();
-  for (const t of allTeams ?? []) {
+  for (const t of allTeams) {
     if (t.whatsappGroupId) {
       usedGroupIds.add(t.whatsappGroupId);
     }
   }
-  for (const e of allEvents ?? []) {
+  for (const e of allEvents) {
     if (e.whatsappGroupId) {
       usedGroupIds.add(e.whatsappGroupId);
     }
   }
+
   if (isEdit && initialValues?.whatsappGroupId) {
     usedGroupIds.delete(initialValues.whatsappGroupId);
   }
 
-  const whatsappGroupOptions = (whatsappGroups ?? [])
+  const whatsappGroupOptions = whatsappGroups
     .filter((group: WhatsappGroup) => !usedGroupIds.has(group.id))
     .map((group: WhatsappGroup) => ({ label: group.name, value: group.id }));
   const whatsappGroupLabelByValue = new Map(
-    whatsappGroupOptions.map((option) => [option.value, option.label])
+    whatsappGroupOptions.map((option: any) => [option.value, option.label])
   );
   const whatsappGroupItems = [
     NONE_WHATSAPP_GROUP,
-    ...whatsappGroupOptions.map((option) => option.value),
+    ...whatsappGroupOptions.map((option: any) => option.value),
   ];
 
   useEffect(() => {
     if (open) {
       setName(initialValues?.name ?? "");
       setDescription(initialValues?.description ?? "");
-      setWhatsappGroupId(initialValues?.whatsappGroupId ?? "");
+      setWhatsappGroupId(initialValues?.whatsappGroupId);
       setCreateWaGroup(false);
     }
   }, [open, initialValues]);
@@ -125,34 +126,53 @@ export function TeamFormDialog({
     const mutation = isEdit
       ? zero.mutate(
           mutators.team.update({
+            description: description.trim() || undefined,
             id: initialValues.id,
             name: trimmedName,
-            description: description.trim() || undefined,
-            whatsappGroupId: whatsappGroupId || undefined,
             now: Date.now(),
+            whatsappGroupId: whatsappGroupId || undefined,
           })
         )
       : zero.mutate(
           mutators.team.create({
+            createWhatsAppGroup: createWaGroup || undefined,
+            description: description.trim() || undefined,
             id: uuidv7(),
             name: trimmedName,
-            description: description.trim() || undefined,
             whatsappGroupId: whatsappGroupId || undefined,
-            createWhatsAppGroup: createWaGroup || undefined,
           })
         );
     const res = await mutation.server;
     setSubmitting(false);
     handleMutationResult(res, {
-      mutation: isEdit ? "team.update" : "team.create",
       entityId: isEdit ? initialValues.id : "new",
-      successMsg: getTeamSuccessMsg(isEdit, createWaGroup),
       errorMsg: isEdit ? "Couldn't update team" : "Couldn't create team",
+      mutation: isEdit ? "team.update" : "team.create",
+      successMsg: getTeamSuccessMsg(isEdit, createWaGroup),
     });
     if (res.type !== "error") {
       onOpenChange(false);
     }
   };
+  const stableOnChange0 = (e: any) => setName(e.target.value);
+  const stableItemToStringLabel1 = (value: any) => {
+    if (value === NONE_WHATSAPP_GROUP) {
+      return "None";
+    }
+
+    return whatsappGroupLabelByValue.get(value);
+  };
+  const stableOnValueChange2 = (value: any) => {
+    setWhatsappGroupId(value === NONE_WHATSAPP_GROUP || !value ? "" : value);
+  };
+  const stableOnChange3 = (e: any) => setDescription(e.target.value);
+  const stableOnCheckedChange4 = (checked: any) => {
+    setCreateWaGroup(checked);
+    if (checked) {
+      setWhatsappGroupId("");
+    }
+  };
+  const stableOnClick5 = () => onOpenChange(false);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -169,7 +189,7 @@ export function TeamFormDialog({
               <Label htmlFor="team-name">Name</Label>
               <Input
                 id="team-name"
-                onChange={(e) => setName(e.target.value)}
+                onChange={stableOnChange0}
                 placeholder="Team name"
                 required
                 value={name}
@@ -180,19 +200,9 @@ export function TeamFormDialog({
               <Combobox
                 disabled={createWaGroup}
                 items={whatsappGroupItems}
-                itemToStringLabel={(value) => {
-                  if (value === NONE_WHATSAPP_GROUP) {
-                    return "None";
-                  }
-
-                  return whatsappGroupLabelByValue.get(value) ?? String(value);
-                }}
-                onValueChange={(value) => {
-                  setWhatsappGroupId(
-                    value === NONE_WHATSAPP_GROUP || !value ? "" : value
-                  );
-                }}
-                value={whatsappGroupId || NONE_WHATSAPP_GROUP}
+                itemToStringLabel={stableItemToStringLabel1}
+                onValueChange={stableOnValueChange2}
+                value={whatsappGroupId ?? NONE_WHATSAPP_GROUP}
               >
                 <ComboboxInput
                   aria-label="WhatsApp Group"
@@ -202,7 +212,7 @@ export function TeamFormDialog({
                 />
                 <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
                   <ComboboxList>
-                    {(itemValue) => (
+                    {(itemValue: any) => (
                       <ComboboxItem
                         className="items-start"
                         key={itemValue}
@@ -211,8 +221,7 @@ export function TeamFormDialog({
                         <span className="block min-w-0 whitespace-normal break-words">
                           {itemValue === NONE_WHATSAPP_GROUP
                             ? "None"
-                            : (whatsappGroupLabelByValue.get(itemValue) ??
-                              itemValue)}
+                            : whatsappGroupLabelByValue.get(itemValue)}
                         </span>
                       </ComboboxItem>
                     )}
@@ -226,31 +235,26 @@ export function TeamFormDialog({
             <Label htmlFor="team-description">Description</Label>
             <Textarea
               id="team-description"
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={stableOnChange3}
               placeholder="Optional description"
               rows={3}
               value={description}
             />
           </div>
-          {!(isEdit || whatsappGroupId) && (
+          {Boolean(!(isEdit || whatsappGroupId)) && (
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="create-wa-group">Create WhatsApp group</Label>
               <Switch
                 checked={createWaGroup}
                 id="create-wa-group"
-                onCheckedChange={(checked) => {
-                  setCreateWaGroup(checked);
-                  if (checked) {
-                    setWhatsappGroupId("");
-                  }
-                }}
+                onCheckedChange={stableOnCheckedChange4}
               />
             </div>
           )}
           <DialogFooter>
             <Button
               disabled={submitting}
-              onClick={() => onOpenChange(false)}
+              onClick={stableOnClick5}
               type="button"
               variant="outline"
             >

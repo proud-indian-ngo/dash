@@ -15,21 +15,21 @@ export type SeriesParent = Awaited<
 function querySeriesParents() {
   return db
     .select({
-      id: teamEvent.id,
-      teamId: teamEvent.teamId,
-      name: teamEvent.name,
-      description: teamEvent.description,
-      location: teamEvent.location,
-      startTime: teamEvent.startTime,
-      endTime: teamEvent.endTime,
-      isPublic: teamEvent.isPublic,
-      recurrenceRule: teamEvent.recurrenceRule,
-      feedbackEnabled: teamEvent.feedbackEnabled,
-      feedbackDeadline: teamEvent.feedbackDeadline,
-      reminderIntervals: teamEvent.reminderIntervals,
-      whatsappGroupId: teamEvent.whatsappGroupId,
       createdBy: teamEvent.createdBy,
+      description: teamEvent.description,
+      endTime: teamEvent.endTime,
+      feedbackDeadline: teamEvent.feedbackDeadline,
+      feedbackEnabled: teamEvent.feedbackEnabled,
+      id: teamEvent.id,
       inheritVolunteers: teamEvent.inheritVolunteers,
+      isPublic: teamEvent.isPublic,
+      location: teamEvent.location,
+      name: teamEvent.name,
+      recurrenceRule: teamEvent.recurrenceRule,
+      reminderIntervals: teamEvent.reminderIntervals,
+      startTime: teamEvent.startTime,
+      teamId: teamEvent.teamId,
+      whatsappGroupId: teamEvent.whatsappGroupId,
     })
     .from(teamEvent)
     .where(
@@ -58,7 +58,7 @@ export async function getExceptionDates(
     .from(teamEvent)
     .where(eq(teamEvent.seriesId, parentId));
   return new Set(
-    exceptions.map((e) => e.originalDate).filter((d): d is string => d != null)
+    exceptions.map((e) => e.originalDate).filter((d): d is string => d !== null)
   );
 }
 
@@ -70,25 +70,25 @@ async function materializeOccurrence(
   const inserted = await db
     .insert(teamEvent)
     .values({
-      id: uuidv7(),
-      teamId: parent.teamId,
-      name: parent.name,
-      description: parent.description,
-      location: parent.location,
-      startTime: new Date(occurrence.startTime),
-      endTime: occurrence.endTime ? new Date(occurrence.endTime) : null,
-      isPublic: parent.isPublic,
-      recurrenceRule: null,
-      seriesId: parent.id,
-      originalDate: occurrence.date,
       cancelledAt: null,
-      feedbackEnabled: parent.feedbackEnabled,
-      feedbackDeadline: parent.feedbackDeadline,
-      reminderIntervals: parent.reminderIntervals,
-      whatsappGroupId: parent.whatsappGroupId,
-      createdBy: parent.createdBy,
       createdAt: new Date(now),
+      createdBy: parent.createdBy,
+      description: parent.description,
+      endTime: occurrence.endTime ? new Date(occurrence.endTime) : null,
+      feedbackDeadline: parent.feedbackDeadline,
+      feedbackEnabled: parent.feedbackEnabled,
+      id: uuidv7(),
+      isPublic: parent.isPublic,
+      location: parent.location,
+      name: parent.name,
+      originalDate: occurrence.date,
+      recurrenceRule: null,
+      reminderIntervals: parent.reminderIntervals,
+      seriesId: parent.id,
+      startTime: new Date(occurrence.startTime),
+      teamId: parent.teamId,
       updatedAt: new Date(now),
+      whatsappGroupId: parent.whatsappGroupId,
     })
     .onConflictDoNothing()
     .returning({ id: teamEvent.id });
@@ -102,23 +102,25 @@ async function materializeOccurrence(
   if (parent.inheritVolunteers) {
     const members = await db
       .select({
-        userId: teamEventMember.userId,
         addedAt: teamEventMember.addedAt,
+        userId: teamEventMember.userId,
       })
       .from(teamEventMember)
       .where(eq(teamEventMember.eventId, parent.id));
 
-    for (const member of members) {
-      await db
-        .insert(teamEventMember)
-        .values({
-          id: uuidv7(),
-          eventId: newEventId,
-          userId: member.userId,
-          addedAt: member.addedAt,
-        })
-        .onConflictDoNothing();
-    }
+    await Promise.all(
+      members.map(async (member) => {
+        await db
+          .insert(teamEventMember)
+          .values({
+            addedAt: member.addedAt,
+            eventId: newEventId,
+            id: uuidv7(),
+            userId: member.userId,
+          })
+          .onConflictDoNothing();
+      })
+    );
   }
 
   return newEventId;
@@ -212,7 +214,7 @@ export async function materializePastOccurrences(now: number): Promise<number> {
         continue;
       }
       if (await materializeOccurrence(parent, occ, now)) {
-        materialized++;
+        materialized += 1;
       }
     }
   }

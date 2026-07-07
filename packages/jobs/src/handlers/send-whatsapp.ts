@@ -6,19 +6,21 @@ import type { WhatsAppPayload } from "../enqueue";
 export async function handleSendWhatsApp(
   jobs: Job<WhatsAppPayload>[]
 ): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({ method: "JOB", path: "send-whatsapp" });
-    const { phone, message } = job.data;
+  await Promise.all(
+    jobs.map(async (job) => {
+      const log = createRequestLogger({ method: "JOB", path: "send-whatsapp" });
+      const { phone, message } = job.data;
 
-    log.set({
-      event: "job_start",
-      jobId: job.id,
-      phone,
-    });
+      log.set({
+        event: "job_start",
+        jobId: job.id,
+        phone,
+      });
 
-    await sendWhatsAppMessage(phone, message);
+      await sendWhatsAppMessage(phone, message);
 
-    log.set({ event: "job_complete" });
-    log.emit();
-  }
+      log.set({ event: "job_complete" });
+      log.emit();
+    })
+  );
 }

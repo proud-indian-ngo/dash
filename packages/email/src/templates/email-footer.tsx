@@ -2,24 +2,24 @@ import { Column, Hr, Img, Link, Row, Section, Text } from "react-email";
 
 const socials = [
   {
+    icon: "https://img.icons8.com/ios-filled/24/79697b/facebook-new.png",
     name: "Facebook",
     url: "https://www.facebook.com/proudIndianbengaluru",
-    icon: "https://img.icons8.com/ios-filled/24/79697b/facebook-new.png",
   },
   {
+    icon: "https://img.icons8.com/ios-filled/24/79697b/instagram-new.png",
     name: "Instagram",
     url: "https://www.instagram.com/proudindian_ngo/",
-    icon: "https://img.icons8.com/ios-filled/24/79697b/instagram-new.png",
   },
   {
+    icon: "https://img.icons8.com/ios-filled/24/79697b/linkedin.png",
     name: "LinkedIn",
     url: "https://www.linkedin.com/company/proud-indian",
-    icon: "https://img.icons8.com/ios-filled/24/79697b/linkedin.png",
   },
   {
+    icon: "https://img.icons8.com/ios-filled/24/79697b/youtube-play.png",
     name: "YouTube",
     url: "https://www.youtube.com/@ProudIndianngo",
-    icon: "https://img.icons8.com/ios-filled/24/79697b/youtube-play.png",
   },
 ] as const;
 
@@ -32,10 +32,10 @@ export function EmailFooterBar() {
       <Hr
         className="m-0"
         style={{
-          borderTop: "1px solid #e7e4e7",
           borderBottom: "none",
           borderLeft: "none",
           borderRight: "none",
+          borderTop: "1px solid #e7e4e7",
         }}
       />
       <Section className="px-8 py-4">

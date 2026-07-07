@@ -41,13 +41,13 @@ export function StatCard({
     <Card className={cardClasses} size="sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
-          {item.icon && (
+          {item.icon ? (
             <HugeiconsIcon
               className="size-3.5"
               icon={item.icon}
               strokeWidth={2}
             />
-          )}
+          ) : null}
           {item.label}
         </CardTitle>
       </CardHeader>
@@ -55,14 +55,14 @@ export function StatCard({
         <div className="truncate font-display font-semibold text-2xl tracking-tight">
           {item.value}
         </div>
-        {item.description && (
+        {Boolean(item.description) && (
           <p className="text-muted-foreground text-xs">{item.description}</p>
         )}
       </CardContent>
     </Card>
   );
 
-  const animate = animationDelay != null;
+  const animate = animationDelay !== undefined;
   const animationClasses = animate
     ? "fade-in-0 slide-in-from-bottom-1 animate-in animate-blur-in fill-mode-backwards duration-200 ease-(--ease-out-expo)"
     : "";
@@ -96,7 +96,7 @@ export function StatCard({
 function StatsCardsSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id) => (
+      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id: any) => (
         <Card key={id} size="sm">
           <CardHeader>
             <CardTitle>
@@ -127,7 +127,7 @@ export function StatsCards({
   }
   return (
     <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
-      {items.map((item, index) => (
+      {items.map((item: any, index: any) => (
         <StatCard
           animationDelay={index * STAGGER_DELAY_MS}
           item={item}

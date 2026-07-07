@@ -39,6 +39,7 @@ import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/")({
+  component: DashboardHome,
   head: () => ({
     meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],
   }),
@@ -52,7 +53,6 @@ export const Route = createFileRoute("/_app/")({
     context.zero?.preload(queries.vendorPayment.all());
     context.zero?.preload(queries.eventInterest.byCurrentUser());
   },
-  component: DashboardHome,
 });
 
 interface DashboardStatsInput {
@@ -86,66 +86,66 @@ function computeDashboardStats({
 
   return [
     {
-      label: canViewAllRequests ? "All Reimbursements" : "My Reimbursements",
-      value: allRequests.length,
-      description: formatINR(sumTotal(allRequests)),
-      icon: Invoice01Icon,
       accent: "border-l-brand",
       bgAccent: "bg-brand/5 dark:bg-brand/10",
+      description: formatINR(sumTotal(allRequests)),
       href: "/reimbursements",
+      icon: Invoice01Icon,
+      label: canViewAllRequests ? "All Reimbursements" : "My Reimbursements",
+      value: allRequests.length,
     },
     {
-      label: canApprove ? "Pending Reviews" : "My Pending",
-      value: pendingCount,
-      description: "Awaiting review",
-      icon: Clock01Icon,
       accent: "border-l-amber-500",
       bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
+      description: "Awaiting review",
       href: "/reimbursements?status=pending",
+      icon: Clock01Icon,
+      label: canApprove ? "Pending Reviews" : "My Pending",
+      value: pendingCount,
     },
     ...(canViewUsers
       ? [
           {
-            label: "Total Users",
-            value: users.length,
-            icon: UserMultipleIcon,
             accent: "border-l-brand",
             bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/users",
+            icon: UserMultipleIcon,
+            label: "Total Users",
+            value: users.length,
           },
         ]
       : [
           {
-            label: "My Teams",
-            value: teams.length,
-            icon: UserMultipleIcon,
             accent: "border-l-brand",
             bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/teams",
+            icon: UserMultipleIcon,
+            label: "My Teams",
+            value: teams.length,
           },
         ]),
     ...(canViewVendors
       ? [
           {
-            label: "Vendor Payments",
-            value: vendorPayments.length,
-            description: formatINR(sumTotal(vendorPayments)),
-            icon: Store01Icon,
             accent: "border-l-brand",
             bgAccent: "bg-brand/5 dark:bg-brand/10",
+            description: formatINR(sumTotal(vendorPayments)),
             href: "/vendors",
+            icon: Store01Icon,
+            label: "Vendor Payments",
+            value: vendorPayments.length,
           },
         ]
       : [
           {
-            label: "Upcoming Events",
-            value: events.filter(
-              (e) => e.startTime != null && e.startTime > Date.now()
-            ).length,
-            icon: Calendar03Icon,
             accent: "border-l-brand",
             bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/events",
+            icon: Calendar03Icon,
+            label: "Upcoming Events",
+            value: events.filter(
+              (e: any) => e.startTime !== null && e.startTime > Date.now()
+            ).length,
           },
         ]),
   ];
@@ -210,7 +210,7 @@ function OrientedDashboard() {
   const [eventInterests] = useQuery(queries.eventInterest.byCurrentUser());
 
   // Team leads can approve event photos/updates/interest for their teams
-  const isLeadOfAnyTeam = teams.some((t) =>
+  const isLeadOfAnyTeam = teams.some((t: any) =>
     isTeamLead(t.members, session?.user.id ?? "")
   );
   const canManagePhotos =
@@ -268,17 +268,17 @@ function OrientedDashboard() {
     byStatus(vendorPayments, "pending").length;
 
   const stats = computeDashboardStats({
-    reimbursements: filteredReimbursements,
     advancePayments: filteredAdvancePayments,
-    users,
-    teams,
-    events,
-    vendorPayments: filteredVendorPayments,
-    canViewAllRequests,
     canApprove,
+    canViewAllRequests,
     canViewUsers,
     canViewVendors,
+    events,
     pendingCount,
+    reimbursements: filteredReimbursements,
+    teams,
+    users,
+    vendorPayments: filteredVendorPayments,
   });
 
   return (
@@ -322,7 +322,7 @@ function OrientedDashboard() {
       <div className="mt-6">
         <PendingReviews
           advancePayments={advancePayments.filter(
-            (a) => a.status === "pending"
+            (a: any) => a.status === "pending"
           )}
           eventInterests={pendingInterests}
           eventPhotos={pendingPhotos}
@@ -330,12 +330,16 @@ function OrientedDashboard() {
           isLoading={isLoading}
           permissions={{
             canApproveRequests: canApprove,
-            canManagePhotos,
             canApproveUpdates,
             canManageInterest,
+            canManagePhotos,
           }}
-          reimbursements={reimbursements.filter((r) => r.status === "pending")}
-          vendorPayments={vendorPayments.filter((v) => v.status === "pending")}
+          reimbursements={reimbursements.filter(
+            (r: any) => r.status === "pending"
+          )}
+          vendorPayments={vendorPayments.filter(
+            (v: any) => v.status === "pending"
+          )}
         />
       </div>
 

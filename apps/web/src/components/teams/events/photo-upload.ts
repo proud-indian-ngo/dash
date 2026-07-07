@@ -59,18 +59,18 @@ export async function uploadFileToR2(
 ): Promise<string> {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
+      entityId,
       fileName: file.name,
       fileSize: file.size,
       mimeType: toAllowedMimeType(file.type),
       subfolder: "photos",
-      entityId,
     },
   });
 
   const response = await fetch(presignedUrl, {
-    method: "PUT",
     body: file,
     headers: { "Content-Type": file.type },
+    method: "PUT",
   });
 
   if (!response.ok) {

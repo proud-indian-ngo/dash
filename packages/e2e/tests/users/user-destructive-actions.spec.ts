@@ -24,7 +24,7 @@ test.describe("User destructive actions (admin)", () => {
     await dialog.getByRole("textbox", { name: /^Email/ }).fill(uniqueEmail);
     await dialog.getByLabel("Password").fill("ThrowAway123!");
     await dialog.getByLabel("Gender").click();
-    await page.getByRole("option", { name: "Male", exact: true }).click();
+    await page.getByRole("option", { exact: true, name: "Male" }).click();
     // Move focus away from Gender to trigger onBlur validation with the new value
     await dialog.getByLabel("Name").click();
     await expect(

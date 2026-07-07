@@ -24,6 +24,7 @@ const VENDOR_STATUS_OPTIONS = [
 ];
 
 export const Route = createFileRoute("/_app/vendors/")({
+  component: VendorsRouteComponent,
   head: () => ({
     meta: [{ title: `Vendors | ${env.VITE_APP_NAME}` }],
   }),
@@ -31,7 +32,6 @@ export const Route = createFileRoute("/_app/vendors/")({
     context.zero?.preload(queries.vendor.all());
     context.zero?.preload(queries.vendorPayment.all());
   },
-  component: VendorsRouteComponent,
 });
 
 function VendorsRouteComponent() {
@@ -56,23 +56,23 @@ function VendorsRouteComponent() {
   );
 
   const filteredVendorRows = statusFilter
-    ? vendorRows.filter((v) => v.status === statusFilter)
+    ? vendorRows.filter((v: any) => v.status === statusFilter)
     : vendorRows;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [viewingVendorId, setViewingVendorId] = useState<string | null>(null);
   const viewingVendor = viewingVendorId
-    ? (vendorRows.find((v) => v.id === viewingVendorId) ?? null)
+    ? (vendorRows.find((v: any) => v.id === viewingVendorId) ?? null)
     : null;
 
   const handleDelete = async (id: string) => {
     const res = await zero.mutate(mutators.vendor.delete({ id })).server;
     handleMutationResult(res, {
-      mutation: "vendor.delete",
       entityId: id,
-      successMsg: "Vendor deleted",
       errorMsg: "Couldn't delete vendor",
+      mutation: "vendor.delete",
+      successMsg: "Vendor deleted",
     });
     return res;
   };
@@ -81,10 +81,10 @@ function VendorsRouteComponent() {
     const res = await zero.mutate(mutators.vendor.approve({ id: vendor.id }))
       .server;
     handleMutationResult(res, {
-      mutation: "vendor.approve",
       entityId: vendor.id,
-      successMsg: "Vendor approved",
       errorMsg: "Couldn't approve vendor",
+      mutation: "vendor.approve",
+      successMsg: "Vendor approved",
     });
     return res;
   };
@@ -93,10 +93,10 @@ function VendorsRouteComponent() {
     const res = await zero.mutate(mutators.vendor.unapprove({ id: vendor.id }))
       .server;
     handleMutationResult(res, {
-      mutation: "vendor.unapprove",
       entityId: vendor.id,
-      successMsg: "Vendor unapproved",
       errorMsg: "Couldn't unapprove vendor",
+      mutation: "vendor.unapprove",
+      successMsg: "Vendor unapproved",
     });
     return res;
   };
@@ -108,6 +108,22 @@ function VendorsRouteComponent() {
 
   const handleView = (vendor: VendorRow) => {
     setViewingVendorId(vendor.id);
+  };
+  const stableOnClearFilters0 = () => setStatusFilter("");
+  const stableOnClick1 = () => {
+    setEditingVendor(null);
+    setFormOpen(true);
+  };
+  const stableOnOpenChange2 = (open: any) => {
+    setFormOpen(open);
+    if (!open) {
+      setEditingVendor(null);
+    }
+  };
+  const stableOnOpenChange3 = (open: any) => {
+    if (!open) {
+      setViewingVendorId(null);
+    }
   };
 
   return (
@@ -123,20 +139,13 @@ function VendorsRouteComponent() {
           hasActiveFilters={!!statusFilter}
           isLoading={isLoading}
           onApprove={handleApprove}
-          onClearFilters={() => setStatusFilter("")}
+          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
           onEdit={handleEdit}
           onUnapprove={handleUnapprove}
           onView={handleView}
           toolbarActions={
-            <Button
-              onClick={() => {
-                setEditingVendor(null);
-                setFormOpen(true);
-              }}
-              size="sm"
-              type="button"
-            >
+            <Button onClick={stableOnClick1} size="sm" type="button">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -157,22 +166,13 @@ function VendorsRouteComponent() {
       </div>
 
       <VendorFormDialog
-        onOpenChange={(open) => {
-          setFormOpen(open);
-          if (!open) {
-            setEditingVendor(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange2}
         open={formOpen}
         vendor={editingVendor}
       />
 
       <VendorDetailSheet
-        onOpenChange={(open) => {
-          if (!open) {
-            setViewingVendorId(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange3}
         open={!!viewingVendor}
         vendor={viewingVendor}
       />

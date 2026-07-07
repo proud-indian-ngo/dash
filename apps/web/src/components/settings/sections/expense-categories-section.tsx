@@ -22,8 +22,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const categorySchema = z.object({
-  name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -82,16 +82,16 @@ export function ExpenseCategoriesSection() {
     const id = uuidv7();
     const res = await zero.mutate(
       mutators.expenseCategory.create({
+        description: values.description,
         id,
         name: values.name,
-        description: values.description,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "expenseCategory.create",
       entityId: id,
-      successMsg: "Category created",
       errorMsg: "Failed to create category",
+      mutation: "expenseCategory.create",
+      successMsg: "Category created",
     });
     if (res.type !== "error") {
       setInlineMode(null);
@@ -104,16 +104,16 @@ export function ExpenseCategoriesSection() {
     }
     const res = await zero.mutate(
       mutators.expenseCategory.update({
+        description: values.description,
         id: inlineMode.category.id,
         name: values.name,
-        description: values.description,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "expenseCategory.update",
       entityId: inlineMode.category.id,
-      successMsg: "Category updated",
       errorMsg: "Failed to update category",
+      mutation: "expenseCategory.update",
+      successMsg: "Category updated",
     });
     if (res.type !== "error") {
       setInlineMode(null);
@@ -128,12 +128,19 @@ export function ExpenseCategoriesSection() {
       mutators.expenseCategory.delete({ id: rowAction.category.id })
     ).server;
     handleMutationResult(res, {
-      mutation: "expenseCategory.delete",
       entityId: rowAction.category.id,
-      successMsg: "Category deleted",
       errorMsg: "Failed to delete category",
+      mutation: "expenseCategory.delete",
+      successMsg: "Category deleted",
     });
     if (res.type !== "error") {
+      setRowAction(null);
+    }
+  };
+  const stableOnClick0 = () => setInlineMode({ kind: "create" });
+  const stableOnCancel1 = () => setInlineMode(null);
+  const stableOnOpenChange2 = (open: any) => {
+    if (!open) {
       setRowAction(null);
     }
   };
@@ -143,11 +150,7 @@ export function ExpenseCategoriesSection() {
       <div className="flex items-center justify-between">
         <p className="font-medium text-xs">Expense categories</p>
         {inlineMode ? null : (
-          <Button
-            onClick={() => setInlineMode({ kind: "create" })}
-            size="sm"
-            type="button"
-          >
+          <Button onClick={stableOnClick0} size="sm" type="button">
             <HugeiconsIcon
               className="size-3.5"
               icon={PlusSignIcon}
@@ -162,8 +165,8 @@ export function ExpenseCategoriesSection() {
         <div className="rounded-md border p-3">
           <p className="mb-3 font-medium text-sm">Add Category</p>
           <CategoryForm
-            initialValues={{ name: "", description: "" }}
-            onCancel={() => setInlineMode(null)}
+            initialValues={{ description: "", name: "" }}
+            onCancel={stableOnCancel1}
             onSubmit={handleCreate}
           />
         </div>
@@ -171,7 +174,7 @@ export function ExpenseCategoriesSection() {
 
       {categoryList.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {categoryList.map((category) => (
+          {categoryList.map((category: any) => (
             <div key={category.id}>
               {inlineMode?.kind === "edit" &&
               inlineMode.category.id === category.id ? (
@@ -179,8 +182,8 @@ export function ExpenseCategoriesSection() {
                   <p className="mb-3 font-medium text-sm">Edit Category</p>
                   <CategoryForm
                     initialValues={{
-                      name: category.name,
                       description: category.description ?? "",
+                      name: category.name,
                     }}
                     key={`edit-${category.id}`}
                     onCancel={() => setInlineMode(null)}
@@ -200,7 +203,7 @@ export function ExpenseCategoriesSection() {
                   <div className="flex items-center gap-1">
                     <Button
                       aria-label="Edit category"
-                      onClick={() => setInlineMode({ kind: "edit", category })}
+                      onClick={() => setInlineMode({ category, kind: "edit" })}
                       size="icon"
                       type="button"
                       variant="ghost"
@@ -213,7 +216,7 @@ export function ExpenseCategoriesSection() {
                     </Button>
                     <Button
                       aria-label="Delete category"
-                      onClick={() => setRowAction({ kind: "delete", category })}
+                      onClick={() => setRowAction({ category, kind: "delete" })}
                       size="icon"
                       type="button"
                       variant="ghost"
@@ -249,11 +252,7 @@ export function ExpenseCategoriesSection() {
             : ""
         }
         onConfirm={handleDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRowAction(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange2}
         open={rowAction?.kind === "delete"}
         title="Delete category?"
       />

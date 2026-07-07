@@ -41,10 +41,10 @@ function groupPhotoJobs<
       existing.photoIds.push(job.data.photoId);
     } else {
       groups.set(key, {
-        uploaderId: job.data.uploaderId,
         eventId: job.data.eventId,
         eventName: job.data.eventName,
         photoIds: [job.data.photoId],
+        uploaderId: job.data.uploaderId,
       });
     }
   }
@@ -71,29 +71,29 @@ function makeJob(
     photoId: string;
   }
 ) {
-  return { id, data };
+  return { data, id };
 }
 
 describe("groupPhotoJobs", () => {
   it("groups photos by uploaderId × eventId", () => {
     const jobs = [
       makeJob("job-1", {
-        uploaderId: "user-a",
         eventId: "event-1",
         eventName: "Event 1",
         photoId: "photo-1",
+        uploaderId: "user-a",
       }),
       makeJob("job-2", {
-        uploaderId: "user-a",
         eventId: "event-1",
         eventName: "Event 1",
         photoId: "photo-2",
+        uploaderId: "user-a",
       }),
       makeJob("job-3", {
-        uploaderId: "user-a",
         eventId: "event-2",
         eventName: "Event 2",
         photoId: "photo-3",
+        uploaderId: "user-a",
       }),
     ];
     const groups = groupPhotoJobs(jobs);
@@ -108,16 +108,16 @@ describe("groupPhotoJobs", () => {
   it("keeps different uploaders in separate groups for the same event", () => {
     const jobs = [
       makeJob("job-1", {
-        uploaderId: "user-a",
         eventId: "event-1",
         eventName: "E",
         photoId: "photo-1",
+        uploaderId: "user-a",
       }),
       makeJob("job-2", {
-        uploaderId: "user-b",
         eventId: "event-1",
         eventName: "E",
         photoId: "photo-2",
+        uploaderId: "user-b",
       }),
     ];
     const groups = groupPhotoJobs(jobs);
@@ -129,10 +129,10 @@ describe("groupPhotoJobs", () => {
   it("handles a single job as a group of one", () => {
     const jobs = [
       makeJob("job-1", {
-        uploaderId: "user-a",
         eventId: "event-1",
         eventName: "E",
         photoId: "photo-1",
+        uploaderId: "user-a",
       }),
     ];
     const groups = groupPhotoJobs(jobs);
@@ -148,22 +148,22 @@ describe("groupPhotoJobs", () => {
   it("accumulates photoIds for the same uploader × event", () => {
     const jobs = [
       makeJob("job-1", {
-        uploaderId: "u",
         eventId: "e",
         eventName: "E",
         photoId: "p1",
+        uploaderId: "u",
       }),
       makeJob("job-2", {
-        uploaderId: "u",
         eventId: "e",
         eventName: "E",
         photoId: "p2",
+        uploaderId: "u",
       }),
       makeJob("job-3", {
-        uploaderId: "u",
         eventId: "e",
         eventName: "E",
         photoId: "p3",
+        uploaderId: "u",
       }),
     ];
     const group = groupPhotoJobs(jobs).get("u::e");

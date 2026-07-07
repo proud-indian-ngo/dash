@@ -57,7 +57,7 @@ describe("assertCanModify", () => {
   it("passes for owner with pending status and edit permission", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "pending" },
+        { status: "pending", userId: "user-1" },
         "user-1",
         false,
         "reimbursement",
@@ -70,7 +70,7 @@ describe("assertCanModify", () => {
   it("throws for owner with pending status without edit permission", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "pending" },
+        { status: "pending", userId: "user-1" },
         "user-1",
         false,
         "reimbursement",
@@ -83,7 +83,7 @@ describe("assertCanModify", () => {
   it("passes for admin with pending status", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "pending" },
+        { status: "pending", userId: "user-1" },
         "admin-1",
         true,
         "reimbursement"
@@ -94,7 +94,7 @@ describe("assertCanModify", () => {
   it("throws unauthorized when not owner and not admin", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "pending" },
+        { status: "pending", userId: "user-1" },
         "user-2",
         false,
         "reimbursement"
@@ -105,7 +105,7 @@ describe("assertCanModify", () => {
   it("throws when not pending even if owner", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "approved" },
+        { status: "approved", userId: "user-1" },
         "user-1",
         false,
         "reimbursement"
@@ -116,7 +116,7 @@ describe("assertCanModify", () => {
   it("throws when not pending even if admin", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "approved" },
+        { status: "approved", userId: "user-1" },
         "admin-1",
         true,
         "reimbursement"
@@ -127,7 +127,7 @@ describe("assertCanModify", () => {
   it("passes for admin with non-pending status when status bypass is enabled", () => {
     expect(() =>
       assertCanModify(
-        { userId: "user-1", status: "approved" },
+        { status: "approved", userId: "user-1" },
         "admin-1",
         true,
         "reimbursement",
@@ -140,25 +140,25 @@ describe("assertCanModify", () => {
 describe("assertCanDelete", () => {
   it("passes for admin regardless of status", () => {
     expect(() =>
-      assertCanDelete({ userId: "user-1", status: "approved" }, "admin-1", true)
+      assertCanDelete({ status: "approved", userId: "user-1" }, "admin-1", true)
     ).not.toThrow();
   });
 
   it("passes for owner with pending status", () => {
     expect(() =>
-      assertCanDelete({ userId: "user-1", status: "pending" }, "user-1", false)
+      assertCanDelete({ status: "pending", userId: "user-1" }, "user-1", false)
     ).not.toThrow();
   });
 
   it("throws for owner with non-pending status", () => {
     expect(() =>
-      assertCanDelete({ userId: "user-1", status: "approved" }, "user-1", false)
+      assertCanDelete({ status: "approved", userId: "user-1" }, "user-1", false)
     ).toThrow("Unauthorized");
   });
 
   it("throws for non-owner non-admin", () => {
     expect(() =>
-      assertCanDelete({ userId: "user-1", status: "pending" }, "user-2", false)
+      assertCanDelete({ status: "pending", userId: "user-1" }, "user-2", false)
     ).toThrow("Unauthorized");
   });
 });
@@ -168,22 +168,22 @@ describe("buildLineItemInsert", () => {
     const now = 1_700_000_000_000;
     const result = buildLineItemInsert(
       {
-        id: "li-1",
+        amount: 500,
         categoryId: "cat-1",
         description: "Test item",
-        amount: 500,
-        sortOrder: 0,
         generateVoucher: false,
+        id: "li-1",
+        sortOrder: 0,
       },
       now
     );
     expect(result).toEqual({
-      id: "li-1",
-      categoryId: "cat-1",
-      description: "Test item",
       amount: 500,
-      sortOrder: 0,
+      categoryId: "cat-1",
       createdAt: now,
+      description: "Test item",
+      id: "li-1",
+      sortOrder: 0,
       updatedAt: now,
     });
   });
@@ -194,22 +194,22 @@ describe("buildAttachmentInsert", () => {
     const now = 1_700_000_000_000;
     const result = buildAttachmentInsert(
       {
-        id: "att-1",
-        type: "file",
-        objectKey: "uploads/file.pdf",
         filename: "file.pdf",
+        id: "att-1",
         mimeType: "application/pdf",
+        objectKey: "uploads/file.pdf",
+        type: "file",
       },
       now
     );
     expect(result).toEqual({
-      id: "att-1",
-      type: "file",
-      filename: "file.pdf",
-      objectKey: "uploads/file.pdf",
-      url: null,
-      mimeType: "application/pdf",
       createdAt: now,
+      filename: "file.pdf",
+      id: "att-1",
+      mimeType: "application/pdf",
+      objectKey: "uploads/file.pdf",
+      type: "file",
+      url: null,
     });
   });
 
@@ -224,13 +224,13 @@ describe("buildAttachmentInsert", () => {
       now
     );
     expect(result).toEqual({
-      id: "att-2",
-      type: "url",
-      filename: null,
-      objectKey: null,
-      url: "https://example.com/doc",
-      mimeType: null,
       createdAt: now,
+      filename: null,
+      id: "att-2",
+      mimeType: null,
+      objectKey: null,
+      type: "url",
+      url: "https://example.com/doc",
     });
   });
 });
@@ -240,11 +240,11 @@ describe("buildHistoryInsert", () => {
     const now = 1_700_000_000_000;
     const result = buildHistoryInsert("actor-1", "approved", now, "Looks good");
     expect(result).toMatchObject({
-      actorId: "actor-1",
       action: "approved",
-      note: "Looks good",
-      metadata: null,
+      actorId: "actor-1",
       createdAt: now,
+      metadata: null,
+      note: "Looks good",
     });
     expect(result.id).toBeDefined();
   });

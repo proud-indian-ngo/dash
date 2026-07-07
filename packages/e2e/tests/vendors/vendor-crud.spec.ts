@@ -36,10 +36,10 @@ test.describe("Vendor management (admin)", () => {
     await expect(dialog).toBeVisible();
 
     await dialog
-      .getByRole("textbox", { name: "Name", exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill(vendorName);
     await dialog
-      .getByRole("textbox", { name: "Phone", exact: true })
+      .getByRole("textbox", { exact: true, name: "Phone" })
       .fill("+91-9876543210");
     await dialog
       .getByRole("textbox", { name: "Bank Account Name" })
@@ -68,10 +68,10 @@ test.describe("Vendor management (admin)", () => {
     ).toBeVisible();
 
     await expect(
-      editDialog.getByRole("textbox", { name: "Name", exact: true })
+      editDialog.getByRole("textbox", { exact: true, name: "Name" })
     ).toHaveValue(vendorName);
     await editDialog
-      .getByRole("textbox", { name: "Name", exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill(editedName);
     await editDialog.getByRole("button", { name: "Save" }).click();
     await expect(editDialog).toBeHidden({ timeout: 10_000 });

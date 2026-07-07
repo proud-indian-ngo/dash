@@ -30,8 +30,8 @@ export const REMINDER_PRESET_MINUTES: readonly number[] = REMINDER_PRESETS.map(
 
 /** Negative sentinels used in `event_reminder_sent.intervalMinutes` for post-event nudges. */
 export const POST_EVENT_SENTINELS = {
-  feedbackNudge: -360,
   attendanceReminder: -1440,
+  feedbackNudge: -360,
   photoNudge: -1441,
 } as const;
 

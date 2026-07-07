@@ -49,6 +49,7 @@ export function UserHoverCard({
   const { hasPermission, user: appUser } = useApp();
   const canSeeFullDetails =
     hasPermission("users.view") || user.id === appUser.id;
+  const stableOnClick0 = (e: any) => e.stopPropagation();
 
   return (
     <HoverCard>
@@ -65,7 +66,7 @@ export function UserHoverCard({
       >
         {children}
       </HoverCardTrigger>
-      <HoverCardContent className="w-64" onClick={(e) => e.stopPropagation()}>
+      <HoverCardContent className="w-64" onClick={stableOnClick0}>
         <div className="flex gap-3">
           <UserAvatar className="size-10 shrink-0" user={user} />
           <div className="min-w-0 space-y-1.5">

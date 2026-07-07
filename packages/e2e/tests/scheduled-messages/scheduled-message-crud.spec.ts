@@ -52,7 +52,7 @@ test.describe("Scheduled messages (admin)", () => {
     // The default scheduledAt is 1 hour from now — no interaction needed
 
     await dialog
-      .getByRole("button", { name: "Schedule message", exact: true })
+      .getByRole("button", { exact: true, name: "Schedule message" })
       .click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Message scheduled")).toBeVisible();
@@ -90,7 +90,7 @@ test.describe("Scheduled messages (admin)", () => {
     await page.getByRole("option", { name: /E2E Test Group/ }).click();
     await page.keyboard.press("Escape");
     await dialog
-      .getByRole("button", { name: "Schedule message", exact: true })
+      .getByRole("button", { exact: true, name: "Schedule message" })
       .click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(messageText)).toBeVisible({ timeout: 10_000 });

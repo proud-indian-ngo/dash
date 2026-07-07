@@ -68,7 +68,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       throw new Error("Missing file or eventId");
     }
     const mime = file.type;
-    const size = file.size;
+    const { size } = file;
     if (typeof occDate === "string" && !OCC_DATE_RE.test(occDate)) {
       throw new Error("Invalid occurrence date");
     }
@@ -83,8 +83,8 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       throw new Error(`File exceeds ${limit} limit`);
     }
     return {
-      file,
       eventId,
+      file,
       mimeType: mime,
       occDate: typeof occDate === "string" ? occDate : undefined,
     };
@@ -95,19 +95,19 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       path: "/fn/immich-upload",
     });
 
-    const session = context.session;
+    const { session } = context;
     if (!session) {
       return { error: "Unauthorized" } as const;
     }
 
     const { file, eventId, occDate } = data;
     log.set({
-      userId: session.user.id,
-      role: session.user.role,
       eventId,
-      occDate,
       fileName: file.name,
       fileSize: file.size,
+      occDate,
+      role: session.user.role,
+      userId: session.user.id,
     });
 
     // Verify Immich is configured
@@ -124,7 +124,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       return { error: "Event not found" } as const;
     }
 
-    log.set({ teamId: event.teamId, eventName: event.name });
+    log.set({ eventName: event.name, teamId: event.teamId });
 
     // Verify user has manage_photos permission or is team lead
     const role = session.user.role ?? "unoriented_volunteer";

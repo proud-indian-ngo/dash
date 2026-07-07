@@ -12,11 +12,11 @@ const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Vendor Payment",
-  routePrefix: "vendor-payments",
-  idempotencyPrefix: "vendor-payment",
   getLineItems: getVendorPaymentLineItems,
-  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+  idempotencyPrefix: "vendor-payment",
+  routePrefix: "vendor-payments",
   statusTopic: TOPICS.REQUESTS_STATUS,
+  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
 });
 
 export async function notifyVendorPaymentSubmitted(options: {
@@ -43,10 +43,10 @@ export async function notifyVendorPaymentApproved(options: {
     : undefined;
   await notifier.notifyApproved({
     entityId: options.vendorPaymentId,
-    submitterId: options.submitterId,
-    title: options.title,
     note: options.note,
     screenshotUrl,
+    submitterId: options.submitterId,
+    title: options.title,
   });
 }
 
@@ -58,9 +58,9 @@ export async function notifyVendorPaymentRejected(options: {
 }): Promise<void> {
   await notifier.notifyRejected({
     entityId: options.vendorPaymentId,
+    reason: options.reason,
     submitterId: options.submitterId,
     title: options.title,
-    reason: options.reason,
   });
 }
 
@@ -74,19 +74,19 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
   const body = `${options.submitterName} uploaded an invoice for "${options.vendorPaymentTitle}" — time to review.`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View payment",
+    ctaUrl: fullUrl,
     heading: "New invoice",
     paragraphs: [body],
-    ctaUrl: fullUrl,
-    ctaLabel: "View payment",
   });
   await sendBulkMessage({
-    userIds: approverIds,
-    title: "📄 New invoice",
     body,
-    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    emailHtml,
     idempotencyKey: `vp-invoice-submitted-${options.vendorPaymentId}-${options.timestamp}`,
+    title: "📄 New invoice",
     topic: TOPICS.REQUESTS_SUBMISSIONS,
+    userIds: approverIds,
   });
 }
 
@@ -100,19 +100,19 @@ export async function notifyVendorPaymentInvoiceApproved(options: {
   const body = `${baseBody}${options.note ? ` Note: ${options.note}` : ""}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
-    heading: "Invoice approved!",
-    paragraphs: [baseBody],
-    note: options.note,
-    ctaUrl: fullUrl,
     ctaLabel: "View payment",
+    ctaUrl: fullUrl,
+    heading: "Invoice approved!",
+    note: options.note,
+    paragraphs: [baseBody],
   });
   await sendMessage({
-    to: options.submitterId,
-    title: "✅ Invoice approved!",
     body,
-    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    emailHtml,
     idempotencyKey: `vp-invoice-approved-${options.vendorPaymentId}`,
+    title: "✅ Invoice approved!",
+    to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
@@ -127,18 +127,18 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
   const body = `Your invoice for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View payment",
+    ctaUrl: fullUrl,
     heading: "Invoice not approved",
     paragraphs: [body],
-    ctaUrl: fullUrl,
-    ctaLabel: "View payment",
   });
   await sendMessage({
-    to: options.submitterId,
-    title: "↩️ Invoice not approved",
     body,
-    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    emailHtml,
     idempotencyKey: `vp-invoice-rejected-${options.vendorPaymentId}-${options.timestamp}`,
+    title: "↩️ Invoice not approved",
+    to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
@@ -150,18 +150,18 @@ export async function notifyVpFullyPaid(options: {
 }): Promise<void> {
   const body = `All payments for "${options.title}" are in — you're all set!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View payment",
+    ctaUrl: `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`,
     heading: "All paid up!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`,
-    ctaLabel: "View payment",
   });
   await sendMessage({
-    to: options.submitterId,
-    title: "🎉 All paid up!",
     body,
-    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    emailHtml,
     idempotencyKey: `vp-fully-paid-${options.vendorPaymentId}`,
+    title: "🎉 All paid up!",
+    to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
@@ -175,18 +175,18 @@ export async function notifyVptCascadeRejected(options: {
 }): Promise<void> {
   const body = `${options.transactionCount} pending transactions for "${options.title}" were auto-rejected: ${options.rejectionReason}`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View payment",
+    ctaUrl: `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`,
     heading: "Transactions not approved",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`,
-    ctaLabel: "View payment",
   });
   await sendMessage({
-    to: options.submitterId,
-    title: "↩️ Transactions not approved",
     body,
-    emailHtml,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    emailHtml,
     idempotencyKey: `vpt-cascade-rejected-${options.vendorPaymentId}`,
+    title: "↩️ Transactions not approved",
+    to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }

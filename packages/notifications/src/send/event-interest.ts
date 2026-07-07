@@ -39,19 +39,19 @@ export async function notifyEventInterestReceived({
   volunteerName,
 }: InterestReceivedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Take a look",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Someone's interested!",
     paragraphs: [`${volunteerName} wants to join ${eventName}!`],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Take a look",
   });
   await sendBulkMessage({
-    userIds: leadUserIds,
-    title: "🙋 Someone's interested!",
     body: `${volunteerName} wants to join ${eventName}!`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-interest-received-${eventId}-${volunteerName}`,
+    title: "🙋 Someone's interested!",
     topic: TOPICS.EVENTS_INTEREST,
+    userIds: leadUserIds,
   });
 }
 
@@ -61,20 +61,20 @@ export async function notifyEventInterestApproved({
   userId,
 }: InterestApprovedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "You're in!",
     paragraphs: [
       `Great news — you've been approved for ${eventName}! Welcome to the crew.`,
     ],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: userId,
-    title: "✅ You're in!",
     body: `Great news — you've been approved for ${eventName}! Welcome to the crew.`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-interest-approved-${eventId}-${userId}`,
+    title: "✅ You're in!",
+    to: userId,
     topic: TOPICS.EVENTS_INTEREST,
   });
 }
@@ -85,20 +85,20 @@ export async function notifyEventInterestRejected({
   userId,
 }: InterestRejectedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Interest update",
     paragraphs: [
       `Unfortunately, your interest in ${eventName} wasn't approved this time.`,
     ],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: userId,
-    title: "📅 Interest update",
     body: `Unfortunately, your interest in ${eventName} wasn't approved this time.`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-interest-rejected-${eventId}-${userId}`,
+    title: "📅 Interest update",
+    to: userId,
     topic: TOPICS.EVENTS_INTEREST,
   });
 }
@@ -112,18 +112,18 @@ export async function notifyEventVolunteerLeft({
   volunteerUserId,
 }: VolunteerLeftOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Volunteer left event",
     paragraphs: [`${volunteerName} left ${eventName}.`],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendBulkMessage({
-    userIds: leadUserIds,
-    title: "🏃 Volunteer left",
     body: `${volunteerName} left ${eventName}.`,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-volunteer-left-${eventId}-${volunteerUserId}-${leftAt}`,
+    title: "🏃 Volunteer left",
     topic: TOPICS.EVENTS_INTEREST,
+    userIds: leadUserIds,
   });
 }

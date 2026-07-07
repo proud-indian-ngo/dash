@@ -34,17 +34,17 @@ export function BankingSection() {
       const id = uuidv7();
       const res = await zero.mutate(
         mutators.bankAccount.create({
-          id,
           accountName: value.accountName,
           accountNumber: value.accountNumber,
+          id,
           ifscCode: value.ifscCode.toUpperCase(),
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "bankAccount.create",
         entityId: id,
-        successMsg: "Bank account added",
         errorMsg: "Couldn't add bank account",
+        mutation: "bankAccount.create",
+        successMsg: "Bank account added",
       });
       if (res.type !== "error") {
         form.reset();
@@ -57,6 +57,27 @@ export function BankingSection() {
   });
 
   const accountList = accounts ?? [];
+  const stableOnConfirm0 = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    const res = await zero.mutate(
+      mutators.bankAccount.delete({ id: deleteTarget })
+    ).server;
+    handleMutationResult(res, {
+      entityId: deleteTarget,
+      errorMsg: "Failed to delete bank account",
+      mutation: "bankAccount.delete",
+    });
+    if (res.type !== "error") {
+      setDeleteTarget(null);
+    }
+  };
+  const stableOnOpenChange1 = (open: any) => {
+    if (!open) {
+      setDeleteTarget(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -79,7 +100,7 @@ export function BankingSection() {
         <>
           <Separator />
           <div className="flex flex-col gap-2">
-            {accountList.map((account) => (
+            {accountList.map((account: any) => (
               <div
                 className="flex items-start justify-between rounded-md border p-3"
                 key={account.id}
@@ -108,9 +129,9 @@ export function BankingSection() {
                           mutators.bankAccount.setDefault({ id: account.id })
                         ).server;
                         handleMutationResult(res, {
-                          mutation: "bankAccount.setDefault",
                           entityId: account.id,
                           errorMsg: "Couldn't set default bank account",
+                          mutation: "bankAccount.setDefault",
                         });
                       }}
                       size="sm"
@@ -147,27 +168,8 @@ export function BankingSection() {
       <ConfirmDialog
         confirmLabel="Delete"
         description="This bank account will be permanently deleted. This cannot be undone."
-        onConfirm={async () => {
-          if (!deleteTarget) {
-            return;
-          }
-          const res = await zero.mutate(
-            mutators.bankAccount.delete({ id: deleteTarget })
-          ).server;
-          handleMutationResult(res, {
-            mutation: "bankAccount.delete",
-            entityId: deleteTarget,
-            errorMsg: "Failed to delete bank account",
-          });
-          if (res.type !== "error") {
-            setDeleteTarget(null);
-          }
-        }}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
+        onConfirm={stableOnConfirm0}
+        onOpenChange={stableOnOpenChange1}
         open={deleteTarget !== null}
         title="Delete bank account?"
       />

@@ -9,14 +9,14 @@ export default function ApprovalWithImage() {
       imageUrl="https://placehold.co/400x300/f6f9fc/6b7280?text=Payment+Proof"
       lineItems={[
         {
+          amount: "15000",
           categoryName: "Venue",
           description: "Community hall booking",
-          amount: "15000",
         },
         {
+          amount: "12500",
           categoryName: "Catering",
           description: "Lunch for 50 people",
-          amount: "12500",
         },
       ]}
       note="Payment has been processed via NEFT. Please check your account within 2 business days."

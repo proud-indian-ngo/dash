@@ -28,11 +28,11 @@ function createDots(width: number, height: number): Dot[] {
     Math.max(MIN_DOTS, Math.floor(area / DOT_DENSITY))
   );
   return Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
+    radius: DOT_MIN_RADIUS + Math.random() * (DOT_MAX_RADIUS - DOT_MIN_RADIUS),
     vx: (Math.random() - 0.5) * 2 * DOT_MAX_SPEED,
     vy: (Math.random() - 0.5) * 2 * DOT_MAX_SPEED,
-    radius: DOT_MIN_RADIUS + Math.random() * (DOT_MAX_RADIUS - DOT_MIN_RADIUS),
+    x: Math.random() * width,
+    y: Math.random() * height,
   }));
 }
 
@@ -78,12 +78,12 @@ function drawConnections(
   rgb: string
 ): void {
   ctx.lineWidth = 0.5;
-  for (let i = 0; i < dots.length; i++) {
+  for (let i = 0; i < dots.length; i += 1) {
     const dotA = dots[i];
     if (!dotA) {
       continue;
     }
-    for (let j = i + 1; j < dots.length; j++) {
+    for (let j = i + 1; j < dots.length; j += 1) {
       const dotB = dots[j];
       if (!dotB) {
         continue;
@@ -225,8 +225,8 @@ export function DotGridCanvas() {
       }
     });
     themeObserver.observe(document.documentElement, {
-      attributes: true,
       attributeFilter: ["class"],
+      attributes: true,
     });
 
     const motionHandler = (e: MediaQueryListEvent) => {

@@ -6,10 +6,7 @@ import {
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
 import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
-import {
-  DEFAULT_RSVP_POLL_LEAD_MINUTES,
-  RSVP_POLL_LEAD_PRESETS,
-} from "@pi-dash/shared/event-reminders";
+import { RSVP_POLL_LEAD_PRESETS } from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -43,31 +40,31 @@ import { RecurrenceBuilder } from "./recurrence-builder";
 import { ReminderIntervalsField } from "./reminder-intervals-field";
 
 const eventFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  location: z.string().optional(),
   city: z.enum(cityValues, { message: "City is required" }),
+  createWaGroup: z.boolean(),
+  description: z.string().optional(),
+  endTime: z.date().optional(),
+  excludeRules: z.array(z.string()).optional(),
+  feedbackDeadline: z.date().optional(),
+  feedbackEnabled: z.boolean(),
+  inheritVolunteers: z.boolean(),
+  isPublic: z.boolean(),
+  location: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  postEventNudgesEnabled: z.boolean(),
+  postRsvpPoll: z.boolean(),
+  reminderIntervals: z.array(z.number()),
+  reminderTarget: z.enum(reminderTargetValues),
+  rrule: z.string().optional(),
+  rsvpPollLeadMinutes: z.string().min(1),
   startTime: z
     .date()
     .optional()
-    .refine((d): d is Date => d != null, "Start time is required"),
-  endTime: z.date().optional(),
-  isPublic: z.boolean(),
-  rrule: z.string().optional(),
-  excludeRules: z.array(z.string()).optional(),
+    .refine((d): d is Date => d !== null, "Start time is required"),
   whatsappGroupId: z.string().optional(),
-  createWaGroup: z.boolean(),
-  feedbackEnabled: z.boolean(),
-  feedbackDeadline: z.date().optional(),
-  postRsvpPoll: z.boolean(),
-  rsvpPollLeadMinutes: z.string().min(1),
-  reminderIntervals: z.array(z.number()),
-  reminderTarget: z.enum(reminderTargetValues),
-  postEventNudgesEnabled: z.boolean(),
-  inheritVolunteers: z.boolean(),
 });
 
-const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
+const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p: any) => ({
   label: `${p.label} before`,
   value: String(p.minutes),
 }));
@@ -84,7 +81,7 @@ function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
     return withEndTimeCheck;
   }
   return withEndTimeCheck.refine(
-    (data) => data.startTime == null || data.startTime > new Date(),
+    (data: any) => data.startTime === null || data.startTime > new Date(),
     { message: "Start time must be in the future", path: ["startTime"] }
   );
 }
@@ -96,24 +93,24 @@ interface InitialValues {
   description: string | null;
   endTime: number | null;
   feedbackDeadline: number | null;
-  feedbackEnabled: boolean;
+  feedbackEnabled?: boolean | null;
   id: string;
-  inheritVolunteers: boolean;
-  isPublic: boolean;
+  inheritVolunteers?: boolean | null;
+  isPublic?: boolean | null;
   location: string | null;
-  name: string;
-  postEventNudgesEnabled: boolean;
-  postRsvpPoll: boolean;
-  recurrenceRule: {
+  name?: string | null;
+  postEventNudgesEnabled?: boolean | null;
+  postRsvpPoll?: boolean | null;
+  recurrenceRule?: {
     rrule: string;
     exdates?: string[];
     excludeRules?: string[];
   } | null;
   reminderIntervals: number[] | null;
-  reminderTarget: string | null;
-  rsvpPollLeadMinutes: number;
+  reminderTarget?: string | null;
+  rsvpPollLeadMinutes?: number | null;
   seriesId: string | null;
-  startTime: number;
+  startTime: number | null;
   whatsappGroupId: string | null;
 }
 
@@ -129,34 +126,32 @@ interface EventFormDialogProps {
 
 function getDefaultValues(initialValues?: InitialValues): EventFormValues {
   return {
-    name: initialValues?.name ?? "",
-    description: initialValues?.description ?? "",
-    location: initialValues?.location ?? "",
-    city: (initialValues?.city as (typeof cityValues)[number]) ?? "bangalore",
-    startTime: initialValues ? new Date(initialValues.startTime) : undefined,
+    city: (initialValues?.city ?? "bangalore") as (typeof cityValues)[number],
+    createWaGroup: false,
+    description: initialValues?.description ?? undefined,
     endTime: initialValues?.endTime
       ? new Date(initialValues.endTime)
       : undefined,
-    isPublic: initialValues?.isPublic ?? false,
-    rrule: initialValues?.recurrenceRule?.rrule ?? "",
     excludeRules: initialValues?.recurrenceRule?.excludeRules ?? [],
-    whatsappGroupId: initialValues?.whatsappGroupId ?? "",
-    createWaGroup: false,
-    feedbackEnabled: initialValues?.feedbackEnabled ?? false,
     feedbackDeadline: initialValues?.feedbackDeadline
       ? new Date(initialValues.feedbackDeadline)
       : undefined,
-    postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? true,
-    postRsvpPoll: initialValues?.postRsvpPoll ?? false,
-    rsvpPollLeadMinutes: String(
-      initialValues?.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES
-    ),
-    reminderIntervals: initialValues?.reminderIntervals ?? [],
-    reminderTarget:
-      (initialValues?.reminderTarget as
-        | (typeof reminderTargetValues)[number]
-        | null) ?? "group",
+    feedbackEnabled: initialValues?.feedbackEnabled ?? false,
     inheritVolunteers: initialValues?.inheritVolunteers ?? false,
+    isPublic: initialValues?.isPublic ?? false,
+    location: initialValues?.location ?? undefined,
+    name: initialValues?.name ?? "",
+    postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? false,
+    postRsvpPoll: initialValues?.postRsvpPoll ?? false,
+    reminderIntervals: initialValues?.reminderIntervals ?? [],
+    reminderTarget: (initialValues?.reminderTarget ??
+      "participants") as (typeof reminderTargetValues)[number],
+    rrule: initialValues?.recurrenceRule?.rrule,
+    rsvpPollLeadMinutes: String(initialValues?.rsvpPollLeadMinutes ?? 60),
+    startTime: initialValues?.startTime
+      ? new Date(initialValues.startTime)
+      : undefined,
+    whatsappGroupId: initialValues?.whatsappGroupId ?? undefined,
   };
 }
 
@@ -180,26 +175,26 @@ function getStartTimeEpoch(value: EventFormValues): number {
 
 function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
   return {
-    id,
-    name: value.name.trim(),
-    description: value.description?.trim() || undefined,
-    location: value.location?.trim() || undefined,
     city: value.city,
-    now: Date.now(),
-    startTime: getStartTimeEpoch(value),
+    description: value.description?.trim() || undefined,
     endTime: value.endTime?.getTime(),
-    isPublic: value.isPublic,
-    whatsappGroupId: value.whatsappGroupId || undefined,
+    feedbackDeadline: value.feedbackDeadline?.getTime(),
     feedbackEnabled: value.feedbackEnabled,
-    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    id,
+    inheritVolunteers: value.inheritVolunteers,
+    isPublic: value.isPublic,
+    location: value.location?.trim() || undefined,
+    name: value.name.trim(),
+    now: Date.now(),
+    postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
-    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
-    postEventNudgesEnabled: value.postEventNudgesEnabled,
-    inheritVolunteers: value.inheritVolunteers,
+    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    startTime: getStartTimeEpoch(value),
+    whatsappGroupId: value.whatsappGroupId || undefined,
   };
 }
 
@@ -210,41 +205,41 @@ function buildUpdateSeriesArgs(
   originalDate?: string
 ) {
   const base = {
+    city: value.city,
+    description: value.description?.trim() || undefined,
+    endTime: value.endTime?.getTime(),
+    feedbackDeadline: value.feedbackDeadline?.getTime(),
+    feedbackEnabled: value.feedbackEnabled,
     id,
+    inheritVolunteers: value.inheritVolunteers,
+    isPublic: value.isPublic,
+    location: value.location?.trim() || undefined,
     mode: editScope as "this" | "following" | "all",
     name: value.name.trim(),
-    description: value.description?.trim() || undefined,
-    location: value.location?.trim() || undefined,
-    city: value.city,
     now: Date.now(),
-    startTime: getStartTimeEpoch(value),
-    endTime: value.endTime?.getTime(),
-    isPublic: value.isPublic,
-    whatsappGroupId: value.whatsappGroupId || undefined,
-    feedbackEnabled: value.feedbackEnabled,
-    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
-    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    recurrenceRule: value.rrule
+      ? {
+          excludeRules: value.excludeRules?.length
+            ? value.excludeRules
+            : undefined,
+          rrule: value.rrule,
+        }
+      : undefined,
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
-    postEventNudgesEnabled: value.postEventNudgesEnabled,
-    inheritVolunteers: value.inheritVolunteers,
-    recurrenceRule: value.rrule
-      ? {
-          rrule: value.rrule,
-          excludeRules: value.excludeRules?.length
-            ? value.excludeRules
-            : undefined,
-        }
-      : undefined,
+    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    startTime: getStartTimeEpoch(value),
+    whatsappGroupId: value.whatsappGroupId || undefined,
   };
   if (editScope === "this") {
-    return { ...base, originalDate, newExceptionId: uuidv7() };
+    return { ...base, newExceptionId: uuidv7(), originalDate };
   }
   if (editScope === "following") {
-    return { ...base, originalDate, newSeriesId: uuidv7() };
+    return { ...base, newSeriesId: uuidv7(), originalDate };
   }
   return base;
 }
@@ -252,37 +247,37 @@ function buildUpdateSeriesArgs(
 function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
   const recurrenceRule = value.rrule
     ? {
-        rrule: value.rrule,
         excludeRules: value.excludeRules?.length
           ? value.excludeRules
           : undefined,
+        rrule: value.rrule,
       }
     : undefined;
 
   return {
-    id: uuidv7(),
-    teamId,
-    name: value.name.trim(),
-    description: value.description?.trim() || undefined,
-    location: value.location?.trim() || undefined,
     city: value.city,
-    startTime: getStartTimeEpoch(value),
-    endTime: value.endTime?.getTime(),
-    isPublic: value.isPublic,
-    whatsappGroupId: value.whatsappGroupId || undefined,
     createWhatsAppGroup: value.createWaGroup || undefined,
-    now: Date.now(),
-    recurrenceRule,
+    description: value.description?.trim() || undefined,
+    endTime: value.endTime?.getTime(),
+    feedbackDeadline: value.feedbackDeadline?.getTime(),
     feedbackEnabled: value.feedbackEnabled,
-    feedbackDeadline: value.feedbackDeadline?.getTime() ?? null,
+    id: uuidv7(),
+    inheritVolunteers: value.inheritVolunteers,
+    isPublic: value.isPublic,
+    location: value.location?.trim() || undefined,
+    name: value.name.trim(),
+    now: Date.now(),
+    postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
-    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    recurrenceRule,
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
-    postEventNudgesEnabled: value.postEventNudgesEnabled,
-    inheritVolunteers: value.inheritVolunteers,
+    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    startTime: getStartTimeEpoch(value),
+    teamId,
+    whatsappGroupId: value.whatsappGroupId || undefined,
   };
 }
 
@@ -376,10 +371,10 @@ function EventFormContent({
       }
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: mutationName,
         entityId,
-        successMsg,
         errorMsg: isEdit ? "Failed to update event" : "Failed to create event",
+        mutation: mutationName,
+        successMsg,
       });
       if (res.type !== "error") {
         onOpenChange(false);
@@ -398,6 +393,16 @@ function EventFormContent({
   );
 
   const configured = !showAdvanced && hasAdvancedValues(form.state.values);
+  const stableSelector0 = (state: any) => state.values.startTime;
+  const stableSelector1 = (s: any) => s.values.rrule;
+  const stableSelector2 = (state: any) => ({
+    whatsappGroupId: state.values.whatsappGroupId,
+  });
+  const stableSelector3 = (state: any) => state.values.whatsappGroupId;
+  const stableSelector4 = (state: any) => state.values.postRsvpPoll;
+  const stableSelector5 = (state: any) => state.values.feedbackEnabled;
+  const stableSelector6 = (state: any) => state.values.whatsappGroupId;
+  const stableOnCancel7 = () => onOpenChange(false);
 
   return (
     <FormLayout form={form}>
@@ -429,8 +434,8 @@ function EventFormContent({
           options={cityOptions}
           placeholder="Select city"
         />
-        <form.Subscribe selector={(state) => state.values.startTime}>
-          {(startTime) => (
+        <form.Subscribe selector={stableSelector0}>
+          {(startTime: any) => (
             <DateTimeField
               description={
                 canBackdate && startTime && startTime < new Date()
@@ -468,15 +473,17 @@ function EventFormContent({
             editScope === "following" ||
             (!editScope && !!initialValues?.recurrenceRule)) && (
             <form.Field name="rrule">
-              {(rruleField) => (
+              {(rruleField: any) => (
                 <form.Field name="excludeRules">
-                  {(excludeField) => (
+                  {(excludeField: any) => (
                     <RecurrenceBuilder
-                      excludeRules={excludeField.state.value ?? []}
-                      onChange={(v) => rruleField.handleChange(v)}
-                      onExcludeRulesChange={(v) => excludeField.handleChange(v)}
+                      excludeRules={excludeField.state.value}
+                      onChange={(v: any) => rruleField.handleChange(v)}
+                      onExcludeRulesChange={(v: any) =>
+                        excludeField.handleChange(v)
+                      }
                       startTime={form.state.values.startTime}
-                      value={rruleField.state.value ?? ""}
+                      value={rruleField.state.value}
                     />
                   )}
                 </form.Field>
@@ -484,8 +491,8 @@ function EventFormContent({
             </form.Field>
           )}
 
-          <form.Subscribe selector={(s) => s.values.rrule}>
-            {(rrule) =>
+          <form.Subscribe selector={stableSelector1}>
+            {(rrule: any) =>
               rrule ? (
                 <CheckboxField
                   description="Copy volunteers from the series to each occurrence"
@@ -504,11 +511,7 @@ function EventFormContent({
               options={waGroupOptions}
               placeholder="None"
             />
-            <form.Subscribe
-              selector={(state) => ({
-                whatsappGroupId: state.values.whatsappGroupId,
-              })}
-            >
+            <form.Subscribe selector={stableSelector2}>
               {({ whatsappGroupId }) =>
                 isEdit || whatsappGroupId ? (
                   <div />
@@ -532,8 +535,8 @@ function EventFormContent({
               label="Send post-event reminders"
               name="postEventNudgesEnabled"
             />
-            <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
-              {(whatsappGroupId) => {
+            <form.Subscribe selector={stableSelector3}>
+              {(whatsappGroupId: any) => {
                 const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
                 return (
                   <CheckboxField
@@ -549,8 +552,8 @@ function EventFormContent({
                 );
               }}
             </form.Subscribe>
-            <form.Subscribe selector={(state) => state.values.postRsvpPoll}>
-              {(postRsvpPoll) =>
+            <form.Subscribe selector={stableSelector4}>
+              {(postRsvpPoll: any) =>
                 postRsvpPoll ? (
                   <SelectField
                     label="Post poll"
@@ -562,8 +565,8 @@ function EventFormContent({
             </form.Subscribe>
           </div>
 
-          <form.Subscribe selector={(state) => state.values.feedbackEnabled}>
-            {(feedbackEnabled) =>
+          <form.Subscribe selector={stableSelector5}>
+            {(feedbackEnabled: any) =>
               feedbackEnabled ? (
                 <DateTimeField
                   description="Leave empty for no deadline"
@@ -574,18 +577,18 @@ function EventFormContent({
             }
           </form.Subscribe>
 
-          <form.Subscribe selector={(state) => state.values.whatsappGroupId}>
-            {(whatsappGroupId) => (
+          <form.Subscribe selector={stableSelector6}>
+            {(whatsappGroupId: any) => (
               <form.Field name="reminderIntervals">
-                {(intervalsField) => (
+                {(intervalsField: any) => (
                   <form.Field name="reminderTarget">
-                    {(targetField) => (
+                    {(targetField: any) => (
                       <ReminderIntervalsField
                         hasWhatsappGroup={
                           !!whatsappGroupId || teamHasWhatsAppGroup
                         }
-                        onChange={(v) => intervalsField.handleChange(v)}
-                        onTargetChange={(v) => targetField.handleChange(v)}
+                        onChange={(v: any) => intervalsField.handleChange(v)}
+                        onTargetChange={(v: any) => targetField.handleChange(v)}
                         reminderTarget={targetField.state.value}
                         value={intervalsField.state.value}
                       />
@@ -599,7 +602,7 @@ function EventFormContent({
       </Collapsible>
 
       <FormActions
-        onCancel={() => onOpenChange(false)}
+        onCancel={stableOnCancel7}
         submitLabel={isEdit ? "Save" : "Create"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
       />
@@ -619,6 +622,7 @@ export function EventFormDialog({
   const isEdit = mode ? mode === "edit" : !!initialValues;
   const isDuplicate = !isEdit && !!initialValues;
   let dialogTitle = "Create Event";
+
   if (isEdit) {
     dialogTitle = "Edit Event";
   } else if (isDuplicate) {
@@ -632,12 +636,12 @@ export function EventFormDialog({
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
   const usedGroupIds = new Set<string>();
-  for (const t of allTeams ?? []) {
+  for (const t of allTeams) {
     if (t.whatsappGroupId) {
       usedGroupIds.add(t.whatsappGroupId);
     }
   }
-  for (const e of allEvents ?? []) {
+  for (const e of allEvents) {
     if (e.whatsappGroupId) {
       usedGroupIds.add(e.whatsappGroupId);
     }
@@ -648,7 +652,7 @@ export function EventFormDialog({
 
   const waGroupOptions = [
     { label: "None", value: "" },
-    ...(whatsappGroups ?? [])
+    ...whatsappGroups
       .filter((g: WhatsappGroup) => !usedGroupIds.has(g.id))
       .map((g: WhatsappGroup) => ({
         label: g.name,
@@ -656,14 +660,14 @@ export function EventFormDialog({
       })),
   ];
 
-  const team = (allTeams ?? []).find((t: { id: string }) => t.id === teamId);
+  const team = allTeams.find((t: { id: string }) => t.id === teamId);
   const teamHasWhatsAppGroup = !!team?.whatsappGroupId;
   const { user } = useApp();
   const userIsTeamLead = isTeamLead(team?.members ?? [], user.id);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k) => k + 1);
+      setFormKey((k: any) => k + 1);
     }
     onOpenChange(nextOpen);
   };

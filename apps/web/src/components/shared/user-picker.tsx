@@ -43,18 +43,18 @@ export function UserPicker({
 
   const filteredUsers = (() => {
     let list = excludeUserIds
-      ? users.filter((u) => !excludeUserIds.has(u.id))
+      ? users.filter((u: any) => !excludeUserIds.has(u.id))
       : users;
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
-        (u) =>
+        (u: any) =>
           u.name?.toLowerCase().includes(q) ||
           u.email?.toLowerCase().includes(q)
       );
     }
     if (highlightedUserIds?.size) {
-      list = [...list].sort((a, b) => {
+      list = [...list].sort((a: any, b: any) => {
         const aH = highlightedUserIds.has(a.id) ? 0 : 1;
         const bH = highlightedUserIds.has(b.id) ? 0 : 1;
         return aH - bH;
@@ -63,7 +63,7 @@ export function UserPicker({
     return list;
   })();
 
-  const userMap = new Map(users.map((u) => [u.id, u]));
+  const userMap = new Map(users.map((u: any) => [u.id, u]));
 
   return (
     <Combobox
@@ -75,7 +75,7 @@ export function UserPicker({
       value={value}
     >
       <ComboboxChips ref={anchorRef}>
-        {value.map((id) => {
+        {value.map((id: any) => {
           const user = userMap.get(id);
           return <ComboboxChip key={id}>{user?.name ?? id}</ComboboxChip>;
         })}
@@ -88,7 +88,7 @@ export function UserPicker({
               {emptyMessage}
             </div>
           ) : null}
-          {filteredUsers.map((u) => (
+          {filteredUsers.map((u: any) => (
             <ComboboxItem key={u.id} value={u.id}>
               <UserAvatar
                 className="size-7"

@@ -53,21 +53,21 @@ export const attachmentPurposeEnum = pgEnum(
 export const vendor = pgTable(
   "vendor",
   {
-    id: uuid("id").primaryKey(),
-    name: text("name").notNull(),
-    contactEmail: text("contact_email"),
-    contactPhone: text("contact_phone").notNull(),
+    address: text("address"),
+    bankAccountIfscCode: text("bank_account_ifsc_code").notNull(),
     bankAccountName: text("bank_account_name").notNull(),
     bankAccountNumber: text("bank_account_number").notNull(),
-    bankAccountIfscCode: text("bank_account_ifsc_code").notNull(),
-    address: text("address"),
-    gstNumber: text("gst_number"),
-    panNumber: text("pan_number"),
-    status: vendorStatusEnum("status").default("pending").notNull(),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone").notNull(),
+    createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull(),
+    gstNumber: text("gst_number"),
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    panNumber: text("pan_number"),
+    status: vendorStatusEnum("status").default("pending").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
@@ -80,35 +80,35 @@ export const vendor = pgTable(
 export const vendorPayment = pgTable(
   "vendor_payment",
   {
+    approvalScreenshotKey: text("approval_screenshot_key"),
+    city: cityEnum("city").notNull().default("bangalore"),
+    createdAt: timestamp("created_at").notNull(),
+    eventId: uuid("event_id").references(() => teamEvent.id, {
+      onDelete: "set null",
+    }),
     id: uuid("id").primaryKey(),
+    invoiceDate: date("invoice_date", { mode: "string" }),
+    invoiceNumber: text("invoice_number"),
+    invoiceRejectionReason: text("invoice_rejection_reason"),
+    invoiceReviewedAt: timestamp("invoice_reviewed_at"),
+    invoiceReviewedBy: text("invoice_reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    rejectionReason: text("rejection_reason"),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewedBy: text("reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    status: vendorPaymentStatusEnum("status").default("pending").notNull(),
+    submittedAt: timestamp("submitted_at"),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     vendorId: uuid("vendor_id")
       .notNull()
       .references(() => vendor.id, { onDelete: "cascade" }),
-    title: text("title").notNull(),
-    invoiceNumber: text("invoice_number"),
-    invoiceDate: date("invoice_date", { mode: "string" }),
-    status: vendorPaymentStatusEnum("status").default("pending").notNull(),
-    rejectionReason: text("rejection_reason"),
-    approvalScreenshotKey: text("approval_screenshot_key"),
-    reviewedBy: text("reviewed_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    reviewedAt: timestamp("reviewed_at"),
-    invoiceReviewedBy: text("invoice_reviewed_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    invoiceReviewedAt: timestamp("invoice_reviewed_at"),
-    invoiceRejectionReason: text("invoice_rejection_reason"),
-    city: cityEnum("city").notNull().default("bangalore"),
-    eventId: uuid("event_id").references(() => teamEvent.id, {
-      onDelete: "set null",
-    }),
-    submittedAt: timestamp("submitted_at"),
-    createdAt: timestamp("created_at").notNull(),
-    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
     index("vendor_payment_userId_idx").on(table.userId),
@@ -125,18 +125,18 @@ export const vendorPayment = pgTable(
 export const vendorPaymentLineItem = pgTable(
   "vendor_payment_line_item",
   {
-    id: uuid("id").primaryKey(),
-    vendorPaymentId: uuid("vendor_payment_id")
-      .notNull()
-      .references(() => vendorPayment.id, { onDelete: "cascade" }),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     categoryId: uuid("category_id")
       .notNull()
       .references(() => expenseCategory.id),
-    description: text("description"),
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-    sortOrder: integer("sort_order").notNull(),
     createdAt: timestamp("created_at").notNull(),
+    description: text("description"),
+    id: uuid("id").primaryKey(),
+    sortOrder: integer("sort_order").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
+    vendorPaymentId: uuid("vendor_payment_id")
+      .notNull()
+      .references(() => vendorPayment.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("vendor_payment_line_item_vendorPaymentId_idx").on(
@@ -148,17 +148,17 @@ export const vendorPaymentLineItem = pgTable(
 export const vendorPaymentAttachment = pgTable(
   "vendor_payment_attachment",
   {
+    createdAt: timestamp("created_at").notNull(),
+    filename: text("filename"),
     id: uuid("id").primaryKey(),
+    mimeType: text("mime_type"),
+    objectKey: text("object_key"),
+    purpose: attachmentPurposeEnum("purpose").default("quotation").notNull(),
+    type: attachmentTypeEnum("type").notNull(),
+    url: text("url"),
     vendorPaymentId: uuid("vendor_payment_id")
       .notNull()
       .references(() => vendorPayment.id, { onDelete: "cascade" }),
-    type: attachmentTypeEnum("type").notNull(),
-    purpose: attachmentPurposeEnum("purpose").default("quotation").notNull(),
-    filename: text("filename"),
-    objectKey: text("object_key"),
-    url: text("url"),
-    mimeType: text("mime_type"),
-    createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
     index("vendor_payment_attachment_vendorPaymentId_idx").on(
@@ -170,17 +170,17 @@ export const vendorPaymentAttachment = pgTable(
 export const vendorPaymentHistory = pgTable(
   "vendor_payment_history",
   {
-    id: uuid("id").primaryKey(),
-    vendorPaymentId: uuid("vendor_payment_id")
-      .notNull()
-      .references(() => vendorPayment.id, { onDelete: "cascade" }),
+    action: historyActionEnum("action").notNull(),
     actorId: text("actor_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    action: historyActionEnum("action").notNull(),
-    note: text("note"),
-    metadata: jsonb("metadata"),
     createdAt: timestamp("created_at").notNull(),
+    id: uuid("id").primaryKey(),
+    metadata: jsonb("metadata"),
+    note: text("note"),
+    vendorPaymentId: uuid("vendor_payment_id")
+      .notNull()
+      .references(() => vendorPayment.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("vendor_payment_history_vendorPaymentId_idx").on(
@@ -201,6 +201,24 @@ export const vendorRelations = relations(vendor, ({ one, many }) => ({
 export const vendorPaymentRelations = relations(
   vendorPayment,
   ({ one, many }) => ({
+    attachments: many(vendorPaymentAttachment),
+    event: one(teamEvent, {
+      fields: [vendorPayment.eventId],
+      references: [teamEvent.id],
+    }),
+    history: many(vendorPaymentHistory),
+    invoiceReviewer: one(user, {
+      fields: [vendorPayment.invoiceReviewedBy],
+      references: [user.id],
+      relationName: "vendor_payment_invoice_reviewer",
+    }),
+    lineItems: many(vendorPaymentLineItem),
+    reviewer: one(user, {
+      fields: [vendorPayment.reviewedBy],
+      references: [user.id],
+      relationName: "vendor_payment_reviewer",
+    }),
+    transactions: many(vendorPaymentTransaction),
     user: one(user, {
       fields: [vendorPayment.userId],
       references: [user.id],
@@ -209,37 +227,19 @@ export const vendorPaymentRelations = relations(
       fields: [vendorPayment.vendorId],
       references: [vendor.id],
     }),
-    reviewer: one(user, {
-      fields: [vendorPayment.reviewedBy],
-      references: [user.id],
-      relationName: "vendor_payment_reviewer",
-    }),
-    invoiceReviewer: one(user, {
-      fields: [vendorPayment.invoiceReviewedBy],
-      references: [user.id],
-      relationName: "vendor_payment_invoice_reviewer",
-    }),
-    event: one(teamEvent, {
-      fields: [vendorPayment.eventId],
-      references: [teamEvent.id],
-    }),
-    lineItems: many(vendorPaymentLineItem),
-    attachments: many(vendorPaymentAttachment),
-    history: many(vendorPaymentHistory),
-    transactions: many(vendorPaymentTransaction),
   })
 );
 
 export const vendorPaymentLineItemRelations = relations(
   vendorPaymentLineItem,
   ({ one }) => ({
-    vendorPayment: one(vendorPayment, {
-      fields: [vendorPaymentLineItem.vendorPaymentId],
-      references: [vendorPayment.id],
-    }),
     category: one(expenseCategory, {
       fields: [vendorPaymentLineItem.categoryId],
       references: [expenseCategory.id],
+    }),
+    vendorPayment: one(vendorPayment, {
+      fields: [vendorPaymentLineItem.vendorPaymentId],
+      references: [vendorPayment.id],
     }),
   })
 );
@@ -257,13 +257,13 @@ export const vendorPaymentAttachmentRelations = relations(
 export const vendorPaymentHistoryRelations = relations(
   vendorPaymentHistory,
   ({ one }) => ({
-    vendorPayment: one(vendorPayment, {
-      fields: [vendorPaymentHistory.vendorPaymentId],
-      references: [vendorPayment.id],
-    }),
     actor: one(user, {
       fields: [vendorPaymentHistory.actorId],
       references: [user.id],
+    }),
+    vendorPayment: one(vendorPayment, {
+      fields: [vendorPaymentHistory.vendorPaymentId],
+      references: [vendorPayment.id],
     }),
   })
 );

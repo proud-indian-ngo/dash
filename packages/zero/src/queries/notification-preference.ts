@@ -10,7 +10,7 @@ export const notificationPreferenceQueries = {
   byUser: defineQuery(
     z.object({ userId: z.string() }),
     ({ args: { userId }, ctx }) =>
-      ctx != null && can(ctx, "users.edit")
+      ctx !== null && can(ctx, "users.edit")
         ? zql.notificationTopicPreference.where("userId", userId)
         : zql.notificationTopicPreference.where("userId", ctx?.userId)
   ),

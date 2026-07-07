@@ -13,13 +13,13 @@ import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export const Route = createFileRoute("/_app/teams/")({
+  component: TeamsRouteComponent,
   head: () => ({
     meta: [{ title: `Teams | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.preload(queries.team.all());
   },
-  component: TeamsRouteComponent,
 });
 
 function TeamsRouteComponent() {
@@ -34,12 +34,16 @@ function TeamsRouteComponent() {
   const handleDelete = async (id: string) => {
     const res = await zero.mutate(mutators.team.delete({ id })).server;
     handleMutationResult(res, {
-      mutation: "team.delete",
       entityId: id,
-      successMsg: "Team deleted",
       errorMsg: "Couldn't delete team",
+      mutation: "team.delete",
+      successMsg: "Team deleted",
     });
   };
+  const stableOnNavigate0 = (id: any) => {
+    navigate({ params: { id }, to: "/teams/$id" });
+  };
+  const stableOnClick1 = () => setCreateOpen(true);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -52,16 +56,10 @@ function TeamsRouteComponent() {
           data={data ?? []}
           isLoading={isLoading}
           onDelete={handleDelete}
-          onNavigate={(id) => {
-            navigate({ to: "/teams/$id", params: { id } });
-          }}
+          onNavigate={stableOnNavigate0}
           toolbarActions={
             hasPermission("teams.create") ? (
-              <Button
-                onClick={() => setCreateOpen(true)}
-                size="sm"
-                type="button"
-              >
+              <Button onClick={stableOnClick1} size="sm" type="button">
                 <HugeiconsIcon
                   className="size-4"
                   icon={PlusSignIcon}

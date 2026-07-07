@@ -7,8 +7,8 @@ import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
 
 const interestStatusMap = {
-  pending: { label: "Interest Pending", variant: "outline" },
   approved: { label: "Interest Approved", variant: "default" },
+  pending: { label: "Interest Pending", variant: "outline" },
   rejected: { label: "Interest Declined", variant: "secondary" },
 } as const satisfies Record<string, { label: string; variant: string }>;
 
@@ -49,10 +49,10 @@ export function VolunteerInterestSection({
       mutators.eventInterest.cancel({ id: myInterest.id })
     ).server;
     handleMutationResult(res, {
-      mutation: "eventInterest.cancel",
       entityId: myInterest.id,
-      successMsg: "Interest cancelled",
       errorMsg: "Failed to cancel interest",
+      mutation: "eventInterest.cancel",
+      successMsg: "Interest cancelled",
     });
   };
 

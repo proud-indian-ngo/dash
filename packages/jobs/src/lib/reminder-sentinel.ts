@@ -14,8 +14,8 @@ export async function tryInsertReminderSent(
 ): Promise<boolean> {
   try {
     await db.insert(eventReminderSent).values({
-      id: uuidv7(),
       eventId,
+      id: uuidv7(),
       instanceDate,
       intervalMinutes,
       sentAt: new Date(),

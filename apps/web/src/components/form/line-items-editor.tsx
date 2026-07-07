@@ -81,7 +81,7 @@ function subFieldErrorProps(field: SubFieldApi, submitted: boolean) {
   const showErrors = field.state.meta.isBlurred || submitted;
   const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorId = `${field.name}-error`;
-  return { hasError, errorId };
+  return { errorId, hasError };
 }
 
 function formatFieldError(error: unknown): string {
@@ -103,6 +103,12 @@ function LineItemRow({
   showVoucher,
   submitted,
 }: LineItemRowProps) {
+  const stableSelector0 = (state: unknown) => {
+    const items = selectLineItems(state, name);
+    const amt = Number(items[index]?.amount);
+    return !Number.isNaN(amt) && amt > 0 && amt <= VOUCHER_AMOUNT_THRESHOLD;
+  };
+
   return (
     <div className="fade-in-0 grid animate-in grid-cols-[1fr_100px_32px] items-start gap-2 duration-150 ease-(--ease-out-expo) sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
@@ -112,13 +118,13 @@ function LineItemRow({
           return (
             <div className="col-span-3 min-w-0 sm:col-span-1">
               <Select
-                onOpenChange={(open) => {
+                onOpenChange={(open: any) => {
                   if (!open) {
                     field.handleBlur();
                   }
                 }}
-                onValueChange={(selectedValue) =>
-                  field.handleChange(selectedValue ?? "")
+                onValueChange={(selectedValue: any) =>
+                  field.handleChange(selectedValue)
                 }
                 value={field.state.value}
               >
@@ -132,20 +138,22 @@ function LineItemRow({
                     className="flex flex-1 items-center text-left"
                     data-slot="select-value"
                   >
-                    {categoryOptions.find(
-                      (option) => option.value === field.state.value
-                    )?.label ?? "Category"}
+                    {
+                      categoryOptions.find(
+                        (option: any) => option.value === field.state.value
+                      )?.label
+                    }
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map((option) => (
+                  {categoryOptions.map((option: any) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {hasError && (
+              {Boolean(hasError) && (
                 <p
                   className="mt-1 text-destructive text-xs"
                   id={errorId}
@@ -170,11 +178,13 @@ function LineItemRow({
                 aria-invalid={hasError || undefined}
                 aria-label={`Description for line item ${index + 1}`}
                 onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
+                onChange={(event: any) =>
+                  field.handleChange(event.target.value)
+                }
                 placeholder="Description"
                 value={field.state.value}
               />
-              {hasError && (
+              {Boolean(hasError) && (
                 <p
                   className="mt-1 text-destructive text-xs"
                   id={errorId}
@@ -201,13 +211,15 @@ function LineItemRow({
                 inputMode="decimal"
                 min="0"
                 onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
+                onChange={(event: any) =>
+                  field.handleChange(event.target.value)
+                }
                 placeholder="0.00"
                 step="0.01"
                 type="number"
                 value={field.state.value}
               />
-              {hasError && (
+              {Boolean(hasError) && (
                 <p
                   className="mt-1 text-destructive text-xs"
                   id={errorId}
@@ -231,16 +243,8 @@ function LineItemRow({
         <HugeiconsIcon className="size-4" icon={Delete02Icon} strokeWidth={2} />
       </Button>
 
-      {showVoucher && (
-        <form.Subscribe
-          selector={(state: unknown) => {
-            const items = selectLineItems(state, name);
-            const amt = Number(items[index]?.amount);
-            return (
-              !Number.isNaN(amt) && amt > 0 && amt <= VOUCHER_AMOUNT_THRESHOLD
-            );
-          }}
-        >
+      {Boolean(showVoucher) && (
+        <form.Subscribe selector={stableSelector0}>
           {(eligible: boolean) =>
             eligible ? (
               <form.Field name={`${name}[${index}].generateVoucher`}>
@@ -259,7 +263,7 @@ function LineItemRow({
                         <Checkbox
                           checked={field.state.value}
                           id={checkboxId}
-                          onCheckedChange={(checked) =>
+                          onCheckedChange={(checked: any) =>
                             field.handleChange(checked === true)
                           }
                         />
@@ -303,18 +307,16 @@ export function LineItemsEditor({
 }: LineItemsEditorProps) {
   const form = useResolvedForm(formProp, "LineItemsEditor");
 
-  const categoryOptions = categories.map((category) => ({
+  const categoryOptions = categories.map((category: any) => ({
     label: category.name,
     value: category.id,
   }));
+  const stableSelector1 = (state: unknown) =>
+    computeRunningTotal(selectLineItems(state, name));
 
   return (
     <>
-      <form.Subscribe
-        selector={(state: unknown) =>
-          computeRunningTotal(selectLineItems(state, name))
-        }
-      >
+      <form.Subscribe selector={stableSelector1}>
         {(total: number) => (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -335,7 +337,7 @@ export function LineItemsEditor({
             <div className="flex flex-col gap-3">
               {arrayField.state.value.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  {arrayField.state.value.map((item, index) => (
+                  {arrayField.state.value.map((item: any, index: any) => (
                     <LineItemRow
                       categoryOptions={categoryOptions}
                       form={form}

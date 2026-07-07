@@ -6,7 +6,7 @@ test.describe("Public events page", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });
@@ -17,7 +17,7 @@ test.describe("Public events page", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });
@@ -28,7 +28,7 @@ test.describe("Public events page", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });
@@ -45,7 +45,7 @@ test.describe("Public events page", () => {
 
     await page.goto("/");
     await expect(
-      page.getByRole("link", { name: "Events", exact: true })
+      page.getByRole("link", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });

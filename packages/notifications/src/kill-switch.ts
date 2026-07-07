@@ -21,7 +21,7 @@ export async function isNotificationsDisabled(): Promise<boolean> {
     return disabled;
   } catch (error) {
     const log = createRequestLogger();
-    log.set({ handler: "isNotificationsDisabled", event: "db_query_failed" });
+    log.set({ event: "db_query_failed", handler: "isNotificationsDisabled" });
     log.error(error instanceof Error ? error : String(error));
     log.emit();
     return false;

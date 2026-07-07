@@ -20,23 +20,23 @@ export const eventPhotoStatusEnum = pgEnum("event_photo_status", [
 export const eventPhoto = pgTable(
   "event_photo",
   {
-    id: uuid("id").primaryKey(),
+    caption: text("caption"),
+    createdAt: timestamp("created_at").notNull(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
-    r2Key: text("r2_key"),
+    id: uuid("id").primaryKey(),
     immichAssetId: text("immich_asset_id"),
     mimeType: text("mime_type"),
-    caption: text("caption"),
+    r2Key: text("r2_key"),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewedBy: text("reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     status: eventPhotoStatusEnum("status").notNull().default("pending"),
     uploadedBy: text("uploaded_by")
       .notNull()
       .references(() => user.id),
-    reviewedBy: text("reviewed_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    reviewedAt: timestamp("reviewed_at"),
-    createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
     index("event_photo_eventId_idx").on(table.eventId),
@@ -49,27 +49,27 @@ export const eventPhotoRelations = relations(eventPhoto, ({ one }) => ({
     fields: [eventPhoto.eventId],
     references: [teamEvent.id],
   }),
-  uploader: one(user, {
-    fields: [eventPhoto.uploadedBy],
-    references: [user.id],
-    relationName: "photoUploader",
-  }),
   reviewer: one(user, {
     fields: [eventPhoto.reviewedBy],
     references: [user.id],
     relationName: "photoReviewer",
+  }),
+  uploader: one(user, {
+    fields: [eventPhoto.uploadedBy],
+    references: [user.id],
+    relationName: "photoUploader",
   }),
 }));
 
 export const eventImmichAlbum = pgTable(
   "event_immich_album",
   {
-    id: uuid("id").primaryKey(),
+    createdAt: timestamp("created_at").notNull(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
     immichAlbumId: text("immich_album_id").notNull(),
-    createdAt: timestamp("created_at").notNull(),
   },
   (table) => [uniqueIndex("event_immich_album_eventId_uidx").on(table.eventId)]
 );

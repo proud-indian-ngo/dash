@@ -5,93 +5,93 @@ describe("advancePayment mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "Event supplies",
+        attachments: [],
         city: "bangalore",
+        id: "ap-1",
         lineItems: [
           {
-            id: "li-1",
+            amount: 2000,
             categoryId: "cat-1",
             description: "Supplies",
-            amount: 2000,
+            id: "li-1",
             sortOrder: 0,
           },
         ],
-        attachments: [],
+        title: "Event supplies",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts valid input without optional fields", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "Event supplies",
-        lineItems: [],
         attachments: [],
+        id: "ap-1",
+        lineItems: [],
+        title: "Event supplies",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects empty title", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "",
-        lineItems: [],
         attachments: [],
+        id: "ap-1",
+        lineItems: [],
+        title: "",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects missing title", () => {
       const result = createSchema.safeParse({
+        attachments: [],
         id: "ap-1",
         lineItems: [],
-        attachments: [],
       });
       expect(result.success).toBe(false);
     });
 
     it("accepts valid city enum value", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "Test",
-        city: "mumbai",
-        lineItems: [],
         attachments: [],
+        city: "mumbai",
+        id: "ap-1",
+        lineItems: [],
+        title: "Test",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects invalid city enum value", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "Test",
-        city: "delhi",
-        lineItems: [],
         attachments: [],
+        city: "delhi",
+        id: "ap-1",
+        lineItems: [],
+        title: "Test",
       });
       expect(result.success).toBe(false);
     });
 
     it("does not require expenseDate field", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "No date needed",
-        lineItems: [],
         attachments: [],
+        id: "ap-1",
+        lineItems: [],
+        title: "No date needed",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts bank account fields", () => {
       const result = createSchema.safeParse({
-        id: "ap-1",
-        title: "With bank info",
+        attachments: [],
+        bankAccountIfscCode: "SBIN0001234",
         bankAccountName: "John Doe",
         bankAccountNumber: "1234567890",
-        bankAccountIfscCode: "SBIN0001234",
+        id: "ap-1",
         lineItems: [],
-        attachments: [],
+        title: "With bank info",
       });
       expect(result.success).toBe(true);
     });

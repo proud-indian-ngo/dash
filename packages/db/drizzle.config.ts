@@ -2,10 +2,10 @@ import { env } from "@pi-dash/env/server";
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  schema: "./src/schema",
-  out: "./src/migrations",
-  dialect: "postgresql",
   dbCredentials: {
     url: env.DATABASE_URL || "",
   },
+  dialect: "postgresql",
+  out: "./src/migrations",
+  schema: "./src/schema",
 });

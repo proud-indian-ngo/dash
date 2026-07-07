@@ -27,184 +27,25 @@ import {
 import { recalculateParentStatus } from "./vendor-payment-transaction";
 
 const createSchema = z.object({
-  id: z.string(),
-  vendorId: z.string(),
-  title: z.string().min(1),
+  attachments: z.array(attachmentSchema),
   city: z.enum(cityValues).optional(),
   eventId: z.string().optional(),
+  id: z.string(),
   lineItems: z.array(lineItemSchema),
-  attachments: z.array(attachmentSchema),
+  title: z.string().min(1),
+  vendorId: z.string(),
 });
 
 export const vendorPaymentMutators = {
-  create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
-    assertIsLoggedIn(ctx);
-    const userId = ctx.userId;
-
-    const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
-    if (!vendor) {
-      throw new Error("Vendor not found");
-    }
-    assertVendorUsable(vendor, userId);
-
-    const now = Date.now();
-    const vpFk = { vendorPaymentId: args.id };
-
-    await tx.mutate.vendorPayment.insert({
-      id: args.id,
-      userId,
-      vendorId: args.vendorId,
-      title: args.title,
-      city: args.city ?? "bangalore",
-      eventId: args.eventId ?? null,
-      invoiceNumber: null,
-      invoiceDate: null,
-      status: "pending",
-      rejectionReason: null,
-      approvalScreenshotKey: null,
-      reviewedBy: null,
-      reviewedAt: null,
-      invoiceReviewedBy: null,
-      invoiceReviewedAt: null,
-      invoiceRejectionReason: null,
-      submittedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await insertRelations(
-      vpFk,
-      args.lineItems,
-      args.attachments,
-      userId,
-      "created",
-      now,
-      {
-        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
-        insertAttachment: (data) =>
-          tx.mutate.vendorPaymentAttachment.insert({
-            ...data,
-            purpose: "quotation",
-          }),
-        insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
-      }
-    );
-
-    if (tx.location === "server") {
-      const vendorPaymentId = args.id;
-      const title = args.title;
-      const submitter = await tx.run(zql.user.where("id", userId).one());
-      const submitterName = submitter?.name ?? "Unknown";
-      ctx.asyncTasks?.push({
-        meta: {
-          mutator: "createVendorPayment",
-          userId,
-          vendorPaymentId,
-          title,
-        },
-        fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs/enqueue");
-          await enqueue(
-            "notify-vendor-payment-submitted",
-            {
-              vendorPaymentId,
-              title,
-              submitterName,
-            },
-            { traceId: ctx.traceId }
-          );
-        },
-      });
-    }
-  }),
-
-  update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
-    assertIsLoggedIn(ctx);
-    const userId = ctx.userId;
-    const hasEditOwn = can(ctx, "requests.edit_own");
-    const hasEditAll = can(ctx, "requests.edit_all");
-    const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
-    const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
-    assertEntityExists(entity, "Vendor payment");
-    if (!(hasEditAll || canEditAnyStatus)) {
-      assertCanModify(
-        entity,
-        userId,
-        false,
-        "vendor payment",
-        false,
-        hasEditOwn
-      );
-    } else if (
-      !canEditAnyStatus &&
-      INVOICE_LOCKED_STATUSES.has(entity.status as string)
-    ) {
-      throw new Error(
-        "Cannot edit vendor payment details while invoice is pending or completed"
-      );
-    }
-
-    const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
-    if (!vendor) {
-      throw new Error("Vendor not found");
-    }
-    assertVendorUsable(vendor, userId, canEditAnyStatus);
-
-    const now = Date.now();
-    const vpFk = { vendorPaymentId: args.id };
-
-    await tx.mutate.vendorPayment.update({
-      id: args.id,
-      vendorId: args.vendorId,
-      title: args.title,
-      city: args.city ?? "bangalore",
-      eventId: args.eventId ?? null,
-      updatedAt: now,
-    });
-
-    await replaceRelations(
-      vpFk,
-      args.lineItems,
-      args.attachments,
-      userId,
-      now,
-      {
-        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
-        insertAttachment: (data) =>
-          tx.mutate.vendorPaymentAttachment.insert({
-            ...data,
-            purpose: "quotation",
-          }),
-        insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
-        queryLineItems: () =>
-          tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
-        queryAttachments: () =>
-          tx.run(
-            zql.vendorPaymentAttachment
-              .where("vendorPaymentId", args.id)
-              .where("purpose", "quotation")
-          ),
-        deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
-        deleteAttachment: (data) =>
-          tx.mutate.vendorPaymentAttachment.delete(data),
-      }
-    );
-
-    // Recalculate payment status when admin edits line items on a non-pending VP
-    if (hasEditAll && entity.status !== "pending") {
-      await recalculateParentStatus(tx, args.id, now);
-    }
-  }),
-
   approve: defineMutator(
     z.object({
+      approvalScreenshotKey: z.string().optional(),
       id: z.string(),
       note: z.string().optional(),
-      approvalScreenshotKey: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
-      const userId = ctx.userId;
+      const { userId } = ctx;
       const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
@@ -213,12 +54,12 @@ export const vendorPaymentMutators = {
       const now = Date.now();
 
       await tx.mutate.vendorPayment.update({
+        approvalScreenshotKey: args.approvalScreenshotKey,
         id: args.id,
-        status: "approved",
         rejectionReason: null,
-        approvalScreenshotKey: args.approvalScreenshotKey ?? null,
-        reviewedBy: userId,
         reviewedAt: now,
+        reviewedBy: userId,
+        status: "approved",
         updatedAt: now,
       });
 
@@ -242,29 +83,29 @@ export const vendorPaymentMutators = {
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
-        const id = args.id;
-        const note = args.note;
-        const approvalScreenshotKey = args.approvalScreenshotKey;
+        const { id } = args;
+        const { note } = args;
+        const { approvalScreenshotKey } = args;
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "approveVendorPayment",
-            vendorPaymentId: id,
-            title,
-            submitterId: ownerId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-vendor-payment-approved",
               {
-                vendorPaymentId: id,
-                title,
-                submitterId: ownerId,
-                note,
                 approvalScreenshotKey,
+                note,
+                submitterId: ownerId,
+                title,
+                vendorPaymentId: id,
               },
               { traceId: ctx.traceId }
             );
+          },
+          meta: {
+            mutator: "approveVendorPayment",
+            submitterId: ownerId,
+            title,
+            vendorPaymentId: id,
           },
         });
 
@@ -275,23 +116,23 @@ export const vendorPaymentMutators = {
           const vendorCreatorId = vendor.createdBy as string;
           const vpTitle = title;
           ctx.asyncTasks?.push({
-            meta: {
-              mutator: "approveVendorPayment:autoApproveVendor",
-              vendorId,
-              vendorCreatorId,
-            },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
                 "notify-vendor-auto-approved",
                 {
+                  creatorId: vendorCreatorId,
                   vendorId,
                   vendorName,
-                  creatorId: vendorCreatorId,
                   vendorPaymentTitle: vpTitle,
                 },
                 { traceId: ctx.traceId }
               );
+            },
+            meta: {
+              mutator: "approveVendorPayment:autoApproveVendor",
+              vendorCreatorId,
+              vendorId,
             },
           });
         }
@@ -299,26 +140,165 @@ export const vendorPaymentMutators = {
     }
   ),
 
+  approveInvoice: defineMutator(
+    z.object({
+      id: z.string(),
+      note: z.string().optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.approve");
+      const { userId } = ctx;
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+
+      if (entity.status !== "invoice_pending") {
+        throw new Error(
+          "Can only approve invoice when status is invoice_pending"
+        );
+      }
+
+      const now = Date.now();
+
+      await tx.mutate.vendorPayment.update({
+        id: args.id,
+        invoiceReviewedAt: now,
+        invoiceReviewedBy: userId,
+        status: "completed",
+        updatedAt: now,
+      });
+
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(userId, "invoice_approved", now, args.note),
+        vendorPaymentId: args.id,
+      });
+
+      if (tx.location === "server") {
+        const vpId = args.id;
+        const vpTitle = entity.title as string;
+        const submitterId = entity.userId as string;
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-vp-invoice-approved",
+              {
+                note: args.note,
+                submitterId,
+                vendorPaymentId: vpId,
+                vendorPaymentTitle: vpTitle,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            mutator: "approveVendorPaymentInvoice",
+            vendorPaymentId: vpId,
+          },
+        });
+      }
+    }
+  ),
+  create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+    assertIsLoggedIn(ctx);
+    const { userId } = ctx;
+
+    const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
+    if (!vendor) {
+      throw new Error("Vendor not found");
+    }
+    assertVendorUsable(vendor, userId);
+
+    const now = Date.now();
+    const vpFk = { vendorPaymentId: args.id };
+
+    await tx.mutate.vendorPayment.insert({
+      approvalScreenshotKey: null,
+      city: args.city,
+      createdAt: now,
+      eventId: args.eventId,
+      id: args.id,
+      invoiceDate: null,
+      invoiceNumber: null,
+      invoiceRejectionReason: null,
+      invoiceReviewedAt: null,
+      invoiceReviewedBy: null,
+      rejectionReason: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      status: "pending",
+      submittedAt: now,
+      title: args.title,
+      updatedAt: now,
+      userId,
+      vendorId: args.vendorId,
+    });
+
+    await insertRelations(
+      vpFk,
+      args.lineItems,
+      args.attachments,
+      userId,
+      "created",
+      now,
+      {
+        insertAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.insert({
+            ...data,
+            purpose: "quotation",
+          }),
+        insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
+        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+      }
+    );
+
+    if (tx.location === "server") {
+      const vendorPaymentId = args.id;
+      const { title } = args;
+      const submitter = await tx.run(zql.user.where("id", userId).one());
+      const submitterName = submitter?.name;
+      ctx.asyncTasks?.push({
+        fn: async () => {
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          await enqueue(
+            "notify-vendor-payment-submitted",
+            {
+              submitterName: submitterName ?? "Someone",
+              title,
+              vendorPaymentId,
+            },
+            { traceId: ctx.traceId }
+          );
+        },
+        meta: {
+          mutator: "createVendorPayment",
+          title,
+          userId,
+          vendorPaymentId,
+        },
+      });
+    }
+  }),
+
   delete: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
-      const userId = ctx.userId;
+      const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
 
       await deleteAllRelations({
-        queryLineItems: () =>
-          tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
+        deleteAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.delete(data),
+        deleteHistory: (data) => tx.mutate.vendorPaymentHistory.delete(data),
+        deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
         queryAttachments: () =>
           tx.run(zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)),
         queryHistory: () =>
           tx.run(zql.vendorPaymentHistory.where("vendorPaymentId", args.id)),
-        deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
-        deleteAttachment: (data) =>
-          tx.mutate.vendorPaymentAttachment.delete(data),
-        deleteHistory: (data) => tx.mutate.vendorPaymentHistory.delete(data),
+        queryLineItems: () =>
+          tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
       });
 
       await tx.mutate.vendorPayment.delete({ id: args.id });
@@ -329,7 +309,7 @@ export const vendorPaymentMutators = {
     z.object({ id: z.string(), reason: z.string().trim().min(1) }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
-      const userId = ctx.userId;
+      const { userId } = ctx;
       const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
@@ -339,10 +319,10 @@ export const vendorPaymentMutators = {
 
       await tx.mutate.vendorPayment.update({
         id: args.id,
-        status: "rejected",
         rejectionReason: args.reason,
-        reviewedBy: userId,
         reviewedAt: now,
+        reviewedBy: userId,
+        status: "rejected",
         updatedAt: now,
       });
 
@@ -357,50 +337,52 @@ export const vendorPaymentMutators = {
           .where("vendorPaymentId", args.id)
           .where("status", "pending")
       );
-      for (const txn of pendingTransactions) {
-        await tx.mutate.vendorPaymentTransaction.update({
-          id: txn.id,
-          status: "rejected",
-          rejectionReason: "Parent vendor payment was rejected",
-          reviewedBy: userId,
-          reviewedAt: now,
-          updatedAt: now,
-        });
-        await tx.mutate.vendorPaymentTransactionHistory.insert({
-          ...buildHistoryInsert(
-            userId,
-            "rejected",
-            now,
-            "Parent vendor payment was rejected"
-          ),
-          vendorPaymentTransactionId: txn.id,
-        });
-      }
+      await Promise.all(
+        pendingTransactions.map(async (txn) => {
+          await tx.mutate.vendorPaymentTransaction.update({
+            id: txn.id,
+            rejectionReason: "Parent vendor payment was rejected",
+            reviewedAt: now,
+            reviewedBy: userId,
+            status: "rejected",
+            updatedAt: now,
+          });
+          await tx.mutate.vendorPaymentTransactionHistory.insert({
+            ...buildHistoryInsert(
+              userId,
+              "rejected",
+              now,
+              "Parent vendor payment was rejected"
+            ),
+            vendorPaymentTransactionId: txn.id,
+          });
+        })
+      );
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
-        const id = args.id;
-        const reason = args.reason;
+        const { id } = args;
+        const { reason } = args;
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "rejectVendorPayment",
-            vendorPaymentId: id,
-            title,
-            submitterId: ownerId,
-            reason,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-vendor-payment-rejected",
               {
-                vendorPaymentId: id,
-                title,
-                submitterId: ownerId,
                 reason,
+                submitterId: ownerId,
+                title,
+                vendorPaymentId: id,
               },
               { traceId: ctx.traceId }
             );
+          },
+          meta: {
+            mutator: "rejectVendorPayment",
+            reason,
+            submitterId: ownerId,
+            title,
+            vendorPaymentId: id,
           },
         });
 
@@ -408,242 +390,27 @@ export const vendorPaymentMutators = {
         if (pendingTransactions.length > 0) {
           const cascadeCount = pendingTransactions.length;
           ctx.asyncTasks?.push({
-            meta: {
-              mutator: "rejectVendorPayment:cascadeReject",
-              vendorPaymentId: id,
-              cascadeCount,
-            },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
                 "notify-vpt-cascade-rejected",
                 {
-                  vendorPaymentId: id,
-                  title,
-                  submitterId: ownerId,
-                  transactionCount: cascadeCount,
                   rejectionReason: reason,
+                  submitterId: ownerId,
+                  title,
+                  transactionCount: cascadeCount,
+                  vendorPaymentId: id,
                 },
                 { traceId: ctx.traceId }
               );
             },
+            meta: {
+              cascadeCount,
+              mutator: "rejectVendorPayment:cascadeReject",
+              vendorPaymentId: id,
+            },
           });
         }
-      }
-    }
-  ),
-
-  submitInvoice: defineMutator(
-    z.object({
-      id: z.string(),
-      invoiceNumber: z.string().min(1),
-      invoiceDate: z.number(),
-      attachments: z.array(attachmentSchema).min(1),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const userId = ctx.userId;
-      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
-      assertEntityExists(entity, "Vendor payment");
-
-      const isOwner = entity.userId === userId;
-      const isAdmin = can(ctx, "requests.approve");
-      if (!(isOwner || isAdmin)) {
-        throw new Error("Unauthorized");
-      }
-      if (!INVOICE_UPLOADABLE_STATUSES.has(entity.status as string)) {
-        throw new Error(
-          "Invoice can only be uploaded when the payment status is 'paid'"
-        );
-      }
-
-      const now = Date.now();
-
-      await tx.mutate.vendorPayment.update({
-        id: args.id,
-        invoiceNumber: args.invoiceNumber,
-        invoiceDate: args.invoiceDate,
-        invoiceRejectionReason: null,
-        status: "invoice_pending",
-        updatedAt: now,
-      });
-
-      // Remove any existing invoice attachments before inserting new ones
-      const existingInvoiceAtts = await tx.run(
-        zql.vendorPaymentAttachment
-          .where("vendorPaymentId", args.id)
-          .where("purpose", "invoice")
-      );
-      for (const att of existingInvoiceAtts) {
-        await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
-      }
-
-      for (const att of args.attachments) {
-        await tx.mutate.vendorPaymentAttachment.insert({
-          ...buildAttachmentInsert(att, now),
-          purpose: "invoice",
-          vendorPaymentId: args.id,
-        });
-      }
-
-      await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "invoice_submitted", now),
-        vendorPaymentId: args.id,
-      });
-
-      if (tx.location === "server") {
-        const vpId = args.id;
-        const vpTitle = entity.title as string;
-        const ts = now;
-        const submitter = await tx.run(zql.user.where("id", userId).one());
-        const submitterName = submitter?.name ?? "Unknown";
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "submitVendorPaymentInvoice",
-            vendorPaymentId: vpId,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-vp-invoice-submitted",
-              {
-                vendorPaymentId: vpId,
-                vendorPaymentTitle: vpTitle,
-                submitterName,
-                timestamp: ts,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
-      }
-    }
-  ),
-
-  updateInvoice: defineMutator(
-    z.object({
-      id: z.string(),
-      invoiceNumber: z.string().min(1),
-      invoiceDate: z.number(),
-      attachments: z.array(attachmentSchema).min(1),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const userId = ctx.userId;
-      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
-      assertEntityExists(entity, "Vendor payment");
-
-      const isOwner = entity.userId === userId;
-      const canEditAll = can(ctx, "requests.edit_all");
-      if (!(isOwner || canEditAll)) {
-        throw new Error("Unauthorized");
-      }
-
-      const status = entity.status as string;
-      const invoiceEditableStatuses = canEditAll
-        ? new Set(["paid", "invoice_pending", "completed"])
-        : new Set(["paid", "invoice_pending"]);
-      if (!invoiceEditableStatuses.has(status)) {
-        throw new Error(
-          "Invoice can only be edited in paid, invoice_pending, or completed status"
-        );
-      }
-
-      const now = Date.now();
-
-      // Admin editing a completed invoice keeps the status;
-      // non-admin or non-completed resets to invoice_pending for re-approval
-      const newStatus =
-        canEditAll && status === "completed" ? "completed" : "invoice_pending";
-
-      await tx.mutate.vendorPayment.update({
-        id: args.id,
-        invoiceNumber: args.invoiceNumber,
-        invoiceDate: args.invoiceDate,
-        invoiceRejectionReason: null,
-        status: newStatus,
-        updatedAt: now,
-      });
-
-      // Replace invoice attachments
-      const existingAtts = await tx.run(
-        zql.vendorPaymentAttachment
-          .where("vendorPaymentId", args.id)
-          .where("purpose", "invoice")
-      );
-      for (const att of existingAtts) {
-        await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
-      }
-      for (const att of args.attachments) {
-        await tx.mutate.vendorPaymentAttachment.insert({
-          ...buildAttachmentInsert(att, now),
-          purpose: "invoice",
-          vendorPaymentId: args.id,
-        });
-      }
-
-      await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "invoice_updated", now),
-        vendorPaymentId: args.id,
-      });
-    }
-  ),
-
-  approveInvoice: defineMutator(
-    z.object({
-      id: z.string(),
-      note: z.string().optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "requests.approve");
-      const userId = ctx.userId;
-      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
-      assertEntityExists(entity, "Vendor payment");
-
-      if (entity.status !== "invoice_pending") {
-        throw new Error(
-          "Can only approve invoice when status is invoice_pending"
-        );
-      }
-
-      const now = Date.now();
-
-      await tx.mutate.vendorPayment.update({
-        id: args.id,
-        status: "completed",
-        invoiceReviewedBy: userId,
-        invoiceReviewedAt: now,
-        updatedAt: now,
-      });
-
-      await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "invoice_approved", now, args.note),
-        vendorPaymentId: args.id,
-      });
-
-      if (tx.location === "server") {
-        const vpId = args.id;
-        const vpTitle = entity.title as string;
-        const submitterId = entity.userId as string;
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "approveVendorPaymentInvoice",
-            vendorPaymentId: vpId,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-vp-invoice-approved",
-              {
-                vendorPaymentId: vpId,
-                vendorPaymentTitle: vpTitle,
-                submitterId,
-                note: args.note,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
       }
     }
   ),
@@ -655,7 +422,7 @@ export const vendorPaymentMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
-      const userId = ctx.userId;
+      const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
 
@@ -669,8 +436,8 @@ export const vendorPaymentMutators = {
 
       await tx.mutate.vendorPayment.update({
         id: args.id,
-        status: "paid",
         invoiceRejectionReason: args.reason,
+        status: "paid",
         updatedAt: now,
       });
 
@@ -685,23 +452,23 @@ export const vendorPaymentMutators = {
         const submitterId = entity.userId as string;
         const ts = now;
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "rejectVendorPaymentInvoice",
-            vendorPaymentId: vpId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-vp-invoice-rejected",
               {
+                reason: args.reason,
+                submitterId,
+                timestamp: ts,
                 vendorPaymentId: vpId,
                 vendorPaymentTitle: vpTitle,
-                submitterId,
-                reason: args.reason,
-                timestamp: ts,
               },
               { traceId: ctx.traceId }
             );
+          },
+          meta: {
+            mutator: "rejectVendorPaymentInvoice",
+            vendorPaymentId: vpId,
           },
         });
       }
@@ -712,7 +479,7 @@ export const vendorPaymentMutators = {
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.edit_all_statuses");
-      const userId = ctx.userId;
+      const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
 
@@ -747,17 +514,259 @@ export const vendorPaymentMutators = {
       const now = Date.now();
 
       await tx.mutate.vendorPayment.update({
-        id: args.id,
-        status: "pending",
-        rejectionReason: null,
         approvalScreenshotKey: null,
-        reviewedBy: null,
+        id: args.id,
+        rejectionReason: null,
         reviewedAt: null,
+        reviewedBy: null,
+        status: "pending",
         updatedAt: now,
       });
 
       await tx.mutate.vendorPaymentHistory.insert({
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
+        vendorPaymentId: args.id,
+      });
+    }
+  ),
+
+  submitInvoice: defineMutator(
+    z.object({
+      attachments: z.array(attachmentSchema).min(1),
+      id: z.string(),
+      invoiceDate: z.number(),
+      invoiceNumber: z.string().min(1),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const { userId } = ctx;
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+
+      const isOwner = entity.userId === userId;
+      const isAdmin = can(ctx, "requests.approve");
+      if (!(isOwner || isAdmin)) {
+        throw new Error("Unauthorized");
+      }
+      if (!INVOICE_UPLOADABLE_STATUSES.has(entity.status as string)) {
+        throw new Error(
+          "Invoice can only be uploaded when the payment status is 'paid'"
+        );
+      }
+
+      const now = Date.now();
+
+      await tx.mutate.vendorPayment.update({
+        id: args.id,
+        invoiceDate: args.invoiceDate,
+        invoiceNumber: args.invoiceNumber,
+        invoiceRejectionReason: null,
+        status: "invoice_pending",
+        updatedAt: now,
+      });
+
+      // Remove any existing invoice attachments before inserting new ones
+      const existingInvoiceAtts = await tx.run(
+        zql.vendorPaymentAttachment
+          .where("vendorPaymentId", args.id)
+          .where("purpose", "invoice")
+      );
+      await Promise.all(
+        existingInvoiceAtts.map(async (att) => {
+          await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
+        })
+      );
+
+      await Promise.all(
+        args.attachments.map(async (att) => {
+          await tx.mutate.vendorPaymentAttachment.insert({
+            ...buildAttachmentInsert(att, now),
+            purpose: "invoice",
+            vendorPaymentId: args.id,
+          });
+        })
+      );
+
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(userId, "invoice_submitted", now),
+        vendorPaymentId: args.id,
+      });
+
+      if (tx.location === "server") {
+        const vpId = args.id;
+        const vpTitle = entity.title as string;
+        const ts = now;
+        const submitter = await tx.run(zql.user.where("id", userId).one());
+        const submitterName = submitter?.name;
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-vp-invoice-submitted",
+              {
+                submitterName: submitterName ?? "Someone",
+                timestamp: ts,
+                vendorPaymentId: vpId,
+                vendorPaymentTitle: vpTitle,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            mutator: "submitVendorPaymentInvoice",
+            vendorPaymentId: vpId,
+          },
+        });
+      }
+    }
+  ),
+
+  update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+    assertIsLoggedIn(ctx);
+    const { userId } = ctx;
+    const hasEditOwn = can(ctx, "requests.edit_own");
+    const hasEditAll = can(ctx, "requests.edit_all");
+    const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
+    const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+    assertEntityExists(entity, "Vendor payment");
+    if (!(hasEditAll || canEditAnyStatus)) {
+      assertCanModify(
+        entity,
+        userId,
+        false,
+        "vendor payment",
+        false,
+        hasEditOwn
+      );
+    } else if (
+      !canEditAnyStatus &&
+      INVOICE_LOCKED_STATUSES.has(entity.status as string)
+    ) {
+      throw new Error(
+        "Cannot edit vendor payment details while invoice is pending or completed"
+      );
+    }
+
+    const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
+    if (!vendor) {
+      throw new Error("Vendor not found");
+    }
+    assertVendorUsable(vendor, userId, canEditAnyStatus);
+
+    const now = Date.now();
+    const vpFk = { vendorPaymentId: args.id };
+
+    await tx.mutate.vendorPayment.update({
+      city: args.city,
+      eventId: args.eventId,
+      id: args.id,
+      title: args.title,
+      updatedAt: now,
+      vendorId: args.vendorId,
+    });
+
+    await replaceRelations(
+      vpFk,
+      args.lineItems,
+      args.attachments,
+      userId,
+      now,
+      {
+        deleteAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.delete(data),
+        deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
+        insertAttachment: (data) =>
+          tx.mutate.vendorPaymentAttachment.insert({
+            ...data,
+            purpose: "quotation",
+          }),
+        insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
+        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        queryAttachments: () =>
+          tx.run(
+            zql.vendorPaymentAttachment
+              .where("vendorPaymentId", args.id)
+              .where("purpose", "quotation")
+          ),
+        queryLineItems: () =>
+          tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
+      }
+    );
+
+    // Recalculate payment status when admin edits line items on a non-pending VP
+    if (hasEditAll && entity.status !== "pending") {
+      await recalculateParentStatus(tx, args.id, now);
+    }
+  }),
+
+  updateInvoice: defineMutator(
+    z.object({
+      attachments: z.array(attachmentSchema).min(1),
+      id: z.string(),
+      invoiceDate: z.number(),
+      invoiceNumber: z.string().min(1),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const { userId } = ctx;
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+
+      const isOwner = entity.userId === userId;
+      const canEditAll = can(ctx, "requests.edit_all");
+      if (!(isOwner || canEditAll)) {
+        throw new Error("Unauthorized");
+      }
+
+      const status = entity.status as string;
+      const invoiceEditableStatuses = canEditAll
+        ? new Set(["paid", "invoice_pending", "completed"])
+        : new Set(["paid", "invoice_pending"]);
+      if (!invoiceEditableStatuses.has(status)) {
+        throw new Error(
+          "Invoice can only be edited in paid, invoice_pending, or completed status"
+        );
+      }
+
+      const now = Date.now();
+
+      // Admin editing a completed invoice keeps the status;
+      // non-admin or non-completed resets to invoice_pending for re-approval
+      const newStatus =
+        canEditAll && status === "completed" ? "completed" : "invoice_pending";
+
+      await tx.mutate.vendorPayment.update({
+        id: args.id,
+        invoiceDate: args.invoiceDate,
+        invoiceNumber: args.invoiceNumber,
+        invoiceRejectionReason: null,
+        status: newStatus,
+        updatedAt: now,
+      });
+
+      // Replace invoice attachments
+      const existingAtts = await tx.run(
+        zql.vendorPaymentAttachment
+          .where("vendorPaymentId", args.id)
+          .where("purpose", "invoice")
+      );
+      await Promise.all(
+        existingAtts.map(async (att) => {
+          await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
+        })
+      );
+      await Promise.all(
+        args.attachments.map(async (att) => {
+          await tx.mutate.vendorPaymentAttachment.insert({
+            ...buildAttachmentInsert(att, now),
+            purpose: "invoice",
+            vendorPaymentId: args.id,
+          });
+        })
+      );
+
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(userId, "invoice_updated", now),
         vendorPaymentId: args.id,
       });
     }

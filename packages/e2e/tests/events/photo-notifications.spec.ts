@@ -48,7 +48,7 @@ test.describe("Photo notifications — admin batch approval", () => {
     const linkCount = await eventLinks.count();
     let foundPhotos = false;
 
-    for (let i = 0; i < Math.min(linkCount, 5); i++) {
+    for (let i = 0; i < Math.min(linkCount, 5); i += 1) {
       await eventLinks.nth(i).click();
       await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
@@ -173,7 +173,7 @@ test.describe("Photo notifications — admin single approval", () => {
     const linkCount = await eventLinks.count();
     let foundPhoto = false;
 
-    for (let i = 0; i < Math.min(linkCount, 5); i++) {
+    for (let i = 0; i < Math.min(linkCount, 5); i += 1) {
       await eventLinks.nth(i).click();
       await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 

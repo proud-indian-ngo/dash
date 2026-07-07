@@ -70,8 +70,8 @@ const deleteUserSchema = z.object({
 
 const setUserBanSchema = z.object({
   banExpires: z.string().optional(),
-  banReason: z.string().optional(),
   banned: z.boolean(),
+  banReason: z.string().optional(),
   userId: z.string().min(1),
 });
 
@@ -104,7 +104,7 @@ async function ensurePermission(
 
 const normalizeOptionalString = (value?: string): string | undefined => {
   if (!value) {
-    return undefined;
+    return;
   }
 
   const trimmed = value.trim();
@@ -115,7 +115,7 @@ const toBanExpiresInSeconds = (value?: string): number | undefined => {
   const expiresAt = value ? new Date(value) : undefined;
 
   if (!expiresAt) {
-    return undefined;
+    return;
   }
 
   const deltaMs = expiresAt.valueOf() - Date.now();
@@ -209,9 +209,9 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       { handler: "createUser:welcome", userId: created.user.id },
       async () => {
         await enqueue("notify-user-welcome", {
-          userId: created.user.id,
           email: normalizedEmail,
           name: data.name,
+          userId: created.user.id,
         });
       }
     );
@@ -222,8 +222,8 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         { handler: "createUser:orientation", userId: created.user.id },
         async () => {
           await enqueue("whatsapp-manage-orientation", {
-            userId: created.user.id,
             isOriented: false,
+            userId: created.user.id,
           });
         }
       );
@@ -248,7 +248,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       .from(user)
       .where(eq(user.id, data.userId))
       .limit(1)
-      .then((rows) => rows[0]);
+      .then((rows: any) => rows[0]);
     if (!currentUser) {
       throw new Error("User not found");
     }
@@ -289,7 +289,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
 
       // Invalidate permission cache + user sessions so the new role takes effect
       invalidatePermissionCache(newRole);
-      invalidatePermissionCache(previousRole ?? undefined);
+      invalidatePermissionCache(previousRole);
       await auth.api.revokeUserSessions({
         body: { userId: data.userId },
         headers: context.headers,
@@ -300,20 +300,20 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         .select({ name: role.name })
         .from(role)
         .where(eq(role.id, newRole))
-        .then((rows) => rows[0]);
-      const roleName = roleRecord?.name ?? newRole;
+        .then((rows: any) => rows[0]);
+      const roleName = roleRecord?.name;
 
       // Enqueue role change notification
       withFireAndForgetLog(
         {
           handler: "updateUser:roleChanged",
-          userId: data.userId,
           newRole: roleName,
+          userId: data.userId,
         },
         async () => {
           await enqueue("notify-role-changed", {
-            userId: data.userId,
             newRole: roleName,
+            userId: data.userId,
           });
         }
       );
@@ -330,17 +330,17 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
     if (whatsappSyncPlan.shouldRestoreDefaultGroup) {
       withFireAndForgetLog(
         {
-          handler: "updateUser:defaultGroupMembership",
-          userId: data.userId,
-          previousRole: currentUser.role,
-          nextRole: whatsappSyncPlan.effectiveRole,
           becameActive: whatsappSyncPlan.becameActive,
+          handler: "updateUser:defaultGroupMembership",
           isOriented: whatsappSyncPlan.isOriented,
+          nextRole: whatsappSyncPlan.effectiveRole,
+          previousRole: currentUser.role,
+          userId: data.userId,
         },
         async () => {
           await enqueue("whatsapp-manage-orientation", {
-            userId: data.userId,
             isOriented: whatsappSyncPlan.isOriented,
+            userId: data.userId,
           });
         }
       );
@@ -389,6 +389,7 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
       await notifyUserDeleted({ userId: data.userId });
     } catch {
       // Best-effort: don't block deletion if notification fails
+      void 0;
     }
 
     // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
@@ -404,17 +405,19 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
       ]);
       if (phone && groupJids.length > 0) {
         await enqueue("whatsapp-remove-from-all-groups", {
-          phone,
           groupJids,
+          phone,
         });
       }
-    } catch (error) {
+    } catch (caughtError) {
       const log = createRequestLogger({
         method: "POST",
         path: "deleteUser:whatsappRemoval",
       });
       log.set({ userId: data.userId });
-      log.error(error instanceof Error ? error : String(error));
+      log.error(
+        caughtError instanceof Error ? caughtError : String(caughtError)
+      );
       log.emit();
     }
 
@@ -439,25 +442,25 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
     }
 
     await setBanState({
-      context,
-      userId: data.userId,
+      banExpires: data.banExpires,
       banned: data.banned,
       banReason: data.banReason,
-      banExpires: data.banExpires,
+      context,
+      userId: data.userId,
     });
 
     // Enqueue ban/unban notification
     if (data.banned) {
       withFireAndForgetLog(
         {
+          banReason: data.banReason,
           handler: "setUserBan:banned",
           userId: data.userId,
-          banReason: data.banReason,
         },
         async () => {
           await enqueue("notify-user-banned", {
-            userId: data.userId,
             reason: data.banReason,
+            userId: data.userId,
           });
         }
       );

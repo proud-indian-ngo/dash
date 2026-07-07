@@ -48,8 +48,8 @@ function deriveCardActionState(opts: {
   if (opts.interest) {
     if (opts.interest.status === "pending") {
       return {
-        kind: "interestPending",
         interestId: opts.interest.id,
+        kind: "interestPending",
         started: opts.hasStarted,
       };
     }
@@ -83,50 +83,54 @@ export function EventCard({
   const { hasPermission } = useApp();
   const now = Date.now();
   const hasStarted = row.startTime <= now;
-  const isOver = (row.endTime ?? row.startTime) <= now;
-  const isMember = row.members.some((m) => m.userId === userId);
+  const isOver = row.endTime !== null && row.endTime <= now;
+  const isMember = row.members.some((m: any) => m.userId === userId);
   const isOwnTeam = Boolean(row.team?.id && myTeamIds.has(row.team.id));
   const canManageInterest = hasPermission("events.manage_interest");
   const canSeeVolunteers = isOver || canManageInterest || isOwnTeam;
-  const interest = myInterests.find((i) => i.eventId === row.eventId);
+  const interest = myInterests.find((i: any) => i.eventId === row.eventId);
 
   const handleShowInterest = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const id = uuidv7();
     const res = await zero.mutate(
       mutators.eventInterest.create({
-        id,
         eventId: row.eventId,
+        id,
         now: Date.now(),
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "eventInterest.create",
       entityId: id,
-      successMsg: "Interest submitted!",
       errorMsg: "Couldn't submit interest",
+      mutation: "eventInterest.create",
+      successMsg: "Interest submitted!",
     });
   };
 
   const handleJoinAsMember = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (row.isVirtualOccurrence && !row.occDate) {
+      return;
+    }
     const id = uuidv7();
+    const occDate = row.isVirtualOccurrence
+      ? (row.occDate ?? undefined)
+      : undefined;
     const res = await zero.mutate(
       mutators.teamEvent.joinAsMember({
-        id,
         eventId: row.eventId,
-        occDate: row.isVirtualOccurrence
-          ? (row.occDate ?? undefined)
-          : undefined,
+        id,
         materializedId: row.isVirtualOccurrence ? uuidv7() : undefined,
         now: Date.now(),
+        occDate,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "teamEvent.joinAsMember",
       entityId: id,
-      successMsg: "Joined event",
       errorMsg: "Couldn't join event",
+      mutation: "teamEvent.joinAsMember",
+      successMsg: "Joined event",
     });
   };
 
@@ -139,26 +143,26 @@ export function EventCard({
       mutators.eventInterest.cancel({ id: interestId })
     ).server;
     handleMutationResult(res, {
-      mutation: "eventInterest.cancel",
       entityId: interestId,
       errorMsg: "Couldn't cancel interest",
+      mutation: "eventInterest.cancel",
     });
   };
 
   const handleCardClick = () => {
     navigate({
-      to: "/events/$id",
       params: { id: row.eventId },
       search: row.occDate ? { occDate: row.occDate } : {},
+      to: "/events/$id",
     });
   };
 
   const renderAction = () => {
     const action = deriveCardActionState({
-      isMember,
-      interest,
-      hasStarted,
       canManageInterest,
+      hasStarted,
+      interest,
+      isMember,
       isOwnTeam,
       isPublic: row.isPublic,
     });
@@ -170,7 +174,7 @@ export function EventCard({
           <Badge variant="secondary">Interest Pending</Badge>
         ) : (
           <Button
-            onClick={(e) => handleCancelInterest(e, action.interestId)}
+            onClick={(e: any) => handleCancelInterest(e, action.interestId)}
             size="sm"
             variant="outline"
           >
@@ -223,7 +227,7 @@ export function EventCard({
           <CardTitle>
             <Link
               className="hover:underline"
-              onClick={(e) => e.stopPropagation()}
+              onClick={handleCardClick}
               params={{ id: row.eventId }}
               search={row.occDate ? { occDate: row.occDate } : {}}
               to="/events/$id"
@@ -232,11 +236,11 @@ export function EventCard({
             </Link>
           </CardTitle>
           <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {row.team && <span>{row.team.name}</span>}
-            {row.location && (
+            {row.team ? <span>{row.team.name}</span> : null}
+            {Boolean(row.location) && (
               <span className="max-w-48 truncate">{row.location}</span>
             )}
-            {canSeeVolunteers && (
+            {Boolean(canSeeVolunteers) && (
               <Badge className="ml-0.5" variant="secondary">
                 {row.members.length}{" "}
                 {row.members.length === 1 ? "volunteer" : "volunteers"}

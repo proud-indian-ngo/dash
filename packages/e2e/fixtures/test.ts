@@ -55,15 +55,7 @@ export const test = base.extend<{
   unorientedVolunteerEmail: string;
   consoleErrors: Error[];
 }>({
-  superAdminEmail:
-    process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test",
   adminEmail: process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test",
-  financeAdminEmail:
-    process.env.FINANCE_ADMIN_EMAIL ?? "test-finance-admin@pi-dash.test",
-  volunteerEmail: process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test",
-  unorientedVolunteerEmail:
-    process.env.UNORIENTED_VOLUNTEER_EMAIL ??
-    "test-unoriented-volunteer@pi-dash.test",
   consoleErrors: [
     async ({ page }, use, testInfo) => {
       const errors: Error[] = [];
@@ -72,8 +64,8 @@ export const test = base.extend<{
       if (errors.length > 0) {
         for (const error of errors) {
           testInfo.annotations.push({
-            type: "browser-error",
             description: error.message,
+            type: "browser-error",
           });
         }
         // Uncomment the line below to promote to hard failure:
@@ -82,6 +74,14 @@ export const test = base.extend<{
     },
     { auto: true },
   ],
+  financeAdminEmail:
+    process.env.FINANCE_ADMIN_EMAIL ?? "test-finance-admin@pi-dash.test",
+  superAdminEmail:
+    process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test",
+  unorientedVolunteerEmail:
+    process.env.UNORIENTED_VOLUNTEER_EMAIL ??
+    "test-unoriented-volunteer@pi-dash.test",
+  volunteerEmail: process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test",
 });
 
 export { expect };

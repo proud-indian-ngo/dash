@@ -44,7 +44,7 @@ test.describe("Event feedback — admin", () => {
     await createDialog.getByLabel("Enable anonymous feedback").check();
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(pastEventName)).toBeVisible({
@@ -79,7 +79,7 @@ test.describe("Event feedback — volunteer", () => {
     // Navigate to public events
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible();
 
     // Find an event that has feedback enabled (created by admin test or seeded)
@@ -116,7 +116,7 @@ test.describe("Event feedback — volunteer", () => {
 
     // Verify Edit button is visible
     await expect(
-      page.getByRole("button", { name: "Edit", exact: true })
+      page.getByRole("button", { exact: true, name: "Edit" })
     ).toBeVisible();
   });
 
@@ -126,7 +126,7 @@ test.describe("Event feedback — volunteer", () => {
     // Navigate to public events
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible();
 
     // Find the feedback-enabled event
@@ -146,7 +146,7 @@ test.describe("Event feedback — volunteer", () => {
     await feedbackTab.click();
 
     // Click Edit to modify existing feedback
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("button", { exact: true, name: "Edit" }).click();
 
     // Clear and type updated content
     const updatedText = `E2E updated feedback ${Date.now()}`;

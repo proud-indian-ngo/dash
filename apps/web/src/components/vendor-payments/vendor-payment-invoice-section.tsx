@@ -48,7 +48,7 @@ function InvoiceAttachmentList({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      {attachments.map((att) => (
+      {attachments.map((att: any) => (
         <div
           className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
           key={att.id}
@@ -120,9 +120,7 @@ function InvoiceContent({
         <div className="grid grid-cols-2 gap-4 rounded-md border p-3">
           <div>
             <p className="text-muted-foreground text-xs">Invoice Number</p>
-            <p className="font-medium text-sm">
-              {request.invoiceNumber ?? "—"}
-            </p>
+            <p className="font-medium text-sm">{request.invoiceNumber}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Invoice Date</p>
@@ -181,10 +179,10 @@ export function VendorPaymentInvoiceSection({
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPayment.approveInvoice",
       entityId: request.id,
-      successMsg: "Invoice approved",
       errorMsg: "Failed to approve invoice",
+      mutation: "vendorPayment.approveInvoice",
+      successMsg: "Invoice approved",
     });
     if (res.type !== "error") {
       setInvoiceApproveOpen(false);
@@ -196,15 +194,19 @@ export function VendorPaymentInvoiceSection({
       mutators.vendorPayment.rejectInvoice({ id: request.id, reason })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPayment.rejectInvoice",
       entityId: request.id,
-      successMsg: "Invoice rejected",
       errorMsg: "Failed to reject invoice",
+      mutation: "vendorPayment.rejectInvoice",
+      successMsg: "Invoice rejected",
     });
     if (res.type !== "error") {
       setInvoiceRejectOpen(false);
     }
   };
+  const stableOnClick0 = () => setInvoiceFormOpen(true);
+  const stableOnClick1 = () => setInvoiceFormOpen(true);
+  const stableOnClick2 = () => setInvoiceApproveOpen(true);
+  const stableOnClick3 = () => setInvoiceRejectOpen(true);
 
   if (!INVOICE_STATUSES.has(status)) {
     return null;
@@ -221,7 +223,6 @@ export function VendorPaymentInvoiceSection({
     (canEditAll && hasInvoiceDetails);
   const showApproveRejectActions = canApprove && status === "invoice_pending";
   const showEmptyState = invoiceAttachments.length === 0 && status === "paid";
-
   return (
     <>
       <Separator />
@@ -230,7 +231,7 @@ export function VendorPaymentInvoiceSection({
           <h2 className="font-medium text-sm">Invoice</h2>
           {showUploadButton ? (
             <Button
-              onClick={() => setInvoiceFormOpen(true)}
+              onClick={stableOnClick0}
               size="sm"
               type="button"
               variant="outline"
@@ -245,7 +246,7 @@ export function VendorPaymentInvoiceSection({
           ) : null}
           {showEditButton ? (
             <Button
-              onClick={() => setInvoiceFormOpen(true)}
+              onClick={stableOnClick1}
               size="sm"
               type="button"
               variant="outline"
@@ -265,11 +266,7 @@ export function VendorPaymentInvoiceSection({
 
         {showApproveRejectActions ? (
           <div className="flex gap-2">
-            <Button
-              onClick={() => setInvoiceApproveOpen(true)}
-              type="button"
-              variant="default"
-            >
+            <Button onClick={stableOnClick2} type="button" variant="default">
               <HugeiconsIcon
                 className="size-4"
                 icon={CheckmarkCircle01Icon}
@@ -278,7 +275,7 @@ export function VendorPaymentInvoiceSection({
               Approve Invoice
             </Button>
             <Button
-              onClick={() => setInvoiceRejectOpen(true)}
+              onClick={stableOnClick3}
               type="button"
               variant="destructive"
             >
@@ -297,11 +294,11 @@ export function VendorPaymentInvoiceSection({
         initialValues={
           request.invoiceNumber
             ? {
-                invoiceNumber: request.invoiceNumber as string,
+                attachments: mapAttachmentsToFormValues(invoiceAttachments),
                 invoiceDate: request.invoiceDate
                   ? new Date(request.invoiceDate)
                   : null,
-                attachments: mapAttachmentsToFormValues(invoiceAttachments),
+                invoiceNumber: request.invoiceNumber as string,
               }
             : undefined
         }

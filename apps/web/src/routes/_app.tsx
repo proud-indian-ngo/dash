@@ -23,20 +23,20 @@ import { AppProvider, useApp } from "@/context/app-context";
 import { getCachedAuth } from "@/lib/auth-cache";
 
 export const Route = createFileRoute("/_app")({
-  staleTime: Number.POSITIVE_INFINITY,
   beforeLoad: async ({ location }) => {
     const { session, permissions } = await getCachedAuth();
 
     if (!session) {
       throw redirect({
-        to: "/login",
         search: { redirect: location.pathname },
+        to: "/login",
       });
     }
 
     return { permissions, session };
   },
   component: AppLayout,
+  staleTime: Number.POSITIVE_INFINITY,
 });
 
 function LogIdentitySync() {
@@ -50,12 +50,12 @@ function LogIdentitySync() {
       .then(({ identifyUser }) =>
         identifyUser(user.id, { role: user.role ?? "volunteer" })
       )
-      .catch((error) => {
+      .catch((error: any) => {
         log.error({
-          component: "LogIdentitySync",
           action: "identifyPostHogUser",
-          userId: user.id,
+          component: "LogIdentitySync",
           error: error instanceof Error ? error.message : String(error),
+          userId: user.id,
         });
       });
     return () => {
@@ -64,12 +64,12 @@ function LogIdentitySync() {
       );
       import("@/lib/posthog")
         .then(({ resetUser }) => resetUser())
-        .catch((error) => {
+        .catch((error: any) => {
           log.error({
-            component: "LogIdentitySync",
             action: "resetPostHogUser",
-            userId: user.id,
+            component: "LogIdentitySync",
             error: error instanceof Error ? error.message : String(error),
+            userId: user.id,
           });
         });
     };
@@ -109,8 +109,8 @@ function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
         reason: extractReason(state),
       });
       navigate({
-        to: "/login",
         search: { redirect: window.location.pathname },
+        to: "/login",
       });
     } else if (state.name === "error") {
       log.error({

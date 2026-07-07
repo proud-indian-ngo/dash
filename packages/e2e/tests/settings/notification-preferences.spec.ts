@@ -46,7 +46,7 @@ test.describe("Notification preferences settings", () => {
 
     const count = await allWaSwitches.count();
     let firstWaSwitch = allWaSwitches.first();
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < count; i += 1) {
       const sw = allWaSwitches.nth(i);
       const disabled = await sw.getAttribute("aria-disabled");
       if (disabled !== "true") {

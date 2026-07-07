@@ -36,9 +36,9 @@ export async function handleProcessPostEventReminders(
   totalSent += photoSent;
 
   log.set({
+    attendanceSent,
     event: "job_complete",
     feedbackSent,
-    attendanceSent,
     photoSent,
     totalSent,
   });
@@ -104,13 +104,13 @@ async function processFeedbackNudges(now: number): Promise<number> {
     await Promise.allSettled(
       pending.map((m) =>
         notifyFeedbackNudge({
-          userId: m.userId,
-          eventName: event.name,
           eventId: event.id,
+          eventName: event.name,
+          userId: m.userId,
         })
       )
     );
-    sent++;
+    sent += 1;
   }
 
   log.set({ event: "feedback_nudges_complete", sent });
@@ -131,10 +131,10 @@ async function processAttendanceReminders(now: number): Promise<number> {
 
   const events = await db
     .select({
+      createdBy: teamEvent.createdBy,
       id: teamEvent.id,
       name: teamEvent.name,
       teamId: teamEvent.teamId,
-      createdBy: teamEvent.createdBy,
     })
     .from(teamEvent)
     .where(
@@ -189,13 +189,13 @@ async function processAttendanceReminders(now: number): Promise<number> {
     await Promise.allSettled(
       Array.from(recipientIds).map((userId) =>
         notifyAttendanceNotMarked({
-          userId,
-          eventName: event.name,
           eventId: event.id,
+          eventName: event.name,
+          userId,
         })
       )
     );
-    sent++;
+    sent += 1;
   }
 
   log.set({ event: "attendance_reminders_complete", sent });
@@ -262,11 +262,11 @@ async function processPhotoNudges(now: number): Promise<number> {
     }
 
     await notifyPhotoUploadNudge({
-      userIds: members.map((m) => m.userId),
-      eventName: event.name,
       eventId: event.id,
+      eventName: event.name,
+      userIds: members.map((m) => m.userId),
     });
-    sent++;
+    sent += 1;
   }
 
   log.set({ event: "photo_nudges_complete", sent });

@@ -34,19 +34,19 @@ export async function notifyEventUpdatePosted({
   const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
   const body = `${authorName} posted an update on ${eventLabel} — check it out.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Read update",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "New update",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Read update",
   });
   await sendBulkMessage({
-    userIds: eventMemberIds,
-    title: "📝 New update",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-update-posted-${eventId}-${updatedAt}`,
+    title: "📝 New update",
     topic: TOPICS.EVENTS_SCHEDULE,
+    userIds: eventMemberIds,
   });
 
   // Send to WhatsApp group (event group > team group fallback)
@@ -86,18 +86,18 @@ export async function notifyEventUpdateApproved({
   const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
   const body = `Your update to ${eventLabel} is now live!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Update live!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: authorId,
-    title: "✅ Update live!",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-update-approved-${eventUpdateId}`,
+    title: "✅ Update live!",
+    to: authorId,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
@@ -120,18 +120,18 @@ export async function notifyEventUpdateRejected({
   const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
   const body = `Your update to ${eventLabel} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Update not published",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: authorId,
-    title: "📝 Update not published",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-update-rejected-${eventUpdateId}`,
+    title: "📝 Update not published",
+    to: authorId,
     topic: TOPICS.EVENTS_SCHEDULE,
   });
 }
@@ -156,10 +156,10 @@ export async function notifyEventUpdatePending({
   const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
   const body = `${authorName} submitted an update to ${eventLabel} — it needs your review.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Review update",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Update needs review",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "Review update",
   });
 
   // Find team leads + users with event_updates.approve permission
@@ -178,19 +178,19 @@ export async function notifyEventUpdatePending({
       method: "NOTIFY",
       path: "event-update-pending",
     });
-    log.set({ event: "no_approvers", eventId, teamId, eventUpdateId });
+    log.set({ event: "no_approvers", eventId, eventUpdateId, teamId });
     log.warn("No approvers found for pending event update");
     log.emit();
     return;
   }
 
   await sendBulkMessage({
-    userIds: allUserIds,
-    title: "👀 Update needs review",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `event-update-pending-${eventUpdateId}`,
+    title: "👀 Update needs review",
     topic: TOPICS.EVENTS_SCHEDULE,
+    userIds: allUserIds,
   });
 }

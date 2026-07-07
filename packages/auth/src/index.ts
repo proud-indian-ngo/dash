@@ -44,7 +44,7 @@ function getUserFromReturnedBody(
 }
 
 function handleAfterSignUp(ctx: AuthHookContext): void {
-  const returned = ctx.context.returned;
+  const { returned } = ctx.context;
   const user = getUserFromReturnedBody(returned);
 
   if (!user?.id) {
@@ -55,9 +55,9 @@ function handleAfterSignUp(ctx: AuthHookContext): void {
           : undefined;
       const log = createRequestLogger();
       log.set({
+        bodyShape: body ? Object.keys(body as object) : "no body",
         hook: "afterSignUp",
         warning: "sign-up returned response but user.id is missing",
-        bodyShape: body ? Object.keys(body as object) : "no body",
       });
       log.emit();
     }
@@ -67,19 +67,21 @@ function handleAfterSignUp(ctx: AuthHookContext): void {
   const userId = user.id;
 
   withFireAndForgetLog({ hook: "afterSignUp", userId }, async () => {
-    await enqueue("notify-user-welcome", {
-      userId,
-      email: user.email ?? "",
-      name: user.name ?? "",
-    });
+    if (user.email) {
+      await enqueue("notify-user-welcome", {
+        email: user.email,
+        name: user.name ?? user.email,
+        userId,
+      });
+    }
   });
 
   withFireAndForgetLog(
-    { hook: "afterSignUp", userId, action: "orientationGroup" },
+    { action: "orientationGroup", hook: "afterSignUp", userId },
     async () => {
       await enqueue("whatsapp-manage-orientation", {
-        userId,
         isOriented: false,
+        userId,
       });
     }
   );
@@ -90,10 +92,10 @@ async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
   if (!userId) {
     const log = createRequestLogger();
     log.set({
+      hasNewSession: ctx.context.newSession !== null,
       hook: "afterSignIn",
       path: ctx.path,
       warning: "sign-in succeeded but newSession userId is missing",
-      hasNewSession: ctx.context.newSession != null,
     });
     log.emit();
     return;
@@ -132,15 +134,15 @@ async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
       restoreDefaultGroup: ({ isOriented, userId: targetUserId }) => {
         withFireAndForgetLog(
           {
-            hook: "afterSignIn",
-            userId: targetUserId,
             action: "restoreDefaultWhatsAppGroup",
+            hook: "afterSignIn",
             isOriented,
+            userId: targetUserId,
           },
           async () => {
             await enqueue("whatsapp-manage-orientation", {
-              userId: targetUserId,
               isOriented,
+              userId: targetUserId,
             });
           }
         );
@@ -170,13 +172,27 @@ async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
     }
 
     log.emit();
-  } catch (error) {
-    log.error(error instanceof Error ? error : String(error));
+  } catch (caughtError) {
+    log.set({
+      error:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+    });
+    log.warn("Failed to handle sign-in reactivation");
     log.emit();
   }
 }
 
 export const auth = betterAuth({
+  advanced: {
+    ...(env.COOKIE_DOMAIN && {
+      crossSubDomainCookies: {
+        domain: env.COOKIE_DOMAIN,
+        enabled: true,
+      },
+    }),
+  },
   baseURL: env.BETTER_AUTH_URL,
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -207,13 +223,28 @@ export const auth = betterAuth({
         after: async (user) => {
           const phone = typeof user.phone === "string" ? user.phone : null;
           withFireAndForgetLog(
-            { hook: "afterUserUpdate", userId: user.id, phone },
+            { hook: "afterUserUpdate", phone, userId: user.id },
             async () => {
-              await enqueue("sync-whatsapp-status", { userId: user.id, phone });
+              await enqueue("sync-whatsapp-status", { phone, userId: user.id });
             }
           );
         },
       },
+    },
+  },
+  emailAndPassword: {
+    disableSignUp: false,
+    enabled: true,
+    requireEmailVerification: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendResetPasswordEmail(user.email, url);
+    },
+  },
+  emailVerification: {
+    sendOnSignIn: true,
+    sendVerificationEmail: async (data) => {
+      const url = `${env.BETTER_AUTH_URL}/verify-email?token=${data.token}`;
+      await sendVerificationEmail(data.user.email, url);
     },
   },
   hooks: {
@@ -230,94 +261,71 @@ export const auth = betterAuth({
       await handleAfterSignIn(ctx);
     }),
   },
-  trustedOrigins: [env.CORS_ORIGIN],
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // refresh daily
-  },
-  rateLimit: {
-    window: 60,
-    max: 100,
-    customRules: {
-      "/sign-in/email": { window: 60, max: 10 },
-      "/sign-up/email": { window: 60, max: 5 },
-      "/forgot-password": { window: 60, max: 5 },
-      "/reset-password": { window: 60, max: 5 },
-      "/verify-email": { window: 60, max: 10 },
-    },
-  },
-  emailAndPassword: {
-    enabled: true,
-    disableSignUp: false,
-    requireEmailVerification: true,
-    sendResetPassword: async ({ user, url }) => {
-      await sendResetPasswordEmail(user.email, url);
-    },
-  },
-  emailVerification: {
-    sendVerificationEmail: async (data) => {
-      const url = `${env.BETTER_AUTH_URL}/verify-email?token=${data.token}`;
-      await sendVerificationEmail(data.user.email, url);
-    },
-    sendOnSignIn: true,
-  },
-  user: {
-    additionalFields: {
-      gender: {
-        type: "string",
-        required: false,
-      },
-      dob: {
-        type: "date",
-        required: false,
-      },
-      phone: {
-        type: "string",
-        required: false,
-      },
-      isOnWhatsapp: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        input: false,
-      },
-      isActive: {
-        type: "boolean",
-        required: false,
-        defaultValue: true,
-        input: false,
-      },
-      role: {
-        type: "string",
-        required: false,
-        defaultValue: "unoriented_volunteer",
-        input: false,
-      },
-    },
-  },
   plugins: [
     tanstackStartCookies(),
     // Custom roles (e.g. team_lead) are NOT registered here — Better Auth only
     // needs to know about its access-control tiers (admin vs user). Custom roles
     // are stored in user.role and resolved to permissions via resolvePermissions().
     admin({
-      defaultRole: "unoriented_volunteer",
       adminRoles: ["super_admin", "admin", "finance_admin"],
+      defaultRole: "unoriented_volunteer",
       roles: {
-        super_admin: adminAc,
         admin: adminAc,
         finance_admin: adminAc,
+        super_admin: adminAc,
         unoriented_volunteer: userAc,
         volunteer: userAc,
       },
     }),
   ],
-  advanced: {
-    ...(env.COOKIE_DOMAIN && {
-      crossSubDomainCookies: {
-        enabled: true,
-        domain: env.COOKIE_DOMAIN,
+  rateLimit: {
+    customRules: {
+      "/forgot-password": { max: 5, window: 60 },
+      "/reset-password": { max: 5, window: 60 },
+      "/sign-in/email": { max: 10, window: 60 },
+      "/sign-up/email": { max: 5, window: 60 },
+      "/verify-email": { max: 10, window: 60 },
+    },
+    max: 100,
+    window: 60,
+  },
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh daily
+  },
+  trustedOrigins: [env.CORS_ORIGIN],
+  user: {
+    additionalFields: {
+      dob: {
+        required: false,
+        type: "date",
       },
-    }),
+      gender: {
+        required: false,
+        type: "string",
+      },
+      isActive: {
+        defaultValue: true,
+        input: false,
+        required: false,
+        type: "boolean",
+      },
+      isOnWhatsapp: {
+        defaultValue: false,
+        input: false,
+        required: false,
+        type: "boolean",
+      },
+      phone: {
+        required: false,
+        type: "string",
+      },
+      role: {
+        defaultValue: "unoriented_volunteer",
+        input: false,
+        required: false,
+        type: "string",
+      },
+    },
   },
 });

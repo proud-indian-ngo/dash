@@ -36,13 +36,13 @@ function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
   const { align = "center" } = props.element;
   const width = props.element.width as string | number | undefined;
   const caption = props.element.caption as Array<{ text: string }> | undefined;
-  const captionText = caption?.map((c) => c.text).join("") ?? "";
+  const captionText = caption?.map((c) => c.text).join("");
 
   const alignClasses: Record<string, string> = {
     left: "mr-auto",
     right: "ml-auto",
   };
-  const alignClass = alignClasses[align as string] ?? "mx-auto";
+  const alignClass = alignClasses[align as string];
 
   return (
     <PlateElement {...props} className="py-2.5">
@@ -54,7 +54,7 @@ function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
           alt={captionText || "Image"}
           className="block w-full max-w-full rounded-sm object-cover"
         />
-        {captionText && (
+        {Boolean(captionText) && (
           <figcaption className="mt-2 text-center text-muted-foreground text-sm">
             {captionText}
           </figcaption>
@@ -98,11 +98,14 @@ export function PlateRenderer({ content, className }: RendererProps) {
   try {
     const value = JSON.parse(content);
     parsed = Array.isArray(value) ? value : undefined;
-  } catch (error) {
-    log.error({
-      component: "PlateRenderer",
+  } catch (caughtError) {
+    log.warn({
       action: "parseContent",
-      error: error instanceof Error ? error.message : String(error),
+      caughtError:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      component: "PlateRenderer",
     });
   }
 
@@ -121,7 +124,7 @@ export function PlateRenderer({ content, className }: RendererProps) {
 
   return (
     <Plate editor={editor} readOnly>
-      <PlateContent className={`prose prose-sm ${className ?? ""}`} />
+      <PlateContent className={`prose prose-sm ${className}`} />
     </Plate>
   );
 }

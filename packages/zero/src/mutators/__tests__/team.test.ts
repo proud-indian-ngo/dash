@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import z from "zod";
 
 const createSchema = z.object({
+  createWhatsAppGroup: z.boolean().optional(),
+  description: z.string().optional(),
   id: z.string(),
   name: z.string().min(1),
-  description: z.string().optional(),
   whatsappGroupId: z.string().optional(),
-  createWhatsAppGroup: z.boolean().optional(),
 });
 
 const updateSchema = z.object({
+  description: z.string().optional(),
   id: z.string(),
   name: z.string().min(1),
-  description: z.string().optional(),
   whatsappGroupId: z.string().optional(),
 });
 
@@ -20,14 +20,14 @@ const deleteSchema = z.object({ id: z.string() });
 
 const addMemberSchema = z.object({
   id: z.string(),
+  role: z.enum(["member", "lead"]).default("member"),
   teamId: z.string(),
   userId: z.string(),
-  role: z.enum(["member", "lead"]).default("member"),
 });
 
 const removeMemberSchema = z.object({
-  teamId: z.string(),
   memberId: z.string(),
+  teamId: z.string(),
 });
 
 const setMemberRoleSchema = z.object({
@@ -39,11 +39,11 @@ describe("team mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input with all fields", () => {
       const result = createSchema.safeParse({
+        createWhatsAppGroup: false,
+        description: "The eng team",
         id: "t-1",
         name: "Engineering",
-        description: "The eng team",
         whatsappGroupId: "wg-1",
-        createWhatsAppGroup: false,
       });
       expect(result.success).toBe(true);
     });
@@ -75,9 +75,9 @@ describe("team mutator schemas", () => {
   describe("update", () => {
     it("accepts valid input", () => {
       const result = updateSchema.safeParse({
+        description: "New description",
         id: "t-1",
         name: "Updated name",
-        description: "New description",
       });
       expect(result.success).toBe(true);
     });
@@ -126,9 +126,9 @@ describe("team mutator schemas", () => {
     it("accepts valid input with lead role", () => {
       const result = addMemberSchema.safeParse({
         id: "tm-1",
+        role: "lead",
         teamId: "t-1",
         userId: "u-1",
-        role: "lead",
       });
       expect(result.success).toBe(true);
       if (result.success) {
@@ -139,9 +139,9 @@ describe("team mutator schemas", () => {
     it("rejects invalid role", () => {
       const result = addMemberSchema.safeParse({
         id: "tm-1",
+        role: "admin",
         teamId: "t-1",
         userId: "u-1",
-        role: "admin",
       });
       expect(result.success).toBe(false);
     });
@@ -158,8 +158,8 @@ describe("team mutator schemas", () => {
   describe("removeMember", () => {
     it("accepts valid input", () => {
       const result = removeMemberSchema.safeParse({
-        teamId: "t-1",
         memberId: "tm-1",
+        teamId: "t-1",
       });
       expect(result.success).toBe(true);
     });

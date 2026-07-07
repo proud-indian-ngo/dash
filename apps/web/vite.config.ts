@@ -36,20 +36,6 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   });
 
   return {
-    plugins: [
-      ...devtools(),
-      ...tailwindcss(),
-      ...tanstackStart(),
-      ...nitro({
-        preset: "bun",
-        serverDir: "server",
-        experimental: {
-          vite: {},
-        },
-      }),
-      ...react(),
-      reactCompiler,
-    ],
     build: {
       chunkSizeWarningLimit: 2300,
       rolldownOptions: {
@@ -66,23 +52,23 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
             output: {
               codeSplitting: {
                 groups: [
-                  { name: "vendor-react", test: RE_REACT, priority: 20 },
-                  { name: "vendor-router", test: RE_ROUTER, priority: 20 },
-                  { name: "vendor-zero", test: RE_ZERO, priority: 20 },
-                  { name: "vendor-slate", test: RE_SLATE, priority: 25 },
-                  { name: "vendor-plate", test: RE_PLATE, priority: 20 },
-                  { name: "vendor-table", test: RE_TABLE, priority: 20 },
-                  { name: "vendor-form", test: RE_FORM, priority: 20 },
-                  { name: "vendor-dnd", test: RE_DND, priority: 20 },
-                  { name: "vendor-base-ui", test: RE_BASE_UI, priority: 20 },
-                  { name: "vendor-icons", test: RE_ICONS, priority: 20 },
-                  { name: "vendor-phone", test: RE_PHONE, priority: 20 },
-                  { name: "vendor-recharts", test: RE_RECHARTS, priority: 20 },
-                  { name: "vendor-date", test: RE_DATE, priority: 15 },
-                  { name: "vendor-auth", test: RE_AUTH, priority: 15 },
-                  { name: "vendor-drizzle", test: RE_DRIZZLE, priority: 15 },
-                  { name: "vendor-zod", test: RE_ZOD, priority: 15 },
-                  { name: "vendor", test: RE_VENDOR, priority: 5 },
+                  { name: "vendor-react", priority: 20, test: RE_REACT },
+                  { name: "vendor-router", priority: 20, test: RE_ROUTER },
+                  { name: "vendor-zero", priority: 20, test: RE_ZERO },
+                  { name: "vendor-slate", priority: 25, test: RE_SLATE },
+                  { name: "vendor-plate", priority: 20, test: RE_PLATE },
+                  { name: "vendor-table", priority: 20, test: RE_TABLE },
+                  { name: "vendor-form", priority: 20, test: RE_FORM },
+                  { name: "vendor-dnd", priority: 20, test: RE_DND },
+                  { name: "vendor-base-ui", priority: 20, test: RE_BASE_UI },
+                  { name: "vendor-icons", priority: 20, test: RE_ICONS },
+                  { name: "vendor-phone", priority: 20, test: RE_PHONE },
+                  { name: "vendor-recharts", priority: 20, test: RE_RECHARTS },
+                  { name: "vendor-date", priority: 15, test: RE_DATE },
+                  { name: "vendor-auth", priority: 15, test: RE_AUTH },
+                  { name: "vendor-drizzle", priority: 15, test: RE_DRIZZLE },
+                  { name: "vendor-zod", priority: 15, test: RE_ZOD },
+                  { name: "vendor", priority: 5, test: RE_VENDOR },
                 ],
               },
             },
@@ -94,6 +80,20 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       exclude: ["bun"],
       include: ["use-sync-external-store/shim/with-selector"],
     },
+    plugins: [
+      ...devtools(),
+      ...tailwindcss(),
+      ...tanstackStart(),
+      ...nitro({
+        experimental: {
+          vite: {},
+        },
+        preset: "bun",
+        serverDir: "server",
+      }),
+      ...react(),
+      reactCompiler,
+    ],
     resolve: {
       alias: {
         ...(mode === "production" && {

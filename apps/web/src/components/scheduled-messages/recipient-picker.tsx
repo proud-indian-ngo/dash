@@ -42,18 +42,18 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
   const [users] = useQuery(queries.user.whatsappUsers());
 
   const whatsappUsers = users ?? [];
-  const selectedIds = new Set(value.map((r) => r.id));
+  const selectedIds = new Set(value.map((r: any) => r.id));
 
   const handleSelect = (recipient: Recipient) => {
     if (selectedIds.has(recipient.id)) {
-      onChange(value.filter((r) => r.id !== recipient.id));
+      onChange(value.filter((r: any) => r.id !== recipient.id));
     } else if (value.length < MAX_RECIPIENTS) {
       onChange([...value, recipient]);
     }
   };
 
   const handleRemove = (id: string) => {
-    onChange(value.filter((r) => r.id !== id));
+    onChange(value.filter((r: any) => r.id !== id));
   };
 
   return (
@@ -80,7 +80,7 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
               <CommandEmpty>No results found.</CommandEmpty>
               {(groups ?? []).length > 0 && (
                 <CommandGroup heading="Groups">
-                  {(groups ?? []).map((group) => (
+                  {(groups ?? []).map((group: any) => (
                     <CommandItem
                       key={group.id}
                       onSelect={() =>
@@ -107,7 +107,7 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
               )}
               {whatsappUsers.length > 0 && (
                 <CommandGroup heading="Users">
-                  {whatsappUsers.map((user) => (
+                  {whatsappUsers.map((user: any) => (
                     <CommandItem
                       key={user.id}
                       onSelect={() =>
@@ -139,7 +139,7 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
 
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {value.map((recipient) => (
+          {value.map((recipient: any) => (
             <Badge
               className="gap-1 pr-1"
               key={recipient.id}

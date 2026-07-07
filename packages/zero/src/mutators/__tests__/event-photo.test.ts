@@ -3,13 +3,13 @@ import z from "zod";
 
 const uploadSchema = z
   .object({
-    id: z.string(),
+    caption: z.string().optional(),
     eventId: z.string(),
-    r2Key: z.string().optional(),
+    id: z.string(),
     immichAssetId: z.string().optional(),
     mimeType: z.string().optional(),
-    caption: z.string().optional(),
     now: z.number(),
+    r2Key: z.string().optional(),
   })
   .refine((d) => d.r2Key || d.immichAssetId, {
     message: "Either r2Key or immichAssetId must be provided",
@@ -38,23 +38,23 @@ describe("eventPhoto mutator schemas", () => {
   describe("upload", () => {
     it("accepts valid input with r2Key", () => {
       const result = uploadSchema.safeParse({
-        id: "photo-1",
-        eventId: "evt-1",
-        r2Key: "photos/event/photo.jpg",
-        mimeType: "image/jpeg",
         caption: "Team photo",
+        eventId: "evt-1",
+        id: "photo-1",
+        mimeType: "image/jpeg",
         now: 1_700_000_000_000,
+        r2Key: "photos/event/photo.jpg",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts valid input with immichAssetId", () => {
       const result = uploadSchema.safeParse({
-        id: "photo-1",
+        caption: "Team photo",
         eventId: "evt-1",
+        id: "photo-1",
         immichAssetId: "asset-uuid-123",
         mimeType: "image/jpeg",
-        caption: "Team photo",
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
@@ -62,31 +62,31 @@ describe("eventPhoto mutator schemas", () => {
 
     it("accepts with both r2Key and immichAssetId", () => {
       const result = uploadSchema.safeParse({
-        id: "photo-1",
         eventId: "evt-1",
-        r2Key: "photos/event/photo.jpg",
+        id: "photo-1",
         immichAssetId: "asset-uuid-123",
         now: 1_700_000_000_000,
+        r2Key: "photos/event/photo.jpg",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts minimal valid input with r2Key", () => {
       const result = uploadSchema.safeParse({
-        id: "photo-1",
         eventId: "evt-1",
-        r2Key: "photos/event/photo.jpg",
+        id: "photo-1",
         now: 1_700_000_000_000,
+        r2Key: "photos/event/photo.jpg",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects when neither r2Key nor immichAssetId provided", () => {
       const result = uploadSchema.safeParse({
-        id: "photo-1",
-        eventId: "evt-1",
-        mimeType: "image/jpeg",
         caption: "Photo without source",
+        eventId: "evt-1",
+        id: "photo-1",
+        mimeType: "image/jpeg",
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(false);
@@ -95,16 +95,16 @@ describe("eventPhoto mutator schemas", () => {
     it("rejects missing eventId", () => {
       const result = uploadSchema.safeParse({
         id: "photo-1",
-        r2Key: "photos/event/photo.jpg",
         now: 1_700_000_000_000,
+        r2Key: "photos/event/photo.jpg",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects missing now", () => {
       const result = uploadSchema.safeParse({
-        id: "photo-1",
         eventId: "evt-1",
+        id: "photo-1",
         r2Key: "photos/event/photo.jpg",
       });
       expect(result.success).toBe(false);

@@ -30,10 +30,10 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
     ).server;
     setIsSubmitting(false);
     handleMutationResult(res, {
-      mutation: "eventInterest.approve",
       entityId: interest.id,
-      successMsg: "Interest approved",
       errorMsg: "Failed to approve interest",
+      mutation: "eventInterest.approve",
+      successMsg: "Interest approved",
     });
   };
 
@@ -44,10 +44,10 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
     ).server;
     setIsSubmitting(false);
     handleMutationResult(res, {
-      mutation: "eventInterest.reject",
       entityId: interest.id,
-      successMsg: "Interest rejected",
       errorMsg: "Failed to reject interest",
+      mutation: "eventInterest.reject",
+      successMsg: "Interest rejected",
     });
   };
 
@@ -134,7 +134,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
 }
 
 export function InterestRequests({ interests }: InterestRequestsProps) {
-  const pendingInterests = interests.filter((i) => i.status === "pending");
+  const pendingInterests = interests.filter((i: any) => i.status === "pending");
 
   if (pendingInterests.length === 0) {
     return null;
@@ -147,7 +147,7 @@ export function InterestRequests({ interests }: InterestRequestsProps) {
         <h2 className="font-medium text-sm">
           Interest Requests ({pendingInterests.length})
         </h2>
-        {pendingInterests.map((interest) => (
+        {pendingInterests.map((interest: any) => (
           <InterestRow interest={interest} key={interest.id} />
         ))}
       </div>

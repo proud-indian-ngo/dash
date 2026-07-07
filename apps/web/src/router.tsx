@@ -11,26 +11,26 @@ export interface RouterContext {
 
 export const getRouter = () => {
   const router = createTanStackRouter({
-    routeTree,
-    scrollRestoration: true,
+    context: {
+      zero: undefined as unknown as Zero, // populated in ZeroInit,
+    } satisfies RouterContext,
+    defaultErrorComponent: DefaultCatchBoundary,
+    defaultNotFoundComponent: DefaultNotFound,
+    defaultPendingComponent: Loader,
+    defaultPendingMinMs: 200,
+    defaultPendingMs: 100,
     defaultPreload: "viewport",
-    // It is fine to call Zero multiple times for same query, Zero dedupes the
-    // queries internally.
-    defaultPreloadStaleTime: 0,
     // We don't want TanStack skipping any calls to us. We want to be asked to
     // preload every link. This is fine because Zero has its own internal
     // deduping and caching.
     defaultPreloadGcTime: 0,
-    context: {
-      zero: undefined as unknown as Zero, // populated in ZeroInit,
-    } satisfies RouterContext,
-    defaultPendingMs: 100,
-    defaultPendingMinMs: 200,
-    defaultPendingComponent: Loader,
-    defaultErrorComponent: DefaultCatchBoundary,
-    defaultNotFoundComponent: DefaultNotFound,
+    // It is fine to call Zero multiple times for same query, Zero dedupes the
+    // queries internally.
+    defaultPreloadStaleTime: 0,
     defaultStructuralSharing: true,
     defaultViewTransition: true,
+    routeTree,
+    scrollRestoration: true,
   });
   return router;
 };

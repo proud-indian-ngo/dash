@@ -75,9 +75,9 @@ function AvatarUpload() {
       });
 
       const uploadRes = await fetch(presignedUrl, {
-        method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
+        method: "PUT",
       });
       if (!uploadRes.ok) {
         toast.error("Couldn't upload");
@@ -87,23 +87,26 @@ function AvatarUpload() {
       const cdnUrl = `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
       const { error } = await authClient.updateUser({ image: cdnUrl });
       if (error) {
-        toast.error(error.message ?? "Couldn't update profile picture");
-        deleteProfilePicture({ data: { key } }).catch((error) => {
+        toast.error(error.message);
+        deleteProfilePicture({ data: { key } }).catch((error: any) => {
           log.error({
-            component: "ProfileSection",
             action: "cleanupOrphanedR2",
-            key,
+            component: "ProfileSection",
             error: error instanceof Error ? error.message : String(error),
+            key,
           });
         });
       } else {
         toast.success("Looking good!");
       }
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "ProfileSection",
         action: "uploadProfilePicture",
-        error: error instanceof Error ? error.message : String(error),
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "ProfileSection",
       });
       toast.error("Couldn't upload profile picture");
     } finally {
@@ -123,7 +126,7 @@ function AvatarUpload() {
       const imageUrl = user.image;
       const { error } = await authClient.updateUser({ image: "" });
       if (error) {
-        toast.error(error.message ?? "Couldn't remove profile picture");
+        toast.error(error.message);
         return;
       }
 
@@ -131,22 +134,25 @@ function AvatarUpload() {
       const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
       if (imageUrl.startsWith(cdnBase)) {
         const key = imageUrl.slice(cdnBase.length + 1);
-        deleteProfilePicture({ data: { key } }).catch((error) => {
+        deleteProfilePicture({ data: { key } }).catch((error: any) => {
           log.error({
-            component: "ProfileSection",
             action: "cleanupR2AfterRemove",
-            key,
+            component: "ProfileSection",
             error: error instanceof Error ? error.message : String(error),
+            key,
           });
         });
       }
 
       toast.success("Profile picture removed");
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "ProfileSection",
         action: "removeProfilePicture",
-        error: error instanceof Error ? error.message : String(error),
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "ProfileSection",
       });
       toast.error("Couldn't remove profile picture");
     } finally {
@@ -157,7 +163,6 @@ function AvatarUpload() {
   if (!user) {
     return null;
   }
-
   return (
     <div className="flex items-center gap-4">
       <UserAvatar className="size-16" fallbackClassName="text-lg" user={user} />
@@ -172,7 +177,7 @@ function AvatarUpload() {
           >
             {uploading ? "Uploading..." : "Change photo"}
           </Button>
-          {user.image && (
+          {Boolean(user.image) && (
             <Button
               disabled={uploading}
               onClick={handleRemove}
@@ -206,19 +211,19 @@ export function ProfileSection() {
   const form = useForm({
     defaultValues: {
       dob: user?.dob ? new Date(user.dob) : undefined,
-      gender: (user?.gender ?? "") as "" | "male" | "female" | "unspecified",
+      gender: user?.gender as "" | "male" | "female" | "unspecified",
       name: user?.name ?? "",
       phone: user?.phone ?? "",
     } satisfies ProfileFormValues,
     onSubmit: async ({ value }) => {
       const { error } = await authClient.updateUser({
-        dob: value.dob ?? undefined,
+        dob: value.dob,
         gender: value.gender || undefined,
         name: value.name,
         phone: value.phone || undefined,
       });
       if (error) {
-        toast.error(error.message ?? "Couldn't save profile");
+        toast.error(error.message);
       } else {
         toast.success("Profile saved!");
       }

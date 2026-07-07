@@ -29,12 +29,12 @@ const registerFields = {
   phone: z
     .string()
     .min(1, "Phone number is required")
-    .refine((v) => isValidPhoneNumber(v), "Invalid phone number"),
+    .refine((v: any) => isValidPhoneNumber(v), "Invalid phone number"),
 };
 
 const registerSchema = z
   .object(registerFields)
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data: any) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
@@ -64,8 +64,8 @@ export function RegisterForm() {
       });
       if (error) {
         log.error({
-          component: "RegisterForm",
           action: "signUp",
+          component: "RegisterForm",
           email: value.email,
           error: error.message || error.statusText,
         });

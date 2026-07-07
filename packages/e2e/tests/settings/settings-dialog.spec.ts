@@ -95,7 +95,7 @@ test.describe("Settings dialog", () => {
   test("mobile shows capitalized active section in header select", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 430, height: 932 });
+    await page.setViewportSize({ height: 932, width: 430 });
     await openSettings(page);
 
     const dialog = page.getByRole("dialog");

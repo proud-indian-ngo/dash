@@ -65,6 +65,16 @@ function NotificationItem({
   onClick: (id: string, clickAction?: string | null) => void;
   onToggleRead: (e: React.MouseEvent, id: string, isRead: boolean) => void;
 }) {
+  const handleMarkAllRead = () => onClick(n.id, n.clickAction);
+  const stableOnKeyDown1 = (e: any) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick(n.id, n.clickAction);
+    }
+  };
+  const stableOnClick2 = (e: any) => onToggleRead(e, n.id, !!n.read);
+  const stableOnClick3 = (e: any) => onArchive(e, n.id);
+
   return (
     // biome-ignore lint/a11y/useSemanticElements: can't use <button> — contains child <button> elements (TooltipTrigger)
     <div
@@ -72,13 +82,8 @@ function NotificationItem({
         "group relative flex w-full gap-0 border-border border-b text-left transition-colors last:border-b-0",
         n.clickAction ? "cursor-pointer hover:bg-muted/40" : "cursor-default"
       )}
-      onClick={() => onClick(n.id, n.clickAction)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick(n.id, n.clickAction);
-        }
-      }}
+      onClick={handleMarkAllRead}
+      onKeyDown={stableOnKeyDown1}
       role="button"
       tabIndex={0}
     >
@@ -113,7 +118,7 @@ function NotificationItem({
         <Tooltip>
           <TooltipTrigger
             className="p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={(e) => onToggleRead(e, n.id, !!n.read)}
+            onClick={stableOnClick2}
             type="button"
           >
             <HugeiconsIcon
@@ -129,7 +134,7 @@ function NotificationItem({
         <Tooltip>
           <TooltipTrigger
             className="p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={(e) => onArchive(e, n.id)}
+            onClick={stableOnClick3}
             type="button"
           >
             <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2} />
@@ -144,7 +149,7 @@ function NotificationItem({
 export function NotificationInboxSkeleton() {
   return (
     <div>
-      {[0, 1, 2, 3].map((i) => (
+      {[0, 1, 2, 3].map((i: any) => (
         <div
           className="flex gap-0 border-border border-b last:border-b-0"
           key={`skeleton-${i}`}
@@ -180,7 +185,7 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
     queries.notification.forCurrentUser()
   );
   const isLoading = notifications.length === 0 && result.type !== "complete";
-  const hasUnread = notifications.some((n) => !n.read);
+  const hasUnread = notifications.some((n: any) => !n.read);
 
   async function handleMarkAllRead() {
     try {
@@ -237,7 +242,7 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
     }
     return (
       <div>
-        {notifications.map((n) => (
+        {notifications.map((n: any) => (
           <NotificationItem
             key={n.id}
             notification={n}

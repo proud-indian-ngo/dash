@@ -45,6 +45,9 @@ function RowActions({
   onNavigate: (id: string) => void;
   onRequestDelete: () => void;
 }) {
+  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick1 = () => onNavigate(id);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -53,7 +56,7 @@ function RowActions({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
-            onClick={(e) => e.stopPropagation()}
+            onClick={stableOnClick0}
             size="icon"
             type="button"
             variant="ghost"
@@ -67,7 +70,7 @@ function RowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={() => onNavigate(id)}>View</DropdownMenuItem>
+        <DropdownMenuItem onClick={stableOnClick1}>View</DropdownMenuItem>
         {canDelete ? (
           <>
             <DropdownMenuSeparator />
@@ -108,7 +111,7 @@ export function TeamsTable({
   const canDeleteTeam = hasPermission("teams.delete");
 
   const deleteAction = useConfirmAction<string>({
-    onConfirm: async (id) => {
+    onConfirm: async (id: any) => {
       await onDelete(id);
       return { type: "ok" };
     },
@@ -117,11 +120,7 @@ export function TeamsTable({
 
   const columns: ColumnDef<TeamRow>[] = [
     {
-      id: "name",
-      accessorFn: (row) => row.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Name" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.name,
       cell: ({ row }) => (
         <button
           className="truncate text-left font-medium text-sm hover:underline"
@@ -132,12 +131,20 @@ export function TeamsTable({
           {row.original.name}
         </button>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      id: "name",
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
       size: 200,
     },
     {
-      id: "description",
-      accessorFn: (row) => row.description,
+      accessorFn: (row: any) => row.description,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.description || "—"}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -145,17 +152,15 @@ export function TeamsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.description || "—"}
-        </span>
-      ),
+      id: "description",
       meta: { headerTitle: "Description", skeleton: SKELETON_DESC },
       size: 280,
     },
     {
-      id: "members",
-      accessorFn: (row) => row.members.length,
+      accessorFn: (row: any) => row.members.length,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.members.length}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -163,15 +168,17 @@ export function TeamsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.members.length}</span>
-      ),
+      id: "members",
       meta: { headerTitle: "Members", skeleton: SKELETON_COUNT },
       size: 100,
     },
     {
-      id: "whatsappGroup",
-      accessorFn: (row) => row.whatsappGroup?.name,
+      accessorFn: (row: any) => row.whatsappGroup?.name,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.whatsappGroup?.name || "—"}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -179,17 +186,11 @@ export function TeamsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.whatsappGroup?.name || "—"}
-        </span>
-      ),
+      id: "whatsappGroup",
       meta: { headerTitle: "WhatsApp Group", skeleton: SKELETON_WA },
       size: 180,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => (
         <RowActions
           canDelete={canDeleteTeam}
@@ -198,15 +199,24 @@ export function TeamsTable({
           onRequestDelete={() => deleteAction.trigger(row.original.id)}
         />
       ),
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
       meta: { cellClassName: "text-center", stopRowClick: true },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
+  const stableGetRowId2 = (row: any) => row.id;
+  const stableOnRowClick3 = (row: any) => onNavigate(row.id);
+  const stableOnOpenChange4 = (open: any) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  };
 
   return (
     <>
@@ -214,17 +224,17 @@ export function TeamsTable({
         columns={columns}
         data={data}
         emptyMessage="No teams found."
-        getRowId={(row) => row.id}
+        getRowId={stableGetRowId2}
         isLoading={isLoading}
-        onRowClick={(row) => onNavigate(row.id)}
+        onRowClick={stableOnRowClick3}
         searchFn={searchTeam}
         searchPlaceholder="Search teams..."
         storageKey="teams_table_state_v1"
         tableLayout={{
-          columnsResizable: true,
           columnsDraggable: true,
-          columnsVisibility: true,
           columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
       />
@@ -234,11 +244,7 @@ export function TeamsTable({
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange4}
         open={deleteAction.isOpen}
         title="Delete team"
       />

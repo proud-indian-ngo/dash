@@ -7,7 +7,7 @@ test.describe("Event duplication", () => {
     // Navigate to events and open the first one
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
 
     const eventLink = page
@@ -62,7 +62,7 @@ test.describe("Event duplication", () => {
     await nameInput.clear();
     await nameInput.fill(dupName);
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     // Should navigate to the new event or show success message
     await expect(dialog).toBeHidden({ timeout: 10_000 });
@@ -125,7 +125,7 @@ test.describe("Event duplication", () => {
     const dupName = `E2E Dup Copy ${Date.now()}`;
     await dialog.getByLabel("Name", { exact: true }).fill(dupName);
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible({

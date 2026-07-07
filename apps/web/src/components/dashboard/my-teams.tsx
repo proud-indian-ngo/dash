@@ -20,7 +20,7 @@ interface Team {
 function MyTeamsSkeleton() {
   return (
     <div className="space-y-3">
-      {[1, 2, 3].map((i) => (
+      {[1, 2, 3].map((i: any) => (
         <div className="flex items-center justify-between" key={i}>
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-4 w-16" />
@@ -32,17 +32,17 @@ function MyTeamsSkeleton() {
 
 const GHOST_TEAMS = [
   {
-    name: "Community Outreach",
     description: "Weekend volunteering",
     members: 12,
+    name: "Community Outreach",
   },
-  { name: "Event Planning", description: "Coordinate logistics", members: 8 },
+  { description: "Coordinate logistics", members: 8, name: "Event Planning" },
 ];
 
 function MyTeamsEmpty() {
   return (
     <GhostEmptyState
-      ghostContent={GHOST_TEAMS.map((team) => (
+      ghostContent={GHOST_TEAMS.map((team: any) => (
         <div
           className="flex items-center justify-between rounded-md p-2"
           key={team.name}
@@ -75,7 +75,7 @@ function MyTeamsEmpty() {
 function MyTeamsList({ teams }: { teams: readonly Team[] }) {
   return (
     <div className="space-y-3">
-      {teams.map((team) => (
+      {teams.map((team: any) => (
         <Link
           className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50"
           key={team.id}
@@ -84,7 +84,7 @@ function MyTeamsList({ teams }: { teams: readonly Team[] }) {
         >
           <div className="min-w-0">
             <p className="truncate font-medium text-sm">{team.name}</p>
-            {team.description && (
+            {Boolean(team.description) && (
               <p className="truncate text-muted-foreground text-xs">
                 {team.description}
               </p>

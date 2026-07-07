@@ -19,20 +19,20 @@ export const eventUpdateStatusEnum = pgEnum("event_update_status", [
 export const eventUpdate = pgTable(
   "event_update",
   {
-    id: uuid("id").primaryKey(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => teamEvent.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    status: eventUpdateStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => teamEvent.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    reviewedAt: timestamp("reviewed_at"),
-    createdAt: timestamp("created_at").notNull(),
+    status: eventUpdateStatusEnum("status").notNull().default("pending"),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
@@ -42,13 +42,13 @@ export const eventUpdate = pgTable(
 );
 
 export const eventUpdateRelations = relations(eventUpdate, ({ one }) => ({
-  event: one(teamEvent, {
-    fields: [eventUpdate.eventId],
-    references: [teamEvent.id],
-  }),
   author: one(user, {
     fields: [eventUpdate.createdBy],
     references: [user.id],
+  }),
+  event: one(teamEvent, {
+    fields: [eventUpdate.eventId],
+    references: [teamEvent.id],
   }),
   reviewer: one(user, {
     fields: [eventUpdate.reviewedBy],

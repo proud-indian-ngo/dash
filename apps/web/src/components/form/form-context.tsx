@@ -90,7 +90,7 @@ export function getFieldErrorState(field: FormFieldApi, submitted = false) {
   const showErrors = field.state.meta.isBlurred || submitted;
   const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorMessageId = `${field.name}-error`;
-  return { hasError, errorMessageId };
+  return { errorMessageId, hasError };
 }
 
 export function fieldErrorProps(field: FormFieldApi, submitted = false) {

@@ -12,17 +12,17 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
     clientGroupID: `e2e-authz-cg-${suffix}`,
     mutations: [
       {
-        type: "custom" as const,
-        id: 1,
-        clientID: `e2e-authz-${suffix}`,
-        name: mutationName,
         args: [args],
+        clientID: `e2e-authz-${suffix}`,
+        id: 1,
+        name: mutationName,
         timestamp: Date.now(),
+        type: "custom" as const,
       },
     ],
     pushVersion: 1,
-    timestamp: Date.now(),
     requestID: `e2e-authz-req-${suffix}`,
+    timestamp: Date.now(),
   };
 }
 
@@ -65,9 +65,9 @@ test.describe("API authorization — admin-only mutations rejected for volunteer
 
   test("team.create rejected for volunteer", async ({ page, baseURL }) => {
     await assertUnauthorized(page, baseURL, "team.create", {
+      description: "",
       id: FAKE_ID,
       name: "E2E Unauthorized Team",
-      description: "",
     });
   });
 
@@ -87,8 +87,8 @@ test.describe("API authorization — admin-only mutations rejected for volunteer
   }) => {
     await assertUnauthorized(page, baseURL, "whatsappGroup.create", {
       id: FAKE_ID,
-      name: "E2E Unauthorized Group",
       jid: "fake-jid",
+      name: "E2E Unauthorized Group",
     });
   });
 
@@ -146,8 +146,8 @@ test.describe("API authorization — finance_admin role lacks app config + whats
   }) => {
     await assertUnauthorized(page, baseURL, "whatsappGroup.create", {
       id: FAKE_ID,
-      name: "E2E Unauthorized Group",
       jid: "fake-jid",
+      name: "E2E Unauthorized Group",
     });
   });
 });
@@ -174,9 +174,9 @@ test.describe("API authorization — unoriented_volunteer rejected from all writ
     baseURL,
   }) => {
     await assertUnauthorized(page, baseURL, "team.create", {
+      description: "",
       id: FAKE_ID,
       name: "E2E Unauthorized Team",
-      description: "",
     });
   });
 

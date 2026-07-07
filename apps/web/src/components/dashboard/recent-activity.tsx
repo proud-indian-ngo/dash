@@ -74,8 +74,8 @@ function toFinancialActivities(
   label: string,
   route: string
 ): ActivityItem[] {
-  return items.map((item) => ({
-    amount: item.lineItems.reduce((sum, li) => sum + li.amount, 0),
+  return items.map((item: any) => ({
+    amount: item.lineItems.reduce((sum: any, li: any) => sum + li.amount, 0),
     createdAt: item.createdAt,
     entityId: item.id,
     icon,
@@ -88,8 +88,8 @@ function toFinancialActivities(
 }
 
 function toEventActivities(events: readonly EventItem[]): ActivityItem[] {
-  return events.map((event) => {
-    const isCancelled = event.cancelledAt != null;
+  return events.map((event: any) => {
+    const isCancelled = event.cancelledAt !== null;
     const teamName = event.team?.name;
     return {
       createdAt: event.cancelledAt ?? event.createdAt,
@@ -109,25 +109,35 @@ function toEventActivities(events: readonly EventItem[]): ActivityItem[] {
 function toRegistrationActivities(
   interests: readonly EventInterestItem[]
 ): ActivityItem[] {
-  return interests.map((interest) => ({
-    createdAt: interest.createdAt,
-    entityId: interest.event?.id ?? interest.id,
-    icon: Ticket01Icon,
-    id: `reg-${interest.id}`,
-    label: "Registration",
-    route: "/events/$id",
-    status: interest.status,
-    title: interest.event?.name ?? "Event",
-  }));
+  return interests.flatMap((interest: EventInterestItem) => {
+    if (!interest.event) {
+      return [];
+    }
+    return [
+      {
+        createdAt: interest.createdAt,
+        entityId: interest.event.id,
+        icon: Ticket01Icon,
+        id: `reg-${interest.id}`,
+        label: "Registration",
+        route: "/events/$id",
+        status: interest.status,
+        title: interest.event.name,
+      },
+    ];
+  });
 }
 
 function toVendorPaymentActivities(
   payments: readonly VendorPaymentItem[]
 ): ActivityItem[] {
-  return payments.map((payment) => {
+  return payments.map((payment: any) => {
     const vendorName = payment.vendor?.name;
     return {
-      amount: payment.lineItems.reduce((sum, li) => sum + li.amount, 0),
+      amount: payment.lineItems.reduce(
+        (sum: any, li: any) => sum + li.amount,
+        0
+      ),
       createdAt: payment.createdAt,
       entityId: payment.id,
       icon: Store01Icon,
@@ -141,16 +151,16 @@ function toVendorPaymentActivities(
 }
 
 const GHOST_ACTIVITIES = [
-  { title: "Office Supplies", label: "Reimbursement", amount: "2,500" },
-  { title: "Team Outing", label: "New Event" },
-  { title: "Workshop", label: "Registration" },
-  { title: "Catering Services", label: "Vendor Payment", amount: "5,000" },
+  { amount: "2,500", label: "Reimbursement", title: "Office Supplies" },
+  { label: "New Event", title: "Team Outing" },
+  { label: "Registration", title: "Workshop" },
+  { amount: "5,000", label: "Vendor Payment", title: "Catering Services" },
 ];
 
 function RecentActivityEmpty() {
   return (
     <GhostEmptyState
-      ghostContent={GHOST_ACTIVITIES.map((activity) => (
+      ghostContent={GHOST_ACTIVITIES.map((activity: any) => (
         <div className="flex items-start gap-3" key={activity.title}>
           <HugeiconsIcon
             className="mt-0.5 size-4 shrink-0 text-muted-foreground"
@@ -161,7 +171,7 @@ function RecentActivityEmpty() {
             <p className="truncate font-medium text-sm">{activity.title}</p>
             <p className="text-muted-foreground text-xs">
               {activity.label}
-              {"amount" in activity && ` · ${activity.amount}`}
+              {Boolean("amount" in activity) && ` · ${activity.amount}`}
             </p>
           </div>
         </div>
@@ -177,7 +187,7 @@ function RecentActivityEmpty() {
 function RecentActivitySkeleton() {
   return (
     <div className="space-y-3">
-      {[1, 2, 3, 4].map((i) => (
+      {[1, 2, 3, 4].map((i: any) => (
         <div className="flex items-center gap-3" key={i}>
           <Skeleton className="size-4 shrink-0 rounded-full" />
           <div className="flex-1">
@@ -193,7 +203,7 @@ function RecentActivitySkeleton() {
 function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
   return (
     <div className="space-y-3">
-      {activities.map((activity) => {
+      {activities.map((activity: any) => {
         const statusInfo = activity.status
           ? getStatusBadge(activity.status)
           : null;
@@ -201,8 +211,8 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
           <Link
             className="-mx-2 flex items-start gap-3 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
             key={activity.id}
-            params={{ id: activity.entityId }}
-            to={activity.route}
+            params={{ id: activity.entityId } as never}
+            to={activity.route as never}
           >
             <HugeiconsIcon
               className="mt-0.5 size-4 shrink-0 text-muted-foreground"
@@ -212,14 +222,14 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="truncate font-medium text-sm">{activity.title}</p>
-                {statusInfo && (
+                {statusInfo ? (
                   <Badge
                     size="xs"
                     variant={statusInfo.variant as StatusBadgeVariant}
                   >
                     {statusInfo.label}
                   </Badge>
-                )}
+                ) : null}
               </div>
               <p className="text-muted-foreground text-xs">
                 {activity.label}
@@ -291,7 +301,7 @@ export function RecentActivity({
     ...toRegistrationActivities(eventInterests),
     ...toVendorPaymentActivities(vendorPayments),
   ]
-    .sort((a, b) => b.createdAt - a.createdAt)
+    .sort((a: any, b: any) => b.createdAt - a.createdAt)
     .slice(0, MAX_ITEMS);
 
   return (

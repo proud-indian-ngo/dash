@@ -10,7 +10,7 @@ function buildDrain() {
     : process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 
   if (!endpoint) {
-    return undefined;
+    return;
   }
 
   return createOTLPDrain({
@@ -20,18 +20,18 @@ function buildDrain() {
   });
 }
 
-export default definePlugin((nitroApp) => {
+export default definePlugin((nitroApp: any) => {
   initLogger({
+    drain: buildDrain(),
     env: {
-      service: process.env.OTEL_SERVICE_NAME ?? "pi-dash",
       environment: process.env.NODE_ENV ?? "production",
+      service: process.env.OTEL_SERVICE_NAME ?? "pi-dash",
     },
     pretty: process.env.NODE_ENV !== "production",
     redact: { builtins: ["creditCard", "email", "jwt", "bearer", "iban"] },
-    drain: buildDrain(),
   });
 
-  nitroApp.hooks.hook("evlog:enrich", (ctx) => {
+  nitroApp.hooks.hook("evlog:enrich", (ctx: any) => {
     const traceId = getCurrentTraceId();
     if (traceId && !ctx.event.traceId) {
       ctx.event.traceId = traceId;

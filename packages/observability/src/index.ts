@@ -26,15 +26,15 @@ export async function withTaskLog(
   log.set(context);
   try {
     await pRetry(fn, {
-      retries,
       minTimeout: 500,
-      shouldRetry: ({ error }) => !isHttpClientError(error),
       onFailedAttempt: (error) => {
         log.set({
           attempt: error.attemptNumber,
           retriesLeft: error.retriesLeft,
         });
       },
+      retries,
+      shouldRetry: ({ error }) => !isHttpClientError(error),
     });
   } catch (error) {
     log.error(coerceError(error));

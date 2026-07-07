@@ -4,7 +4,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
 import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
 import {
@@ -51,11 +50,7 @@ export function createEventsTableColumns({
 })[] {
   return [
     {
-      id: "name",
-      accessorFn: (row) => row.event.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Name" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.event.name,
       cell: ({ row }) => {
         const seriesIcon = getSeriesIcon(row.original);
         return (
@@ -69,7 +64,7 @@ export function createEventsTableColumns({
             )}
             <button
               className="truncate text-left font-medium text-sm hover:underline"
-              onClick={(e) => {
+              onClick={(e: any) => {
                 e.stopPropagation();
                 onSelectEvent(row.original);
               }}
@@ -80,6 +75,10 @@ export function createEventsTableColumns({
           </div>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      id: "name",
       meta: {
         headerTitle: "Name",
         skeleton: SKELETON_NAME,
@@ -87,7 +86,11 @@ export function createEventsTableColumns({
       size: 200,
     },
     {
-      id: "status",
+      cell: ({ row }) => {
+        const { label, variant } = getEventStatus(row.original);
+        return <Badge variant={variant}>{label}</Badge>;
+      },
+      enableSorting: false,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -95,20 +98,20 @@ export function createEventsTableColumns({
           visibility={true}
         />
       ),
-      cell: ({ row }) => {
-        const { label, variant } = getEventStatus(row.original);
-        return <Badge variant={variant}>{label}</Badge>;
-      },
+      id: "status",
       meta: {
         headerTitle: "Status",
         skeleton: SKELETON_BADGE,
       },
       size: 90,
-      enableSorting: false,
     },
     {
-      id: "startTime",
-      accessorFn: (row) => row.startTime,
+      accessorFn: (row: any) => row.startTime,
+      cell: ({ row }) => (
+        <span className="truncate text-sm">
+          {format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME)}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -116,11 +119,7 @@ export function createEventsTableColumns({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-sm">
-          {format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME)}
-        </span>
-      ),
+      id: "startTime",
       meta: {
         headerTitle: "Date/Time",
         skeleton: SKELETON_DATETIME,
@@ -128,8 +127,12 @@ export function createEventsTableColumns({
       size: 180,
     },
     {
-      id: "location",
-      accessorFn: (row) => row.event.location,
+      accessorFn: (row: any) => row.event.location,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.event.location || "\u2014"}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -137,11 +140,7 @@ export function createEventsTableColumns({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.event.location || "\u2014"}
-        </span>
-      ),
+      id: "location",
       meta: {
         headerTitle: "Location",
         skeleton: SKELETON_LOCATION,
@@ -149,16 +148,16 @@ export function createEventsTableColumns({
       size: 140,
     },
     {
-      id: "city",
-      accessorFn: (row) => row.event.city,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="City" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.event.city,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm capitalize">
           {row.original.event.city || "\u2014"}
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="City" visibility={true} />
+      ),
+      id: "city",
       meta: {
         headerTitle: "City",
         skeleton: SKELETON_LOCATION,
@@ -166,8 +165,14 @@ export function createEventsTableColumns({
       size: 120,
     },
     {
-      id: "isPublic",
-      accessorFn: (row) => row.event.isPublic,
+      accessorFn: (row: any) => row.event.isPublic,
+      cell: ({ row }) =>
+        row.original.event.isPublic ? (
+          <Badge variant="default">Public</Badge>
+        ) : (
+          <Badge variant="secondary">Private</Badge>
+        ),
+      enableSorting: false,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -175,28 +180,14 @@ export function createEventsTableColumns({
           visibility={true}
         />
       ),
-      cell: ({ row }) =>
-        row.original.event.isPublic ? (
-          <Badge variant="default">Public</Badge>
-        ) : (
-          <Badge variant="secondary">Private</Badge>
-        ),
+      id: "isPublic",
       meta: {
         headerTitle: "Public",
         skeleton: SKELETON_BADGE,
       },
       size: 80,
-      enableSorting: false,
     },
     {
-      id: "recurrence",
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Recurrence"
-          visibility={true}
-        />
-      ),
       cell: ({ row }) => {
         const rule = row.original.event.recurrenceRule as
           | { rrule: string }
@@ -209,16 +200,27 @@ export function createEventsTableColumns({
           </Badge>
         );
       },
+      enableSorting: false,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Recurrence"
+          visibility={true}
+        />
+      ),
+      id: "recurrence",
       meta: {
         headerTitle: "Recurrence",
         skeleton: SKELETON_BADGE,
       },
       size: 100,
-      enableSorting: false,
     },
     {
-      id: "members",
-      accessorFn: (row) => row.members.length,
+      accessorFn: (row: any) => row.members.length,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.members.length}</span>
+      ),
+      enableSorting: false,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -226,19 +228,14 @@ export function createEventsTableColumns({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.members.length}</span>
-      ),
+      id: "members",
       meta: {
         headerTitle: "Volunteers",
         skeleton: SKELETON_COUNT,
       },
       size: 80,
-      enableSorting: false,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => (
         <EventActionsMenu
           canCancel={
@@ -253,13 +250,15 @@ export function createEventsTableColumns({
           onSelectEvent={() => onSelectEvent(row.original)}
         />
       ),
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
       meta: { cellClassName: "text-center", stopRowClick: true },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
 }

@@ -42,7 +42,7 @@ test.describe("Recurring event edit/cancel scope", () => {
     await page.getByRole("option", { name: "Weekly" }).click();
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
@@ -130,7 +130,7 @@ test.describe("Recurring event edit/cancel scope", () => {
 
     // No recurrence selected (default: None)
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });

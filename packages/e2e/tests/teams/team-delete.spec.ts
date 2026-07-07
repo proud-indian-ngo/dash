@@ -35,7 +35,7 @@ async function openRowActionAndClick(
   const trigger = row.getByTestId("row-actions");
   const menuItem = page.getByRole("menuitem", { name: menuItemName });
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     await trigger.click();
     try {
       await expect(menuItem).toBeVisible({ timeout: 3000 });

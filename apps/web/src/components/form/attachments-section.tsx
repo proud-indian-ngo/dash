@@ -42,9 +42,8 @@ interface AttachmentsSectionProps {
   value: Attachment[];
 }
 
-const isFileAttachment = (attachment: Attachment): boolean => {
-  return attachment.type === "file";
-};
+const isFileAttachment = (attachment: Attachment): boolean =>
+  attachment.type === "file";
 
 const uploadSingleFile = async (
   file: File,
@@ -53,18 +52,18 @@ const uploadSingleFile = async (
 ): Promise<Attachment> => {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
+      entityId,
       fileName: file.name,
       fileSize: file.size,
       mimeType: toAllowedMimeType(file.type),
       subfolder: "attachments",
-      entityId,
     },
   });
 
   const response = await fetch(presignedUrl, {
-    method: "PUT",
     body: file,
     headers: { "Content-Type": file.type || "application/octet-stream" },
+    method: "PUT",
   });
 
   if (!response.ok) {
@@ -72,11 +71,11 @@ const uploadSingleFile = async (
   }
 
   return {
-    id: uuidv7(),
-    type: "file",
     filename: file.name,
-    objectKey: key,
+    id: uuidv7(),
     mimeType: file.type,
+    objectKey: key,
+    type: "file",
   };
 };
 
@@ -141,6 +140,7 @@ export function AttachmentsSection({
     ? `Uploading file ${activeUploadIndex} of ${uploadProgress.total}…`
     : null;
   let uploadStatusMessage: string | null = null;
+
   if (isUploading) {
     uploadStatusMessage = uploadProgressLabel;
   } else if (
@@ -169,26 +169,31 @@ export function AttachmentsSection({
       const uploadedAttachments: Attachment[] = [];
       let failedCount = 0;
 
-      for (const file of filesToUpload) {
-        setUploadProgress((prev) => ({ ...prev, current: prev.current + 1 }));
-        try {
-          const uploadedAttachment = await uploadSingleFile(
-            file,
-            entityId,
-            getUploadUrl
-          );
-          uploadedAttachments.push(uploadedAttachment);
-        } catch (error) {
-          failedCount += 1;
-          log.error({
-            component: "AttachmentsSection",
-            action: "uploadFile",
-            fileName: file.name,
-            failedCount,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
+      await Promise.all(
+        filesToUpload.map(async (file: any) => {
+          setUploadProgress((prev: any) => ({
+            ...prev,
+            current: prev.current + 1,
+          }));
+          try {
+            const uploadedAttachment = await uploadSingleFile(
+              file,
+              entityId,
+              getUploadUrl
+            );
+            uploadedAttachments.push(uploadedAttachment);
+          } catch (error) {
+            failedCount += 1;
+            log.error({
+              action: "uploadFile",
+              component: "AttachmentsSection",
+              failedCount,
+              fileName: file.name,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        })
+      );
 
       const uploadedCount = uploadedAttachments.length;
       if (uploadedCount > 0) {
@@ -233,7 +238,7 @@ export function AttachmentsSection({
     multiple: true,
     onFilesAdded: (addedFiles: FileWithPreview[]) => {
       const files = addedFiles
-        .map((item) => item.file)
+        .map((item: any) => item.file)
         .filter((candidate): candidate is File => candidate instanceof File);
       uploadFilesRef.current(files).finally(() => {
         uploadActions.clearFiles();
@@ -319,7 +324,7 @@ export function AttachmentsSection({
           className="flex flex-col gap-1 rounded-md border border-destructive/50 px-3 py-2"
           role="alert"
         >
-          {errors.map((error) => (
+          {errors.map((error: any) => (
             <p className="text-destructive text-xs" key={error}>
               {error}
             </p>
@@ -356,7 +361,7 @@ export function AttachmentsSection({
 
       {value.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          {value.map((attachment) => (
+          {value.map((attachment: any) => (
             <div
               className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)"
               key={attachment.id}

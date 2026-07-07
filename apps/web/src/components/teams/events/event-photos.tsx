@@ -52,8 +52,8 @@ function buildSlides(
       result.push(
         toPhotoSlide(photo, {
           canApprove: true,
-          canReject: true,
           canDelete: true,
+          canReject: true,
         })
       );
     }
@@ -62,8 +62,8 @@ function buildSlides(
       result.push(
         toPhotoSlide(photo, {
           canApprove: false,
-          canReject: false,
           canDelete: true,
+          canReject: false,
         })
       );
     }
@@ -72,8 +72,8 @@ function buildSlides(
     result.push(
       toPhotoSlide(photo, {
         canApprove: false,
-        canReject: false,
         canDelete: canManage,
+        canReject: false,
       })
     );
   }
@@ -112,8 +112,8 @@ async function uploadSinglePhoto({
     }
     await zero.mutate(
       mutators.eventPhoto.upload({
-        id: uuidv7(),
         eventId,
+        id: uuidv7(),
         immichAssetId: result.immichAssetId,
         mimeType: file.type,
         now,
@@ -125,11 +125,11 @@ async function uploadSinglePhoto({
   const key = await uploadFileToR2(file, eventId, getUploadUrl);
   await zero.mutate(
     mutators.eventPhoto.upload({
-      id: uuidv7(),
       eventId,
-      r2Key: key,
+      id: uuidv7(),
       mimeType: file.type,
       now,
+      r2Key: key,
     })
   ).server;
 }
@@ -192,7 +192,7 @@ export function EventPhotos({
     if (slides.length === 0) {
       setLightboxOpen(false);
     } else {
-      setLightboxIndex((i) => Math.min(i, slides.length - 1));
+      setLightboxIndex((i: any) => Math.min(i, slides.length - 1));
     }
   }, [lightboxOpen, slides.length]);
 
@@ -215,22 +215,24 @@ export function EventPhotos({
     let uploadedCount = 0;
     let failedCount = 0;
 
-    for (const file of validFiles) {
-      try {
-        await uploadSinglePhoto({
-          callImmichUpload,
-          eventId,
-          file,
-          getUploadUrl,
-          occDate,
-          useImmichDirect,
-          zero,
-        });
-        uploadedCount += 1;
-      } catch {
-        failedCount += 1;
-      }
-    }
+    await Promise.all(
+      validFiles.map(async (file: any) => {
+        try {
+          await uploadSinglePhoto({
+            callImmichUpload,
+            eventId,
+            file,
+            getUploadUrl,
+            occDate,
+            useImmichDirect,
+            zero,
+          });
+          uploadedCount += 1;
+        } catch {
+          failedCount += 1;
+        }
+      })
+    );
 
     showUploadResultToasts(uploadedCount, failedCount);
     setIsUploading(false);
@@ -240,31 +242,53 @@ export function EventPhotos({
   };
 
   const approveAllAction = useConfirmAction({
+    mutationMeta: {
+      entityId: () => eventId,
+      errorMsg: "Failed to approve media",
+      mutation: "eventPhoto.approveBatch",
+      successMsg: `${pendingPhotos.length} media item${pendingPhotos.length > 1 ? "s" : ""} approved`,
+    },
     onConfirm: () => {
-      const ids = pendingPhotos.map((p) => p.id);
+      const ids = pendingPhotos.map((p: any) => p.id);
       return zero.mutate(
         mutators.eventPhoto.approveBatch({ ids, now: Date.now() })
       ).server;
     },
-    mutationMeta: {
-      mutation: "eventPhoto.approveBatch",
-      entityId: () => eventId,
-      successMsg: `${pendingPhotos.length} media item${pendingPhotos.length > 1 ? "s" : ""} approved`,
-      errorMsg: "Failed to approve media",
-    },
   });
-
+  const stableOnClick0 = () => fileInputRef.current?.click();
+  const stableOnChange1 = (e: any) => handleUpload(e.target.files);
+  const stableOnClick2 = () => deleteAlbumAction.trigger();
+  const stableOnClick3 = () => approveAllAction.trigger();
+  const stableClose4 = () => setLightboxOpen(false);
+  const stableOnOpenChange5 = (open: any) => {
+    if (!open) {
+      approveAllAction.cancel();
+    }
+  };
+  const stableOnOpenChange6 = (open: any) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  };
+  const stableOnOpenChange7 = (open: any) => {
+    if (!open) {
+      deleteAlbumAction.cancel();
+    }
+  };
   const handleApprove = async (id: string) => {
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.approve({ id, now })).server;
       toast.success("Approved!");
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "EventPhotos",
         action: "approve",
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "EventPhotos",
         photoId: id,
-        error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Failed to approve");
     }
@@ -275,36 +299,40 @@ export function EventPhotos({
     try {
       await zero.mutate(mutators.eventPhoto.reject({ id, now })).server;
       toast.success("Removed");
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "EventPhotos",
         action: "reject",
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "EventPhotos",
         photoId: id,
-        error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Failed to reject");
     }
   };
 
   const deleteAction = useConfirmAction<string>({
-    onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
     mutationMeta: {
-      mutation: "eventPhoto.delete",
-      entityId: (id) => id,
-      successMsg: "Deleted",
+      entityId: (id: any) => id,
       errorMsg: "Failed to delete",
+      mutation: "eventPhoto.delete",
+      successMsg: "Deleted",
     },
+    onConfirm: (id: any) =>
+      zero.mutate(mutators.eventPhoto.delete({ id })).server,
   });
 
   const deleteAlbumAction = useConfirmAction({
+    mutationMeta: {
+      entityId: () => eventId,
+      errorMsg: "Failed to delete album",
+      mutation: "eventImmichAlbum.deleteAlbum",
+      successMsg: "Album and all photos deleted",
+    },
     onConfirm: () =>
       zero.mutate(mutators.eventImmichAlbum.deleteAlbum({ eventId })).server,
-    mutationMeta: {
-      mutation: "eventImmichAlbum.deleteAlbum",
-      entityId: () => eventId,
-      successMsg: "Album and all photos deleted",
-      errorMsg: "Failed to delete album",
-    },
   });
 
   return (
@@ -315,7 +343,7 @@ export function EventPhotos({
           <>
             <Button
               disabled={isUploading || deleteAlbumAction.isLoading}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={stableOnClick0}
               size="sm"
               variant="default"
             >
@@ -333,7 +361,7 @@ export function EventPhotos({
               accept={MEDIA_ACCEPT}
               className="hidden"
               multiple
-              onChange={(e) => handleUpload(e.target.files)}
+              onChange={stableOnChange1}
               ref={fileInputRef}
               type="file"
             />
@@ -358,7 +386,7 @@ export function EventPhotos({
               <Button
                 className="text-destructive"
                 disabled={deleteAlbumAction.isLoading}
-                onClick={() => deleteAlbumAction.trigger()}
+                onClick={stableOnClick2}
                 size="sm"
                 variant="outline"
               >
@@ -383,14 +411,14 @@ export function EventPhotos({
             </p>
             <Button
               disabled={approveAllAction.isLoading}
-              onClick={() => approveAllAction.trigger()}
+              onClick={stableOnClick3}
               size="sm"
             >
               Approve All
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {pendingPhotos.map((photo, i) => (
+            {pendingPhotos.map((photo: any, i: any) => (
               <PhotoCard
                 canDelete
                 key={photo.id}
@@ -411,7 +439,7 @@ export function EventPhotos({
             Your Pending Media ({myPendingPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {myPendingPhotos.map((photo, i) => (
+            {myPendingPhotos.map((photo: any, i: any) => (
               <PhotoCard
                 canDelete
                 key={photo.id}
@@ -432,7 +460,7 @@ export function EventPhotos({
             Approved ({approvedPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {approvedPhotos.map((photo, i) => (
+            {approvedPhotos.map((photo: any, i: any) => (
               <PhotoCard
                 canDelete={canManage}
                 key={photo.id}
@@ -460,7 +488,7 @@ export function EventPhotos({
       ) : null}
 
       <Lightbox
-        close={() => setLightboxOpen(false)}
+        close={stableClose4}
         index={lightboxIndex}
         on={{ view: ({ index }) => setLightboxIndex(index) }}
         open={lightboxOpen}
@@ -470,7 +498,7 @@ export function EventPhotos({
             isPhotoSlide(slide) ? (
               <LightboxFooter
                 onApprove={handleApprove}
-                onDelete={(id) => deleteAction.trigger(id)}
+                onDelete={(id: any) => deleteAction.trigger(id)}
                 onReject={handleReject}
                 slide={slide}
               />
@@ -490,7 +518,7 @@ export function EventPhotos({
         styles={{
           container: { backgroundColor: "rgba(0, 0, 0, 0.92)" },
         }}
-        thumbnails={{ width: 64, height: 64 }}
+        thumbnails={{ height: 64, width: 64 }}
         zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
       />
 
@@ -500,11 +528,7 @@ export function EventPhotos({
         loading={approveAllAction.isLoading}
         loadingLabel="Approving..."
         onConfirm={approveAllAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            approveAllAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange5}
         open={approveAllAction.isOpen}
         title="Approve all"
       />
@@ -516,11 +540,7 @@ export function EventPhotos({
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange6}
         open={deleteAction.isOpen}
         title="Delete"
       />
@@ -532,11 +552,7 @@ export function EventPhotos({
         loading={deleteAlbumAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAlbumAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAlbumAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange7}
         open={deleteAlbumAction.isOpen}
         title="Delete album and all media"
       />

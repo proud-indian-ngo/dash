@@ -13,8 +13,8 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 export const whatsAppPollVoteWebhookSchema = z.object({
-  event: z.literal("message.poll_vote"),
   device_id: z.string(),
+  event: z.literal("message.poll_vote"),
   payload: z.object({
     chat_id: z.string(),
     from: z.string(),
@@ -77,10 +77,10 @@ export async function processWhatsAppPollVoteWebhook(
     from: webhook.payload.from,
     fromName: webhook.payload.from_name,
     pollMessageId: webhook.payload.poll_message_id,
-    voteMessageId: webhook.payload.id,
-    senderPhone,
-    selectedOptionHashes: webhook.payload.selected_option_hashes,
     selectedOptionCount: webhook.payload.selected_option_count,
+    selectedOptionHashes: webhook.payload.selected_option_hashes,
+    senderPhone,
+    voteMessageId: webhook.payload.id,
   });
 
   if (!senderPhone) {
@@ -91,12 +91,12 @@ export async function processWhatsAppPollVoteWebhook(
 
   const polls = await db
     .select({
-      id: eventRsvpPoll.id,
-      eventId: eventRsvpPoll.eventId,
-      yesOptionHash: eventRsvpPoll.yesOptionHash,
-      noOptionHash: eventRsvpPoll.noOptionHash,
       closedAt: eventRsvpPoll.closedAt,
+      eventId: eventRsvpPoll.eventId,
       eventStartTime: teamEvent.startTime,
+      id: eventRsvpPoll.id,
+      noOptionHash: eventRsvpPoll.noOptionHash,
+      yesOptionHash: eventRsvpPoll.yesOptionHash,
     })
     .from(eventRsvpPoll)
     .innerJoin(teamEvent, eq(teamEvent.id, eventRsvpPoll.eventId))
@@ -129,7 +129,7 @@ export async function processWhatsAppPollVoteWebhook(
       eq(sql`regexp_replace(${user.phone}, '[^0-9]', '', 'g')`, senderPhone)
     )
     .limit(1);
-  const resolvedUserId = matchedUsers[0]?.id ?? null;
+  const resolvedUserId = matchedUsers[0]?.id;
 
   log.set({
     eventId: poll.eventId,
@@ -142,23 +142,23 @@ export async function processWhatsAppPollVoteWebhook(
     .insert(eventRsvpVote)
     .values({
       id: uuidv7(),
-      pollId: poll.id,
-      userId: resolvedUserId,
       phone: senderPhone,
-      voteMessageId: webhook.payload.id,
-      selectedOptionHashes: webhook.payload.selected_option_hashes,
+      pollId: poll.id,
       selectedOption,
+      selectedOptionHashes: webhook.payload.selected_option_hashes,
+      userId: resolvedUserId,
       votedAt: new Date(webhook.payload.timestamp),
+      voteMessageId: webhook.payload.id,
     })
     .onConflictDoUpdate({
-      target: [eventRsvpVote.pollId, eventRsvpVote.phone],
       set: {
-        userId: sql`excluded.user_id`,
-        voteMessageId: sql`excluded.vote_message_id`,
-        selectedOptionHashes: sql`excluded.selected_option_hashes`,
         selectedOption: sql`excluded.selected_option`,
+        selectedOptionHashes: sql`excluded.selected_option_hashes`,
+        userId: sql`excluded.user_id`,
         votedAt: sql`excluded.voted_at`,
+        voteMessageId: sql`excluded.vote_message_id`,
       },
+      target: [eventRsvpVote.pollId, eventRsvpVote.phone],
     });
 
   if (!resolvedUserId) {
@@ -170,9 +170,9 @@ export async function processWhatsAppPollVoteWebhook(
   // Check if voter is a member of the event's team
   const eventRows = await db
     .select({
-      teamId: teamEvent.teamId,
-      name: teamEvent.name,
       cancelledAt: teamEvent.cancelledAt,
+      name: teamEvent.name,
+      teamId: teamEvent.teamId,
     })
     .from(teamEvent)
     .where(eq(teamEvent.id, poll.eventId))
@@ -211,13 +211,13 @@ export async function processWhatsAppPollVoteWebhook(
             .from(user)
             .where(eq(user.id, resolvedUserId))
             .limit(1);
-          const voterName = voterRows[0]?.name ?? senderPhone;
+          const voterName = voterRows[0]?.name;
           await enqueue("send-bulk-notification", {
-            userIds: adminIds,
-            title: "RSVP from non-team member",
             body: `${voterName} voted "${selectedOption}" for "${event.name}" but is not a member of the event's team.`,
-            topicId: "Account Notifications",
             idempotencyKey: `rsvp-non-member-${poll.id}-${resolvedUserId}`,
+            title: "RSVP from non-team member",
+            topicId: "Account Notifications",
+            userIds: adminIds,
           });
         }
       );
@@ -228,13 +228,13 @@ export async function processWhatsAppPollVoteWebhook(
     await db
       .insert(teamEventMember)
       .values({
-        id: uuidv7(),
-        eventId: poll.eventId,
-        userId: resolvedUserId,
         addedAt: new Date(webhook.payload.timestamp),
         attendance: null,
         attendanceMarkedAt: null,
         attendanceMarkedBy: null,
+        eventId: poll.eventId,
+        id: uuidv7(),
+        userId: resolvedUserId,
       })
       .onConflictDoNothing({
         target: [teamEventMember.eventId, teamEventMember.userId],

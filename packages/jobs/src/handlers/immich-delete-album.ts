@@ -11,15 +11,15 @@ async function deleteImmichAlbum(data: ImmichDeleteAlbumPayload) {
       method: "JOB",
       path: "immich-delete-album",
     });
-    log.set({ event: "immich_not_configured", albumId: data.immichAlbumId });
+    log.set({ albumId: data.immichAlbumId, event: "immich_not_configured" });
     log.warn("Immich not configured, skipping album deletion");
     log.emit();
     return;
   }
 
   const res = await fetch(`${immichUrl}/api/albums/${data.immichAlbumId}`, {
-    method: "DELETE",
     headers: { "x-api-key": immichKey },
+    method: "DELETE",
   });
   // 404 = album already gone, treat as success
   if (!res.ok && res.status !== 404) {

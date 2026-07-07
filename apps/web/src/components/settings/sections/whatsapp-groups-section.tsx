@@ -39,7 +39,7 @@ export function WhatsAppGroupsSection() {
   const canManageGroups = hasPermission("settings.whatsapp_groups");
 
   const existingJids = useMemo(
-    () => new Set(groupList.map((g) => g.jid)),
+    () => new Set(groupList.map((g: any) => g.jid)),
     [groupList]
   );
 
@@ -48,11 +48,11 @@ export function WhatsAppGroupsSection() {
       return;
     }
     fetchWhatsAppGroups()
-      .then((result) => setWapiConfigured(result.configured))
+      .then((result: any) => setWapiConfigured(result.configured))
       .catch((error: unknown) => {
         log.error({
-          component: "WhatsAppGroupsSection",
           action: "checkWapiConfig",
+          component: "WhatsAppGroupsSection",
           error: error instanceof Error ? error.message : String(error),
         });
         // An API error (e.g. 429 rate-limit) doesn't mean WhatsApp isn't configured —
@@ -65,14 +65,14 @@ export function WhatsAppGroupsSection() {
     selectedGroups: { jid: string; name: string }[]
   ) => {
     const results = await Promise.allSettled(
-      selectedGroups.map(async (group) => {
+      selectedGroups.map(async (group: any) => {
         const id = uuidv7();
         const res = await zero.mutate(
           mutators.whatsappGroup.create({
-            id,
-            name: group.name,
-            jid: group.jid,
             description: "",
+            id,
+            jid: group.jid,
+            name: group.name,
           })
         ).server;
         return { name: group.name, res };
@@ -80,7 +80,7 @@ export function WhatsAppGroupsSection() {
     );
 
     const succeeded = results.filter(
-      (r) => r.status === "fulfilled" && r.value.res.type !== "error"
+      (r: any) => r.status === "fulfilled" && r.value.res.type !== "error"
     ).length;
     const failed = results.length - succeeded;
 
@@ -101,17 +101,17 @@ export function WhatsAppGroupsSection() {
     }
     const res = await zero.mutate(
       mutators.whatsappGroup.update({
-        id: editMode.group.id,
-        name: values.name,
-        jid: values.jid,
         description: values.description,
+        id: editMode.group.id,
+        jid: values.jid,
+        name: values.name,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "whatsappGroup.update",
       entityId: editMode.group.id,
-      successMsg: "Group updated",
       errorMsg: "Couldn't update group",
+      mutation: "whatsappGroup.update",
+      successMsg: "Group updated",
     });
     if (res.type !== "error") {
       setEditMode(null);
@@ -126,10 +126,10 @@ export function WhatsAppGroupsSection() {
       mutators.whatsappGroup.delete({ id: rowAction.group.id })
     ).server;
     handleMutationResult(res, {
-      mutation: "whatsappGroup.delete",
       entityId: rowAction.group.id,
-      successMsg: "Group deleted",
       errorMsg: "Couldn't delete group",
+      mutation: "whatsappGroup.delete",
+      successMsg: "Group deleted",
     });
     if (res.type !== "error") {
       setRowAction(null);
@@ -137,6 +137,12 @@ export function WhatsAppGroupsSection() {
   };
 
   const showAddButton = canManageGroups && wapiConfigured !== false;
+  const stableOnClick0 = () => setPickerOpen(true);
+  const stableOnOpenChange1 = (open: any) => {
+    if (!open) {
+      setRowAction(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -145,7 +151,7 @@ export function WhatsAppGroupsSection() {
         {showAddButton ? (
           <Button
             disabled={wapiConfigured === null}
-            onClick={() => setPickerOpen(true)}
+            onClick={stableOnClick0}
             size="sm"
             type="button"
           >
@@ -161,67 +167,73 @@ export function WhatsAppGroupsSection() {
 
       {groupList.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {groupList.map((group) => (
-            <div key={group.id}>
-              {editMode?.group.id === group.id ? (
-                <div className="rounded-md border p-3">
-                  <p className="mb-3 font-medium text-sm">Edit Group</p>
-                  <GroupForm
-                    initialValues={{
-                      name: editMode.group.name,
-                      jid: editMode.group.jid,
-                      description: editMode.group.description ?? "",
-                    }}
-                    key={`edit-${group.id}`}
-                    onCancel={() => setEditMode(null)}
-                    onSubmit={handleUpdate}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-start justify-between rounded-md border p-3">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-sm">{group.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {group.jid}
-                    </span>
-                    {group.description ? (
+          {groupList.map((group: any) => {
+            const editingGroup =
+              editMode && editMode.group.id === group.id
+                ? editMode.group
+                : null;
+            return (
+              <div key={group.id}>
+                {editingGroup ? (
+                  <div className="rounded-md border p-3">
+                    <p className="mb-3 font-medium text-sm">Edit Group</p>
+                    <GroupForm
+                      initialValues={{
+                        description: editingGroup.description ?? "",
+                        jid: editingGroup.jid,
+                        name: editingGroup.name,
+                      }}
+                      key={`edit-${group.id}`}
+                      onCancel={() => setEditMode(null)}
+                      onSubmit={handleUpdate}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between rounded-md border p-3">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-sm">{group.name}</span>
                       <span className="text-muted-foreground text-xs">
-                        {group.description}
+                        {group.jid}
                       </span>
-                    ) : null}
+                      {group.description ? (
+                        <span className="text-muted-foreground text-xs">
+                          {group.description}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        aria-label="Edit group"
+                        onClick={() => setEditMode({ group })}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <HugeiconsIcon
+                          className="size-4"
+                          icon={PencilEdit01Icon}
+                          strokeWidth={2}
+                        />
+                      </Button>
+                      <Button
+                        aria-label="Delete group"
+                        onClick={() => setRowAction({ group, kind: "delete" })}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <HugeiconsIcon
+                          className="size-4"
+                          icon={Delete02Icon}
+                          strokeWidth={2}
+                        />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      aria-label="Edit group"
-                      onClick={() => setEditMode({ group })}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <HugeiconsIcon
-                        className="size-4"
-                        icon={PencilEdit01Icon}
-                        strokeWidth={2}
-                      />
-                    </Button>
-                    <Button
-                      aria-label="Delete group"
-                      onClick={() => setRowAction({ kind: "delete", group })}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <HugeiconsIcon
-                        className="size-4"
-                        icon={Delete02Icon}
-                        strokeWidth={2}
-                      />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : null}
 
@@ -256,11 +268,7 @@ export function WhatsAppGroupsSection() {
             : ""
         }
         onConfirm={handleDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRowAction(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange1}
         open={rowAction?.kind === "delete"}
         title="Delete group?"
       />

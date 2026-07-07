@@ -57,10 +57,10 @@ describe("rruleToFormState", () => {
 describe("formStateToRRule", () => {
   it("generates a simple weekly rule", () => {
     const rrule = formStateToRRule({
-      frequency: "weekly",
-      interval: 1,
       byDay: [5], // SA
       endType: "never",
+      frequency: "weekly",
+      interval: 1,
     });
     expect(rrule).toContain("FREQ=WEEKLY");
     expect(rrule).toContain("BYDAY=SA");
@@ -68,32 +68,32 @@ describe("formStateToRRule", () => {
 
   it("generates a biweekly rule", () => {
     const rrule = formStateToRRule({
-      frequency: "weekly",
-      interval: 2,
       byDay: [1], // TU
       endType: "never",
+      frequency: "weekly",
+      interval: 2,
     });
     expect(rrule).toContain("INTERVAL=2");
   });
 
   it("generates a rule with COUNT", () => {
     const rrule = formStateToRRule({
+      byDay: [],
+      count: 30,
+      endType: "count",
       frequency: "daily",
       interval: 1,
-      byDay: [],
-      endType: "count",
-      count: 30,
     });
     expect(rrule).toContain("COUNT=30");
   });
 
   it("generates a rule with UNTIL", () => {
     const rrule = formStateToRRule({
-      frequency: "monthly",
-      interval: 1,
       byDay: [5], // SA
       bySetPos: 1,
       endType: "until",
+      frequency: "monthly",
+      interval: 1,
       until: "2026-12-31",
     });
     expect(rrule).toContain("UNTIL=");
@@ -109,7 +109,9 @@ describe("formStateToRRule", () => {
     const stateFromRebuilt = rruleToFormState(rebuilt);
     expect(stateFromRebuilt.frequency).toBe(state.frequency);
     expect(stateFromRebuilt.interval).toBe(state.interval);
-    expect(stateFromRebuilt.byDay.sort()).toEqual(state.byDay.sort());
+    expect(stateFromRebuilt.byDay.sort((a, b) => a - b)).toEqual(
+      state.byDay.sort((a, b) => a - b)
+    );
     expect(stateFromRebuilt.endType).toBe(state.endType);
   });
 });

@@ -16,7 +16,7 @@ export function getImmichConfig(): ImmichConfig | null {
   if (!(url && key)) {
     return null;
   }
-  return { url, key };
+  return { key, url };
 }
 
 /**
@@ -37,12 +37,12 @@ export async function ensureImmichAlbum(
   }
 
   const albumRes = await fetch(`${config.url}/api/albums`, {
-    method: "POST",
-    headers: {
-      "x-api-key": config.key,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ albumName: eventName }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": config.key,
+    },
+    method: "POST",
   });
   if (!albumRes.ok) {
     throw new Error(
@@ -56,10 +56,10 @@ export async function ensureImmichAlbum(
   const inserted = await db
     .insert(eventImmichAlbum)
     .values({
-      id: uuidv7(),
-      eventId,
-      immichAlbumId: albumId,
       createdAt: new Date(),
+      eventId,
+      id: uuidv7(),
+      immichAlbumId: albumId,
     })
     .onConflictDoNothing({ target: eventImmichAlbum.eventId })
     .returning({ immichAlbumId: eventImmichAlbum.immichAlbumId });
@@ -95,9 +95,9 @@ export async function uploadAssetToImmich(
   formData.append("fileModifiedAt", nowIso);
 
   const res = await fetch(`${config.url}/api/assets`, {
-    method: "POST",
-    headers: { "x-api-key": config.key },
     body: formData,
+    headers: { "x-api-key": config.key },
+    method: "POST",
   });
   if (!res.ok) {
     throw new Error(`Immich upload failed: ${res.status} ${await res.text()}`);
@@ -115,12 +115,12 @@ export async function addAssetToAlbum(
   assetId: string
 ): Promise<void> {
   const res = await fetch(`${config.url}/api/albums/${albumId}/assets`, {
-    method: "PUT",
-    headers: {
-      "x-api-key": config.key,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ ids: [assetId] }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": config.key,
+    },
+    method: "PUT",
   });
   if (!res.ok) {
     throw new Error(
@@ -203,8 +203,8 @@ export async function fetchImmichThumbnail(
       return original;
     }
     log.error(`Immich original fetch also failed: ${original.status}`, {
-      thumbnailStatus: res.status,
       originalStatus: original.status,
+      thumbnailStatus: res.status,
     });
     log.emit();
     throw new Error(`Immich asset not found: ${assetId}`);

@@ -32,29 +32,29 @@ export const reimbursementStatusEnum = pgEnum(
 export const reimbursement = pgTable(
   "reimbursement",
   {
-    id: uuid("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    title: text("title").notNull(),
-    city: cityEnum("city"),
-    expenseDate: date("expense_date", { mode: "string" }).notNull(),
-    status: reimbursementStatusEnum("status").default("pending").notNull(),
-    rejectionReason: text("rejection_reason"),
+    approvalScreenshotKey: text("approval_screenshot_key"),
+    bankAccountIfscCode: text("bank_account_ifsc_code"),
     bankAccountName: text("bank_account_name"),
     bankAccountNumber: text("bank_account_number"),
-    bankAccountIfscCode: text("bank_account_ifsc_code"),
-    approvalScreenshotKey: text("approval_screenshot_key"),
-    reviewedBy: text("reviewed_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    reviewedAt: timestamp("reviewed_at"),
+    city: cityEnum("city"),
+    createdAt: timestamp("created_at").notNull(),
     eventId: uuid("event_id").references(() => teamEvent.id, {
       onDelete: "set null",
     }),
+    expenseDate: date("expense_date", { mode: "string" }).notNull(),
+    id: uuid("id").primaryKey(),
+    rejectionReason: text("rejection_reason"),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewedBy: text("reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    status: reimbursementStatusEnum("status").default("pending").notNull(),
     submittedAt: timestamp("submitted_at"),
-    createdAt: timestamp("created_at").notNull(),
+    title: text("title").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("reimbursement_userId_idx").on(table.userId),
@@ -70,23 +70,23 @@ export const reimbursement = pgTable(
 export const reimbursementLineItem = pgTable(
   "reimbursement_line_item",
   {
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => expenseCategory.id),
+    createdAt: timestamp("created_at").notNull(),
+    description: text("description"),
+    generateVoucher: boolean("generate_voucher").default(false).notNull(),
     id: uuid("id").primaryKey(),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),
-    categoryId: uuid("category_id")
-      .notNull()
-      .references(() => expenseCategory.id),
-    description: text("description"),
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     sortOrder: integer("sort_order").notNull(),
-    generateVoucher: boolean("generate_voucher").default(false).notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
     voucherAttachmentId: uuid("voucher_attachment_id").references(
       () => reimbursementAttachment.id,
       { onDelete: "set null" }
     ),
-    createdAt: timestamp("created_at").notNull(),
-    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
     index("reimbursement_line_item_reimbursementId_idx").on(
@@ -98,16 +98,16 @@ export const reimbursementLineItem = pgTable(
 export const reimbursementAttachment = pgTable(
   "reimbursement_attachment",
   {
+    createdAt: timestamp("created_at").notNull(),
+    filename: text("filename"),
     id: uuid("id").primaryKey(),
+    mimeType: text("mime_type"),
+    objectKey: text("object_key"),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),
     type: attachmentTypeEnum("type").notNull(),
-    filename: text("filename"),
-    objectKey: text("object_key"),
     url: text("url"),
-    mimeType: text("mime_type"),
-    createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
     index("reimbursement_attachment_reimbursementId_idx").on(
@@ -119,17 +119,17 @@ export const reimbursementAttachment = pgTable(
 export const reimbursementHistory = pgTable(
   "reimbursement_history",
   {
-    id: uuid("id").primaryKey(),
-    reimbursementId: uuid("reimbursement_id")
-      .notNull()
-      .references(() => reimbursement.id, { onDelete: "cascade" }),
+    action: historyActionEnum("action").notNull(),
     actorId: text("actor_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    action: historyActionEnum("action").notNull(),
-    note: text("note"),
-    metadata: jsonb("metadata"),
     createdAt: timestamp("created_at").notNull(),
+    id: uuid("id").primaryKey(),
+    metadata: jsonb("metadata"),
+    note: text("note"),
+    reimbursementId: uuid("reimbursement_id")
+      .notNull()
+      .references(() => reimbursement.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("reimbursement_history_reimbursementId_idx").on(
@@ -142,35 +142,35 @@ export const reimbursementHistory = pgTable(
 export const reimbursementRelations = relations(
   reimbursement,
   ({ one, many }) => ({
-    user: one(user, {
-      fields: [reimbursement.userId],
-      references: [user.id],
+    attachments: many(reimbursementAttachment),
+    event: one(teamEvent, {
+      fields: [reimbursement.eventId],
+      references: [teamEvent.id],
     }),
+    history: many(reimbursementHistory),
+    lineItems: many(reimbursementLineItem),
     reviewer: one(user, {
       fields: [reimbursement.reviewedBy],
       references: [user.id],
       relationName: "reimbursement_reviewer",
     }),
-    event: one(teamEvent, {
-      fields: [reimbursement.eventId],
-      references: [teamEvent.id],
+    user: one(user, {
+      fields: [reimbursement.userId],
+      references: [user.id],
     }),
-    lineItems: many(reimbursementLineItem),
-    attachments: many(reimbursementAttachment),
-    history: many(reimbursementHistory),
   })
 );
 
 export const reimbursementLineItemRelations = relations(
   reimbursementLineItem,
   ({ one }) => ({
-    reimbursement: one(reimbursement, {
-      fields: [reimbursementLineItem.reimbursementId],
-      references: [reimbursement.id],
-    }),
     category: one(expenseCategory, {
       fields: [reimbursementLineItem.categoryId],
       references: [expenseCategory.id],
+    }),
+    reimbursement: one(reimbursement, {
+      fields: [reimbursementLineItem.reimbursementId],
+      references: [reimbursement.id],
     }),
     voucherAttachment: one(reimbursementAttachment, {
       fields: [reimbursementLineItem.voucherAttachmentId],
@@ -192,13 +192,13 @@ export const reimbursementAttachmentRelations = relations(
 export const reimbursementHistoryRelations = relations(
   reimbursementHistory,
   ({ one }) => ({
-    reimbursement: one(reimbursement, {
-      fields: [reimbursementHistory.reimbursementId],
-      references: [reimbursement.id],
-    }),
     actor: one(user, {
       fields: [reimbursementHistory.actorId],
       references: [user.id],
+    }),
+    reimbursement: one(reimbursement, {
+      fields: [reimbursementHistory.reimbursementId],
+      references: [reimbursement.id],
     }),
   })
 );

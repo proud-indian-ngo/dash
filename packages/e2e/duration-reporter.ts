@@ -37,8 +37,8 @@ export default class DurationReporter implements Reporter {
       // Build key matching the `playwright test --list --reporter=list` output:
       // [project] › relative/path.spec.ts:line:col › Suite › test name
       // Paths in --list are relative to testDir (packages/e2e/tests/)
-      const project = test.parent.project()?.name ?? "";
-      const testDir = test.parent.project()?.testDir ?? "";
+      const project = test.parent.project()?.name;
+      const testDir = test.parent.project()?.testDir;
       const relFile = testDir
         ? path.relative(testDir, test.location.file)
         : test.location.file;

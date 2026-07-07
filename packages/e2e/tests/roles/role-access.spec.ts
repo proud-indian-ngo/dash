@@ -16,7 +16,7 @@ async function expectPageHeading(
 ) {
   await page.goto(url);
   await expect(
-    page.getByRole("heading", { name: heading, exact: true })
+    page.getByRole("heading", { exact: true, name: heading })
   ).toBeVisible({
     timeout: 10_000,
   });

@@ -50,19 +50,19 @@ export const getUsersForPicker = createServerFn({ method: "GET" })
     try {
       const rows = await db
         .select({
-          id: user.id,
-          name: user.name,
           email: user.email,
+          id: user.id,
           image: user.image,
-          role: user.role,
           isActive: user.isActive,
+          name: user.name,
+          role: user.role,
         })
         .from(user);
 
       return rows;
     } catch (error) {
       const log = createRequestLogger();
-      log.set({ handler: "getUsersForPicker", userId, role });
+      log.set({ handler: "getUsersForPicker", role, userId });
       log.error(error instanceof Error ? error : String(error), {
         step: "query-users",
       });

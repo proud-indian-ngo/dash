@@ -1,6 +1,5 @@
 import { PhoneInput } from "@pi-dash/design-system/components/ui/phone-input";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
@@ -45,22 +44,17 @@ export function PhoneField({
       name={name}
       validators={validators}
     >
-      {(field) => {
-        return (
-          <PhoneInput
-            {...props}
-            {...fieldErrorProps(
-              field,
-              resolvedForm.state.submissionAttempts > 0
-            )}
-            aria-required={isRequired}
-            id={field.name}
-            onBlur={field.handleBlur}
-            onChange={(value) => field.handleChange(value)}
-            value={(field.state.value ?? "") as string}
-          />
-        );
-      }}
+      {(field: any) => (
+        <PhoneInput
+          {...props}
+          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
+          aria-required={isRequired}
+          id={field.name}
+          onBlur={field.handleBlur}
+          onChange={(value: any) => field.handleChange(value)}
+          value={(field.state.value ?? "") as string}
+        />
+      )}
     </CustomField>
   );
 }

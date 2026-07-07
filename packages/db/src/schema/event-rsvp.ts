@@ -27,18 +27,18 @@ export const eventRsvpSelectionEnum = pgEnum(
 export const eventRsvpPoll = pgTable(
   "event_rsvp_poll",
   {
-    id: uuid("id").primaryKey(),
+    closedAt: timestamp("closed_at"),
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    messageId: text("message_id").notNull(),
+    noOptionHash: text("no_option_hash").notNull(),
+    question: text("question").notNull(),
+    sentAt: timestamp("sent_at").notNull(),
     targetChatJid: text("target_chat_jid").notNull(),
     targetChatSource: eventRsvpPollSourceEnum("target_chat_source").notNull(),
-    messageId: text("message_id").notNull(),
-    question: text("question").notNull(),
     yesOptionHash: text("yes_option_hash").notNull(),
-    noOptionHash: text("no_option_hash").notNull(),
-    sentAt: timestamp("sent_at").notNull(),
-    closedAt: timestamp("closed_at"),
   },
   (table) => [
     uniqueIndex("event_rsvp_poll_eventId_uidx").on(table.eventId),
@@ -51,17 +51,17 @@ export const eventRsvpVote = pgTable(
   "event_rsvp_vote",
   {
     id: uuid("id").primaryKey(),
+    phone: text("phone").notNull(),
     pollId: uuid("poll_id")
       .notNull()
       .references(() => eventRsvpPoll.id, { onDelete: "cascade" }),
-    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-    phone: text("phone").notNull(),
-    voteMessageId: text("vote_message_id").notNull(),
+    selectedOption: eventRsvpSelectionEnum("selected_option").notNull(),
     selectedOptionHashes: jsonb("selected_option_hashes")
       .$type<string[]>()
       .notNull(),
-    selectedOption: eventRsvpSelectionEnum("selected_option").notNull(),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
     votedAt: timestamp("voted_at").notNull(),
+    voteMessageId: text("vote_message_id").notNull(),
   },
   (table) => [
     uniqueIndex("event_rsvp_vote_pollId_phone_uidx").on(

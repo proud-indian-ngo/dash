@@ -33,8 +33,8 @@ const FREQ_MAP: Record<number, RRuleFormState["frequency"]> = {
 
 const FREQ_REVERSE: Record<string, number> = {
   daily: RRule.DAILY,
-  weekly: RRule.WEEKLY,
   monthly: RRule.MONTHLY,
+  weekly: RRule.WEEKLY,
   yearly: RRule.YEARLY,
 };
 
@@ -79,7 +79,7 @@ export function rruleToFormState(rruleString: string): RRuleFormState {
     until = toISODateUTC(opts.until);
   }
 
-  return { frequency, interval, byDay, bySetPos, endType, count, until };
+  return { byDay, bySetPos, count, endType, frequency, interval, until };
 }
 
 /** Convert form state back into an RRULE string. */

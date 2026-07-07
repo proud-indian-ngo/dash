@@ -59,13 +59,13 @@ export function checkRateLimit(
 export function rateLimitResponse(info: RateLimitResult): Response {
   const retryAfter = Math.ceil((info.resetAt - Date.now()) / 1000);
   return new Response(JSON.stringify({ error: "Too many requests" }), {
-    status: 429,
     headers: {
       "Content-Type": "application/json",
+      "Retry-After": String(Math.max(retryAfter, 1)),
       "X-RateLimit-Limit": String(info.limit),
       "X-RateLimit-Remaining": String(info.remaining),
       "X-RateLimit-Reset": String(Math.ceil(info.resetAt / 1000)),
-      "Retry-After": String(Math.max(retryAfter, 1)),
     },
+    status: 429,
   });
 }

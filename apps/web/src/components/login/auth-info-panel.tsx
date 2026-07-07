@@ -1,23 +1,23 @@
 const steps = [
   {
+    description: "Create your account with basic details",
     number: 1,
     title: "Sign up",
-    description: "Create your account with basic details",
   },
   {
+    description: "Confirm your email address",
     number: 2,
     title: "Verify email",
-    description: "Confirm your email address",
   },
   {
+    description: "Learn about our programs",
     number: 3,
     title: "Complete orientation",
-    description: "Learn about our programs",
   },
   {
+    description: "Get assigned and start contributing",
     number: 4,
     title: "Join a team",
-    description: "Get assigned and start contributing",
   },
 ] as const;
 
@@ -34,7 +34,7 @@ export function SignupInfoPanel() {
         </p>
       </div>
       <ol className="space-y-4">
-        {steps.map((step) => (
+        {steps.map((step: any) => (
           <li className="flex items-start gap-3" key={step.number}>
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-foreground/10 font-semibold text-sm">
               {step.number}

@@ -7,14 +7,14 @@ import { AuthLayout } from "@/components/login/auth-layout";
 import { LoginForm } from "@/components/login/login-form";
 
 export const Route = createFileRoute("/_auth/login")({
+  component: RouteComponent,
   head: () => ({
     meta: [{ title: `Login | ${env.VITE_APP_NAME}` }],
   }),
   validateSearch: z.object({
-    status: z.enum(["email-verified", "password-reset"]).optional(),
     redirect: z.string().optional(),
+    status: z.enum(["email-verified", "password-reset"]).optional(),
   }),
-  component: RouteComponent,
 });
 
 function RouteComponent() {

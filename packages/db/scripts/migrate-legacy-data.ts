@@ -5,7 +5,7 @@ import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { uuidv7 } from "uuidv7";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const { DATABASE_URL } = process.env;
 if (!DATABASE_URL) {
   process.stderr.write(
     "DATABASE_URL env var is required.\nUsage: DATABASE_URL=postgres://... bun run scripts/migrate-legacy-data.ts\n"
@@ -14,15 +14,15 @@ if (!DATABASE_URL) {
 }
 
 // R2 config (optional — skip file copy if not provided)
-const OLD_R2_ACCOUNT_ID = process.env.OLD_R2_ACCOUNT_ID;
-const OLD_R2_ACCESS_KEY = process.env.OLD_R2_ACCESS_KEY;
-const OLD_R2_SECRET_ACCESS_KEY = process.env.OLD_R2_SECRET_ACCESS_KEY;
-const OLD_R2_BUCKET_NAME = process.env.OLD_R2_BUCKET_NAME;
-const NEW_R2_ACCOUNT_ID = process.env.NEW_R2_ACCOUNT_ID;
-const NEW_R2_ACCESS_KEY = process.env.NEW_R2_ACCESS_KEY;
-const NEW_R2_SECRET_ACCESS_KEY = process.env.NEW_R2_SECRET_ACCESS_KEY;
-const NEW_R2_BUCKET_NAME = process.env.NEW_R2_BUCKET_NAME;
-const NEW_R2_KEY_PREFIX = process.env.NEW_R2_KEY_PREFIX;
+const { OLD_R2_ACCOUNT_ID } = process.env;
+const { OLD_R2_ACCESS_KEY } = process.env;
+const { OLD_R2_SECRET_ACCESS_KEY } = process.env;
+const { OLD_R2_BUCKET_NAME } = process.env;
+const { NEW_R2_ACCOUNT_ID } = process.env;
+const { NEW_R2_ACCESS_KEY } = process.env;
+const { NEW_R2_SECRET_ACCESS_KEY } = process.env;
+const { NEW_R2_BUCKET_NAME } = process.env;
+const { NEW_R2_KEY_PREFIX } = process.env;
 
 const R2_ENABLED =
   OLD_R2_ACCOUNT_ID &&
@@ -36,9 +36,9 @@ const R2_ENABLED =
   NEW_R2_KEY_PREFIX;
 
 // WhatsApp status check config (optional)
-const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL;
-const WHATSAPP_AUTH_USER = process.env.WHATSAPP_AUTH_USER;
-const WHATSAPP_AUTH_PASS = process.env.WHATSAPP_AUTH_PASS;
+const { WHATSAPP_API_URL } = process.env;
+const { WHATSAPP_AUTH_USER } = process.env;
+const { WHATSAPP_AUTH_PASS } = process.env;
 const WHATSAPP_ENABLED = !!WHATSAPP_API_URL;
 
 // biome-ignore lint/performance/noNamespaceImport: intentional
@@ -52,17 +52,17 @@ const log = (msg: string) => process.stdout.write(`${msg}\n`);
 const warn = (msg: string) => process.stderr.write(`WARN: ${msg}\n`);
 
 const stats = {
-  categories: { migrated: 0, skipped: 0 },
-  users: { migrated: 0, skipped: 0 },
-  bankAccounts: { migrated: 0, skipped: 0 },
-  reimbursements: { migrated: 0, skipped: 0 },
-  advancePayments: { migrated: 0, skipped: 0 },
-  reimbursementAttachments: { migrated: 0, skipped: 0 },
   advancePaymentAttachments: { migrated: 0, skipped: 0 },
-  reimbursementHistory: { migrated: 0, skipped: 0 },
   advancePaymentHistory: { migrated: 0, skipped: 0 },
-  r2Files: { copied: 0, skipped: 0, failed: 0 },
-  whatsappChecks: { checked: 0, onWhatsapp: 0, failed: 0, skipped: 0 },
+  advancePayments: { migrated: 0, skipped: 0 },
+  bankAccounts: { migrated: 0, skipped: 0 },
+  categories: { migrated: 0, skipped: 0 },
+  r2Files: { copied: 0, failed: 0, skipped: 0 },
+  reimbursementAttachments: { migrated: 0, skipped: 0 },
+  reimbursementHistory: { migrated: 0, skipped: 0 },
+  reimbursements: { migrated: 0, skipped: 0 },
+  users: { migrated: 0, skipped: 0 },
+  whatsappChecks: { checked: 0, failed: 0, onWhatsapp: 0, skipped: 0 },
 };
 
 // Pending R2 file copies — collected during transaction, executed after commit
@@ -218,7 +218,7 @@ function parseRowFromPosition(
     if (ch === "'") {
       inString = true;
       currentToken += ch;
-      j++;
+      j += 1;
       continue;
     }
 
@@ -226,18 +226,18 @@ function parseRowFromPosition(
       values.push(parseValue(currentToken.trim()));
       currentToken = "";
       if (ch === ")") {
-        j++;
+        j += 1;
         break;
       }
-      j++;
+      j += 1;
       continue;
     }
 
     currentToken += ch;
-    j++;
+    j += 1;
   }
 
-  return { values, end: j };
+  return { end: j, values };
 }
 
 function handleStringChar(
@@ -250,14 +250,14 @@ function handleStringChar(
     return {
       // biome-ignore lint/style/noNonNullAssertion: bounds checked above
       currentToken: currentToken + ch + valuesStr[j + 1]!,
-      j: j + 2,
       inString: true,
+      j: j + 2,
     };
   }
   if (ch === "'") {
-    return { currentToken: currentToken + ch, j: j + 1, inString: false };
+    return { currentToken: currentToken + ch, inString: false, j: j + 1 };
   }
-  return { currentToken: currentToken + ch, j: j + 1, inString: true };
+  return { currentToken: currentToken + ch, inString: true, j: j + 1 };
 }
 
 function parseInsertValues(valuesStr: string): (string | number | null)[][] {
@@ -310,30 +310,30 @@ function parseMysqlDump(sqlContent: string) {
 
   const usersRaw = extractTableInserts(sqlContent, "users");
   const users: OldUser[] = usersRaw.map((r) => ({
-    id: r[0] as number,
-    role_id: r[1] as number,
-    name: r[2] as string,
+    created_at: r[14] as string | null,
+    dob: r[5] as string | null,
     email: r[3] as string,
     gender: r[4] as string | null,
-    dob: r[5] as string | null,
-    phone: r[7] as string,
-    status: r[12] as number,
+    id: r[0] as number,
     is_orientation_attended: r[13] as number,
-    created_at: r[14] as string | null,
+    name: r[2] as string,
+    phone: r[7] as string,
+    role_id: r[1] as number,
+    status: r[12] as number,
     updated_at: r[15] as string | null,
   }));
 
   const bankDetailsRaw = extractTableInserts(sqlContent, "bank_details");
   const bankDetails: OldBankDetail[] = bankDetailsRaw.map((r) => ({
-    id: r[0] as number,
-    user_id: r[1] as number,
     account_name: r[2] as string,
     account_number: r[3] as string,
+    created_at: r[6] as string | null,
+    deleted_at: r[8] as string | null,
+    id: r[0] as number,
     ifsc_code: r[4] as string,
     is_default: r[5] as number,
-    created_at: r[6] as string | null,
     updated_at: r[7] as string | null,
-    deleted_at: r[8] as string | null,
+    user_id: r[1] as number,
   }));
 
   const categoriesRaw = extractTableInserts(
@@ -350,20 +350,20 @@ function parseMysqlDump(sqlContent: string) {
     "expense_reimbursements"
   );
   const reimbursements: OldReimbursement[] = reimbursementsRaw.map((r) => ({
-    id: r[0] as number,
-    user_id: r[1] as number,
     bank_detail_id: r[2] as number | null,
-    reimbursement_category_id: r[3] as number,
-    name: r[4] as string,
-    cost: String(r[5]),
-    expense_date: r[6] as string | null,
-    description: r[7] as string | null,
     city_belongs_to: r[8] as number | null,
-    poc_id: r[9] as number | null,
-    reimbursement_status: r[10] as string,
+    cost: String(r[5]),
     created_at: r[11] as string | null,
-    updated_at: r[12] as string | null,
     deleted_at: r[13] as string | null,
+    description: r[7] as string | null,
+    expense_date: r[6] as string | null,
+    id: r[0] as number,
+    name: r[4] as string,
+    poc_id: r[9] as number | null,
+    reimbursement_category_id: r[3] as number,
+    reimbursement_status: r[10] as string,
+    updated_at: r[12] as string | null,
+    user_id: r[1] as number,
   }));
 
   const advancePaymentsRaw = extractTableInserts(
@@ -371,21 +371,21 @@ function parseMysqlDump(sqlContent: string) {
     "advance_payments"
   );
   const advancePayments: OldAdvancePayment[] = advancePaymentsRaw.map((r) => ({
-    id: r[0] as number,
-    user_id: r[1] as number,
-    bank_detail_id: r[2] as number | null,
-    advance_payment_category_id: r[3] as number | null,
-    name: r[4] as string,
-    total_amount: String(r[5]),
-    requested_on: r[6] as string | null,
-    remarks: r[7] as string | null,
-    description: r[8] as string | null,
-    city_belongs_to: r[9] as number | null,
-    poc_id: r[10] as number | null,
     advance_amount_status: r[11] as string,
+    advance_payment_category_id: r[3] as number | null,
+    bank_detail_id: r[2] as number | null,
+    city_belongs_to: r[9] as number | null,
     created_at: r[12] as string | null,
-    updated_at: r[13] as string | null,
     deleted_at: r[14] as string | null,
+    description: r[8] as string | null,
+    id: r[0] as number,
+    name: r[4] as string,
+    poc_id: r[10] as number | null,
+    remarks: r[7] as string | null,
+    requested_on: r[6] as string | null,
+    total_amount: String(r[5]),
+    updated_at: r[13] as string | null,
+    user_id: r[1] as number,
   }));
 
   const advancePaymentEntriesRaw = extractTableInserts(
@@ -394,30 +394,30 @@ function parseMysqlDump(sqlContent: string) {
   );
   const advancePaymentEntries: OldAdvancePaymentEntry[] =
     advancePaymentEntriesRaw.map((r) => ({
-      id: r[0] as number,
       advance_payment_id: r[1] as number,
-      user_id: r[2] as number,
-      poc_id: r[3] as number,
       category_id: r[4] as number,
       cost: String(r[5]),
-      requested_on: r[6] as string | null,
-      remarks: r[9] as string | null,
       created_at: r[10] as string | null,
+      id: r[0] as number,
+      poc_id: r[3] as number,
+      remarks: r[9] as string | null,
+      requested_on: r[6] as string | null,
       updated_at: r[11] as string | null,
+      user_id: r[2] as number,
     }));
 
   const filesRaw = extractTableInserts(sqlContent, "files");
   const files: OldFile[] = filesRaw.map((r) => ({
-    id: r[0] as number,
-    fileable_type: r[1] as string,
-    fileable_id: r[2] as number,
-    file_path: r[3] as string | null,
-    external_url: r[4] as string | null,
-    file_type: r[5] as string,
-    file_name: r[6] as string | null,
-    mime_type: r[7] as string | null,
     created_at: r[9] as string | null,
     deleted_at: r[11] as string | null,
+    external_url: r[4] as string | null,
+    file_name: r[6] as string | null,
+    file_path: r[3] as string | null,
+    file_type: r[5] as string,
+    fileable_id: r[2] as number,
+    fileable_type: r[1] as string,
+    id: r[0] as number,
+    mime_type: r[7] as string | null,
   }));
 
   log(
@@ -425,13 +425,13 @@ function parseMysqlDump(sqlContent: string) {
   );
 
   return {
-    users,
+    advancePaymentEntries,
+    advancePayments,
     bankDetails,
     categories,
-    reimbursements,
-    advancePayments,
-    advancePaymentEntries,
     files,
+    reimbursements,
+    users,
   };
 }
 
@@ -514,23 +514,23 @@ function buildBankSnapshot(
 } {
   if (!bankDetailId) {
     return {
+      bankAccountIfscCode: null,
       bankAccountName: null,
       bankAccountNumber: null,
-      bankAccountIfscCode: null,
     };
   }
   const bank = bankById.get(bankDetailId);
   if (!bank) {
     return {
+      bankAccountIfscCode: null,
       bankAccountName: null,
       bankAccountNumber: null,
-      bankAccountIfscCode: null,
     };
   }
   return {
+    bankAccountIfscCode: bank.ifsc_code.toUpperCase().trim(),
     bankAccountName: bank.account_name.trim(),
     bankAccountNumber: bank.account_number.trim(),
-    bankAccountIfscCode: bank.ifsc_code.toUpperCase().trim(),
   };
 }
 
@@ -552,38 +552,38 @@ function buildAttachmentValues(
   const isExternal = f.file_type === "external";
   if (isExternal) {
     return {
-      type: "url" as const,
-      url: f.external_url,
-      objectKey: null,
       filename: null,
       mimeType: null,
+      objectKey: null,
+      type: "url" as const,
+      url: f.external_url,
     };
   }
 
   // For file attachments: generate new R2 key and queue copy
   if (!R2_ENABLED) {
     return {
-      type: "file" as const,
-      url: null,
-      objectKey: f.file_path,
       filename: f.file_name,
       mimeType: f.mime_type,
+      objectKey: f.file_path,
+      type: "file" as const,
+      url: null,
     };
   }
 
-  const safeName = sanitizeFilename(f.file_name ?? "unnamed-file");
+  const safeName = sanitizeFilename(f.file_name ?? "attachment");
   const newKey = `${NEW_R2_KEY_PREFIX}/attachments/${parentId}/${uuidv7()}-${safeName}`;
 
   if (f.file_path) {
-    pendingR2Copies.push({ oldKey: f.file_path, newKey, attachmentId, table });
+    pendingR2Copies.push({ attachmentId, newKey, oldKey: f.file_path, table });
   }
 
   return {
-    type: "file" as const,
-    url: null,
-    objectKey: newKey,
     filename: f.file_name,
     mimeType: f.mime_type,
+    objectKey: newKey,
+    type: "file" as const,
+    url: null,
   };
 }
 
@@ -611,19 +611,21 @@ async function migrateCategories(
   const oldToNew = new Map<number, string>();
   const now = new Date();
 
-  for (const cat of categories) {
-    const newId = uuidv7();
-    oldToNew.set(cat.id, newId);
+  await Promise.all(
+    categories.map(async (cat) => {
+      const newId = uuidv7();
+      oldToNew.set(cat.id, newId);
 
-    await tx.insert(schema.expenseCategory).values({
-      id: newId,
-      name: cat.name,
-      description: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-    stats.categories.migrated++;
-  }
+      await tx.insert(schema.expenseCategory).values({
+        createdAt: now,
+        description: null,
+        id: newId,
+        name: cat.name,
+        updatedAt: now,
+      });
+      stats.categories.migrated++;
+    })
+  );
 
   log(`Categories migrated: ${stats.categories.migrated}`);
   return oldToNew;
@@ -644,14 +646,14 @@ async function migrateUsers(
     // Skip invalid emails
     if (!email?.includes("@") || email.includes(" ")) {
       warn(`Skipping user ${u.id} "${u.name}": invalid email "${u.email}"`);
-      stats.users.skipped++;
+      stats.users.skipped += 1;
       continue;
     }
 
     // Deduplicate by email
     if (seenEmails.has(email)) {
       warn(`Skipping duplicate email user ${u.id} "${u.name}": ${email}`);
-      stats.users.skipped++;
+      stats.users.skipped += 1;
       continue;
     }
     seenEmails.add(email);
@@ -673,33 +675,33 @@ async function migrateUsers(
     const updatedAt = parseTimestamp(u.updated_at);
 
     await tx.insert(schema.user).values({
-      id: newId,
-      name: u.name.trim(),
+      createdAt,
+      dob,
       email,
       emailVerified: true,
       gender,
-      dob: dob ?? undefined,
-      phone: phone ?? undefined,
+      id: newId,
       isActive: u.status === 1,
+      name: u.name.trim(),
+      phone,
       role,
-      createdAt,
       updatedAt: updatedAt || createdAt,
     });
 
     // Create account row so Better Auth recognises this user.
     // Password is null — users must use "Forgot Password" on first sign-in.
     await tx.insert(schema.account).values({
-      id: uuidv7(),
       accountId: newId,
-      providerId: "credential",
-      userId: newId,
       createdAt,
+      id: uuidv7(),
+      providerId: "credential",
       updatedAt: updatedAt || createdAt,
+      userId: newId,
     });
-    stats.users.migrated++;
+    stats.users.migrated += 1;
 
     if (phone) {
-      pendingWhatsAppChecks.push({ userId: newId, phone });
+      pendingWhatsAppChecks.push({ phone, userId: newId });
     }
   }
 
@@ -742,7 +744,7 @@ async function migrateBankAccounts(
     const newUserId = userMap.get(b.user_id);
     if (!newUserId) {
       warn(`Skipping bank account ${b.id}: user ${b.user_id} not migrated`);
-      stats.bankAccounts.skipped++;
+      stats.bankAccounts.skipped += 1;
       continue;
     }
 
@@ -750,7 +752,7 @@ async function migrateBankAccounts(
     const ifsc = b.ifsc_code.toUpperCase().trim();
     if (!IFSC_REGEX.test(ifsc)) {
       warn(`Skipping bank account ${b.id}: invalid IFSC "${b.ifsc_code}"`);
-      stats.bankAccounts.skipped++;
+      stats.bankAccounts.skipped += 1;
       continue;
     }
 
@@ -767,16 +769,16 @@ async function migrateBankAccounts(
     oldToNew.set(b.id, newId);
 
     await tx.insert(schema.bankAccount).values({
-      id: newId,
-      userId: newUserId,
       accountName: b.account_name.trim(),
       accountNumber: b.account_number.trim(),
+      createdAt: parseTimestamp(b.created_at),
+      id: newId,
       ifscCode: ifsc,
       isDefault,
-      createdAt: parseTimestamp(b.created_at),
       updatedAt: parseTimestamp(b.updated_at),
+      userId: newUserId,
     });
-    stats.bankAccounts.migrated++;
+    stats.bankAccounts.migrated += 1;
   }
 
   log(
@@ -789,7 +791,7 @@ function resolveExpenseDate(r: OldReimbursement): string {
   if (r.expense_date && r.expense_date !== SENTINEL_DATE) {
     return r.expense_date;
   }
-  return r.created_at?.split(" ")[0] ?? new Date().toISOString().slice(0, 10);
+  return r.created_at?.split(" ")[0] ?? SENTINEL_DATE;
 }
 
 async function insertReimbursementRow(
@@ -803,34 +805,34 @@ async function insertReimbursementRow(
 ): Promise<void> {
   const status = mapReimbursementStatus(r.reimbursement_status);
   const bankSnapshot = buildBankSnapshot(r.bank_detail_id, bankById);
-  const reviewedBy = r.poc_id ? (userMap.get(r.poc_id) ?? null) : null;
+  const reviewedBy = r.poc_id ? userMap.get(r.poc_id) : null;
   const reviewedAt =
     status === "approved" && r.updated_at ? parseTimestamp(r.updated_at) : null;
   const createdAt = parseTimestamp(r.created_at);
   const updatedAt = parseTimestamp(r.updated_at);
 
   await tx.insert(schema.reimbursement).values({
-    id: newId,
-    userId: newUserId,
-    title: r.name.trim(),
     city: mapCity(r.city_belongs_to),
     expenseDate: resolveExpenseDate(r),
+    id: newId,
     status,
+    title: r.name.trim(),
+    userId: newUserId,
     ...bankSnapshot,
-    ...(reviewedBy ? { reviewedBy, reviewedAt } : {}),
-    submittedAt: createdAt,
+    ...(reviewedBy ? { reviewedAt, reviewedBy } : {}),
     createdAt,
+    submittedAt: createdAt,
     updatedAt: updatedAt || createdAt,
   });
 
   await tx.insert(schema.reimbursementLineItem).values({
+    amount: r.cost,
+    categoryId: newCategoryId,
+    createdAt,
+    description: r.description?.trim() || null,
     id: uuidv7(),
     reimbursementId: newId,
-    categoryId: newCategoryId,
-    description: r.description?.trim() || null,
-    amount: r.cost,
     sortOrder: 0,
-    createdAt,
     updatedAt: updatedAt || createdAt,
   });
 }
@@ -858,7 +860,7 @@ async function migrateReimbursements(
     const newUserId = userMap.get(r.user_id);
     if (!newUserId) {
       warn(`Skipping reimbursement ${r.id}: user ${r.user_id} not migrated`);
-      stats.reimbursements.skipped++;
+      stats.reimbursements.skipped += 1;
       continue;
     }
 
@@ -867,7 +869,7 @@ async function migrateReimbursements(
       warn(
         `Skipping reimbursement ${r.id}: category ${r.reimbursement_category_id} not mapped`
       );
-      stats.reimbursements.skipped++;
+      stats.reimbursements.skipped += 1;
       continue;
     }
 
@@ -883,7 +885,7 @@ async function migrateReimbursements(
       bankById,
       userMap
     );
-    stats.reimbursements.migrated++;
+    stats.reimbursements.migrated += 1;
   }
 
   log(
@@ -925,7 +927,7 @@ async function migrateAdvancePayments(
       warn(
         `Skipping advance payment ${ap.id}: user ${ap.user_id} not migrated`
       );
-      stats.advancePayments.skipped++;
+      stats.advancePayments.skipped += 1;
       continue;
     }
 
@@ -955,7 +957,7 @@ async function migrateAdvancePayments(
       updatedAt
     );
 
-    stats.advancePayments.migrated++;
+    stats.advancePayments.migrated += 1;
   }
 
   log(
@@ -977,23 +979,23 @@ async function insertAdvancePaymentRow(
   const status = mapAdvancePaymentStatus(ap.advance_amount_status);
   const city = mapCity(ap.city_belongs_to);
   const bankSnapshot = buildBankSnapshot(ap.bank_detail_id, bankById);
-  const reviewedBy = ap.poc_id ? (userMap.get(ap.poc_id) ?? null) : null;
+  const reviewedBy = ap.poc_id ? userMap.get(ap.poc_id) : null;
   const reviewedAt =
     status === "approved" && ap.updated_at
       ? parseTimestamp(ap.updated_at)
       : null;
 
   await tx.insert(schema.advancePayment).values({
-    id: newId,
-    userId: newUserId,
-    title: ap.name.trim(),
     city,
+    id: newId,
     status,
+    title: ap.name.trim(),
+    userId: newUserId,
     ...bankSnapshot,
     ...(reviewedBy ? { reviewedBy } : {}),
+    createdAt,
     reviewedAt,
     submittedAt: createdAt,
-    createdAt,
     updatedAt: updatedAt || createdAt,
   });
 }
@@ -1019,13 +1021,13 @@ async function insertAPLineItemsForParent(
     : null;
   if (catId) {
     await tx.insert(schema.advancePaymentLineItem).values({
-      id: uuidv7(),
       advancePaymentId: newId,
-      categoryId: catId,
-      description: ap.description?.trim() || ap.remarks?.trim() || null,
       amount: ap.total_amount,
-      sortOrder: 0,
+      categoryId: catId,
       createdAt,
+      description: ap.description?.trim() || ap.remarks?.trim() || null,
+      id: uuidv7(),
+      sortOrder: 0,
       updatedAt: updatedAt || createdAt,
     });
   }
@@ -1037,7 +1039,7 @@ async function insertAPLineItems(
   entries: OldAdvancePaymentEntry[],
   categoryMap: Map<number, string>
 ): Promise<void> {
-  for (let i = 0; i < entries.length; i++) {
+  for (let i = 0; i < entries.length; i += 1) {
     // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee index is valid
     const entry = entries[i]!;
     const newCategoryId = categoryMap.get(entry.category_id);
@@ -1052,13 +1054,13 @@ async function insertAPLineItems(
     const entryUpdatedAt = parseTimestamp(entry.updated_at);
 
     await tx.insert(schema.advancePaymentLineItem).values({
-      id: uuidv7(),
       advancePaymentId: apId,
-      categoryId: newCategoryId,
-      description: entry.remarks?.trim() || null,
       amount: entry.cost,
-      sortOrder: i,
+      categoryId: newCategoryId,
       createdAt: entryCreatedAt,
+      description: entry.remarks?.trim() || null,
+      id: uuidv7(),
+      sortOrder: i,
       updatedAt: entryUpdatedAt || entryCreatedAt,
     });
   }
@@ -1089,7 +1091,7 @@ async function migrateAttachments(
     if (isReimbursement) {
       const newParentId = reimbursementMap.get(f.fileable_id);
       if (!newParentId) {
-        stats.reimbursementAttachments.skipped++;
+        stats.reimbursementAttachments.skipped += 1;
         continue;
       }
       const attValues = buildAttachmentValues(
@@ -1104,11 +1106,11 @@ async function migrateAttachments(
         ...attValues,
         createdAt,
       });
-      stats.reimbursementAttachments.migrated++;
+      stats.reimbursementAttachments.migrated += 1;
     } else {
       const newParentId = advancePaymentMap.get(f.fileable_id);
       if (!newParentId) {
-        stats.advancePaymentAttachments.skipped++;
+        stats.advancePaymentAttachments.skipped += 1;
         continue;
       }
       const attValues = buildAttachmentValues(
@@ -1118,12 +1120,12 @@ async function migrateAttachments(
         "advance_payment_attachment"
       );
       await tx.insert(schema.advancePaymentAttachment).values({
-        id: attId,
         advancePaymentId: newParentId,
+        id: attId,
         ...attValues,
         createdAt,
       });
-      stats.advancePaymentAttachments.migrated++;
+      stats.advancePaymentAttachments.migrated += 1;
     }
   }
 
@@ -1155,14 +1157,14 @@ async function migrateHistoryRecords(
     }
 
     await tx.insert(schema.reimbursementHistory).values({
-      id: uuidv7(),
-      reimbursementId: newReimbId,
-      actorId: newUserId,
       action: "created",
-      note: "Migrated from legacy system",
+      actorId: newUserId,
       createdAt: parseTimestamp(r.created_at),
+      id: uuidv7(),
+      note: "Migrated from legacy system",
+      reimbursementId: newReimbId,
     });
-    stats.reimbursementHistory.migrated++;
+    stats.reimbursementHistory.migrated += 1;
   }
 
   // Advance payment history
@@ -1175,14 +1177,14 @@ async function migrateHistoryRecords(
     }
 
     await tx.insert(schema.advancePaymentHistory).values({
-      id: uuidv7(),
-      advancePaymentId: newAPId,
-      actorId: newUserId,
       action: "created",
-      note: "Migrated from legacy system",
+      actorId: newUserId,
+      advancePaymentId: newAPId,
       createdAt: parseTimestamp(ap.created_at),
+      id: uuidv7(),
+      note: "Migrated from legacy system",
     });
-    stats.advancePaymentHistory.migrated++;
+    stats.advancePaymentHistory.migrated += 1;
   }
 
   log(`Reimbursement history records: ${stats.reimbursementHistory.migrated}`);
@@ -1193,7 +1195,7 @@ async function migrateHistoryRecords(
 
 // ── Purge ────────────────────────────────────────────────
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const { ADMIN_EMAIL } = process.env;
 
 async function purgeR2Files(): Promise<void> {
   if (!R2_ENABLED) {
@@ -1203,10 +1205,10 @@ async function purgeR2Files(): Promise<void> {
   log("\n=== Deleting Existing R2 Files ===");
 
   const newS3 = new S3Client({
-    endpoint: `https://${NEW_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
     accessKeyId: NEW_R2_ACCESS_KEY as string,
-    secretAccessKey: NEW_R2_SECRET_ACCESS_KEY as string,
     bucket: NEW_R2_BUCKET_NAME as string,
+    endpoint: `https://${NEW_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
+    secretAccessKey: NEW_R2_SECRET_ACCESS_KEY as string,
   });
 
   const reimbKeys = await db
@@ -1232,15 +1234,17 @@ async function purgeR2Files(): Promise<void> {
 
   let deleted = 0;
   let failed = 0;
-  for (const key of allKeys) {
-    try {
-      await newS3.delete(key);
-      deleted++;
-    } catch {
-      failed++;
-      warn(`Failed to delete R2 file: ${key}`);
-    }
-  }
+  await Promise.all(
+    allKeys.map(async (key) => {
+      try {
+        await newS3.delete(key);
+        deleted++;
+      } catch {
+        failed++;
+        warn(`Failed to delete R2 file: ${key}`);
+      }
+    })
+  );
   log(`  R2 files deleted: ${deleted}, failed: ${failed}`);
 }
 
@@ -1429,26 +1433,28 @@ async function syncWhatsAppStatuses(): Promise<void> {
     `\n=== Checking WhatsApp Status (${pendingWhatsAppChecks.length} users) ===`
   );
 
-  for (const { userId, phone } of pendingWhatsAppChecks) {
-    try {
-      const isOnWhatsapp = await checkIsOnWhatsApp(phone);
-      await db
-        .update(schema.user)
-        .set({ isOnWhatsapp })
-        .where(eq(schema.user.id, userId));
-      stats.whatsappChecks.checked++;
-      if (isOnWhatsapp) {
-        stats.whatsappChecks.onWhatsapp++;
+  await Promise.all(
+    pendingWhatsAppChecks.map(async ({ userId, phone }) => {
+      try {
+        const isOnWhatsapp = await checkIsOnWhatsApp(phone);
+        await db
+          .update(schema.user)
+          .set({ isOnWhatsapp })
+          .where(eq(schema.user.id, userId));
+        stats.whatsappChecks.checked++;
+        if (isOnWhatsapp) {
+          stats.whatsappChecks.onWhatsapp++;
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        warn(`WhatsApp check failed for ${phone}: ${msg}`);
+        stats.whatsappChecks.failed++;
       }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      warn(`WhatsApp check failed for ${phone}: ${msg}`);
-      stats.whatsappChecks.failed++;
-    }
 
-    // Small delay to avoid hammering the WhatsApp Web socket
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+      // Small delay to avoid hammering the WhatsApp Web socket
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    })
+  );
 
   log(
     `WhatsApp: ${stats.whatsappChecks.checked} checked, ${stats.whatsappChecks.onWhatsapp} on WhatsApp, ${stats.whatsappChecks.failed} failed`
@@ -1469,27 +1475,29 @@ async function copyR2Files(): Promise<void> {
 
   // R2_ENABLED guard above guarantees these are non-null
   const oldS3 = new S3Client({
-    endpoint: `https://${OLD_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
     accessKeyId: OLD_R2_ACCESS_KEY as string,
-    secretAccessKey: OLD_R2_SECRET_ACCESS_KEY as string,
     bucket: OLD_R2_BUCKET_NAME as string,
+    endpoint: `https://${OLD_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
+    secretAccessKey: OLD_R2_SECRET_ACCESS_KEY as string,
   });
 
   const newS3 = new S3Client({
-    endpoint: `https://${NEW_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
     accessKeyId: NEW_R2_ACCESS_KEY as string,
-    secretAccessKey: NEW_R2_SECRET_ACCESS_KEY as string,
     bucket: NEW_R2_BUCKET_NAME as string,
+    endpoint: `https://${NEW_R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
+    secretAccessKey: NEW_R2_SECRET_ACCESS_KEY as string,
   });
 
-  for (const copy of pendingR2Copies) {
-    const ok = await copyOneFile(oldS3, newS3, copy);
-    if (ok) {
-      stats.r2Files.copied++;
-    } else {
-      stats.r2Files.failed++;
-    }
-  }
+  await Promise.all(
+    pendingR2Copies.map(async (copy) => {
+      const ok = await copyOneFile(oldS3, newS3, copy);
+      if (ok) {
+        stats.r2Files.copied++;
+      } else {
+        stats.r2Files.failed++;
+      }
+    })
+  );
 
   log(
     `R2 files: ${stats.r2Files.copied} copied, ${stats.r2Files.failed} failed`
@@ -1507,8 +1515,9 @@ async function copyOneFile(
     await newS3.write(copy.newKey, data);
     log(`  copied: ${copy.oldKey} → ${copy.newKey}`);
     return true;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
+  } catch (caughtError) {
+    const msg =
+      caughtError instanceof Error ? caughtError.message : String(caughtError);
     warn(`Failed to copy "${copy.oldKey}": ${msg}`);
     // Revert objectKey in DB back to old key so record isn't broken
     await revertObjectKey(copy);

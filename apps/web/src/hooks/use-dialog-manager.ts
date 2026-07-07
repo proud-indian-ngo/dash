@@ -6,11 +6,11 @@ interface DialogEntry {
 
 interface UseDialogManagerReturn<T extends DialogEntry> {
   activeDialog: T | null;
-  close(): void;
-  getData<K extends T["type"]>(type: K): Extract<T, { type: K }> | null;
-  isOpen(type: T["type"]): boolean;
-  onOpenChange(open: boolean): void;
-  open(dialog: T): void;
+  close: () => void;
+  getData: <K extends T["type"]>(type: K) => Extract<T, { type: K }> | null;
+  isOpen: (type: T["type"]) => boolean;
+  onOpenChange: (open: boolean) => void;
+  open: (dialog: T) => void;
 }
 
 /** Manages a single active dialog at a time. Opening a new dialog closes the previous one. */
@@ -48,5 +48,5 @@ export function useDialogManager<
     [activeDialog]
   );
 
-  return { activeDialog, open, close, onOpenChange, isOpen, getData };
+  return { activeDialog, close, getData, isOpen, onOpenChange, open };
 }

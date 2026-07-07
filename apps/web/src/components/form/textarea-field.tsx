@@ -1,6 +1,5 @@
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
@@ -45,23 +44,18 @@ export function TextareaField({
       name={name}
       validators={validators}
     >
-      {(field) => {
-        return (
-          <Textarea
-            {...props}
-            {...fieldErrorProps(
-              field,
-              resolvedForm.state.submissionAttempts > 0
-            )}
-            aria-required={isRequired}
-            id={field.name}
-            name={field.name}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-            value={(field.state.value ?? "") as string}
-          />
-        );
-      }}
+      {(field: any) => (
+        <Textarea
+          {...props}
+          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
+          aria-required={isRequired}
+          id={field.name}
+          name={field.name}
+          onBlur={field.handleBlur}
+          onChange={(event: any) => field.handleChange(event.target.value)}
+          value={(field.state.value ?? "") as string}
+        />
+      )}
     </CustomField>
   );
 }

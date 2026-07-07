@@ -25,11 +25,11 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/scheduled-messages")({
+  beforeLoad: ({ context }) => assertPermission(context, "messages.schedule"),
+  component: ScheduledMessagesPage,
   head: () => ({
     meta: [{ title: `Scheduled Messages | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => assertPermission(context, "messages.schedule"),
-  component: ScheduledMessagesPage,
 });
 
 type DialogMode =
@@ -58,7 +58,7 @@ function ScheduledMessagesPage() {
 
   const messages = statusFilter
     ? allMessages.filter(
-        (m) => deriveMessageStatus(m.recipients) === statusFilter
+        (m: any) => deriveMessageStatus(m.recipients) === statusFilter
       )
     : allMessages;
 
@@ -68,7 +68,7 @@ function ScheduledMessagesPage() {
     null
   );
   const selectedMessage = selectedMessageId
-    ? (allMessages.find((m) => m.id === selectedMessageId) ?? null)
+    ? (allMessages.find((m: any) => m.id === selectedMessageId) ?? null)
     : null;
   const [cancelTarget, setCancelTarget] = useState<ScheduledMessageRow | null>(
     null
@@ -109,18 +109,18 @@ function ScheduledMessagesPage() {
     if (dialogMode?.kind === "edit") {
       const res = await zero.mutate(
         mutators.scheduledMessage.update({
+          attachments: values.attachments,
           id: dialogMode.message.id,
           message: values.message,
-          scheduledAt: values.scheduledAt,
           recipients: values.recipients,
-          attachments: values.attachments,
+          scheduledAt: values.scheduledAt,
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "scheduledMessage.update",
         entityId: dialogMode.message.id,
-        successMsg: "Message updated",
         errorMsg: "Couldn't update message",
+        mutation: "scheduledMessage.update",
+        successMsg: "Message updated",
       });
       if (res.type !== "error") {
         setDialogMode(null);
@@ -129,20 +129,20 @@ function ScheduledMessagesPage() {
       const id = uuidv7();
       const res = await zero.mutate(
         mutators.scheduledMessage.create({
+          attachments: values.attachments,
           id,
           message: values.message,
-          scheduledAt: values.scheduledAt,
           recipients: values.recipients,
-          attachments: values.attachments,
+          scheduledAt: values.scheduledAt,
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "scheduledMessage.create",
         entityId: id,
-        successMsg: values.sendNow ? "Message sent" : "Message scheduled",
         errorMsg: values.sendNow
           ? "Couldn't send message"
           : "Couldn't schedule message",
+        mutation: "scheduledMessage.create",
+        successMsg: values.sendNow ? "Message sent" : "Message scheduled",
       });
       if (res.type !== "error") {
         setDialogMode(null);
@@ -156,17 +156,17 @@ function ScheduledMessagesPage() {
         mutators.scheduledMessage.retryRecipient({ recipientId })
       ).server;
       handleMutationResult(res, {
-        mutation: "scheduledMessage.retryRecipient",
         entityId: recipientId,
-        successMsg: "Retry scheduled",
         errorMsg: "Failed to retry recipient",
+        mutation: "scheduledMessage.retryRecipient",
+        successMsg: "Retry scheduled",
       });
     } catch (error) {
       log.error({
-        component: "ScheduledMessagesPage",
         action: "retryRecipient",
-        recipientId,
+        component: "ScheduledMessagesPage",
         error: error instanceof Error ? error.message : String(error),
+        recipientId,
       });
     }
   };
@@ -181,20 +181,20 @@ function ScheduledMessagesPage() {
         mutators.scheduledMessage.cancel({ id: cancelTarget.id })
       ).server;
       handleMutationResult(res, {
-        mutation: "scheduledMessage.cancel",
         entityId: cancelTarget.id,
-        successMsg: "Message cancelled",
         errorMsg: "Failed to cancel message",
+        mutation: "scheduledMessage.cancel",
+        successMsg: "Message cancelled",
       });
       if (res.type !== "error") {
         setCancelTarget(null);
       }
     } catch (error) {
       log.error({
-        component: "ScheduledMessagesPage",
         action: "cancelMessage",
-        messageId: cancelTarget.id,
+        component: "ScheduledMessagesPage",
         error: error instanceof Error ? error.message : String(error),
+        messageId: cancelTarget.id,
       });
     } finally {
       setIsCancelling(false);
@@ -211,23 +211,51 @@ function ScheduledMessagesPage() {
         mutators.scheduledMessage.delete({ id: deleteTarget.id })
       ).server;
       handleMutationResult(res, {
-        mutation: "scheduledMessage.delete",
         entityId: deleteTarget.id,
-        successMsg: "Message deleted",
         errorMsg: "Failed to delete message",
+        mutation: "scheduledMessage.delete",
+        successMsg: "Message deleted",
       });
       if (res.type !== "error") {
         setDeleteTarget(null);
       }
     } catch (error) {
       log.error({
-        component: "ScheduledMessagesPage",
         action: "deleteMessage",
-        messageId: deleteTarget.id,
+        component: "ScheduledMessagesPage",
         error: error instanceof Error ? error.message : String(error),
+        messageId: deleteTarget.id,
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+  const stableOnClearFilters0 = () => setStatusFilter("");
+  const stableOnClick1 = () => setDialogMode({ kind: "create" });
+  const stableOnCancel2 = () => {
+    if (selectedMessage) {
+      handleCancelRequest(selectedMessage);
+    }
+  };
+  const stableOnDelete3 = () => {
+    if (selectedMessage) {
+      handleDeleteRequest(selectedMessage);
+    }
+  };
+  const stableOnEdit4 = () => {
+    if (selectedMessage) {
+      handleEdit(selectedMessage);
+    }
+  };
+  const stableOnClose5 = () => setDialogMode(null);
+  const stableOnOpenChange6 = (open: any) => {
+    if (!open) {
+      setCancelTarget(null);
+    }
+  };
+  const stableOnOpenChange7 = (open: any) => {
+    if (!open) {
+      setDeleteTarget(null);
     }
   };
 
@@ -243,13 +271,13 @@ function ScheduledMessagesPage() {
           isLoading={isLoading}
           messages={messages}
           onCancel={handleCancelRequest}
-          onClearFilters={() => setStatusFilter("")}
+          onClearFilters={stableOnClearFilters0}
           onDelete={handleDeleteRequest}
           onEdit={handleEdit}
           onRetry={handleRetryRecipient}
           onView={handleView}
           toolbarActions={
-            <Button onClick={() => setDialogMode({ kind: "create" })} size="sm">
+            <Button onClick={stableOnClick1} size="sm">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -271,21 +299,9 @@ function ScheduledMessagesPage() {
 
       <ScheduledMessageDetailSheet
         message={selectedMessage}
-        onCancel={() => {
-          if (selectedMessage) {
-            handleCancelRequest(selectedMessage);
-          }
-        }}
-        onDelete={() => {
-          if (selectedMessage) {
-            handleDeleteRequest(selectedMessage);
-          }
-        }}
-        onEdit={() => {
-          if (selectedMessage) {
-            handleEdit(selectedMessage);
-          }
-        }}
+        onCancel={stableOnCancel2}
+        onDelete={stableOnDelete3}
+        onEdit={stableOnEdit4}
         onOpenChange={setSheetOpen}
         onRetry={handleRetryRecipient}
         open={sheetOpen}
@@ -295,7 +311,7 @@ function ScheduledMessagesPage() {
         initialValues={
           dialogMode?.kind === "edit" ? dialogMode.message : undefined
         }
-        onClose={() => setDialogMode(null)}
+        onClose={stableOnClose5}
         onSubmit={handleFormSubmit}
         open={!!dialogMode}
       />
@@ -310,11 +326,7 @@ function ScheduledMessagesPage() {
         loading={isCancelling}
         loadingLabel="Cancelling..."
         onConfirm={handleCancelConfirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelTarget(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange6}
         open={!!cancelTarget}
         title="Cancel scheduled message?"
         variant="destructive"
@@ -330,11 +342,7 @@ function ScheduledMessagesPage() {
         loading={isDeleting}
         loadingLabel="Deleting..."
         onConfirm={handleDeleteConfirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange7}
         open={!!deleteTarget}
         title="Delete scheduled message?"
         variant="destructive"

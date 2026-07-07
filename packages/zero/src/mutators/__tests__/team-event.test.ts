@@ -4,55 +4,55 @@ import { computeOccurrenceStart } from "../team-event";
 
 const recurrenceRuleSchema = z
   .object({
-    rrule: z.string(),
     exdates: z.array(z.string()).optional(),
+    rrule: z.string(),
   })
   .optional();
 
 const createSchema = z.object({
-  id: z.string(),
-  teamId: z.string(),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  location: z.string().optional(),
-  startTime: z.number(),
-  endTime: z.number().optional(),
-  isPublic: z.boolean().optional(),
-  recurrenceRule: recurrenceRuleSchema,
-  whatsappGroupId: z.string().optional(),
   createWhatsAppGroup: z.boolean().optional(),
-  feedbackEnabled: z.boolean().optional(),
+  description: z.string().optional(),
+  endTime: z.number().optional(),
   feedbackDeadline: z.number().nullable().optional(),
-  postRsvpPoll: z.boolean().optional(),
-  reminderIntervals: z.array(z.number()).nullable().optional(),
+  feedbackEnabled: z.boolean().optional(),
+  id: z.string(),
+  isPublic: z.boolean().optional(),
+  location: z.string().optional(),
+  name: z.string().min(1),
   now: z.number(),
+  postRsvpPoll: z.boolean().optional(),
+  recurrenceRule: recurrenceRuleSchema,
+  reminderIntervals: z.array(z.number()).nullable().optional(),
+  startTime: z.number(),
+  teamId: z.string(),
+  whatsappGroupId: z.string().optional(),
 });
 
 const updateSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1).optional(),
   description: z.string().optional(),
-  location: z.string().optional(),
-  now: z.number(),
-  startTime: z.number().optional(),
   endTime: z.number().optional(),
-  isPublic: z.boolean().optional(),
-  feedbackEnabled: z.boolean().optional(),
   feedbackDeadline: z.number().nullable().optional(),
+  feedbackEnabled: z.boolean().optional(),
+  id: z.string(),
+  isPublic: z.boolean().optional(),
+  location: z.string().optional(),
+  name: z.string().min(1).optional(),
+  now: z.number(),
   postRsvpPoll: z.boolean().optional(),
   reminderIntervals: z.array(z.number()).nullable().optional(),
+  startTime: z.number().optional(),
   whatsappGroupId: z.string().optional(),
 });
 
 const cancelSchema = z.object({
   id: z.string(),
-  reason: z.string().optional(),
   now: z.number(),
+  reason: z.string().optional(),
 });
 
 const addMemberSchema = z.object({
-  id: z.string(),
   eventId: z.string(),
+  id: z.string(),
   now: z.number(),
   userId: z.string(),
 });
@@ -74,67 +74,67 @@ const leaveEventSchema = z.object({
 });
 
 const joinAsMemberSchema = z.object({
-  id: z.string(),
   eventId: z.string(),
+  id: z.string(),
+  materializedId: z.string().optional(),
+  now: z.number(),
   occDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
-  materializedId: z.string().optional(),
-  now: z.number(),
 });
 
 const materializeSchema = z.object({
   id: z.string(),
-  seriesId: z.string(),
-  originalDate: z.string(),
   now: z.number(),
+  originalDate: z.string(),
+  seriesId: z.string(),
 });
 
 const updateSeriesSchema = z.object({
+  description: z.string().optional(),
+  endTime: z.number().optional(),
+  feedbackDeadline: z.number().nullable().optional(),
+  feedbackEnabled: z.boolean().optional(),
   id: z.string(),
+  isPublic: z.boolean().optional(),
+  location: z.string().optional(),
   mode: z.enum(["this", "following", "all"]),
-  originalDate: z.string().optional(),
+  name: z.string().min(1).optional(),
   newExceptionId: z.string().optional(),
   newSeriesId: z.string().optional(),
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  location: z.string().optional(),
   now: z.number(),
-  startTime: z.number().optional(),
-  endTime: z.number().optional(),
-  isPublic: z.boolean().optional(),
-  recurrenceRule: recurrenceRuleSchema,
-  feedbackEnabled: z.boolean().optional(),
-  feedbackDeadline: z.number().nullable().optional(),
+  originalDate: z.string().optional(),
   postRsvpPoll: z.boolean().optional(),
+  recurrenceRule: recurrenceRuleSchema,
   reminderIntervals: z.array(z.number()).nullable().optional(),
+  startTime: z.number().optional(),
   whatsappGroupId: z.string().optional(),
 });
 
 const cancelSeriesSchema = z.object({
   id: z.string(),
   mode: z.enum(["this", "following", "all"]),
-  originalDate: z.string().optional(),
   newExceptionId: z.string().optional(),
-  reason: z.string().optional(),
   now: z.number(),
+  originalDate: z.string().optional(),
+  reason: z.string().optional(),
 });
 
 describe("teamEvent mutator schemas", () => {
   describe("create", () => {
     it("accepts valid input with all fields", () => {
       const result = createSchema.safeParse({
-        id: "evt-1",
-        teamId: "team-1",
-        name: "Weekly meeting",
         description: "Standup",
-        location: "Office",
-        startTime: 1_700_000_000_000,
         endTime: 1_700_003_600_000,
+        id: "evt-1",
         isPublic: true,
-        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO" },
+        location: "Office",
+        name: "Weekly meeting",
         now: 1_700_000_000_000,
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO" },
+        startTime: 1_700_000_000_000,
+        teamId: "team-1",
       });
       expect(result.success).toBe(true);
     });
@@ -142,10 +142,10 @@ describe("teamEvent mutator schemas", () => {
     it("accepts minimal valid input", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
-        teamId: "team-1",
         name: "Meeting",
-        startTime: 1_700_000_000_000,
         now: 1_700_000_000_000,
+        startTime: 1_700_000_000_000,
+        teamId: "team-1",
       });
       expect(result.success).toBe(true);
     });
@@ -153,10 +153,10 @@ describe("teamEvent mutator schemas", () => {
     it("rejects empty name", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
-        teamId: "team-1",
         name: "",
-        startTime: 1_700_000_000_000,
         now: 1_700_000_000_000,
+        startTime: 1_700_000_000_000,
+        teamId: "team-1",
       });
       expect(result.success).toBe(false);
     });
@@ -165,8 +165,8 @@ describe("teamEvent mutator schemas", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
         name: "Meeting",
-        startTime: 1_700_000_000_000,
         now: 1_700_000_000_000,
+        startTime: 1_700_000_000_000,
       });
       expect(result.success).toBe(false);
     });
@@ -174,9 +174,9 @@ describe("teamEvent mutator schemas", () => {
     it("rejects missing startTime", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
-        teamId: "team-1",
         name: "Meeting",
         now: 1_700_000_000_000,
+        teamId: "team-1",
       });
       expect(result.success).toBe(false);
     });
@@ -184,11 +184,11 @@ describe("teamEvent mutator schemas", () => {
     it("accepts valid recurrence rule with endDate", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
-        teamId: "team-1",
         name: "Recurring",
-        startTime: 1_700_000_000_000,
-        recurrenceRule: { rrule: "FREQ=MONTHLY;BYDAY=1SA;UNTIL=20261231" },
         now: 1_700_000_000_000,
+        recurrenceRule: { rrule: "FREQ=MONTHLY;BYDAY=1SA;UNTIL=20261231" },
+        startTime: 1_700_000_000_000,
+        teamId: "team-1",
       });
       expect(result.success).toBe(true);
     });
@@ -196,11 +196,11 @@ describe("teamEvent mutator schemas", () => {
     it("rejects invalid recurrence rule", () => {
       const result = createSchema.safeParse({
         id: "evt-1",
-        teamId: "team-1",
         name: "Recurring",
-        startTime: 1_700_000_000_000,
-        recurrenceRule: { rrule: 123 },
         now: 1_700_000_000_000,
+        recurrenceRule: { rrule: 123 },
+        startTime: 1_700_000_000_000,
+        teamId: "team-1",
       });
       expect(result.success).toBe(false);
     });
@@ -265,10 +265,10 @@ describe("teamEvent mutator schemas", () => {
   describe("addMember", () => {
     it("accepts valid input", () => {
       const result = addMemberSchema.safeParse({
-        id: "mem-1",
         eventId: "evt-1",
-        userId: "user-1",
+        id: "mem-1",
         now: 1_700_000_000_000,
+        userId: "user-1",
       });
       expect(result.success).toBe(true);
     });
@@ -276,8 +276,8 @@ describe("teamEvent mutator schemas", () => {
     it("rejects missing eventId", () => {
       const result = addMemberSchema.safeParse({
         id: "mem-1",
-        userId: "user-1",
         now: 1_700_000_000_000,
+        userId: "user-1",
       });
       expect(result.success).toBe(false);
     });
@@ -350,8 +350,8 @@ describe("teamEvent mutator schemas", () => {
   describe("joinAsMember", () => {
     it("accepts valid input", () => {
       const result = joinAsMemberSchema.safeParse({
-        id: "mem-1",
         eventId: "evt-1",
+        id: "mem-1",
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
@@ -359,22 +359,22 @@ describe("teamEvent mutator schemas", () => {
 
     it("accepts virtual-occurrence input with occDate + materializedId", () => {
       const result = joinAsMemberSchema.safeParse({
-        id: "mem-1",
         eventId: "series-1",
-        occDate: "2026-05-02",
+        id: "mem-1",
         materializedId: "evt-2",
         now: 1_700_000_000_000,
+        occDate: "2026-05-02",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects invalid occDate format", () => {
       const result = joinAsMemberSchema.safeParse({
-        id: "mem-1",
         eventId: "series-1",
-        occDate: "05/02/2026",
+        id: "mem-1",
         materializedId: "evt-2",
         now: 1_700_000_000_000,
+        occDate: "05/02/2026",
       });
       expect(result.success).toBe(false);
     });
@@ -389,8 +389,8 @@ describe("teamEvent mutator schemas", () => {
 
     it("rejects missing now", () => {
       const result = joinAsMemberSchema.safeParse({
-        id: "mem-1",
         eventId: "evt-1",
+        id: "mem-1",
       });
       expect(result.success).toBe(false);
     });
@@ -400,9 +400,9 @@ describe("teamEvent mutator schemas", () => {
     it("accepts valid input", () => {
       const result = materializeSchema.safeParse({
         id: "exc-1",
-        seriesId: "evt-1",
-        originalDate: "2026-04-12",
         now: 1_700_000_000_000,
+        originalDate: "2026-04-12",
+        seriesId: "evt-1",
       });
       expect(result.success).toBe(true);
     });
@@ -410,8 +410,8 @@ describe("teamEvent mutator schemas", () => {
     it("rejects missing originalDate", () => {
       const result = materializeSchema.safeParse({
         id: "exc-1",
-        seriesId: "evt-1",
         now: 1_700_000_000_000,
+        seriesId: "evt-1",
       });
       expect(result.success).toBe(false);
     });
@@ -443,8 +443,8 @@ describe("teamEvent mutator schemas", () => {
         id: "evt-1",
         mode: "all",
         name: "Updated name",
-        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO,WE" },
         now: 1_700_000_000_000,
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=MO,WE" },
       });
       expect(result.success).toBe(true);
     });
@@ -453,10 +453,10 @@ describe("teamEvent mutator schemas", () => {
       const result = updateSeriesSchema.safeParse({
         id: "evt-1",
         mode: "this",
-        originalDate: "2026-04-12",
-        newExceptionId: "exc-1",
         name: "Special session",
+        newExceptionId: "exc-1",
         now: 1_700_000_000_000,
+        originalDate: "2026-04-12",
       });
       expect(result.success).toBe(true);
     });
@@ -465,10 +465,10 @@ describe("teamEvent mutator schemas", () => {
       const result = updateSeriesSchema.safeParse({
         id: "evt-1",
         mode: "following",
-        originalDate: "2026-04-19",
-        newSeriesId: "series-2",
         name: "New series name",
+        newSeriesId: "series-2",
         now: 1_700_000_000_000,
+        originalDate: "2026-04-19",
       });
       expect(result.success).toBe(true);
     });
@@ -497,9 +497,9 @@ describe("teamEvent mutator schemas", () => {
       const result = cancelSeriesSchema.safeParse({
         id: "evt-1",
         mode: "this",
-        originalDate: "2026-04-12",
         newExceptionId: "exc-1",
         now: 1_700_000_000_000,
+        originalDate: "2026-04-12",
       });
       expect(result.success).toBe(true);
     });
@@ -508,8 +508,8 @@ describe("teamEvent mutator schemas", () => {
       const result = cancelSeriesSchema.safeParse({
         id: "evt-1",
         mode: "following",
-        originalDate: "2026-04-19",
         now: 1_700_000_000_000,
+        originalDate: "2026-04-19",
       });
       expect(result.success).toBe(true);
     });

@@ -30,16 +30,16 @@ const tailwindConfig = {
     extend: {
       colors: {
         bg: "#faf9fb",
-        surface: "#ffffff",
-        fg: "#0c090c",
-        primary: "#0086a1",
-        "muted-fg": "#79697b",
         border: "#e7e4e7",
+        fg: "#0c090c",
+        "muted-fg": "#79697b",
+        primary: "#0086a1",
         subtle: "#a8999e",
+        surface: "#ffffff",
       },
       fontFamily: {
-        display: ["Geist", "Inter", "sans-serif"],
         body: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        display: ["Geist", "Inter", "sans-serif"],
       },
     },
   },
@@ -74,10 +74,10 @@ export default function ResetPasswordEmail({
               <Hr
                 className="m-0"
                 style={{
-                  borderTop: "1px solid #e7e4e7",
                   borderBottom: "none",
                   borderLeft: "none",
                   borderRight: "none",
+                  borderTop: "1px solid #e7e4e7",
                 }}
               />
 

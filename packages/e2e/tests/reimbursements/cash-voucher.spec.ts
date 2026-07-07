@@ -16,8 +16,8 @@ test.describe("Cash voucher", () => {
     await reimbursements.navigateToNew();
 
     await reimbursements.form.fillLineItem({
-      description: "Small expense",
       amount: "500",
+      description: "Small expense",
     });
 
     await expect(page.getByText("Generate cash voucher")).toBeVisible();
@@ -31,8 +31,8 @@ test.describe("Cash voucher", () => {
     await reimbursements.navigateToNew();
 
     await reimbursements.form.fillLineItem({
-      description: "Large expense",
       amount: "1500",
+      description: "Large expense",
     });
 
     await expect(page.getByText("Generate cash voucher")).toBeHidden();
@@ -46,8 +46,8 @@ test.describe("Cash voucher", () => {
     await reimbursements.navigateToNew();
 
     await reimbursements.form.fillLineItem({
-      description: "Test item",
       amount: "500",
+      description: "Test item",
     });
     await expect(page.getByText("Generate cash voucher")).toBeVisible();
 

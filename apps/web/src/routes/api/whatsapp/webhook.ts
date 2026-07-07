@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
         try {
           rawBody = await Promise.race([
             request.text(),
-            new Promise<string>((_, reject) => {
+            new Promise<string>((_: any, reject: any) => {
               setTimeout(() => {
                 reject(new Error("whatsapp_webhook_body_timeout"));
               }, 3000);

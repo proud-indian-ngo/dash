@@ -6,34 +6,34 @@ import {
 } from "./reimbursement-form.schema";
 
 const validLineItem = {
-  id: "test-id-1",
+  amount: "100.00",
   categoryId: "cat-1",
   description: "Office supplies",
-  amount: "100.00",
   generateVoucher: false,
+  id: "test-id-1",
 };
 
 const validReimbursement = {
-  type: "reimbursement" as const,
-  title: "Monthly Reimbursement",
-  city: "bangalore" as const,
-  expenseDate: new Date(2025, 5, 1),
+  attachments: [],
+  bankAccountIfscCode: "HDFC0001234",
   bankAccountName: "HDFC Savings",
   bankAccountNumber: "1234567890",
-  bankAccountIfscCode: "HDFC0001234",
+  city: "bangalore" as const,
+  expenseDate: new Date(2025, 5, 1),
   lineItems: [validLineItem],
-  attachments: [],
+  title: "Monthly Reimbursement",
+  type: "reimbursement" as const,
 };
 
 const validAdvancePayment = {
-  type: "advance_payment" as const,
-  title: "Travel Advance",
-  city: "mumbai" as const,
+  attachments: [],
+  bankAccountIfscCode: "HDFC0001234",
   bankAccountName: "HDFC Savings",
   bankAccountNumber: "1234567890",
-  bankAccountIfscCode: "HDFC0001234",
+  city: "mumbai" as const,
   lineItems: [validLineItem],
-  attachments: [],
+  title: "Travel Advance",
+  type: "advance_payment" as const,
 };
 
 beforeEach(() => {

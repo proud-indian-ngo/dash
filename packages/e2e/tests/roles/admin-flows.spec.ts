@@ -16,7 +16,7 @@ test.describe("Admin role happy paths", () => {
     await expect(dialog).toBeVisible();
     await dialog.getByLabel("Name", { exact: true }).fill(teamName);
     await dialog.getByLabel("Description").fill("Admin role smoke test");
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     await expect(page.getByText("Team created")).toBeVisible({
       timeout: 15_000,
@@ -33,7 +33,7 @@ test.describe("Admin role happy paths", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(
-      dialog.getByRole("textbox", { name: "Name", exact: true })
+      dialog.getByRole("textbox", { exact: true, name: "Name" })
     ).toBeVisible();
   });
 });

@@ -26,13 +26,13 @@ const STATUS_OPTIONS = [
 ];
 
 export const Route = createFileRoute("/_app/vendor-payments/")({
+  component: VendorPaymentsRouteComponent,
   head: () => ({
     meta: [{ title: `Vendor Payments | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context }) => {
     context.zero?.preload(queries.vendorPayment.all());
   },
-  component: VendorPaymentsRouteComponent,
 });
 
 function VendorPaymentsRouteComponent() {
@@ -41,9 +41,8 @@ function VendorPaymentsRouteComponent() {
   const { hasPermission } = useApp();
   const canDelete = hasPermission("requests.delete_all");
 
-  const handleDelete = async (id: string) => {
-    return await zero.mutate(mutators.vendorPayment.delete({ id })).server;
-  };
+  const handleDelete = async (id: string) =>
+    await zero.mutate(mutators.vendorPayment.delete({ id })).server;
   const [vendorPayments, result] = useQuery(queries.vendorPayment.all());
   const [statusFilter, setStatusFilter] = useQueryState(
     "status",
@@ -51,20 +50,30 @@ function VendorPaymentsRouteComponent() {
   );
   const [cityFilter, setCityFilter] = useQueryState("city", parseAsString);
 
-  const data = (vendorPayments ?? []) as VendorPaymentWithRelations[];
+  const data = vendorPayments as VendorPaymentWithRelations[];
 
   const filtered = (() => {
     let result = data;
     if (statusFilter) {
-      result = result.filter((vp) => vp.status === statusFilter);
+      result = result.filter((vp: any) => vp.status === statusFilter);
     }
     if (cityFilter) {
-      result = result.filter((vp) => vp.city === cityFilter);
+      result = result.filter((vp: any) => vp.city === cityFilter);
     }
     return result;
   })();
 
   const isLoading = data.length === 0 && result.type !== "complete";
+  const stableOnClearFilters0 = () => {
+    setStatusFilter(null);
+    setCityFilter(null);
+  };
+  const stableOnNavigate1 = (id: any) => {
+    navigate({ params: { id }, to: "/vendor-payments/$id" });
+  };
+  const stableOnClick2 = () => navigate({ to: "/vendor-payments/new" });
+  const stableOnChange3 = (val: any) => setCityFilter(val || null);
+  const stableOnChange4 = (val: any) => setStatusFilter(val || null);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -82,21 +91,12 @@ function VendorPaymentsRouteComponent() {
           data={filtered}
           hasActiveFilters={!!(statusFilter || cityFilter)}
           isLoading={isLoading}
-          onClearFilters={() => {
-            setStatusFilter(null);
-            setCityFilter(null);
-          }}
+          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
-          onNavigate={(id) => {
-            navigate({ to: "/vendor-payments/$id", params: { id } });
-          }}
+          onNavigate={stableOnNavigate1}
           toolbarActions={
             hasPermission("requests.create") ? (
-              <Button
-                onClick={() => navigate({ to: "/vendor-payments/new" })}
-                size="sm"
-                type="button"
-              >
+              <Button onClick={stableOnClick2} size="sm" type="button">
                 <HugeiconsIcon
                   className="size-4"
                   icon={PlusSignIcon}
@@ -110,13 +110,13 @@ function VendorPaymentsRouteComponent() {
             <>
               <TableFilterSelect
                 label="City"
-                onChange={(val) => setCityFilter(val || null)}
+                onChange={stableOnChange3}
                 options={cityOptions}
                 value={cityFilter ?? ""}
               />
               <TableFilterSelect
                 label="Status"
-                onChange={(val) => setStatusFilter(val || null)}
+                onChange={stableOnChange4}
                 options={STATUS_OPTIONS}
                 value={statusFilter ?? ""}
               />

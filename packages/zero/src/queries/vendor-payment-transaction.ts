@@ -11,19 +11,19 @@ function withRelated(q: typeof zql.vendorPaymentTransaction) {
 }
 
 export const vendorPaymentTransactionQueries = {
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
+    ctx !== null && can(ctx, "requests.view_all")
+      ? withRelated(zql.vendorPaymentTransaction).where("id", id).one()
+      : withRelated(zql.vendorPaymentTransaction)
+          .where("id", id)
+          .where("userId", ctx?.userId)
+          .one()
+  ),
   byVendorPayment: defineQuery(
     z.object({ vendorPaymentId: z.string() }),
     ({ args: { vendorPaymentId } }) =>
       withRelated(zql.vendorPaymentTransaction)
         .where("vendorPaymentId", vendorPaymentId)
         .orderBy("createdAt", "desc")
-  ),
-  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
-    ctx != null && can(ctx, "requests.view_all")
-      ? withRelated(zql.vendorPaymentTransaction).where("id", id).one()
-      : withRelated(zql.vendorPaymentTransaction)
-          .where("id", id)
-          .where("userId", ctx?.userId)
-          .one()
   ),
 };

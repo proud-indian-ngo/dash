@@ -22,21 +22,21 @@ export async function sendNotificationEmail(
   try {
     await transporter.sendMail({
       from: env.SMTP_FROM,
-      to: options.toEmail,
-      subject: stripLeadingEmoji(options.title),
-      html: options.emailHtml ?? `<p>${options.body}</p>`,
       headers: {
         "List-Unsubscribe": `<${env.APP_URL}/settings/notifications>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
+      html: options.emailHtml ?? `<p>${options.body}</p>`,
+      subject: stripLeadingEmoji(options.title),
+      to: options.toEmail,
     });
     return true;
   } catch (error) {
     const log = createRequestLogger();
     log.set({
       handler: "sendNotificationEmail",
-      to: options.toEmail,
       subject: stripLeadingEmoji(options.title),
+      to: options.toEmail,
     });
     log.error(error instanceof Error ? error : String(error));
     log.emit();

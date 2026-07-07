@@ -115,11 +115,11 @@ const DEAD_LETTER_QUEUE = "dead-letter";
 const DEAD_LETTER_SCHEDULED_WHATSAPP = "dead-letter-scheduled-whatsapp";
 
 const QUEUE_DEFAULTS: Omit<Queue, "name"> = {
-  retryLimit: 3,
-  retryDelay: 5,
-  retryBackoff: true,
-  expireInSeconds: 900, // 15 min
   deadLetter: DEAD_LETTER_QUEUE,
+  expireInSeconds: 900, // 15 min
+  retryBackoff: true,
+  retryDelay: 5,
+  retryLimit: 3,
 };
 
 // Queues that need longer expiry or custom config
@@ -128,8 +128,8 @@ const QUEUE_OVERRIDES: Partial<
 > = {
   "cleanup-r2-orphans": { expireInSeconds: 3600 },
   "immich-sync-photo": { expireInSeconds: 1800 },
-  "whatsapp-create-group": { expireInSeconds: 1800 },
   "send-scheduled-whatsapp": { deadLetter: DEAD_LETTER_SCHEDULED_WHATSAPP },
+  "whatsapp-create-group": { expireInSeconds: 1800 },
 };
 
 // Low-traffic notification queues poll less frequently to reduce DB load
@@ -149,12 +149,14 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   );
 
   // Create all application queues
-  for (const name of QUEUE_NAMES) {
-    await boss.createQueue(name, {
-      ...QUEUE_DEFAULTS,
-      ...QUEUE_OVERRIDES[name],
-    });
-  }
+  await Promise.all(
+    QUEUE_NAMES.map(async (name) => {
+      await boss.createQueue(name, {
+        ...QUEUE_DEFAULTS,
+        ...QUEUE_OVERRIDES[name],
+      });
+    })
+  );
 
   // Low-level handlers (default 2s polling — high priority)
   await boss.work(

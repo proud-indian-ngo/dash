@@ -36,6 +36,12 @@ function RowActions({
   roleId: string;
 }) {
   const navigate = useNavigate();
+  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick1 = () =>
+    navigate({
+      params: { roleId },
+      to: "/settings/roles/$roleId",
+    });
 
   return (
     <DropdownMenu>
@@ -44,7 +50,7 @@ function RowActions({
           <Button
             aria-label="Row actions"
             data-testid="row-actions"
-            onClick={(e) => e.stopPropagation()}
+            onClick={stableOnClick0}
             size="icon"
             type="button"
             variant="ghost"
@@ -58,14 +64,7 @@ function RowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem
-          onClick={() =>
-            navigate({
-              to: "/settings/roles/$roleId",
-              params: { roleId },
-            })
-          }
-        >
+        <DropdownMenuItem onClick={stableOnClick1}>
           {roleId === "admin" ? "View" : "Edit"}
         </DropdownMenuItem>
         {!isSystem && (
@@ -116,18 +115,14 @@ export function RolesTable({
 }: RolesTableProps) {
   const navigate = useNavigate();
   const deleteAction = useConfirmAction<{ id: string; name: string }>({
-    onConfirm: (payload) => onDelete(payload),
+    onConfirm: (payload: any) => onDelete(payload),
+    onError: (msg: any) => toast.error(msg ?? "Couldn't delete role"),
     onSuccess: () => toast.success("Role removed"),
-    onError: (msg) => toast.error(msg ?? "Couldn't delete role"),
   });
 
   const columns: ColumnDef<RoleListItem>[] = [
     {
-      id: "name",
-      accessorFn: (row) => row.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Name" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.name,
       cell: ({ row }) => (
         <div className="min-w-0">
           <div className="truncate font-medium text-sm">
@@ -138,12 +133,20 @@ export function RolesTable({
           </div>
         </div>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      id: "name",
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
       size: 200,
     },
     {
-      id: "description",
-      accessorFn: (row) => row.description ?? "",
+      accessorFn: (row: any) => row.description ?? "",
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.description || "\u2014"}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -151,32 +154,30 @@ export function RolesTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.description || "\u2014"}
-        </span>
-      ),
+      id: "description",
       meta: { headerTitle: "Description", skeleton: SKELETON_DESCRIPTION },
       size: 280,
     },
     {
-      id: "type",
-      accessorFn: (row) => (row.isSystem ? "System" : "Custom"),
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Type" visibility={true} />
-      ),
+      accessorFn: (row: any) => (row.isSystem ? "System" : "Custom"),
       cell: ({ row }) =>
         row.original.isSystem ? (
           <Badge variant="info-light">System</Badge>
         ) : (
           <Badge variant="success-light">Custom</Badge>
         ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Type" visibility={true} />
+      ),
+      id: "type",
       meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
       size: 110,
     },
     {
-      id: "permissionCount",
-      accessorFn: (row) => row.permissionCount,
+      accessorFn: (row: any) => row.permissionCount,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.permissionCount}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -184,27 +185,23 @@ export function RolesTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.permissionCount}</span>
-      ),
+      id: "permissionCount",
       meta: { headerTitle: "Permissions", skeleton: SKELETON_COUNT },
       size: 130,
     },
     {
-      id: "userCount",
-      accessorFn: (row) => row.userCount,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Users" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.userCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.userCount}</span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Users" visibility={true} />
+      ),
+      id: "userCount",
       meta: { headerTitle: "Users", skeleton: SKELETON_COUNT },
       size: 110,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => (
         <RowActions
           isSystem={row.original.isSystem}
@@ -217,21 +214,34 @@ export function RolesTable({
           roleId={row.original.id}
         />
       ),
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
+      maxSize: 52,
       meta: {
+        cellClassName: "text-center",
         headerTitle: "",
         skeleton: SKELETON_ACTIONS,
-        cellClassName: "text-center",
         stopRowClick: true,
       },
-      size: 52,
       minSize: 52,
-      maxSize: 52,
+      size: 52,
     },
   ];
+  const stableGetRowId2 = (row: any) => row.id;
+  const stableOnRowClick3 = (row: any) =>
+    navigate({
+      params: { roleId: row.id },
+      to: "/settings/roles/$roleId",
+    });
+  const stableOnOpenChange4 = (open: any) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  };
 
   return (
     <>
@@ -239,25 +249,20 @@ export function RolesTable({
         columns={columns}
         data={data}
         emptyMessage="No roles found."
-        getRowId={(row) => row.id}
+        getRowId={stableGetRowId2}
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
-        onRowClick={(row) =>
-          navigate({
-            to: "/settings/roles/$roleId",
-            params: { roleId: row.id },
-          })
-        }
+        onRowClick={stableOnRowClick3}
         searchFn={searchRole}
         searchPlaceholder="Search roles..."
         storageKey="roles_table_state_v1"
         tableLayout={{
-          columnsResizable: true,
           columnsDraggable: true,
           columnsMovable: true,
-          columnsVisibility: true,
           columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
         toolbarFilters={toolbarFilters}
@@ -268,11 +273,7 @@ export function RolesTable({
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange4}
         open={deleteAction.isOpen}
         title="Delete role"
         variant="destructive"

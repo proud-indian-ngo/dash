@@ -49,10 +49,10 @@ test.describe("Vendor unhappy paths (admin)", () => {
     await expect(createDialog).toBeVisible();
 
     await createDialog
-      .getByRole("textbox", { name: "Name", exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill(vendorName);
     await createDialog
-      .getByRole("textbox", { name: "Phone", exact: true })
+      .getByRole("textbox", { exact: true, name: "Phone" })
       .fill("+91-9876543210");
     await createDialog
       .getByRole("textbox", { name: "Bank Account Name" })

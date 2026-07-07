@@ -12,17 +12,17 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
     clientGroupID: `e2e-interest-cg-${suffix}`,
     mutations: [
       {
-        type: "custom" as const,
-        id: 1,
-        clientID: `e2e-interest-${suffix}`,
-        name: mutationName,
         args: [args],
+        clientID: `e2e-interest-${suffix}`,
+        id: 1,
+        name: mutationName,
         timestamp: Date.now(),
+        type: "custom" as const,
       },
     ],
     pushVersion: 1,
-    timestamp: Date.now(),
     requestID: `e2e-interest-req-${suffix}`,
+    timestamp: Date.now(),
   };
 }
 
@@ -39,8 +39,8 @@ test.describe("Event interest unhappy paths (volunteer)", () => {
   }) => {
     // With a fake eventId, the mutator should find no event and throw
     const body = buildMutateBody("eventInterest.create", {
-      id: FAKE_ID,
       eventId: FAKE_ID,
+      id: FAKE_ID,
       message: "I'm interested!",
       now: Date.now(),
     });
@@ -63,7 +63,7 @@ test.describe("Event interest unhappy paths (volunteer)", () => {
     await page.goto("/events");
     await waitForZeroReady(page);
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible();
 
     // Find any public event row and open it

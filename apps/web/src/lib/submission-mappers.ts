@@ -20,26 +20,26 @@ interface RawAttachment {
 export function mapLineItemsToFormValues(
   lineItems: readonly RawLineItem[]
 ): LineItem[] {
-  return lineItems.map((li) => ({
-    id: li.id,
+  return lineItems.map((li: any) => ({
+    amount: String(li.amount),
     categoryId: li.categoryId,
     description: li.description ?? "",
-    amount: String(li.amount),
     generateVoucher: li.generateVoucher ?? false,
+    id: li.id,
   }));
 }
 
 export function mapAttachmentsToFormValues(
   attachments: readonly RawAttachment[]
 ): Attachment[] {
-  return attachments.map((att) =>
+  return attachments.map((att: any) =>
     att.type === "file"
       ? {
-          id: att.id,
-          type: "file" as const,
           filename: att.filename ?? "attachment",
-          objectKey: att.objectKey ?? "",
+          id: att.id,
           mimeType: att.mimeType ?? undefined,
+          objectKey: att.objectKey ?? "",
+          type: "file" as const,
         }
       : {
           id: att.id,
@@ -61,12 +61,12 @@ interface RawTransaction {
 export function mapTransactionToFormValues(t: RawTransaction) {
   return {
     amount: String(t.amount),
+    attachments: mapAttachmentsToFormValues(t.attachments ?? []),
     description: (t.description as string) ?? "",
+    paymentMethod: (t.paymentMethod as string) ?? "",
+    paymentReference: (t.paymentReference as string) ?? "",
     transactionDate: t.transactionDate
       ? new Date(t.transactionDate)
       : new Date(),
-    paymentMethod: (t.paymentMethod as string) ?? "",
-    paymentReference: (t.paymentReference as string) ?? "",
-    attachments: mapAttachmentsToFormValues(t.attachments ?? []),
   };
 }

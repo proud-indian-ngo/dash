@@ -30,25 +30,25 @@ async function uploadSingleFile(
 ): Promise<MediaAttachment> {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
+      entityId,
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type as AllowedMimeType,
       subfolder: "scheduled-messages",
-      entityId,
     },
   });
 
   const response = await fetch(presignedUrl, {
-    method: "PUT",
     body: file,
     headers: { "Content-Type": file.type || "application/octet-stream" },
+    method: "PUT",
   });
 
   if (!response.ok) {
     throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
   }
 
-  return { r2Key: key, fileName: file.name, mimeType: file.type };
+  return { fileName: file.name, mimeType: file.type, r2Key: key };
 }
 
 export interface MediaAttachment {
@@ -85,24 +85,26 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
       const filesToUpload = files.slice(0, currentRemaining);
       const uploaded: MediaAttachment[] = [];
 
-      for (const file of filesToUpload) {
-        try {
-          const attachment = await uploadSingleFile(
-            file,
-            entityId,
-            getUploadUrl
-          );
-          uploaded.push(attachment);
-        } catch (error) {
-          log.error({
-            component: "MediaUpload",
-            action: "uploadFile",
-            fileName: file.name,
-            message: error instanceof Error ? error.message : String(error),
-          });
-          toast.error(`Failed to upload ${file.name}`);
-        }
-      }
+      await Promise.all(
+        filesToUpload.map(async (file: any) => {
+          try {
+            const attachment = await uploadSingleFile(
+              file,
+              entityId,
+              getUploadUrl
+            );
+            uploaded.push(attachment);
+          } catch (error) {
+            log.error({
+              action: "uploadFile",
+              component: "MediaUpload",
+              fileName: file.name,
+              message: error instanceof Error ? error.message : String(error),
+            });
+            toast.error(`Failed to upload ${file.name}`);
+          }
+        })
+      );
 
       if (uploaded.length > 0) {
         onChange([...valueRef.current, ...uploaded]);
@@ -130,12 +132,12 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
     },
     onFilesAdded: (addedFiles: FileWithPreview[]) => {
       const files = addedFiles
-        .map((item) => item.file)
+        .map((item: any) => item.file)
         .filter((f): f is File => f instanceof File);
       uploadFiles(files).catch((error: unknown) => {
         log.error({
-          component: "MediaUpload",
           action: "onFilesAdded",
+          component: "MediaUpload",
           error: error instanceof Error ? error.message : String(error),
         });
         toast.error("Upload failed");
@@ -144,7 +146,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
   });
 
   const removeAttachment = (index: number) => {
-    onChange(value.filter((_, i) => i !== index));
+    onChange(value.filter((_: any, i: any) => i !== index));
   };
 
   return (
@@ -184,7 +186,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
               ? "Uploading..."
               : `Any file up to ${formatBytes(MAX_MEDIA_FILE_SIZE)}`}
           </p>
-          {!isUploading && (
+          {Boolean(!isUploading) && (
             <p className="text-muted-foreground/60 text-xs">
               JPG, PNG sent as images. MP4 sent as video. Others sent as files.
             </p>
@@ -194,7 +196,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
 
       {value.length > 0 && (
         <div className="flex flex-col gap-1">
-          {value.map((attachment, index) => (
+          {value.map((attachment: any, index: any) => (
             <div
               className="flex items-center gap-2 rounded-md border px-3 py-1.5"
               key={attachment.r2Key}

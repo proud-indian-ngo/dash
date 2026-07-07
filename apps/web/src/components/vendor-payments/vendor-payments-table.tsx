@@ -32,7 +32,10 @@ import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 function computeTotal(
   lineItems: VendorPaymentWithRelations["lineItems"]
 ): number {
-  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
+  return lineItems.reduce(
+    (sum: any, item: any) => sum + Number(item.amount),
+    0
+  );
 }
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
@@ -56,11 +59,11 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
   }
   return [
     row.title,
-    row.vendor?.name ?? "",
+    row.vendor?.name,
     row.status,
-    row.user?.name ?? "",
-    row.invoiceNumber ?? "",
-    row.event?.name ?? "",
+    row.user?.name,
+    row.invoiceNumber,
+    row.event?.name,
   ]
     .join(" ")
     .toLowerCase()
@@ -93,37 +96,37 @@ export function VendorPaymentsTable({
   onClearFilters,
 }: VendorPaymentsTableProps) {
   const { data: session } = authClient.useSession();
-  const currentUserId = session?.user?.id ?? "";
+  const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
   const deleteAction = useConfirmAction<{ id: string; title: string }>({
-    onConfirm: (payload) =>
-      onDelete?.(payload.id) ??
-      Promise.resolve({
-        type: "error" as const,
-        error: { message: "No handler" },
-      }),
+    onConfirm: async (payload) =>
+      onDelete ? onDelete(payload.id) : { type: "success" },
+    onError: (msg: any) => toast.error(msg),
     onSuccess: () => toast.success("Vendor payment removed"),
-    onError: (msg) => toast.error(msg ?? "Couldn't delete vendor payment"),
   });
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {
-      id: "title",
-      accessorFn: (row) => row.title,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Title" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.title,
       cell: ({ row }) => (
         <span className="truncate font-medium text-sm">
           {row.original.title}
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Title" visibility={true} />
+      ),
+      id: "title",
       meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
-      size: 240,
       minSize: 200,
+      size: 240,
     },
     {
-      id: "vendor",
-      accessorFn: (row) => row.vendor?.name ?? "",
+      accessorFn: (row: any) => row.vendor?.name,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.vendor?.name}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -131,57 +134,45 @@ export function VendorPaymentsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.vendor?.name ?? "—"}
-        </span>
-      ),
+      id: "vendor",
       meta: { headerTitle: "Vendor", skeleton: SKELETON_TEXT },
-      size: 180,
       minSize: 120,
+      size: 180,
     },
     {
-      id: "city",
-      accessorFn: (row) => row.city,
+      accessorFn: (row: any) => row.city,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm capitalize">
+          {row.original.city}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
-          {row.original.city ?? "—"}
-        </span>
-      ),
+      id: "city",
       meta: { headerTitle: "City", skeleton: SKELETON_TEXT },
-      size: 120,
       minSize: 100,
+      size: 120,
     },
     {
-      id: "event",
-      accessorFn: (row) => row.event?.name ?? "",
+      accessorFn: (row: any) => row.event?.name,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.event?.name}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Event" visibility={true} />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.event?.name ?? "—"}
-        </span>
-      ),
+      id: "event",
       meta: { headerTitle: "Event", skeleton: SKELETON_TEXT },
-      size: 180,
       minSize: 120,
+      size: 180,
     },
     {
-      id: "submittedBy",
-      accessorFn: (row) => row.user?.name ?? "",
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Submitted by"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => row.user?.name,
       cell: ({ row }) => {
-        const user = row.original.user;
+        const { user } = row.original;
         if (!user) {
           return <span className="text-muted-foreground text-sm">—</span>;
         }
@@ -201,13 +192,25 @@ export function VendorPaymentsTable({
           </UserHoverCard>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Submitted by"
+          visibility={true}
+        />
+      ),
+      id: "submittedBy",
       meta: { headerTitle: "Submitted by", skeleton: SKELETON_USER },
-      size: 220,
       minSize: 180,
+      size: 220,
     },
     {
-      id: "total",
-      accessorFn: (row) => computeTotal(row.lineItems),
+      accessorFn: (row: any) => computeTotal(row.lineItems),
+      cell: ({ row }) => (
+        <span className="truncate text-sm tabular-nums">
+          {formatINR(computeTotal(row.original.lineItems))}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -215,19 +218,21 @@ export function VendorPaymentsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-sm tabular-nums">
-          {formatINR(computeTotal(row.original.lineItems))}
-        </span>
-      ),
+      id: "total",
       meta: { headerTitle: "Amount", skeleton: SKELETON_TOTAL },
-      size: 120,
       minSize: 100,
+      size: 120,
     },
     {
-      id: "submittedAt",
-      accessorFn: (row) =>
-        row.submittedAt == null ? "—" : format(row.submittedAt, SHORT_DATE),
+      accessorFn: (row: any) =>
+        row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.submittedAt === null
+            ? "—"
+            : format(row.original.submittedAt, SHORT_DATE)}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -235,19 +240,16 @@ export function VendorPaymentsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.submittedAt == null
-            ? "—"
-            : format(row.original.submittedAt, SHORT_DATE)}
-        </span>
-      ),
+      id: "submittedAt",
       meta: { headerTitle: "Submitted", skeleton: SKELETON_TEXT },
       size: 130,
     },
     {
-      id: "status",
-      accessorFn: (row) => row.status,
+      accessorFn: (row: any) => row.status,
+      cell: ({ row }) => {
+        const { label, variant } = getStatusBadge(row.original.status);
+        return <Badge variant={variant}>{label}</Badge>;
+      },
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -255,24 +257,21 @@ export function VendorPaymentsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => {
-        const { label, variant } = getStatusBadge(row.original.status);
-        return <Badge variant={variant}>{label}</Badge>;
-      },
+      id: "status",
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
       size: 130,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => {
         const request = row.original;
         const id = request.id as string;
-        const canEdit = canEditVendorPaymentSubmission(
-          request,
-          currentUserId,
-          hasPermission
-        );
+        const canEdit = currentUserId
+          ? canEditVendorPaymentSubmission(
+              request,
+              currentUserId,
+              hasPermission
+            )
+          : false;
 
         return (
           <DropdownMenu>
@@ -282,7 +281,7 @@ export function VendorPaymentsTable({
                   aria-label="Row actions"
                   className="size-8"
                   data-testid="row-actions"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e: any) => e.stopPropagation()}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -334,15 +333,24 @@ export function VendorPaymentsTable({
           </DropdownMenu>
         );
       },
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
       meta: { cellClassName: "text-center", stopRowClick: true },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
+  const stableGetRowId0 = (row: any) => row.id as string;
+  const stableOnRowClick1 = (row: any) => onNavigate(row.id as string);
+  const stableOnOpenChange2 = (open: any) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  };
 
   return (
     <>
@@ -351,34 +359,30 @@ export function VendorPaymentsTable({
         data={data}
         defaultColumnVisibility={{ event: false }}
         emptyMessage="No vendor payments found."
-        getRowId={(row) => row.id as string}
+        getRowId={stableGetRowId0}
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
-        onRowClick={(row) => onNavigate(row.id as string)}
+        onRowClick={stableOnRowClick1}
         searchFn={searchFn}
         searchPlaceholder="Search vendor payments..."
         storageKey="vendor_payments_table_state_v1"
         tableLayout={{
-          columnsResizable: true,
           columnsDraggable: true,
-          columnsVisibility: true,
           columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
         toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete payment"
-        description={`This will permanently delete "${deleteAction.payload?.title ?? ""}". This action cannot be undone.`}
+        description={`This will permanently delete "${deleteAction.payload?.title}". This action cannot be undone.`}
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange2}
         open={deleteAction.isOpen}
         title="Delete vendor payment"
         variant="destructive"

@@ -25,8 +25,8 @@ async function cleanupR2IfAllTerminal(scheduledMessageId: string) {
 
   const siblings = await db
     .select({
-      status: scheduledMessageRecipient.status,
       retryCount: scheduledMessageRecipient.retryCount,
+      status: scheduledMessageRecipient.status,
     })
     .from(scheduledMessageRecipient)
     .where(
@@ -38,7 +38,7 @@ async function cleanupR2IfAllTerminal(scheduledMessageId: string) {
     if (s.status === "sent" || s.status === "cancelled") {
       return true;
     }
-    if (s.status === "failed" && (s.retryCount ?? 0) >= MAX_RECIPIENT_RETRIES) {
+    if (s.status === "failed" && s.retryCount >= MAX_RECIPIENT_RETRIES) {
       return true;
     }
     return false;
@@ -60,13 +60,15 @@ async function cleanupR2IfAllTerminal(scheduledMessageId: string) {
 
   log.set({ attachmentCount: parent.attachments.length });
 
-  for (const att of parent.attachments) {
-    try {
-      await enqueue("delete-r2-object", { r2Key: att.r2Key });
-    } catch {
-      log.error(`Failed to enqueue R2 cleanup for ${att.r2Key}`);
-    }
-  }
+  await Promise.all(
+    parent.attachments.map(async (att) => {
+      try {
+        await enqueue("delete-r2-object", { r2Key: att.r2Key });
+      } catch {
+        log.error(`Failed to enqueue R2 cleanup for ${att.r2Key}`);
+      }
+    })
+  );
 
   log.set({ event: "r2_cleanup_complete" });
   log.emit();
@@ -142,7 +144,7 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     return;
   }
 
-  log.set({ attachmentCount: attachments?.length ?? 0 });
+  log.set({ attachmentCount: attachments?.length });
 
   if (attachments && attachments.length > 0) {
     const cdnUrl = env.VITE_CDN_URL;
@@ -157,9 +159,11 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     // NOTE: On retry, previously sent attachments may be re-delivered (duplicated).
     // This is an accepted trade-off — tracking per-attachment send progress would add
     // significant complexity for a rare edge case.
-    for (const attachment of mediaAttachments.slice(0, -1)) {
-      await sendWhatsAppMedia(targetAddress, attachment);
-    }
+    await Promise.all(
+      mediaAttachments.slice(0, -1).map(async (attachment) => {
+        await sendWhatsAppMedia(targetAddress, attachment);
+      })
+    );
     const lastAttachment = mediaAttachments.at(-1) as WhatsAppMediaAttachment;
     await sendWhatsAppMedia(targetAddress, lastAttachment, message);
   } else {
@@ -172,7 +176,7 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
 
   await db
     .update(scheduledMessageRecipient)
-    .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
+    .set({ sentAt: new Date(), status: "sent", updatedAt: new Date() })
     .where(eq(scheduledMessageRecipient.id, recipientRowId));
 
   log.set({ event: "job_complete" });
@@ -202,8 +206,8 @@ export async function handleDeadLetterScheduledWhatsApp(
     await db
       .update(scheduledMessageRecipient)
       .set({
-        status: "failed",
         error: "All retries exhausted",
+        status: "failed",
         updatedAt: new Date(),
       })
       .where(eq(scheduledMessageRecipient.id, recipientRowId));

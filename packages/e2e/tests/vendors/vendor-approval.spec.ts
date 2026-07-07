@@ -21,10 +21,10 @@ test.describe("Vendor approval/unapproval (admin)", () => {
     await expect(dialog).toBeVisible();
 
     await dialog
-      .getByRole("textbox", { name: "Name", exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill(vendorName);
     await dialog
-      .getByRole("textbox", { name: "Phone", exact: true })
+      .getByRole("textbox", { exact: true, name: "Phone" })
       .fill("+91-9876543210");
     await dialog
       .getByRole("textbox", { name: "Bank Account Name" })

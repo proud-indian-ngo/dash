@@ -7,7 +7,7 @@ export const eventFeedbackQueries = {
   byEvent: defineQuery(
     z.object({ eventId: z.string() }),
     ({ args: { eventId }, ctx }) =>
-      ctx != null && can(ctx, "events.manage_feedback")
+      ctx !== null && can(ctx, "events.manage_feedback")
         ? zql.eventFeedback
             .where("eventId", eventId)
             .orderBy("createdAt", "desc")

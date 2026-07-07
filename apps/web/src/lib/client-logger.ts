@@ -19,20 +19,20 @@ export function initClientLogger() {
   const drain = createHttpLogDrain({
     drain: { endpoint: "/api/log/ingest" },
     pipeline: {
-      batch: { size: 25, intervalMs: 2000 },
+      batch: { intervalMs: 2000, size: 25 },
       retry: { maxAttempts: 2 },
     },
   });
 
   initLogger({
+    drain,
     env: { service: "pi-dash-client" },
     pretty: import.meta.env.DEV,
-    drain,
   });
 }
 
 export function setLogIdentity(userId: string, role: string) {
-  evlogSetIdentity({ userId, role });
+  evlogSetIdentity({ role, userId });
 }
 
 export function clearLogIdentity() {

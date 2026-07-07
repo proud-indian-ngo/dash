@@ -28,23 +28,23 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   const isLoading = preferences.length === 0 && result.type !== "complete";
 
-  const prefMap = new Map(preferences.map((p) => [p.topicId, p]));
+  const prefMap = new Map(preferences.map((p: any) => [p.topicId, p]));
 
-  const topicsWithPrefs = TOPIC_CATALOG.map((meta) => {
+  const topicsWithPrefs = TOPIC_CATALOG.map((meta: any) => {
     const pref = prefMap.get(meta.id);
     return {
+      description: meta.description,
+      emailEnabled: pref?.emailEnabled ?? true,
+      group: meta.group,
+      inboxEnabled: pref?.inboxEnabled ?? true,
+      required: meta.required,
       topicId: meta.id,
       topicName: meta.name,
-      description: meta.description,
-      group: meta.group,
-      required: meta.required,
-      inboxEnabled: pref?.inboxEnabled ?? true,
-      emailEnabled: pref?.emailEnabled ?? true,
       whatsappEnabled: pref?.whatsappEnabled ?? true,
     };
   });
 
-  const groupedTopics = groupBy(topicsWithPrefs, (t) => t.group);
+  const groupedTopics = groupBy(topicsWithPrefs, (t: any) => t.group);
 
   const handleToggle = async (
     topicId: string,
@@ -54,27 +54,27 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
     try {
       const res = await zero.mutate(
         mutators.notificationPreference.adminUpsert({
-          userId,
-          topicId,
           channel,
           enabled,
+          topicId,
+          userId,
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "notificationPreference.adminUpsert",
         entityId: topicId,
-        successMsg: enabled ? "Notification enabled" : "Notification disabled",
         errorMsg: "Couldn't update notification preference",
+        mutation: "notificationPreference.adminUpsert",
+        successMsg: enabled ? "Notification enabled" : "Notification disabled",
       });
     } catch (error) {
       log.error({
-        component: "UserNotificationsForm",
         action: "updatePreference",
-        userId,
-        topicId,
         channel,
+        component: "UserNotificationsForm",
         enabled,
         error: error instanceof Error ? error.message : String(error),
+        topicId,
+        userId,
       });
       toast.error("Couldn't update notification preference");
     }
@@ -85,7 +85,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
       <div className="flex flex-col gap-6 p-4">
         <Skeleton className="h-4 w-64" />
         <div className="space-y-6">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7].map((i: any) => (
             <div
               className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
               key={i}
@@ -108,7 +108,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
+      {NOTIFICATION_GROUP_ORDER.flatMap((groupName: any, groupIndex: any) => {
         const items = groupedTopics.get(groupName);
         if (!items || items.length === 0) {
           return [];
@@ -149,7 +149,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                 </div>
               )}
             </div>
-            {items.map((topic) => (
+            {items.map((topic: any) => (
               <div
                 className="flex items-center justify-between gap-4"
                 key={topic.topicId}
@@ -168,7 +168,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                     checked={topic.inboxEnabled}
                     disabled={topic.required}
                     id={`${topic.topicId}-inbox`}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked: any) =>
                       handleToggle(topic.topicId, "inbox", checked)
                     }
                   />
@@ -177,7 +177,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                     checked={topic.emailEnabled}
                     disabled={topic.required}
                     id={`${topic.topicId}-email`}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked: any) =>
                       handleToggle(topic.topicId, "email", checked)
                     }
                   />
@@ -186,7 +186,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                     checked={topic.whatsappEnabled}
                     disabled={topic.required}
                     id={`${topic.topicId}-whatsapp`}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked: any) =>
                       handleToggle(topic.topicId, "whatsapp", checked)
                     }
                   />

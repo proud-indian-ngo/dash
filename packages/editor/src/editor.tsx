@@ -10,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_SIZE_BYTES,
@@ -58,13 +59,15 @@ function safeParse(json: string): Value | undefined {
   try {
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : undefined;
-  } catch (error) {
+  } catch (caughtError) {
     log.warn({
-      component: "PlateEditor",
       action: "parseContent",
-      error: error instanceof Error ? error.message : String(error),
+      caughtError:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      component: "PlateEditor",
     });
-    return undefined;
   }
 }
 
@@ -151,16 +154,19 @@ export function PlateEditor({
       }
 
       const imageNode: TImageElement = {
+        children: [{ text: "" }],
         type: "img",
         url: result.url,
-        children: [{ text: "" }],
       };
       editor.tf.insertNodes(imageNode);
-    } catch (error) {
-      log.error({
-        component: "PlateEditor",
+    } catch (caughtError) {
+      log.warn({
         action: "imageUpload",
-        error: error instanceof Error ? error.message : String(error),
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "PlateEditor",
       });
       toast.error("Failed to upload image. Please try again.");
     }
@@ -175,7 +181,7 @@ export function PlateEditor({
   }
 
   function handleSave() {
-    const children = editor.children;
+    const { children } = editor;
     if (!Array.isArray(children) || children.length === 0) {
       return;
     }
@@ -184,6 +190,7 @@ export function PlateEditor({
   }
 
   const preventToolbarFocus = (e: MouseEvent) => e.preventDefault();
+  const stableOnClick0 = useEventCallback(() => fileInputRef.current?.click());
 
   return (
     <div className={className}>
@@ -237,10 +244,10 @@ export function PlateEditor({
               <LinkToolbarButton />
               <TableToolbarButton />
               <EmojiToolbarButton />
-              {onImageUpload && (
+              {Boolean(onImageUpload) && (
                 <>
                   <ToolbarButton
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={stableOnClick0}
                     onMouseDown={preventToolbarFocus}
                     tooltip="Upload image"
                   >
@@ -299,7 +306,7 @@ function SaveBar({
       >
         {saving ? "Saving…" : "Save"}
       </Button>
-      {onCancel && (
+      {Boolean(onCancel) && (
         <Button
           disabled={saving}
           onClick={onCancel}

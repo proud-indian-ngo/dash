@@ -7,29 +7,29 @@ import {
 describe("mapLineItemsToFormValues", () => {
   it("maps line items with numeric amounts to strings", () => {
     const result = mapLineItemsToFormValues([
-      { id: "1", categoryId: "c1", description: "Taxi", amount: 150.5 },
+      { amount: 150.5, categoryId: "c1", description: "Taxi", id: "1" },
     ]);
     expect(result).toEqual([
       {
-        id: "1",
+        amount: "150.5",
         categoryId: "c1",
         description: "Taxi",
-        amount: "150.5",
         generateVoucher: false,
+        id: "1",
       },
     ]);
   });
 
   it("maps null description to empty string", () => {
     const result = mapLineItemsToFormValues([
-      { id: "1", categoryId: "c1", description: null, amount: 100 },
+      { amount: 100, categoryId: "c1", description: null, id: "1" },
     ]);
     expect(result.at(0)?.description).toBe("");
   });
 
   it("handles string amounts", () => {
     const result = mapLineItemsToFormValues([
-      { id: "1", categoryId: "c1", description: "A", amount: "200" },
+      { amount: "200", categoryId: "c1", description: "A", id: "1" },
     ]);
     expect(result.at(0)?.amount).toBe("200");
   });
@@ -43,20 +43,20 @@ describe("mapAttachmentsToFormValues", () => {
   it("maps file attachment with all fields", () => {
     const result = mapAttachmentsToFormValues([
       {
-        id: "a1",
-        type: "file",
         filename: "doc.pdf",
-        objectKey: "uploads/doc.pdf",
+        id: "a1",
         mimeType: "application/pdf",
+        objectKey: "uploads/doc.pdf",
+        type: "file",
       },
     ]);
     expect(result).toEqual([
       {
-        id: "a1",
-        type: "file",
         filename: "doc.pdf",
-        objectKey: "uploads/doc.pdf",
+        id: "a1",
         mimeType: "application/pdf",
+        objectKey: "uploads/doc.pdf",
+        type: "file",
       },
     ]);
   });
@@ -64,19 +64,19 @@ describe("mapAttachmentsToFormValues", () => {
   it("maps file attachment with null filename to fallback", () => {
     const result = mapAttachmentsToFormValues([
       {
-        id: "a1",
-        type: "file",
         filename: null,
-        objectKey: "key",
+        id: "a1",
         mimeType: null,
+        objectKey: "key",
+        type: "file",
       },
     ]);
     expect(result[0]).toEqual({
-      id: "a1",
-      type: "file",
       filename: "attachment",
-      objectKey: "key",
+      id: "a1",
       mimeType: undefined,
+      objectKey: "key",
+      type: "file",
     });
   });
 
@@ -98,7 +98,7 @@ describe("mapAttachmentsToFormValues", () => {
 
   it("handles mixed attachments", () => {
     const result = mapAttachmentsToFormValues([
-      { id: "a1", type: "file", filename: "x.pdf", objectKey: "k1" },
+      { filename: "x.pdf", id: "a1", objectKey: "k1", type: "file" },
       { id: "a2", type: "url", url: "https://test.com" },
     ]);
     expect(result).toHaveLength(2);

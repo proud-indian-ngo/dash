@@ -121,7 +121,7 @@ test.describe("Export CSV (admin)", () => {
       page.getByRole("checkbox", { name: "Partially Paid" })
     ).toBeVisible();
     await expect(
-      page.getByRole("checkbox", { name: "Paid", exact: true })
+      page.getByRole("checkbox", { exact: true, name: "Paid" })
     ).toBeVisible();
   });
 
@@ -153,17 +153,19 @@ test.describe("Export CSV (admin)", () => {
 
     // Uncheck all VP statuses (use exact to avoid "Pending" matching "Invoice Pending",
     // and "Paid" matching "Partially Paid")
-    for (const status of [
-      "Approved",
-      "Rejected",
-      "Partially Paid",
-      "Invoice Pending",
-      "Completed",
-    ]) {
-      await page.getByRole("checkbox", { name: status }).click();
-    }
-    await page.getByRole("checkbox", { name: "Pending", exact: true }).click();
-    await page.getByRole("checkbox", { name: "Paid", exact: true }).click();
+    await Promise.all(
+      [
+        "Approved",
+        "Rejected",
+        "Partially Paid",
+        "Invoice Pending",
+        "Completed",
+      ].map(async (status) => {
+        await page.getByRole("checkbox", { name: status }).click();
+      })
+    );
+    await page.getByRole("checkbox", { exact: true, name: "Pending" }).click();
+    await page.getByRole("checkbox", { exact: true, name: "Paid" }).click();
 
     await expect(
       page.getByRole("button", { name: "Export CSV" })

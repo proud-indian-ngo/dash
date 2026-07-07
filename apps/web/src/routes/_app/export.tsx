@@ -31,18 +31,18 @@ import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/export")({
+  beforeLoad: ({ context }) => assertPermission(context, "requests.export"),
+  component: ExportRouteComponent,
   head: () => ({
     meta: [{ title: `Export Data | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => assertPermission(context, "requests.export"),
-  component: ExportRouteComponent,
 });
 
 const FY_OPTIONS = (() => {
   const now = new Date();
   const currentFyStart =
     now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  return Array.from({ length: 4 }, (_, i) => {
+  return Array.from({ length: 4 }, (_: any, i: any) => {
     const start = currentFyStart - i;
     return {
       label: `FY ${start}-${String(start + 1).slice(2)}`,
@@ -55,8 +55,8 @@ const ALL_STATUSES = ["pending", "approved", "rejected"] as const;
 type Status = (typeof ALL_STATUSES)[number];
 
 const STATUS_LABELS: Record<Status, string> = {
-  pending: "Pending",
   approved: "Approved",
+  pending: "Pending",
   rejected: "Rejected",
 };
 
@@ -64,13 +64,13 @@ const VP_STATUSES = vendorPaymentStatusValues;
 type VPStatus = (typeof VP_STATUSES)[number];
 
 const VP_STATUS_LABELS: Record<VPStatus, string> = {
-  pending: "Pending",
   approved: "Approved",
-  rejected: "Rejected",
-  partially_paid: "Partially Paid",
-  paid: "Paid",
-  invoice_pending: "Invoice Pending",
   completed: "Completed",
+  invoice_pending: "Invoice Pending",
+  paid: "Paid",
+  partially_paid: "Partially Paid",
+  pending: "Pending",
+  rejected: "Rejected",
 };
 
 const REQUEST_CSV_HEADERS = [
@@ -118,8 +118,8 @@ function formatAttachments(attachments: ExportAttachment[]): string {
     return "";
   }
   return attachments
-    .map((a) => getAttachmentPreviewHref(a))
-    .filter((href) => href !== "#")
+    .map((a: any) => getAttachmentPreviewHref(a))
+    .filter((href: any) => href !== "#")
     .join(" | ");
 }
 
@@ -233,7 +233,7 @@ async function exportRequests(
       ? undefined
       : [...opts.selectedStatuses];
   const result = await runExport({
-    data: { types, fyStart: opts.fyStartNum, statuses },
+    data: { fyStart: opts.fyStartNum, statuses, types },
   });
   const filename = buildRequestFilename(
     opts.includeReimbursements,
@@ -266,8 +266,8 @@ async function exportVendorPayments(
   const result = await runExport({
     data: {
       fyStart: opts.fyStartNum,
-      statuses,
       includeTransactions: opts.includeTransactions,
+      statuses,
     },
   });
   const dateSuffix = buildFyDateSuffix(opts.fyStartNum, opts.today);
@@ -308,20 +308,23 @@ async function runAllExports(opts: {
   if (opts.hasRequestSelection) {
     try {
       const label = await exportRequests(opts.runRequestExport, {
-        includeReimbursements: opts.includeReimbursements,
-        includeAdvancePayments: opts.includeAdvancePayments,
         fyStartNum: opts.fyStartNum,
+        includeAdvancePayments: opts.includeAdvancePayments,
+        includeReimbursements: opts.includeReimbursements,
         selectedStatuses: opts.selectedStatuses,
         today: opts.today,
       });
       exported.push(label);
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "ExportRoute",
         action: "exportRequests",
-        error: error instanceof Error ? error.message : String(error),
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "ExportRoute",
       });
-      errors.push(`Reimbursements: ${getErrorMessage(error)}`);
+      errors.push(`Reimbursements: ${getErrorMessage(caughtError)}`);
     }
   }
 
@@ -329,18 +332,21 @@ async function runAllExports(opts: {
     try {
       const labels = await exportVendorPayments(opts.runVPExport, {
         fyStartNum: opts.fyStartNum,
-        selectedVPStatuses: opts.selectedVPStatuses,
         includeTransactions: opts.includeTransactions,
+        selectedVPStatuses: opts.selectedVPStatuses,
         today: opts.today,
       });
       exported.push(...labels);
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "ExportRoute",
         action: "exportVendorPayments",
-        error: error instanceof Error ? error.message : String(error),
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        component: "ExportRoute",
       });
-      errors.push(`Vendor payments: ${getErrorMessage(error)}`);
+      errors.push(`Vendor payments: ${getErrorMessage(caughtError)}`);
     }
   }
 
@@ -389,22 +395,31 @@ function ExportRouteComponent() {
       const today = new Date().toISOString().slice(0, 10);
       const fyStartNum = Number(fyStart);
       await runAllExports({
+        fyStartNum,
         hasRequestSelection,
+        includeAdvancePayments,
+        includeReimbursements,
+        includeTransactions,
         includeVendorPayments,
         runRequestExport,
         runVPExport,
-        includeReimbursements,
-        includeAdvancePayments,
-        fyStartNum,
         selectedStatuses,
         selectedVPStatuses,
-        includeTransactions,
         today,
       });
     } finally {
       setIsExporting(false);
     }
   };
+  const stableOnCheckedChange0 = (checked: any) =>
+    setIncludeReimbursements(checked === true);
+  const stableOnCheckedChange1 = (checked: any) =>
+    setIncludeAdvancePayments(checked === true);
+  const stableOnCheckedChange2 = (checked: any) =>
+    setIncludeVendorPayments(checked === true);
+  const stableOnCheckedChange3 = (checked: any) =>
+    setIncludeTransactions(checked === true);
+  const stableOnValueChange4 = (v: any) => v && setFyStart(v);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -423,9 +438,7 @@ function ExportRouteComponent() {
             <Checkbox
               checked={includeReimbursements}
               id="reimbursements"
-              onCheckedChange={(checked) =>
-                setIncludeReimbursements(checked === true)
-              }
+              onCheckedChange={stableOnCheckedChange0}
             />
             <Label htmlFor="reimbursements">Reimbursements</Label>
           </div>
@@ -433,9 +446,7 @@ function ExportRouteComponent() {
             <Checkbox
               checked={includeAdvancePayments}
               id="advance-payments"
-              onCheckedChange={(checked) =>
-                setIncludeAdvancePayments(checked === true)
-              }
+              onCheckedChange={stableOnCheckedChange1}
             />
             <Label htmlFor="advance-payments">Advance Payments</Label>
           </div>
@@ -443,20 +454,16 @@ function ExportRouteComponent() {
             <Checkbox
               checked={includeVendorPayments}
               id="vendor-payments"
-              onCheckedChange={(checked) =>
-                setIncludeVendorPayments(checked === true)
-              }
+              onCheckedChange={stableOnCheckedChange2}
             />
             <Label htmlFor="vendor-payments">Vendor Payments</Label>
           </div>
-          {includeVendorPayments && (
+          {Boolean(includeVendorPayments) && (
             <div className="ml-6 flex items-center gap-2">
               <Checkbox
                 checked={includeTransactions}
                 id="include-transactions"
-                onCheckedChange={(checked) =>
-                  setIncludeTransactions(checked === true)
-                }
+                onCheckedChange={stableOnCheckedChange3}
               />
               <Label htmlFor="include-transactions">
                 Include transaction details (separate CSV)
@@ -465,7 +472,7 @@ function ExportRouteComponent() {
           )}
         </fieldset>
 
-        {hasRequestSelection && (
+        {Boolean(hasRequestSelection) && (
           <fieldset className="grid gap-3">
             <legend className="font-medium text-sm">
               Reimbursement status
@@ -487,7 +494,7 @@ function ExportRouteComponent() {
           </fieldset>
         )}
 
-        {includeVendorPayments && (
+        {Boolean(includeVendorPayments) && (
           <fieldset className="grid gap-3">
             <legend className="font-medium text-sm">
               Vendor payment status
@@ -511,12 +518,12 @@ function ExportRouteComponent() {
 
         <div className="grid gap-2">
           <Label htmlFor="fy-select">Financial Year</Label>
-          <Select onValueChange={(v) => v && setFyStart(v)} value={fyStart}>
+          <Select onValueChange={stableOnValueChange4} value={fyStart}>
             <SelectTrigger id="fy-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {fyOptions.map((opt) => (
+              {fyOptions.map((opt: any) => (
                 <SelectItem key={opt.value} value={String(opt.value)}>
                   {opt.label}
                 </SelectItem>

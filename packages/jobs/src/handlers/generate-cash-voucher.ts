@@ -33,14 +33,14 @@ async function commitVoucherAttachment(opts: {
 }) {
   await db.transaction(async (tx) => {
     await tx.insert(reimbursementAttachment).values({
+      createdAt: new Date(),
+      filename: opts.attachment.filename,
       id: opts.attachment.id,
+      mimeType: opts.attachment.mimeType,
+      objectKey: opts.attachment.objectKey,
       reimbursementId: opts.attachment.reimbursementId,
       type: "file",
-      filename: opts.attachment.filename,
-      objectKey: opts.attachment.objectKey,
       url: null,
-      mimeType: opts.attachment.mimeType,
-      createdAt: new Date(),
     });
 
     await tx
@@ -62,9 +62,9 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     path: "generate-cash-voucher",
   });
   log.set({
+    approverUserId: data.approverUserId,
     lineItemId: data.lineItemId,
     reimbursementId: data.reimbursementId,
-    approverUserId: data.approverUserId,
   });
 
   const [lineItem] = await db
@@ -79,7 +79,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
 
   const amount = Number(lineItem.amount);
   if (amount > VOUCHER_AMOUNT_THRESHOLD) {
-    log.set({ event: "amount_exceeds_threshold", amount });
+    log.set({ amount, event: "amount_exceeds_threshold" });
     log.emit();
     return;
   }
@@ -133,19 +133,19 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   const { amountToWords } = await import("@pi-dash/pdf/amount-to-words");
 
   const pdfBuffer = await generateCashVoucherPdf({
-    voucherNumber,
-    date: reimb.expenseDate,
-    paidTo: submitter?.name ?? "Unknown",
-    description: lineItem.description,
-    category: category?.name ?? "Uncategorized",
     amount,
     amountInWords: amountToWords(amount),
     approvedBy: env.VOUCHER_FINANCE_ADMIN_NAME,
-    orgName: env.VOUCHER_ORG_NAME,
+    category: category?.name ?? "Uncategorized",
+    date: reimb.expenseDate,
+    description: lineItem.description,
     orgAddress: env.VOUCHER_ORG_ADDRESS,
-    orgPhone: env.VOUCHER_ORG_PHONE,
     orgEmail: env.VOUCHER_ORG_EMAIL,
+    orgName: env.VOUCHER_ORG_NAME,
+    orgPhone: env.VOUCHER_ORG_PHONE,
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
+    paidTo: submitter?.name ?? "Unknown",
+    voucherNumber,
   });
 
   // 1. Upload new PDF to R2. If this fails the old voucher is untouched.
@@ -160,11 +160,11 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   const attachmentId = uuidv7();
   await commitVoucherAttachment({
     attachment: {
-      id: attachmentId,
-      reimbursementId: data.reimbursementId,
       filename,
-      objectKey,
+      id: attachmentId,
       mimeType: "application/pdf",
+      objectKey,
+      reimbursementId: data.reimbursementId,
     },
     lineItemId: data.lineItemId,
     oldAttachmentId: lineItem.voucherAttachmentId,
@@ -174,15 +174,15 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   if (oldR2Key) {
     s3.delete(oldR2Key).catch((err: unknown) => {
       log.set({
+        error: err instanceof Error ? err.message : String(err),
         event: "old_r2_cleanup_failed",
         oldR2Key,
-        error: err instanceof Error ? err.message : String(err),
       });
     });
     log.set({ event: "old_voucher_replaced" });
   }
 
-  log.set({ event: "voucher_generated", attachmentId, objectKey });
+  log.set({ attachmentId, event: "voucher_generated", objectKey });
   log.emit();
 }
 

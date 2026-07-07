@@ -9,7 +9,10 @@ import {
 import type { RequestType } from "@/lib/reimbursement-types";
 
 const baseFields = {
-  title: z.string().min(1, "Title is required"),
+  attachments: z.array(attachmentSchema),
+  bankAccountIfscCode: z.string().optional(),
+  bankAccountName: z.string().min(1, "Bank account is required"),
+  bankAccountNumber: z.string().min(1, "Bank account number is required"),
   city: z
     .enum(cityValues)
     .optional()
@@ -17,26 +20,23 @@ const baseFields = {
       message: "City is required",
     }),
   eventId: z.string().optional(),
-  bankAccountName: z.string().min(1, "Bank account is required"),
-  bankAccountNumber: z.string().min(1, "Bank account number is required"),
-  bankAccountIfscCode: z.string().optional(),
   lineItems: z
     .array(lineItemSchema)
     .min(1, "At least one line item is required"),
-  attachments: z.array(attachmentSchema),
+  title: z.string().min(1, "Title is required"),
 };
 
 export const reimbursementRequestFormSchema = z.object({
   ...baseFields,
-  type: z.literal("reimbursement"),
   expenseDate: z
     .date()
     .optional()
-    .refine((d): d is Date => d != null, "Expense date is required")
+    .refine((d): d is Date => d !== null, "Expense date is required")
     .refine(
-      (d) => startOfDay(d) <= startOfDay(new Date()),
+      (d: any) => startOfDay(d) <= startOfDay(new Date()),
       "Expense date cannot be in the future"
     ),
+  type: z.literal("reimbursement"),
 });
 
 export const advancePaymentRequestFormSchema = z.object({
@@ -53,20 +53,20 @@ export type RequestFormValues = z.infer<typeof requestFormSchema>;
 
 export function getDefaultValues(type: RequestType): RequestFormValues {
   const base = {
-    title: "",
-    city: undefined as "bangalore" | "mumbai" | undefined,
+    attachments: [] as RequestFormValues["attachments"],
+    bankAccountIfscCode: "",
     bankAccountName: "",
     bankAccountNumber: "",
-    bankAccountIfscCode: "",
+    city: undefined as "bangalore" | "mumbai" | undefined,
     lineItems: [newLineItem()],
-    attachments: [] as RequestFormValues["attachments"],
+    title: "",
   };
 
   if (type === "reimbursement") {
     return {
       ...base,
-      type: "reimbursement",
       expenseDate: undefined,
+      type: "reimbursement",
     };
   }
   return { ...base, type: "advance_payment" };

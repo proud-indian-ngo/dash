@@ -12,11 +12,11 @@ import { zql } from "../schema";
 export const eventFeedbackMutators = {
   submit: defineMutator(
     z.object({
-      feedbackId: z.string(),
-      submissionId: z.string(),
-      eventId: z.string(),
       content: z.string().min(1, "Feedback cannot be empty").max(5000),
+      eventId: z.string(),
+      feedbackId: z.string(),
       now: z.number(),
+      submissionId: z.string(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -65,28 +65,28 @@ export const eventFeedbackMutators = {
       }
 
       await tx.mutate.eventFeedback.insert({
-        id: args.feedbackId,
-        eventId: args.eventId,
         content: args.content,
         createdAt: args.now,
+        eventId: args.eventId,
+        id: args.feedbackId,
         updatedAt: args.now,
       });
 
       await tx.mutate.eventFeedbackSubmission.insert({
-        id: args.submissionId,
         eventId: args.eventId,
-        userId: ctx.userId,
         feedbackId: args.feedbackId,
+        id: args.submissionId,
         submittedAt: args.now,
+        userId: ctx.userId,
       });
     }
   ),
 
   update: defineMutator(
     z.object({
-      feedbackId: z.string(),
-      eventId: z.string(),
       content: z.string().min(1, "Feedback cannot be empty").max(5000),
+      eventId: z.string(),
+      feedbackId: z.string(),
       now: z.number(),
     }),
     async ({ tx, ctx, args }) => {
@@ -121,8 +121,8 @@ export const eventFeedbackMutators = {
       }
 
       await tx.mutate.eventFeedback.update({
-        id: args.feedbackId,
         content: args.content,
+        id: args.feedbackId,
         updatedAt: args.now,
       });
     }

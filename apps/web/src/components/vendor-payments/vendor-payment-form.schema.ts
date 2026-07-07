@@ -7,13 +7,13 @@ import {
 } from "@/lib/form-schemas";
 
 const vendorPaymentBaseFields = {
-  title: z.string().min(1, "Title is required"),
+  attachments: z.array(attachmentSchema),
   city: z.enum(cityValues, { message: "City is required" }),
   eventId: z.string().optional(),
   lineItems: z
     .array(lineItemSchema)
     .min(1, "At least one line item is required"),
-  attachments: z.array(attachmentSchema),
+  title: z.string().min(1, "Title is required"),
 };
 
 export const vendorPaymentFormSchema = z.object({
@@ -25,11 +25,11 @@ export type VendorPaymentFormValues = z.infer<typeof vendorPaymentFormSchema>;
 
 export function getVendorPaymentDefaultValues(): VendorPaymentFormValues {
   return {
-    title: "",
+    attachments: [],
     city: "bangalore",
     eventId: undefined,
     lineItems: [newLineItem()],
-    attachments: [],
+    title: "",
     vendorId: "",
   };
 }

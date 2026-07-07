@@ -49,6 +49,7 @@ export function Dialog({
   open?: boolean;
 }) {
   const isMobile = useIsMobile();
+  const stableOnOpenChange0 = (nextOpen: any) => onOpenChange?.(nextOpen);
 
   return (
     <ResponsiveDialogContext.Provider value={{ isMobile }}>
@@ -57,10 +58,7 @@ export function Dialog({
           {children}
         </Drawer>
       ) : (
-        <DesktopDialog
-          onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}
-          open={open}
-        >
+        <DesktopDialog onOpenChange={stableOnOpenChange0} open={open}>
           {children}
         </DesktopDialog>
       )}

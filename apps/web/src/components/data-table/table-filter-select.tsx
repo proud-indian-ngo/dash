@@ -22,21 +22,24 @@ export function TableFilterSelect({
   value,
 }: TableFilterSelectProps) {
   const optionMap = new Map(
-    options.map((option) => [option.value, option.label])
+    options.map((option: any) => [option.value, option.label])
   );
-  const items = ["__all__", ...options.map((option) => option.value)];
+  const items = ["__all__", ...options.map((option: any) => option.value)];
   const selectedLabel = value ? (optionMap.get(value) ?? value) : "All";
+  const stableItemToStringLabel0 = (v: any) => {
+    if (v === "__all__") {
+      return "All";
+    }
+    return optionMap.get(v) ?? String(v);
+  };
+  const stableOnValueChange1 = (v: any) =>
+    onChange(v === "__all__" || !v ? "" : v);
 
   return (
     <Combobox
       items={items}
-      itemToStringLabel={(v) => {
-        if (v === "__all__") {
-          return "All";
-        }
-        return optionMap.get(v) ?? String(v);
-      }}
-      onValueChange={(v) => onChange(v === "__all__" || !v ? "" : v)}
+      itemToStringLabel={stableItemToStringLabel0}
+      onValueChange={stableOnValueChange1}
       value={value || "__all__"}
     >
       <ComboboxInput
@@ -53,7 +56,7 @@ export function TableFilterSelect({
       </ComboboxInput>
       <ComboboxContent className="w-max min-w-[var(--anchor-width)]">
         <ComboboxList>
-          {(itemValue) => (
+          {(itemValue: any) => (
             <ComboboxItem key={itemValue} value={itemValue}>
               {itemValue === "__all__"
                 ? "All"

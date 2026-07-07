@@ -23,7 +23,7 @@ test.describe("Create user unhappy paths (admin)", () => {
 
     // Fill in the volunteer's existing email
     await dialog
-      .getByRole("textbox", { name: "Name", exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill("Duplicate User");
     await dialog.getByRole("textbox", { name: "Email" }).fill(volunteerEmail);
     await dialog

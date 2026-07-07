@@ -42,24 +42,22 @@ export function CheckboxField({
         orientation="horizontal"
         validators={validators}
       >
-        {(field) => {
-          return (
-            <Switch
-              {...fieldErrorProps(
-                field,
-                resolvedForm.state.submissionAttempts > 0
-              )}
-              aria-required={isRequired}
-              checked={Boolean(field.state.value)}
-              disabled={readonly}
-              id={field.name}
-              onBlur={field.handleBlur}
-              onCheckedChange={(checked) =>
-                field.handleChange(Boolean(checked))
-              }
-            />
-          );
-        }}
+        {(field: any) => (
+          <Switch
+            {...fieldErrorProps(
+              field,
+              resolvedForm.state.submissionAttempts > 0
+            )}
+            aria-required={isRequired}
+            checked={Boolean(field.state.value)}
+            disabled={readonly}
+            id={field.name}
+            onBlur={field.handleBlur}
+            onCheckedChange={(checked: any) =>
+              field.handleChange(Boolean(checked))
+            }
+          />
+        )}
       </CustomField>
       {description ? <FieldDescription>{description}</FieldDescription> : null}
     </div>

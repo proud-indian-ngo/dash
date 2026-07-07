@@ -1,11 +1,9 @@
 import type { EditorProps } from "@pi-dash/editor/editor";
-
 import { PlateEditor as BaseEditor } from "@pi-dash/editor/editor";
 import { env } from "@pi-dash/env/web";
 import type { AllowedImageMimeType } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { toast } from "sonner";
-
 import { getPresignedUploadUrl } from "@/functions/attachments";
 
 const TRAILING_SLASH = /\/$/;
@@ -24,18 +22,18 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
     try {
       const { key, presignedUrl } = await getPresignedUploadUrl({
         data: {
+          entityId,
           fileName: file.name,
           fileSize: file.size,
           mimeType: file.type as AllowedImageMimeType,
           subfolder: "updates",
-          entityId,
         },
       });
 
       const uploadRes = await fetch(presignedUrl, {
-        method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
+        method: "PUT",
       });
 
       if (!uploadRes.ok) {
@@ -47,13 +45,12 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
       return { url: getCdnUrl(key) };
     } catch (error) {
       log.error({
-        component: "PlateEditor",
         action: "imageUpload",
+        component: "PlateEditor",
         entityId,
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Couldn't upload image — try again");
-      return undefined;
     }
   }
 

@@ -24,21 +24,21 @@ export const Route = createFileRoute("/api/jobs/stats")({
         try {
           const boss = await ensureBossReady();
           const stats = await Promise.all(
-            QUEUE_NAMES.map(async (queue) => {
+            QUEUE_NAMES.map(async (queue: any) => {
               try {
                 const [result] = await boss.getQueueStats(queue);
                 if (!result) {
-                  return { queue, size: 0, active: 0, total: 0 };
+                  return { active: 0, queue, size: 0, total: 0 };
                 }
                 return {
+                  active: result.activeCount,
                   queue,
                   size: result.queuedCount,
-                  active: result.activeCount,
                   total: result.totalCount,
                 };
               } catch {
                 // Queue may not exist yet (worker startup race)
-                return { queue, size: 0, active: 0, total: 0 };
+                return { active: 0, queue, size: 0, total: 0 };
               }
             })
           );
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/jobs/stats")({
             count: number;
           }>(
             sql`SELECT state, COUNT(*)::int AS count FROM pgboss.job_common WHERE name IN (${sql.join(
-              QUEUE_NAMES.map((n) => sql`${n}`),
+              QUEUE_NAMES.map((n: any) => sql`${n}`),
               sql`, `
             )}) GROUP BY state`
           );

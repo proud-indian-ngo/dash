@@ -29,8 +29,8 @@ describe("sumAmounts", () => {
 describe("sumTotal", () => {
   it("sums line items across submissions", () => {
     const data = [
-      { status: "pending", lineItems: [{ amount: 100 }, { amount: 50 }] },
-      { status: "approved", lineItems: [{ amount: 200 }] },
+      { lineItems: [{ amount: 100 }, { amount: 50 }], status: "pending" },
+      { lineItems: [{ amount: 200 }], status: "approved" },
     ];
     expect(sumTotal(data)).toBe(350);
   });
@@ -42,10 +42,10 @@ describe("sumTotal", () => {
 
 describe("byStatus", () => {
   const data = [
-    { status: "pending", lineItems: [] },
-    { status: "approved", lineItems: [] },
-    { status: "pending", lineItems: [] },
-    { status: "rejected", lineItems: [] },
+    { lineItems: [], status: "pending" },
+    { lineItems: [], status: "approved" },
+    { lineItems: [], status: "pending" },
+    { lineItems: [], status: "rejected" },
   ];
 
   it("filters by pending", () => {
@@ -68,7 +68,6 @@ function makeItem(overrides: {
   status?: string;
 }) {
   return {
-    status: overrides.status ?? "approved",
     createdAt: overrides.createdAt ?? Date.now(),
     lineItems: [
       {
@@ -76,6 +75,7 @@ function makeItem(overrides: {
         category: overrides.category ? { name: overrides.category } : undefined,
       },
     ],
+    status: overrides.status ?? "approved",
     user: {
       email: overrides.email ?? "test@example.com",
       name: overrides.name ?? "Test User",
@@ -98,9 +98,9 @@ describe("computeTrendData", () => {
     const jan = new Date(2026, 0, 15).getTime();
     const mar = new Date(2026, 2, 15).getTime();
     const items = [
-      makeItem({ createdAt: jan, amount: 100 }),
-      makeItem({ createdAt: jan, amount: 200 }),
-      makeItem({ createdAt: mar, amount: 50 }),
+      makeItem({ amount: 100, createdAt: jan }),
+      makeItem({ amount: 200, createdAt: jan }),
+      makeItem({ amount: 50, createdAt: mar }),
     ];
     const result = computeTrendData(
       items,
@@ -108,7 +108,7 @@ describe("computeTrendData", () => {
       new Date(2026, 5, 30)
     );
     expect(result.length).toBeGreaterThan(3);
-    const janBucket = result.find((r) => r.period === "Jan 2026");
+    const janBucket = result.find((r: any) => r.period === "Jan 2026");
     expect(janBucket?.count).toBe(2);
     expect(janBucket?.amount).toBe(300);
   });
@@ -117,8 +117,8 @@ describe("computeTrendData", () => {
     const d1 = new Date(2026, 0, 5).getTime();
     const d2 = new Date(2026, 0, 6).getTime();
     const items = [
-      makeItem({ createdAt: d1, amount: 100 }),
-      makeItem({ createdAt: d2, amount: 200 }),
+      makeItem({ amount: 100, createdAt: d1 }),
+      makeItem({ amount: 200, createdAt: d2 }),
     ];
     const result = computeTrendData(
       items,
@@ -127,7 +127,7 @@ describe("computeTrendData", () => {
     );
     expect(result.length).toBeGreaterThanOrEqual(1);
     // Week containing Jan 5-6 should have both items
-    const weekWithData = result.find((r) => r.count > 0);
+    const weekWithData = result.find((r: any) => r.count > 0);
     expect(weekWithData?.count).toBe(2);
     expect(weekWithData?.amount).toBe(300);
   });
@@ -136,9 +136,9 @@ describe("computeTrendData", () => {
 describe("computeCategoryData", () => {
   it("groups by category name", () => {
     const items = [
-      makeItem({ category: "Travel", amount: 500 }),
-      makeItem({ category: "Travel", amount: 300 }),
-      makeItem({ category: "Food", amount: 100 }),
+      makeItem({ amount: 500, category: "Travel" }),
+      makeItem({ amount: 300, category: "Travel" }),
+      makeItem({ amount: 100, category: "Food" }),
     ];
     const result = computeCategoryData(items);
     expect(result).toHaveLength(2);
@@ -155,8 +155,8 @@ describe("computeCategoryData", () => {
   });
 
   it("caps at 8 categories with Other bucket", () => {
-    const items = Array.from({ length: 10 }, (_, i) =>
-      makeItem({ category: `Cat ${i}`, amount: (10 - i) * 100 })
+    const items = Array.from({ length: 10 }, (_: any, i: any) =>
+      makeItem({ amount: (10 - i) * 100, category: `Cat ${i}` })
     );
     const result = computeCategoryData(items);
     expect(result).toHaveLength(8);
@@ -172,9 +172,9 @@ describe("computeCategoryData", () => {
 describe("computeSubmitterData", () => {
   it("groups by user email and sorts by amount", () => {
     const items = [
-      makeItem({ email: "a@test.com", name: "Alice", amount: 100 }),
-      makeItem({ email: "b@test.com", name: "Bob", amount: 500 }),
-      makeItem({ email: "a@test.com", name: "Alice", amount: 200 }),
+      makeItem({ amount: 100, email: "a@test.com", name: "Alice" }),
+      makeItem({ amount: 500, email: "b@test.com", name: "Bob" }),
+      makeItem({ amount: 200, email: "a@test.com", name: "Alice" }),
     ];
     const result = computeSubmitterData(items);
     expect(result).toHaveLength(2);
@@ -186,8 +186,8 @@ describe("computeSubmitterData", () => {
   });
 
   it("limits to top 10", () => {
-    const items = Array.from({ length: 15 }, (_, i) =>
-      makeItem({ email: `user${i}@test.com`, amount: 100 })
+    const items = Array.from({ length: 15 }, (_: any, i: any) =>
+      makeItem({ amount: 100, email: `user${i}@test.com` })
     );
     const result = computeSubmitterData(items);
     expect(result).toHaveLength(10);
@@ -224,8 +224,8 @@ describe("computeEventData", () => {
     ];
     const result = computeEventData(items);
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ eventId: "evt1", amount: 300, count: 2 });
-    expect(result[1]).toMatchObject({ eventId: "evt2", amount: 50, count: 1 });
+    expect(result[0]).toMatchObject({ amount: 300, count: 2, eventId: "evt1" });
+    expect(result[1]).toMatchObject({ amount: 50, count: 1, eventId: "evt2" });
   });
 
   it("sorts by amount descending", () => {
@@ -235,7 +235,7 @@ describe("computeEventData", () => {
   });
 
   it("limits to top 10", () => {
-    const items = Array.from({ length: 15 }, (_, i) =>
+    const items = Array.from({ length: 15 }, (_: any, i: any) =>
       makeEventItem(`evt${i}`, 100)
     );
     expect(computeEventData(items)).toHaveLength(10);
@@ -253,54 +253,54 @@ describe("computeApprovalTimeData", () => {
 
   function makeApprovalItem(daysElapsed: number, status = "approved") {
     return {
-      submittedAt: base,
       reviewedAt: base + Math.floor(daysElapsed * MS_PER_DAY),
       status,
+      submittedAt: base,
     };
   }
 
   it("returns all 6 buckets with zero counts for empty input", () => {
     const result = computeApprovalTimeData([]);
     expect(result).toHaveLength(6);
-    expect(result.every((b) => b.count === 0)).toBe(true);
+    expect(result.every((b: any) => b.count === 0)).toBe(true);
   });
 
   it("skips pending items", () => {
     const result = computeApprovalTimeData([makeApprovalItem(1, "pending")]);
-    expect(result.every((b) => b.count === 0)).toBe(true);
+    expect(result.every((b: any) => b.count === 0)).toBe(true);
   });
 
   it("skips items with missing timestamps", () => {
     const result = computeApprovalTimeData([
-      { submittedAt: null, reviewedAt: base, status: "approved" },
-      { submittedAt: base, reviewedAt: null, status: "approved" },
+      { reviewedAt: base, status: "approved", submittedAt: null },
+      { reviewedAt: null, status: "approved", submittedAt: base },
     ]);
-    expect(result.every((b) => b.count === 0)).toBe(true);
+    expect(result.every((b: any) => b.count === 0)).toBe(true);
   });
 
   it("bins < 1 day (0 elapsed days) into first bucket", () => {
     const result = computeApprovalTimeData([makeApprovalItem(0.5)]);
-    expect(result[0]).toMatchObject({ label: "< 1 day", count: 1 });
+    expect(result[0]).toMatchObject({ count: 1, label: "< 1 day" });
   });
 
   it("bins exactly 1 day into '1–3 days' bucket", () => {
     const result = computeApprovalTimeData([makeApprovalItem(1)]);
-    expect(result[1]).toMatchObject({ label: "1–3 days", count: 1 });
+    expect(result[1]).toMatchObject({ count: 1, label: "1–3 days" });
   });
 
   it("bins exactly 3 days into '3–7 days' bucket", () => {
     const result = computeApprovalTimeData([makeApprovalItem(3)]);
-    expect(result[2]).toMatchObject({ label: "3–7 days", count: 1 });
+    expect(result[2]).toMatchObject({ count: 1, label: "3–7 days" });
   });
 
   it("bins exactly 7 days into '7–14 days' bucket", () => {
     const result = computeApprovalTimeData([makeApprovalItem(7)]);
-    expect(result[3]).toMatchObject({ label: "7–14 days", count: 1 });
+    expect(result[3]).toMatchObject({ count: 1, label: "7–14 days" });
   });
 
   it("bins exactly 30 days into '> 30 days' bucket", () => {
     const result = computeApprovalTimeData([makeApprovalItem(30)]);
-    expect(result[5]).toMatchObject({ label: "> 30 days", count: 1 });
+    expect(result[5]).toMatchObject({ count: 1, label: "> 30 days" });
   });
 
   it("counts both approved and rejected", () => {
@@ -314,11 +314,11 @@ describe("computeApprovalTimeData", () => {
 
   it("silently ignores negative deltas (reviewedAt < submittedAt)", () => {
     const item = {
-      submittedAt: base,
       reviewedAt: base - MS_PER_DAY,
       status: "approved",
+      submittedAt: base,
     };
     const result = computeApprovalTimeData([item]);
-    expect(result.every((b) => b.count === 0)).toBe(true);
+    expect(result.every((b: any) => b.count === 0)).toBe(true);
   });
 });

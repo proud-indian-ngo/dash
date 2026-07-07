@@ -37,8 +37,8 @@ export function toAllowedMimeType(value: string): AllowedMimeType {
 }
 
 const R2_SUBFOLDERS = {
-  attachments: "attachments",
   approvalScreenshots: "approval-screenshots",
+  attachments: "attachments",
   avatars: "avatars",
   photos: "photos",
   scheduledMessages: "scheduled-messages",
@@ -67,6 +67,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   .validator(
     z
       .object({
+        entityId: z.string().min(1),
         fileName: z.string().min(1),
         fileSize: z.number().int().positive(),
         mimeType: z.string().min(1),
@@ -77,10 +78,9 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
           R2_SUBFOLDERS.updates,
           R2_SUBFOLDERS.approvalScreenshots,
         ]),
-        entityId: z.string().min(1),
       })
       .refine(
-        (data) =>
+        (data: any) =>
           data.subfolder === R2_SUBFOLDERS.scheduledMessages ||
           (ALLOWED_MIME_TYPES as readonly string[]).includes(data.mimeType),
         {
@@ -88,7 +88,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
           path: ["mimeType"],
         }
       )
-      .superRefine((data, ctx) => {
+      .superRefine((data: any, ctx: any) => {
         const maxBytes = data.mimeType.startsWith("video/")
           ? MAX_VIDEO_SIZE_BYTES
           : MAX_ATTACHMENT_FILE_SIZE_BYTES;
@@ -112,22 +112,22 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
       // createPresignedPost and a ["content-length-range", 1, MAX] condition.
       const presignedUrl = s3.presign(key, {
-        method: "PUT",
         expiresIn: 300,
+        method: "PUT",
         type: data.mimeType,
       });
-      return { presignedUrl, key };
+      return { key, presignedUrl };
     } catch (error) {
       logErrorAndRethrow(
         { method: "POST", path: "/fn/getPresignedUploadUrl" },
         {
-          handler: "getPresignedUploadUrl",
-          userId: context.session?.user.id,
-          subfolder: data.subfolder,
           entityId: data.entityId,
           fileName: data.fileName,
           fileSize: data.fileSize,
+          handler: "getPresignedUploadUrl",
           mimeType: data.mimeType,
+          subfolder: data.subfolder,
+          userId: context.session?.user.id,
         },
         error
       );
@@ -162,9 +162,9 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
         { method: "POST", path: "/fn/deleteUploadedAsset" },
         {
           handler: "deleteUploadedAsset",
-          userId: context.session?.user.id,
           key: data.key,
           subfolder: data.subfolder,
+          userId: context.session?.user.id,
         },
         error
       );
@@ -188,20 +188,20 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
       const s3 = await getS3();
       const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
       const presignedUrl = s3.presign(key, {
-        method: "PUT",
         expiresIn: 300,
+        method: "PUT",
         type: data.mimeType,
       });
-      return { presignedUrl, key };
+      return { key, presignedUrl };
     } catch (error) {
       logErrorAndRethrow(
         { method: "POST", path: "/fn/getProfilePictureUploadUrl" },
         {
-          handler: "getProfilePictureUploadUrl",
-          userId: context.session.user.id,
           fileName: data.fileName,
           fileSize: data.fileSize,
+          handler: "getProfilePictureUploadUrl",
           mimeType: data.mimeType,
+          userId: context.session.user.id,
         },
         error
       );
@@ -232,8 +232,8 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
         { method: "POST", path: "/fn/deleteProfilePicture" },
         {
           handler: "deleteProfilePicture",
-          userId: context.session.user.id,
           key: data.key,
+          userId: context.session.user.id,
         },
         error
       );
@@ -263,16 +263,16 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
     }
     try {
       const s3 = await getS3();
-      await Promise.all(data.keys.map((key) => s3.delete(key)));
+      await Promise.all(data.keys.map((key: any) => s3.delete(key)));
       return { success: true };
     } catch (error) {
       logErrorAndRethrow(
         { method: "POST", path: "/fn/deleteUploadedAssets" },
         {
           handler: "deleteUploadedAssets",
-          userId: context.session?.user.id,
-          subfolder: data.subfolder,
           keyCount: data.keys.length,
+          subfolder: data.subfolder,
+          userId: context.session?.user.id,
         },
         error
       );

@@ -20,16 +20,16 @@ export async function insertNotification(
     await db
       .insert(notification)
       .values({
-        id: uuidv7(),
-        userId: options.userId,
-        topicId: options.topicId,
-        title: options.title,
+        archived: false,
         body: options.body,
         clickAction: options.clickAction,
+        id: uuidv7(),
+        idempotencyKey: options.idempotencyKey,
         imageUrl: options.imageUrl,
         read: false,
-        archived: false,
-        idempotencyKey: options.idempotencyKey,
+        title: options.title,
+        topicId: options.topicId,
+        userId: options.userId,
       })
       .onConflictDoNothing();
     return true;
@@ -37,8 +37,8 @@ export async function insertNotification(
     const log = createRequestLogger();
     log.set({
       handler: "insertNotification",
-      userId: options.userId,
       idempotencyKey: options.idempotencyKey,
+      userId: options.userId,
     });
     log.error(error instanceof Error ? error : String(error));
     log.emit();
@@ -55,24 +55,24 @@ export async function insertBulkNotifications(
 
   try {
     const rows = notifications.map((n) => ({
-      id: uuidv7(),
-      userId: n.userId,
-      topicId: n.topicId,
-      title: n.title,
+      archived: false,
       body: n.body,
       clickAction: n.clickAction,
+      id: uuidv7(),
+      idempotencyKey: n.idempotencyKey,
       imageUrl: n.imageUrl,
       read: false,
-      archived: false,
-      idempotencyKey: n.idempotencyKey,
+      title: n.title,
+      topicId: n.topicId,
+      userId: n.userId,
     }));
     await db.insert(notification).values(rows).onConflictDoNothing();
     return rows.length;
   } catch (error) {
     const log = createRequestLogger();
     log.set({
-      handler: "insertBulkNotifications",
       count: notifications.length,
+      handler: "insertBulkNotifications",
     });
     log.error(error instanceof Error ? error : String(error));
     log.emit();

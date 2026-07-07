@@ -27,7 +27,7 @@ interface RangeSelection {
 
 function parseUrlDate(str: string): Date | undefined {
   if (!str) {
-    return undefined;
+    return;
   }
   const d = parseISO(str);
   return isValid(d) ? d : undefined;
@@ -48,14 +48,13 @@ export function DateRangeFilter() {
   const [customRange, setCustomRange] = useState<RangeSelection | undefined>(
     () => {
       if (params.range !== "custom") {
-        return undefined;
+        return;
       }
       const from = parseUrlDate(params.from);
       const to = parseUrlDate(params.to);
       if (from) {
         return { from, to };
       }
-      return undefined;
     }
   );
 
@@ -64,24 +63,24 @@ export function DateRangeFilter() {
       return;
     }
     if (value === "custom") {
-      setParams({ range: "custom", from: params.from, to: params.to });
+      setParams({ from: params.from, range: "custom", to: params.to });
       return;
     }
-    setParams({ range: value, from: "", to: "" });
+    setParams({ from: "", range: value, to: "" });
   }
 
   function handleCustomRangeSelect(range: RangeSelection | undefined) {
     setCustomRange(range);
     if (range?.from && range?.to) {
       setParams({
-        range: "custom",
         from: format(range.from, ISO_DATE),
+        range: "custom",
         to: format(range.to, ISO_DATE),
       });
     }
   }
 
-  const activePreset = DATE_PRESETS.find((p) => p.key === params.range);
+  const activePreset = DATE_PRESETS.find((p: any) => p.key === params.range);
   const isCustom = params.range === "custom";
 
   function getDisplayLabel() {
@@ -105,7 +104,7 @@ export function DateRangeFilter() {
           <SelectValue>{displayLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {DATE_PRESETS.map((preset) => (
+          {DATE_PRESETS.map((preset: any) => (
             <SelectItem key={preset.key} value={preset.key}>
               {preset.label}
             </SelectItem>

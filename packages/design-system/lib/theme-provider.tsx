@@ -22,8 +22,8 @@ interface ThemeProviderState {
 }
 
 const initialState: ThemeProviderState = {
-  theme: "system",
   setTheme: () => null,
+  theme: "system",
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
@@ -91,8 +91,8 @@ export function ThemeProvider({
 
   const value = useMemo(
     () => ({
-      theme,
       setTheme,
+      theme,
     }),
     [theme]
   );

@@ -65,6 +65,7 @@ export function EventsTable({
     onEditEvent,
     onSelectEvent,
   });
+  const stableGetRowId0 = (row: any) => row.key;
 
   return (
     <DataTableWrapper<EventDisplayRow>
@@ -72,7 +73,7 @@ export function EventsTable({
       data={displayRows}
       defaultColumnPinning={{ right: ["actions"] }}
       emptyMessage="No events found."
-      getRowId={(row) => row.key}
+      getRowId={stableGetRowId0}
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       onClearFilters={onClearFilters}
@@ -81,10 +82,10 @@ export function EventsTable({
       searchPlaceholder="Search events..."
       storageKey="events_table_state_v2"
       tableLayout={{
-        columnsResizable: true,
         columnsDraggable: true,
-        columnsVisibility: true,
         columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
       toolbarFilters={toolbarFilters}

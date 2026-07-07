@@ -25,18 +25,18 @@ export async function notifyPhotoApproved({
 }: PhotoApprovedOptions): Promise<void> {
   const body = `Your photo for ${eventName} looks great — it's been approved!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Photo approved!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: uploaderId,
-    title: "✅ Photo approved!",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `photo-approved-${photoId}`,
+    title: "✅ Photo approved!",
+    to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
   });
 }
@@ -49,18 +49,18 @@ export async function notifyPhotoRejected({
 }: PhotoRejectedOptions): Promise<void> {
   const body = `Your photo for ${eventName} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Photo not published",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: uploaderId,
-    title: "📷 Photo not published",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey: `photo-rejected-${photoId}`,
+    title: "📷 Photo not published",
+    to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
   });
 }
@@ -82,18 +82,18 @@ export async function notifyPhotosApproved({
 }: PhotosBatchOptions): Promise<void> {
   const body = `${count} of your photos for ${eventName} made the cut — nice shots!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Photos approved!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: uploaderId,
-    title: "✅ Photos approved!",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey,
+    title: "✅ Photos approved!",
+    to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
   });
 }
@@ -107,18 +107,18 @@ export async function notifyPhotosRejected({
 }: PhotosBatchOptions): Promise<void> {
   const body = `${count} of your photos for ${eventName} weren't published.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
     heading: "Photos not published",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/events/${eventId}`,
-    ctaLabel: "View event",
   });
   await sendMessage({
-    to: uploaderId,
-    title: "📷 Photos not published",
     body,
-    emailHtml,
     clickAction: `/events/${eventId}`,
+    emailHtml,
     idempotencyKey,
+    title: "📷 Photos not published",
+    to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
   });
 }

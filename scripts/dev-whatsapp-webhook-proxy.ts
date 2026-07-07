@@ -14,8 +14,6 @@ const proxyTarget =
   "http://[::1]:3001/api/whatsapp/webhook";
 
 Bun.serve({
-  port: proxyPort,
-  hostname: "0.0.0.0",
   async fetch(request) {
     const body = ["GET", "HEAD"].includes(request.method)
       ? undefined
@@ -25,22 +23,22 @@ Bun.serve({
 
     try {
       const response = await fetch(proxyTarget, {
-        method: request.method,
+        body,
         headers: {
           ...(contentType ? { "content-type": contentType } : {}),
           ...(signature ? { "x-hub-signature-256": signature } : {}),
         },
-        body,
+        method: request.method,
       });
 
       const responseBody = await response.text();
       return new Response(responseBody, {
-        status: response.status,
         headers: {
           "content-type":
             response.headers.get("content-type") ??
             "application/json;charset=utf-8",
         },
+        status: response.status,
       });
     } catch (error) {
       console.error(
@@ -50,6 +48,8 @@ Bun.serve({
       return Response.json({ error: "Webhook proxy failed" }, { status: 502 });
     }
   },
+  hostname: "0.0.0.0",
+  port: proxyPort,
 });
 
 console.log(

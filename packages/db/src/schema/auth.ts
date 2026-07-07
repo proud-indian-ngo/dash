@@ -19,24 +19,24 @@ export type UserGender = (typeof userGenderEnumValues)[number];
 export const userGenderEnum = pgEnum("user_gender", userGenderEnumValues);
 
 export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
+  banExpires: timestamp("ban_expires"),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  dob: date("dob", { mode: "date" }),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
   gender: userGenderEnum("gender"),
-  dob: date("dob", { mode: "date" }),
-  phone: text("phone").unique(),
-  isOnWhatsapp: boolean("is_on_whatsapp").default(false).notNull(),
+  id: text("id").primaryKey(),
+  image: text("image"),
   isActive: boolean("is_active").default(true).notNull(),
+  isOnWhatsapp: boolean("is_on_whatsapp").default(false).notNull(),
+  name: text("name").notNull(),
+  phone: text("phone").unique(),
   role: text("role")
     .default("unoriented_volunteer")
     .notNull()
     .references(() => role.id),
-  banned: boolean("banned").default(false),
-  banReason: text("ban_reason"),
-  banExpires: timestamp("ban_expires"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -46,16 +46,16 @@ export const user = pgTable("user", {
 export const session = pgTable(
   "session",
   {
-    id: text("id").primaryKey(),
-    expiresAt: timestamp("expires_at").notNull(),
-    token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    impersonatedBy: text("impersonated_by"),
+    ipAddress: text("ip_address"),
+    token: text("token").notNull().unique(),
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
-    ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    impersonatedBy: text("impersonated_by"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -66,23 +66,23 @@ export const session = pgTable(
 export const account = pgTable(
   "account",
   {
-    id: text("id").primaryKey(),
-    accountId: text("account_id").notNull(),
-    providerId: text("provider_id").notNull(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
     accessToken: text("access_token"),
-    refreshToken: text("refresh_token"),
-    idToken: text("id_token"),
     accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    accountId: text("account_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    idToken: text("id_token"),
+    password: text("password"),
+    providerId: text("provider_id").notNull(),
+    refreshToken: text("refresh_token"),
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
     scope: text("scope"),
-    password: text("password"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [index("account_userId_idx").on(table.userId)]
 );
@@ -90,21 +90,20 @@ export const account = pgTable(
 export const verification = pgTable(
   "verification",
   {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
     id: text("id").primaryKey(),
     identifier: text("identifier").notNull(),
-    value: text("value").notNull(),
-    expiresAt: timestamp("expires_at").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    value: text("value").notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
 export const userRelations = relations(user, ({ one, many }) => ({
-  sessions: many(session),
   accounts: many(account),
   notifications: many(notification),
   notificationTopicPreferences: many(notificationTopicPreference),
@@ -112,6 +111,7 @@ export const userRelations = relations(user, ({ one, many }) => ({
     fields: [user.role],
     references: [role.id],
   }),
+  sessions: many(session),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -131,13 +131,13 @@ export const accountRelations = relations(account, ({ one }) => ({
 export const notificationTopicPreference = pgTable(
   "notification_topic_preference",
   {
+    emailEnabled: boolean("email_enabled").default(true).notNull(),
+    inboxEnabled: boolean("inbox_enabled").default(true).notNull(),
+    topicId: text("topic_id").notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    topicId: text("topic_id").notNull(),
-    emailEnabled: boolean("email_enabled").default(true).notNull(),
     whatsappEnabled: boolean("whatsapp_enabled").default(true).notNull(),
-    inboxEnabled: boolean("inbox_enabled").default(true).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.topicId] })]
 );

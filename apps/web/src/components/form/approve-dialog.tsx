@@ -59,12 +59,12 @@ export function ApproveDialog({
     if (screenshotKey) {
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error) => {
+      }).catch((error: any) => {
         log.error({
-          component: "ApproveDialog",
           action: "cleanup",
-          screenshotKey,
+          component: "ApproveDialog",
           error: error instanceof Error ? error.message : String(error),
+          screenshotKey,
         });
       });
     }
@@ -103,18 +103,18 @@ export function ApproveDialog({
     try {
       const { presignedUrl, key } = await getPresignedUploadUrl({
         data: {
+          entityId,
           fileName: file.name,
           fileSize: file.size,
           mimeType,
           subfolder: "approval-screenshots",
-          entityId,
         },
       });
 
       const uploadRes = await fetch(presignedUrl, {
-        method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
+        method: "PUT",
       });
 
       if (!uploadRes.ok) {
@@ -128,11 +128,11 @@ export function ApproveDialog({
       setPreviewUrl(URL.createObjectURL(file));
     } catch (error) {
       log.error({
-        component: "ApproveDialog",
         action: "uploadScreenshot",
+        component: "ApproveDialog",
         entityId,
-        fileName: file.name,
         error: error instanceof Error ? error.message : String(error),
+        fileName: file.name,
       });
       toast.error("Couldn't upload screenshot — try again");
     } finally {
@@ -147,29 +147,31 @@ export function ApproveDialog({
     if (screenshotKey) {
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error) => {
+      }).catch((error: any) => {
         log.error({
-          component: "ApproveDialog",
           action: "removeScreenshot",
-          screenshotKey,
+          component: "ApproveDialog",
           error: error instanceof Error ? error.message : String(error),
+          screenshotKey,
         });
       });
     }
     setScreenshotKey(null);
     setPreviewUrl(null);
   };
+  const stableOnOpenChange0 = (isOpen: any) => {
+    if (!isOpen) {
+      cleanup();
+    }
+    onOpenChange(isOpen);
+  };
+  const stableOnClick2 = () => onConfirm(message, screenshotKey ?? undefined);
+  const stableOnMessageChange1 = (
+    event: React.ChangeEvent<HTMLTextAreaElement>
+  ) => setMessage(event.target.value);
 
   return (
-    <AlertDialog
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          cleanup();
-        }
-        onOpenChange(isOpen);
-      }}
-      open={open}
-    >
+    <AlertDialog onOpenChange={stableOnOpenChange0} open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Approve {entityLabel}?</AlertDialogTitle>
@@ -183,7 +185,7 @@ export function ApproveDialog({
           <Textarea
             className="min-h-20"
             id="approve-message"
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={stableOnMessageChange1}
             placeholder="Optional message to the submitter..."
             value={message}
           />
@@ -226,10 +228,7 @@ export function ApproveDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={cleanup}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={uploading}
-            onClick={() => onConfirm(message, screenshotKey ?? undefined)}
-          >
+          <AlertDialogAction disabled={uploading} onClick={stableOnClick2}>
             {uploading ? "Uploading…" : "Approve"}
           </AlertDialogAction>
         </AlertDialogFooter>

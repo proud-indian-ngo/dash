@@ -7,9 +7,9 @@ export function DevTools() {
     <TanStackDevtools
       plugins={[
         {
+          defaultOpen: false,
           name: "TanStack Router",
           render: <TanStackRouterDevtoolsPanel />,
-          defaultOpen: false,
         },
         formDevtoolsPlugin(),
       ]}

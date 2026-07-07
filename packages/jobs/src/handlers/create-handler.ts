@@ -11,7 +11,7 @@ function extractTraceId<T extends object>(
   const { __traceId: traceId, ...rest } = data as T & {
     __traceId?: string;
   };
-  return { traceId, cleanData: rest as T };
+  return { cleanData: rest as T, traceId };
 }
 
 function buildOutput(
@@ -20,8 +20,8 @@ function buildOutput(
   sends: unknown[]
 ): HandlerOutput {
   const output: HandlerOutput = {
-    ok: true,
     durationMs: Date.now() - startedAt,
+    ok: true,
   };
   if (sends.length > 0) {
     output.sends = sends;
@@ -39,8 +39,8 @@ export function withDefaultOutput<T extends object>(
     const startedAt = Date.now();
     const { result, sends } = await captureSends(() => handler(jobs));
     const base: HandlerOutput = {
-      jobCount: jobs.length,
       durationMs: Date.now() - startedAt,
+      jobCount: jobs.length,
     };
     if (sends.length > 0) {
       base.sends = sends;
@@ -62,30 +62,32 @@ export function createNotifyHandler<T extends object, R = void>(
   return async (jobs) => {
     const handler = await getHandler();
     const outputs: HandlerOutput[] = [];
-    for (const job of jobs) {
-      const log = createRequestLogger({ method: "JOB", path: queueName });
-      const { traceId, cleanData } = extractTraceId(job.data);
-      log.set({
-        ...cleanData,
-        jobId: job.id,
-        ...(traceId ? { traceId } : {}),
-      });
-      const startedAt = Date.now();
-      try {
-        const run = () => captureSends(() => handler(cleanData));
-        const { result, sends } = traceId
-          ? await runWithTraceId(traceId, run)
-          : await run();
-        log.set({ event: "job_complete" });
-        log.emit();
-        outputs.push(buildOutput(startedAt, result, sends));
-      } catch (error) {
-        log.set({ event: "job_failed" });
-        log.error(error instanceof Error ? error : String(error));
-        log.emit();
-        throw error;
-      }
-    }
+    await Promise.all(
+      jobs.map(async (job) => {
+        const log = createRequestLogger({ method: "JOB", path: queueName });
+        const { traceId, cleanData } = extractTraceId(job.data);
+        log.set({
+          ...cleanData,
+          jobId: job.id,
+          ...(traceId ? { traceId } : {}),
+        });
+        const startedAt = Date.now();
+        try {
+          const run = () => captureSends(() => handler(cleanData));
+          const { result, sends } = traceId
+            ? await runWithTraceId(traceId, run)
+            : await run();
+          log.set({ event: "job_complete" });
+          log.emit();
+          outputs.push(buildOutput(startedAt, result, sends));
+        } catch (error) {
+          log.set({ event: "job_failed" });
+          log.error(error instanceof Error ? error : String(error));
+          log.emit();
+          throw error;
+        }
+      })
+    );
     const first = outputs[0];
     return outputs.length === 1 && first ? first : { batch: outputs };
   };

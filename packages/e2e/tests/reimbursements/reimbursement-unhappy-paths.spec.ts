@@ -7,17 +7,17 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
     clientGroupID: `e2e-unhappy-cg-${suffix}`,
     mutations: [
       {
-        type: "custom" as const,
-        id: 1,
-        clientID: `e2e-unhappy-${suffix}`,
-        name: mutationName,
         args: [args],
+        clientID: `e2e-unhappy-${suffix}`,
+        id: 1,
+        name: mutationName,
         timestamp: Date.now(),
+        type: "custom" as const,
       },
     ],
     pushVersion: 1,
-    timestamp: Date.now(),
     requestID: `e2e-unhappy-req-${suffix}`,
+    timestamp: Date.now(),
   };
 }
 
@@ -79,6 +79,7 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
         .toBeHidden({ timeout: 3000 })
         .catch(() => {
           // It may simply not appear in the menu — that's also acceptable
+          void 0;
         });
       await page.keyboard.press("Escape");
     }

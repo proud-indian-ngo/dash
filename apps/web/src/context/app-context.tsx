@@ -77,10 +77,10 @@ export function AppProvider({
         navItems,
         openSettings,
         permissions,
-        settingsOpen,
-        settingsSection,
         setSettingsOpen,
         setSettingsSection,
+        settingsOpen,
+        settingsSection,
         user,
       }}
     >

@@ -7,7 +7,7 @@ export const MAX_ATTACHMENT_FILES = 10;
 export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const ATTACHMENT_ACCEPT = "image/*,application/pdf";
 
-export const cityOptions = cityValues.map((value) => ({
+export const cityOptions = cityValues.map((value: any) => ({
   label: capitalize(value),
   value,
 }));
@@ -18,25 +18,25 @@ const amountSchema = z
   .multipleOf(0.01, "Must have at most 2 decimals");
 
 export const lineItemSchema = z.object({
-  id: z.string(),
-  categoryId: z.string().min(1, "Category required"),
-  description: z.string().trim().min(1, "Description required"),
   amount: z
     .string()
     .min(1, "Amount required")
-    .refine((value) => amountSchema.safeParse(Number(value)).success, {
+    .refine((value: any) => amountSchema.safeParse(Number(value)).success, {
       message: "Must be > 0 with max 2 decimals",
     }),
+  categoryId: z.string().min(1, "Category required"),
+  description: z.string().trim().min(1, "Description required"),
   generateVoucher: z.boolean().optional(),
+  id: z.string(),
 });
 
 export const attachmentSchema = z.discriminatedUnion("type", [
   z.object({
-    id: z.string(),
-    type: z.literal("file"),
     filename: z.string().min(1),
-    objectKey: z.string().min(1),
+    id: z.string(),
     mimeType: z.string().optional(),
+    objectKey: z.string().min(1),
+    type: z.literal("file"),
   }),
   z.object({
     id: z.string(),
@@ -49,23 +49,21 @@ export type LineItem = z.infer<typeof lineItemSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
 
 export const newLineItem = (): LineItem => ({
-  id: uuidv7(),
+  amount: "",
   categoryId: "",
   description: "",
-  amount: "",
   generateVoucher: false,
+  id: uuidv7(),
 });
 
-export const computeRunningTotal = (lineItems: LineItem[]): number => {
-  return lineItems.reduce((sum, item) => {
+export const computeRunningTotal = (lineItems: LineItem[]): number =>
+  lineItems.reduce((sum: any, item: any) => {
     const parsedAmount = Number(item.amount);
     return sum + (Number.isNaN(parsedAmount) ? 0 : parsedAmount);
   }, 0);
-};
 
-export const formatINR = (amount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
+export const formatINR = (amount: number): string =>
+  new Intl.NumberFormat("en-IN", {
     currency: "INR",
+    style: "currency",
   }).format(amount);
-};

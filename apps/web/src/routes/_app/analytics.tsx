@@ -57,16 +57,16 @@ const ApprovalTimeChart = lazy(() =>
 );
 
 export const Route = createFileRoute("/_app/analytics")({
+  beforeLoad: ({ context }) => assertPermission(context, "requests.view_all"),
+  component: AnalyticsPage,
   head: () => ({
     meta: [{ title: `Analytics | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => assertPermission(context, "requests.view_all"),
   loader: ({ context }) => {
     context.zero?.preload(queries.reimbursement.all());
     context.zero?.preload(queries.advancePayment.all());
     context.zero?.preload(queries.vendorPayment.all());
   },
-  component: AnalyticsPage,
 });
 
 function AnalyticsPage() {
@@ -98,7 +98,7 @@ function AnalyticsPage() {
 
   const allCities = new Set(
     [...reimbursements, ...advancePayments, ...vendorPayments]
-      .map((item) => (item as { city: string | null }).city)
+      .map((item: any) => (item as { city: string | null }).city)
       .filter(Boolean)
   );
   const hasMultipleCities = allCities.size > 1;
@@ -108,7 +108,7 @@ function AnalyticsPage() {
     if (!cityFilter) {
       return items;
     }
-    return items.filter((item) => cityAccessor(item) === cityFilter);
+    return items.filter((item: any) => cityAccessor(item) === cityFilter);
   };
 
   const filteredReimbursements = filterByCity(
@@ -150,6 +150,7 @@ function AnalyticsPage() {
   const vendorData = computeVendorData(
     filteredVendorPayments as unknown as Parameters<typeof computeVendorData>[0]
   );
+  const stableOnChange0 = (val: any) => setCityFilter(val || null);
   const eventData = computeEventData(
     allFiltered as unknown as Parameters<typeof computeEventData>[0]
   );
@@ -167,7 +168,7 @@ function AnalyticsPage() {
           {hasMultipleCities ? (
             <TableFilterSelect
               label="City"
-              onChange={(val) => setCityFilter(val || null)}
+              onChange={stableOnChange0}
               options={cityOptions}
               value={cityFilter ?? ""}
             />
@@ -198,7 +199,7 @@ function AnalyticsPage() {
           </div>
         }
       >
-        {anyComplete && (
+        {Boolean(anyComplete) && (
           <>
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <SubmissionTrendsChart data={trendData} />

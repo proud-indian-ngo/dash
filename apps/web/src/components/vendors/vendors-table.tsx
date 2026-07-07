@@ -51,6 +51,8 @@ function RowActions({
   onView: () => void;
   status: string;
 }) {
+  const stableOnClick0 = (e: any) => e.stopPropagation();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -59,7 +61,7 @@ function RowActions({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
-            onClick={(e) => e.stopPropagation()}
+            onClick={stableOnClick0}
             size="icon"
             type="button"
             variant="ghost"
@@ -129,7 +131,7 @@ export function VendorsTable({
   onClearFilters,
 }: VendorsTableProps) {
   const deleteAction = useConfirmAction<string>({
-    onConfirm: async (id) => {
+    onConfirm: async (id: any) => {
       const res = await onDelete(id);
       return res;
     },
@@ -138,55 +140,47 @@ export function VendorsTable({
 
   const columns: ColumnDef<VendorRow>[] = [
     {
-      id: "name",
-      accessorFn: (row) => row.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Name" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.name,
       cell: ({ row }) => (
         <span className="truncate font-medium text-sm">
           {row.original.name}
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      id: "name",
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
       size: 200,
     },
     {
-      id: "contactPhone",
-      accessorFn: (row) => row.contactPhone,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Phone" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.contactPhone,
       cell: ({ row }) => (
         <span className="truncate text-sm">{row.original.contactPhone}</span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Phone" visibility={true} />
+      ),
+      id: "contactPhone",
       meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
       size: 150,
     },
     {
-      id: "contactEmail",
-      accessorFn: (row) => row.contactEmail,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Email" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.contactEmail,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.contactEmail ?? "—"}
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Email" visibility={true} />
+      ),
+      id: "contactEmail",
       meta: { headerTitle: "Email", skeleton: SKELETON_EMAIL },
       size: 200,
     },
     {
-      id: "bankAccount",
-      accessorFn: (row) => row.bankAccountName,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Bank Account"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => row.bankAccountName,
       cell: ({ row }) => (
         <span className="truncate text-sm">
           {row.original.bankAccountName} (••••
@@ -196,12 +190,22 @@ export function VendorsTable({
           )
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Bank Account"
+          visibility={true}
+        />
+      ),
+      id: "bankAccount",
       meta: { headerTitle: "Bank Account", skeleton: SKELETON_BANK },
       size: 220,
     },
     {
-      id: "pendingCount",
-      accessorFn: (row) => row.pendingCount,
+      accessorFn: (row: any) => row.pendingCount,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.pendingCount}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -209,15 +213,15 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.pendingCount}</span>
-      ),
+      id: "pendingCount",
       meta: { headerTitle: "Pending Payments", skeleton: SKELETON_COUNT },
       size: 140,
     },
     {
-      id: "activeCount",
-      accessorFn: (row) => row.activeCount,
+      accessorFn: (row: any) => row.activeCount,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.activeCount}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -225,15 +229,15 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.activeCount}</span>
-      ),
+      id: "activeCount",
       meta: { headerTitle: "Active Payments", skeleton: SKELETON_COUNT },
       size: 140,
     },
     {
-      id: "completedCount",
-      accessorFn: (row) => row.completedCount,
+      accessorFn: (row: any) => row.completedCount,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.completedCount}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -241,15 +245,15 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.completedCount}</span>
-      ),
+      id: "completedCount",
       meta: { headerTitle: "Completed", skeleton: SKELETON_COUNT },
       size: 120,
     },
     {
-      id: "pendingAmount",
-      accessorFn: (row) => row.pendingAmount,
+      accessorFn: (row: any) => row.pendingAmount,
+      cell: ({ row }) => (
+        <span className="text-sm">{formatINR(row.original.pendingAmount)}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -257,15 +261,15 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{formatINR(row.original.pendingAmount)}</span>
-      ),
+      id: "pendingAmount",
       meta: { headerTitle: "Pending Amount", skeleton: SKELETON_AMOUNT },
       size: 150,
     },
     {
-      id: "activeAmount",
-      accessorFn: (row) => row.activeAmount,
+      accessorFn: (row: any) => row.activeAmount,
+      cell: ({ row }) => (
+        <span className="text-sm">{formatINR(row.original.activeAmount)}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -273,15 +277,17 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{formatINR(row.original.activeAmount)}</span>
-      ),
+      id: "activeAmount",
       meta: { headerTitle: "Active Amount", skeleton: SKELETON_AMOUNT },
       size: 140,
     },
     {
-      id: "completedAmount",
-      accessorFn: (row) => row.completedAmount,
+      accessorFn: (row: any) => row.completedAmount,
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {formatINR(row.original.completedAmount)}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -289,17 +295,15 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">
-          {formatINR(row.original.completedAmount)}
-        </span>
-      ),
+      id: "completedAmount",
       meta: { headerTitle: "Completed Amount", skeleton: SKELETON_AMOUNT },
       size: 160,
     },
     {
-      id: "rejectedCount",
-      accessorFn: (row) => row.rejectedCount,
+      accessorFn: (row: any) => row.rejectedCount,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.rejectedCount}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -307,15 +311,17 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.rejectedCount}</span>
-      ),
+      id: "rejectedCount",
       meta: { headerTitle: "Rejected Payments", skeleton: SKELETON_COUNT },
       size: 150,
     },
     {
-      id: "rejectedAmount",
-      accessorFn: (row) => row.rejectedAmount,
+      accessorFn: (row: any) => row.rejectedAmount,
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {formatINR(row.original.rejectedAmount)}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -323,24 +329,12 @@ export function VendorsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">
-          {formatINR(row.original.rejectedAmount)}
-        </span>
-      ),
+      id: "rejectedAmount",
       meta: { headerTitle: "Rejected Amount", skeleton: SKELETON_AMOUNT },
       size: 150,
     },
     {
-      id: "status",
-      accessorFn: (row) => row.status,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Status"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => row.status,
       cell: ({ row }) => {
         const status = row.original.status ?? "pending";
         const badge = STATUS_BADGE_MAP[status] ?? {
@@ -353,12 +347,18 @@ export function VendorsTable({
           </Badge>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Status"
+          visibility={true}
+        />
+      ),
+      id: "status",
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
       size: 120,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => (
         <RowActions
           onApprove={onApprove ? () => onApprove(row.original) : undefined}
@@ -371,15 +371,23 @@ export function VendorsTable({
           status={row.original.status ?? "pending"}
         />
       ),
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
       meta: { cellClassName: "text-center", stopRowClick: true },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
+  const stableGetRowId1 = (row: any) => row.id;
+  const stableOnOpenChange2 = (open: any) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  };
 
   return (
     <>
@@ -387,15 +395,15 @@ export function VendorsTable({
         columns={columns}
         data={data}
         defaultColumnVisibility={{
-          activeCount: false,
           activeAmount: false,
-          completedCount: false,
+          activeCount: false,
           completedAmount: false,
-          rejectedCount: false,
+          completedCount: false,
           rejectedAmount: false,
+          rejectedCount: false,
         }}
         emptyMessage="No vendors found."
-        getRowId={(row) => row.id}
+        getRowId={stableGetRowId1}
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
@@ -404,10 +412,10 @@ export function VendorsTable({
         searchPlaceholder="Search vendors..."
         storageKey="vendors_table_state_v3"
         tableLayout={{
-          columnsResizable: true,
           columnsDraggable: true,
-          columnsVisibility: true,
           columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
         toolbarFilters={toolbarFilters}
@@ -418,11 +426,7 @@ export function VendorsTable({
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange2}
         open={deleteAction.isOpen}
         title="Delete vendor"
       />

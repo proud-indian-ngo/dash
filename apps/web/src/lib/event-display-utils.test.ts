@@ -16,42 +16,42 @@ describe("sortUpcomingFirstThenPast", () => {
 
   it("places upcoming before past", () => {
     const rows = [
-      { startTime: Date.UTC(2026, 3, 20), label: "past" },
-      { startTime: Date.UTC(2026, 3, 25), label: "upcoming" },
+      { label: "past", startTime: Date.UTC(2026, 3, 20) },
+      { label: "upcoming", startTime: Date.UTC(2026, 3, 25) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual(["upcoming", "past"]);
+    expect(rows.map((r: any) => r.label)).toEqual(["upcoming", "past"]);
   });
 
   it("sorts upcoming ascending (nearest first)", () => {
     const rows = [
-      { startTime: Date.UTC(2026, 3, 30), label: "far" },
-      { startTime: Date.UTC(2026, 3, 23), label: "near" },
-      { startTime: Date.UTC(2026, 3, 26), label: "mid" },
+      { label: "far", startTime: Date.UTC(2026, 3, 30) },
+      { label: "near", startTime: Date.UTC(2026, 3, 23) },
+      { label: "mid", startTime: Date.UTC(2026, 3, 26) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual(["near", "mid", "far"]);
+    expect(rows.map((r: any) => r.label)).toEqual(["near", "mid", "far"]);
   });
 
   it("sorts past descending (most recent first)", () => {
     const rows = [
-      { startTime: Date.UTC(2026, 3, 10), label: "old" },
-      { startTime: Date.UTC(2026, 3, 21), label: "recent" },
-      { startTime: Date.UTC(2026, 3, 15), label: "mid" },
+      { label: "old", startTime: Date.UTC(2026, 3, 10) },
+      { label: "recent", startTime: Date.UTC(2026, 3, 21) },
+      { label: "mid", startTime: Date.UTC(2026, 3, 15) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual(["recent", "mid", "old"]);
+    expect(rows.map((r: any) => r.label)).toEqual(["recent", "mid", "old"]);
   });
 
   it("handles mixed upcoming and past", () => {
     const rows = [
-      { startTime: Date.UTC(2026, 3, 10), label: "past-old" },
-      { startTime: Date.UTC(2026, 3, 30), label: "upcoming-far" },
-      { startTime: Date.UTC(2026, 3, 21), label: "past-recent" },
-      { startTime: Date.UTC(2026, 3, 23), label: "upcoming-near" },
+      { label: "past-old", startTime: Date.UTC(2026, 3, 10) },
+      { label: "upcoming-far", startTime: Date.UTC(2026, 3, 30) },
+      { label: "past-recent", startTime: Date.UTC(2026, 3, 21) },
+      { label: "upcoming-near", startTime: Date.UTC(2026, 3, 23) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual([
+    expect(rows.map((r: any) => r.label)).toEqual([
       "upcoming-near",
       "upcoming-far",
       "past-recent",
@@ -123,11 +123,11 @@ describe("expandSeriesOccurrences", () => {
   it("marks series start date as seriesParent", () => {
     const result = expandWeekly(Date.UTC(2026, 3, 20, 23, 59));
 
-    const parent = result.occurrences.find((o) => o.isSeriesParent);
+    const parent = result.occurrences.find((o: any) => o.isSeriesParent);
     expect(parent).toBeDefined();
     expect(parent?.date).toBe("2026-04-06");
 
-    const virtuals = result.occurrences.filter((o) => !o.isSeriesParent);
+    const virtuals = result.occurrences.filter((o: any) => !o.isSeriesParent);
     expect(virtuals.length).toBeGreaterThan(0);
   });
 
@@ -136,7 +136,7 @@ describe("expandSeriesOccurrences", () => {
       { originalDate: "2026-04-13" },
     ]);
 
-    const dates = result.occurrences.map((o) => o.date);
+    const dates = result.occurrences.map((o: any) => o.date);
     expect(dates).not.toContain("2026-04-13");
     expect(dates).toContain("2026-04-06");
     expect(dates).toContain("2026-04-20");

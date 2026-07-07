@@ -28,11 +28,7 @@ export function createUserColumns(
 ): (ColumnDef<User> & { enableColumnOrdering?: boolean })[] {
   return [
     {
-      id: "name",
-      accessorFn: (row) => row.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="User" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.name,
       cell: ({ row }) => (
         <div className="flex min-w-0 items-center gap-3">
           <UserAvatar className="size-8" user={row.original} />
@@ -46,6 +42,10 @@ export function createUserColumns(
           </div>
         </div>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="User" visibility={true} />
+      ),
+      id: "name",
       meta: {
         headerTitle: "User",
         skeleton: SKELETON_NAME,
@@ -53,11 +53,7 @@ export function createUserColumns(
       size: 240,
     },
     {
-      id: "role",
-      accessorFn: (row) => row.role ?? "volunteer",
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Role" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.role ?? "volunteer",
       cell: ({ row }) => {
         const roleName = row.original.role ?? "volunteer";
         return roleName === "admin" ? (
@@ -68,6 +64,10 @@ export function createUserColumns(
           </Badge>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Role" visibility={true} />
+      ),
+      id: "role",
       meta: {
         headerTitle: "Role",
         skeleton: SKELETON_ROLE,
@@ -75,8 +75,7 @@ export function createUserColumns(
       size: 120,
     },
     {
-      id: "gender",
-      accessorFn: (row) => (row.gender ? capitalize(row.gender) : "—"),
+      accessorFn: (row: any) => (row.gender ? capitalize(row.gender) : "—"),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -84,6 +83,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
+      id: "gender",
       meta: {
         headerTitle: "Gender",
         skeleton: SKELETON_GENDER,
@@ -91,9 +91,8 @@ export function createUserColumns(
       size: 110,
     },
     {
-      id: "dob",
-      accessorFn: (row) => {
-        if (row.dob == null) {
+      accessorFn: (row: any) => {
+        if (row.dob === null) {
           return "—";
         }
         return format(row.dob, SHORT_DATE);
@@ -101,6 +100,7 @@ export function createUserColumns(
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="DOB" visibility={true} />
       ),
+      id: "dob",
       meta: {
         headerTitle: "DOB",
         skeleton: SKELETON_DOB,
@@ -108,8 +108,13 @@ export function createUserColumns(
       size: 120,
     },
     {
-      id: "active",
-      accessorFn: (row) => (row.isActive ? "yes" : "no"),
+      accessorFn: (row: any) => (row.isActive ? "yes" : "no"),
+      cell: ({ row }) =>
+        row.original.isActive ? (
+          <Badge variant="success-outline">Active</Badge>
+        ) : (
+          <Badge variant="destructive-outline">Inactive</Badge>
+        ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -117,12 +122,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
-      cell: ({ row }) =>
-        row.original.isActive ? (
-          <Badge variant="success-outline">Active</Badge>
-        ) : (
-          <Badge variant="destructive-outline">Inactive</Badge>
-        ),
+      id: "active",
       meta: {
         headerTitle: "Active",
         skeleton: SKELETON_ACTIVE,
@@ -130,8 +130,13 @@ export function createUserColumns(
       size: 110,
     },
     {
-      id: "isOnWhatsapp",
-      accessorFn: (row) => (row.isOnWhatsapp ? "yes" : "no"),
+      accessorFn: (row: any) => (row.isOnWhatsapp ? "yes" : "no"),
+      cell: ({ row }) =>
+        row.original.isOnWhatsapp ? (
+          <Badge variant="success-outline">Yes</Badge>
+        ) : (
+          <Badge variant="secondary">No</Badge>
+        ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -139,12 +144,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
-      cell: ({ row }) =>
-        row.original.isOnWhatsapp ? (
-          <Badge variant="success-outline">Yes</Badge>
-        ) : (
-          <Badge variant="secondary">No</Badge>
-        ),
+      id: "isOnWhatsapp",
       meta: {
         headerTitle: "WhatsApp",
         skeleton: SKELETON_WHATSAPP,
@@ -152,11 +152,11 @@ export function createUserColumns(
       size: 110,
     },
     {
-      id: "phone",
-      accessorFn: (row) => row.phone ?? "—",
+      accessorFn: (row: any) => row.phone ?? "—",
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Phone" visibility={true} />
       ),
+      id: "phone",
       meta: {
         headerTitle: "Phone",
         skeleton: SKELETON_PHONE,
@@ -164,8 +164,13 @@ export function createUserColumns(
       size: 140,
     },
     {
-      id: "emailVerified",
-      accessorFn: (row) => (row.emailVerified ? "yes" : "no"),
+      accessorFn: (row: any) => (row.emailVerified ? "yes" : "no"),
+      cell: ({ row }) =>
+        row.original.emailVerified ? (
+          <Badge variant="success-outline">Verified</Badge>
+        ) : (
+          <Badge variant="secondary">Unverified</Badge>
+        ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -173,12 +178,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
-      cell: ({ row }) =>
-        row.original.emailVerified ? (
-          <Badge variant="success-outline">Verified</Badge>
-        ) : (
-          <Badge variant="secondary">Unverified</Badge>
-        ),
+      id: "emailVerified",
       meta: {
         headerTitle: "Email Verified",
         skeleton: SKELETON_EMAIL_VERIFIED,
@@ -186,15 +186,7 @@ export function createUserColumns(
       size: 130,
     },
     {
-      id: "banned",
-      accessorFn: (row) => (row.banned ? "yes" : "no"),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Banned"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => (row.banned ? "yes" : "no"),
       cell: ({ row }) => {
         const isBanned = Boolean(row.original.banned);
         return (
@@ -208,6 +200,14 @@ export function createUserColumns(
           </div>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Banned"
+          visibility={true}
+        />
+      ),
+      id: "banned",
       meta: {
         headerTitle: "Banned",
         skeleton: SKELETON_BANNED,
@@ -215,8 +215,7 @@ export function createUserColumns(
       size: 110,
     },
     {
-      id: "banReason",
-      accessorFn: (row) => row.banReason ?? "—",
+      accessorFn: (row: any) => row.banReason ?? "—",
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -224,6 +223,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
+      id: "banReason",
       meta: {
         headerTitle: "Ban Reason",
         skeleton: SKELETON_BAN_REASON,
@@ -231,9 +231,8 @@ export function createUserColumns(
       size: 180,
     },
     {
-      id: "banExpires",
-      accessorFn: (row) => {
-        if (row.banExpires == null) {
+      accessorFn: (row: any) => {
+        if (row.banExpires === null) {
           return "—";
         }
         return format(row.banExpires, SHORT_DATE_WITH_SECONDS);
@@ -245,6 +244,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
+      id: "banExpires",
       meta: {
         headerTitle: "Ban Expires",
         skeleton: SKELETON_BAN_EXPIRES,
@@ -252,9 +252,8 @@ export function createUserColumns(
       size: 180,
     },
     {
-      id: "createdAt",
-      accessorFn: (row) => {
-        if (row.createdAt == null) {
+      accessorFn: (row: any) => {
+        if (row.createdAt === null) {
           return "—";
         }
         return format(row.createdAt, SHORT_DATE_WITH_SECONDS);
@@ -266,6 +265,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
+      id: "createdAt",
       meta: {
         headerTitle: "Created",
         skeleton: SKELETON_CREATED_AT,
@@ -273,9 +273,8 @@ export function createUserColumns(
       size: 180,
     },
     {
-      id: "updatedAt",
-      accessorFn: (row) => {
-        if (row.updatedAt == null) {
+      accessorFn: (row: any) => {
+        if (row.updatedAt === null) {
           return "—";
         }
         return format(row.updatedAt, SHORT_DATE_WITH_SECONDS);
@@ -287,6 +286,7 @@ export function createUserColumns(
           visibility={true}
         />
       ),
+      id: "updatedAt",
       meta: {
         headerTitle: "Updated",
         skeleton: SKELETON_UPDATED_AT,
@@ -294,19 +294,19 @@ export function createUserColumns(
       size: 180,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => renderActions(row.original),
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
       meta: {
         cellClassName: "text-center",
         stopRowClick: true,
       },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
 }

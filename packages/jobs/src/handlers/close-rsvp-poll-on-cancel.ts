@@ -18,14 +18,14 @@ export async function handleCloseRsvpPollOnCancel(
       path: "close-rsvp-poll-on-cancel",
     });
     const { eventId, eventName, reason } = job.data;
-    log.set({ jobId: job.id, eventId, eventName });
+    log.set({ eventId, eventName, jobId: job.id });
 
     const polls = await db
       .select({
+        closedAt: eventRsvpPoll.closedAt,
         id: eventRsvpPoll.id,
         messageId: eventRsvpPoll.messageId,
         targetChatJid: eventRsvpPoll.targetChatJid,
-        closedAt: eventRsvpPoll.closedAt,
       })
       .from(eventRsvpPoll)
       .where(eq(eventRsvpPoll.eventId, eventId))

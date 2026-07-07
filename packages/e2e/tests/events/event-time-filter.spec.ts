@@ -8,7 +8,7 @@ test.describe("Event time scope filter", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
 
     // Time filter group is labeled with "Time" text (appears twice: desktop + mobile)
@@ -26,7 +26,7 @@ test.describe("Event time scope filter", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
 
     const weekButton = page.getByRole("button", { name: "This Week" });
@@ -46,7 +46,7 @@ test.describe("Event time scope filter", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
 
     const monthButton = page.getByRole("button", { name: "This Month" });
@@ -66,7 +66,7 @@ test.describe("Event time scope filter", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({ timeout: 10_000 });
 
     const weekButton = page.getByRole("button", { name: "This Week" });
@@ -79,7 +79,7 @@ test.describe("Event time scope filter", () => {
     // The Time section's All button is adjacent to This Week / This Month
     const timeAllButton = weekButton
       .locator("..")
-      .getByRole("button", { name: "All", exact: true });
+      .getByRole("button", { exact: true, name: "All" });
     await timeAllButton.click();
     await page.waitForTimeout(500);
 

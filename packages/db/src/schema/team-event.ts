@@ -31,50 +31,50 @@ export const attendanceStatusEnum = pgEnum("attendance_status", [
 export const teamEvent = pgTable(
   "team_event",
   {
-    id: uuid("id").primaryKey(),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    description: text("description"),
-    location: text("location"),
+    cancelledAt: timestamp("cancelled_at"),
     city: cityEnum("city").notNull().default("bangalore"),
-    startTime: timestamp("start_time").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    description: text("description"),
     endTime: timestamp("end_time"),
+    feedbackDeadline: timestamp("feedback_deadline"),
+    feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
+    id: uuid("id").primaryKey(),
+    inheritVolunteers: boolean("inherit_volunteers").default(false).notNull(),
     isPublic: boolean("is_public").default(false).notNull(),
-    whatsappGroupId: uuid("whatsapp_group_id").references(
-      () => whatsappGroup.id,
-      { onDelete: "set null" }
-    ),
+    location: text("location"),
+    name: text("name").notNull(),
+    originalDate: text("original_date"),
+    postEventNudgesEnabled: boolean("post_event_nudges_enabled")
+      .default(true)
+      .notNull(),
+    postRsvpPoll: boolean("post_rsvp_poll").default(false).notNull(),
     recurrenceRule: jsonb("recurrence_rule").$type<{
       rrule: string;
       exdates?: string[];
       excludeRules?: string[];
     }>(),
-    seriesId: uuid("series_id").references((): AnyPgColumn => teamEvent.id, {
-      onDelete: "cascade",
-    }),
-    originalDate: text("original_date"),
-    cancelledAt: timestamp("cancelled_at"),
-    feedbackEnabled: boolean("feedback_enabled").default(false).notNull(),
-    feedbackDeadline: timestamp("feedback_deadline"),
-    postRsvpPoll: boolean("post_rsvp_poll").default(false).notNull(),
-    rsvpPollLeadMinutes: integer("rsvp_poll_lead_minutes")
-      .default(DEFAULT_RSVP_POLL_LEAD_MINUTES)
-      .notNull(),
     reminderIntervals: jsonb("reminder_intervals").$type<number[]>(),
     reminderTarget: reminderTargetEnum("reminder_target")
       .default("group")
       .notNull(),
-    postEventNudgesEnabled: boolean("post_event_nudges_enabled")
-      .default(true)
+    rsvpPollLeadMinutes: integer("rsvp_poll_lead_minutes")
+      .default(DEFAULT_RSVP_POLL_LEAD_MINUTES)
       .notNull(),
-    inheritVolunteers: boolean("inherit_volunteers").default(false).notNull(),
-    createdBy: text("created_by")
+    seriesId: uuid("series_id").references((): AnyPgColumn => teamEvent.id, {
+      onDelete: "cascade",
+    }),
+    startTime: timestamp("start_time").notNull(),
+    teamId: uuid("team_id")
       .notNull()
-      .references(() => user.id),
-    createdAt: timestamp("created_at").notNull(),
+      .references(() => team.id, { onDelete: "cascade" }),
     updatedAt: timestamp("updated_at").notNull(),
+    whatsappGroupId: uuid("whatsapp_group_id").references(
+      () => whatsappGroup.id,
+      { onDelete: "set null" }
+    ),
   },
   (table) => [
     index("team_event_teamId_idx").on(table.teamId),
@@ -101,19 +101,19 @@ export const teamEvent = pgTable(
 export const teamEventMember = pgTable(
   "team_event_member",
   {
-    id: uuid("id").primaryKey(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => teamEvent.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
     addedAt: timestamp("added_at").notNull(),
     attendance: attendanceStatusEnum("attendance"),
     attendanceMarkedAt: timestamp("attendance_marked_at"),
     attendanceMarkedBy: text("attendance_marked_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => teamEvent.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
     uniqueIndex("team_event_member_eventId_userId_uidx").on(
@@ -126,29 +126,29 @@ export const teamEventMember = pgTable(
 );
 
 export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
-  team: one(team, {
-    fields: [teamEvent.teamId],
-    references: [team.id],
+  creator: one(user, {
+    fields: [teamEvent.createdBy],
+    references: [user.id],
   }),
-  whatsappGroup: one(whatsappGroup, {
-    fields: [teamEvent.whatsappGroupId],
-    references: [whatsappGroup.id],
-  }),
+  exceptions: many(teamEvent, { relationName: "seriesExceptions" }),
+  feedback: many(eventFeedback),
+  interests: many(eventInterest),
+  members: many(teamEventMember),
+  reimbursements: many(reimbursement),
   series: one(teamEvent, {
     fields: [teamEvent.seriesId],
     references: [teamEvent.id],
     relationName: "seriesExceptions",
   }),
-  exceptions: many(teamEvent, { relationName: "seriesExceptions" }),
-  members: many(teamEventMember),
-  interests: many(eventInterest),
-  feedback: many(eventFeedback),
-  creator: one(user, {
-    fields: [teamEvent.createdBy],
-    references: [user.id],
+  team: one(team, {
+    fields: [teamEvent.teamId],
+    references: [team.id],
   }),
-  reimbursements: many(reimbursement),
   vendorPayments: many(vendorPayment),
+  whatsappGroup: one(whatsappGroup, {
+    fields: [teamEvent.whatsappGroupId],
+    references: [whatsappGroup.id],
+  }),
 }));
 
 export const teamEventMemberRelations = relations(

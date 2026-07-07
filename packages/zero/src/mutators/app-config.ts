@@ -13,8 +13,8 @@ export const appConfigMutators = {
       assertHasPermission(ctx, "settings.app_config");
       await tx.mutate.appConfig.upsert({
         key: args.key,
-        value: args.value,
         updatedAt: Date.now(),
+        value: args.value,
       });
     }
   ),

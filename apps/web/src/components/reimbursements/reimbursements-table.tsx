@@ -35,7 +35,10 @@ import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
-  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
+  return lineItems.reduce(
+    (sum: any, item: any) => sum + Number(item.amount),
+    0
+  );
 }
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
@@ -75,6 +78,8 @@ function RowActions({
   id: string;
   onRequestDelete: () => void;
 }) {
+  const stableOnClick0 = (e: any) => e.stopPropagation();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -83,7 +88,7 @@ function RowActions({
             aria-label="Row actions"
             className="size-8"
             data-testid="row-actions"
-            onClick={(e) => e.stopPropagation()}
+            onClick={stableOnClick0}
             size="icon"
             type="button"
             variant="ghost"
@@ -135,10 +140,10 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
   }
   return [
     row.title,
-    row.city ?? "",
+    row.city,
     row.status,
-    row.user?.name ?? "",
-    "event" in row ? (row.event?.name ?? "") : "",
+    row.user?.name,
+    "event" in row ? row.event?.name : "",
     REQUEST_TYPE_LABELS[row.type],
   ]
     .join(" ")
@@ -157,7 +162,7 @@ export function ReimbursementsTable({
   onClearFilters,
 }: ReimbursementsTableProps) {
   const { data: session } = authClient.useSession();
-  const currentUserId = session?.user?.id ?? "";
+  const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
   const canDeleteAll = hasPermission("requests.delete_all");
 
@@ -178,8 +183,8 @@ export function ReimbursementsTable({
       await onDeleteRef.current(deleteTarget.row);
     } catch (e) {
       log.error({
-        component: "ReimbursementsTable",
         action: "delete",
+        component: "ReimbursementsTable",
         entityId: deleteTarget.row.id,
         error: e instanceof Error ? e.message : String(e),
       });
@@ -192,26 +197,22 @@ export function ReimbursementsTable({
 
   const columns: ColumnDef<RequestRow>[] = [
     {
-      id: "title",
-      accessorFn: (row) => row.title,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Title" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.title,
       cell: ({ row }) => (
         <span className="truncate font-medium text-sm">
           {row.original.title}
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Title" visibility={true} />
+      ),
+      id: "title",
       meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
-      size: 240,
       minSize: 200,
+      size: 240,
     },
     {
-      id: "type",
-      accessorFn: (row) => REQUEST_TYPE_LABELS[row.type],
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Type" visibility={true} />
-      ),
+      accessorFn: (row: RequestRow) => REQUEST_TYPE_LABELS[row.type],
       cell: ({ row }) => (
         <Badge className="max-w-full shrink truncate" variant="outline">
           <span className="truncate">
@@ -219,57 +220,50 @@ export function ReimbursementsTable({
           </span>
         </Badge>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Type" visibility={true} />
+      ),
+      id: "type",
       meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
-      size: 150,
       minSize: 120,
+      size: 150,
     },
     {
-      id: "city",
-      accessorFn: (row) => row.city,
+      accessorFn: (row: any) => row.city,
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm capitalize">
+          {row.original.city}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
-          {row.original.city ?? "—"}
-        </span>
-      ),
+      id: "city",
       meta: { headerTitle: "City", skeleton: SKELETON_TYPE },
-      size: 120,
       minSize: 100,
+      size: 120,
     },
     {
-      id: "event",
-      accessorFn: (row) =>
-        isReimbursement(row) ? (row.event?.name ?? "") : "",
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Event" visibility={true} />
-      ),
+      accessorFn: (row: any) => (isReimbursement(row) ? row.event?.name : ""),
       cell: ({ row }) => {
         const r = row.original;
         const name = isReimbursement(r) ? r.event?.name : undefined;
         return (
-          <span className="truncate text-muted-foreground text-sm">
-            {name ?? "—"}
-          </span>
+          <span className="truncate text-muted-foreground text-sm">{name}</span>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Event" visibility={true} />
+      ),
+      id: "event",
       meta: { headerTitle: "Event", skeleton: SKELETON_TYPE },
-      size: 180,
       minSize: 120,
+      size: 180,
     },
     {
-      id: "createdBy",
-      accessorFn: (row) => row.user?.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Created By"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => row.user?.name,
       cell: ({ row }) => {
-        const user = row.original.user;
+        const { user } = row.original;
         if (!user) {
           return <span className="text-muted-foreground text-sm">—</span>;
         }
@@ -289,13 +283,24 @@ export function ReimbursementsTable({
           </UserHoverCard>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Created By"
+          visibility={true}
+        />
+      ),
+      id: "createdBy",
       meta: { headerTitle: "Created By", skeleton: SKELETON_CREATED_BY },
-      size: 220,
       minSize: 180,
+      size: 220,
     },
     {
-      id: "status",
-      accessorFn: (row) => row.status,
+      accessorFn: (row: any) => row.status,
+      cell: ({ row }) => {
+        const { label, variant } = getStatusBadge(row.original.status);
+        return <Badge variant={variant}>{label}</Badge>;
+      },
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -303,36 +308,25 @@ export function ReimbursementsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => {
-        const { label, variant } = getStatusBadge(row.original.status);
-        return <Badge variant={variant}>{label}</Badge>;
-      },
+      id: "status",
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
       size: 120,
     },
     {
-      id: "total",
-      accessorFn: (row) => computeTotal(row.lineItems),
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Total" visibility={true} />
-      ),
+      accessorFn: (row: any) => computeTotal(row.lineItems),
       cell: ({ row }) => {
         const total = computeTotal(row.original.lineItems);
         return <span className="truncate text-sm">{formatINR(total)}</span>;
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Total" visibility={true} />
+      ),
+      id: "total",
       meta: { headerTitle: "Total", skeleton: SKELETON_TOTAL },
       size: 120,
     },
     {
-      id: "expenseDate",
-      accessorFn: (row) => (isReimbursement(row) ? row.expenseDate : null),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Expense Date"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => (isReimbursement(row) ? row.expenseDate : null),
       cell: ({ row }) => {
         const r = row.original;
         if (!(isReimbursement(r) && r.expenseDate)) {
@@ -344,13 +338,27 @@ export function ReimbursementsTable({
           </span>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Expense Date"
+          visibility={true}
+        />
+      ),
+      id: "expenseDate",
       meta: { headerTitle: "Expense Date", skeleton: SKELETON_DATE },
       size: 130,
     },
     {
-      id: "submittedAt",
-      accessorFn: (row) =>
-        row.submittedAt == null ? "—" : format(row.submittedAt, SHORT_DATE),
+      accessorFn: (row: any) =>
+        row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground text-sm">
+          {row.original.submittedAt === null
+            ? "—"
+            : format(row.original.submittedAt, SHORT_DATE)}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -358,28 +366,18 @@ export function ReimbursementsTable({
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
-          {row.original.submittedAt == null
-            ? "—"
-            : format(row.original.submittedAt, SHORT_DATE)}
-        </span>
-      ),
+      id: "submittedAt",
       meta: { headerTitle: "Submitted", skeleton: SKELETON_DATE },
       size: 130,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => {
         const r = row.original;
         const isOwner = r.userId === currentUserId;
         const canDelete = canDeleteAll || (isOwner && r.status === "pending");
-        const canEdit = canEditRequestSubmission(
-          r,
-          currentUserId,
-          hasPermission
-        );
+        const canEdit = currentUserId
+          ? canEditRequestSubmission(r, currentUserId, hasPermission)
+          : false;
         return (
           <RowActions
             canDelete={canDelete}
@@ -389,19 +387,28 @@ export function ReimbursementsTable({
           />
         );
       },
+      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      enableColumnOrdering: false,
+      header: "",
+      id: "actions",
       meta: { cellClassName: "text-center", stopRowClick: true },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
 
   const deleteType = deleteTarget
     ? REQUEST_TYPE_LABELS[deleteTarget.type].toLowerCase()
     : "request";
+  const stableGetRowId1 = (row: any) => row.id;
+  const stableOnRowClick2 = (row: any) => onNavigate(row.id);
+  const stableOnOpenChange3 = (open: any) => {
+    if (!open) {
+      setDeleteTarget(null);
+    }
+  };
 
   return (
     <>
@@ -410,19 +417,19 @@ export function ReimbursementsTable({
         data={data}
         defaultColumnVisibility={{ event: false }}
         emptyMessage="No reimbursements found."
-        getRowId={(row) => row.id}
+        getRowId={stableGetRowId1}
         hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
         onClearFilters={onClearFilters}
-        onRowClick={(row) => onNavigate(row.id)}
+        onRowClick={stableOnRowClick2}
         searchFn={searchReimbursement}
         searchPlaceholder="Search reimbursements..."
         storageKey="reimbursements_table_state_v1"
         tableLayout={{
-          columnsResizable: true,
           columnsDraggable: true,
-          columnsVisibility: true,
           columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
         toolbarFilters={toolbarFilters}
@@ -433,11 +440,7 @@ export function ReimbursementsTable({
         loading={deleteLoading}
         loadingLabel="Deleting..."
         onConfirm={confirmDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange3}
         open={deleteTarget !== null}
         title={`Delete ${deleteType}`}
       />

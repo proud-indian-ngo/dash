@@ -14,12 +14,12 @@ describe("computeReimbursementStats", () => {
 
   it("counts items by status", () => {
     const data = [
-      { status: "pending", lineItems: [{ amount: 100 }] },
-      { status: "approved", lineItems: [{ amount: 200 }] },
-      { status: "approved", lineItems: [{ amount: 300 }] },
-      { status: "rejected", lineItems: [{ amount: 50 }] },
-      { status: "rejected", lineItems: [{ amount: 75 }] },
-      { status: "rejected", lineItems: [{ amount: 25 }] },
+      { lineItems: [{ amount: 100 }], status: "pending" },
+      { lineItems: [{ amount: 200 }], status: "approved" },
+      { lineItems: [{ amount: 300 }], status: "approved" },
+      { lineItems: [{ amount: 50 }], status: "rejected" },
+      { lineItems: [{ amount: 75 }], status: "rejected" },
+      { lineItems: [{ amount: 25 }], status: "rejected" },
     ];
     const stats = computeReimbursementStats(data);
 
@@ -32,8 +32,8 @@ describe("computeReimbursementStats", () => {
   it("sums amounts across line items per entry", () => {
     const data = [
       {
-        status: "approved",
         lineItems: [{ amount: 100 }, { amount: 200 }, { amount: 300 }],
+        status: "approved",
       },
     ];
     const stats = computeReimbursementStats(data);
@@ -42,20 +42,20 @@ describe("computeReimbursementStats", () => {
   });
 
   it("formats totals as INR in descriptions", () => {
-    const data = [{ status: "pending", lineItems: [{ amount: 10_000 }] }];
+    const data = [{ lineItems: [{ amount: 10_000 }], status: "pending" }];
     const stats = computeReimbursementStats(data);
     const pendingDesc = stats.at(1)?.description;
     expect(pendingDesc).toContain("10,000");
   });
 
   it("handles string amounts", () => {
-    const data = [{ status: "approved", lineItems: [{ amount: "999.99" }] }];
+    const data = [{ lineItems: [{ amount: "999.99" }], status: "approved" }];
     const stats = computeReimbursementStats(data);
     expect(stats.at(2)?.description).toContain("999.99");
   });
 
   it("handles null status", () => {
-    const data = [{ status: null, lineItems: [{ amount: 500 }] }];
+    const data = [{ lineItems: [{ amount: 500 }], status: null }];
     const stats = computeReimbursementStats(data);
     expect(stats.at(0)?.value).toBe(1);
     expect(stats.at(1)?.value).toBe(0);

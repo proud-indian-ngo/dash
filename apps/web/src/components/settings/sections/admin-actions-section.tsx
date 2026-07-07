@@ -29,8 +29,8 @@ export function AdminActionsSection() {
       );
     } catch (error) {
       log.error({
-        component: "AdminActionsSection",
         action: "triggerWhatsAppGroupScan",
+        component: "AdminActionsSection",
         error: getErrorMessage(error),
       });
       toast.error("Couldn't trigger scan");
@@ -49,8 +49,8 @@ export function AdminActionsSection() {
       );
     } catch (error) {
       log.error({
-        component: "AdminActionsSection",
         action: "triggerR2DryRun",
+        component: "AdminActionsSection",
         error: getErrorMessage(error),
       });
       toast.error("Couldn't trigger dry run");
@@ -66,8 +66,8 @@ export function AdminActionsSection() {
       toast.success("Cleanup started — orphaned files will be deleted");
     } catch (error) {
       log.error({
-        component: "AdminActionsSection",
         action: "triggerR2Cleanup",
+        component: "AdminActionsSection",
         error: getErrorMessage(error),
       });
       toast.error("Couldn't trigger cleanup");
@@ -76,6 +76,7 @@ export function AdminActionsSection() {
       setR2CleanupConfirmOpen(false);
     }
   };
+  const stableOnClick1 = () => setR2CleanupConfirmOpen(true);
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -92,7 +93,7 @@ export function AdminActionsSection() {
         <div className="pt-2">
           <Button
             disabled={scanningGroups}
-            onClick={() => setScanConfirmOpen(true)}
+            onClick={handleR2DryRun}
             size="sm"
             variant="outline"
           >
@@ -120,7 +121,7 @@ export function AdminActionsSection() {
           </Button>
           <Button
             disabled={r2Cleaning}
-            onClick={() => setR2CleanupConfirmOpen(true)}
+            onClick={stableOnClick1}
             size="sm"
             variant="destructive"
           >

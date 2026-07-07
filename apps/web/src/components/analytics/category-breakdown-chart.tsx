@@ -30,6 +30,7 @@ export function CategoryBreakdownChart({
 }: {
   data: CategoryDataPoint[];
 }) {
+  const stableFormatter0 = (value: unknown) => formatINR(Number(value));
   if (data.length === 0) {
     return (
       <Card>
@@ -44,12 +45,11 @@ export function CategoryBreakdownChart({
   }
 
   const chartConfig = Object.fromEntries(
-    data.map((d, i) => [
+    data.map((d: any, i: any) => [
       d.name,
-      { label: d.name, color: COLORS[i % COLORS.length] },
+      { color: COLORS[i % COLORS.length], label: d.name },
     ])
   ) satisfies ChartConfig;
-
   return (
     <Card>
       <CardHeader>
@@ -62,11 +62,7 @@ export function CategoryBreakdownChart({
         >
           <PieChart>
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value) => formatINR(Number(value))}
-                />
-              }
+              content={<ChartTooltipContent formatter={stableFormatter0} />}
             />
             <Pie
               cx="50%"
@@ -78,14 +74,14 @@ export function CategoryBreakdownChart({
               outerRadius={100}
               paddingAngle={2}
             >
-              {data.map((entry, index) => (
+              {data.map((entry: any, index: any) => (
                 <Cell fill={COLORS[index % COLORS.length]} key={entry.name} />
               ))}
             </Pie>
           </PieChart>
         </ChartContainer>
         <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1">
-          {data.map((entry, index) => (
+          {data.map((entry: any, index: any) => (
             <div className="flex items-center gap-1.5 text-xs" key={entry.name}>
               <span
                 className="size-2.5 rounded-full"

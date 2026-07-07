@@ -7,11 +7,11 @@ const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Reimbursement",
-  routePrefix: "reimbursements",
-  idempotencyPrefix: "reimbursement",
   getLineItems: getReimbursementLineItems,
-  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+  idempotencyPrefix: "reimbursement",
+  routePrefix: "reimbursements",
   statusTopic: TOPICS.REQUESTS_STATUS,
+  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
 });
 
 export async function notifyReimbursementSubmitted(options: {
@@ -38,10 +38,10 @@ export async function notifyReimbursementApproved(options: {
     : undefined;
   await notifier.notifyApproved({
     entityId: options.reimbursementId,
-    submitterId: options.submitterId,
-    title: options.title,
     note: options.note,
     screenshotUrl,
+    submitterId: options.submitterId,
+    title: options.title,
   });
 }
 
@@ -53,8 +53,8 @@ export async function notifyReimbursementRejected(options: {
 }): Promise<void> {
   await notifier.notifyRejected({
     entityId: options.reimbursementId,
+    reason: options.reason,
     submitterId: options.submitterId,
     title: options.title,
-    reason: options.reason,
   });
 }

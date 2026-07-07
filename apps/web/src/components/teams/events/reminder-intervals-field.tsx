@@ -24,6 +24,14 @@ export function ReminderIntervalsField({
   const showGroupWarning =
     !hasWhatsappGroup &&
     (reminderTarget === "group" || reminderTarget === "both");
+  const stableOnValueChange0 = (selected: any) =>
+    onChange(selected.map(Number));
+  const stableOnValueChange1 = (selected: any) => {
+    const val = selected.at(-1);
+    if (val) {
+      onTargetChange(val as ReminderTarget);
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -31,12 +39,12 @@ export function ReminderIntervalsField({
       <ToggleGroup
         aria-describedby="reminder-help"
         multiple
-        onValueChange={(selected) => onChange(selected.map(Number))}
+        onValueChange={stableOnValueChange0}
         spacing={1}
         value={value.map(String)}
         variant="outline"
       >
-        {REMINDER_PRESETS.map((preset) => (
+        {REMINDER_PRESETS.map((preset: any) => (
           <ToggleGroupItem
             className="aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
             key={preset.minutes}
@@ -51,12 +59,7 @@ export function ReminderIntervalsField({
         <div className="space-y-1.5">
           <Label className="text-xs">Send to</Label>
           <ToggleGroup
-            onValueChange={(selected) => {
-              const val = selected.at(-1);
-              if (val) {
-                onTargetChange(val as ReminderTarget);
-              }
-            }}
+            onValueChange={stableOnValueChange1}
             value={[reminderTarget]}
             variant="outline"
           >
@@ -82,7 +85,7 @@ export function ReminderIntervalsField({
               Both
             </ToggleGroupItem>
           </ToggleGroup>
-          {showGroupWarning && (
+          {Boolean(showGroupWarning) && (
             <p className="text-warning text-xs">
               No WhatsApp group linked — only participants will be reminded
             </p>

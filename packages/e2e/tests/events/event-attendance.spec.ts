@@ -37,7 +37,7 @@ test.describe("Event attendance (admin)", () => {
     await createDialog.getByLabel("Public").check();
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
@@ -65,7 +65,7 @@ test.describe("Event attendance (volunteer)", () => {
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });

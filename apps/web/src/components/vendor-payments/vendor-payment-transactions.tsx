@@ -66,7 +66,7 @@ export function VendorPaymentTransactions({
     0
   );
   const paidAmount = transactions
-    .filter((t) => t.status === "approved")
+    .filter((t: any) => t.status === "approved")
     .reduce(
       (sum: number, t: { amount: number | string }) => sum + Number(t.amount),
       0
@@ -75,7 +75,7 @@ export function VendorPaymentTransactions({
 
   // Sum of all non-rejected transactions (approved + pending) for cap enforcement
   const recordableTotal = transactions
-    .filter((t) => t.status !== "rejected")
+    .filter((t: any) => t.status !== "rejected")
     .reduce((sum: number, t) => sum + Number(t.amount), 0);
   const remainingForCreate = Math.max(0, totalOwed - recordableTotal);
 
@@ -84,10 +84,10 @@ export function VendorPaymentTransactions({
       mutators.vendorPaymentTransaction.approve({ id })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPaymentTransaction.approve",
       entityId: id,
-      successMsg: "Transaction approved",
       errorMsg: "Couldn't approve transaction",
+      mutation: "vendorPaymentTransaction.approve",
+      successMsg: "Transaction approved",
     });
   };
 
@@ -99,10 +99,10 @@ export function VendorPaymentTransactions({
       mutators.vendorPaymentTransaction.reject({ id: rejectingId, reason })
     ).server;
     handleMutationResult(res, {
-      mutation: "vendorPaymentTransaction.reject",
       entityId: rejectingId,
-      successMsg: "Transaction rejected",
       errorMsg: "Couldn't reject transaction",
+      mutation: "vendorPaymentTransaction.reject",
+      successMsg: "Transaction rejected",
     });
     if (res.type !== "error") {
       setRejectingId(null);
@@ -119,16 +119,32 @@ export function VendorPaymentTransactions({
         mutators.vendorPaymentTransaction.delete({ id: deletingId })
       ).server;
       handleMutationResult(res, {
-        mutation: "vendorPaymentTransaction.delete",
         entityId: deletingId,
-        successMsg: "Transaction deleted",
         errorMsg: "Couldn't delete transaction",
+        mutation: "vendorPaymentTransaction.delete",
+        successMsg: "Transaction deleted",
       });
       if (res.type !== "error") {
         setDeletingId(null);
       }
     } finally {
       setDeleteLoading(false);
+    }
+  };
+  const stableOnClick0 = () => setFormOpen(true);
+  const stableOnOpenChange1 = (open: any) => {
+    if (!open) {
+      setEditingTransaction(null);
+    }
+  };
+  const stableOnOpenChange2 = (open: any) => {
+    if (!open) {
+      setRejectingId(null);
+    }
+  };
+  const stableOnOpenChange3 = (open: any) => {
+    if (!open) {
+      setDeletingId(null);
     }
   };
 
@@ -143,7 +159,7 @@ export function VendorPaymentTransactions({
         <div className="flex items-center justify-between">
           <h2 className="font-medium text-sm">Payments</h2>
           {showRecordButton ? (
-            <Button onClick={() => setFormOpen(true)} size="sm" type="button">
+            <Button onClick={stableOnClick0} size="sm" type="button">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -203,7 +219,7 @@ export function VendorPaymentTransactions({
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t) => {
+                {transactions.map((t: any) => {
                   const badge = getStatusBadge(t.status);
                   const isPending = t.status === "pending";
                   const isTransactionOwner = isOwner || t.userId === user.id;
@@ -328,11 +344,7 @@ export function VendorPaymentTransactions({
         }
         key={editingTransaction?.id}
         mode="edit"
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingTransaction(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange1}
         open={editingTransaction !== null}
         remainingAmount={
           editingTransaction && editingTransaction.status !== "rejected"
@@ -349,11 +361,7 @@ export function VendorPaymentTransactions({
       <RejectDialog
         entityLabel="transaction"
         onConfirm={handleRejectTransaction}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRejectingId(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange2}
         open={rejectingId !== null}
       />
 
@@ -363,11 +371,7 @@ export function VendorPaymentTransactions({
         loading={deleteLoading}
         loadingLabel="Deleting..."
         onConfirm={confirmDeleteTransaction}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeletingId(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange3}
         open={deletingId !== null}
         title="Delete transaction?"
         variant="destructive"

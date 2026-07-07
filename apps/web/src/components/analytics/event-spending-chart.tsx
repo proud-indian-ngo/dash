@@ -16,12 +16,15 @@ import type { EventDataPoint } from "@/lib/stats";
 
 const chartConfig = {
   amount: {
-    label: "Amount",
     color: "var(--color-brand)",
+    label: "Amount",
   },
 } satisfies ChartConfig;
 
 export function EventSpendingChart({ data }: { data: EventDataPoint[] }) {
+  const stableTickFormatter0 = (v: number) => formatINR(v);
+  const stableFormatter1 = (value: unknown, _name: unknown, props: unknown) =>
+    `${formatINR(Number(value))} (${(props as { payload: EventDataPoint }).payload.count} expenses)`;
   if (data.length === 0) {
     return (
       <Card>
@@ -35,7 +38,6 @@ export function EventSpendingChart({ data }: { data: EventDataPoint[] }) {
       </Card>
     );
   }
-
   return (
     <Card>
       <CardHeader>
@@ -51,7 +53,7 @@ export function EventSpendingChart({ data }: { data: EventDataPoint[] }) {
             <XAxis
               axisLine={false}
               fontSize={12}
-              tickFormatter={(v: number) => formatINR(v)}
+              tickFormatter={stableTickFormatter0}
               tickLine={false}
               type="number"
             />
@@ -64,13 +66,7 @@ export function EventSpendingChart({ data }: { data: EventDataPoint[] }) {
               width={120}
             />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value, _name, props) =>
-                    `${formatINR(Number(value))} (${(props as { payload: EventDataPoint }).payload.count} expenses)`
-                  }
-                />
-              }
+              content={<ChartTooltipContent formatter={stableFormatter1} />}
             />
             <Bar
               dataKey="amount"

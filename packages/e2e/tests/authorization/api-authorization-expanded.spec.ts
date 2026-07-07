@@ -14,17 +14,17 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
     clientGroupID: `e2e-authz2-cg-${suffix}`,
     mutations: [
       {
-        type: "custom" as const,
-        id: 1,
-        clientID: `e2e-authz2-${suffix}`,
-        name: mutationName,
         args: [args],
+        clientID: `e2e-authz2-${suffix}`,
+        id: 1,
+        name: mutationName,
         timestamp: Date.now(),
+        type: "custom" as const,
       },
     ],
     pushVersion: 1,
-    timestamp: Date.now(),
     requestID: `e2e-authz2-req-${suffix}`,
+    timestamp: Date.now(),
   };
 }
 
@@ -104,9 +104,9 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     // so assertHasPermissionOrTeamLead("teams.manage_members", false) → Unauthorized
     await assertUnauthorized(page, baseURL, "team.addMember", {
       id: FAKE_ID,
+      role: "member",
       teamId: FAKE_ID,
       userId: FAKE_ID,
-      role: "member",
     });
   });
 
@@ -115,8 +115,8 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     baseURL,
   }) => {
     await assertUnauthorized(page, baseURL, "team.removeMember", {
-      teamId: FAKE_ID,
       memberId: FAKE_ID,
+      teamId: FAKE_ID,
     });
   });
 
@@ -152,9 +152,9 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     // Volunteer is not a member of this fake event → "Must be an event member"
     // or "Event not found" — either way, blocked.
     const body = buildMutateBody("eventUpdate.create", {
-      id: FAKE_ID,
-      eventId: FAKE_ID,
       content: "test update",
+      eventId: FAKE_ID,
+      id: FAKE_ID,
       now: Date.now(),
     });
     const response = await page.request.post(
@@ -215,9 +215,9 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
       baseURL,
       "notificationPreference.adminUpsert",
       {
-        topicId: "test-topic",
         channel: "email",
         enabled: true,
+        topicId: "test-topic",
         userId: FAKE_ID,
       }
     );

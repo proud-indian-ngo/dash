@@ -6,10 +6,10 @@ import { AuthLayout } from "@/components/login/auth-layout";
 import { RegisterForm } from "@/components/login/register-form";
 
 export const Route = createFileRoute("/_auth/register")({
+  component: RouteComponent,
   head: () => ({
     meta: [{ title: `Register | ${env.VITE_APP_NAME}` }],
   }),
-  component: RouteComponent,
 });
 
 function RouteComponent() {

@@ -26,20 +26,20 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/settings/roles/")({
+  component: RolesPage,
   head: () => ({
     meta: [{ title: `Roles | ${env.VITE_APP_NAME}` }],
   }),
-  component: RolesPage,
 });
 
 const createRoleFormSchema = z.object({
+  description: z.string().optional(),
   id: z
     .string()
     .min(1, "ID is required")
     .max(50)
     .regex(/^[a-z][a-z0-9_]*$/, "Lowercase slug only (e.g. team_lead)"),
   name: z.string().min(1, "Name is required").max(100),
-  description: z.string().optional(),
 });
 
 type CreateRoleFormValues = z.infer<typeof createRoleFormSchema>;
@@ -50,9 +50,9 @@ const TYPE_OPTIONS = [
 ];
 
 const defaultValues: CreateRoleFormValues = {
+  description: "",
   id: "",
   name: "",
-  description: "",
 };
 
 function RolesPage() {
@@ -74,8 +74,8 @@ function RolesPage() {
       setRoles(data);
     } catch (error) {
       log.error({
-        component: "RolesPage",
         action: "loadRoles",
+        component: "RolesPage",
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Couldn't load roles");
@@ -92,9 +92,9 @@ function RolesPage() {
     try {
       await createRoleFn({
         data: {
+          description: values.description,
           id: values.id,
           name: values.name,
-          description: values.description,
           permissionIds: [],
         },
       });
@@ -103,10 +103,10 @@ function RolesPage() {
       loadRoles();
     } catch (error) {
       log.error({
-        component: "RolesPage",
         action: "createRole",
-        roleId: values.id,
+        component: "RolesPage",
         error: error instanceof Error ? error.message : String(error),
+        roleId: values.id,
       });
       toast.error(getErrorMessage(error));
       throw error;
@@ -120,17 +120,20 @@ function RolesPage() {
       return { type: "success" as const };
     } catch (error) {
       log.error({
-        component: "RolesPage",
         action: "deleteRole",
-        roleId,
+        component: "RolesPage",
         error: error instanceof Error ? error.message : String(error),
+        roleId,
       });
       return {
-        type: "error" as const,
         error: { message: getErrorMessage(error) },
+        type: "error" as const,
       };
     }
   };
+  const stableOnClearFilters0 = () => setTypeFilter("");
+  const stableOnClick1 = () => setCreateOpen(true);
+  const stableOnCancel2 = () => setCreateOpen(false);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -141,17 +144,17 @@ function RolesPage() {
         <RolesTable
           data={
             typeFilter
-              ? roles.filter((r) =>
+              ? roles.filter((r: any) =>
                   typeFilter === "system" ? r.isSystem : !r.isSystem
                 )
               : roles
           }
           hasActiveFilters={!!typeFilter}
           isLoading={loading}
-          onClearFilters={() => setTypeFilter("")}
+          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
           toolbarActions={
-            <Button onClick={() => setCreateOpen(true)} size="sm" type="button">
+            <Button onClick={stableOnClick1} size="sm" type="button">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -178,10 +181,7 @@ function RolesPage() {
         title="Create Role"
       >
         {createOpen ? (
-          <CreateRoleForm
-            onCancel={() => setCreateOpen(false)}
-            onSubmit={handleCreate}
-          />
+          <CreateRoleForm onCancel={stableOnCancel2} onSubmit={handleCreate} />
         ) : null}
       </FormModal>
     </div>

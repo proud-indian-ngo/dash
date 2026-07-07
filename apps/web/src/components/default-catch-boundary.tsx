@@ -16,8 +16,8 @@ import { AppContext } from "@/context/app-context";
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
   const router = useRouter();
   const isRoot = useMatch({
+    select: (state: any) => state.id === rootRouteId,
     strict: false,
-    select: (state) => state.id === rootRouteId,
   });
 
   const appCtx = use(AppContext);
@@ -37,6 +37,14 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
       });
     }
   }, [error]);
+
+  const stableOnClick0 = async () => {
+    await router.invalidate();
+  };
+  const stableOnClick1 = (e: any) => {
+    e.preventDefault();
+    window.history.back();
+  };
 
   return (
     <div
@@ -61,26 +69,13 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          onClick={async () => {
-            await router.invalidate();
-          }}
-          type="button"
-        >
+        <Button onClick={stableOnClick0} type="button">
           Try Again
         </Button>
         {!isRoot && canGoBack ? (
           <Button
             nativeButton={false}
-            render={
-              <Link
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.history.back();
-                }}
-                to="/"
-              />
-            }
+            render={<Link onClick={stableOnClick1} to="/" />}
             variant="secondary"
           >
             Go Back

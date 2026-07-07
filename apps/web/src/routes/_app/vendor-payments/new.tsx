@@ -5,14 +5,20 @@ import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/vendor-payments/new")({
   beforeLoad: ({ context }) => assertPermission(context, "requests.create"),
+  component: NewVendorPaymentRouteComponent,
   head: () => ({
     meta: [{ title: `New Vendor Payment | ${env.VITE_APP_NAME}` }],
   }),
-  component: NewVendorPaymentRouteComponent,
 });
 
 function NewVendorPaymentRouteComponent() {
   const navigate = useNavigate();
+  const stableOnCancel0 = () => {
+    navigate({ to: "/vendor-payments" });
+  };
+  const stableOnSaved1 = (id: any) => {
+    navigate({ params: { id }, to: "/vendor-payments/$id" });
+  };
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
@@ -24,12 +30,8 @@ function NewVendorPaymentRouteComponent() {
       </p>
       <div className="mt-6">
         <VendorPaymentForm
-          onCancel={() => {
-            navigate({ to: "/vendor-payments" });
-          }}
-          onSaved={(id) => {
-            navigate({ to: "/vendor-payments/$id", params: { id } });
-          }}
+          onCancel={stableOnCancel0}
+          onSaved={stableOnSaved1}
         />
       </div>
     </div>

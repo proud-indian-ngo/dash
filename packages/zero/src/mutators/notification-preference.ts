@@ -10,9 +10,9 @@ const REQUIRED_TOPIC_IDS: ReadonlySet<string> = new Set(
 );
 
 const upsertSchema = z.object({
-  topicId: z.string().min(1),
   channel: z.enum(["email", "whatsapp", "inbox"]),
   enabled: z.boolean(),
+  topicId: z.string().min(1),
 });
 
 const adminUpsertSchema = upsertSchema.extend({
@@ -32,44 +32,12 @@ function channelUpdate(channel: string, enabled: boolean) {
 function channelDefaults(channel: string, enabled: boolean) {
   return {
     emailEnabled: channel === "email" ? enabled : true,
-    whatsappEnabled: channel === "whatsapp" ? enabled : true,
     inboxEnabled: channel === "inbox" ? enabled : true,
+    whatsappEnabled: channel === "whatsapp" ? enabled : true,
   };
 }
 
 export const notificationPreferenceMutators = {
-  upsert: defineMutator(upsertSchema, async ({ tx, ctx, args }) => {
-    assertIsLoggedIn(ctx);
-    const userId = ctx.userId;
-
-    if (!args.enabled && REQUIRED_TOPIC_IDS.has(args.topicId)) {
-      throw new Error(
-        `Topic "${args.topicId}" is required and cannot be disabled`
-      );
-    }
-
-    const existing = await tx.run(
-      zql.notificationTopicPreference
-        .where("userId", userId)
-        .where("topicId", args.topicId)
-        .one()
-    );
-
-    if (existing) {
-      await tx.mutate.notificationTopicPreference.update({
-        userId,
-        topicId: args.topicId,
-        ...channelUpdate(args.channel, args.enabled),
-      });
-    } else {
-      await tx.mutate.notificationTopicPreference.insert({
-        userId,
-        topicId: args.topicId,
-        ...channelDefaults(args.channel, args.enabled),
-      });
-    }
-  }),
-
   adminUpsert: defineMutator(adminUpsertSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "users.edit");
@@ -89,14 +57,45 @@ export const notificationPreferenceMutators = {
 
     if (existing) {
       await tx.mutate.notificationTopicPreference.update({
-        userId: args.userId,
         topicId: args.topicId,
+        userId: args.userId,
         ...channelUpdate(args.channel, args.enabled),
       });
     } else {
       await tx.mutate.notificationTopicPreference.insert({
-        userId: args.userId,
         topicId: args.topicId,
+        userId: args.userId,
+        ...channelDefaults(args.channel, args.enabled),
+      });
+    }
+  }),
+  upsert: defineMutator(upsertSchema, async ({ tx, ctx, args }) => {
+    assertIsLoggedIn(ctx);
+    const { userId } = ctx;
+
+    if (!args.enabled && REQUIRED_TOPIC_IDS.has(args.topicId)) {
+      throw new Error(
+        `Topic "${args.topicId}" is required and cannot be disabled`
+      );
+    }
+
+    const existing = await tx.run(
+      zql.notificationTopicPreference
+        .where("userId", userId)
+        .where("topicId", args.topicId)
+        .one()
+    );
+
+    if (existing) {
+      await tx.mutate.notificationTopicPreference.update({
+        topicId: args.topicId,
+        userId,
+        ...channelUpdate(args.channel, args.enabled),
+      });
+    } else {
+      await tx.mutate.notificationTopicPreference.insert({
+        topicId: args.topicId,
+        userId,
         ...channelDefaults(args.channel, args.enabled),
       });
     }

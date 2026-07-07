@@ -30,7 +30,7 @@ export function parseTraceparent(
   if (!(traceId && spanId && flags)) {
     return null;
   }
-  return { traceId, spanId, traceFlags: Number.parseInt(flags, 16) };
+  return { spanId, traceFlags: Number.parseInt(flags, 16), traceId };
 }
 
 export function formatTraceparent(traceId: string, spanId: string): string {

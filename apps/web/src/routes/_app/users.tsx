@@ -35,14 +35,14 @@ import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/users")({
+  beforeLoad: ({ context }) => assertPermission(context, "users.manage"),
+  component: UsersRouteComponent,
   head: () => ({
     meta: [{ title: `Users | ${env.VITE_APP_NAME}` }],
   }),
-  beforeLoad: ({ context }) => assertPermission(context, "users.manage"),
   loader: ({ context }) => {
     context.zero?.preload(queries.user.all());
   },
-  component: UsersRouteComponent,
 });
 
 const ACTIVE_OPTIONS = [
@@ -70,7 +70,7 @@ function UsersRouteComponent() {
   const allUsers = (usersData ?? []) as User[];
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const selectedUser = selectedUserId
-    ? (allUsers.find((u) => u.id === selectedUserId) ?? null)
+    ? (allUsers.find((u: any) => u.id === selectedUserId) ?? null)
     : null;
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleSelectOptions, setRoleSelectOptions] = useState<
@@ -79,18 +79,18 @@ function UsersRouteComponent() {
 
   useEffect(() => {
     getRoleOptions()
-      .then((roles) => {
+      .then((roles: any) => {
         if (!roles) {
           return;
         }
         setRoleSelectOptions(
-          roles.map((r) => ({ label: r.name, value: r.id }))
+          roles.map((r: any) => ({ label: r.name, value: r.id }))
         );
       })
       .catch((error: unknown) => {
         log.error({
-          component: "UsersRoute",
           action: "getRoleOptions",
+          component: "UsersRoute",
           error: error instanceof Error ? error.message : String(error),
         });
       });
@@ -116,18 +116,18 @@ function UsersRouteComponent() {
   const users = (() => {
     let filtered = allUsers;
     if (roleFilter) {
-      filtered = filtered.filter((u) => u.role === roleFilter);
+      filtered = filtered.filter((u: any) => u.role === roleFilter);
     }
     if (activeFilter) {
-      filtered = filtered.filter((u) =>
+      filtered = filtered.filter((u: any) =>
         activeFilter === "yes" ? u.isActive : !u.isActive
       );
     }
     if (genderFilter) {
-      filtered = filtered.filter((u) => u.gender === genderFilter);
+      filtered = filtered.filter((u: any) => u.gender === genderFilter);
     }
     if (bannedFilter) {
-      filtered = filtered.filter((u) =>
+      filtered = filtered.filter((u: any) =>
         bannedFilter === "yes" ? u.banned : !u.banned
       );
     }
@@ -155,8 +155,8 @@ function UsersRouteComponent() {
       setCreateModalOpen(false);
     } catch (error) {
       log.error({
-        component: "UsersRoute",
         action: "createUser",
+        component: "UsersRoute",
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error(getErrorMessage(error));
@@ -170,10 +170,10 @@ function UsersRouteComponent() {
       toast.success("Changes saved");
     } catch (error) {
       log.error({
-        component: "UsersRoute",
         action: "updateUser",
-        userId: value.userId,
+        component: "UsersRoute",
         error: error instanceof Error ? error.message : String(error),
+        userId: value.userId,
       });
       toast.error(getErrorMessage(error));
       throw error;
@@ -191,10 +191,10 @@ function UsersRouteComponent() {
       toast.success("Password updated!");
     } catch (error) {
       log.error({
-        component: "UsersRoute",
         action: "resetPassword",
-        userId,
+        component: "UsersRoute",
         error: error instanceof Error ? error.message : String(error),
+        userId,
       });
       toast.error(getErrorMessage(error));
       throw error;
@@ -211,10 +211,10 @@ function UsersRouteComponent() {
       toast.success("User removed");
     } catch (error) {
       log.error({
-        component: "UsersRoute",
         action: "deleteUser",
-        userId,
+        component: "UsersRoute",
         error: error instanceof Error ? error.message : String(error),
+        userId,
       });
       toast.error(getErrorMessage(error));
       throw error;
@@ -230,18 +230,18 @@ function UsersRouteComponent() {
       await setUserBan({
         data: {
           banExpires,
-          banReason,
           banned: true,
+          banReason,
           userId,
         },
       });
       toast.success("User has been banned");
     } catch (error) {
       log.error({
-        component: "UsersRoute",
         action: "banUser",
-        userId,
+        component: "UsersRoute",
         error: error instanceof Error ? error.message : String(error),
+        userId,
       });
       toast.error(getErrorMessage(error));
       throw error;
@@ -259,15 +259,25 @@ function UsersRouteComponent() {
       toast.success("User has been unbanned");
     } catch (error) {
       log.error({
-        component: "UsersRoute",
         action: "unbanUser",
-        userId,
+        component: "UsersRoute",
         error: error instanceof Error ? error.message : String(error),
+        userId,
       });
       toast.error(getErrorMessage(error));
       throw error;
     }
   };
+  const stableOnRowClick0 = (user: any) => setSelectedUserId(user.id);
+  const stableOnClick1 = () => {
+    setCreateModalOpen(true);
+  };
+  const stableOnOpenChange2 = (open: any) => {
+    if (!open) {
+      setSelectedUserId(null);
+    }
+  };
+  const stableOnCancel3 = () => setCreateModalOpen(false);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -283,19 +293,13 @@ function UsersRouteComponent() {
           onBanUser={handleBanUser}
           onClearFilters={clearFilters}
           onDelete={handleDeleteUser}
-          onRowClick={(user) => setSelectedUserId(user.id)}
+          onRowClick={stableOnRowClick0}
           onSetPassword={handleResetPassword}
           onUnbanUser={handleUnbanUser}
           onUpdateUser={handleUpdateUser}
           roleOptions={roleSelectOptions}
           toolbarActions={
-            <Button
-              onClick={() => {
-                setCreateModalOpen(true);
-              }}
-              size="sm"
-              type="button"
-            >
+            <Button onClick={stableOnClick1} size="sm" type="button">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -335,11 +339,7 @@ function UsersRouteComponent() {
           users={users}
         />
         <UserDetailSheet
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedUserId(null);
-            }
-          }}
+          onOpenChange={stableOnOpenChange2}
           open={!!selectedUser}
           user={selectedUser}
         />
@@ -355,7 +355,7 @@ function UsersRouteComponent() {
           <UserForm
             initialValues={defaultCreateUserFormValues}
             mode="create"
-            onCancel={() => setCreateModalOpen(false)}
+            onCancel={stableOnCancel3}
             onSubmit={handleCreateUser}
             roleOptions={roleSelectOptions}
           />

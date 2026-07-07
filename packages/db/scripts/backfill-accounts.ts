@@ -15,7 +15,7 @@ import { uuidv7 } from "uuidv7";
 // biome-ignore lint/performance/noNamespaceImport: intentional
 import * as schema from "../src/schema";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const { DATABASE_URL } = process.env;
 if (!DATABASE_URL) {
   process.stderr.write(
     "DATABASE_URL env var is required.\nUsage: DATABASE_URL=postgres://... bun run scripts/backfill-accounts.ts\n"
@@ -30,8 +30,8 @@ async function main() {
   // Find users that have no account row at all
   const usersWithoutAccount = await db
     .select({
-      id: schema.user.id,
       createdAt: schema.user.createdAt,
+      id: schema.user.id,
       updatedAt: schema.user.updatedAt,
     })
     .from(schema.user)
@@ -46,17 +46,19 @@ async function main() {
   }
 
   let created = 0;
-  for (const u of usersWithoutAccount) {
-    await db.insert(schema.account).values({
-      id: uuidv7(),
-      accountId: u.id,
-      providerId: "credential",
-      userId: u.id,
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-    });
-    created++;
-  }
+  await Promise.all(
+    usersWithoutAccount.map(async (u) => {
+      await db.insert(schema.account).values({
+        accountId: u.id,
+        createdAt: u.createdAt,
+        id: uuidv7(),
+        providerId: "credential",
+        updatedAt: u.updatedAt,
+        userId: u.id,
+      });
+      created++;
+    })
+  );
 
   log(
     `Created ${created} account rows. Users can now use "Forgot Password" to sign in.`

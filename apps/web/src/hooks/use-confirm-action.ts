@@ -18,8 +18,8 @@ interface UseConfirmActionOptions<TPayload = void> {
 }
 
 interface UseConfirmActionReturn<TPayload = void> {
-  cancel(): void;
-  confirm(): void;
+  cancel: () => void;
+  confirm: () => void;
   isLoading: boolean;
   isOpen: boolean;
   payload: TPayload | null;
@@ -67,10 +67,10 @@ export function useConfirmAction<TPayload = void>(
           ? mutationMeta.entityId(typedPayload)
           : mutationMeta.entityId;
       handleMutationResult(res, {
-        mutation: mutationMeta.mutation,
         entityId,
-        successMsg: mutationMeta.successMsg,
         errorMsg: mutationMeta.errorMsg,
+        mutation: mutationMeta.mutation,
+        successMsg: mutationMeta.successMsg,
       });
     }
 
@@ -86,11 +86,11 @@ export function useConfirmAction<TPayload = void>(
   }, [isOpen, payload]);
 
   return {
-    isOpen,
+    cancel,
+    confirm,
     isLoading,
+    isOpen,
     payload,
     trigger: trigger as UseConfirmActionReturn<TPayload>["trigger"],
-    confirm,
-    cancel,
   };
 }

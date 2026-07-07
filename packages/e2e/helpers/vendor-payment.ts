@@ -31,10 +31,10 @@ async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
   const dialog = page.getByRole("dialog", { name: /vendor/i });
   await expect(dialog).toBeVisible({ timeout: 5000 });
   await dialog
-    .getByRole("textbox", { name: "Name", exact: true })
+    .getByRole("textbox", { exact: true, name: "Name" })
     .fill(`${vendorNamePrefix} ${Date.now()}`);
   await dialog
-    .getByRole("textbox", { name: "Phone", exact: true })
+    .getByRole("textbox", { exact: true, name: "Phone" })
     .fill("+91-9876543210");
   await dialog
     .getByRole("textbox", { name: "Bank Account Name" })

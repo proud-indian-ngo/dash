@@ -28,9 +28,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
-
 import { NotificationInbox } from "@/components/layout/notification-inbox";
-
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -50,7 +48,7 @@ export function NavUser() {
 
   useEffect(() => {
     if (unreadCount > previousUnreadCount.current) {
-      setBadgePulseToken((current) => current + 1);
+      setBadgePulseToken((current: any) => current + 1);
     }
     previousUnreadCount.current = unreadCount;
   }, [unreadCount]);
@@ -58,6 +56,29 @@ export function NavUser() {
   const hasUnreadNotifications = unreadCount > 0;
   const hasPulsed = badgePulseToken > 0;
   const unreadCountLabel = unreadCount > 99 ? "99+" : unreadCount;
+  const stableOnClose0 = () => setMenuOpen(false);
+  const stableOnClick1 = () => openSettings("profile");
+  const stableOnClick2 = async () => {
+    try {
+      await zero.delete();
+    } catch (error: unknown) {
+      log.error({
+        action: "logout.clearCache",
+        component: "NavUser",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          invalidateAuthCache();
+          navigate({
+            to: "/",
+          });
+        },
+      },
+    });
+  };
 
   return (
     <SidebarMenu>
@@ -140,40 +161,17 @@ export function NavUser() {
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
                   <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-100">
-                    <NotificationInbox onClose={() => setMenuOpen(false)} />
+                    <NotificationInbox onClose={stableOnClose0} />
                   </div>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              <DropdownMenuItem onClick={() => openSettings("profile")}>
+              <DropdownMenuItem onClick={stableOnClick1}>
                 <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
                 Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={async () => {
-                try {
-                  await zero.delete();
-                } catch (error: unknown) {
-                  log.error({
-                    component: "NavUser",
-                    action: "logout.clearCache",
-                    error:
-                      error instanceof Error ? error.message : String(error),
-                  });
-                }
-                authClient.signOut({
-                  fetchOptions: {
-                    onSuccess: () => {
-                      invalidateAuthCache();
-                      navigate({
-                        to: "/",
-                      });
-                    },
-                  },
-                });
-              }}
-            >
+            <DropdownMenuItem onClick={stableOnClick2}>
               <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
               Log out
             </DropdownMenuItem>

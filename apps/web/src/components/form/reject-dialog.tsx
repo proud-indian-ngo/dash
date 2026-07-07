@@ -26,6 +26,9 @@ export function RejectDialog({
   open,
 }: RejectDialogProps) {
   const [reason, setReason] = useState("");
+  const stableOnChange0 = (e: any) => setReason(e.target.value);
+  const stableOnClick1 = () => setReason("");
+  const stableOnClick2 = () => onConfirm(reason);
 
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
@@ -42,19 +45,14 @@ export function RejectDialog({
           <Textarea
             className="min-h-24"
             id="reject-reason"
-            onChange={(e) => setReason(e.target.value)}
+            onChange={stableOnChange0}
             placeholder="Rejection reason..."
             value={reason}
           />
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setReason("")}>
-            Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
-            disabled={!reason.trim()}
-            onClick={() => onConfirm(reason)}
-          >
+          <AlertDialogCancel onClick={stableOnClick1}>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={!reason.trim()} onClick={stableOnClick2}>
             Reject
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -7,11 +7,11 @@ const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Advance Payment",
-  routePrefix: "reimbursements",
-  idempotencyPrefix: "advance-payment",
   getLineItems: getAdvancePaymentLineItems,
-  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+  idempotencyPrefix: "advance-payment",
+  routePrefix: "reimbursements",
   statusTopic: TOPICS.REQUESTS_STATUS,
+  submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
 });
 
 export async function notifyAdvancePaymentSubmitted(options: {
@@ -38,10 +38,10 @@ export async function notifyAdvancePaymentApproved(options: {
     : undefined;
   await notifier.notifyApproved({
     entityId: options.advancePaymentId,
-    submitterId: options.submitterId,
-    title: options.title,
     note: options.note,
     screenshotUrl,
+    submitterId: options.submitterId,
+    title: options.title,
   });
 }
 
@@ -53,8 +53,8 @@ export async function notifyAdvancePaymentRejected(options: {
 }): Promise<void> {
   await notifier.notifyRejected({
     entityId: options.advancePaymentId,
+    reason: options.reason,
     submitterId: options.submitterId,
     title: options.title,
-    reason: options.reason,
   });
 }

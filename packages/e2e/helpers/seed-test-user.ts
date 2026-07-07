@@ -43,35 +43,33 @@ interface TestUser {
 
 const TEST_USERS: TestUser[] = [
   {
-    email: process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test",
-    password: process.env.SUPER_ADMIN_PASSWORD ?? "TestSuperAdmin123!",
+    email: process.env.SUPER_ADMIN_EMAIL,
     name: "Test Super Admin",
+    password: process.env.SUPER_ADMIN_PASSWORD,
     role: "super_admin",
   },
   {
-    email: process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test",
-    password: process.env.ADMIN_PASSWORD ?? "TestAdmin123!",
+    email: process.env.ADMIN_EMAIL,
     name: "Test Admin",
+    password: process.env.ADMIN_PASSWORD,
     role: "admin",
   },
   {
-    email: process.env.FINANCE_ADMIN_EMAIL ?? "test-finance-admin@pi-dash.test",
-    password: process.env.FINANCE_ADMIN_PASSWORD ?? "TestFinanceAdmin123!",
+    email: process.env.FINANCE_ADMIN_EMAIL,
     name: "Test Finance Admin",
+    password: process.env.FINANCE_ADMIN_PASSWORD,
     role: "finance_admin",
   },
   {
-    email: process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test",
-    password: process.env.VOLUNTEER_PASSWORD ?? "TestVolunteer123!",
+    email: process.env.VOLUNTEER_EMAIL,
     name: "Test Volunteer",
+    password: process.env.VOLUNTEER_PASSWORD,
     role: "volunteer",
   },
   {
-    email:
-      process.env.UNORIENTED_VOLUNTEER_EMAIL ??
-      "test-unoriented-volunteer@pi-dash.test",
-    password: process.env.UNORIENTED_VOLUNTEER_PASSWORD ?? "TestUnoriented123!",
+    email: process.env.UNORIENTED_VOLUNTEER_EMAIL,
     name: "Test Unoriented Volunteer",
+    password: process.env.UNORIENTED_VOLUNTEER_PASSWORD,
     role: "unoriented_volunteer",
   },
 ];
@@ -96,7 +94,7 @@ async function ensureTestUser(testUser: TestUser): Promise<string> {
   }
 
   const record = await db.query.user.findFirst({
-    columns: { id: true, role: true, emailVerified: true },
+    columns: { emailVerified: true, id: true, role: true },
     where: (table, ops) => ops.eq(table.email, testUser.email),
   });
 
@@ -125,21 +123,23 @@ async function ensureTestUser(testUser: TestUser): Promise<string> {
 }
 
 async function ensureExpenseCategories(): Promise<void> {
-  for (const name of SEED_CATEGORIES) {
-    const existing = await db.query.expenseCategory.findFirst({
-      where: (table, ops) => ops.eq(table.name, name),
-    });
-    if (!existing) {
-      const now = new Date();
-      await db.insert(expenseCategory).values({
-        id: uuidv7(),
-        name,
-        createdAt: now,
-        updatedAt: now,
+  await Promise.all(
+    SEED_CATEGORIES.map(async (name) => {
+      const existing = await db.query.expenseCategory.findFirst({
+        where: (table, ops) => ops.eq(table.name, name),
       });
-      log(`Created expense category: ${name}`);
-    }
-  }
+      if (!existing) {
+        const now = new Date();
+        await db.insert(expenseCategory).values({
+          createdAt: now,
+          id: uuidv7(),
+          name,
+          updatedAt: now,
+        });
+        log(`Created expense category: ${name}`);
+      }
+    })
+  );
 }
 
 async function ensureBankAccount(userId: string): Promise<void> {
@@ -149,22 +149,22 @@ async function ensureBankAccount(userId: string): Promise<void> {
   if (!existing) {
     const now = new Date();
     await db.insert(bankAccount).values({
-      id: uuidv7(),
-      userId,
       accountName: "Test Savings",
       accountNumber: "1234567890",
+      createdAt: now,
+      id: uuidv7(),
       ifscCode: "TEST0000001",
       isDefault: true,
-      createdAt: now,
       updatedAt: now,
+      userId,
     });
     log(`Created bank account for user: ${userId}`);
   }
 }
 
 const TEST_WHATSAPP_GROUP = {
-  name: "E2E Test Group",
   jid: "e2e-test-group@g.us",
+  name: "E2E Test Group",
 };
 
 async function ensureWhatsAppGroup(): Promise<void> {
@@ -174,10 +174,10 @@ async function ensureWhatsAppGroup(): Promise<void> {
   if (!existing) {
     const now = new Date();
     await db.insert(whatsappGroup).values({
-      id: uuidv7(),
-      name: TEST_WHATSAPP_GROUP.name,
-      jid: TEST_WHATSAPP_GROUP.jid,
       createdAt: now,
+      id: uuidv7(),
+      jid: TEST_WHATSAPP_GROUP.jid,
+      name: TEST_WHATSAPP_GROUP.name,
       updatedAt: now,
     });
     log(`Created WhatsApp group: ${TEST_WHATSAPP_GROUP.name}`);
@@ -202,37 +202,37 @@ async function ensureReimbursement(userId: string): Promise<void> {
 
   const now = new Date();
   await db.insert(reimbursement).values({
-    id: SEED_REIMBURSEMENT_ID,
-    userId,
-    title: "E2E Seed Reimbursement",
     city: "bangalore",
-    expenseDate: "2026-01-15",
-    status: "pending",
     createdAt: now,
+    expenseDate: "2026-01-15",
+    id: SEED_REIMBURSEMENT_ID,
+    status: "pending",
+    title: "E2E Seed Reimbursement",
     updatedAt: now,
+    userId,
   });
 
   await db.insert(reimbursementLineItem).values([
     {
+      amount: "250.00",
+      categoryId: category.id,
+      createdAt: now,
+      description: "Bus fare",
+      generateVoucher: true,
       id: uuidv7(),
       reimbursementId: SEED_REIMBURSEMENT_ID,
-      categoryId: category.id,
-      description: "Bus fare",
-      amount: "250.00",
       sortOrder: 0,
-      generateVoucher: true,
-      createdAt: now,
       updatedAt: now,
     },
     {
+      amount: "150.00",
+      categoryId: category.id,
+      createdAt: now,
+      description: "Lunch",
+      generateVoucher: true,
       id: uuidv7(),
       reimbursementId: SEED_REIMBURSEMENT_ID,
-      categoryId: category.id,
-      description: "Lunch",
-      amount: "150.00",
       sortOrder: 1,
-      generateVoucher: true,
-      createdAt: now,
       updatedAt: now,
     },
   ]);
@@ -263,10 +263,10 @@ async function ensureEventWithPendingUpdate(
   // Create team
   const teamId = uuidv7();
   await db.insert(team).values({
+    createdAt: now,
+    description: "Team for E2E update approval tests",
     id: teamId,
     name: SEED_TEAM_NAME,
-    description: "Team for E2E update approval tests",
-    createdAt: now,
     updatedAt: now,
   });
 
@@ -274,58 +274,58 @@ async function ensureEventWithPendingUpdate(
   await db.insert(teamMember).values([
     {
       id: uuidv7(),
+      joinedAt: now,
+      role: "lead",
       teamId,
       userId: adminUserId,
-      role: "lead",
-      joinedAt: now,
     },
     {
       id: uuidv7(),
+      joinedAt: now,
+      role: "member",
       teamId,
       userId: volunteerUserId,
-      role: "member",
-      joinedAt: now,
     },
   ]);
 
   // Create a past event (started yesterday) so the Updates tab is visible
   const eventId = uuidv7();
   await db.insert(teamEvent).values({
-    id: eventId,
-    teamId,
-    name: SEED_EVENT_NAME,
-    description: "Past event with a pending update for E2E testing",
-    startTime: yesterday,
-    isPublic: true,
-    createdBy: adminUserId,
     createdAt: subDays(now, 3),
+    createdBy: adminUserId,
+    description: "Past event with a pending update for E2E testing",
+    id: eventId,
+    isPublic: true,
+    name: SEED_EVENT_NAME,
+    startTime: yesterday,
+    teamId,
     updatedAt: subDays(now, 3),
   });
 
   // Add both users as event members
   await db.insert(teamEventMember).values([
     {
-      id: uuidv7(),
-      eventId,
-      userId: adminUserId,
       addedAt: subDays(now, 3),
+      eventId,
+      id: uuidv7(),
+      userId: adminUserId,
     },
     {
-      id: uuidv7(),
-      eventId,
-      userId: volunteerUserId,
       addedAt: subDays(now, 3),
+      eventId,
+      id: uuidv7(),
+      userId: volunteerUserId,
     },
   ]);
 
   // Create a pending update from the volunteer
   await db.insert(eventUpdate).values({
-    id: uuidv7(),
-    eventId,
     content: SEED_PENDING_UPDATE_CONTENT,
-    status: "pending",
-    createdBy: volunteerUserId,
     createdAt: yesterday,
+    createdBy: volunteerUserId,
+    eventId,
+    id: uuidv7(),
+    status: "pending",
     updatedAt: yesterday,
   });
 
@@ -345,56 +345,56 @@ interface FilterTestEvent {
 
 const FILTER_TEST_EVENTS: FilterTestEvent[] = [
   {
-    name: "E2E Upcoming Public Bangalore",
-    isPublic: true,
-    start: (now: Date) => addDays(now, 3),
     city: "bangalore",
+    isPublic: true,
     location: "MG Road, Bangalore",
+    name: "E2E Upcoming Public Bangalore",
+    start: (now: Date) => addDays(now, 3),
   },
   {
-    name: "E2E Upcoming Private Mumbai",
-    isPublic: false,
-    start: (now: Date) => addDays(now, 5),
     city: "mumbai",
+    isPublic: false,
     location: "Andheri West, Mumbai",
+    name: "E2E Upcoming Private Mumbai",
+    start: (now: Date) => addDays(now, 5),
   },
   {
-    name: "E2E Upcoming Recurring Public",
-    isPublic: true,
-    start: (now: Date) => subDays(now, 14),
     city: "bangalore",
+    isPublic: true,
     location: "Indiranagar, Bangalore",
+    name: "E2E Upcoming Recurring Public",
     recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    start: (now: Date) => subDays(now, 14),
   },
   {
-    name: "E2E Past Public Mumbai",
-    isPublic: true,
-    start: (now: Date) => subDays(now, 10),
     city: "mumbai",
+    isPublic: true,
     location: "Dadar, Mumbai",
+    name: "E2E Past Public Mumbai",
+    start: (now: Date) => subDays(now, 10),
   },
   {
-    name: "E2E Past Private Bangalore",
-    isPublic: false,
-    start: (now: Date) => subDays(now, 5),
     city: "bangalore",
+    isPublic: false,
     location: "Koramangala, Bangalore",
+    name: "E2E Past Private Bangalore",
+    start: (now: Date) => subDays(now, 5),
   },
   {
-    name: "E2E Cancelled Future Event",
-    isPublic: true,
-    start: (now: Date) => addDays(now, 7),
+    cancelled: true,
     city: "bangalore",
+    isPublic: true,
     location: "Cubbon Park, Bangalore",
-    cancelled: true,
+    name: "E2E Cancelled Future Event",
+    start: (now: Date) => addDays(now, 7),
   },
   {
-    name: "E2E Past Cancelled Event",
-    isPublic: false,
-    start: (now: Date) => subDays(now, 3),
-    city: "mumbai",
-    location: "Bandra, Mumbai",
     cancelled: true,
+    city: "mumbai",
+    isPublic: false,
+    location: "Bandra, Mumbai",
+    name: "E2E Past Cancelled Event",
+    start: (now: Date) => subDays(now, 3),
   },
 ];
 
@@ -413,31 +413,33 @@ async function ensureFilterTestEvents(
 
   const now = new Date();
 
-  for (const e of FILTER_TEST_EVENTS) {
-    const startTime = e.start(now);
-    const id = uuidv7();
-    await db.insert(teamEvent).values({
-      id,
-      teamId,
-      name: e.name,
-      description: `${e.name} — E2E filter test event`,
-      startTime,
-      endTime: addHours(startTime, 2),
-      isPublic: e.isPublic,
-      city: e.city,
-      location: e.location,
-      recurrenceRule: e.recurrenceRule,
-      cancelledAt: e.cancelled ? now : undefined,
-      createdBy: adminUserId,
-      createdAt: subDays(now, 7),
-      updatedAt: subDays(now, 7),
-    });
+  await Promise.all(
+    FILTER_TEST_EVENTS.map(async (e) => {
+      const startTime = e.start(now);
+      const id = uuidv7();
+      await db.insert(teamEvent).values({
+        cancelledAt: e.cancelled ? now : undefined,
+        city: e.city,
+        createdAt: subDays(now, 7),
+        createdBy: adminUserId,
+        description: `${e.name} — E2E filter test event`,
+        endTime: addHours(startTime, 2),
+        id,
+        isPublic: e.isPublic,
+        location: e.location,
+        name: e.name,
+        recurrenceRule: e.recurrenceRule,
+        startTime,
+        teamId,
+        updatedAt: subDays(now, 7),
+      });
 
-    await db.insert(teamEventMember).values([
-      { id: uuidv7(), eventId: id, userId: adminUserId, addedAt: now },
-      { id: uuidv7(), eventId: id, userId: volunteerUserId, addedAt: now },
-    ]);
-  }
+      await db.insert(teamEventMember).values([
+        { addedAt: now, eventId: id, id: uuidv7(), userId: adminUserId },
+        { addedAt: now, eventId: id, id: uuidv7(), userId: volunteerUserId },
+      ]);
+    })
+  );
 
   log(`Created ${FILTER_TEST_EVENTS.length} filter test events`);
 }
@@ -451,15 +453,17 @@ async function seed(): Promise<void> {
 
   let superAdminUserId = "";
   let volunteerUserId = "";
-  for (const testUser of TEST_USERS) {
-    const userId = await ensureTestUser(testUser);
-    await ensureBankAccount(userId);
-    if (testUser.role === "super_admin") {
-      superAdminUserId = userId;
-    } else if (testUser.role === "volunteer") {
-      volunteerUserId = userId;
-    }
-  }
+  await Promise.all(
+    TEST_USERS.map(async (testUser) => {
+      const userId = await ensureTestUser(testUser);
+      await ensureBankAccount(userId);
+      if (testUser.role === "super_admin") {
+        superAdminUserId = userId;
+      } else if (testUser.role === "volunteer") {
+        volunteerUserId = userId;
+      }
+    })
+  );
 
   await ensureReimbursement(superAdminUserId);
   const teamId = await ensureEventWithPendingUpdate(

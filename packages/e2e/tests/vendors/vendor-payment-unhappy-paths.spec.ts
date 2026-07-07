@@ -12,17 +12,17 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
     clientGroupID: `e2e-vp-cg-${suffix}`,
     mutations: [
       {
-        type: "custom" as const,
-        id: 1,
-        clientID: `e2e-vp-${suffix}`,
-        name: mutationName,
         args: [args],
+        clientID: `e2e-vp-${suffix}`,
+        id: 1,
+        name: mutationName,
         timestamp: Date.now(),
+        type: "custom" as const,
       },
     ],
     pushVersion: 1,
-    timestamp: Date.now(),
     requestID: `e2e-vp-req-${suffix}`,
+    timestamp: Date.now(),
   };
 }
 
@@ -39,9 +39,6 @@ test.describe("Vendor payment unhappy paths (admin)", () => {
     const vpId = await createPendingVP(page);
 
     const body = buildMutateBody("vendorPayment.submitInvoice", {
-      id: vpId,
-      invoiceNumber: "INV-E2E-001",
-      invoiceDate: Date.now(),
       attachments: [
         {
           id: `att-${Date.now()}`,
@@ -49,6 +46,9 @@ test.describe("Vendor payment unhappy paths (admin)", () => {
           url: "https://example.com/invoice.pdf",
         },
       ],
+      id: vpId,
+      invoiceDate: Date.now(),
+      invoiceNumber: "INV-E2E-001",
     });
 
     const response = await page.request.post(

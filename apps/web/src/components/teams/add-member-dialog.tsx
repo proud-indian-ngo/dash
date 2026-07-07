@@ -24,8 +24,8 @@ import {
 } from "@/functions/users-for-picker";
 
 const addTeamMemberSchema = z.object({
-  userIds: z.array(z.string()).min(1, "Select at least one member"),
   role: z.enum(["member", "lead"]),
+  userIds: z.array(z.string()).min(1, "Select at least one member"),
 });
 
 interface AddMemberDialogProps {
@@ -54,32 +54,32 @@ function AddMemberFormContent({
   }, [open]);
 
   const eligibleUsers = allUsers.filter(
-    (u) => u.role !== "unoriented_volunteer" && u.isActive
+    (u: any) => u.role !== "unoriented_volunteer" && u.isActive
   );
 
-  const existingUserIds = new Set(existingMembers.map((m) => m.userId));
+  const existingUserIds = new Set(existingMembers.map((m: any) => m.userId));
 
   const form = useForm({
     defaultValues: {
-      userIds: [] as string[],
       role: "member" as "member" | "lead",
+      userIds: [] as string[],
     },
     onSubmit: async ({ value }) => {
       const effectiveRole = value.userIds.length > 1 ? "member" : value.role;
       const results = await Promise.all(
         value.userIds.map(
-          (userId) =>
+          (userId: any) =>
             zero.mutate(
               mutators.team.addMember({
                 id: uuidv7(),
+                role: effectiveRole,
                 teamId,
                 userId,
-                role: effectiveRole,
               })
             ).server
         )
       );
-      const failed = results.filter((r) => r.type === "error").length;
+      const failed = results.filter((r: any) => r.type === "error").length;
       if (failed > 0) {
         toast.error(`Couldn't add ${failed} member(s)`);
       } else {
@@ -95,15 +95,16 @@ function AddMemberFormContent({
       onSubmit: addTeamMemberSchema,
     },
   });
+  const stableSelector0 = (state: any) => state.values.userIds.length;
 
   return (
     <FormLayout form={form}>
       <CustomField<string[]> isRequired label="Search users" name="userIds">
-        {(field) => (
+        {(field: any) => (
           <>
             <UserPicker
               excludeUserIds={existingUserIds}
-              onValueChange={(ids) => field.handleChange(ids)}
+              onValueChange={(ids: any) => field.handleChange(ids)}
               users={eligibleUsers}
               value={field.state.value ?? []}
             />
@@ -115,8 +116,8 @@ function AddMemberFormContent({
           </>
         )}
       </CustomField>
-      <form.Subscribe selector={(state) => state.values.userIds.length}>
-        {(count) => (
+      <form.Subscribe selector={stableSelector0}>
+        {(count: any) => (
           <>
             {canSetRole && count === 1 ? (
               <SelectField
@@ -151,7 +152,7 @@ export function AddMemberDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k) => k + 1);
+      setFormKey((k: any) => k + 1);
     }
     onOpenChange(nextOpen);
   };

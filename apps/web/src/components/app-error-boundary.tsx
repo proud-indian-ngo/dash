@@ -12,6 +12,9 @@ type Level = "root" | "section" | "inline";
 function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
+  const stableOnClick0 = () => {
+    window.location.href = "/";
+  };
 
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-4">
@@ -36,13 +39,7 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
         <Button onClick={resetErrorBoundary} type="button">
           Try Again
         </Button>
-        <Button
-          onClick={() => {
-            window.location.href = "/";
-          }}
-          type="button"
-          variant="secondary"
-        >
+        <Button onClick={stableOnClick0} type="button" variant="secondary">
           Home
         </Button>
       </div>
@@ -99,17 +96,17 @@ function InlineFallback({ error, resetErrorBoundary }: FallbackProps) {
 }
 
 const FALLBACK_MAP: Record<Level, (props: FallbackProps) => ReactNode> = {
+  inline: InlineFallback,
   root: RootFallback,
   section: SectionFallback,
-  inline: InlineFallback,
 };
 
 function handleError(error: unknown, info: { componentStack?: string | null }) {
   const message = error instanceof Error ? error.message : String(error);
   log.error({
     component: "AppErrorBoundary",
-    message,
     componentStack: info.componentStack ?? "",
+    message,
   });
   if (error instanceof Error) {
     import("@/lib/posthog")

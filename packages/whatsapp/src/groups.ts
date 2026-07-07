@@ -30,12 +30,12 @@ export async function addToWhatsAppGroup(
 
   const formatted = formatPhoneForWhatsApp(phone);
   const response = await fetch(`${apiUrl}/group/participants`, {
-    method: "POST",
-    headers: getWhatsAppHeaders(),
     body: JSON.stringify({
       group_id: groupJid,
       participants: [formatted],
     }),
+    headers: getWhatsAppHeaders(),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -64,12 +64,12 @@ export async function addUsersToWhatsAppGroup(
   }
 
   const response = await fetch(`${apiUrl}/group/participants`, {
-    method: "POST",
-    headers: getWhatsAppHeaders(),
     body: JSON.stringify({
       group_id: groupJid,
       participants: phones.map(formatPhoneForWhatsApp),
     }),
+    headers: getWhatsAppHeaders(),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -96,12 +96,12 @@ export async function removeFromWhatsAppGroup(
 
   const formatted = formatPhoneForWhatsApp(phone);
   const response = await fetch(`${apiUrl}/group/participants/remove`, {
-    method: "POST",
-    headers: getWhatsAppHeaders(),
     body: JSON.stringify({
       group_id: groupJid,
       participants: [formatted],
     }),
+    headers: getWhatsAppHeaders(),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -129,8 +129,8 @@ export async function listJoinedGroups(): Promise<
   }
 
   const response = await fetch(`${apiUrl}/user/my/groups`, {
-    method: "GET",
     headers: getWhatsAppHeaders(),
+    method: "GET",
   });
 
   if (!response.ok) {
@@ -166,12 +166,12 @@ export async function createWhatsAppGroup(
   }
 
   const response = await fetch(`${apiUrl}/group`, {
-    method: "POST",
-    headers: getWhatsAppHeaders(),
     body: JSON.stringify({
-      title: name,
       participants: participants.map(formatPhoneForWhatsApp),
+      title: name,
     }),
+    headers: getWhatsAppHeaders(),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -209,8 +209,8 @@ export async function getGroupParticipants(
   url.searchParams.set("group_id", groupJid);
 
   const response = await fetch(url.toString(), {
-    method: "GET",
     headers: getWhatsAppHeaders(),
+    method: "GET",
   });
 
   if (!response.ok) {
@@ -238,9 +238,9 @@ export async function getGroupParticipants(
 
   log.set({
     event: "participants_fetched",
+    skippedNonWhatsApp: participants.length - phones.length,
     totalParticipants: participants.length,
     validPhones: phones.length,
-    skippedNonWhatsApp: participants.length - phones.length,
   });
   log.emit();
 

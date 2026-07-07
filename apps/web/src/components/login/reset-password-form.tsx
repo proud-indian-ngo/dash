@@ -9,13 +9,13 @@ import { InputField } from "@/components/form/input-field";
 import { authClient } from "@/lib/auth-client";
 
 const passwordResetFields = {
-  newPassword: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
 };
 
 const passwordResetSchema = z
   .object(passwordResetFields)
-  .refine((data) => data.newPassword === data.confirmPassword, {
+  .refine((data: any) => data.newPassword === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
@@ -26,8 +26,8 @@ export function ResetPasswordForm() {
 
   const form = useForm({
     defaultValues: {
-      newPassword: "",
       confirmPassword: "",
+      newPassword: "",
     },
     onSubmit: async ({ value }) => {
       const { error } = await authClient.resetPassword({
@@ -38,7 +38,7 @@ export function ResetPasswordForm() {
         toast.error(error.message || error.statusText);
         return;
       }
-      navigate({ to: "/login", search: { status: "password-reset" } });
+      navigate({ search: { status: "password-reset" }, to: "/login" });
     },
     validators: {
       onChange: passwordResetSchema,

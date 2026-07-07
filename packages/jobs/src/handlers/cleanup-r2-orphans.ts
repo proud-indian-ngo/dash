@@ -15,10 +15,10 @@ const DELETE_CONCURRENCY = 10;
 
 function getR2Credentials() {
   return {
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     accessKeyId: env.R2_ACCESS_KEY,
-    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     bucket: env.R2_BUCKET_NAME,
+    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
   };
 }
 
@@ -30,11 +30,12 @@ async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
   let hasMore = true;
   while (hasMore) {
     const batch = await S3Client.list(
-      { prefix: env.R2_KEY_PREFIX, maxKeys: 1000, startAfter },
+      { maxKeys: 1000, prefix: env.R2_KEY_PREFIX, startAfter },
       credentials
     );
 
-    for (const obj of batch.contents ?? []) {
+    const contents = batch.contents ?? [];
+    for (const obj of contents) {
       const modified = new Date(obj.lastModified as unknown as string);
       if (modified < graceCutoff) {
         keys.add(obj.key);
@@ -42,10 +43,10 @@ async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
     }
 
     hasMore = batch.isTruncated ?? false;
-    if (!(hasMore && batch.contents?.length)) {
+    if (!(hasMore && contents.length)) {
       break;
     }
-    startAfter = batch.contents.at(-1)?.key;
+    startAfter = contents.at(-1)?.key;
   }
 
   return keys;
@@ -135,7 +136,7 @@ async function deleteOrphans(
     const results = await Promise.allSettled(
       batch.map((key) => S3Client.delete(key, credentials))
     );
-    for (let j = 0; j < results.length; j++) {
+    for (let j = 0; j < results.length; j += 1) {
       const key = batch[j];
       const result = results[j];
       if (!(key && result)) {
@@ -156,7 +157,7 @@ export async function handleCleanupR2Orphans(
   _jobs: Job<CleanupR2OrphansPayload>[]
 ) {
   const data = _jobs[0]?.data ?? {};
-  const dryRun = data.dryRun ?? false;
+  const dryRun = data.dryRun;
   const log = createRequestLogger({
     method: "JOB",
     path: "cleanup-r2-orphans",
@@ -172,7 +173,7 @@ export async function handleCleanupR2Orphans(
     collectAllDbKeys(),
   ]);
 
-  log.set({ r2ObjectCount: r2Objects.size, dbKeyCount: dbKeys.size });
+  log.set({ dbKeyCount: dbKeys.size, r2ObjectCount: r2Objects.size });
 
   const orphans = Array.from(r2Objects).filter((key) => !dbKeys.has(key));
   log.set({ orphanCount: orphans.length });
@@ -181,9 +182,9 @@ export async function handleCleanupR2Orphans(
     log.set({ event: "no_orphans" });
     log.emit();
     return {
-      r2ObjectCount: r2Objects.size,
       dbKeyCount: dbKeys.size,
       orphanCount: 0,
+      r2ObjectCount: r2Objects.size,
     };
   }
 
@@ -191,19 +192,19 @@ export async function handleCleanupR2Orphans(
     log.set({ event: "dry_run_complete" });
     log.emit();
     return {
-      r2ObjectCount: r2Objects.size,
       dbKeyCount: dbKeys.size,
-      orphanCount: orphans.length,
       dryRun: true,
+      orphanCount: orphans.length,
       orphanKeys: orphans,
+      r2ObjectCount: r2Objects.size,
     };
   }
 
   const { deletedKeys, failedKeys } = await deleteOrphans(orphans);
 
   log.set({
-    event: "cleanup_complete",
     deleted: deletedKeys.length,
+    event: "cleanup_complete",
     failed: failedKeys.length,
   });
   log.emit();
@@ -212,25 +213,32 @@ export async function handleCleanupR2Orphans(
     try {
       const adminIds = await getUserIdsWithPermission("jobs.manage");
       await notifyR2CleanupResults({
-        userIds: adminIds,
-        r2ObjectCount: r2Objects.size,
-        orphanCount: orphans.length,
         deletedKeys,
         failedKeys,
+        orphanCount: orphans.length,
+        r2ObjectCount: r2Objects.size,
+        userIds: adminIds,
       });
-    } catch (error) {
+    } catch (caughtError) {
       log.set({ event: "notification_failed" });
-      log.error(error instanceof Error ? error : String(error));
+      log.set({
+        error:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+      });
+      log.warn("Failed to send R2 cleanup notification");
+      log.emit();
     }
   }
 
   return {
-    r2ObjectCount: r2Objects.size,
     dbKeyCount: dbKeys.size,
-    orphanCount: orphans.length,
     deleted: deletedKeys.length,
-    failed: failedKeys.length,
     deletedKeys,
+    failed: failedKeys.length,
     failedKeys,
+    orphanCount: orphans.length,
+    r2ObjectCount: r2Objects.size,
   };
 }

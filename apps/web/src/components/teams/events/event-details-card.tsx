@@ -68,6 +68,11 @@ export function EventDetailsCard({
     | { rrule: string; exdates?: string[] }
     | null
     | undefined;
+  const stableOnClick0 = () =>
+    navigate({
+      params: { id: event.seriesId as string },
+      to: "/events/$id",
+    });
 
   return (
     <Card size="sm">
@@ -121,12 +126,7 @@ export function EventDetailsCard({
           <PropertyRow icon={RepeatIcon} label="Series">
             <button
               className="text-left hover:underline"
-              onClick={() =>
-                navigate({
-                  to: "/events/$id",
-                  params: { id: event.seriesId as string },
-                })
-              }
+              onClick={stableOnClick0}
               type="button"
             >
               Part of a recurring series
@@ -144,8 +144,8 @@ export function EventDetailsCard({
           <PropertyRow icon={NotificationIcon} label="Reminders">
             <div className="flex flex-wrap gap-1">
               {[...reminderIntervals]
-                .sort((a, b) => b - a)
-                .map((m) => (
+                .sort((a: any, b: any) => b - a)
+                .map((m: any) => (
                   <Badge key={m} size="xs" variant="secondary">
                     {formatReminderInterval(m)}
                   </Badge>

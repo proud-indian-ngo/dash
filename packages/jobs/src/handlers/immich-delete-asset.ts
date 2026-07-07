@@ -11,19 +11,19 @@ async function deleteImmichAsset(data: ImmichDeleteAssetPayload) {
       method: "JOB",
       path: "immich-delete-asset",
     });
-    log.set({ event: "immich_not_configured", assetId: data.immichAssetId });
+    log.set({ assetId: data.immichAssetId, event: "immich_not_configured" });
     log.warn("Immich not configured, skipping asset deletion");
     log.emit();
     return;
   }
 
   const res = await fetch(`${immichUrl}/api/assets`, {
-    method: "DELETE",
+    body: JSON.stringify({ force: true, ids: [data.immichAssetId] }),
     headers: {
-      "x-api-key": immichKey,
       "Content-Type": "application/json",
+      "x-api-key": immichKey,
     },
-    body: JSON.stringify({ ids: [data.immichAssetId], force: true }),
+    method: "DELETE",
   });
   if (!res.ok) {
     throw new Error(

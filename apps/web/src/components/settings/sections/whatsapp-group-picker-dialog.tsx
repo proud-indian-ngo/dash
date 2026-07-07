@@ -52,6 +52,7 @@ function DialogBody({
   totalFetched: number;
   toggleGroup: (jid: string) => void;
 }) {
+  const stableOnChange0 = (e: any) => onSearchChange(e.target.value);
   if (error) {
     return <p className="py-4 text-center text-destructive text-sm">{error}</p>;
   }
@@ -59,7 +60,7 @@ function DialogBody({
   if (loading) {
     return (
       <div className="flex flex-col gap-2 py-4">
-        {["s1", "s2", "s3", "s4", "s5"].map((id) => (
+        {["s1", "s2", "s3", "s4", "s5"].map((id: any) => (
           <Skeleton className="h-10 w-full" key={id} />
         ))}
       </div>
@@ -82,7 +83,6 @@ function DialogBody({
       </p>
     );
   }
-
   return (
     <>
       <div className="relative">
@@ -93,7 +93,7 @@ function DialogBody({
         />
         <Input
           className="pl-8"
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={stableOnChange0}
           placeholder="Search groups..."
           value={search}
         />
@@ -105,7 +105,7 @@ function DialogBody({
               No groups match your search.
             </p>
           ) : (
-            filtered.map((group) => (
+            filtered.map((group: any) => (
               <button
                 className="flex w-full cursor-pointer items-start gap-3 rounded-md p-2 text-left hover:bg-accent"
                 key={group.jid}
@@ -167,11 +167,11 @@ export function WhatsAppGroupPickerDialog({
     setError(null);
 
     fetchWhatsAppGroups()
-      .then((result) => {
+      .then((result: any) => {
         if (cancelled) {
           return;
         }
-        const withJid = result.groups.filter((g) => g.jid);
+        const withJid = result.groups.filter((g: any) => g.jid);
         setAllGroups(withJid);
         setLoading(false);
       })
@@ -180,8 +180,8 @@ export function WhatsAppGroupPickerDialog({
           return;
         }
         log.error({
-          component: "WhatsAppGroupPickerDialog",
           action: "fetchGroups",
+          component: "WhatsAppGroupPickerDialog",
           error: error instanceof Error ? error.message : String(error),
         });
         setError(
@@ -195,10 +195,12 @@ export function WhatsAppGroupPickerDialog({
     };
   }, [open]);
 
-  const availableGroups = allGroups.filter((g) => !existingJids.has(g.jid));
+  const availableGroups = allGroups.filter(
+    (g: any) => !existingJids.has(g.jid)
+  );
 
   const filtered = search
-    ? availableGroups.filter((g) =>
+    ? availableGroups.filter((g: any) =>
         g.name.toLowerCase().includes(search.toLowerCase())
       )
     : availableGroups;
@@ -217,8 +219,8 @@ export function WhatsAppGroupPickerDialog({
 
   const handleAdd = async () => {
     const selectedGroups = availableGroups
-      .filter((g) => selected.has(g.jid))
-      .map((g) => ({ jid: g.jid, name: g.name }));
+      .filter((g: any) => selected.has(g.jid))
+      .map((g: any) => ({ jid: g.jid, name: g.name }));
     setSubmitting(true);
     try {
       await onAdd(selectedGroups);
@@ -227,6 +229,7 @@ export function WhatsAppGroupPickerDialog({
       onOpenChange(false);
     }
   };
+  const stableOnClick1 = () => onOpenChange(false);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -253,7 +256,7 @@ export function WhatsAppGroupPickerDialog({
         <DialogFooter>
           <Button
             disabled={submitting}
-            onClick={() => onOpenChange(false)}
+            onClick={stableOnClick1}
             type="button"
             variant="outline"
           >

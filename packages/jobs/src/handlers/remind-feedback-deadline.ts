@@ -21,9 +21,9 @@ export async function handleRemindFeedbackDeadline(
   // Find events with feedback enabled and deadline between now and 24h from now
   const events = await db
     .select({
+      feedbackDeadline: teamEvent.feedbackDeadline,
       id: teamEvent.id,
       name: teamEvent.name,
-      feedbackDeadline: teamEvent.feedbackDeadline,
     })
     .from(teamEvent)
     .where(
@@ -70,9 +70,9 @@ export async function handleRemindFeedbackDeadline(
     const results = await Promise.allSettled(
       pendingMembers.map((m) =>
         notifyFeedbackDeadline({
-          userId: m.userId,
-          eventName: event.name,
           eventId: event.id,
+          eventName: event.name,
+          userId: m.userId,
         })
       )
     );

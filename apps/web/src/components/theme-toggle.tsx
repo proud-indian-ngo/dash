@@ -11,6 +11,9 @@ import { useTheme } from "@pi-dash/design-system/lib/theme-provider";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const stableOnCheckedChange0 = (v: any) => v && setTheme("light");
+  const stableOnCheckedChange1 = (v: any) => v && setTheme("dark");
+  const stableOnCheckedChange2 = (v: any) => v && setTheme("system");
 
   return (
     <DropdownMenu>
@@ -28,19 +31,19 @@ export function ThemeToggle() {
       <DropdownMenuContent align="end">
         <DropdownMenuCheckboxItem
           checked={theme === "light"}
-          onCheckedChange={(v) => v && setTheme("light")}
+          onCheckedChange={stableOnCheckedChange0}
         >
           Light
         </DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem
           checked={theme === "dark"}
-          onCheckedChange={(v) => v && setTheme("dark")}
+          onCheckedChange={stableOnCheckedChange1}
         >
           Dark
         </DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem
           checked={theme === "system"}
-          onCheckedChange={(v) => v && setTheme("system")}
+          onCheckedChange={stableOnCheckedChange2}
         >
           System
         </DropdownMenuCheckboxItem>

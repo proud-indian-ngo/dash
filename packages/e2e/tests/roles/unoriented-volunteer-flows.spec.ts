@@ -18,7 +18,7 @@ test.describe("Unoriented volunteer happy paths + restrictions", () => {
   test("unoriented_volunteer can view /events", async ({ page }) => {
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });

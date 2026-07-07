@@ -22,100 +22,100 @@ export interface NavGroup {
 }
 
 const homeNavItem: NavItem = {
+  icon: HomeIcon,
   title: "Dashboard",
   url: "/",
-  icon: HomeIcon,
 };
 
 const usersNavItem: NavItem = {
+  icon: UserIcon,
   title: "Users",
   url: "/users",
-  icon: UserIcon,
 };
 
 const exportNavItem: NavItem = {
+  icon: FileExportIcon,
   title: "Export",
   url: "/export",
-  icon: FileExportIcon,
 };
 
 const rolesNavItem: NavItem = {
-  title: "Roles",
-  url: "/settings/roles",
   icon: SecurityLockIcon,
   subItems: [
-    { title: "Edit Role", url: "/settings/roles/$roleId", isHidden: true },
+    { isHidden: true, title: "Edit Role", url: "/settings/roles/$roleId" },
   ],
+  title: "Roles",
+  url: "/settings/roles",
 };
 
 const reimbursementsNavItem: NavItem = {
-  title: "Reimbursements",
-  url: "/reimbursements",
   icon: Invoice01Icon,
   subItems: [
-    { title: "New Reimbursement", url: "/reimbursements/new", isHidden: true },
+    { isHidden: true, title: "New Reimbursement", url: "/reimbursements/new" },
     {
+      isHidden: true,
       title: "Reimbursement Details",
       url: "/reimbursements/$id",
-      isHidden: true,
     },
   ],
+  title: "Reimbursements",
+  url: "/reimbursements",
 };
 
 const vendorPaymentsNavItem: NavItem = {
-  title: "Vendor Payments",
-  url: "/vendor-payments",
   icon: Store01Icon,
   subItems: [
     {
+      isHidden: true,
       title: "New Vendor Payment",
       url: "/vendor-payments/new",
-      isHidden: true,
     },
     {
+      isHidden: true,
       title: "Vendor Payment Details",
       url: "/vendor-payments/$id",
-      isHidden: true,
     },
   ],
+  title: "Vendor Payments",
+  url: "/vendor-payments",
 };
 
 const vendorsNavItem: NavItem = {
+  icon: Store01Icon,
   title: "Vendors",
   url: "/vendors",
-  icon: Store01Icon,
 };
 
 const teamsNavItem: NavItem = {
+  icon: UserGroupIcon,
+  subItems: [{ isHidden: true, title: "Team Details", url: "/teams/$id" }],
   title: "Teams",
   url: "/teams",
-  icon: UserGroupIcon,
-  subItems: [{ title: "Team Details", url: "/teams/$id", isHidden: true }],
 };
 
 const analyticsNavItem: NavItem = {
+  icon: AnalyticsUpIcon,
   title: "Analytics",
   url: "/analytics",
-  icon: AnalyticsUpIcon,
 };
 
 const jobsNavItem: NavItem = {
+  icon: TaskDaily02Icon,
   title: "Jobs",
   url: "/jobs",
-  icon: TaskDaily02Icon,
 };
 
 const scheduledMessagesNavItem: NavItem = {
+  icon: Message01Icon,
   title: "Messages",
   url: "/scheduled-messages",
-  icon: Message01Icon,
 };
 
 const eventsNavItem: NavItem = {
+  icon: Calendar03Icon,
+  subItems: [{ isHidden: true, title: "Event Details", url: "/events/$id" }],
   title: "Events",
   url: "/events",
-  icon: Calendar03Icon,
-  subItems: [{ title: "Event Details", url: "/events/$id", isHidden: true }],
 };
 
 function has(permissions: string[], id: string): boolean {
@@ -123,7 +123,7 @@ function has(permissions: string[], id: string): boolean {
 }
 
 function hasAny(permissions: string[], ...ids: string[]): boolean {
-  return ids.some((id) => permissions.includes(id));
+  return ids.some((id: any) => permissions.includes(id));
 }
 
 /** Build flat nav item list based purely on user permissions. */
@@ -188,7 +188,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
     financeItems.push(vendorsNavItem);
   }
   if (financeItems.length > 0) {
-    groups.push({ label: "Finance", items: financeItems });
+    groups.push({ items: financeItems, label: "Finance" });
   }
 
   // Organization group
@@ -201,7 +201,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
     orgItems.push(eventsNavItem);
   }
   if (orgItems.length > 0) {
-    groups.push({ label: "Organization", items: orgItems });
+    groups.push({ items: orgItems, label: "Organization" });
   }
 
   // Admin group
@@ -225,7 +225,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
     adminItems.push(scheduledMessagesNavItem);
   }
   if (adminItems.length > 0) {
-    groups.push({ label: "Admin", items: adminItems });
+    groups.push({ items: adminItems, label: "Admin" });
   }
 
   return groups;

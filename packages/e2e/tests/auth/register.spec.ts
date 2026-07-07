@@ -58,7 +58,7 @@ test.describe("Register page", () => {
     await dayButton.click();
     // Select gender
     await page.getByLabel("Gender").click();
-    await page.getByRole("option", { name: "Male", exact: true }).click();
+    await page.getByRole("option", { exact: true, name: "Male" }).click();
     // Blur the last field to trigger onChange validation
     await page.keyboard.press("Tab");
     // The register button should be disabled when form has validation errors
@@ -87,7 +87,7 @@ test.describe("Register page", () => {
     await regDayBtn.click();
     // Select gender
     await page.getByLabel("Gender").click();
-    await page.getByRole("option", { name: "Male", exact: true }).click();
+    await page.getByRole("option", { exact: true, name: "Male" }).click();
     const registerBtn = page.getByRole("button", { name: "Register" });
     await expect(registerBtn).toBeEnabled({ timeout: 5000 });
     // Ensure gender dropdown is fully closed before clicking Register

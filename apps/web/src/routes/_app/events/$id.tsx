@@ -44,17 +44,10 @@ function deriveSeriesParent(
   if (displayEvent !== event) {
     return event;
   }
-  return undefined;
 }
 
 export const Route = createFileRoute("/_app/events/$id")({
-  validateSearch: z.object({
-    occDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
-    tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
-  }),
+  component: EventDetailRouteComponent,
   head: () => ({
     meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
   }),
@@ -75,7 +68,13 @@ export const Route = createFileRoute("/_app/events/$id")({
       queries.eventImmichAlbum.byEvent({ eventId: params.id })
     );
   },
-  component: EventDetailRouteComponent,
+  validateSearch: z.object({
+    occDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
+  }),
 });
 
 function EventDetailRouteComponent() {
@@ -132,9 +131,9 @@ function EventDetailRouteComponent() {
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
   );
-  const isMember = event.members.some((m) => m.userId === session.user.id);
+  const isMember = event.members.some((m: any) => m.userId === session.user.id);
   const isTeamMember =
-    team?.members.some((m) => m.userId === session.user.id) ?? false;
+    team?.members.some((m: any) => m.userId === session.user.id) ?? false;
 
   const { displayEvent } = deriveDisplayEvent(event, occDate);
 

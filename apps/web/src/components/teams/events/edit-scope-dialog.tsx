@@ -10,9 +10,9 @@ import {
 export type EditScope = "this" | "following" | "all";
 
 const SCOPE_LABELS: Record<EditScope, string> = {
-  this: "This event only",
-  following: "This and following events",
   all: "All events in the series",
+  following: "This and following events",
+  this: "This event only",
 };
 
 const ALL_SCOPES: EditScope[] = ["this", "following", "all"];

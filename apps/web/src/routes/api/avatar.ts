@@ -9,7 +9,7 @@ const AVATAR_CACHE_CONTROL = "private, max-age=31536000, immutable";
 const toVariant = (value: number): string =>
   `variant${value.toString().padStart(2, "0")}`;
 const createVariantRange = (start: number, end: number): string[] =>
-  Array.from({ length: end - start + 1 }, (_, index) =>
+  Array.from({ length: end - start + 1 }, (_: any, index: any) =>
     toVariant(start + index)
   );
 
@@ -41,17 +41,17 @@ const toObject = (value: unknown): Record<string, unknown> | null => {
 
 const toHttpUrl = (value: unknown): string | undefined => {
   if (typeof value !== "string" || value.trim() === "") {
-    return undefined;
+    return;
   }
 
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return undefined;
+      return;
     }
     return parsed.toString();
   } catch {
-    return undefined;
+    void 0;
   }
 };
 
@@ -67,8 +67,6 @@ const normalizeGender = (
   if (normalizedGender === "male" || normalizedGender === "female") {
     return normalizedGender;
   }
-
-  return undefined;
 };
 
 const hashSha256 = (value: string): string =>
@@ -77,7 +75,7 @@ const hashSha256 = (value: string): string =>
 const extractAvatarUrl = (payload: unknown): string | undefined => {
   const data = toObject(payload);
   if (!data) {
-    return undefined;
+    return;
   }
 
   const directCandidates = [
@@ -107,15 +105,13 @@ const extractAvatarUrl = (payload: unknown): string | undefined => {
       }
     }
   }
-
-  return undefined;
 };
 
 const buildFallbackAvatarUrl = (
   normalizedEmail: string,
   gender?: "female" | "male"
 ): string => {
-  const seed = env.AVATAR_FALLBACK_SEED ?? "pi-dash-fallback";
+  const seed = env.AVATAR_FALLBACK_SEED;
   const fallbackSeed = hashSha256(`${seed}:${normalizedEmail}`);
   const url = new URL("https://api.dicebear.com/9.x/notionists/png");
   url.searchParams.set("seed", fallbackSeed);
@@ -154,13 +150,13 @@ const fetchProfileAvatarUrl = async (
   profileIdentifier: string
 ): Promise<string | undefined> => {
   if (!(env.GRAVATAR_API_BASE_URL && env.GRAVATAR_API_KEY)) {
-    return undefined;
+    return;
   }
 
   const controller = new AbortController();
   const timeoutHandle = setTimeout(
     () => controller.abort(),
-    env.GRAVATAR_TIMEOUT_MS ?? 5000
+    env.GRAVATAR_TIMEOUT_MS
   );
 
   try {
@@ -173,17 +169,16 @@ const fetchProfileAvatarUrl = async (
     });
 
     if (!response.ok) {
-      return undefined;
+      return;
     }
 
     const payload = (await response.json()) as unknown;
     return extractAvatarUrl(payload);
-  } catch (error) {
+  } catch (caughtError) {
     const log = createRequestLogger({ method: "GET", path: "/api/avatar" });
     log.set({ profileIdentifier });
-    log.error(error instanceof Error ? error : String(error));
+    log.error(caughtError instanceof Error ? caughtError : String(caughtError));
     log.emit();
-    return undefined;
   } finally {
     clearTimeout(timeoutHandle);
   }
@@ -216,12 +211,12 @@ export const Route = createFileRoute("/api/avatar")({
           buildFallbackAvatarUrl(normalizedEmail, normalizedGender);
 
         return new Response(null, {
-          status: 302,
           headers: {
             "Cache-Control": AVATAR_CACHE_CONTROL,
             Location: avatarUrl,
             Vary: "Cookie",
           },
+          status: 302,
         });
       },
     },

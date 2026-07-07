@@ -57,20 +57,20 @@ export async function sendMessage({
   if (await isNotificationsDisabled()) {
     const log = createRequestLogger();
     log.set({
-      handler: "sendMessage",
       event: "suppressed_by_kill_switch",
-      userId: to,
+      handler: "sendMessage",
       title,
       topic,
+      userId: to,
     });
     log.emit();
     const suppressed: SendMessageResult = {
-      to,
-      topic,
-      title,
+      channels: { emailQueued: false, inboxQueued: false, whatsapp: false },
       idempotencyKey,
       suppressedByKillSwitch: true,
-      channels: { inboxQueued: false, emailQueued: false, whatsapp: false },
+      title,
+      to,
+      topic,
     };
     recordSend({ kind: "message", result: suppressed });
     return suppressed;
@@ -83,23 +83,23 @@ export async function sendMessage({
 
   const inboxPromise = prefs.inboxEnabled
     ? insertNotification({
-        userId: to,
-        topicId: topic,
-        title,
         body,
         clickAction,
-        imageUrl,
         idempotencyKey: `${idempotencyKey}-inbox`,
+        imageUrl,
+        title,
+        topicId: topic,
+        userId: to,
       })
     : false;
 
   const emailPromise =
     prefs.emailEnabled && email
       ? sendNotificationEmail({
-          toEmail: email,
-          title,
           body,
           emailHtml,
+          title,
+          toEmail: email,
         })
       : false;
 
@@ -125,12 +125,12 @@ export async function sendMessage({
     } catch (error) {
       const log = createRequestLogger();
       log.set({
-        handler: "sendMessage",
         channel: "whatsapp",
-        userId: to,
-        title,
+        handler: "sendMessage",
         idempotencyKey,
+        title,
         topic,
+        userId: to,
       });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
@@ -145,16 +145,16 @@ export async function sendMessage({
   ]);
 
   const result: SendMessageResult = {
-    to,
-    topic,
-    title,
-    idempotencyKey,
-    suppressedByKillSwitch: false,
     channels: {
-      inboxQueued: Boolean(inboxQueued),
       emailQueued: Boolean(emailQueued),
+      inboxQueued: Boolean(inboxQueued),
       whatsapp: whatsappSent,
     },
+    idempotencyKey,
+    suppressedByKillSwitch: false,
+    title,
+    to,
+    topic,
   };
   recordSend({ kind: "message", result });
   return result;
@@ -215,17 +215,17 @@ export async function sendBulkMessage({
 }: SendBulkMessageOptions): Promise<SendBulkMessageResult> {
   if (userIds.length === 0) {
     const empty: SendBulkMessageResult = {
-      userCount: 0,
-      topic,
-      title,
-      idempotencyKey,
-      suppressedByKillSwitch: false,
-      skippedEmpty: true,
       channels: {
-        inboxQueued: false,
         emailQueued: false,
+        inboxQueued: false,
         whatsappRecipients: 0,
       },
+      idempotencyKey,
+      skippedEmpty: true,
+      suppressedByKillSwitch: false,
+      title,
+      topic,
+      userCount: 0,
     };
     recordSend({ kind: "bulk", result: empty });
     return empty;
@@ -234,25 +234,25 @@ export async function sendBulkMessage({
   if (await isNotificationsDisabled()) {
     const log = createRequestLogger();
     log.set({
-      handler: "sendBulkMessage",
       event: "suppressed_by_kill_switch",
-      userCount: userIds.length,
+      handler: "sendBulkMessage",
       title,
       topic,
+      userCount: userIds.length,
     });
     log.emit();
     const suppressed: SendBulkMessageResult = {
-      userCount: userIds.length,
-      topic,
-      title,
-      idempotencyKey,
-      suppressedByKillSwitch: true,
-      skippedEmpty: false,
       channels: {
-        inboxQueued: false,
         emailQueued: false,
+        inboxQueued: false,
         whatsappRecipients: 0,
       },
+      idempotencyKey,
+      skippedEmpty: false,
+      suppressedByKillSwitch: true,
+      title,
+      topic,
+      userCount: userIds.length,
     };
     recordSend({ kind: "bulk", result: suppressed });
     return suppressed;
@@ -274,12 +274,12 @@ export async function sendBulkMessage({
     const inboxNotifications = userIds
       .filter((uid) => (prefsMap.get(uid) ?? DEFAULTS).inboxEnabled)
       .map((uid) => ({
-        userId: uid,
-        topicId: topic,
-        title,
         body: displayBody,
         clickAction,
         idempotencyKey: `${idempotencyKey}-inbox-${uid}`,
+        title,
+        topicId: topic,
+        userId: uid,
       }));
     if (inboxNotifications.length === 0) {
       return false;
@@ -302,7 +302,7 @@ export async function sendBulkMessage({
         if (!toEmail) {
           return Promise.resolve(false);
         }
-        return sendNotificationEmail({ toEmail, title, body, emailHtml });
+        return sendNotificationEmail({ body, emailHtml, title, toEmail });
       })
     );
     return results.some((r) => r.status === "fulfilled" && r.value);
@@ -335,12 +335,12 @@ export async function sendBulkMessage({
     } catch (error) {
       const log = createRequestLogger();
       log.set({
-        handler: "sendBulkMessage",
         channel: "whatsapp",
-        userCount: userIds.length,
-        title,
+        handler: "sendBulkMessage",
         idempotencyKey,
+        title,
         topic,
+        userCount: userIds.length,
       });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
@@ -355,17 +355,17 @@ export async function sendBulkMessage({
   ]);
 
   const result: SendBulkMessageResult = {
-    userCount: userIds.length,
-    topic,
-    title,
-    idempotencyKey,
-    suppressedByKillSwitch: false,
-    skippedEmpty: false,
     channels: {
-      inboxQueued,
       emailQueued,
+      inboxQueued,
       whatsappRecipients,
     },
+    idempotencyKey,
+    skippedEmpty: false,
+    suppressedByKillSwitch: false,
+    title,
+    topic,
+    userCount: userIds.length,
   };
   recordSend({ kind: "bulk", result });
   return result;

@@ -33,6 +33,7 @@ const TYPE_OPTIONS = [
 ];
 
 export const Route = createFileRoute("/_app/reimbursements/")({
+  component: ReimbursementsRouteComponent,
   head: () => ({
     meta: [{ title: `Reimbursements | ${env.VITE_APP_NAME}` }],
   }),
@@ -40,7 +41,6 @@ export const Route = createFileRoute("/_app/reimbursements/")({
     context.zero?.preload(queries.reimbursement.all());
     context.zero?.preload(queries.advancePayment.all());
   },
-  component: ReimbursementsRouteComponent,
 });
 
 function fetchRequestItem(zero: ReturnType<typeof useZero>, row: RequestRow) {
@@ -90,13 +90,13 @@ function ReimbursementsRouteComponent() {
   const filteredData = (() => {
     let result = allData;
     if (statusFilter) {
-      result = result.filter((r) => r.status === statusFilter);
+      result = result.filter((r: any) => r.status === statusFilter);
     }
     if (typeFilter) {
-      result = result.filter((r) => r.type === typeFilter);
+      result = result.filter((r: any) => r.type === typeFilter);
     }
     if (cityFilter) {
-      result = result.filter((r) => r.city === cityFilter);
+      result = result.filter((r: any) => r.city === cityFilter);
     }
     return result;
   })();
@@ -107,8 +107,8 @@ function ReimbursementsRouteComponent() {
       const item = await fetchRequestItem(zero, row);
       const r2Keys =
         item?.attachments
-          ?.filter((a) => a.type === "file" && a.objectKey)
-          .map((a) => a.objectKey as string) ?? [];
+          ?.filter((a: any) => a.type === "file" && a.objectKey)
+          .map((a: any) => a.objectKey as string) ?? [];
 
       if (r2Keys.length > 0) {
         await deleteUploadedAssets({
@@ -121,14 +121,25 @@ function ReimbursementsRouteComponent() {
       toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
     } catch (error) {
       log.error({
-        component: "ReimbursementsIndex",
         action: "delete",
+        component: "ReimbursementsIndex",
+        error: error instanceof Error ? error.message : String(error),
         requestId: row.id,
         type: row.type,
-        error: error instanceof Error ? error.message : String(error),
       });
       toast.error(`Failed to delete ${typeLabel}`);
     }
+  };
+  const stableOnClearFilters0 = () => {
+    setStatusFilter("");
+    setTypeFilter("");
+    setCityFilter("");
+  };
+  const stableOnNavigate1 = (id: any) => {
+    navigate({ params: { id }, to: "/reimbursements/$id" });
+  };
+  const stableOnClick2 = () => {
+    navigate({ to: "/reimbursements/new" });
   };
 
   return (
@@ -146,23 +157,11 @@ function ReimbursementsRouteComponent() {
           data={filteredData}
           hasActiveFilters={!!(statusFilter || typeFilter || cityFilter)}
           isLoading={isLoading}
-          onClearFilters={() => {
-            setStatusFilter("");
-            setTypeFilter("");
-            setCityFilter("");
-          }}
+          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
-          onNavigate={(id) => {
-            navigate({ to: "/reimbursements/$id", params: { id } });
-          }}
+          onNavigate={stableOnNavigate1}
           toolbarActions={
-            <Button
-              onClick={() => {
-                navigate({ to: "/reimbursements/new" });
-              }}
-              size="sm"
-              type="button"
-            >
+            <Button onClick={stableOnClick2} size="sm" type="button">
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}

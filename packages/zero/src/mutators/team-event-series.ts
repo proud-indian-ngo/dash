@@ -54,38 +54,38 @@ export function buildExceptionInsert(
   }> = {}
 ) {
   return {
-    id,
-    teamId: series.teamId,
-    name: overrides.name ?? series.name,
-    description: overrides.description ?? series.description ?? null,
-    location: overrides.location ?? series.location ?? null,
-    city: series.city,
-    startTime: overrides.startTime ?? series.startTime,
-    endTime: overrides.endTime ?? series.endTime ?? null,
-    isPublic: overrides.isPublic ?? series.isPublic,
-    recurrenceRule: null,
-    seriesId: series.id,
-    originalDate,
     cancelledAt: overrides.cancelledAt ?? null,
-    feedbackEnabled: overrides.feedbackEnabled ?? series.feedbackEnabled,
+    city: series.city,
+    createdAt: now,
+    createdBy,
+    description: overrides.description ?? series.description ?? null,
+    endTime: overrides.endTime ?? series.endTime ?? null,
     feedbackDeadline:
       overrides.feedbackDeadline ?? series.feedbackDeadline ?? null,
+    feedbackEnabled: overrides.feedbackEnabled ?? series.feedbackEnabled,
+    id,
+    inheritVolunteers:
+      overrides.inheritVolunteers ?? series.inheritVolunteers ?? false,
+    isPublic: overrides.isPublic ?? series.isPublic,
+    location: overrides.location ?? series.location ?? null,
+    name: overrides.name ?? series.name,
+    originalDate,
+    postEventNudgesEnabled:
+      overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
     postRsvpPoll: overrides.postRsvpPoll ?? series.postRsvpPoll,
-    rsvpPollLeadMinutes:
-      overrides.rsvpPollLeadMinutes ?? series.rsvpPollLeadMinutes,
+    recurrenceRule: null,
     reminderIntervals:
       overrides.reminderIntervals ?? series.reminderIntervals ?? null,
     reminderTarget:
       overrides.reminderTarget ?? series.reminderTarget ?? "group",
-    postEventNudgesEnabled:
-      overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
+    rsvpPollLeadMinutes:
+      overrides.rsvpPollLeadMinutes ?? series.rsvpPollLeadMinutes,
+    seriesId: series.id,
+    startTime: overrides.startTime ?? series.startTime,
+    teamId: series.teamId,
+    updatedAt: now,
     whatsappGroupId:
       overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
-    inheritVolunteers:
-      overrides.inheritVolunteers ?? series.inheritVolunteers ?? false,
-    createdBy,
-    createdAt: now,
-    updatedAt: now,
   };
 }
 
@@ -127,7 +127,7 @@ export function buildUpdateFields(args: UpdateArgs) {
       feedbackEnabled: args.feedbackEnabled,
     }),
     ...(args.feedbackDeadline !== undefined && {
-      feedbackDeadline: args.feedbackDeadline ?? null,
+      feedbackDeadline: args.feedbackDeadline,
     }),
     ...(args.postRsvpPoll !== undefined && {
       postRsvpPoll: args.postRsvpPoll,
@@ -136,7 +136,7 @@ export function buildUpdateFields(args: UpdateArgs) {
       rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
     }),
     ...(args.reminderIntervals !== undefined && {
-      reminderIntervals: args.reminderIntervals ?? null,
+      reminderIntervals: args.reminderIntervals,
     }),
     ...(args.reminderTarget !== undefined && {
       reminderTarget: args.reminderTarget,
@@ -189,7 +189,7 @@ export async function updateSeriesAll(
   await tx.mutate.teamEvent.update({
     ...updateFields,
     ...(args.recurrenceRule !== undefined && {
-      recurrenceRule: args.recurrenceRule ?? null,
+      recurrenceRule: args.recurrenceRule,
     }),
   });
 }
@@ -234,19 +234,19 @@ export async function updateSeriesThis(
         userId,
         args.now,
         {
-          name: args.name,
           description: args.description,
-          location: args.location,
-          startTime: args.startTime,
           endTime: args.endTime,
-          isPublic: args.isPublic,
+          feedbackDeadline: args.feedbackDeadline,
           feedbackEnabled: args.feedbackEnabled,
-          feedbackDeadline: args.feedbackDeadline ?? undefined,
-          postRsvpPoll: args.postRsvpPoll,
-          rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
+          isPublic: args.isPublic,
+          location: args.location,
+          name: args.name,
           postEventNudgesEnabled: args.postEventNudgesEnabled,
-          reminderIntervals: args.reminderIntervals ?? undefined,
+          postRsvpPoll: args.postRsvpPoll,
+          reminderIntervals: args.reminderIntervals,
           reminderTarget: args.reminderTarget,
+          rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
+          startTime: args.startTime,
           whatsappGroupId: args.whatsappGroupId,
         }
       )
@@ -297,36 +297,36 @@ export async function updateSeriesFollowing(
   });
   const newRule = args.recurrenceRule ?? { rrule: rule.rrule };
   await tx.mutate.teamEvent.insert({
-    id: args.newSeriesId,
-    teamId: existing.teamId,
-    name: args.name ?? existing.name,
-    description: args.description ?? existing.description ?? null,
-    location: args.location ?? existing.location ?? null,
-    city: existing.city,
-    startTime: args.startTime ?? existing.startTime,
-    endTime: args.endTime ?? existing.endTime ?? null,
-    isPublic: args.isPublic ?? existing.isPublic,
-    recurrenceRule: newRule,
-    seriesId: null,
-    originalDate: null,
     cancelledAt: null,
-    feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
+    city: existing.city,
+    createdAt: args.now,
+    createdBy: userId,
+    description: args.description ?? existing.description ?? null,
+    endTime: args.endTime ?? existing.endTime ?? null,
     feedbackDeadline:
       args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
+    feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
+    id: args.newSeriesId,
+    inheritVolunteers:
+      args.inheritVolunteers ?? existing.inheritVolunteers ?? false,
+    isPublic: args.isPublic ?? existing.isPublic,
+    location: args.location ?? existing.location ?? null,
+    name: args.name ?? existing.name,
+    originalDate: args.originalDate,
+    postEventNudgesEnabled:
+      args.postEventNudgesEnabled ?? existing.postEventNudgesEnabled,
     postRsvpPoll: args.postRsvpPoll ?? existing.postRsvpPoll,
-    rsvpPollLeadMinutes:
-      args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
+    recurrenceRule: newRule,
     reminderIntervals:
       args.reminderIntervals ?? existing.reminderIntervals ?? null,
     reminderTarget: args.reminderTarget ?? existing.reminderTarget ?? "group",
-    postEventNudgesEnabled:
-      args.postEventNudgesEnabled ?? existing.postEventNudgesEnabled,
-    whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
-    inheritVolunteers:
-      args.inheritVolunteers ?? existing.inheritVolunteers ?? false,
-    createdBy: userId,
-    createdAt: args.now,
+    rsvpPollLeadMinutes:
+      args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
+    seriesId: null,
+    startTime: args.startTime ?? existing.startTime,
+    teamId: existing.teamId,
     updatedAt: args.now,
+    whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
   });
 }
 
@@ -339,22 +339,24 @@ export async function cancelSeriesAll(
   args: { id: string; now: number }
 ) {
   await tx.mutate.teamEvent.update({
-    id: args.id,
     cancelledAt: args.now,
+    id: args.id,
     updatedAt: args.now,
   });
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
-  for (const exc of exceptions) {
-    if (!exc.cancelledAt) {
-      await tx.mutate.teamEvent.update({
-        id: exc.id,
-        cancelledAt: args.now,
-        updatedAt: args.now,
-      });
-    }
-  }
+  await Promise.all(
+    exceptions.map(async (exc) => {
+      if (!exc.cancelledAt) {
+        await tx.mutate.teamEvent.update({
+          cancelledAt: args.now,
+          id: exc.id,
+          updatedAt: args.now,
+        });
+      }
+    })
+  );
 }
 
 export async function cancelSeriesThis(
@@ -370,8 +372,8 @@ export async function cancelSeriesThis(
 ) {
   if (existing.seriesId || !existing.recurrenceRule) {
     await tx.mutate.teamEvent.update({
-      id: args.id,
       cancelledAt: args.now,
+      id: args.id,
       updatedAt: args.now,
     });
   } else if (args.originalDate && args.newExceptionId) {
@@ -410,17 +412,19 @@ export async function cancelSeriesFollowing(
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
-  for (const exc of exceptions) {
-    if (
-      exc.originalDate &&
-      exc.originalDate >= args.originalDate &&
-      !exc.cancelledAt
-    ) {
-      await tx.mutate.teamEvent.update({
-        id: exc.id,
-        cancelledAt: args.now,
-        updatedAt: args.now,
-      });
-    }
-  }
+  await Promise.all(
+    exceptions.map(async (exc) => {
+      if (
+        exc.originalDate &&
+        exc.originalDate >= args.originalDate &&
+        !exc.cancelledAt
+      ) {
+        await tx.mutate.teamEvent.update({
+          cancelledAt: args.now,
+          id: exc.id,
+          updatedAt: args.now,
+        });
+      }
+    })
+  );
 }

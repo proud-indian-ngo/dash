@@ -10,152 +10,12 @@ import {
 import { zql } from "../schema";
 
 export const teamMutators = {
-  create: defineMutator(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1),
-      description: z.string().optional(),
-      whatsappGroupId: z.string().optional(),
-      createWhatsAppGroup: z.boolean().optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "teams.create");
-      const now = Date.now();
-      await tx.mutate.team.insert({
-        id: args.id,
-        name: args.name,
-        description: args.description ?? null,
-        whatsappGroupId: args.whatsappGroupId ?? null,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      if (
-        tx.location === "server" &&
-        args.createWhatsAppGroup &&
-        !args.whatsappGroupId
-      ) {
-        const teamId = args.id;
-        const teamName = args.name;
-        const creatorUserId = ctx.userId;
-        ctx.asyncTasks?.push({
-          meta: { mutator: "createTeam", teamId, teamName },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "whatsapp-create-group",
-              {
-                entityType: "team",
-                entityId: teamId,
-                groupName: teamName,
-                creatorUserId,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
-      }
-    }
-  ),
-
-  update: defineMutator(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1),
-      description: z.string().optional(),
-      whatsappGroupId: z.string().optional(),
-      now: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "teams.edit");
-      const existing = await tx.run(zql.team.where("id", args.id).one());
-      if (!existing) {
-        throw new Error("Team not found");
-      }
-      await tx.mutate.team.update({
-        id: args.id,
-        name: args.name,
-        description: args.description ?? null,
-        whatsappGroupId: args.whatsappGroupId ?? null,
-        updatedAt: args.now,
-      });
-
-      if (tx.location === "server") {
-        const teamId = args.id;
-        const teamName = args.name;
-        const updatedAt = args.now;
-        const members = await tx.run(zql.teamMember.where("teamId", teamId));
-        const memberIds = members.map((m) => m.userId);
-        ctx.asyncTasks?.push({
-          meta: { mutator: "updateTeam", teamId, teamName },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-team-updated",
-              {
-                memberIds,
-                teamId,
-                teamName,
-                updatedAt,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
-      }
-    }
-  ),
-
-  delete: defineMutator(
-    z.object({ id: z.string() }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "teams.delete");
-      const existing = await tx.run(
-        zql.team.where("id", args.id).related("members").one()
-      );
-      if (!existing) {
-        throw new Error("Team not found");
-      }
-
-      const memberUserIds = existing.members.map((m) => m.userId);
-      const teamName = existing.name;
-
-      for (const member of existing.members) {
-        await tx.mutate.teamMember.delete({ id: member.id });
-      }
-      await tx.mutate.team.delete({ id: args.id });
-
-      if (tx.location === "server") {
-        const deletedAt = Date.now();
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "deleteTeam",
-            teamName,
-            memberCount: memberUserIds.length,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-team-deleted",
-              {
-                deletedAt,
-                memberIds: memberUserIds,
-                teamName,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
-      }
-    }
-  ),
-
   addMember: defineMutator(
     z.object({
       id: z.string(),
+      role: z.enum(["member", "lead"]).default("member"),
       teamId: z.string(),
       userId: z.string(),
-      role: z.enum(["member", "lead"]).default("member"),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -180,17 +40,16 @@ export const teamMutators = {
 
       await tx.mutate.teamMember.insert({
         id: args.id,
+        joinedAt: Date.now(),
+        role: args.role,
         teamId: args.teamId,
         userId: args.userId,
-        role: args.role,
-        joinedAt: Date.now(),
       });
 
       if (tx.location === "server") {
-        const teamId = args.teamId;
-        const userId = args.userId;
+        const { teamId } = args;
+        const { userId } = args;
         ctx.asyncTasks?.push({
-          meta: { mutator: "addTeamMember", teamId, userId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -199,35 +58,129 @@ export const teamMutators = {
               { traceId: ctx.traceId }
             );
           },
+          meta: { mutator: "addTeamMember", teamId, userId },
         });
 
         const teamName = (await tx.run(zql.team.where("id", args.teamId).one()))
           ?.name;
         if (teamName) {
           ctx.asyncTasks?.push({
-            meta: { mutator: "addTeamMember", teamId, teamName, userId },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
                 "notify-added-to-team",
                 {
-                  userId,
-                  teamName,
                   teamId,
+                  teamName,
+                  userId,
                 },
                 { traceId: ctx.traceId }
               );
             },
+            meta: { mutator: "addTeamMember", teamId, teamName, userId },
           });
         }
+      }
+    }
+  ),
+  create: defineMutator(
+    z.object({
+      createWhatsAppGroup: z.boolean().optional(),
+      description: z.string().optional(),
+      id: z.string(),
+      name: z.string().min(1),
+      whatsappGroupId: z.string().optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "teams.create");
+      const now = Date.now();
+      await tx.mutate.team.insert({
+        createdAt: now,
+        description: args.description,
+        id: args.id,
+        name: args.name,
+        updatedAt: now,
+        whatsappGroupId: args.whatsappGroupId,
+      });
+
+      if (
+        tx.location === "server" &&
+        args.createWhatsAppGroup &&
+        !args.whatsappGroupId
+      ) {
+        const teamId = args.id;
+        const teamName = args.name;
+        const creatorUserId = ctx.userId;
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "whatsapp-create-group",
+              {
+                creatorUserId,
+                entityId: teamId,
+                entityType: "team",
+                groupName: teamName,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: { mutator: "createTeam", teamId, teamName },
+        });
+      }
+    }
+  ),
+
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "teams.delete");
+      const existing = await tx.run(
+        zql.team.where("id", args.id).related("members").one()
+      );
+      if (!existing) {
+        throw new Error("Team not found");
+      }
+
+      const memberUserIds = existing.members.map((m) => m.userId);
+      const teamName = existing.name;
+
+      await Promise.all(
+        existing.members.map(async (member) => {
+          await tx.mutate.teamMember.delete({ id: member.id });
+        })
+      );
+      await tx.mutate.team.delete({ id: args.id });
+
+      if (tx.location === "server") {
+        const deletedAt = Date.now();
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-team-deleted",
+              {
+                deletedAt,
+                memberIds: memberUserIds,
+                teamName: teamName ?? "Team",
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            memberCount: memberUserIds.length,
+            mutator: "deleteTeam",
+            teamName,
+          },
+        });
       }
     }
   ),
 
   removeMember: defineMutator(
     z.object({
-      teamId: z.string(),
       memberId: z.string(),
+      teamId: z.string(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -257,9 +210,8 @@ export const teamMutators = {
       await tx.mutate.teamMember.delete({ id: args.memberId });
 
       if (tx.location === "server") {
-        const teamId = args.teamId;
+        const { teamId } = args;
         ctx.asyncTasks?.push({
-          meta: { mutator: "removeTeamMember", teamId, memberUserId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -271,24 +223,25 @@ export const teamMutators = {
               { traceId: ctx.traceId }
             );
           },
+          meta: { memberUserId, mutator: "removeTeamMember", teamId },
         });
 
         if (teamName) {
           const removedAt = Date.now();
           ctx.asyncTasks?.push({
-            meta: { mutator: "removeTeamMember", memberUserId, teamName },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
                 "notify-removed-from-team",
                 {
                   removedAt,
-                  userId: memberUserId,
                   teamName,
+                  userId: memberUserId,
                 },
                 { traceId: ctx.traceId }
               );
             },
+            meta: { memberUserId, mutator: "removeTeamMember", teamName },
           });
         }
       }
@@ -322,27 +275,75 @@ export const teamMutators = {
       });
 
       if (tx.location === "server") {
-        const memberId = args.memberId;
+        const { memberId } = args;
         const newRole = args.role;
         const targetUserId = member.userId as string;
         const teamId = member.teamId as string;
         const team = await tx.run(zql.team.where("id", teamId).one());
-        const teamName = team?.name ?? "Unknown";
+        const teamName = team?.name;
         ctx.asyncTasks?.push({
-          meta: { mutator: "setMemberRole", memberId, newRole },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-team-role-changed",
               {
-                userId: targetUserId,
+                newRole: newRole ?? "member",
                 teamId,
-                teamName,
-                newRole,
+                teamName: teamName ?? "Team",
+                userId: targetUserId,
               },
               { traceId: ctx.traceId }
             );
           },
+          meta: { memberId, mutator: "setMemberRole", newRole },
+        });
+      }
+    }
+  ),
+
+  update: defineMutator(
+    z.object({
+      description: z.string().optional(),
+      id: z.string(),
+      name: z.string().min(1),
+      now: z.number(),
+      whatsappGroupId: z.string().optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "teams.edit");
+      const existing = await tx.run(zql.team.where("id", args.id).one());
+      if (!existing) {
+        throw new Error("Team not found");
+      }
+      await tx.mutate.team.update({
+        description: args.description,
+        id: args.id,
+        name: args.name,
+        updatedAt: args.now,
+        whatsappGroupId: args.whatsappGroupId,
+      });
+
+      if (tx.location === "server") {
+        const teamId = args.id;
+        const teamName = args.name;
+        const updatedAt = args.now;
+        const members = await tx.run(zql.teamMember.where("teamId", teamId));
+        const memberIds = members.map((m) => m.userId);
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-team-updated",
+              {
+                memberIds,
+                teamId,
+                teamName,
+                updatedAt,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: { mutator: "updateTeam", teamId, teamName },
         });
       }
     }

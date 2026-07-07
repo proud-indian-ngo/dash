@@ -86,32 +86,32 @@ function expandSeriesEvent(
   // which causes expandSeries to skip it. Ensure the parent row always exists.
   if (exceptionDates.has(seriesStartDate)) {
     rows.push({
-      key: event.id,
+      endTime: event.endTime,
       event,
       eventId: event.id,
-      startTime: event.startTime,
-      endTime: event.endTime,
-      members: event.members,
       isVirtual: false,
-      seriesId: null,
+      key: event.id,
+      members: event.members,
       originalDate: null,
+      seriesId: null,
+      startTime: event.startTime,
     });
   }
 
   for (const [i, occ] of occurrences.entries()) {
     const virtualOcc = virtualOccs[i];
     rows.push({
-      key: occ.isSeriesParent ? event.id : `${event.id}:${occ.date}`,
+      endTime: occ.endTime,
       event,
       eventId: event.id,
-      virtual: occ.isSeriesParent ? undefined : virtualOcc,
-      startTime: occ.startTime,
-      endTime: occ.endTime,
+      isVirtual: !occ.isSeriesParent,
+      key: occ.isSeriesParent ? event.id : `${event.id}:${occ.date}`,
       members:
         occ.isSeriesParent || event.inheritVolunteers ? event.members : [],
-      isVirtual: !occ.isSeriesParent,
-      seriesId: occ.isSeriesParent ? null : event.id,
       originalDate: occ.isSeriesParent ? null : occ.date,
+      seriesId: occ.isSeriesParent ? null : event.id,
+      startTime: occ.startTime,
+      virtual: occ.isSeriesParent ? undefined : virtualOcc,
     });
   }
 
@@ -121,15 +121,15 @@ function expandSeriesEvent(
       continue;
     }
     rows.push({
-      key: exc.id,
+      endTime: exc.endTime,
       event,
       eventId: exc.id,
-      startTime: exc.startTime,
-      endTime: exc.endTime,
-      members: exc.members,
       isVirtual: false,
-      seriesId: event.id,
+      key: exc.id,
+      members: exc.members,
       originalDate: exc.originalDate,
+      seriesId: event.id,
+      startTime: exc.startTime,
     });
   }
 
@@ -146,15 +146,15 @@ export function buildEventDisplayRows(
   for (const event of events) {
     if (!event.recurrenceRule) {
       rows.push({
-        key: event.id,
+        endTime: event.endTime,
         event,
         eventId: event.id,
-        startTime: event.startTime,
-        endTime: event.endTime,
-        members: event.members,
         isVirtual: false,
-        seriesId: null,
+        key: event.id,
+        members: event.members,
         originalDate: null,
+        seriesId: null,
+        startTime: event.startTime,
       });
       continue;
     }
@@ -173,7 +173,7 @@ export function buildEventDisplayRows(
 export function getDefaultDateRange(): { start: Date; end: Date } {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  return { start, end: addWeeks(start, 4) };
+  return { end: addWeeks(start, 4), start };
 }
 
 export type EventStatusKey = "upcoming" | "past" | "cancelled";
@@ -244,9 +244,9 @@ export function applyOccurrenceDate(
     seriesStart.getMilliseconds()
   );
   const newStart = occStart.getTime();
-  const duration = endTime == null ? null : endTime - startTime;
-  const newEnd = duration == null ? null : newStart + duration;
-  return { startTime: newStart, endTime: newEnd };
+  const duration = endTime === null ? null : endTime - startTime;
+  const newEnd = duration === null ? null : newStart + duration;
+  return { endTime: newEnd, startTime: newStart };
 }
 
 export const SKELETON_NAME = <Skeleton className="h-5 w-36" />;

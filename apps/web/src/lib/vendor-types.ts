@@ -39,25 +39,36 @@ export function enrichVendorsWithPayments(
     }
   }
 
-  return vendors.map((v) => {
+  return vendors.map((v: any) => {
     const payments = byVendor.get(v.id) ?? [];
-    const pending = payments.filter((p) => p.status === "pending");
-    const active = payments.filter((p) => ACTIVE_STATUSES.has(p.status ?? ""));
-    const completed = payments.filter((p) => p.status === "completed");
-    const rejected = payments.filter((p) => p.status === "rejected");
+    const pending = payments.filter((p: any) => p.status === "pending");
+    const active = payments.filter((p: any) =>
+      ACTIVE_STATUSES.has(p.status ?? "")
+    );
+    const completed = payments.filter((p: any) => p.status === "completed");
+    const rejected = payments.filter((p: any) => p.status === "rejected");
     return {
       ...v,
-      pendingCount: pending.length,
-      activeCount: active.length,
-      completedCount: completed.length,
-      rejectedCount: rejected.length,
-      pendingAmount: pending.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
-      activeAmount: active.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
-      completedAmount: completed.reduce(
-        (s, p) => s + sumAmounts(p.lineItems),
+      activeAmount: active.reduce(
+        (s: any, p: any) => s + sumAmounts(p.lineItems),
         0
       ),
-      rejectedAmount: rejected.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
+      activeCount: active.length,
+      completedAmount: completed.reduce(
+        (s: any, p: any) => s + sumAmounts(p.lineItems),
+        0
+      ),
+      completedCount: completed.length,
+      pendingAmount: pending.reduce(
+        (s: any, p: any) => s + sumAmounts(p.lineItems),
+        0
+      ),
+      pendingCount: pending.length,
+      rejectedAmount: rejected.reduce(
+        (s: any, p: any) => s + sumAmounts(p.lineItems),
+        0
+      ),
+      rejectedCount: rejected.length,
     };
   });
 }

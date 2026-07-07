@@ -49,7 +49,7 @@ export async function handleSendSingleRsvpPoll(
       path: "send-single-rsvp-poll",
     });
     const { eventId } = job.data;
-    log.set({ jobId: job.id, eventId });
+    log.set({ eventId, jobId: job.id });
 
     // Check idempotency
     const existingPoll = await db
@@ -67,10 +67,10 @@ export async function handleSendSingleRsvpPoll(
     // Fetch event + team data
     const events = await db
       .select({
-        name: teamEvent.name,
-        startTime: teamEvent.startTime,
         cancelledAt: teamEvent.cancelledAt,
         eventWhatsappGroupId: teamEvent.whatsappGroupId,
+        name: teamEvent.name,
+        startTime: teamEvent.startTime,
         teamWhatsappGroupId: team.whatsappGroupId,
       })
       .from(teamEvent)
@@ -112,16 +112,16 @@ export async function handleSendSingleRsvpPoll(
 
     // Insert pending poll record before sending
     await db.insert(eventRsvpPoll).values({
-      id: pollId,
+      closedAt: null,
       eventId,
+      id: pollId,
+      messageId: tempMessageId,
+      noOptionHash: hashPollOption(NO_OPTION),
+      question,
+      sentAt: new Date(),
       targetChatJid,
       targetChatSource,
-      messageId: tempMessageId,
-      question,
       yesOptionHash: hashPollOption(YES_OPTION),
-      noOptionHash: hashPollOption(NO_OPTION),
-      sentAt: new Date(),
-      closedAt: null,
     });
 
     // Recheck cancelledAt after insert to close the race window:
@@ -146,10 +146,10 @@ export async function handleSendSingleRsvpPoll(
         YES_OPTION,
         NO_OPTION,
       ]);
-    } catch (error) {
+    } catch (caughtError) {
       // Send failed — remove pending record so retry can try again
       await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, pollId));
-      throw error;
+      throw caughtError;
     }
 
     // Update with real messageId

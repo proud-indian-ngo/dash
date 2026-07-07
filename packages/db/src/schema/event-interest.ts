@@ -20,20 +20,20 @@ export const eventInterestStatusEnum = pgEnum("event_interest_status", [
 export const eventInterest = pgTable(
   "event_interest",
   {
-    id: uuid("id").primaryKey(),
+    createdAt: timestamp("created_at").notNull(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    status: eventInterestStatusEnum("status").notNull().default("pending"),
+    id: uuid("id").primaryKey(),
     message: text("message"),
+    reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    reviewedAt: timestamp("reviewed_at"),
-    createdAt: timestamp("created_at").notNull(),
+    status: eventInterestStatusEnum("status").notNull().default("pending"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
     uniqueIndex("event_interest_eventId_userId_uidx").on(
@@ -50,14 +50,14 @@ export const eventInterestRelations = relations(eventInterest, ({ one }) => ({
     fields: [eventInterest.eventId],
     references: [teamEvent.id],
   }),
-  user: one(user, {
-    fields: [eventInterest.userId],
-    references: [user.id],
-    relationName: "interestUser",
-  }),
   reviewer: one(user, {
     fields: [eventInterest.reviewedBy],
     references: [user.id],
     relationName: "interestReviewer",
+  }),
+  user: one(user, {
+    fields: [eventInterest.userId],
+    references: [user.id],
+    relationName: "interestUser",
   }),
 }));

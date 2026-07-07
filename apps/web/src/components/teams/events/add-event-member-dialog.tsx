@@ -53,9 +53,9 @@ function AddEventMemberFormContent({
     getUsersForPicker().then(setAllUsers);
   }, [open]);
 
-  const eligibleUsers = allUsers.filter((u) => u.isActive);
+  const eligibleUsers = allUsers.filter((u: any) => u.isActive);
 
-  const existingUserIds = new Set(existingMembers.map((m) => m.userId));
+  const existingUserIds = new Set(existingMembers.map((m: any) => m.userId));
 
   const form = useForm({
     defaultValues: { userIds: [] as string[] },
@@ -65,7 +65,7 @@ function AddEventMemberFormContent({
         ? ((await onBeforeAdd()) ?? eventId)
         : eventId;
 
-      const members = value.userIds.map((userId) => ({
+      const members = value.userIds.map((userId: any) => ({
         id: uuidv7(),
         userId,
       }));
@@ -80,11 +80,11 @@ function AddEventMemberFormContent({
 
       const count = members.length;
       handleMutationResult(res, {
-        mutation: "teamEvent.addMembers",
         entityId: eventId,
+        errorMsg: "Failed to add volunteers",
+        mutation: "teamEvent.addMembers",
         successMsg:
           count === 1 ? "Volunteer added" : `${count} volunteers added`,
-        errorMsg: "Failed to add volunteers",
       });
 
       onOpenChange(false);
@@ -94,6 +94,7 @@ function AddEventMemberFormContent({
       onSubmit: addMemberSchema,
     },
   });
+  const stableSelector0 = (state: any) => state.values.userIds.length;
 
   return (
     <FormLayout form={form}>
@@ -102,20 +103,20 @@ function AddEventMemberFormContent({
         label="Search volunteers"
         name="userIds"
       >
-        {(field) => (
+        {(field: any) => (
           <UserPicker
             emptyMessage="No matching volunteers found."
             excludeUserIds={existingUserIds}
             highlightedUserIds={teamMemberIds}
             highlightLabel="Team Member"
-            onValueChange={(ids) => field.handleChange(ids)}
+            onValueChange={(ids: any) => field.handleChange(ids)}
             users={eligibleUsers}
             value={field.state.value ?? []}
           />
         )}
       </CustomField>
-      <form.Subscribe selector={(state) => state.values.userIds.length}>
-        {(count) => (
+      <form.Subscribe selector={stableSelector0}>
+        {(count: any) => (
           <FormActions
             onCancel={() => onOpenChange(false)}
             submitLabel={
@@ -141,7 +142,7 @@ export function AddEventMemberDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k) => k + 1);
+      setFormKey((k: any) => k + 1);
     }
     onOpenChange(nextOpen);
   };

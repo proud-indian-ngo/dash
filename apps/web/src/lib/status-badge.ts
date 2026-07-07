@@ -13,13 +13,13 @@ const STATUS_BADGE_ENTRIES: Record<
   string,
   { label: string; variant: StatusBadgeVariant }
 > = {
-  pending: { label: "Pending", variant: "warning-outline" },
   approved: { label: "Approved", variant: "success-outline" },
-  rejected: { label: "Rejected", variant: "destructive-outline" },
-  partially_paid: { label: "Partially Paid", variant: "warning-outline" },
-  paid: { label: "Paid", variant: "success-outline" },
-  invoice_pending: { label: "Invoice Pending", variant: "warning-outline" },
   completed: { label: "Completed", variant: "success-outline" },
+  invoice_pending: { label: "Invoice Pending", variant: "warning-outline" },
+  paid: { label: "Paid", variant: "success-outline" },
+  partially_paid: { label: "Partially Paid", variant: "warning-outline" },
+  pending: { label: "Pending", variant: "warning-outline" },
+  rejected: { label: "Rejected", variant: "destructive-outline" },
 };
 
 export function getStatusBadge(status: string | null): {

@@ -1,6 +1,5 @@
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
@@ -47,30 +46,25 @@ export function InputField({
       name={name}
       validators={validators}
     >
-      {(field) => {
-        return (
-          <Input
-            {...props}
-            {...fieldErrorProps(
-              field,
-              resolvedForm.state.submissionAttempts > 0
-            )}
-            aria-required={isRequired}
-            id={field.name}
-            name={field.name}
-            onBlur={field.handleBlur}
-            onChange={(event) => {
-              const nextValue =
-                type === "number"
-                  ? Number(event.target.value)
-                  : event.target.value;
-              field.handleChange(nextValue);
-            }}
-            type={type}
-            value={(field.state.value ?? "") as string | number}
-          />
-        );
-      }}
+      {(field: any) => (
+        <Input
+          {...props}
+          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
+          aria-required={isRequired}
+          id={field.name}
+          name={field.name}
+          onBlur={field.handleBlur}
+          onChange={(event: any) => {
+            const nextValue =
+              type === "number"
+                ? Number(event.target.value)
+                : event.target.value;
+            field.handleChange(nextValue);
+          }}
+          type={type}
+          value={(field.state.value ?? "") as string | number}
+        />
+      )}
     </CustomField>
   );
 }

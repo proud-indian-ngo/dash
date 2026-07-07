@@ -22,13 +22,13 @@ export async function startWorker(): Promise<void> {
     const { PgBoss } = await import("pg-boss");
 
     const boss = new PgBoss({
-      connectionString: env.DATABASE_URL,
-      schema: "pgboss",
       application_name: "pi-dash-jobs",
+      connectionString: env.DATABASE_URL,
       max: 10, // shared query pool — workers poll through this; keep low to leave room for Drizzle (20)
-      supervise: true,
-      schedule: true,
       migrate: true,
+      schedule: true,
+      schema: "pgboss",
+      supervise: true,
     });
 
     boss.on("error", (error: Error) => {

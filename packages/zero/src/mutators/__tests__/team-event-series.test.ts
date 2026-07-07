@@ -38,31 +38,31 @@ describe("buildTruncatedRRule", () => {
 });
 
 const SERIES_BASE = {
-  id: "series-1",
-  teamId: "team-1",
-  name: "Weekly Meeting",
-  description: "Team standup",
-  location: "Office",
-  city: "bangalore" as const,
-  startTime: NOW,
-  endTime: NOW + 3_600_000,
-  isPublic: false,
-  recurrenceRule: { rrule: "FREQ=WEEKLY" },
-  seriesId: null,
-  originalDate: null,
   cancelledAt: null,
-  feedbackEnabled: true,
-  feedbackDeadline: null,
-  postRsvpPoll: false,
-  rsvpPollLeadMinutes: 4320,
-  reminderIntervals: [60, 1440],
-  whatsappGroupId: "wg-1",
-  reminderTarget: "group" as const,
-  postEventNudgesEnabled: true,
-  inheritVolunteers: false,
-  createdBy: "user-1",
+  city: "bangalore" as const,
   createdAt: NOW,
+  createdBy: "user-1",
+  description: "Team standup",
+  endTime: NOW + 3_600_000,
+  feedbackDeadline: null,
+  feedbackEnabled: true,
+  id: "series-1",
+  inheritVolunteers: false,
+  isPublic: false,
+  location: "Office",
+  name: "Weekly Meeting",
+  originalDate: null,
+  postEventNudgesEnabled: true,
+  postRsvpPoll: false,
+  recurrenceRule: { rrule: "FREQ=WEEKLY" },
+  reminderIntervals: [60, 1440],
+  reminderTarget: "group" as const,
+  rsvpPollLeadMinutes: 4320,
+  seriesId: null,
+  startTime: NOW,
+  teamId: "team-1",
   updatedAt: NOW,
+  whatsappGroupId: "wg-1",
 };
 
 describe("buildExceptionInsert", () => {
@@ -123,10 +123,10 @@ describe("buildExceptionInsert", () => {
       "user-3",
       NOW + 2000,
       {
-        name: "Special Meeting",
-        location: "Conference Room B",
-        startTime: NOW + 7_200_000,
         cancelledAt: NOW + 2000,
+        location: "Conference Room B",
+        name: "Special Meeting",
+        startTime: NOW + 7_200_000,
       }
     );
 
@@ -143,9 +143,9 @@ describe("buildExceptionInsert", () => {
     const spareSeries = {
       ...SERIES_BASE,
       description: null,
-      location: null,
       endTime: null,
       feedbackDeadline: null,
+      location: null,
       reminderIntervals: null,
       whatsappGroupId: null,
     };
@@ -211,8 +211,8 @@ describe("buildUpdateFields", () => {
   it("includes only provided fields plus updatedAt", () => {
     const result = buildUpdateFields({
       id: "evt-1",
-      now: NOW,
       name: "Renamed",
+      now: NOW,
     });
 
     expect(result.id).toBe("evt-1");
@@ -225,9 +225,9 @@ describe("buildUpdateFields", () => {
 
   it("coerces empty description to null", () => {
     const result = buildUpdateFields({
+      description: "",
       id: "evt-1",
       now: NOW,
-      description: "",
     });
     expect(result.description).toBeNull();
   });
@@ -235,8 +235,8 @@ describe("buildUpdateFields", () => {
   it("coerces empty location to null", () => {
     const result = buildUpdateFields({
       id: "evt-1",
-      now: NOW,
       location: "",
+      now: NOW,
     });
     expect(result.location).toBeNull();
   });
@@ -252,9 +252,9 @@ describe("buildUpdateFields", () => {
 
   it("passes through null feedbackDeadline", () => {
     const result = buildUpdateFields({
+      feedbackDeadline: null,
       id: "evt-1",
       now: NOW,
-      feedbackDeadline: null,
     });
     expect(result.feedbackDeadline).toBeNull();
   });
@@ -270,21 +270,21 @@ describe("buildUpdateFields", () => {
 
   it("includes all fields when fully specified", () => {
     const result = buildUpdateFields({
-      id: "evt-1",
-      now: NOW,
-      name: "Full Update",
-      description: "desc",
-      location: "loc",
       city: "mumbai",
-      startTime: NOW + 1000,
+      description: "desc",
       endTime: NOW + 2000,
-      isPublic: true,
-      feedbackEnabled: true,
       feedbackDeadline: NOW + 86_400_000,
+      feedbackEnabled: true,
+      id: "evt-1",
+      isPublic: true,
+      location: "loc",
+      name: "Full Update",
+      now: NOW,
       postRsvpPoll: true,
-      rsvpPollLeadMinutes: 1440,
       reminderIntervals: [30, 60],
       reminderTarget: "both",
+      rsvpPollLeadMinutes: 1440,
+      startTime: NOW + 1000,
       whatsappGroupId: "wg-2",
     });
 

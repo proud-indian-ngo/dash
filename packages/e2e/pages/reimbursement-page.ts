@@ -62,8 +62,8 @@ export class ReimbursementPage {
     }
 
     await this.form.fillLineItem({
-      description: "Test item",
       amount: this.type === "reimbursement" ? "100" : "200",
+      description: "Test item",
     });
     await this.form.submit();
     await this.page.waitForURL(/\/reimbursements\/[a-z0-9-]+$/, {
@@ -82,8 +82,8 @@ export class ReimbursementPage {
     await this.selectExpenseDate();
 
     await this.form.fillLineItem({
-      description: "Small cash expense",
       amount: "500",
+      description: "Small cash expense",
     });
 
     await this.form.toggleCashVoucher(0);

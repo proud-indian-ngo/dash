@@ -14,7 +14,7 @@ const migrationsFolder = resolve(import.meta.dir, "../src/migrations");
 const MAX_RETRIES = 3;
 
 async function run() {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     try {
       const db = drizzle(DATABASE_URL);
       process.stdout.write(`Running migrations from ${migrationsFolder}...\n`);
@@ -30,7 +30,9 @@ async function run() {
         );
         await new Promise((r) => setTimeout(r, delay));
       } else {
-        throw new Error(`Failed after ${MAX_RETRIES} attempts: ${message}`);
+        throw new Error(`Failed after ${MAX_RETRIES} attempts: ${message}`, {
+          cause: err,
+        });
       }
     }
   }

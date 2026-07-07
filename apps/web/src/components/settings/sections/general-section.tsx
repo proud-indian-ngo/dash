@@ -19,7 +19,7 @@ export function GeneralSection() {
   const isLoading = configs.length === 0 && result.type !== "complete";
 
   const notificationsDisabled =
-    configs.find((c) => c.key === KILL_SWITCH_KEY)?.value === "true";
+    configs.find((c: any) => c.key === KILL_SWITCH_KEY)?.value === "true";
 
   const handleToggle = async (checked: boolean) => {
     if (checked) {
@@ -38,22 +38,29 @@ export function GeneralSection() {
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "appConfig.upsert",
         entityId: KILL_SWITCH_KEY,
+        errorMsg: "Couldn't update notification setting",
+        mutation: "appConfig.upsert",
         successMsg: checked
           ? "All notifications disabled"
           : "Notifications re-enabled",
-        errorMsg: "Couldn't update notification setting",
       });
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
-        component: "GeneralSection",
         action: "toggleNotifications",
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
         checked,
-        error: error instanceof Error ? error.message : String(error),
+        component: "GeneralSection",
       });
       toast.error("Couldn't update notification setting");
     }
+  };
+  const stableOnConfirm0 = () => {
+    setConfirmOpen(false);
+    applyToggle(true);
   };
 
   if (isLoading) {
@@ -70,14 +77,13 @@ export function GeneralSection() {
       </div>
     );
   }
-
   return (
     <div className="flex flex-col gap-6 p-4">
       <p className="text-muted-foreground text-sm">
         Global application settings.
       </p>
 
-      {notificationsDisabled && (
+      {Boolean(notificationsDisabled) && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800 text-sm dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           All notifications are currently disabled. Users will not receive any
           emails, inbox messages, or WhatsApp messages.
@@ -102,10 +108,7 @@ export function GeneralSection() {
       <ConfirmDialog
         confirmLabel="Disable notifications"
         description="This will stop all notifications (email, inbox, and WhatsApp) for every user. Are you sure?"
-        onConfirm={() => {
-          setConfirmOpen(false);
-          applyToggle(true);
-        }}
+        onConfirm={stableOnConfirm0}
         onOpenChange={setConfirmOpen}
         open={confirmOpen}
         title="Disable all notifications"

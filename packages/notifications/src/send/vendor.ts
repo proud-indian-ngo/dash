@@ -23,18 +23,18 @@ export async function notifyVendorApproved({
 }: VendorApprovedOptions): Promise<void> {
   const body = `Your vendor "${vendorName}" has been approved — you're all set!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View vendor",
+    ctaUrl: `${env.APP_URL}/vendors`,
     heading: "Vendor approved!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendors`,
-    ctaLabel: "View vendor",
   });
   await sendMessage({
-    to: creatorId,
-    title: "✅ Vendor approved!",
     body,
-    emailHtml,
     clickAction: "/vendors",
+    emailHtml,
     idempotencyKey: `vendor-approved-${vendorId}`,
+    title: "✅ Vendor approved!",
+    to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
@@ -52,18 +52,18 @@ export async function notifyVendorUnapproved({
 }: VendorUnapprovedOptions): Promise<void> {
   const body = `Your vendor "${vendorName}" needs a few changes before it can be approved.`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View vendor",
+    ctaUrl: `${env.APP_URL}/vendors`,
     heading: "Vendor needs changes",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendors`,
-    ctaLabel: "View vendor",
   });
   await sendMessage({
-    to: creatorId,
-    title: "🔄 Vendor needs changes",
     body,
-    emailHtml,
     clickAction: "/vendors",
+    emailHtml,
     idempotencyKey: `vendor-unapproved-${vendorId}`,
+    title: "🔄 Vendor needs changes",
+    to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
@@ -76,18 +76,18 @@ export async function notifyVendorAutoApproved({
 }: VendorAutoApprovedOptions): Promise<void> {
   const body = `Your vendor "${vendorName}" was auto-approved along with "${vendorPaymentTitle}" — nice!`;
   const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View vendor",
+    ctaUrl: `${env.APP_URL}/vendors`,
     heading: "Vendor auto-approved!",
     paragraphs: [body],
-    ctaUrl: `${env.APP_URL}/vendors`,
-    ctaLabel: "View vendor",
   });
   await sendMessage({
-    to: creatorId,
-    title: "✅ Vendor auto-approved!",
     body,
-    emailHtml,
     clickAction: "/vendors",
+    emailHtml,
     idempotencyKey: `vendor-auto-approved-${vendorId}`,
+    title: "✅ Vendor auto-approved!",
+    to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }

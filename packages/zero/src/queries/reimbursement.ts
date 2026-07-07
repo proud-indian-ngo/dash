@@ -15,10 +15,22 @@ function withRelated(q: typeof zql.reimbursement) {
 }
 
 export const reimbursementQueries = {
+  all: defineQuery(({ ctx }) =>
+    ctx !== null && can(ctx, "requests.view_all")
+      ? withRelated(zql.reimbursement).orderBy("createdAt", "desc")
+      : withRelated(zql.reimbursement)
+          .where("userId", ctx?.userId)
+          .orderBy("createdAt", "desc")
+  ),
+  byCurrentUser: defineQuery(({ ctx }) =>
+    withRelated(zql.reimbursement)
+      .where("userId", ctx?.userId)
+      .orderBy("createdAt", "desc")
+  ),
   byEvent: defineQuery(
     z.object({ eventId: z.string() }),
     ({ args: { eventId }, ctx }) =>
-      ctx != null && can(ctx, "requests.view_all")
+      ctx !== null && can(ctx, "requests.view_all")
         ? withRelated(zql.reimbursement)
             .where("eventId", eventId)
             .orderBy("createdAt", "desc")
@@ -27,28 +39,16 @@ export const reimbursementQueries = {
             .where("userId", ctx?.userId)
             .orderBy("createdAt", "desc")
   ),
-  byCurrentUser: defineQuery(({ ctx }) =>
-    withRelated(zql.reimbursement)
-      .where("userId", ctx?.userId)
-      .orderBy("createdAt", "desc")
-  ),
   byId: defineQuery(
     z.object({
       id: z.string(),
     }),
     ({ args: { id }, ctx }) =>
-      ctx != null && can(ctx, "requests.view_all")
+      ctx !== null && can(ctx, "requests.view_all")
         ? withRelated(zql.reimbursement).where("id", id).one()
         : withRelated(zql.reimbursement)
             .where("id", id)
             .where("userId", ctx?.userId)
             .one()
-  ),
-  all: defineQuery(({ ctx }) =>
-    ctx != null && can(ctx, "requests.view_all")
-      ? withRelated(zql.reimbursement).orderBy("createdAt", "desc")
-      : withRelated(zql.reimbursement)
-          .where("userId", ctx?.userId)
-          .orderBy("createdAt", "desc")
   ),
 };

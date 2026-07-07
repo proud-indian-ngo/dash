@@ -4,7 +4,7 @@ import { defineEventHandler, setHeaders } from "nitro/h3";
 const isProduction = env.NODE_ENV === "production";
 
 function getParentDomain(): string {
-  const hostname = new URL(env.CORS_ORIGIN).hostname;
+  const { hostname } = new URL(env.CORS_ORIGIN);
   const parts = hostname.split(".");
   // If hostname has 3+ parts (e.g. app.example.com), strip first subdomain
   // Otherwise use as-is (e.g. example.com)
@@ -27,18 +27,18 @@ function buildCsp(): string {
   ].join("; ");
 }
 
-export default defineEventHandler((event) => {
+export default defineEventHandler((event: any) => {
   setHeaders(event, {
-    "X-Frame-Options": "DENY",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
     "X-XSS-Protection": "0",
     ...(isProduction
       ? {
+          "Content-Security-Policy": buildCsp(),
           "Strict-Transport-Security":
             "max-age=63072000; includeSubDomains; preload",
-          "Content-Security-Policy": buildCsp(),
         }
       : {}),
   });

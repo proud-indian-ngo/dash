@@ -8,6 +8,8 @@ function makeField(
   isBlurred = true
 ): FormFieldApi {
   return {
+    handleBlur: () => undefined,
+    handleChange: () => undefined,
     name,
     state: {
       meta: {
@@ -17,8 +19,6 @@ function makeField(
       },
       value: "",
     },
-    handleBlur: () => undefined,
-    handleChange: () => undefined,
   };
 }
 

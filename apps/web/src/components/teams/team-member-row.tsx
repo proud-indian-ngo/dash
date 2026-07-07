@@ -35,7 +35,10 @@ export function MemberRow({
   onRemove,
   onToggleRole,
 }: MemberRowProps) {
-  const user = member.user;
+  const { user } = member;
+  const stableOnClick0 = () => onToggleRole(member.id, member.role ?? "member");
+  const stableOnClick1 = () => onRemove(member.id);
+
   return (
     <div className="flex items-center justify-between border-b px-3 py-2.5 last:border-0">
       {user ? (
@@ -68,8 +71,8 @@ export function MemberRow({
         </Badge>
         {canManage ? (
           <Button
-            disabled={isSoleLeadSelf && member.role === "lead"}
-            onClick={() => onToggleRole(member.id, member.role ?? "member")}
+            disabled={Boolean(isSoleLeadSelf) && member.role === "lead"}
+            onClick={stableOnClick0}
             size="sm"
             title={getRoleToggleTitle(isSoleLeadSelf, member.role ?? "member")}
             type="button"
@@ -82,7 +85,7 @@ export function MemberRow({
           <Button
             aria-label={`Remove ${user?.name ?? "member"}`}
             className="size-8"
-            onClick={() => onRemove(member.id)}
+            onClick={stableOnClick1}
             size="icon"
             type="button"
             variant="ghost"

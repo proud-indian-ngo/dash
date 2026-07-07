@@ -11,7 +11,6 @@ import {
 } from "@pi-dash/design-system/components/ui/tabs";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { env } from "@pi-dash/env/web";
-import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -80,18 +79,18 @@ function buildCancelMutation(
       mutators.teamEvent.cancelSeries({
         id: targetId,
         mode,
-        originalDate: scopeOccDate,
         newExceptionId: mode === "this" ? uuidv7() : undefined,
-        reason: trimmedReason,
         now: Date.now(),
+        originalDate: scopeOccDate,
+        reason: trimmedReason,
       })
     ).server;
   }
   return zero.mutate(
     mutators.teamEvent.cancel({
       id: event.id,
-      reason: trimmedReason,
       now: Date.now(),
+      reason: trimmedReason,
     })
   ).server;
 }
@@ -101,8 +100,8 @@ function deriveRecurrenceState(event: EventRow, occDate: string | undefined) {
     !!occDate && !!event.recurrenceRule && !event.seriesId;
   const isRecurring = !!event.recurrenceRule || !!event.seriesId;
   const isOccurrence = !!occDate || !!event.seriesId;
-  const scopeOccDate = occDate ?? event.originalDate ?? undefined;
-  return { isVirtualOccurrence, isRecurring, isOccurrence, scopeOccDate };
+  const scopeOccDate = occDate ?? event.originalDate;
+  return { isOccurrence, isRecurring, isVirtualOccurrence, scopeOccDate };
 }
 
 function deriveImmichUrl(
@@ -138,6 +137,7 @@ function InterestSection(props: {
   onJoinAsMember: () => void;
   onLeaveEvent: () => void;
 }) {
+  const stableOnShowInterest0 = () => props.dialog.open({ type: "interest" });
   if (props.hasStarted) {
     return (
       <PastInterestBadge
@@ -146,7 +146,6 @@ function InterestSection(props: {
       />
     );
   }
-
   return (
     <VolunteerInterestSection
       canManage={props.canManage}
@@ -158,7 +157,7 @@ function InterestSection(props: {
       myInterest={props.myInterest}
       onJoinAsMember={props.onJoinAsMember}
       onLeaveEvent={props.onLeaveEvent}
-      onShowInterest={() => props.dialog.open({ type: "interest" })}
+      onShowInterest={stableOnShowInterest0}
     />
   );
 }
@@ -253,21 +252,21 @@ function useScopeDialogs(
         scopeOccDate,
         cancelReason
       ),
+    onError: (msg: any) => {
+      log.error({
+        component: "EventDetail",
+        entityId: event.id,
+        error: msg,
+        mutation: "teamEvent.cancel",
+      });
+      toast.error("Couldn't cancel event");
+      cancelScopeRef.current = null;
+    },
     onSuccess: () => {
       toast.success("Event cancelled");
       cancelScopeRef.current = null;
       setCancelReason("");
-      navigate({ to: "/teams/$id", params: { id: event.teamId } });
-    },
-    onError: (msg) => {
-      log.error({
-        component: "EventDetail",
-        mutation: "teamEvent.cancel",
-        entityId: event.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Couldn't cancel event");
-      cancelScopeRef.current = null;
+      navigate({ params: { id: event.teamId }, to: "/teams/$id" });
     },
   });
 
@@ -303,25 +302,25 @@ function useScopeDialogs(
   );
 
   return {
-    editScope,
-    setEditScope,
-    editScopeDialogOpen,
-    setEditScopeDialogOpen,
-    handleEditClick,
-    handleEditScopeSelect,
-    cancelScopeDialogOpen,
-    setCancelScopeDialogOpen,
-    cancelReason,
-    setCancelReason,
-    cancelAction,
-    handleCancelClick,
-    handleCancelScopeSelect,
     addMemberScope,
-    setAddMemberScope,
     addMemberScopeDialogOpen,
-    setAddMemberScopeDialogOpen,
+    cancelAction,
+    cancelReason,
+    cancelScopeDialogOpen,
+    editScope,
+    editScopeDialogOpen,
     handleAddMemberClick,
     handleAddMemberScopeSelect,
+    handleCancelClick,
+    handleCancelScopeSelect,
+    handleEditClick,
+    handleEditScopeSelect,
+    setAddMemberScope,
+    setAddMemberScopeDialogOpen,
+    setCancelReason,
+    setCancelScopeDialogOpen,
+    setEditScope,
+    setEditScopeDialogOpen,
   };
 }
 
@@ -334,10 +333,10 @@ const STATUS_CONFIG: Record<
     variant: "outline" | "secondary" | "default" | "destructive-light";
   }
 > = {
-  upcoming: { label: "Upcoming", variant: "outline" },
-  "in-progress": { label: "In Progress", variant: "secondary" },
-  completed: { label: "Completed", variant: "default" },
   cancelled: { label: "Cancelled", variant: "destructive-light" },
+  completed: { label: "Completed", variant: "default" },
+  "in-progress": { label: "In Progress", variant: "secondary" },
+  upcoming: { label: "Upcoming", variant: "outline" },
 };
 
 function deriveEventStatus(event: EventRow): EventStatus {
@@ -382,6 +381,8 @@ function EventHeader({
 }) {
   const navigate = useNavigate();
   const { label, variant } = STATUS_CONFIG[status];
+  const stableOnClick1 = () =>
+    navigate({ params: { id: event.teamId }, to: "/teams/$id" });
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -396,12 +397,10 @@ function EventHeader({
         </div>
         <button
           className="text-left text-muted-foreground text-sm hover:underline"
-          onClick={() =>
-            navigate({ to: "/teams/$id", params: { id: event.teamId } })
-          }
+          onClick={stableOnClick1}
           type="button"
         >
-          {teamName ?? "Team"}
+          {teamName}
         </button>
       </div>
       {canManage || canCancel || canCreate || canPostPoll ? (
@@ -479,14 +478,11 @@ function EventTabs({
       "expenses",
     ]).withDefault("updates")
   );
+  const stableOnValueChange2 = (v: any) =>
+    setTab(v as "updates" | "photos" | "feedback" | "expenses");
 
   return (
-    <Tabs
-      onValueChange={(v) =>
-        setTab(v as "updates" | "photos" | "feedback" | "expenses")
-      }
-      value={tab}
-    >
+    <Tabs onValueChange={stableOnValueChange2} value={tab}>
       <TabsList>
         <TabsTrigger value="updates">
           Updates
@@ -610,14 +606,14 @@ function useEventDetailQueries(
   );
 
   return {
-    approvedUpdates,
-    pendingUpdates,
-    approvedPhotos,
-    pendingPhotos,
     album,
-    feedback,
+    approvedPhotos,
+    approvedUpdates,
     eventReimbursements,
     eventVendorPayments,
+    feedback,
+    pendingPhotos,
+    pendingUpdates,
   };
 }
 
@@ -627,7 +623,7 @@ function deriveEventState(event: EventRow, isVirtualOccurrence: boolean) {
   const isPastEvent = new Date(eventTime) < new Date();
   const hasStarted = new Date(event.startTime) <= new Date();
   const canAccessPostEventContent = isPastEvent && !isVirtualOccurrence;
-  return { status, isPastEvent, hasStarted, canAccessPostEventContent };
+  return { canAccessPostEventContent, hasStarted, isPastEvent, status };
 }
 
 function calcTotalExpenses(
@@ -641,8 +637,8 @@ function calcTotalExpenses(
     | undefined
 ): number {
   return [...(reimbursements ?? []), ...(vendorPayments ?? [])].reduce(
-    (sum, expense) =>
-      sum + expense.lineItems.reduce((s, li) => s + li.amount, 0),
+    (sum: any, expense: any) =>
+      sum + expense.lineItems.reduce((s: any, li: any) => s + li.amount, 0),
     0
   );
 }
@@ -651,7 +647,7 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
   const feedbackDeadlinePassed =
     !!event.feedbackDeadline && new Date(event.feedbackDeadline) < new Date();
   const presentCount = event.members.filter(
-    (m) => m.attendance === "present"
+    (m: any) => m.attendance === "present"
   ).length;
   const recurrence = event.recurrenceRule as
     | { rrule: string; exdates?: string[] }
@@ -665,51 +661,49 @@ function buildEditInitialValues(
   recurrence: { rrule: string; exdates?: string[] } | null | undefined
 ) {
   return {
-    id: event.id,
-    name: event.name,
-    description: event.description,
-    location: event.location,
     city: event.city,
-    startTime: event.startTime,
+    description: event.description,
     endTime: event.endTime,
-    isPublic: !!event.isPublic,
-    whatsappGroupId: event.whatsappGroupId,
-    seriesId: event.seriesId,
-    recurrenceRule: recurrence ?? null,
-    feedbackEnabled: !!event.feedbackEnabled,
     feedbackDeadline: event.feedbackDeadline,
-    postRsvpPoll: !!event.postRsvpPoll,
-    rsvpPollLeadMinutes:
-      event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-    reminderIntervals: (event.reminderIntervals as number[] | null) ?? null,
-    reminderTarget: (event.reminderTarget as string) ?? "group",
-    postEventNudgesEnabled: event.postEventNudgesEnabled ?? true,
+    feedbackEnabled: !!event.feedbackEnabled,
+    id: event.id,
     inheritVolunteers: !!event.inheritVolunteers,
+    isPublic: !!event.isPublic,
+    location: event.location,
+    name: event.name,
+    postEventNudgesEnabled: event.postEventNudgesEnabled,
+    postRsvpPoll: !!event.postRsvpPoll,
+    recurrenceRule: recurrence,
+    reminderIntervals: event.reminderIntervals as number[] | null,
+    reminderTarget: event.reminderTarget as string,
+    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
+    seriesId: event.seriesId,
+    startTime: event.startTime,
+    whatsappGroupId: event.whatsappGroupId,
   };
 }
 
 function buildDuplicateInitialValues(event: EventRow) {
   return {
-    id: event.id,
-    name: `Copy of ${event.name}`,
-    description: event.description,
-    location: event.location,
     city: event.city,
-    startTime: event.startTime,
+    description: event.description,
     endTime: event.endTime,
-    isPublic: !!event.isPublic,
-    whatsappGroupId: null,
-    seriesId: null,
-    recurrenceRule: null,
-    feedbackEnabled: !!event.feedbackEnabled,
     feedbackDeadline: event.feedbackDeadline,
-    postRsvpPoll: !!event.postRsvpPoll,
-    rsvpPollLeadMinutes:
-      event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-    reminderIntervals: (event.reminderIntervals as number[] | null) ?? null,
-    reminderTarget: (event.reminderTarget as string) ?? "group",
-    postEventNudgesEnabled: event.postEventNudgesEnabled ?? true,
+    feedbackEnabled: !!event.feedbackEnabled,
+    id: event.id,
     inheritVolunteers: !event.seriesId && !!event.inheritVolunteers,
+    isPublic: !!event.isPublic,
+    location: event.location,
+    name: `Copy of ${event.name}`,
+    postEventNudgesEnabled: event.postEventNudgesEnabled,
+    postRsvpPoll: !!event.postRsvpPoll,
+    recurrenceRule: null,
+    reminderIntervals: event.reminderIntervals as number[] | null,
+    reminderTarget: event.reminderTarget as string,
+    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
+    seriesId: null,
+    startTime: event.startTime,
+    whatsappGroupId: null,
   };
 }
 
@@ -749,16 +743,16 @@ export function EventDetail({
     const res = await zero.mutate(
       mutators.teamEvent.materialize({
         id: newId,
-        seriesId: event.id,
-        originalDate: occDate,
         now: Date.now(),
+        originalDate: occDate,
+        seriesId: event.id,
       })
     ).server;
     if (res.type === "error") {
       toast.error("Couldn't create occurrence");
       return null;
     }
-    navigate({ to: "/events/$id", params: { id: newId } });
+    navigate({ params: { id: newId }, to: "/events/$id" });
     return newId;
   }, [isVirtualOccurrence, occDate, event.id, zero, navigate]);
 
@@ -784,7 +778,13 @@ export function EventDetail({
     setAddMemberScopeDialogOpen,
     handleAddMemberClick,
     handleAddMemberScopeSelect,
-  } = useScopeDialogs(isOccurrence, isRecurring, scopeOccDate, event, dialog);
+  } = useScopeDialogs(
+    isOccurrence,
+    isRecurring,
+    scopeOccDate ?? undefined,
+    event,
+    dialog
+  );
 
   const { addMemberEventId, addMemberOnBeforeAdd } = deriveAddMemberTarget(
     addMemberScope,
@@ -816,9 +816,9 @@ export function EventDetail({
         const mat = await zero.mutate(
           mutators.teamEvent.materialize({
             id: newId,
-            seriesId: event.id,
-            originalDate: occDate,
             now: Date.now(),
+            originalDate: occDate,
+            seriesId: event.id,
           })
         ).server;
         if (mat.type === "error") {
@@ -856,25 +856,28 @@ export function EventDetail({
         default:
           log.error({
             component: "EventDetail",
-            fn: "postEventRsvpPoll",
             entityId: targetId,
             error: res.code,
+            fn: "postEventRsvpPoll",
           });
           toast.error("Couldn't post poll");
       }
-    } catch (error) {
+    } catch (caughtError) {
       log.error({
+        caughtError:
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
         component: "EventDetail",
-        fn: "postEventRsvpPoll",
         entityId: targetId,
-        error: error instanceof Error ? error.message : String(error),
+        fn: "postEventRsvpPoll",
       });
       toast.error("Couldn't post poll");
     } finally {
       setIsPostingPoll(false);
       setPostPollDialogOpen(false);
       if (materialized) {
-        navigate({ to: "/events/$id", params: { id: targetId } });
+        navigate({ params: { id: targetId }, to: "/events/$id" });
       }
     }
   }, [isVirtualOccurrence, occDate, event.id, zero, navigate]);
@@ -904,41 +907,41 @@ export function EventDetail({
   );
 
   const removeMember = useConfirmAction<string>({
-    onConfirm: (memberId) =>
+    onConfirm: (memberId: any) =>
       zero.mutate(
         mutators.teamEvent.removeMember({
           eventId: event.id,
           memberId,
         })
       ).server,
-    onSuccess: () => toast.success("Volunteer removed"),
-    onError: (msg) => {
+    onError: (msg: any) => {
       log.error({
         component: "EventDetail",
-        mutation: "teamEvent.removeMember",
         entityId: event.id,
-        error: msg ?? "unknown",
+        error: msg,
+        mutation: "teamEvent.removeMember",
       });
       toast.error("Couldn't remove volunteer");
     },
+    onSuccess: () => toast.success("Volunteer removed"),
   });
 
   const handleJoinAsMember = useCallback(async () => {
     const id = uuidv7();
     const res = await zero.mutate(
       mutators.teamEvent.joinAsMember({
-        id,
         eventId: event.id,
-        occDate: isVirtualOccurrence ? occDate : undefined,
+        id,
         materializedId: isVirtualOccurrence ? uuidv7() : undefined,
         now: Date.now(),
+        occDate: isVirtualOccurrence ? occDate : undefined,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: "teamEvent.joinAsMember",
       entityId: id,
-      successMsg: "Joined event",
       errorMsg: "Couldn't join event",
+      mutation: "teamEvent.joinAsMember",
+      successMsg: "Joined event",
     });
   }, [isVirtualOccurrence, occDate, event.id, zero]);
 
@@ -950,17 +953,54 @@ export function EventDetail({
           now: Date.now(),
         })
       ).server,
-    onSuccess: () => toast.success("Left event"),
-    onError: (msg) => {
+    onError: (msg: any) => {
       log.error({
         component: "EventDetail",
-        mutation: "teamEvent.leaveEvent",
         entityId: event.id,
-        error: msg ?? "unknown",
+        error: msg,
+        mutation: "teamEvent.leaveEvent",
       });
-      toast.error(msg ?? "Couldn't leave event");
+      toast.error(msg);
     },
+    onSuccess: () => toast.success("Left event"),
   });
+  const stableOnDuplicate3 = () => dialog.open({ type: "duplicate" });
+  const stableOnLeaveEvent4 = () => leaveEventAction.trigger();
+  const stableOnRemoveMember5 = (id: any) => removeMember.trigger(id);
+  const stableOnOpenChange6 = (open: any) => {
+    dialog.onOpenChange(open);
+    if (!open) {
+      setEditScope(null);
+    }
+  };
+  const stableOnOpenChange7 = (open: any) => {
+    dialog.onOpenChange(open);
+    if (!open) {
+      setAddMemberScope(null);
+    }
+  };
+  const stableOnOpenChange8 = (open: any) => {
+    if (!open) {
+      cancelAction.cancel();
+      setCancelReason("");
+    }
+  };
+  const stableOnChange9 = (e: any) => setCancelReason(e.target.value);
+  const stableOnOpenChange10 = (open: any) => {
+    if (!open) {
+      removeMember.cancel();
+    }
+  };
+  const stableOnOpenChange11 = (open: any) => {
+    if (!open) {
+      leaveEventAction.cancel();
+    }
+  };
+  const stableOnOpenChange12 = (open: any) => {
+    if (!isPostingPoll) {
+      setPostPollDialogOpen(open);
+    }
+  };
 
   return (
     <AppErrorBoundary level="section">
@@ -972,7 +1012,7 @@ export function EventDetail({
           canPostPoll={canPostPoll}
           event={event}
           onCancel={handleCancelClick}
-          onDuplicate={() => dialog.open({ type: "duplicate" })}
+          onDuplicate={stableOnDuplicate3}
           onEdit={handleEditClick}
           onPostPoll={handlePostPollClick}
           status={status}
@@ -1047,17 +1087,17 @@ export function EventDetail({
                 isTeamMember={isTeamMember}
                 myInterest={myInterest}
                 onJoinAsMember={handleJoinAsMember}
-                onLeaveEvent={() => leaveEventAction.trigger()}
+                onLeaveEvent={stableOnLeaveEvent4}
               />
 
               {canManageVolunteers || event.members.length > 0 ? (
                 <EventMembersSection
                   canManage={canManageVolunteers}
-                  canMarkAttendance={canManageAttendance && hasStarted}
+                  canMarkAttendance={Boolean(canManageAttendance) && hasStarted}
                   eventId={event.id}
                   members={event.members}
                   onAddMember={handleAddMemberClick}
-                  onRemoveMember={(id) => removeMember.trigger(id)}
+                  onRemoveMember={stableOnRemoveMember5}
                 />
               ) : null}
             </div>
@@ -1085,14 +1125,9 @@ export function EventDetail({
           editScope === "all" && parentEvent ? parentEvent : event,
           recurrence
         )}
-        onOpenChange={(open) => {
-          dialog.onOpenChange(open);
-          if (!open) {
-            setEditScope(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange6}
         open={dialog.isOpen("edit")}
-        originalDate={scopeOccDate}
+        originalDate={scopeOccDate ?? undefined}
         teamId={event.teamId}
       />
 
@@ -1115,25 +1150,15 @@ export function EventDetail({
         eventId={addMemberEventId}
         existingMembers={event.members}
         onBeforeAdd={addMemberOnBeforeAdd}
-        onOpenChange={(open) => {
-          dialog.onOpenChange(open);
-          if (!open) {
-            setAddMemberScope(null);
-          }
-        }}
+        onOpenChange={stableOnOpenChange7}
         open={dialog.isOpen("addMember")}
         teamMemberIds={
-          team ? new Set(team.members.map((m) => m.userId)) : undefined
+          team ? new Set(team.members.map((m: any) => m.userId)) : undefined
         }
       />
 
       <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            cancelAction.cancel();
-            setCancelReason("");
-          }
-        }}
+        onOpenChange={stableOnOpenChange8}
         open={cancelAction.isOpen}
       >
         <AlertDialogContent>
@@ -1145,7 +1170,7 @@ export function EventDetail({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
-            onChange={(e) => setCancelReason(e.target.value)}
+            onChange={stableOnChange9}
             placeholder="Reason for cancellation (optional)"
             rows={2}
             value={cancelReason}
@@ -1181,11 +1206,7 @@ export function EventDetail({
         loading={removeMember.isLoading}
         loadingLabel="Removing..."
         onConfirm={removeMember.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            removeMember.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange10}
         open={removeMember.isOpen}
         title="Remove volunteer"
       />
@@ -1196,11 +1217,7 @@ export function EventDetail({
         loading={leaveEventAction.isLoading}
         loadingLabel="Leaving..."
         onConfirm={leaveEventAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            leaveEventAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange11}
         open={leaveEventAction.isOpen}
         title="Leave event"
       />
@@ -1216,11 +1233,7 @@ export function EventDetail({
         loading={isPostingPoll}
         loadingLabel="Posting..."
         onConfirm={handlePostPollConfirm}
-        onOpenChange={(open) => {
-          if (!isPostingPoll) {
-            setPostPollDialogOpen(open);
-          }
-        }}
+        onOpenChange={stableOnOpenChange12}
         open={postPollDialogOpen}
         title="Post RSVP poll"
         variant="default"

@@ -33,44 +33,44 @@ export function computeJobStats(
   queues: readonly QueueStat[],
   stateCounts: Readonly<Record<string, number>>
 ): StatItem[] {
-  const active = queues.reduce((sum, q) => sum + q.active, 0);
-  const scheduled = queues.reduce((sum, q) => sum + q.size, 0);
+  const active = queues.reduce((sum: any, q: any) => sum + q.active, 0);
+  const scheduled = queues.reduce((sum: any, q: any) => sum + q.size, 0);
 
   return [
     {
-      label: "Active",
-      value: active,
-      icon: Loading03Icon,
       accent: "border-l-blue-500",
       bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
+      icon: Loading03Icon,
+      label: "Active",
+      value: active,
     },
     {
-      label: "Completed",
-      value: stateCounts.completed ?? 0,
-      icon: CheckmarkCircle01Icon,
       accent: "border-l-emerald-500",
       bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
+      icon: CheckmarkCircle01Icon,
+      label: "Completed",
+      value: stateCounts.completed ?? 0,
     },
     {
-      label: "Failed",
-      value: stateCounts.failed ?? 0,
-      icon: MultiplicationSignCircleIcon,
       accent: "border-l-red-500",
       bgAccent: "bg-red-500/5 dark:bg-red-500/10",
+      icon: MultiplicationSignCircleIcon,
+      label: "Failed",
+      value: stateCounts.failed ?? 0,
     },
     {
-      label: "Cancelled",
-      value: stateCounts.cancelled ?? 0,
-      icon: Cancel01Icon,
       accent: "border-l-orange-500",
       bgAccent: "bg-orange-500/5 dark:bg-orange-500/10",
+      icon: Cancel01Icon,
+      label: "Cancelled",
+      value: stateCounts.cancelled ?? 0,
     },
     {
-      label: "Scheduled",
-      value: scheduled,
-      icon: Clock01Icon,
       accent: "border-l-amber-500",
       bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
+      icon: Clock01Icon,
+      label: "Scheduled",
+      value: scheduled,
     },
   ];
 }

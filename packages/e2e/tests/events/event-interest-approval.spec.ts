@@ -6,7 +6,7 @@ async function navigateToEventWithPendingInterest(
 ): Promise<boolean> {
   await page.goto("/events");
   await expect(
-    page.getByRole("heading", { name: "Events", exact: true })
+    page.getByRole("heading", { exact: true, name: "Events" })
   ).toBeVisible({
     timeout: 10_000,
   });
@@ -21,7 +21,7 @@ async function navigateToEventWithPendingInterest(
 
   const linkCount = await eventLink.count();
 
-  for (let i = 0; i < Math.min(linkCount, 5); i++) {
+  for (let i = 0; i < Math.min(linkCount, 5); i += 1) {
     await eventLink.nth(i).click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
@@ -35,7 +35,7 @@ async function navigateToEventWithPendingInterest(
 
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible({
       timeout: 10_000,
     });

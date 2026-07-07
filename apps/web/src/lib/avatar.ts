@@ -4,15 +4,13 @@ const normalizeGender = (
   gender: AvatarGender
 ): "female" | "male" | undefined => {
   if (!gender) {
-    return undefined;
+    return;
   }
 
   const normalizedGender = gender.trim().toLowerCase();
   if (normalizedGender === "male" || normalizedGender === "female") {
     return normalizedGender;
   }
-
-  return undefined;
 };
 
 export const resolveAvatarSrc = (user: {
@@ -28,7 +26,7 @@ export const buildAvatarUrl = (
   const normalizedEmail = email?.trim().toLowerCase();
 
   if (!normalizedEmail) {
-    return undefined;
+    return;
   }
 
   const params = new URLSearchParams({

@@ -23,7 +23,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
       .safeParse(value.trim());
     return result.success
       ? null
-      : (result.error.issues[0]?.message ?? "Invalid URL");
+      : (result.error.issues[0]?.message ?? "Must be a valid URL");
   };
 
   const tryAdd = () => {
@@ -42,6 +42,22 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
   };
 
   const isDisabled = !urlInput.trim() || urlError !== null;
+  const stableOnBlur0 = () => {
+    setTouched(true);
+    setUrlError(validate(urlInput));
+  };
+  const stableOnChange1 = (event: any) => {
+    setUrlInput(event.target.value);
+    if (touched) {
+      setUrlError(validate(event.target.value));
+    }
+  };
+  const stableOnKeyDown2 = (event: any) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      tryAdd();
+    }
+  };
 
   return (
     <div className="flex flex-col gap-1">
@@ -51,22 +67,9 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
           aria-invalid={urlError !== null}
           aria-label="Attachment URL"
           className="flex-1"
-          onBlur={() => {
-            setTouched(true);
-            setUrlError(validate(urlInput));
-          }}
-          onChange={(event) => {
-            setUrlInput(event.target.value);
-            if (touched) {
-              setUrlError(validate(event.target.value));
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              tryAdd();
-            }
-          }}
+          onBlur={stableOnBlur0}
+          onChange={stableOnChange1}
+          onKeyDown={stableOnKeyDown2}
           placeholder="Paste URL and press Enter"
           value={urlInput}
         />
@@ -80,7 +83,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
           Add
         </Button>
       </div>
-      {urlError && (
+      {Boolean(urlError) && (
         <p className="text-destructive text-xs" id="add-url-error">
           {urlError}
         </p>

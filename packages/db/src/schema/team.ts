@@ -22,14 +22,14 @@ export const teamMemberRoleEnum = pgEnum(
 export const team = pgTable(
   "team",
   {
+    createdAt: timestamp("created_at").notNull(),
+    description: text("description"),
     id: uuid("id").primaryKey(),
     name: text("name").notNull().unique(),
-    description: text("description"),
+    updatedAt: timestamp("updated_at").notNull(),
     whatsappGroupId: uuid("whatsapp_group_id")
       .references(() => whatsappGroup.id, { onDelete: "set null" })
       .unique(),
-    createdAt: timestamp("created_at").notNull(),
-    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [index("team_whatsappGroupId_idx").on(table.whatsappGroupId)]
 );
@@ -38,14 +38,14 @@ export const teamMember = pgTable(
   "team_member",
   {
     id: uuid("id").primaryKey(),
+    joinedAt: timestamp("joined_at").notNull(),
+    role: teamMemberRoleEnum("role").default("member").notNull(),
     teamId: uuid("team_id")
       .notNull()
       .references(() => team.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    role: teamMemberRoleEnum("role").default("member").notNull(),
-    joinedAt: timestamp("joined_at").notNull(),
   },
   (table) => [
     uniqueIndex("team_member_teamId_userId_uidx").on(
@@ -58,12 +58,12 @@ export const teamMember = pgTable(
 );
 
 export const teamRelations = relations(team, ({ one, many }) => ({
+  events: many(teamEvent),
+  members: many(teamMember),
   whatsappGroup: one(whatsappGroup, {
     fields: [team.whatsappGroupId],
     references: [whatsappGroup.id],
   }),
-  members: many(teamMember),
-  events: many(teamEvent),
 }));
 
 export const teamMemberRelations = relations(teamMember, ({ one }) => ({

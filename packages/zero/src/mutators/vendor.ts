@@ -6,92 +6,6 @@ import { zql } from "../schema";
 import { GST_REGEX, IFSC_REGEX, PAN_REGEX } from "../vendor-patterns";
 
 export const vendorMutators = {
-  create: defineMutator(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1),
-      contactPhone: z.string().min(1),
-      contactEmail: z.email().optional(),
-      bankAccountName: z.string().min(1),
-      bankAccountNumber: z.string().min(1),
-      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
-      address: z.string().optional(),
-      gstNumber: z
-        .union([z.literal(""), z.string().regex(GST_REGEX)])
-        .optional(),
-      panNumber: z
-        .union([z.literal(""), z.string().regex(PAN_REGEX)])
-        .optional(),
-      status: z.enum(["pending", "approved"]).optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "vendors.create");
-      const userId = ctx.userId;
-      const canAutoApprove = can(ctx, "vendors.approve");
-      const status = canAutoApprove ? (args.status ?? "approved") : "pending";
-      const now = Date.now();
-
-      await tx.mutate.vendor.insert({
-        id: args.id,
-        name: args.name,
-        contactEmail: args.contactEmail || null,
-        contactPhone: args.contactPhone,
-        bankAccountName: args.bankAccountName,
-        bankAccountNumber: args.bankAccountNumber,
-        bankAccountIfscCode: args.bankAccountIfscCode,
-        address: args.address ?? null,
-        gstNumber: args.gstNumber || null,
-        panNumber: args.panNumber || null,
-        status,
-        createdBy: userId,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-  ),
-
-  update: defineMutator(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1),
-      contactPhone: z.string().min(1),
-      contactEmail: z.email().optional(),
-      bankAccountName: z.string().min(1),
-      bankAccountNumber: z.string().min(1),
-      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
-      address: z.string().optional(),
-      gstNumber: z
-        .union([z.literal(""), z.string().regex(GST_REGEX)])
-        .optional(),
-      panNumber: z
-        .union([z.literal(""), z.string().regex(PAN_REGEX)])
-        .optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "vendors.edit");
-      const vendor = await tx.run(zql.vendor.where("id", args.id).one());
-      if (!vendor) {
-        throw new Error("Vendor not found");
-      }
-
-      const now = Date.now();
-
-      await tx.mutate.vendor.update({
-        id: args.id,
-        name: args.name,
-        contactEmail: args.contactEmail || null,
-        contactPhone: args.contactPhone,
-        bankAccountName: args.bankAccountName,
-        bankAccountNumber: args.bankAccountNumber,
-        bankAccountIfscCode: args.bankAccountIfscCode,
-        address: args.address ?? null,
-        gstNumber: args.gstNumber || null,
-        panNumber: args.panNumber || null,
-        updatedAt: now,
-      });
-    }
-  ),
-
   approve: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
@@ -115,21 +29,84 @@ export const vendorMutators = {
         const vendorName = vendor.name;
         const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
-          meta: { mutator: "approveVendor", vendorId, creatorId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-vendor-approved",
               {
+                creatorId,
                 vendorId,
                 vendorName,
-                creatorId,
               },
               { traceId: ctx.traceId }
             );
           },
+          meta: { creatorId, mutator: "approveVendor", vendorId },
         });
       }
+    }
+  ),
+  create: defineMutator(
+    z.object({
+      address: z.string().optional(),
+      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
+      bankAccountName: z.string().min(1),
+      bankAccountNumber: z.string().min(1),
+      contactEmail: z.email().optional(),
+      contactPhone: z.string().min(1),
+      gstNumber: z
+        .union([z.literal(""), z.string().regex(GST_REGEX)])
+        .optional(),
+      id: z.string(),
+      name: z.string().min(1),
+      panNumber: z
+        .union([z.literal(""), z.string().regex(PAN_REGEX)])
+        .optional(),
+      status: z.enum(["pending", "approved"]).optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "vendors.create");
+      const { userId } = ctx;
+      const canAutoApprove = can(ctx, "vendors.approve");
+      const status = canAutoApprove ? args.status : "pending";
+      const now = Date.now();
+
+      await tx.mutate.vendor.insert({
+        address: args.address,
+        bankAccountIfscCode: args.bankAccountIfscCode,
+        bankAccountName: args.bankAccountName,
+        bankAccountNumber: args.bankAccountNumber,
+        contactEmail: args.contactEmail || null,
+        contactPhone: args.contactPhone,
+        createdAt: now,
+        createdBy: userId,
+        gstNumber: args.gstNumber || null,
+        id: args.id,
+        name: args.name,
+        panNumber: args.panNumber || null,
+        status,
+        updatedAt: now,
+      });
+    }
+  ),
+
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "vendors.delete");
+      const vendor = await tx.run(zql.vendor.where("id", args.id).one());
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+
+      const payments = await tx.run(
+        zql.vendorPayment.where("vendorId", args.id)
+      );
+      if (payments.length > 0) {
+        throw new Error("Cannot delete vendor with existing payment requests");
+      }
+
+      await tx.mutate.vendor.delete({ id: args.id });
     }
   ),
 
@@ -165,41 +142,63 @@ export const vendorMutators = {
         const vendorName = vendor.name;
         const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
-          meta: { mutator: "unapproveVendor", vendorId, creatorId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-vendor-unapproved",
               {
+                creatorId,
                 vendorId,
                 vendorName,
-                creatorId,
               },
               { traceId: ctx.traceId }
             );
           },
+          meta: { creatorId, mutator: "unapproveVendor", vendorId },
         });
       }
     }
   ),
 
-  delete: defineMutator(
-    z.object({ id: z.string() }),
+  update: defineMutator(
+    z.object({
+      address: z.string().optional(),
+      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
+      bankAccountName: z.string().min(1),
+      bankAccountNumber: z.string().min(1),
+      contactEmail: z.email().optional(),
+      contactPhone: z.string().min(1),
+      gstNumber: z
+        .union([z.literal(""), z.string().regex(GST_REGEX)])
+        .optional(),
+      id: z.string(),
+      name: z.string().min(1),
+      panNumber: z
+        .union([z.literal(""), z.string().regex(PAN_REGEX)])
+        .optional(),
+    }),
     async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "vendors.delete");
+      assertHasPermission(ctx, "vendors.edit");
       const vendor = await tx.run(zql.vendor.where("id", args.id).one());
       if (!vendor) {
         throw new Error("Vendor not found");
       }
 
-      const payments = await tx.run(
-        zql.vendorPayment.where("vendorId", args.id)
-      );
-      if (payments.length > 0) {
-        throw new Error("Cannot delete vendor with existing payment requests");
-      }
+      const now = Date.now();
 
-      await tx.mutate.vendor.delete({ id: args.id });
+      await tx.mutate.vendor.update({
+        address: args.address,
+        bankAccountIfscCode: args.bankAccountIfscCode,
+        bankAccountName: args.bankAccountName,
+        bankAccountNumber: args.bankAccountNumber,
+        contactEmail: args.contactEmail || null,
+        contactPhone: args.contactPhone,
+        gstNumber: args.gstNumber || null,
+        id: args.id,
+        name: args.name,
+        panNumber: args.panNumber || null,
+        updatedAt: now,
+      });
     }
   ),
 };

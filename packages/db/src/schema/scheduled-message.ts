@@ -18,14 +18,14 @@ export interface ScheduledMessageAttachment {
 }
 
 export const scheduledMessage = pgTable("scheduled_message", {
-  id: uuid("id").primaryKey(),
-  message: text("message").notNull(),
-  scheduledAt: timestamp("scheduled_at").notNull(),
   attachments: jsonb("attachments").$type<ScheduledMessageAttachment[]>(),
+  createdAt: timestamp("created_at").notNull(),
   createdBy: text("created_by")
     .notNull()
     .references(() => user.id),
-  createdAt: timestamp("created_at").notNull(),
+  id: uuid("id").primaryKey(),
+  message: text("message").notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
 
@@ -53,20 +53,20 @@ export const scheduledMessageRecipientStatusEnum = pgEnum(
 export const scheduledMessageRecipient = pgTable(
   "scheduled_message_recipient",
   {
+    createdAt: timestamp("created_at").notNull(),
+    error: text("error"),
     id: uuid("id").primaryKey(),
+    label: text("label").notNull(),
+    recipientId: text("recipient_id").notNull(),
+    retryCount: integer("retry_count").default(0).notNull(),
     scheduledMessageId: uuid("scheduled_message_id")
       .notNull()
       .references(() => scheduledMessage.id, { onDelete: "cascade" }),
-    recipientId: text("recipient_id").notNull(),
-    label: text("label").notNull(),
-    type: scheduledMessageRecipientTypeEnum("type").notNull(),
+    sentAt: timestamp("sent_at"),
     status: scheduledMessageRecipientStatusEnum("status")
       .default("pending")
       .notNull(),
-    error: text("error"),
-    sentAt: timestamp("sent_at"),
-    retryCount: integer("retry_count").default(0).notNull(),
-    createdAt: timestamp("created_at").notNull(),
+    type: scheduledMessageRecipientTypeEnum("type").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [

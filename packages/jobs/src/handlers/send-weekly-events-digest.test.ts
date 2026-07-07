@@ -6,16 +6,16 @@ describe("formatDigestMessage", () => {
     const message = formatDigestMessage(
       [
         {
-          name: "Community Outreach Drive",
-          startTime: Date.UTC(2026, 3, 10, 11, 33),
           endTime: Date.UTC(2026, 3, 10, 13, 33),
           location: "Cubbon Park, Bangalore",
+          name: "Community Outreach Drive",
+          startTime: Date.UTC(2026, 3, 10, 11, 33),
         },
         {
-          name: "Bot Class",
-          startTime: Date.UTC(2026, 3, 11, 13, 30),
           endTime: null,
           location: null,
+          name: "Bot Class",
+          startTime: Date.UTC(2026, 3, 11, 13, 30),
         },
       ],
       {

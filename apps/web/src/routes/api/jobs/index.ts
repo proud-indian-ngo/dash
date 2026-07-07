@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/jobs/")({
           if (conditions.length === 0) {
             conditions.push(
               sql`name IN (${sql.join(
-                QUEUE_NAMES.map((n) => sql`${n}`),
+                QUEUE_NAMES.map((n: any) => sql`${n}`),
                 sql`, `
               )})`
             );
@@ -95,16 +95,16 @@ export const Route = createFileRoute("/api/jobs/")({
 
           return Response.json({
             jobs,
-            total: countResult[0]?.total ?? 0,
             limit,
             offset,
+            total: countResult[0]?.total ?? 0,
           });
         } catch (err) {
           const log = createRequestLogger({
             method: "GET",
             path: "/api/jobs",
           });
-          log.set({ userId: session.user.id, queue, state });
+          log.set({ queue, state, userId: session.user.id });
           log.error(err instanceof Error ? err : String(err));
           log.emit();
           return Response.json(
@@ -164,7 +164,7 @@ export const Route = createFileRoute("/api/jobs/")({
             method: "POST",
             path: "/api/jobs",
           });
-          log.set({ userId: session.user.id, queue: body.queue });
+          log.set({ queue: body.queue, userId: session.user.id });
           log.error(err instanceof Error ? err : String(err));
           log.emit();
           return Response.json(

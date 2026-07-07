@@ -15,16 +15,16 @@ import {
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/vendor-payments/$id")({
-  validateSearch: z.object({
-    mode: z.enum(["edit"]).optional(),
-  }),
+  component: VendorPaymentDetailRouteComponent,
   head: () => ({
     meta: [{ title: `Vendor Payment Details | ${env.VITE_APP_NAME}` }],
   }),
   loader: ({ context, params }) => {
     context.zero?.preload(queries.vendorPayment.byId({ id: params.id }));
   },
-  component: VendorPaymentDetailRouteComponent,
+  validateSearch: z.object({
+    mode: z.enum(["edit"]).optional(),
+  }),
 });
 
 function VendorPaymentEditPane({
@@ -74,6 +74,14 @@ function VendorPaymentDetailRouteComponent() {
   const [vendorPayment, result] = useQuery(queries.vendorPayment.byId({ id }));
 
   const isLoading = !vendorPayment && result.type !== "complete";
+  const stableOnCancel0 = () => {
+    navigate({ to: "/vendor-payments" });
+  };
+  const stableOnSaved1 = () => {
+    setEditMode(false);
+  };
+  const stableOnViewDetails2 = () => setEditMode(false);
+  const stableOnClick3 = () => setEditMode(true);
 
   if (isLoading) {
     return (
@@ -104,23 +112,22 @@ function VendorPaymentDetailRouteComponent() {
   const showEditForm = canEdit && mode === "edit";
   const setEditMode = (enabled: boolean) => {
     navigate({
-      to: "/vendor-payments/$id",
       params: { id: vendorPayment.id as string },
-      search: enabled ? { mode: "edit" } : {},
       replace: true,
+      search: enabled ? { mode: "edit" } : {},
+      to: "/vendor-payments/$id",
     });
   };
 
   const initialValues = {
-    id: vendorPayment.id as string,
-    title: vendorPayment.title as string,
+    attachments: mapAttachmentsToFormValues(vendorPayment.attachments),
     city: vendorPayment.city as "bangalore" | "mumbai",
+    id: vendorPayment.id as string,
+    lineItems: mapLineItemsToFormValues(vendorPayment.lineItems),
+    title: vendorPayment.title as string,
     vendorId: vendorPayment.vendorId as string,
-    eventId: vendorPayment.eventId ?? undefined,
-    lineItems: mapLineItemsToFormValues(vendorPayment.lineItems ?? []),
-    attachments: mapAttachmentsToFormValues(vendorPayment.attachments ?? []),
+    ...(vendorPayment.eventId ? { eventId: vendorPayment.eventId } : {}),
   };
-
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
       <div
@@ -130,20 +137,16 @@ function VendorPaymentDetailRouteComponent() {
         {showEditForm ? (
           <VendorPaymentEditPane
             initialValues={initialValues}
-            onCancel={() => {
-              navigate({ to: "/vendor-payments" });
-            }}
-            onSaved={() => {
-              setEditMode(false);
-            }}
-            onViewDetails={() => setEditMode(false)}
+            onCancel={stableOnCancel0}
+            onSaved={stableOnSaved1}
+            onViewDetails={stableOnViewDetails2}
           />
         ) : (
           <>
             {canEdit ? (
               <div className="mb-4 flex justify-end">
                 <Button
-                  onClick={() => setEditMode(true)}
+                  onClick={stableOnClick3}
                   type="button"
                   variant="outline"
                 >

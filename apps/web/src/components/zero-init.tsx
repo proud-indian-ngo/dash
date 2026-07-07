@@ -47,8 +47,8 @@ export function ZeroInit({ children }: ZeroInitProps) {
       .then(setPermissions)
       .catch((error: unknown) => {
         log.error({
-          component: "ZeroInit",
           action: "getPermissions",
+          component: "ZeroInit",
           error: error instanceof Error ? error.message : String(error),
         });
         setPermissions([]);

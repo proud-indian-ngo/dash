@@ -70,12 +70,12 @@ export function useTableState(
       }
 
       if (direction === "asc") {
-        parsedSorting.push({ id, desc: false });
+        parsedSorting.push({ desc: false, id });
         continue;
       }
 
       if (direction === "desc") {
-        parsedSorting.push({ id, desc: true });
+        parsedSorting.push({ desc: true, id });
       }
     }
 
@@ -89,9 +89,12 @@ export function useTableState(
 
     return value
       .filter(
-        (sortValue) => typeof sortValue.id === "string" && sortValue.id.length
+        (sortValue: any) =>
+          typeof sortValue.id === "string" && sortValue.id.length
       )
-      .map((sortValue) => `${sortValue.id}.${sortValue.desc ? "desc" : "asc"}`)
+      .map(
+        (sortValue: any) => `${sortValue.id}.${sortValue.desc ? "desc" : "asc"}`
+      )
       .join(",");
   };
 
@@ -111,7 +114,7 @@ export function useTableState(
       return defaults;
     }
     const persistedSet = new Set(persisted);
-    const missing = defaults.filter((id) => !persistedSet.has(id));
+    const missing = defaults.filter((id: any) => !persistedSet.has(id));
     if (!missing.length) {
       return persisted;
     }
@@ -145,28 +148,28 @@ export function useTableState(
   const sorting = parseSortingParam(sortingParam);
 
   const setColumnOrder = (updater: SetStateAction<ColumnOrderState>) => {
-    setPersistedState((previous) => ({
+    setPersistedState((previous: any) => ({
       ...previous,
       columnOrder: resolveUpdater(updater, previous.columnOrder),
     }));
   };
 
   const setColumnPinning = (updater: SetStateAction<ColumnPinningState>) => {
-    setPersistedState((previous) => ({
+    setPersistedState((previous: any) => ({
       ...previous,
       columnPinning: resolveUpdater(updater, previous.columnPinning),
     }));
   };
 
   const setColumnSizing = (updater: SetStateAction<ColumnSizingState>) => {
-    setPersistedState((previous) => ({
+    setPersistedState((previous: any) => ({
       ...previous,
       columnSizing: resolveUpdater(updater, previous.columnSizing),
     }));
   };
 
   const setColumnVisibility = (updater: SetStateAction<VisibilityState>) => {
-    setPersistedState((previous) => ({
+    setPersistedState((previous: any) => ({
       ...previous,
       columnVisibility: resolveUpdater(updater, previous.columnVisibility),
     }));
@@ -180,23 +183,23 @@ export function useTableState(
   };
 
   return {
-    state: {
-      columnOrder,
-      columnPinning,
-      columnSizing,
-      columnVisibility,
-      rowSelection,
-      pagination,
-      sorting,
-    },
     actions: {
       setColumnOrder,
       setColumnPinning,
       setColumnSizing,
       setColumnVisibility,
-      setRowSelection,
       setPagination,
+      setRowSelection,
       setSorting,
+    },
+    state: {
+      columnOrder,
+      columnPinning,
+      columnSizing,
+      columnVisibility,
+      pagination,
+      rowSelection,
+      sorting,
     },
   };
 }

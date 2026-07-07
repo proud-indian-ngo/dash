@@ -31,11 +31,11 @@ export const getRoles = createServerFn({ method: "GET" })
     try {
       const roles = await db
         .select({
-          id: role.id,
-          name: role.name,
-          description: role.description,
-          isSystem: role.isSystem,
           createdAt: role.createdAt,
+          description: role.description,
+          id: role.id,
+          isSystem: role.isSystem,
+          name: role.name,
           permissionCount: sql<number>`(
             select count(*)::int from role_permission rp where rp.role_id = ${role.id}
           )`,
@@ -92,10 +92,10 @@ export const getRoleById = createServerFn({ method: "GET" })
     try {
       const [found] = await db
         .select({
-          id: role.id,
-          name: role.name,
           description: role.description,
+          id: role.id,
           isSystem: role.isSystem,
+          name: role.name,
         })
         .from(role)
         .where(eq(role.id, data.roleId))
@@ -112,15 +112,15 @@ export const getRoleById = createServerFn({ method: "GET" })
 
       return {
         ...found,
-        permissionIds: perms.map((p) => p.permissionId),
+        permissionIds: perms.map((p: any) => p.permissionId),
       };
     } catch (error) {
       logErrorAndRethrow(
         { method: "GET", path: "/fn/getRoleById" },
         {
           handler: "getRoleById",
-          userId: context.session?.user.id,
           roleId: data.roleId,
+          userId: context.session?.user.id,
         },
         error
       );
@@ -137,10 +137,10 @@ export const getAllPermissions = createServerFn({ method: "GET" })
     try {
       const perms = await db
         .select({
-          id: permission.id,
-          name: permission.name,
           category: permission.category,
           description: permission.description,
+          id: permission.id,
+          name: permission.name,
         })
         .from(permission)
         .orderBy(permission.category, permission.name);
@@ -153,9 +153,9 @@ export const getAllPermissions = createServerFn({ method: "GET" })
         const group = grouped[p.category] ?? [];
         grouped[p.category] = group;
         group.push({
+          description: p.description,
           id: p.id,
           name: p.name,
-          description: p.description,
         });
       }
 
@@ -172,13 +172,13 @@ export const getAllPermissions = createServerFn({ method: "GET" })
 // ── Create role ──
 
 const createRoleSchema = z.object({
+  description: z.string().optional(),
   id: z
     .string()
     .min(1, "ID is required")
     .max(50)
     .regex(/^[a-z][a-z0-9_]*$/, "Must be lowercase slug (e.g. team_lead)"),
   name: z.string().min(1, "Name is required").max(100),
-  description: z.string().optional(),
   permissionIds: z.array(z.string()).default([]),
 });
 
@@ -207,19 +207,19 @@ export const createRole = createServerFn({ method: "POST" })
         throw new Error(`Role ID "${data.id}" already exists`);
       }
 
-      await db.transaction(async (tx) => {
+      await db.transaction(async (tx: any) => {
         await tx.insert(role).values({
-          id: data.id,
-          name: data.name,
           description: data.description ?? null,
+          id: data.id,
           isSystem: false,
+          name: data.name,
         });
 
         if (data.permissionIds.length > 0) {
           await tx.insert(rolePermission).values(
-            data.permissionIds.map((permId) => ({
-              roleId: data.id,
+            data.permissionIds.map((permId: any) => ({
               permissionId: permId,
+              roleId: data.id,
             }))
           );
         }
@@ -231,10 +231,10 @@ export const createRole = createServerFn({ method: "POST" })
         { method: "POST", path: "/fn/createRole" },
         {
           handler: "createRole",
-          userId: context.session?.user.id,
+          permissionCount: data.permissionIds.length,
           roleId: data.id,
           roleName: data.name,
-          permissionCount: data.permissionIds.length,
+          userId: context.session?.user.id,
         },
         error
       );
@@ -244,10 +244,10 @@ export const createRole = createServerFn({ method: "POST" })
 // ── Update role ──
 
 const updateRoleSchema = z.object({
-  roleId: z.string().min(1),
-  name: z.string().min(1, "Name is required").max(100),
   description: z.string().optional(),
+  name: z.string().min(1, "Name is required").max(100),
   permissionIds: z.array(z.string()),
+  roleId: z.string().min(1),
 });
 
 export const updateRole = createServerFn({ method: "POST" })
@@ -279,10 +279,10 @@ export const updateRole = createServerFn({ method: "POST" })
         throw new Error("Cannot modify a system role");
       }
 
-      await db.transaction(async (tx) => {
+      await db.transaction(async (tx: any) => {
         await tx
           .update(role)
-          .set({ name: data.name, description: data.description ?? null })
+          .set({ description: data.description ?? null, name: data.name })
           .where(eq(role.id, data.roleId));
 
         await tx
@@ -291,9 +291,9 @@ export const updateRole = createServerFn({ method: "POST" })
 
         if (data.permissionIds.length > 0) {
           await tx.insert(rolePermission).values(
-            data.permissionIds.map((permId) => ({
-              roleId: data.roleId,
+            data.permissionIds.map((permId: any) => ({
               permissionId: permId,
+              roleId: data.roleId,
             }))
           );
         }
@@ -307,9 +307,9 @@ export const updateRole = createServerFn({ method: "POST" })
         { method: "POST", path: "/fn/updateRole" },
         {
           handler: "updateRole",
-          userId: context.session?.user.id,
-          roleId: data.roleId,
           permissionCount: data.permissionIds.length,
+          roleId: data.roleId,
+          userId: context.session?.user.id,
         },
         error
       );
@@ -364,8 +364,8 @@ export const deleteRole = createServerFn({ method: "POST" })
         { method: "POST", path: "/fn/deleteRole" },
         {
           handler: "deleteRole",
-          userId: context.session?.user.id,
           roleId: data.roleId,
+          userId: context.session?.user.id,
         },
         error
       );

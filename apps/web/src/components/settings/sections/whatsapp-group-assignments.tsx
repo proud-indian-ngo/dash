@@ -24,23 +24,33 @@ export function GroupAssignments({
   const [configRows] = useQuery(queries.appConfig.all());
 
   const configMap = new Map(
-    (configRows ?? []).map((row) => [row.key, row.value])
+    (configRows ?? []).map((row: any) => [row.key, row.value])
   );
 
   const orientationGroupId = configMap.get(ORIENTATION_GROUP_ID) ?? "";
   const allVolunteersGroupId = configMap.get(ALL_VOLUNTEERS_GROUP_ID) ?? "";
 
-  const groupNameMap = new Map(groups.map((g) => [g.id, g.name]));
+  const groupNameMap = new Map(groups.map((g: any) => [g.id, g.name]));
 
   const handleChange = async (key: string, value: string) => {
     const res = await zero.mutate(mutators.appConfig.upsert({ key, value }))
       .server;
     handleMutationResult(res, {
-      mutation: "appConfig.upsert",
       entityId: key,
-      successMsg: "Assignment updated",
       errorMsg: "Couldn't update assignment",
+      mutation: "appConfig.upsert",
+      successMsg: "Assignment updated",
     });
+  };
+  const stableOnValueChange0 = (v: any) => {
+    if (v) {
+      handleChange(ORIENTATION_GROUP_ID, v);
+    }
+  };
+  const stableOnValueChange1 = (v: any) => {
+    if (v) {
+      handleChange(ALL_VOLUNTEERS_GROUP_ID, v);
+    }
   };
 
   return (
@@ -50,11 +60,7 @@ export function GroupAssignments({
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">New volunteer group</Label>
           <Select
-            onValueChange={(v) => {
-              if (v) {
-                handleChange(ORIENTATION_GROUP_ID, v);
-              }
-            }}
+            onValueChange={stableOnValueChange0}
             value={orientationGroupId}
           >
             <SelectTrigger aria-label="New volunteer group">
@@ -63,7 +69,7 @@ export function GroupAssignments({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {groups.map((g) => (
+              {groups.map((g: any) => (
                 <SelectItem key={g.id} value={g.id}>
                   {g.name}
                 </SelectItem>
@@ -77,11 +83,7 @@ export function GroupAssignments({
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">Orientation completed group</Label>
           <Select
-            onValueChange={(v) => {
-              if (v) {
-                handleChange(ALL_VOLUNTEERS_GROUP_ID, v);
-              }
-            }}
+            onValueChange={stableOnValueChange1}
             value={allVolunteersGroupId}
           >
             <SelectTrigger aria-label="Orientation completed group">
@@ -90,7 +92,7 @@ export function GroupAssignments({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {groups.map((g) => (
+              {groups.map((g: any) => (
                 <SelectItem key={g.id} value={g.id}>
                   {g.name}
                 </SelectItem>

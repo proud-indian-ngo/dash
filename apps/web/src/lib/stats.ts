@@ -23,18 +23,21 @@ export interface WithStatusAndLineItems {
 export function sumAmounts(
   items: readonly { amount: string | number }[]
 ): number {
-  return items.reduce((sum, li) => sum + Number(li.amount), 0);
+  return items.reduce((sum: any, li: any) => sum + Number(li.amount), 0);
 }
 
 export function sumTotal(data: readonly WithStatusAndLineItems[]): number {
-  return data.reduce((sum, item) => sum + sumAmounts(item.lineItems), 0);
+  return data.reduce(
+    (sum: any, item: any) => sum + sumAmounts(item.lineItems),
+    0
+  );
 }
 
 export function byStatus(
   data: readonly WithStatusAndLineItems[],
   status: string
 ): readonly WithStatusAndLineItems[] {
-  return data.filter((item) => item.status === status);
+  return data.filter((item: any) => item.status === status);
 }
 
 export function formatTotal(data: readonly WithStatusAndLineItems[]): string {
@@ -51,36 +54,36 @@ export function computeSubmissionStats(
 
   return [
     {
-      label: "Total",
-      value: data.length,
-      description: formatTotal(data),
-      icon: totalIcon,
       accent: "border-l-blue-500",
       bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
+      description: formatTotal(data),
+      icon: totalIcon,
+      label: "Total",
+      value: data.length,
     },
     {
-      label: "Pending",
-      value: pending.length,
-      description: formatTotal(pending),
-      icon: Clock01Icon,
       accent: "border-l-amber-500",
       bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
+      description: formatTotal(pending),
+      icon: Clock01Icon,
+      label: "Pending",
+      value: pending.length,
     },
     {
-      label: "Approved",
-      value: approved.length,
-      description: formatTotal(approved),
-      icon: CheckmarkCircle02Icon,
       accent: "border-l-emerald-500",
       bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
+      description: formatTotal(approved),
+      icon: CheckmarkCircle02Icon,
+      label: "Approved",
+      value: approved.length,
     },
     {
-      label: "Rejected",
-      value: rejected.length,
-      description: formatTotal(rejected),
-      icon: CancelCircleIcon,
       accent: "border-l-red-500",
       bgAccent: "bg-red-500/5 dark:bg-red-500/10",
+      description: formatTotal(rejected),
+      icon: CancelCircleIcon,
+      label: "Rejected",
+      value: rejected.length,
     },
   ];
 }
@@ -127,52 +130,48 @@ export function computeTrendData(
   to: Date | null
 ): TrendDataPoint[] {
   const timestamps = items
-    .filter((i) => i.createdAt != null)
-    .map((i) => i.createdAt as number);
-  if (timestamps.length === 0) {
+    .filter((i: any) => i.createdAt !== null)
+    .map((i: any) => i.createdAt as number);
+  if (timestamps.length === 0 || !from || !to) {
     return [];
   }
 
-  const start =
-    from ??
-    new Date(
-      timestamps.reduce((min, t) => Math.min(min, t), Number.POSITIVE_INFINITY)
-    );
-  const end = to ?? new Date();
+  const start = from;
+  const end = to;
 
   const useWeeks = differenceInMonths(end, start) <= 3;
 
   if (useWeeks) {
-    const weeks = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 });
-    return weeks.map((weekStart) => {
+    const weeks = eachWeekOfInterval({ end, start }, { weekStartsOn: 1 });
+    return weeks.map((weekStart: any) => {
       const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-      const weekItems = items.filter((item) => {
+      const weekItems = items.filter((item: any) => {
         const ts = item.createdAt;
         return (
-          ts != null && ts >= weekStart.getTime() && ts < weekEnd.getTime()
+          ts !== null && ts >= weekStart.getTime() && ts < weekEnd.getTime()
         );
       });
       return {
-        period: format(weekStart, "MMM d"),
-        count: weekItems.length,
         amount: sumTotal(weekItems),
+        count: weekItems.length,
+        period: format(weekStart, "MMM d"),
       };
     });
   }
 
-  const months = eachMonthOfInterval({ start, end });
-  return months.map((monthStart) => {
+  const months = eachMonthOfInterval({ end, start });
+  return months.map((monthStart: any) => {
     const monthEnd = endOfMonth(monthStart);
-    const monthItems = items.filter((item) => {
+    const monthItems = items.filter((item: any) => {
       const ts = item.createdAt;
       return (
-        ts != null && ts >= monthStart.getTime() && ts < monthEnd.getTime()
+        ts !== null && ts >= monthStart.getTime() && ts < monthEnd.getTime()
       );
     });
     return {
-      period: format(monthStart, "MMM yyyy"),
-      count: monthItems.length,
       amount: sumTotal(monthItems),
+      count: monthItems.length,
+      period: format(monthStart, "MMM yyyy"),
     };
   });
 }
@@ -194,7 +193,7 @@ export function computeCategoryData(
 
   const sorted = [...map.entries()]
     .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.amount - a.amount);
+    .sort((a: any, b: any) => b.amount - a.amount);
 
   if (sorted.length <= 8) {
     return sorted;
@@ -203,12 +202,12 @@ export function computeCategoryData(
   const top = sorted.slice(0, 7);
   const rest = sorted.slice(7);
   const other = rest.reduce(
-    (acc, item) => ({
-      name: "Other",
+    (acc: any, item: any) => ({
       amount: acc.amount + item.amount,
       count: acc.count + item.count,
+      name: "Other",
     }),
-    { name: "Other", amount: 0, count: 0 }
+    { amount: 0, count: 0, name: "Other" }
   );
 
   return [...top, other];
@@ -223,19 +222,21 @@ export function computeSubmitterData(
   >();
 
   for (const item of items) {
-    const user = item.user;
+    const { user } = item;
     if (!user) {
       continue;
     }
     const { email } = user;
     const name = user.name ?? email;
-    const existing = map.get(email) ?? { name, email, amount: 0, count: 0 };
+    const existing = map.get(email) ?? { amount: 0, count: 0, email, name };
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;
     map.set(email, existing);
   }
 
-  return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
+  return [...map.values()]
+    .sort((a: any, b: any) => b.amount - a.amount)
+    .slice(0, 10);
 }
 
 export interface EventDataPoint {
@@ -263,7 +264,7 @@ export function computeEventData(
       continue;
     }
     const { id: eventId, name } = item.event;
-    const existing = map.get(eventId) ?? { name, amount: 0, count: 0 };
+    const existing = map.get(eventId) ?? { amount: 0, count: 0, name };
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;
     map.set(eventId, existing);
@@ -271,7 +272,7 @@ export function computeEventData(
 
   return [...map.entries()]
     .map(([eventId, data]) => ({ eventId, ...data }))
-    .sort((a, b) => b.amount - a.amount)
+    .sort((a: any, b: any) => b.amount - a.amount)
     .slice(0, 10);
 }
 
@@ -315,15 +316,15 @@ export function computeApprovalTimeData(
     if (days < 0) {
       continue;
     }
-    const idx = APPROVAL_BUCKETS.findIndex((b) => days < b.maxDays);
+    const idx = APPROVAL_BUCKETS.findIndex((b: any) => days < b.maxDays);
     if (idx >= 0 && counts[idx] !== undefined) {
-      counts[idx]++;
+      counts[idx] += 1;
     }
   }
 
-  return APPROVAL_BUCKETS.map((b, i) => ({
-    label: b.label,
+  return APPROVAL_BUCKETS.map((b: any, i: any) => ({
     count: counts[i] ?? 0,
+    label: b.label,
   }));
 }
 
@@ -340,16 +341,18 @@ export function computeVendorData(
   >();
 
   for (const item of items) {
-    const vendor = item.vendor;
+    const { vendor } = item;
     if (!vendor) {
       continue;
     }
     const { name } = vendor;
-    const existing = map.get(name) ?? { name, amount: 0, count: 0 };
+    const existing = map.get(name) ?? { amount: 0, count: 0, name };
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;
     map.set(name, existing);
   }
 
-  return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
+  return [...map.values()]
+    .sort((a: any, b: any) => b.amount - a.amount)
+    .slice(0, 10);
 }

@@ -37,7 +37,7 @@ test.describe("Event edit and cancel (admin)", () => {
       .fill(tomorrow.toISOString().slice(0, 16));
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(originalName)).toBeVisible({ timeout: 10_000 });
@@ -63,7 +63,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await editDialog.getByLabel("Location").clear();
     await editDialog.getByLabel("Location").fill("Updated Location");
 
-    await editDialog.getByRole("button", { name: "Save", exact: true }).click();
+    await editDialog.getByRole("button", { exact: true, name: "Save" }).click();
     await expect(editDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event updated")).toBeVisible();
     await expect(page.getByText(updatedName)).toBeVisible({ timeout: 10_000 });
@@ -86,7 +86,7 @@ test.describe("Event edit and cancel (admin)", () => {
       .fill(nextWeek.toISOString().slice(0, 16));
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
@@ -115,7 +115,7 @@ test.describe("Event edit and cancel (admin)", () => {
     page,
   }) => {
     test.slow();
-    await page.setViewportSize({ width: 430, height: 932 });
+    await page.setViewportSize({ height: 932, width: 430 });
 
     const eventName = `E2E Mobile Cancel ${Date.now()}`;
     await page.getByRole("button", { name: "Create Event" }).click();
@@ -130,7 +130,7 @@ test.describe("Event edit and cancel (admin)", () => {
       .fill(nextWeek.toISOString().slice(0, 16));
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });

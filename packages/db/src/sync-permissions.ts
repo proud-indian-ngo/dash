@@ -27,19 +27,19 @@ export async function syncPermissions(): Promise<void> {
     .insert(permission)
     .values(
       PERMISSIONS.map((perm) => ({
-        id: perm.id,
-        name: perm.name,
         category: perm.category,
         description: perm.description,
+        id: perm.id,
+        name: perm.name,
       }))
     )
     .onConflictDoUpdate({
-      target: permission.id,
       set: {
-        name: sql`excluded.name`,
         category: sql`excluded.category`,
         description: sql`excluded.description`,
+        name: sql`excluded.name`,
       },
+      target: permission.id,
     });
 
   // Remove stale rolePermission rows then stale permissions (single pass)
@@ -49,50 +49,56 @@ export async function syncPermissions(): Promise<void> {
   await db.delete(permission).where(notInArray(permission.id, currentIds));
 
   // Ensure system roles exist
-  for (const systemRole of [
-    { id: "super_admin", name: "Super Admin", isSystem: true },
-    { id: "admin", name: "Admin", isSystem: true },
-    { id: "finance_admin", name: "Finance Admin", isSystem: true },
-    { id: "volunteer", name: "Volunteer", isSystem: true },
-    {
-      id: "unoriented_volunteer",
-      name: "Unoriented Volunteer",
-      isSystem: true,
-    },
-  ]) {
-    await db
-      .insert(role)
-      .values({
-        id: systemRole.id,
-        name: systemRole.name,
-        isSystem: systemRole.isSystem,
-      })
-      .onConflictDoNothing();
-  }
+  await Promise.all(
+    [
+      { id: "super_admin", isSystem: true, name: "Super Admin" },
+      { id: "admin", isSystem: true, name: "Admin" },
+      { id: "finance_admin", isSystem: true, name: "Finance Admin" },
+      { id: "volunteer", isSystem: true, name: "Volunteer" },
+      {
+        id: "unoriented_volunteer",
+        isSystem: true,
+        name: "Unoriented Volunteer",
+      },
+    ].map(async (systemRole) => {
+      await db
+        .insert(role)
+        .values({
+          id: systemRole.id,
+          isSystem: systemRole.isSystem,
+          name: systemRole.name,
+        })
+        .onConflictDoNothing();
+    })
+  );
 
   // Deterministically sync permissions for the three admin-tier roles
-  for (const [roleId, permIds] of [
-    ["super_admin", currentIds],
-    ["admin", ADMIN_PERMISSIONS as string[]],
-    ["finance_admin", FINANCE_ADMIN_PERMISSIONS as string[]],
-  ] as [string, string[]][]) {
-    if (permIds.length > 0) {
-      await db.transaction(async (tx) => {
-        await tx
-          .insert(rolePermission)
-          .values(permIds.map((permId) => ({ roleId, permissionId: permId })))
-          .onConflictDoNothing();
-        await tx
-          .delete(rolePermission)
-          .where(
-            and(
-              eq(rolePermission.roleId, roleId),
-              notInArray(rolePermission.permissionId, permIds)
-            )
-          );
-      });
-    }
-  }
+  await Promise.all(
+    (
+      [
+        ["super_admin", currentIds],
+        ["admin", ADMIN_PERMISSIONS as string[]],
+        ["finance_admin", FINANCE_ADMIN_PERMISSIONS as string[]],
+      ] as [string, string[]][]
+    ).map(async ([roleId, permIds]) => {
+      if (permIds.length > 0) {
+        await db.transaction(async (tx) => {
+          await tx
+            .insert(rolePermission)
+            .values(permIds.map((permId) => ({ permissionId: permId, roleId })))
+            .onConflictDoNothing();
+          await tx
+            .delete(rolePermission)
+            .where(
+              and(
+                eq(rolePermission.roleId, roleId),
+                notInArray(rolePermission.permissionId, permIds)
+              )
+            );
+        });
+      }
+    })
+  );
 
   // Volunteer baseline — only seed if volunteer has zero permissions (first run)
   await db.transaction(async (tx) => {
@@ -107,8 +113,8 @@ export async function syncPermissions(): Promise<void> {
     ) {
       await tx.insert(rolePermission).values(
         VOLUNTEER_BASELINE_PERMISSIONS.map((permId) => ({
-          roleId: "volunteer",
           permissionId: permId,
+          roleId: "volunteer",
         }))
       );
     }
@@ -127,8 +133,8 @@ export async function syncPermissions(): Promise<void> {
     ) {
       await tx.insert(rolePermission).values(
         UNORIENTED_VOLUNTEER_PERMISSIONS.map((permId) => ({
-          roleId: "unoriented_volunteer",
           permissionId: permId,
+          roleId: "unoriented_volunteer",
         }))
       );
     }

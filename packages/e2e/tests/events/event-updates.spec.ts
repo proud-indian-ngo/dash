@@ -41,7 +41,7 @@ test.describe("Event updates CRUD (admin)", () => {
     await createDialog.getByLabel("Public").check();
 
     await createDialog
-      .getByRole("button", { name: "Create", exact: true })
+      .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(pastEventName)).toBeVisible({
@@ -77,7 +77,7 @@ test.describe("Event updates CRUD (admin)", () => {
 
     // ---- EDIT UPDATE ----
     await page
-      .getByRole("button", { name: "Edit", exact: true })
+      .getByRole("button", { exact: true, name: "Edit" })
       .first()
       .click();
 
@@ -96,14 +96,14 @@ test.describe("Event updates CRUD (admin)", () => {
 
     // ---- DELETE UPDATE ----
     await page
-      .getByRole("button", { name: "Delete", exact: true })
+      .getByRole("button", { exact: true, name: "Delete" })
       .first()
       .click();
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
     await confirmDialog
-      .getByRole("button", { name: "Delete", exact: true })
+      .getByRole("button", { exact: true, name: "Delete" })
       .click();
 
     await expect(page.getByText("Update deleted")).toBeVisible({
@@ -125,7 +125,7 @@ test.describe("Event update approval (admin)", () => {
     // Navigate to the seeded event with a pending update
     await page.goto("/events");
     await expect(
-      page.getByRole("heading", { name: "Events", exact: true })
+      page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible();
 
     const eventLink = page

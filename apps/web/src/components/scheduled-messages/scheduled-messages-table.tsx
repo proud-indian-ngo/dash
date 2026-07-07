@@ -91,13 +91,11 @@ function createColumns(
 ): ColumnDef<ScheduledMessageRow>[] {
   return [
     {
-      id: "expand",
-      header: "",
       cell: ({ row }) => (
         <Button
           aria-label={row.getIsExpanded() ? "Collapse" : "Expand"}
           className="size-7"
-          onClick={(e) => {
+          onClick={(e: any) => {
             e.stopPropagation();
             row.toggleExpanded();
           }}
@@ -112,29 +110,23 @@ function createColumns(
           />
         </Button>
       ),
-      meta: {
-        skeleton: SKELETON_EXPAND,
-        expandedContent: (row: ScheduledMessageRow) => (
-          <RecipientSubTable onRetry={onRetry} recipients={row.recipients} />
-        ),
-      },
       enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
-      size: 40,
+      header: "",
+      id: "expand",
+      meta: {
+        expandedContent: (row: ScheduledMessageRow) => (
+          <RecipientSubTable onRetry={onRetry} recipients={row.recipients} />
+        ),
+        skeleton: SKELETON_EXPAND,
+      },
       minSize: 40,
+      size: 40,
     },
     {
-      id: "message",
-      accessorFn: (row) => row.message,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Message"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => row.message,
       cell: ({ row }) => (
         <span className="truncate text-sm">
           {row.original.message.length > 80
@@ -142,12 +134,22 @@ function createColumns(
             : row.original.message}
         </span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Message"
+          visibility={true}
+        />
+      ),
+      id: "message",
       meta: { headerTitle: "Message", skeleton: SKELETON_MSG },
       size: 300,
     },
     {
-      id: "scheduledAt",
-      accessorFn: (row) => row.scheduledAt,
+      accessorFn: (row: any) => row.scheduledAt,
+      cell: ({ row }) => (
+        <span className="text-sm">{formatTs(row.original.scheduledAt)}</span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -155,15 +157,17 @@ function createColumns(
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">{formatTs(row.original.scheduledAt)}</span>
-      ),
+      id: "scheduledAt",
       meta: { headerTitle: "Scheduled At", skeleton: SKELETON_DATE },
       size: 180,
     },
     {
-      id: "status",
-      accessorFn: (row) => deriveMessageStatus(row.recipients),
+      accessorFn: (row: any) => deriveMessageStatus(row.recipients),
+      cell: ({ row }) => {
+        const status = deriveMessageStatus(row.original.recipients);
+        const badge = getStatusBadge(status);
+        return <Badge variant={badge.variant}>{badge.label}</Badge>;
+      },
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -171,24 +175,12 @@ function createColumns(
           visibility={true}
         />
       ),
-      cell: ({ row }) => {
-        const status = deriveMessageStatus(row.original.recipients);
-        const badge = getStatusBadge(status);
-        return <Badge variant={badge.variant}>{badge.label}</Badge>;
-      },
+      id: "status",
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
       size: 120,
     },
     {
-      id: "recipients",
-      accessorFn: (row) => row.recipients.length,
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Recipients"
-          visibility={true}
-        />
-      ),
+      accessorFn: (row: any) => row.recipients.length,
       cell: ({ row }) => {
         const count = row.original.recipients.length;
         return (
@@ -197,12 +189,24 @@ function createColumns(
           </span>
         );
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Recipients"
+          visibility={true}
+        />
+      ),
+      id: "recipients",
       meta: { headerTitle: "Recipients", skeleton: SKELETON_RECIPIENTS },
       size: 120,
     },
     {
-      id: "creator",
-      accessorFn: (row) => row.creator?.name ?? "",
+      accessorFn: (row: any) => row.creator?.name ?? "",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.creator?.name ?? "\u2014"}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -210,17 +214,11 @@ function createColumns(
           visibility={true}
         />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm">
-          {row.original.creator?.name ?? "\u2014"}
-        </span>
-      ),
+      id: "creator",
       meta: { headerTitle: "Created By", skeleton: SKELETON_CREATOR },
       size: 160,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => {
         const msg = row.original;
         const isPending = deriveMessageStatus(msg.recipients) === "pending";
@@ -233,7 +231,7 @@ function createColumns(
                   aria-label="Row actions"
                   className="size-8"
                   data-testid="row-actions"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e: any) => e.stopPropagation()}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -299,13 +297,15 @@ function createColumns(
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
+      header: "",
+      id: "actions",
       meta: {
         cellClassName: "text-center",
         skeleton: SKELETON_ACTIONS,
         stopRowClick: true,
       },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
 }
@@ -340,14 +340,16 @@ export function ScheduledMessagesTable({
   toolbarFilters,
 }: ScheduledMessagesTableProps) {
   const columns = createColumns(onView, onEdit, onCancel, onDelete, onRetry);
+  const stableGetRowCanExpand0 = () => true;
+  const stableGetRowId1 = (row: any) => row.id;
 
   return (
     <DataTableWrapper<ScheduledMessageRow>
       columns={columns}
       data={messages}
       emptyMessage="No scheduled messages."
-      getRowCanExpand={() => true}
-      getRowId={(row) => row.id}
+      getRowCanExpand={stableGetRowCanExpand0}
+      getRowId={stableGetRowId1}
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       onClearFilters={onClearFilters}
@@ -356,11 +358,11 @@ export function ScheduledMessagesTable({
       searchPlaceholder="Search messages..."
       storageKey="scheduled_messages_table_state_v1"
       tableLayout={{
-        columnsMovable: true,
-        columnsResizable: true,
         columnsDraggable: true,
-        columnsVisibility: true,
+        columnsMovable: true,
         columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
       toolbarFilters={toolbarFilters}

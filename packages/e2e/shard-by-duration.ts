@@ -20,9 +20,9 @@ const DURATIONS_FILE = path.resolve(
   ".test-durations.json"
 );
 const OUTPUT_DIR = path.resolve(import.meta.dirname, "shard-lists");
-const DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
+const _DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
 
-const totalShards = Number.parseInt(process.argv[2] ?? "4", 10);
+const totalShards = Number.parseInt(process.argv[2], 10);
 if (totalShards < 2) {
   console.error("Usage: bun run shard-by-duration.ts <total-shards>");
   process.exit(1);
@@ -43,17 +43,21 @@ try {
       "--reporter=list",
     ],
     {
-      encoding: "utf-8",
       cwd: path.resolve(import.meta.dirname, "../.."),
+      encoding: "utf-8",
       env: { ...process.env, BASE_URL: "http://localhost:3099" },
       stdio: ["pipe", "pipe", "pipe"],
     }
   );
-} catch (error: unknown) {
-  const err = error as { stdout?: string; stderr?: string; status?: number };
-  console.error("playwright --list failed with exit code:", err.status);
-  console.error("stdout:", err.stdout?.slice(0, 500) ?? "(empty)");
-  console.error("stderr:", err.stderr?.slice(0, 500) ?? "(empty)");
+} catch (caughtError: unknown) {
+  const err = caughtError as {
+    stdout?: string;
+    stderr?: string;
+    status?: number;
+  };
+  console.caughtError("playwright --list failed with exit code:", err.status);
+  console.caughtError("stdout:", err.stdout?.slice(0, 500) ?? "(empty)");
+  console.caughtError("stderr:", err.stderr?.slice(0, 500) ?? "(empty)");
   process.exit(1);
 }
 
@@ -105,7 +109,7 @@ const entries: TestEntry[] = testLines.map((line) => {
       }
     }
   }
-  return { line, duration: duration ?? DEFAULT_DURATION_MS };
+  return { duration, line };
 });
 
 // 4. Greedy bin-packing (Longest Processing Time first)
@@ -120,7 +124,7 @@ entries.sort((a, b) => b.duration - a.duration);
 for (const entry of entries) {
   // Find shard with minimum total duration
   let minIdx = 0;
-  for (let i = 1; i < shards.length; i++) {
+  for (let i = 1; i < shards.length; i += 1) {
     if (shards[i].totalMs < shards[minIdx].totalMs) {
       minIdx = i;
     }
@@ -132,7 +136,7 @@ for (const entry of entries) {
 // 5. Write shard list files
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-for (let i = 0; i < shards.length; i++) {
+for (let i = 0; i < shards.length; i += 1) {
   const filePath = path.join(OUTPUT_DIR, `shard-${i + 1}.txt`);
   fs.writeFileSync(filePath, `${shards[i].lines.join("\n")}\n`);
   const estSeconds = (shards[i].totalMs / 1000).toFixed(1);

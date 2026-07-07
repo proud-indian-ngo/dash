@@ -32,29 +32,29 @@ interface VendorFormValues {
 
 function getDefaultValues(vendor: Vendor | null): VendorFormValues {
   return {
-    name: vendor?.name ?? "",
-    contactPhone: vendor?.contactPhone ?? "",
-    contactEmail: vendor?.contactEmail ?? "",
+    address: vendor?.address ?? "",
+    bankAccountIfscCode: vendor?.bankAccountIfscCode ?? "",
     bankAccountName: vendor?.bankAccountName ?? "",
     bankAccountNumber: vendor?.bankAccountNumber ?? "",
-    bankAccountIfscCode: vendor?.bankAccountIfscCode ?? "",
-    address: vendor?.address ?? "",
+    contactEmail: vendor?.contactEmail ?? "",
+    contactPhone: vendor?.contactPhone ?? "",
     gstNumber: vendor?.gstNumber ?? "",
+    name: vendor?.name ?? "",
     panNumber: vendor?.panNumber ?? "",
   };
 }
 
 function buildVendorPayload(fields: VendorFormValues, existingId?: string) {
   return {
-    id: existingId ?? uuidv7(),
-    name: fields.name.trim(),
-    contactPhone: fields.contactPhone.trim(),
-    contactEmail: fields.contactEmail.trim() || undefined,
+    address: fields.address.trim() || undefined,
+    bankAccountIfscCode: fields.bankAccountIfscCode.trim().toUpperCase(),
     bankAccountName: fields.bankAccountName.trim(),
     bankAccountNumber: fields.bankAccountNumber.trim(),
-    bankAccountIfscCode: fields.bankAccountIfscCode.trim().toUpperCase(),
-    address: fields.address.trim() || undefined,
+    contactEmail: fields.contactEmail.trim() || undefined,
+    contactPhone: fields.contactPhone.trim(),
     gstNumber: fields.gstNumber.trim().toUpperCase() || undefined,
+    id: existingId ?? uuidv7(),
+    name: fields.name.trim(),
     panNumber: fields.panNumber.trim().toUpperCase() || undefined,
   };
 }
@@ -90,10 +90,10 @@ function VendorFormContent({
 
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: `vendor.${isEdit ? "update" : "create"}`,
         entityId: payload.id,
-        successMsg: isEdit ? "Vendor updated" : "Vendor created",
         errorMsg: isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
+        mutation: `vendor.${isEdit ? "update" : "create"}`,
+        successMsg: isEdit ? "Vendor updated" : "Vendor created",
       });
       if (res.type !== "error") {
         if (!isEdit) {
@@ -107,6 +107,7 @@ function VendorFormContent({
       onSubmit: vendorFormSchema,
     },
   });
+  const stableOnCancel0 = () => onOpenChange(false);
 
   return (
     <FormLayout form={form}>
@@ -166,7 +167,7 @@ function VendorFormContent({
 
       <FormActions
         disableWhenInvalid={false}
-        onCancel={() => onOpenChange(false)}
+        onCancel={stableOnCancel0}
         submitLabel={isEdit ? "Save" : "Create"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
       />
@@ -194,7 +195,7 @@ export function VendorFormDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k) => k + 1);
+      setFormKey((k: any) => k + 1);
     }
     onOpenChange(nextOpen);
   };

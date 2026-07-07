@@ -1,6 +1,5 @@
 import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
 import {
-  DEFAULT_RSVP_POLL_LEAD_MINUTES,
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
@@ -87,11 +86,11 @@ async function resolveJoinTarget(
       throw new Error("Cannot join event that has already started");
     }
     return {
-      eventId: args.eventId,
-      startTime: event.startTime,
       endTime: event.endTime,
-      name: event.name,
+      eventId: args.eventId,
       location: event.location,
+      name: event.name,
+      startTime: event.startTime,
     };
   }
   if (!event.recurrenceRule) {
@@ -111,11 +110,11 @@ async function resolveJoinTarget(
       throw new Error("Cannot join event that has already started");
     }
     return {
-      eventId: existing.id,
-      startTime: existing.startTime,
       endTime: existing.endTime,
-      name: existing.name,
+      eventId: existing.id,
       location: existing.location,
+      name: existing.name,
+      startTime: existing.startTime,
     };
   }
   const occStart = computeOccurrenceStart(event.startTime, args.occDate);
@@ -123,56 +122,58 @@ async function resolveJoinTarget(
     throw new Error("Cannot join event that has already started");
   }
   const duration =
-    event.endTime == null ? null : event.endTime - event.startTime;
-  const occEnd = duration == null ? null : occStart + duration;
+    event.endTime === null ? null : event.endTime - event.startTime;
+  const occEnd = duration === null ? null : occStart + duration;
   await tx.mutate.teamEvent.insert({
-    id: args.materializedId,
-    teamId: event.teamId,
-    name: event.name,
-    description: event.description,
-    location: event.location,
-    city: event.city,
-    startTime: occStart,
-    endTime: occEnd,
-    isPublic: event.isPublic,
-    recurrenceRule: null,
-    seriesId: args.eventId,
-    originalDate: args.occDate,
     cancelledAt: null,
-    feedbackEnabled: event.feedbackEnabled,
-    feedbackDeadline: event.feedbackDeadline,
-    postRsvpPoll: event.postRsvpPoll,
-    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
-    reminderIntervals: event.reminderIntervals,
-    reminderTarget: event.reminderTarget ?? "group",
-    postEventNudgesEnabled: event.postEventNudgesEnabled,
-    inheritVolunteers: event.inheritVolunteers ?? false,
-    whatsappGroupId: event.whatsappGroupId,
-    createdBy: ctx.userId,
+    city: event.city,
     createdAt: args.now,
+    createdBy: ctx.userId,
+    description: event.description,
+    endTime: occEnd,
+    feedbackDeadline: event.feedbackDeadline,
+    feedbackEnabled: event.feedbackEnabled,
+    id: args.materializedId,
+    inheritVolunteers: event.inheritVolunteers,
+    isPublic: event.isPublic,
+    location: event.location,
+    name: event.name,
+    originalDate: args.occDate,
+    postEventNudgesEnabled: event.postEventNudgesEnabled,
+    postRsvpPoll: event.postRsvpPoll,
+    recurrenceRule: null,
+    reminderIntervals: event.reminderIntervals,
+    reminderTarget: event.reminderTarget,
+    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
+    seriesId: args.eventId,
+    startTime: occStart,
+    teamId: event.teamId,
     updatedAt: args.now,
+    whatsappGroupId: event.whatsappGroupId,
   });
 
   if (event.inheritVolunteers) {
     const members = (await tx.run(
       zql.teamEventMember.where("eventId", args.eventId)
     )) as TeamEventMember[];
-    for (const member of members) {
-      await tx.mutate.teamEventMember.insert({
-        id: uuidv7(),
-        eventId: args.materializedId,
-        userId: member.userId,
-        addedAt: member.addedAt,
-      });
-    }
+    await Promise.all(
+      members.map(async (member) => {
+        await tx.mutate.teamEventMember.insert({
+          addedAt: member.addedAt,
+          eventId: args.materializedId,
+          id: uuidv7(),
+          userId: member.userId,
+        });
+      })
+    );
   }
 
   return {
-    eventId: args.materializedId,
-    startTime: occStart,
     endTime: occEnd,
-    name: event.name,
+    eventId: args.materializedId,
     location: event.location,
+    name: event.name,
+    startTime: occStart,
   };
 }
 
@@ -195,42 +196,34 @@ async function pushCreateServerTasks(
     const eventName = args.name;
     const creatorUserId = ctx.userId;
     ctx.asyncTasks?.push({
-      meta: { mutator: "createTeamEvent", eventId, eventName },
       fn: async () => {
         const { enqueue } = await import("@pi-dash/jobs/enqueue");
         await enqueue(
           "whatsapp-create-group",
           {
-            entityType: "event",
-            entityId: eventId,
-            groupName: eventName,
             creatorUserId,
+            entityId: eventId,
+            entityType: "event",
+            groupName: eventName,
           },
           { traceId: ctx.traceId }
         );
       },
+      meta: { eventId, eventName, mutator: "createTeamEvent" },
     });
   }
 
   if (!isBackdated) {
     const eventId = args.id;
     const eventName = args.name;
-    const startTime = args.startTime;
-    const location = args.location;
-    const teamId = args.teamId;
+    const { startTime } = args;
+    const location = args.location ?? null;
+    const { teamId } = args;
     const members = (await tx.run(zql.teamMember.where("teamId", teamId))) as {
       userId: string;
     }[];
     const teamMemberIds = members.map((m) => m.userId);
     ctx.asyncTasks?.push({
-      meta: {
-        mutator: "createTeamEvent",
-        eventId,
-        eventName,
-        teamId,
-        startTime,
-        location,
-      },
       fn: async () => {
         const { enqueue } = await import("@pi-dash/jobs/enqueue");
         await enqueue(
@@ -238,7 +231,7 @@ async function pushCreateServerTasks(
           {
             eventId,
             eventName,
-            location: location ?? null,
+            location,
             startTime,
             teamId,
             teamMemberIds,
@@ -246,209 +239,215 @@ async function pushCreateServerTasks(
           { traceId: ctx.traceId }
         );
       },
+      meta: {
+        eventId,
+        eventName,
+        location,
+        mutator: "createTeamEvent",
+        startTime,
+        teamId,
+      },
     });
   }
 }
 
 const recurrenceRuleSchema = z
   .object({
-    rrule: z.string(),
-    exdates: z.array(z.string()).optional(),
     excludeRules: z.array(z.string().max(100)).max(10).optional(),
+    exdates: z.array(z.string()).optional(),
+    rrule: z.string(),
   })
   .optional();
 
 export const teamEventMutators = {
-  create: defineMutator(
+  addMember: defineMutator(
     z.object({
+      eventId: z.string(),
       id: z.string(),
-      teamId: z.string(),
-      name: z.string().min(1),
-      description: z.string().optional(),
-      location: z.string().optional(),
-      city: z.enum(cityValues).optional(),
-      startTime: z.number(),
-      endTime: z.number().optional(),
-      isPublic: z.boolean().optional(),
-      recurrenceRule: recurrenceRuleSchema,
-      whatsappGroupId: z.string().optional(),
-      createWhatsAppGroup: z.boolean().optional(),
-      feedbackEnabled: z.boolean().optional(),
-      feedbackDeadline: z.number().nullable().optional(),
-      postRsvpPoll: z.boolean().optional(),
-      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
-      reminderIntervals: reminderIntervalsSchema,
-      reminderTarget: reminderTargetSchema,
-      postEventNudgesEnabled: z.boolean().optional(),
-      inheritVolunteers: z.boolean().optional(),
       now: z.number(),
+      userId: z.string(),
     }),
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: insert maps many optional fields + server-side tasks
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
-      if (args.endTime !== undefined && args.endTime <= args.startTime) {
-        throw new Error("End time must be after start time");
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
       }
       const isTeamLead = !!(await tx.run(
         zql.teamMember
-          .where("teamId", args.teamId)
+          .where("teamId", event.teamId)
           .where("userId", ctx.userId)
           .where("role", "lead")
           .one()
       ));
-      assertHasPermissionOrTeamLead(ctx, "events.create", isTeamLead);
+      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
 
-      const isBackdated =
-        tx.location === "server"
-          ? args.startTime < Date.now()
-          : args.startTime < args.now;
-      if (isBackdated && !can(ctx, "events.create_backdated") && !isTeamLead) {
-        throw new Error("Start time must be in the future");
+      const existing = await tx.run(
+        zql.teamEventMember
+          .where("eventId", args.eventId)
+          .where("userId", args.userId)
+          .one()
+      );
+      if (existing) {
+        throw new Error("User is already a member");
       }
 
-      await tx.mutate.teamEvent.insert({
+      await tx.mutate.teamEventMember.insert({
+        addedAt: args.now,
+        eventId: args.eventId,
         id: args.id,
-        teamId: args.teamId,
-        name: args.name,
-        description: args.description ?? null,
-        location: args.location ?? null,
-        city: args.city ?? "bangalore",
-        startTime: args.startTime,
-        endTime: args.endTime ?? null,
-        isPublic: args.isPublic ?? false,
-        recurrenceRule: args.recurrenceRule ?? null,
-        feedbackEnabled: args.feedbackEnabled ?? false,
-        feedbackDeadline: args.feedbackDeadline ?? null,
-        postRsvpPoll: args.postRsvpPoll ?? false,
-        rsvpPollLeadMinutes:
-          args.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-        reminderIntervals: args.reminderIntervals ?? null,
-        reminderTarget: args.reminderTarget ?? "group",
-        postEventNudgesEnabled: args.postEventNudgesEnabled ?? true,
-        inheritVolunteers: args.inheritVolunteers ?? false,
-        whatsappGroupId: args.whatsappGroupId ?? null,
-        seriesId: null,
-        originalDate: null,
-        cancelledAt: null,
-        createdBy: ctx.userId,
-        createdAt: args.now,
-        updatedAt: args.now,
+        userId: args.userId,
       });
 
       if (tx.location === "server") {
-        await pushCreateServerTasks(tx, ctx, args, isBackdated);
-      }
-    }
-  ),
-
-  update: defineMutator(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1).optional(),
-      description: z.string().optional(),
-      location: z.string().optional(),
-      city: z.enum(cityValues).optional(),
-      now: z.number(),
-      startTime: z.number().optional(),
-      endTime: z.number().optional(),
-      isPublic: z.boolean().optional(),
-      feedbackEnabled: z.boolean().optional(),
-      feedbackDeadline: z.number().nullable().optional(),
-      postRsvpPoll: z.boolean().optional(),
-      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
-      reminderIntervals: reminderIntervalsSchema,
-      reminderTarget: reminderTargetSchema,
-      postEventNudgesEnabled: z.boolean().optional(),
-      inheritVolunteers: z.boolean().optional(),
-      whatsappGroupId: z.string().optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const existing = (await tx.run(
-        zql.teamEvent.where("id", args.id).one()
-      )) as TeamEvent | undefined;
-      if (!existing) {
-        throw new Error("Event not found");
-      }
-      const effectiveStart = args.startTime ?? existing.startTime;
-      const effectiveEnd = args.endTime ?? existing.endTime;
-      if (
-        effectiveEnd !== undefined &&
-        effectiveEnd !== null &&
-        effectiveEnd <= effectiveStart
-      ) {
-        throw new Error("End time must be after start time");
-      }
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", existing.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
-
-      await tx.mutate.teamEvent.update(buildUpdateFields(args));
-
-      if (tx.location === "server") {
-        const eventId = args.id;
-        const eventName = args.name ?? existing.name;
-        const startTime = args.startTime ?? existing.startTime;
-        const location = args.location ?? existing.location;
-        const teamId = existing.teamId;
-        const updatedAt = args.now;
-        const eventMembers = (await tx.run(
-          zql.teamEventMember.where("eventId", eventId)
-        )) as TeamEventMember[];
-        const eventMemberIds = eventMembers.map((m) => m.userId);
-
-        ctx.asyncTasks?.push({
-          meta: { mutator: "updateTeamEvent", eventId, eventName, teamId },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-event-updated",
-              {
-                eventId,
-                eventMemberIds,
-                eventName,
-                location: location ?? null,
-                startTime,
-                teamId,
-                updatedAt,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
-
-        // Notify members when feedback is newly enabled on an already-ended event.
-        // Limitation: if feedback is enabled at creation time, no notification fires
-        // when the event ends naturally — would require a scheduled/cron mechanism.
-        if (
-          args.feedbackEnabled === true &&
-          !existing.feedbackEnabled &&
-          (existing.endTime ?? existing.startTime) < args.now
-        ) {
+        const { userId } = args;
+        const { whatsappGroupId } = event;
+        if (whatsappGroupId) {
           ctx.asyncTasks?.push({
-            meta: {
-              mutator: "updateTeamEvent:feedbackEnabled",
-              eventId,
-            },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
-                "notify-event-feedback-open",
+                "whatsapp-add-member",
                 {
-                  eventId,
-                  eventName,
-                  memberUserIds: eventMemberIds,
+                  groupId: whatsappGroupId,
+                  userId,
                 },
                 { traceId: ctx.traceId }
               );
             },
+            meta: {
+              eventId: args.eventId,
+              mutator: "addEventMember",
+              userId,
+              whatsappGroupId,
+            },
           });
         }
+
+        const { eventId } = args;
+        const eventName = event.name;
+        const { startTime } = event;
+        const { location } = event;
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-added-to-event",
+              {
+                eventId,
+                eventName,
+                location,
+                startTime,
+                userId,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            eventId,
+            eventName,
+            mutator: "addEventMember",
+            userId,
+          },
+        });
+      }
+    }
+  ),
+
+  addMembers: defineMutator(
+    z.object({
+      eventId: z.string(),
+      members: z.array(z.object({ id: z.string(), userId: z.string() })).min(1),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
+
+      await Promise.all(
+        args.members.map(async (member) => {
+          const existing = await tx.run(
+            zql.teamEventMember
+              .where("eventId", args.eventId)
+              .where("userId", member.userId)
+              .one()
+          );
+          if (!existing) {
+            await tx.mutate.teamEventMember.insert({
+              addedAt: args.now,
+              eventId: args.eventId,
+              id: member.id,
+              userId: member.userId,
+            });
+          }
+        })
+      );
+
+      if (tx.location === "server") {
+        const { whatsappGroupId } = event;
+        const userIds = args.members.map((m) => m.userId);
+        if (whatsappGroupId) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "whatsapp-add-members",
+                {
+                  groupId: whatsappGroupId,
+                  userIds,
+                },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: {
+              mutator: "addEventMembers",
+              userCount: userIds.length,
+              whatsappGroupId,
+            },
+          });
+        }
+
+        const { eventId } = args;
+        const eventName = event.name;
+        const { startTime } = event;
+        const { location } = event;
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-users-added-to-event",
+              {
+                eventId,
+                eventName,
+                location,
+                startTime,
+                userIds,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            eventId,
+            eventName,
+            mutator: "addEventMembers",
+            userCount: userIds.length,
+          },
+        });
       }
     }
   ),
@@ -456,8 +455,8 @@ export const teamEventMutators = {
   cancel: defineMutator(
     z.object({
       id: z.string(),
-      reason: z.string().optional(),
       now: z.number(),
+      reason: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -484,26 +483,25 @@ export const teamEventMutators = {
         throw new Error("Cannot cancel an event that has already started");
       }
 
-      const now = args.now;
+      const { now } = args;
       await tx.mutate.teamEvent.update({
-        id: args.id,
         cancelledAt: now,
+        id: args.id,
         updatedAt: now,
       });
 
       if (tx.location === "server") {
         const eventId = args.id;
         const eventName = existing.name;
-        const teamId = existing.teamId;
+        const { teamId } = existing;
         const cancelledAt = now;
-        const reason = args.reason;
+        const { reason } = args;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
         const eventMemberIds = eventMembers.map((m) => m.userId);
 
         ctx.asyncTasks?.push({
-          meta: { mutator: "cancelTeamEvent", eventId, eventName, teamId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -528,163 +526,8 @@ export const teamEventMutators = {
               { traceId: ctx.traceId }
             );
           },
+          meta: { eventId, eventName, mutator: "cancelTeamEvent", teamId },
         });
-      }
-    }
-  ),
-
-  /** Materialize a virtual occurrence into an exception row. */
-  materialize: defineMutator(
-    z.object({
-      id: z.string(),
-      seriesId: z.string(),
-      originalDate: z.string().regex(ISO_DATE_RE),
-      now: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const series = (await tx.run(
-        zql.teamEvent.where("id", args.seriesId).one()
-      )) as TeamEvent | undefined;
-      if (!series) {
-        throw new Error("Series not found");
-      }
-      if (!series.recurrenceRule) {
-        throw new Error("Event is not a recurring series");
-      }
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", series.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
-
-      // Check if already materialized
-      const existing = (await tx.run(
-        zql.teamEvent
-          .where("seriesId", args.seriesId)
-          .where("originalDate", args.originalDate)
-          .one()
-      )) as TeamEvent | undefined;
-      if (existing) {
-        throw new Error("Occurrence already materialized");
-      }
-
-      const occStart = computeOccurrenceStart(
-        series.startTime,
-        args.originalDate
-      );
-      const duration =
-        series.endTime == null ? null : series.endTime - series.startTime;
-      const occEnd = duration == null ? null : occStart + duration;
-
-      await tx.mutate.teamEvent.insert({
-        id: args.id,
-        teamId: series.teamId,
-        name: series.name,
-        description: series.description,
-        location: series.location,
-        startTime: occStart,
-        endTime: occEnd,
-        isPublic: series.isPublic,
-        recurrenceRule: null,
-        seriesId: args.seriesId,
-        originalDate: args.originalDate,
-        cancelledAt: null,
-        feedbackEnabled: series.feedbackEnabled,
-        feedbackDeadline: series.feedbackDeadline,
-        postRsvpPoll: series.postRsvpPoll,
-        rsvpPollLeadMinutes: series.rsvpPollLeadMinutes,
-        reminderIntervals: series.reminderIntervals,
-        reminderTarget: series.reminderTarget ?? "group",
-        whatsappGroupId: series.whatsappGroupId,
-        inheritVolunteers: series.inheritVolunteers ?? false,
-        createdBy: ctx.userId,
-        createdAt: args.now,
-        updatedAt: args.now,
-      });
-
-      if (series.inheritVolunteers) {
-        const members = (await tx.run(
-          zql.teamEventMember.where("eventId", series.id)
-        )) as TeamEventMember[];
-        for (const member of members) {
-          await tx.mutate.teamEventMember.insert({
-            id: uuidv7(),
-            eventId: args.id,
-            userId: member.userId,
-            addedAt: member.addedAt,
-          });
-        }
-      }
-    }
-  ),
-
-  /** Update a series with edit mode: "this", "following", or "all". */
-  updateSeries: defineMutator(
-    z.object({
-      id: z.string(),
-      mode: z.enum(["this", "following", "all"]),
-      originalDate: z.string().regex(ISO_DATE_RE).optional(),
-      newExceptionId: z.string().optional(),
-      newSeriesId: z.string().optional(),
-      name: z.string().min(1).optional(),
-      description: z.string().optional(),
-      location: z.string().optional(),
-      city: z.enum(cityValues).optional(),
-      now: z.number(),
-      startTime: z.number().optional(),
-      endTime: z.number().optional(),
-      isPublic: z.boolean().optional(),
-      recurrenceRule: recurrenceRuleSchema,
-      feedbackEnabled: z.boolean().optional(),
-      feedbackDeadline: z.number().nullable().optional(),
-      postRsvpPoll: z.boolean().optional(),
-      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
-      reminderIntervals: reminderIntervalsSchema,
-      reminderTarget: reminderTargetSchema,
-      postEventNudgesEnabled: z.boolean().optional(),
-      inheritVolunteers: z.boolean().optional(),
-      whatsappGroupId: z.string().optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const existing = (await tx.run(
-        zql.teamEvent.where("id", args.id).one()
-      )) as TeamEvent | undefined;
-      if (!existing) {
-        throw new Error("Event not found");
-      }
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", existing.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
-
-      if (args.mode === "all") {
-        await updateSeriesAll(tx, args, buildUpdateFields(args));
-      } else if (args.mode === "this") {
-        await updateSeriesThis(tx, args, existing, ctx.userId);
-      } else if (
-        args.mode === "following" &&
-        args.originalDate &&
-        args.newSeriesId
-      ) {
-        await updateSeriesFollowing(
-          tx,
-          {
-            ...args,
-            originalDate: args.originalDate,
-            newSeriesId: args.newSeriesId,
-          },
-          existing,
-          ctx.userId
-        );
       }
     }
   ),
@@ -694,10 +537,10 @@ export const teamEventMutators = {
     z.object({
       id: z.string(),
       mode: z.enum(["this", "following", "all"]),
-      originalDate: z.string().regex(ISO_DATE_RE).optional(),
       newExceptionId: z.string().optional(),
-      reason: z.string().optional(),
       now: z.number(),
+      originalDate: z.string().regex(ISO_DATE_RE).optional(),
+      reason: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -749,16 +592,15 @@ export const teamEventMutators = {
       if (tx.location === "server") {
         const eventId = args.id;
         const eventName = existing.name;
-        const teamId = existing.teamId;
+        const { teamId } = existing;
         const cancelledAt = args.now;
-        const reason = args.reason;
+        const { reason } = args;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
         const eventMemberIds = eventMembers.map((m) => m.userId);
 
         ctx.asyncTasks?.push({
-          meta: { mutator: "cancelSeriesEvent", eventId, eventName, teamId },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -783,208 +625,99 @@ export const teamEventMutators = {
               { traceId: ctx.traceId }
             );
           },
+          meta: { eventId, eventName, mutator: "cancelSeriesEvent", teamId },
         });
       }
     }
   ),
-
-  addMember: defineMutator(
+  create: defineMutator(
     z.object({
+      city: z.enum(cityValues).optional(),
+      createWhatsAppGroup: z.boolean().optional(),
+      description: z.string().optional(),
+      endTime: z.number().optional(),
+      feedbackDeadline: z.number().nullable().optional(),
+      feedbackEnabled: z.boolean().optional(),
       id: z.string(),
-      eventId: z.string(),
+      inheritVolunteers: z.boolean().optional(),
+      isPublic: z.boolean().optional(),
+      location: z.string().optional(),
+      name: z.string().min(1),
       now: z.number(),
-      userId: z.string(),
+      postEventNudgesEnabled: z.boolean().optional(),
+      postRsvpPoll: z.boolean().optional(),
+      recurrenceRule: recurrenceRuleSchema,
+      reminderIntervals: reminderIntervalsSchema,
+      reminderTarget: reminderTargetSchema,
+      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
+      startTime: z.number(),
+      teamId: z.string(),
+      whatsappGroupId: z.string().optional(),
     }),
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: insert maps many optional fields + server-side tasks
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
-      const event = (await tx.run(
-        zql.teamEvent.where("id", args.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
+      if (args.endTime !== undefined && args.endTime <= args.startTime) {
+        throw new Error("End time must be after start time");
       }
       const isTeamLead = !!(await tx.run(
         zql.teamMember
-          .where("teamId", event.teamId)
+          .where("teamId", args.teamId)
           .where("userId", ctx.userId)
           .where("role", "lead")
           .one()
       ));
-      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
+      assertHasPermissionOrTeamLead(ctx, "events.create", isTeamLead);
 
-      const existing = await tx.run(
-        zql.teamEventMember
-          .where("eventId", args.eventId)
-          .where("userId", args.userId)
-          .one()
-      );
-      if (existing) {
-        throw new Error("User is already a member");
+      const isBackdated =
+        tx.location === "server"
+          ? args.startTime < Date.now()
+          : args.startTime < args.now;
+      if (isBackdated && !can(ctx, "events.create_backdated") && !isTeamLead) {
+        throw new Error("Start time must be in the future");
       }
 
-      await tx.mutate.teamEventMember.insert({
+      await tx.mutate.teamEvent.insert({
+        cancelledAt: null,
+        city: args.city,
+        createdAt: args.now,
+        createdBy: ctx.userId,
+        description: args.description,
+        endTime: args.endTime,
+        feedbackDeadline: args.feedbackDeadline,
+        feedbackEnabled: args.feedbackEnabled,
         id: args.id,
-        eventId: args.eventId,
-        userId: args.userId,
-        addedAt: args.now,
+        inheritVolunteers: args.inheritVolunteers,
+        isPublic: args.isPublic,
+        location: args.location,
+        name: args.name,
+        originalDate: null,
+        postEventNudgesEnabled: args.postEventNudgesEnabled,
+        postRsvpPoll: args.postRsvpPoll,
+        recurrenceRule: args.recurrenceRule,
+        reminderIntervals: args.reminderIntervals,
+        reminderTarget: args.reminderTarget,
+        rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
+        seriesId: null,
+        startTime: args.startTime,
+        teamId: args.teamId,
+        updatedAt: args.now,
+        whatsappGroupId: args.whatsappGroupId,
       });
 
       if (tx.location === "server") {
-        const userId = args.userId;
-        const whatsappGroupId = event.whatsappGroupId;
-        if (whatsappGroupId) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "addEventMember",
-              eventId: args.eventId,
-              userId,
-              whatsappGroupId,
-            },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "whatsapp-add-member",
-                {
-                  groupId: whatsappGroupId,
-                  userId,
-                },
-                { traceId: ctx.traceId }
-              );
-            },
-          });
-        }
-
-        const eventId = args.eventId;
-        const eventName = event.name;
-        const startTime = event.startTime;
-        const location = event.location;
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "addEventMember",
-            eventId,
-            eventName,
-            userId,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-added-to-event",
-              {
-                eventId,
-                eventName,
-                location: location ?? null,
-                startTime,
-                userId,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
-      }
-    }
-  ),
-
-  addMembers: defineMutator(
-    z.object({
-      eventId: z.string(),
-      members: z.array(z.object({ id: z.string(), userId: z.string() })).min(1),
-      now: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const event = (await tx.run(
-        zql.teamEvent.where("id", args.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", event.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
-
-      for (const member of args.members) {
-        const existing = await tx.run(
-          zql.teamEventMember
-            .where("eventId", args.eventId)
-            .where("userId", member.userId)
-            .one()
-        );
-        if (!existing) {
-          await tx.mutate.teamEventMember.insert({
-            id: member.id,
-            eventId: args.eventId,
-            userId: member.userId,
-            addedAt: args.now,
-          });
-        }
-      }
-
-      if (tx.location === "server") {
-        const whatsappGroupId = event.whatsappGroupId;
-        const userIds = args.members.map((m) => m.userId);
-        if (whatsappGroupId) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "addEventMembers",
-              whatsappGroupId,
-              userCount: userIds.length,
-            },
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "whatsapp-add-members",
-                {
-                  groupId: whatsappGroupId,
-                  userIds,
-                },
-                { traceId: ctx.traceId }
-              );
-            },
-          });
-        }
-
-        const eventId = args.eventId;
-        const eventName = event.name;
-        const startTime = event.startTime;
-        const location = event.location;
-        ctx.asyncTasks?.push({
-          meta: {
-            mutator: "addEventMembers",
-            eventId,
-            eventName,
-            userCount: userIds.length,
-          },
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "notify-users-added-to-event",
-              {
-                userIds,
-                eventId,
-                eventName,
-                startTime,
-                location: location ?? null,
-              },
-              { traceId: ctx.traceId }
-            );
-          },
-        });
+        await pushCreateServerTasks(tx, ctx, args, isBackdated);
       }
     }
   ),
 
   joinAsMember: defineMutator(
     z.object({
-      id: z.string(),
       eventId: z.string(),
-      occDate: z.string().regex(ISO_DATE_RE).optional(),
+      id: z.string(),
       materializedId: z.string().optional(),
       now: z.number(),
+      occDate: z.string().regex(ISO_DATE_RE).optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -1018,23 +751,17 @@ export const teamEventMutators = {
       }
 
       await tx.mutate.teamEventMember.insert({
-        id: args.id,
-        eventId: target.eventId,
-        userId: ctx.userId,
         addedAt: args.now,
+        eventId: target.eventId,
+        id: args.id,
+        userId: ctx.userId,
       });
 
       if (tx.location === "server") {
-        const userId = ctx.userId;
-        const whatsappGroupId = event.whatsappGroupId;
+        const { userId } = ctx;
+        const { whatsappGroupId } = event;
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
-            meta: {
-              mutator: "joinEventAsMember",
-              eventId: target.eventId,
-              userId,
-              whatsappGroupId,
-            },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
@@ -1046,16 +773,16 @@ export const teamEventMutators = {
                 { traceId: ctx.traceId }
               );
             },
+            meta: {
+              eventId: target.eventId,
+              mutator: "joinEventAsMember",
+              userId,
+              whatsappGroupId,
+            },
           });
         }
 
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "joinEventAsMember",
-            eventId: target.eventId,
-            eventName: target.name,
-            userId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -1063,104 +790,19 @@ export const teamEventMutators = {
               {
                 eventId: target.eventId,
                 eventName: target.name,
-                location: target.location ?? null,
+                location: target.location,
                 startTime: target.startTime,
                 userId,
               },
               { traceId: ctx.traceId }
             );
           },
-        });
-      }
-    }
-  ),
-
-  markAttendance: defineMutator(
-    z.object({
-      eventId: z.string(),
-      memberId: z.string(),
-      attendance: z.enum(["present", "absent"]).nullable(),
-      now: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const event = (await tx.run(
-        zql.teamEvent.where("id", args.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-      if (event.startTime > args.now) {
-        throw new Error("Cannot mark attendance before event starts");
-      }
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", event.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(
-        ctx,
-        "events.manage_attendance",
-        isTeamLead
-      );
-
-      const member = (await tx.run(
-        zql.teamEventMember.where("id", args.memberId).one()
-      )) as TeamEventMember | undefined;
-      if (!member || member.eventId !== args.eventId) {
-        throw new Error("Member not found in this event");
-      }
-
-      await tx.mutate.teamEventMember.update({
-        id: args.memberId,
-        attendance: args.attendance,
-        attendanceMarkedAt: args.now,
-        attendanceMarkedBy: ctx.userId,
-      });
-    }
-  ),
-
-  markAllPresent: defineMutator(
-    z.object({
-      eventId: z.string(),
-      now: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const event = (await tx.run(
-        zql.teamEvent.where("id", args.eventId).one()
-      )) as TeamEvent | undefined;
-      if (!event) {
-        throw new Error("Event not found");
-      }
-      if (event.startTime > args.now) {
-        throw new Error("Cannot mark attendance before event starts");
-      }
-      const isTeamLead = !!(await tx.run(
-        zql.teamMember
-          .where("teamId", event.teamId)
-          .where("userId", ctx.userId)
-          .where("role", "lead")
-          .one()
-      ));
-      assertHasPermissionOrTeamLead(
-        ctx,
-        "events.manage_attendance",
-        isTeamLead
-      );
-
-      const members = (await tx.run(
-        zql.teamEventMember.where("eventId", args.eventId)
-      )) as TeamEventMember[];
-
-      for (const member of members) {
-        await tx.mutate.teamEventMember.update({
-          id: member.id,
-          attendance: "present",
-          attendanceMarkedAt: args.now,
-          attendanceMarkedBy: ctx.userId,
+          meta: {
+            eventId: target.eventId,
+            eventName: target.name,
+            mutator: "joinEventAsMember",
+            userId,
+          },
         });
       }
     }
@@ -1198,10 +840,10 @@ export const teamEventMutators = {
 
       if (tx.location === "server") {
         const volunteerUserId = ctx.userId;
-        const eventId = args.eventId;
+        const { eventId } = args;
         const eventName = event.name;
-        const teamId = event.teamId;
-        const whatsappGroupId = event.whatsappGroupId;
+        const { teamId } = event;
+        const { whatsappGroupId } = event;
         const leftAt = args.now;
 
         const leads = await tx.run(
@@ -1211,16 +853,10 @@ export const teamEventMutators = {
         const volunteer = await tx.run(
           zql.user.where("id", volunteerUserId).one()
         );
-        const volunteerName = volunteer?.name ?? "A volunteer";
+        const volunteerName = volunteer?.name;
 
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
-            meta: {
-              mutator: "leaveEvent",
-              eventId,
-              userId: volunteerUserId,
-              whatsappGroupId,
-            },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
@@ -1232,17 +868,16 @@ export const teamEventMutators = {
                 { traceId: ctx.traceId }
               );
             },
+            meta: {
+              eventId,
+              mutator: "leaveEvent",
+              userId: volunteerUserId,
+              whatsappGroupId,
+            },
           });
         }
 
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "leaveEvent",
-            eventId,
-            eventName,
-            teamId,
-            volunteerUserId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -1253,13 +888,204 @@ export const teamEventMutators = {
                 leadUserIds,
                 leftAt,
                 teamId,
-                volunteerName,
+                volunteerName: volunteerName ?? "Someone",
                 volunteerUserId,
               },
               { traceId: ctx.traceId }
             );
           },
+          meta: {
+            eventId,
+            eventName,
+            mutator: "leaveEvent",
+            teamId,
+            volunteerUserId,
+          },
         });
+      }
+    }
+  ),
+
+  markAllPresent: defineMutator(
+    z.object({
+      eventId: z.string(),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      if (event.startTime > args.now) {
+        throw new Error("Cannot mark attendance before event starts");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(
+        ctx,
+        "events.manage_attendance",
+        isTeamLead
+      );
+
+      const members = (await tx.run(
+        zql.teamEventMember.where("eventId", args.eventId)
+      )) as TeamEventMember[];
+
+      await Promise.all(
+        members.map(async (member) => {
+          await tx.mutate.teamEventMember.update({
+            attendance: "present",
+            attendanceMarkedAt: args.now,
+            attendanceMarkedBy: ctx.userId,
+            id: member.id,
+          });
+        })
+      );
+    }
+  ),
+
+  markAttendance: defineMutator(
+    z.object({
+      attendance: z.enum(["present", "absent"]).nullable(),
+      eventId: z.string(),
+      memberId: z.string(),
+      now: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const event = (await tx.run(
+        zql.teamEvent.where("id", args.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      if (event.startTime > args.now) {
+        throw new Error("Cannot mark attendance before event starts");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(
+        ctx,
+        "events.manage_attendance",
+        isTeamLead
+      );
+
+      const member = (await tx.run(
+        zql.teamEventMember.where("id", args.memberId).one()
+      )) as TeamEventMember | undefined;
+      if (!member || member.eventId !== args.eventId) {
+        throw new Error("Member not found in this event");
+      }
+
+      await tx.mutate.teamEventMember.update({
+        attendance: args.attendance,
+        attendanceMarkedAt: args.now,
+        attendanceMarkedBy: ctx.userId,
+        id: args.memberId,
+      });
+    }
+  ),
+
+  /** Materialize a virtual occurrence into an exception row. */
+  materialize: defineMutator(
+    z.object({
+      id: z.string(),
+      now: z.number(),
+      originalDate: z.string().regex(ISO_DATE_RE),
+      seriesId: z.string(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const series = (await tx.run(
+        zql.teamEvent.where("id", args.seriesId).one()
+      )) as TeamEvent | undefined;
+      if (!series) {
+        throw new Error("Series not found");
+      }
+      if (!series.recurrenceRule) {
+        throw new Error("Event is not a recurring series");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", series.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+
+      // Check if already materialized
+      const existing = (await tx.run(
+        zql.teamEvent
+          .where("seriesId", args.seriesId)
+          .where("originalDate", args.originalDate)
+          .one()
+      )) as TeamEvent | undefined;
+      if (existing) {
+        throw new Error("Occurrence already materialized");
+      }
+
+      const occStart = computeOccurrenceStart(
+        series.startTime,
+        args.originalDate
+      );
+      const duration =
+        series.endTime === null ? null : series.endTime - series.startTime;
+      const occEnd = duration === null ? null : occStart + duration;
+
+      await tx.mutate.teamEvent.insert({
+        cancelledAt: null,
+        createdAt: args.now,
+        createdBy: ctx.userId,
+        description: series.description,
+        endTime: occEnd,
+        feedbackDeadline: series.feedbackDeadline,
+        feedbackEnabled: series.feedbackEnabled,
+        id: args.id,
+        inheritVolunteers: series.inheritVolunteers,
+        isPublic: series.isPublic,
+        location: series.location,
+        name: series.name,
+        originalDate: args.originalDate,
+        postRsvpPoll: series.postRsvpPoll,
+        recurrenceRule: null,
+        reminderIntervals: series.reminderIntervals,
+        reminderTarget: series.reminderTarget,
+        rsvpPollLeadMinutes: series.rsvpPollLeadMinutes,
+        seriesId: args.seriesId,
+        startTime: occStart,
+        teamId: series.teamId,
+        updatedAt: args.now,
+        whatsappGroupId: series.whatsappGroupId,
+      });
+
+      if (series.inheritVolunteers) {
+        const members = (await tx.run(
+          zql.teamEventMember.where("eventId", series.id)
+        )) as TeamEventMember[];
+        await Promise.all(
+          members.map(async (member) => {
+            await tx.mutate.teamEventMember.insert({
+              addedAt: member.addedAt,
+              eventId: args.id,
+              id: uuidv7(),
+              userId: member.userId,
+            });
+          })
+        );
       }
     }
   ),
@@ -1297,14 +1123,9 @@ export const teamEventMutators = {
       await tx.mutate.teamEventMember.delete({ id: args.memberId });
 
       if (tx.location === "server") {
-        const whatsappGroupId = event.whatsappGroupId;
+        const { whatsappGroupId } = event;
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
-            meta: {
-              mutator: "removeEventMember",
-              memberUserId,
-              whatsappGroupId,
-            },
             fn: async () => {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
               await enqueue(
@@ -1316,20 +1137,18 @@ export const teamEventMutators = {
                 { traceId: ctx.traceId }
               );
             },
+            meta: {
+              memberUserId,
+              mutator: "removeEventMember",
+              whatsappGroupId,
+            },
           });
         }
 
-        const eventId = args.eventId;
+        const { eventId } = args;
         const eventName = event.name;
-        const teamId = event.teamId;
+        const { teamId } = event;
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "removeEventMember",
-            eventId,
-            eventName,
-            teamId,
-            userId: memberUserId,
-          },
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
@@ -1343,7 +1162,194 @@ export const teamEventMutators = {
               { traceId: ctx.traceId }
             );
           },
+          meta: {
+            eventId,
+            eventName,
+            mutator: "removeEventMember",
+            teamId,
+            userId: memberUserId,
+          },
         });
+      }
+    }
+  ),
+
+  update: defineMutator(
+    z.object({
+      city: z.enum(cityValues).optional(),
+      description: z.string().optional(),
+      endTime: z.number().optional(),
+      feedbackDeadline: z.number().nullable().optional(),
+      feedbackEnabled: z.boolean().optional(),
+      id: z.string(),
+      inheritVolunteers: z.boolean().optional(),
+      isPublic: z.boolean().optional(),
+      location: z.string().optional(),
+      name: z.string().min(1).optional(),
+      now: z.number(),
+      postEventNudgesEnabled: z.boolean().optional(),
+      postRsvpPoll: z.boolean().optional(),
+      reminderIntervals: reminderIntervalsSchema,
+      reminderTarget: reminderTargetSchema,
+      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
+      startTime: z.number().optional(),
+      whatsappGroupId: z.string().optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const existing = (await tx.run(
+        zql.teamEvent.where("id", args.id).one()
+      )) as TeamEvent | undefined;
+      if (!existing) {
+        throw new Error("Event not found");
+      }
+      const effectiveStart = args.startTime ?? existing.startTime;
+      const effectiveEnd = args.endTime;
+      if (
+        effectiveEnd !== undefined &&
+        effectiveEnd !== null &&
+        effectiveEnd <= effectiveStart
+      ) {
+        throw new Error("End time must be after start time");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", existing.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+
+      await tx.mutate.teamEvent.update(buildUpdateFields(args));
+
+      if (tx.location === "server") {
+        const eventId = args.id;
+        const eventName = args.name ?? existing.name;
+        const startTime = args.startTime ?? existing.startTime;
+        const location = args.location ?? existing.location ?? null;
+        const { teamId } = existing;
+        const updatedAt = args.now;
+        const eventMembers = (await tx.run(
+          zql.teamEventMember.where("eventId", eventId)
+        )) as TeamEventMember[];
+        const eventMemberIds = eventMembers.map((m) => m.userId);
+
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-event-updated",
+              {
+                eventId,
+                eventMemberIds,
+                eventName,
+                location,
+                startTime,
+                teamId,
+                updatedAt,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: { eventId, eventName, mutator: "updateTeamEvent", teamId },
+        });
+
+        // Notify members when feedback is newly enabled on an already-ended event.
+        // Limitation: if feedback is enabled at creation time, no notification fires
+        // when the event ends naturally — would require a scheduled/cron mechanism.
+        if (
+          args.feedbackEnabled === true &&
+          !existing.feedbackEnabled &&
+          existing.endTime !== null &&
+          existing.endTime < args.now
+        ) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "notify-event-feedback-open",
+                {
+                  eventId,
+                  eventName,
+                  memberUserIds: eventMemberIds,
+                },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: {
+              eventId,
+              mutator: "updateTeamEvent:feedbackEnabled",
+            },
+          });
+        }
+      }
+    }
+  ),
+
+  /** Update a series with edit mode: "this", "following", or "all". */
+  updateSeries: defineMutator(
+    z.object({
+      city: z.enum(cityValues).optional(),
+      description: z.string().optional(),
+      endTime: z.number().optional(),
+      feedbackDeadline: z.number().nullable().optional(),
+      feedbackEnabled: z.boolean().optional(),
+      id: z.string(),
+      inheritVolunteers: z.boolean().optional(),
+      isPublic: z.boolean().optional(),
+      location: z.string().optional(),
+      mode: z.enum(["this", "following", "all"]),
+      name: z.string().min(1).optional(),
+      newExceptionId: z.string().optional(),
+      newSeriesId: z.string().optional(),
+      now: z.number(),
+      originalDate: z.string().regex(ISO_DATE_RE).optional(),
+      postEventNudgesEnabled: z.boolean().optional(),
+      postRsvpPoll: z.boolean().optional(),
+      recurrenceRule: recurrenceRuleSchema,
+      reminderIntervals: reminderIntervalsSchema,
+      reminderTarget: reminderTargetSchema,
+      rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
+      startTime: z.number().optional(),
+      whatsappGroupId: z.string().optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const existing = (await tx.run(
+        zql.teamEvent.where("id", args.id).one()
+      )) as TeamEvent | undefined;
+      if (!existing) {
+        throw new Error("Event not found");
+      }
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", existing.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+
+      if (args.mode === "all") {
+        await updateSeriesAll(tx, args, buildUpdateFields(args));
+      } else if (args.mode === "this") {
+        await updateSeriesThis(tx, args, existing, ctx.userId);
+      } else if (
+        args.mode === "following" &&
+        args.originalDate &&
+        args.newSeriesId
+      ) {
+        await updateSeriesFollowing(
+          tx,
+          {
+            ...args,
+            newSeriesId: args.newSeriesId,
+            originalDate: args.originalDate,
+          },
+          existing,
+          ctx.userId
+        );
       }
     }
   ),

@@ -28,7 +28,7 @@ export const handleNotifyUserWelcome =
   createNotifyHandler<NotifyUserWelcomePayload>(
     "notify-user-welcome",
     async () => (data: NotifyUserWelcomePayload) =>
-      notifyUserWelcome({ userId: data.userId, name: data.name })
+      notifyUserWelcome({ name: data.name, userId: data.userId })
   );
 
 export const handleNotifyUserBanned =

@@ -63,7 +63,7 @@ function searchRow(row: PublicDisplayRow, query: string): boolean {
   if (!q) {
     return true;
   }
-  return [row.name, row.location ?? "", row.team?.name ?? "", row.city ?? ""]
+  return [row.name, row.location, row.team?.name, row.city]
     .join(" ")
     .toLowerCase()
     .includes(q);
@@ -81,7 +81,7 @@ function EventCalendarDayButton({
   return (
     <CalendarDayButton day={day} {...props}>
       {children}
-      {hasEvents && (
+      {Boolean(hasEvents) && (
         <span
           aria-hidden="true"
           className="pointer-events-none absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-primary opacity-100!"
@@ -189,26 +189,27 @@ export function EventsCalendarView({
   );
 
   const hasMultipleCities =
-    new Set(allDisplayRows.map((r) => r.city).filter(Boolean)).size > 1;
+    new Set(allDisplayRows.map((r: any) => r.city).filter(Boolean)).size > 1;
 
   const displayRows = useMemo(() => {
     let rows = allDisplayRows;
     if (filter === "my-teams") {
-      rows = rows.filter((r) => myTeamIds.has(r.teamId));
+      rows = rows.filter((r: any) => myTeamIds.has(r.teamId));
     } else if (filter === "public") {
-      rows = rows.filter((r) => r.isPublic);
+      rows = rows.filter((r: any) => r.isPublic);
     }
     if (cityFilter !== "all") {
-      rows = rows.filter((r) => r.city === cityFilter);
+      rows = rows.filter((r: any) => r.city === cityFilter);
     }
     if (search.trim()) {
-      rows = rows.filter((r) => searchRow(r, search));
+      rows = rows.filter((r: any) => searchRow(r, search));
     }
     return rows;
   }, [allDisplayRows, filter, cityFilter, myTeamIds, search]);
 
   const datesWithEvents = useMemo(
-    () => new Set(displayRows.map((r) => format(r.startTime, "yyyy-MM-dd"))),
+    () =>
+      new Set(displayRows.map((r: any) => format(r.startTime, "yyyy-MM-dd"))),
     [displayRows]
   );
 
@@ -234,6 +235,9 @@ export function EventsCalendarView({
     },
     [handleDateSelect]
   );
+  const stableOnClick0 = () => setCityFilter("all");
+  const stableOnClick1 = () => setCityFilter("all");
+  const stableOnChange2 = (e: any) => setSearch(e.target.value);
 
   if (isLoading) {
     return (
@@ -242,7 +246,7 @@ export function EventsCalendarView({
           <Skeleton className="h-75 w-full" />
         </div>
         <div className="flex-1 space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_: any, i: any) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: skeleton list
             <Skeleton className="h-20 w-full" key={i} />
           ))}
@@ -254,12 +258,11 @@ export function EventsCalendarView({
   const dateEntries = Array.from(groupedRows.entries());
   const nowMs = Date.now();
   const pastIndex = dateEntries.findIndex(
-    ([, rows]) => (rows[0]?.startTime ?? 0) < nowMs
+    ([, rows]) => (rows[0]?.startTime ?? Number.POSITIVE_INFINITY) < nowMs
   );
   const upcomingEntries =
     pastIndex === -1 ? dateEntries : dateEntries.slice(0, pastIndex);
   const pastEntries = pastIndex === -1 ? [] : dateEntries.slice(pastIndex);
-
   return (
     <div className="flex flex-col gap-6 md:flex-row">
       {/* Desktop sidebar */}
@@ -308,13 +311,13 @@ export function EventsCalendarView({
             <p className="text-muted-foreground text-xs">City</p>
             <div className="flex flex-wrap gap-1">
               <Button
-                onClick={() => setCityFilter("all")}
+                onClick={stableOnClick0}
                 size="sm"
                 variant={cityFilter === "all" ? "default" : "ghost"}
               >
                 All
               </Button>
-              {cityValues.map((city) => (
+              {cityValues.map((city: any) => (
                 <Button
                   key={city}
                   onClick={() => setCityFilter(city)}
@@ -372,13 +375,13 @@ export function EventsCalendarView({
             <p className="text-muted-foreground text-xs">City</p>
             <div className="flex gap-1">
               <Button
-                onClick={() => setCityFilter("all")}
+                onClick={stableOnClick1}
                 size="sm"
                 variant={cityFilter === "all" ? "default" : "ghost"}
               >
                 All
               </Button>
-              {cityValues.map((city) => (
+              {cityValues.map((city: any) => (
                 <Button
                   key={city}
                   onClick={() => setCityFilter(city)}
@@ -397,7 +400,7 @@ export function EventsCalendarView({
       <main className="min-w-0 flex-1 space-y-4">
         <Input
           className="max-w-sm"
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={stableOnChange2}
           placeholder="Search events..."
           type="search"
           value={search}
@@ -411,7 +414,7 @@ export function EventsCalendarView({
             {upcomingEntries.map(([dateStr, rows]) => (
               <EventDateGroup
                 date={parseLocalDate(dateStr)}
-                groupRef={(el) => {
+                groupRef={(el: any) => {
                   if (el) {
                     dateRefs.current.set(dateStr, el);
                   } else {
@@ -433,7 +436,7 @@ export function EventsCalendarView({
                 {pastEntries.map(([dateStr, rows]) => (
                   <EventDateGroup
                     date={parseLocalDate(dateStr)}
-                    groupRef={(el) => {
+                    groupRef={(el: any) => {
                       if (el) {
                         dateRefs.current.set(dateStr, el);
                       } else {

@@ -29,20 +29,21 @@ function buildTransactionFormSchema(remainingAmount?: number) {
     amount: z
       .string()
       .min(1, "Amount is required")
-      .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
+      .refine((v: any) => !Number.isNaN(Number(v)) && Number(v) > 0, {
         message: "Must be a positive number",
       })
       .refine(
-        (v) => remainingAmount === undefined || Number(v) <= remainingAmount,
+        (v: any) =>
+          remainingAmount === undefined || Number(v) <= remainingAmount,
         {
           message: `Exceeds remaining balance of ${formatINR(remainingAmount ?? 0)}`,
         }
       ),
+    attachments: z.array(attachmentSchema),
     description: z.string(),
-    transactionDate: z.date({ message: "Date is required" }),
     paymentMethod: z.string(),
     paymentReference: z.string(),
-    attachments: z.array(attachmentSchema),
+    transactionDate: z.date({ message: "Date is required" }),
   });
 }
 
@@ -90,11 +91,11 @@ function TransactionFormContent({
   const form = useForm({
     defaultValues: initialValues ?? {
       amount: "",
+      attachments: [] as Attachment[],
       description: "",
-      transactionDate: new Date(),
       paymentMethod: "",
       paymentReference: "",
-      attachments: [] as Attachment[],
+      transactionDate: new Date(),
     },
     onSubmit: async ({ value }) => {
       const parsed = schema.parse(value);
@@ -103,21 +104,21 @@ function TransactionFormContent({
       if (mode === "edit" && transactionId) {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.update({
-            id: transactionId,
             amount,
+            attachments: parsed.attachments,
             description: parsed.description || undefined,
-            transactionDate: parsed.transactionDate.getTime(),
+            id: transactionId,
             paymentMethod: parsed.paymentMethod || undefined,
             paymentReference: parsed.paymentReference || undefined,
-            attachments: parsed.attachments,
+            transactionDate: parsed.transactionDate.getTime(),
           })
         ).server;
 
         handleMutationResult(res, {
-          mutation: "vendorPaymentTransaction.update",
           entityId: transactionId,
-          successMsg: "Payment updated",
           errorMsg: "Couldn't update payment",
+          mutation: "vendorPaymentTransaction.update",
+          successMsg: "Payment updated",
         });
 
         if (res.type !== "error") {
@@ -126,22 +127,22 @@ function TransactionFormContent({
       } else {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.create({
-            id: entityId,
-            vendorPaymentId,
             amount,
+            attachments: parsed.attachments,
             description: parsed.description || undefined,
-            transactionDate: parsed.transactionDate.getTime(),
+            id: entityId,
             paymentMethod: parsed.paymentMethod || undefined,
             paymentReference: parsed.paymentReference || undefined,
-            attachments: parsed.attachments,
+            transactionDate: parsed.transactionDate.getTime(),
+            vendorPaymentId,
           })
         ).server;
 
         handleMutationResult(res, {
-          mutation: "vendorPaymentTransaction.create",
           entityId,
-          successMsg: "Payment recorded",
           errorMsg: "Couldn't record payment",
+          mutation: "vendorPaymentTransaction.create",
+          successMsg: "Payment recorded",
         });
 
         if (res.type !== "error") {
@@ -158,6 +159,7 @@ function TransactionFormContent({
   const isEdit = mode === "edit";
   let submitLabel = "Request Payment";
   let submittingLabel = "Requesting...";
+
   if (isEdit) {
     submitLabel = "Update Payment";
     submittingLabel = "Updating...";
@@ -165,6 +167,8 @@ function TransactionFormContent({
     submitLabel = "Record Payment";
     submittingLabel = "Recording...";
   }
+
+  const stableOnCancel0 = () => onOpenChange(false);
 
   return (
     <FormLayout form={form}>
@@ -188,10 +192,10 @@ function TransactionFormContent({
       </div>
 
       <CustomField<Attachment[]> label="Attachments" name="attachments">
-        {(field) => (
+        {(field: any) => (
           <AttachmentsSection
             entityId={entityId}
-            onChange={(attachments) => field.handleChange(attachments)}
+            onChange={(attachments: any) => field.handleChange(attachments)}
             value={field.state.value ?? []}
           />
         )}
@@ -199,7 +203,7 @@ function TransactionFormContent({
 
       <FormActions
         cancelLabel="Cancel"
-        onCancel={() => onOpenChange(false)}
+        onCancel={stableOnCancel0}
         submitLabel={submitLabel}
         submittingLabel={submittingLabel}
       />
@@ -221,7 +225,7 @@ export function TransactionFormDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k) => k + 1);
+      setFormKey((k: any) => k + 1);
     }
     onOpenChange(nextOpen);
   };
@@ -230,6 +234,7 @@ export function TransactionFormDialog({
   let title = "Request Payment";
   let description =
     "Request a payment against this vendor payment. An approver will record the payment details.";
+
   if (isEdit) {
     title = "Edit Payment";
     description = "Update this payment record.";

@@ -50,10 +50,10 @@ export async function handleRemindStaleRequests(
 
   const total = reimbursementCount + advancePaymentCount + vendorPaymentCount;
   log.set({
-    reimbursementCount,
     advancePaymentCount,
-    vendorPaymentCount,
+    reimbursementCount,
     total,
+    vendorPaymentCount,
   });
 
   if (total === 0) {
@@ -67,12 +67,12 @@ export async function handleRemindStaleRequests(
   const results = await Promise.allSettled(
     approverIds.map((userId) =>
       notifyStaleRequests({
-        userId,
         counts: {
-          reimbursements: reimbursementCount,
           advancePayments: advancePaymentCount,
+          reimbursements: reimbursementCount,
           vendorPayments: vendorPaymentCount,
         },
+        userId,
       })
     )
   );
@@ -80,8 +80,8 @@ export async function handleRemindStaleRequests(
   const failures = results.filter((r) => r.status === "rejected");
   log.set({
     event: "job_complete",
-    notified: approverIds.length,
     failures: failures.length,
+    notified: approverIds.length,
   });
   log.emit();
 

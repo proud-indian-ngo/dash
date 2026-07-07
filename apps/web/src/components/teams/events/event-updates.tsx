@@ -83,15 +83,15 @@ export function EventUpdates({
       const now = Date.now();
       const id = uuidv7();
       const res = await zero.mutate(
-        mutators.eventUpdate.create({ id, eventId, content, now })
+        mutators.eventUpdate.create({ content, eventId, id, now })
       ).server;
       handleMutationResult(res, {
-        mutation: "eventUpdate.create",
         entityId: id,
+        errorMsg: "Failed to post update",
+        mutation: "eventUpdate.create",
         successMsg: isAdminOrLead
           ? "Update posted"
           : "Update submitted for approval",
-        errorMsg: "Failed to post update",
       });
     } finally {
       setSaving(false);
@@ -103,22 +103,22 @@ export function EventUpdates({
       mutators.eventUpdate.approve({ id, now: Date.now() })
     ).server;
     handleMutationResult(res, {
-      mutation: "eventUpdate.approve",
       entityId: id,
-      successMsg: "Update approved",
       errorMsg: "Failed to approve update",
+      mutation: "eventUpdate.approve",
+      successMsg: "Update approved",
     });
   };
 
   const handleEdit = async (id: string, content: string) => {
     const res = await zero.mutate(
-      mutators.eventUpdate.update({ id, content, now: Date.now() })
+      mutators.eventUpdate.update({ content, id, now: Date.now() })
     ).server;
     handleMutationResult(res, {
-      mutation: "eventUpdate.update",
       entityId: id,
-      successMsg: "Update saved",
       errorMsg: "Failed to update",
+      mutation: "eventUpdate.update",
+      successMsg: "Update saved",
     });
   };
 
@@ -127,24 +127,30 @@ export function EventUpdates({
       mutators.eventUpdate.reject({ id, now: Date.now() })
     ).server;
     handleMutationResult(res, {
-      mutation: "eventUpdate.reject",
       entityId: id,
-      successMsg: "Update rejected",
       errorMsg: "Failed to reject update",
+      mutation: "eventUpdate.reject",
+      successMsg: "Update rejected",
     });
   };
-
+  const stableOnDelete0 = (id: any) => deleteAction.trigger(id);
+  const stableOnOpenChange1 = (open: any) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  };
   const deleteAction = useConfirmAction<string>({
-    onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
-    onSuccess: () => toast.success("Update removed"),
-    onError: (msg) => {
+    onConfirm: (id: any) =>
+      zero.mutate(mutators.eventUpdate.delete({ id })).server,
+    onError: (msg: any) => {
       log.error({
         component: "EventUpdates",
-        mutation: "eventUpdate.delete",
         error: msg ?? "unknown",
+        mutation: "eventUpdate.delete",
       });
       toast.error("Couldn't delete update");
     },
+    onSuccess: () => toast.success("Update removed"),
   });
 
   return (
@@ -166,7 +172,7 @@ export function EventUpdates({
           <h3 className="font-medium text-sm">
             Pending Approval ({pendingUpdates.length})
           </h3>
-          {pendingUpdates.map((update) => (
+          {pendingUpdates.map((update: any) => (
             <PendingUpdateCard
               eventId={eventId}
               key={update.id}
@@ -186,7 +192,7 @@ export function EventUpdates({
           <h3 className="font-medium text-sm">
             Your Pending Updates ({pendingUpdates.length})
           </h3>
-          {pendingUpdates.map((update) => (
+          {pendingUpdates.map((update: any) => (
             <PendingUpdateCard
               eventId={eventId}
               key={update.id}
@@ -208,7 +214,7 @@ export function EventUpdates({
         <UpdateTimeline
           canManage={canManage}
           eventId={eventId}
-          onDelete={(id) => deleteAction.trigger(id)}
+          onDelete={stableOnDelete0}
           updates={approvedUpdates}
         />
       ) : null}
@@ -220,11 +226,7 @@ export function EventUpdates({
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
+        onOpenChange={stableOnOpenChange1}
         open={deleteAction.isOpen}
         title="Delete update"
       />
@@ -257,6 +259,10 @@ function TimelineItem({
   const canEdit = canManage;
   const canDelete = isAuthor || canManage;
   const isEdited = update.updatedAt !== update.createdAt;
+  const stableOnClick2 = () => onEditStart(update.id);
+  const stableOnClick3 = () => onDelete(update.id);
+  const stableOnCancel4 = () => onEditStart(null);
+  const stableOnSave5 = (content: any) => onEdit(update.id, content);
 
   return (
     <div className="relative pl-10">
@@ -312,13 +318,13 @@ function TimelineItem({
                 />
                 <DropdownMenuContent align="end" className="w-28">
                   {canEdit ? (
-                    <DropdownMenuItem onClick={() => onEditStart(update.id)}>
+                    <DropdownMenuItem onClick={stableOnClick2}>
                       Edit
                     </DropdownMenuItem>
                   ) : null}
                   {canDelete ? (
                     <DropdownMenuItem
-                      onClick={() => onDelete(update.id)}
+                      onClick={stableOnClick3}
                       variant="destructive"
                     >
                       Delete
@@ -340,8 +346,8 @@ function TimelineItem({
               content={update.content}
               entityId={eventId}
               key={editingId}
-              onCancel={() => onEditStart(null)}
-              onSave={(content) => onEdit(update.id, content)}
+              onCancel={stableOnCancel4}
+              onSave={stableOnSave5}
               saving={saving}
             />
           ) : (
@@ -373,13 +379,13 @@ function UpdateTimeline({
     setSaving(true);
     try {
       const res = await zero.mutate(
-        mutators.eventUpdate.update({ id, content, now: Date.now() })
+        mutators.eventUpdate.update({ content, id, now: Date.now() })
       ).server;
       handleMutationResult(res, {
-        mutation: "eventUpdate.update",
         entityId: id,
-        successMsg: "Update saved",
         errorMsg: "Failed to update",
+        mutation: "eventUpdate.update",
+        successMsg: "Update saved",
       });
       if (res.type !== "error") {
         setEditingId(null);
@@ -395,7 +401,7 @@ function UpdateTimeline({
       <div className="absolute top-0 bottom-3.5 left-3.5 w-px bg-border" />
 
       <div className="flex flex-col gap-6">
-        {updates.map((update) => (
+        {updates.map((update: any) => (
           <TimelineItem
             canManage={canManage}
             editingId={editingId}
@@ -444,6 +450,8 @@ function PendingUpdateCard({
       setSaving(false);
     }
   };
+  const stableOnClick6 = () => setEditing(true);
+  const stableOnCancel7 = () => setEditing(false);
 
   return (
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
@@ -478,7 +486,7 @@ function PendingUpdateCard({
               <Button
                 aria-label="Edit"
                 className="size-7"
-                onClick={() => setEditing(true)}
+                onClick={stableOnClick6}
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -548,7 +556,7 @@ function PendingUpdateCard({
             content={update.content}
             entityId={eventId}
             key={update.id}
-            onCancel={() => setEditing(false)}
+            onCancel={stableOnCancel7}
             onSave={handleSave}
             saving={saving}
           />

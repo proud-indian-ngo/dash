@@ -36,6 +36,9 @@ export function LightboxFooter({
   slide,
 }: LightboxFooterProps) {
   const hasActions = slide.canApprove || slide.canReject || slide.canDelete;
+  const stableOnClick0 = () => onApprove(slide.photoId);
+  const stableOnClick1 = () => onReject(slide.photoId);
+  const stableOnClick2 = () => onDelete(slide.photoId);
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 bg-black/60 px-4 py-3">
@@ -64,7 +67,7 @@ export function LightboxFooter({
           {slide.canApprove ? (
             <Button
               aria-label="Approve"
-              onClick={() => onApprove(slide.photoId)}
+              onClick={stableOnClick0}
               size="icon-sm"
               variant="secondary"
             >
@@ -78,7 +81,7 @@ export function LightboxFooter({
           {slide.canReject ? (
             <Button
               aria-label="Reject"
-              onClick={() => onReject(slide.photoId)}
+              onClick={stableOnClick1}
               size="icon-sm"
               variant="secondary"
             >
@@ -92,7 +95,7 @@ export function LightboxFooter({
           {slide.canDelete ? (
             <Button
               aria-label="Delete"
-              onClick={() => onDelete(slide.photoId)}
+              onClick={stableOnClick2}
               size="icon-sm"
               variant="secondary"
             >

@@ -45,7 +45,7 @@ test.describe("Create event (admin)", () => {
 
     await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue("");
     await expect(
-      dialog.getByRole("button", { name: "Create", exact: true })
+      dialog.getByRole("button", { exact: true, name: "Create" })
     ).toBeDisabled();
   });
 
@@ -64,7 +64,7 @@ test.describe("Create event (admin)", () => {
     const datetimeLocal = tomorrow.toISOString().slice(0, 16);
     await dialog.getByLabel("Start Time").fill(datetimeLocal);
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
@@ -89,7 +89,7 @@ test.describe("Create event (admin)", () => {
     await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
@@ -129,7 +129,7 @@ test.describe("Create event (admin)", () => {
   });
 
   test("mobile drawer scrolls to form actions", async ({ page }) => {
-    await page.setViewportSize({ width: 430, height: 932 });
+    await page.setViewportSize({ height: 932, width: 430 });
 
     await page.getByRole("button", { name: "Create Event" }).click();
 
@@ -137,8 +137,8 @@ test.describe("Create event (admin)", () => {
     await expect(dialog).toBeVisible();
 
     const createButton = dialog.getByRole("button", {
-      name: "Create",
       exact: true,
+      name: "Create",
     });
 
     await expect(createButton).not.toBeInViewport();

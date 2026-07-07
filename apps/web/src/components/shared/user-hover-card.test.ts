@@ -29,12 +29,12 @@ vi.mock("@/components/shared/user-avatar", () => ({
 import { UserHoverCard } from "./user-hover-card";
 
 const tooltipUser = {
+  createdAt: "2024-01-15T00:00:00.000Z",
+  email: "other@example.com",
   id: "user-2",
   name: "Other User",
-  email: "other@example.com",
   phone: "+91 99999 99999",
   role: "volunteer",
-  createdAt: "2024-01-15T00:00:00.000Z",
 };
 
 function renderHoverCard({
@@ -49,7 +49,7 @@ function renderHoverCard({
       AppContext,
       {
         value: {
-          hasPermission: (permission) => permissions.includes(permission),
+          hasPermission: (permission: any) => permissions.includes(permission),
           navGroups: [],
           navItems: [],
           openSettings: () => undefined,
@@ -59,9 +59,9 @@ function renderHoverCard({
           settingsOpen: false,
           settingsSection: "profile",
           user: {
+            email: "current@example.com",
             id: appUserId,
             name: "Current User",
-            email: "current@example.com",
             role: "volunteer",
           },
         },

@@ -42,14 +42,14 @@ function createJobColumns(
 ): ColumnDef<JobRow>[] {
   return [
     {
-      id: "name",
-      accessorFn: (row) => row.name,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Queue" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.name,
       cell: ({ row }) => (
         <span className="truncate font-medium">{row.original.name}</span>
       ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Queue" visibility={true} />
+      ),
+      id: "name",
       meta: {
         headerTitle: "Queue",
         skeleton: SKELETON_QUEUE,
@@ -57,15 +57,15 @@ function createJobColumns(
       size: 200,
     },
     {
-      id: "state",
-      accessorFn: (row) => row.state,
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="State" visibility={true} />
-      ),
+      accessorFn: (row: any) => row.state,
       cell: ({ row }) => {
         const badge = getStateBadge(row.original.state);
         return <Badge variant={badge.variant}>{badge.label}</Badge>;
       },
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="State" visibility={true} />
+      ),
+      id: "state",
       meta: {
         headerTitle: "State",
         skeleton: SKELETON_STATE,
@@ -73,8 +73,7 @@ function createJobColumns(
       size: 120,
     },
     {
-      id: "createdOn",
-      accessorFn: (row) => formatTimestamp(row.createdOn),
+      accessorFn: (row: any) => formatTimestamp(row.createdOn),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -82,6 +81,7 @@ function createJobColumns(
           visibility={true}
         />
       ),
+      id: "createdOn",
       meta: {
         headerTitle: "Created",
         skeleton: SKELETON_DATE,
@@ -89,8 +89,7 @@ function createJobColumns(
       size: 180,
     },
     {
-      id: "startAfter",
-      accessorFn: (row) => formatTimestamp(row.startAfter),
+      accessorFn: (row: any) => formatTimestamp(row.startAfter),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -98,6 +97,7 @@ function createJobColumns(
           visibility={true}
         />
       ),
+      id: "startAfter",
       meta: {
         headerTitle: "Scheduled For",
         skeleton: SKELETON_DATE,
@@ -105,8 +105,7 @@ function createJobColumns(
       size: 180,
     },
     {
-      id: "completedOn",
-      accessorFn: (row) => formatTimestamp(row.completedOn),
+      accessorFn: (row: any) => formatTimestamp(row.completedOn),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -114,6 +113,7 @@ function createJobColumns(
           visibility={true}
         />
       ),
+      id: "completedOn",
       meta: {
         headerTitle: "Completed At",
         skeleton: SKELETON_DATE,
@@ -121,8 +121,6 @@ function createJobColumns(
       size: 180,
     },
     {
-      id: "actions",
-      header: "",
       cell: ({ row }) => {
         const job = row.original;
         const canCancel = job.state === "created" || job.state === "retry";
@@ -136,7 +134,7 @@ function createJobColumns(
                   aria-label="Row actions"
                   className="size-8"
                   data-testid="row-actions"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e: any) => e.stopPropagation()}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -158,7 +156,7 @@ function createJobColumns(
                 />
                 View details
               </DropdownMenuItem>
-              {canCancel && (
+              {Boolean(canCancel) && (
                 <DropdownMenuItem
                   onClick={() => onCancel(job)}
                   variant="destructive"
@@ -171,7 +169,7 @@ function createJobColumns(
                   Cancel
                 </DropdownMenuItem>
               )}
-              {canRetry && (
+              {Boolean(canRetry) && (
                 <DropdownMenuItem onClick={() => onRetry(job)}>
                   <HugeiconsIcon
                     className="mr-2 size-4"
@@ -189,13 +187,15 @@ function createJobColumns(
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
+      header: "",
+      id: "actions",
       meta: {
         cellClassName: "text-center",
         skeleton: SKELETON_ACTIONS,
         stopRowClick: true,
       },
-      size: 52,
       minSize: 52,
+      size: 52,
     },
   ];
 }
@@ -228,13 +228,14 @@ export function JobsTable({
   onClearFilters,
 }: JobsTableProps) {
   const columns = createJobColumns(onView, onCancel, onRetry);
+  const stableGetRowId0 = (row: any) => row.id;
 
   return (
     <DataTableWrapper<JobRow>
       columns={columns}
       data={jobs}
       emptyMessage="No jobs found."
-      getRowId={(row) => row.id}
+      getRowId={stableGetRowId0}
       hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       manualPagination={manualPagination}
@@ -245,11 +246,11 @@ export function JobsTable({
       searchPlaceholder="Search jobs..."
       storageKey="jobs_table_state_v1"
       tableLayout={{
-        columnsMovable: true,
-        columnsResizable: true,
         columnsDraggable: true,
-        columnsVisibility: true,
+        columnsMovable: true,
         columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
       toolbarFilters={toolbarFilters}

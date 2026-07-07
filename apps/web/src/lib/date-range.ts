@@ -36,43 +36,43 @@ export interface Preset {
 
 export const DATE_PRESETS: Preset[] = [
   {
+    getRange: () => ({ from: null, to: null }),
     key: "all",
     label: "All time",
-    getRange: () => ({ from: null, to: null }),
   },
   {
+    getRange: () => ({ from: subDays(new Date(), 7), to: new Date() }),
     key: "7d",
     label: "Last 7 days",
-    getRange: () => ({ from: subDays(new Date(), 7), to: new Date() }),
   },
   {
+    getRange: () => ({ from: subDays(new Date(), 30), to: new Date() }),
     key: "30d",
     label: "Last 30 days",
-    getRange: () => ({ from: subDays(new Date(), 30), to: new Date() }),
   },
   {
-    key: "this_month",
-    label: "This month",
     getRange: () => ({
       from: startOfMonth(new Date()),
       to: endOfMonth(new Date()),
     }),
+    key: "this_month",
+    label: "This month",
   },
   {
+    getRange: () => ({ from: subMonths(new Date(), 3), to: new Date() }),
     key: "3m",
     label: "Last 3 months",
-    getRange: () => ({ from: subMonths(new Date(), 3), to: new Date() }),
   },
   {
+    getRange: () => ({ from: fiscalYearStart(), to: new Date() }),
     key: "fiscal_year",
     label: "This fiscal year",
-    getRange: () => ({ from: fiscalYearStart(), to: new Date() }),
   },
 ];
 
 export const dateRangeSearchParams = {
-  range: parseAsString.withDefault("all"),
   from: parseAsString.withDefault(""),
+  range: parseAsString.withDefault("all"),
   to: parseAsString.withDefault(""),
 };
 
@@ -89,7 +89,7 @@ export function resolveDateRange(
     }
     return { from: null, to: null };
   }
-  const preset = DATE_PRESETS.find((p) => p.key === rangeKey);
+  const preset = DATE_PRESETS.find((p: any) => p.key === rangeKey);
   return preset ? preset.getRange() : { from: null, to: null };
 }
 
@@ -106,9 +106,9 @@ export function filterByDateRange<T>(
   const fromMs = from ? from.getTime() : 0;
   const toMs = to ? to.getTime() : Number.POSITIVE_INFINITY;
 
-  return items.filter((item) => {
+  return items.filter((item: any) => {
     const ts = dateAccessor(item);
-    if (ts == null) {
+    if (ts === null) {
       return false;
     }
     return ts >= fromMs && ts <= toMs;

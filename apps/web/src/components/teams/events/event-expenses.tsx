@@ -6,7 +6,7 @@ import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 
 function sumLineItems(lineItems: readonly { amount: number }[]): number {
-  return lineItems.reduce((sum, item) => sum + item.amount, 0);
+  return lineItems.reduce((sum: any, item: any) => sum + item.amount, 0);
 }
 
 interface ExpenseRowProps {
@@ -68,11 +68,11 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
   const vpList = vendorPayments ?? [];
 
   const reimbTotal = reimbList.reduce(
-    (sum, r) => sum + sumLineItems(r.lineItems),
+    (sum: any, r: any) => sum + sumLineItems(r.lineItems),
     0
   );
   const vpTotal = vpList.reduce(
-    (sum, vp) => sum + sumLineItems(vp.lineItems),
+    (sum: any, vp: any) => sum + sumLineItems(vp.lineItems),
     0
   );
   const grandTotal = reimbTotal + vpTotal;
@@ -101,7 +101,7 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
         <div>
           <SectionHeader title="Reimbursements" total={reimbTotal} />
           <div className="divide-y">
-            {reimbList.map((r) => (
+            {reimbList.map((r: any) => (
               <ExpenseRow
                 key={r.id}
                 status={r.status}
@@ -118,7 +118,7 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
         <div>
           <SectionHeader title="Vendor Payments" total={vpTotal} />
           <div className="divide-y">
-            {vpList.map((vp) => (
+            {vpList.map((vp: any) => (
               <ExpenseRow
                 key={vp.id}
                 status={vp.status}

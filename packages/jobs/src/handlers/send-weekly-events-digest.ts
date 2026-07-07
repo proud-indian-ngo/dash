@@ -23,10 +23,10 @@ async function collectStandaloneEvents(
 ): Promise<DigestEvent[]> {
   const events = await db
     .select({
-      name: teamEvent.name,
-      startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
+      name: teamEvent.name,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(
@@ -40,10 +40,10 @@ async function collectStandaloneEvents(
     );
 
   return events.map((event) => ({
-    name: event.name,
-    startTime: event.startTime.getTime(),
     endTime: event.endTime?.getTime() ?? null,
     location: event.location,
+    name: event.name,
+    startTime: event.startTime.getTime(),
   }));
 }
 
@@ -53,10 +53,10 @@ async function collectMaterializedExceptions(
 ): Promise<DigestEvent[]> {
   const events = await db
     .select({
-      name: teamEvent.name,
-      startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
       location: teamEvent.location,
+      name: teamEvent.name,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(
@@ -69,10 +69,10 @@ async function collectMaterializedExceptions(
     );
 
   return events.map((event) => ({
-    name: event.name,
-    startTime: event.startTime.getTime(),
     endTime: event.endTime?.getTime() ?? null,
     location: event.location,
+    name: event.name,
+    startTime: event.startTime.getTime(),
   }));
 }
 
@@ -82,12 +82,12 @@ async function collectRecurringEvents(
 ): Promise<DigestEvent[]> {
   const seriesParents = await db
     .select({
-      id: teamEvent.id,
-      name: teamEvent.name,
-      startTime: teamEvent.startTime,
       endTime: teamEvent.endTime,
+      id: teamEvent.id,
       location: teamEvent.location,
+      name: teamEvent.name,
       recurrenceRule: teamEvent.recurrenceRule,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(
@@ -113,7 +113,7 @@ async function collectRecurringEvents(
     const exceptionDates = new Set(
       exceptions
         .map((exception) => exception.originalDate)
-        .filter((date): date is string => date != null)
+        .filter((date): date is string => date !== null)
     );
 
     const occurrences = expandSeries(
@@ -127,10 +127,10 @@ async function collectRecurringEvents(
 
     for (const occurrence of occurrences) {
       result.push({
-        name: parent.name,
-        startTime: occurrence.startTime,
-        endTime: occurrence.endTime,
+        endTime: occurrence.endTime ?? null,
         location: parent.location,
+        name: parent.name,
+        startTime: occurrence.startTime ?? parent.startTime.getTime(),
       });
     }
   }
@@ -170,18 +170,20 @@ export async function handleSendWeeklyEventsDigest(
 
   const groupKeys = ["orientation_group_id", "all_volunteers_group_id"];
   let groupsSent = 0;
-  for (const key of groupKeys) {
-    const jid = await getGroupJidByConfigKey(key);
-    if (jid) {
-      await sendWhatsAppGroupMessage(jid, message);
-      groupsSent++;
-    }
-  }
+  await Promise.all(
+    groupKeys.map(async (key) => {
+      const jid = await getGroupJidByConfigKey(key);
+      if (jid) {
+        await sendWhatsAppGroupMessage(jid, message);
+        groupsSent++;
+      }
+    })
+  );
 
   log.set({
     event: "digest_sent",
-    groupsSent,
     eventCount: digestEvents.length,
+    groupsSent,
   });
   log.emit();
 }

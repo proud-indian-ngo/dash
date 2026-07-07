@@ -5,7 +5,6 @@ import {
   SelectTrigger,
 } from "@pi-dash/design-system/components/ui/select";
 import type { ReactNode } from "react";
-
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
@@ -57,21 +56,21 @@ export function SelectField({
       name={name}
       validators={validators}
     >
-      {(field) => {
+      {(field: any) => {
         const selectedValue = field.state.value;
         const selectedLabel =
-          options.find((option) => option.value === selectedValue)?.label ??
-          placeholder;
+          options.find((option: any) => option.value === selectedValue)
+            ?.label ?? placeholder;
 
         return (
           <Select
             disabled={disabled}
-            onOpenChange={(open) => {
+            onOpenChange={(open: any) => {
               if (!open) {
                 field.handleBlur();
               }
             }}
-            onValueChange={(value) => field.handleChange(value)}
+            onValueChange={(value: any) => field.handleChange(value)}
             value={selectedValue ?? ""}
           >
             <SelectTrigger
@@ -91,7 +90,7 @@ export function SelectField({
               </span>
             </SelectTrigger>
             <SelectContent>
-              {options.map((option) => (
+              {options.map((option: any) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

@@ -21,7 +21,7 @@ async function createAndNavigateToTeam(
   await expect(createDialog).toBeVisible();
   await createDialog.getByLabel("Name", { exact: true }).fill(teamName);
   await createDialog
-    .getByRole("button", { name: "Create", exact: true })
+    .getByRole("button", { exact: true, name: "Create" })
     .click();
   await expect(createDialog).toBeHidden({ timeout: 10_000 });
   await expect(page.getByText("Team created")).toBeVisible();

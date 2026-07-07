@@ -37,15 +37,15 @@ async function fetchGroups(): Promise<GroupInfo[]> {
   if (orientationInfo) {
     groups.push({
       jid: orientationInfo.jid,
-      name: orientationInfo.name,
       members: fetchResults[0],
+      name: orientationInfo.name,
     });
   }
   if (allVolunteersInfo) {
     groups.push({
       jid: allVolunteersInfo.jid,
-      name: allVolunteersInfo.name,
       members: fetchResults[1],
+      name: allVolunteersInfo.name,
     });
   }
   return groups;
@@ -101,8 +101,8 @@ export async function handleScanWhatsAppGroups(
   const groupPhones = new Set<string>(groups.flatMap((g) => g.members));
 
   log.set({
-    groups: groups.map((g) => ({ name: g.name, count: g.members.length })),
     combinedUniqueCount: groupPhones.size,
+    groups: groups.map((g) => ({ count: g.members.length, name: g.name })),
   });
 
   // Safety: abort if groups are configured but returned no participants
@@ -207,7 +207,6 @@ export async function handleScanWhatsAppGroups(
 
     try {
       await notifyWhatsAppScanResults({
-        userIds: adminIds,
         deactivatedUsers: toDeactivate.map((u) => ({
           name: u.name,
           phone: u.phone,
@@ -216,8 +215,9 @@ export async function handleScanWhatsAppGroups(
           name: u.name,
           phone: u.phone,
         })),
-        unregisteredByGroup,
         scannedGroups: groups.map((g) => g.name),
+        unregisteredByGroup,
+        userIds: adminIds,
       });
     } catch (error) {
       log.error(error instanceof Error ? error : String(error));

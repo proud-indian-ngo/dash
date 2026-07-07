@@ -237,7 +237,7 @@ test.describe("Team events list filters (admin)", () => {
     const rowCount = await rows.count();
 
     let foundPast = false;
-    for (let i = 1; i < rowCount; i++) {
+    for (let i = 1; i < rowCount; i += 1) {
       const row = rows.nth(i);
       const statusText = await row
         .getByText(/Upcoming|Past|Cancelled/, { exact: true })

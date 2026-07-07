@@ -44,12 +44,11 @@ export const Route = createFileRoute("/api/zero/mutate")({
 
         const result = await handleMutateRequest(
           dbProvider,
-          async (transact) => {
-            return await transact(async (tx, name, args) => {
+          async (transact: any) =>
+            await transact(async (tx: any, name: any, args: any) => {
               const mutator = mustGetMutator(mutators, name);
-              return await mutator.fn({ tx, ctx, args });
-            });
-          },
+              return await mutator.fn({ args, ctx, tx });
+            }),
           request
         );
 
@@ -60,8 +59,8 @@ export const Route = createFileRoute("/api/zero/mutate")({
             {
               ...task.meta,
               handler: "mutate",
-              userId,
               taskIndex: i,
+              userId,
               ...(traceId ? { traceId } : {}),
             },
             () => task.fn()

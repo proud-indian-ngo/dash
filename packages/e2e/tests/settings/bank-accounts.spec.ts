@@ -25,7 +25,7 @@ test.describe("Banking settings — bank account management", () => {
   test.afterEach(async ({ page }) => {
     const cleanup = async () => {
       const dialog = await openBankingSettings(page);
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 5; i += 1) {
         const e2eCard = dialog
           .locator(".rounded-md.border")
           .filter({ hasText: /^E2E / })
@@ -64,8 +64,11 @@ test.describe("Banking settings — bank account management", () => {
           );
         }),
       ]);
-    } catch (error) {
-      console.warn("[afterEach cleanup] failed to delete E2E accounts:", error);
+    } catch (caughtError) {
+      console.warn(
+        "[afterEach cleanup] failed to delete E2E accounts:",
+        caughtError
+      );
     } finally {
       clearTimeout(timer);
     }

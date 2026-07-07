@@ -15,8 +15,8 @@ async function markRecipientFailed(recipientRowId: string, error: unknown) {
   await db
     .update(scheduledMessageRecipient)
     .set({
-      status: "failed",
       error: error instanceof Error ? error.message : String(error),
+      status: "failed",
       updatedAt: new Date(),
     })
     .where(eq(scheduledMessageRecipient.id, recipientRowId));
@@ -35,235 +35,6 @@ const attachmentSchema = z.object({
 });
 
 export const scheduledMessageMutators = {
-  create: defineMutator(
-    z.object({
-      attachments: z.array(attachmentSchema).max(5).optional(),
-      id: z.string(),
-      message: z.string().min(1),
-      recipients: z.array(recipientSchema).min(1).max(10),
-      scheduledAt: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "messages.schedule");
-
-      const now = Date.now();
-      await tx.mutate.scheduledMessage.insert({
-        id: args.id,
-        message: args.message,
-        scheduledAt: args.scheduledAt,
-        attachments: args.attachments ?? null,
-        createdBy: ctx.userId,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      const recipientRows = args.recipients.map((r) => ({
-        id: uuidv7(),
-        scheduledMessageId: args.id,
-        recipientId: r.id,
-        label: r.label,
-        type: r.type as "group" | "user",
-        status: "pending" as const,
-        error: null,
-        sentAt: null,
-        retryCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      }));
-
-      for (const row of recipientRows) {
-        await tx.mutate.scheduledMessageRecipient.insert(row);
-      }
-
-      if (tx.location === "server") {
-        const enqueuedAt = now;
-        const scheduledMessageId = args.id;
-        const message = args.message;
-        const attachments = args.attachments;
-        const scheduledAt = args.scheduledAt;
-
-        for (const row of recipientRows) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "scheduledMessage.create",
-              scheduledMessageId,
-              recipientId: row.recipientId,
-            },
-            fn: async () => {
-              try {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
-
-                let targetAddress: string;
-                if (row.type === "group") {
-                  const group = await tx.run(
-                    zql.whatsappGroup.where("id", row.recipientId).one()
-                  );
-                  if (!group) {
-                    throw new Error(
-                      `WhatsApp group ${row.recipientId} not found`
-                    );
-                  }
-                  targetAddress = group.jid;
-                } else {
-                  const usr = await tx.run(
-                    zql.user.where("id", row.recipientId).one()
-                  );
-                  if (!usr?.phone) {
-                    throw new Error(`User ${row.recipientId} has no phone`);
-                  }
-                  targetAddress = usr.phone;
-                }
-
-                await enqueue(
-                  "send-scheduled-whatsapp",
-                  {
-                    recipientRowId: row.id,
-                    scheduledMessageId,
-                    recipientType: row.type,
-                    targetAddress,
-                    message,
-                    attachments: attachments ?? undefined,
-                    enqueuedAt,
-                  },
-                  {
-                    traceId: ctx.traceId,
-                    startAfter: new Date(scheduledAt).toISOString(),
-                  }
-                );
-              } catch (error) {
-                await markRecipientFailed(row.id, error);
-              }
-            },
-          });
-        }
-      }
-    }
-  ),
-
-  update: defineMutator(
-    z.object({
-      attachments: z.array(attachmentSchema).max(5).optional(),
-      id: z.string(),
-      message: z.string().min(1),
-      recipients: z.array(recipientSchema).min(1).max(10),
-      scheduledAt: z.number(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "messages.schedule");
-
-      const existing = await tx.run(
-        zql.scheduledMessage.where("id", args.id).one()
-      );
-      if (!existing) {
-        throw new Error("Scheduled message not found");
-      }
-
-      const existingRecipients = await tx.run(
-        zql.scheduledMessageRecipient.where("scheduledMessageId", args.id)
-      );
-      if (existingRecipients.some((r) => r.status !== "pending")) {
-        throw new Error("Can only edit messages with all pending recipients");
-      }
-
-      const now = Date.now();
-
-      // Delete old recipient rows
-      for (const r of existingRecipients) {
-        await tx.mutate.scheduledMessageRecipient.delete({ id: r.id });
-      }
-
-      await tx.mutate.scheduledMessage.update({
-        id: args.id,
-        message: args.message,
-        scheduledAt: args.scheduledAt,
-        attachments: args.attachments ?? null,
-        updatedAt: now,
-      });
-
-      // Insert new recipient rows
-      const recipientRows = args.recipients.map((r) => ({
-        id: uuidv7(),
-        scheduledMessageId: args.id,
-        recipientId: r.id,
-        label: r.label,
-        type: r.type as "group" | "user",
-        status: "pending" as const,
-        error: null,
-        sentAt: null,
-        retryCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      }));
-
-      for (const row of recipientRows) {
-        await tx.mutate.scheduledMessageRecipient.insert(row);
-      }
-
-      if (tx.location === "server") {
-        const enqueuedAt = now;
-        const scheduledMessageId = args.id;
-        const message = args.message;
-        const attachments = args.attachments;
-        const scheduledAt = args.scheduledAt;
-
-        for (const row of recipientRows) {
-          ctx.asyncTasks?.push({
-            meta: {
-              mutator: "scheduledMessage.update",
-              scheduledMessageId,
-              recipientId: row.recipientId,
-            },
-            fn: async () => {
-              try {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
-
-                let targetAddress: string;
-                if (row.type === "group") {
-                  const group = await tx.run(
-                    zql.whatsappGroup.where("id", row.recipientId).one()
-                  );
-                  if (!group) {
-                    throw new Error(
-                      `WhatsApp group ${row.recipientId} not found`
-                    );
-                  }
-                  targetAddress = group.jid;
-                } else {
-                  const usr = await tx.run(
-                    zql.user.where("id", row.recipientId).one()
-                  );
-                  if (!usr?.phone) {
-                    throw new Error(`User ${row.recipientId} has no phone`);
-                  }
-                  targetAddress = usr.phone;
-                }
-
-                await enqueue(
-                  "send-scheduled-whatsapp",
-                  {
-                    recipientRowId: row.id,
-                    scheduledMessageId,
-                    recipientType: row.type,
-                    targetAddress,
-                    message,
-                    attachments: attachments ?? undefined,
-                    enqueuedAt,
-                  },
-                  {
-                    traceId: ctx.traceId,
-                    startAfter: new Date(scheduledAt).toISOString(),
-                  }
-                );
-              } catch (error) {
-                await markRecipientFailed(row.id, error);
-              }
-            },
-          });
-        }
-      }
-    }
-  ),
-
   cancel: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
@@ -281,20 +52,130 @@ export const scheduledMessageMutators = {
       );
 
       const now = Date.now();
-      for (const r of recipients) {
-        if (r.status === "pending") {
-          await tx.mutate.scheduledMessageRecipient.update({
-            id: r.id,
-            status: "cancelled",
-            updatedAt: now,
-          });
-        }
-      }
+      await Promise.all(
+        recipients.map(async (r) => {
+          if (r.status === "pending") {
+            await tx.mutate.scheduledMessageRecipient.update({
+              id: r.id,
+              status: "cancelled",
+              updatedAt: now,
+            });
+          }
+        })
+      );
 
       await tx.mutate.scheduledMessage.update({
         id: args.id,
         updatedAt: now,
       });
+    }
+  ),
+  create: defineMutator(
+    z.object({
+      attachments: z.array(attachmentSchema).max(5).optional(),
+      id: z.string(),
+      message: z.string().min(1),
+      recipients: z.array(recipientSchema).min(1).max(10),
+      scheduledAt: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "messages.schedule");
+
+      const now = Date.now();
+      await tx.mutate.scheduledMessage.insert({
+        attachments: args.attachments,
+        createdAt: now,
+        createdBy: ctx.userId,
+        id: args.id,
+        message: args.message,
+        scheduledAt: args.scheduledAt,
+        updatedAt: now,
+      });
+
+      const recipientRows = args.recipients.map((r) => ({
+        createdAt: now,
+        error: null,
+        id: uuidv7(),
+        label: r.label,
+        recipientId: r.id,
+        retryCount: 0,
+        scheduledMessageId: args.id,
+        sentAt: null,
+        status: "pending" as const,
+        type: r.type as "group" | "user",
+        updatedAt: now,
+      }));
+
+      await Promise.all(
+        recipientRows.map(async (row) => {
+          await tx.mutate.scheduledMessageRecipient.insert(row);
+        })
+      );
+
+      if (tx.location === "server") {
+        const enqueuedAt = now;
+        const scheduledMessageId = args.id;
+        const { message } = args;
+        const { attachments } = args;
+        const { scheduledAt } = args;
+
+        await Promise.all(
+          recipientRows.map(async (row) => {
+            ctx.asyncTasks?.push({
+              fn: async () => {
+                try {
+                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
+
+                  let targetAddress: string;
+                  if (row.type === "group") {
+                    const group = await tx.run(
+                      zql.whatsappGroup.where("id", row.recipientId).one()
+                    );
+                    if (!group) {
+                      throw new Error(
+                        `WhatsApp group ${row.recipientId} not found`
+                      );
+                    }
+                    targetAddress = group.jid;
+                  } else {
+                    const usr = await tx.run(
+                      zql.user.where("id", row.recipientId).one()
+                    );
+                    if (!usr?.phone) {
+                      throw new Error(`User ${row.recipientId} has no phone`);
+                    }
+                    targetAddress = usr.phone;
+                  }
+
+                  await enqueue(
+                    "send-scheduled-whatsapp",
+                    {
+                      attachments: attachments ?? undefined,
+                      enqueuedAt,
+                      message,
+                      recipientRowId: row.id,
+                      recipientType: row.type,
+                      scheduledMessageId,
+                      targetAddress,
+                    },
+                    {
+                      startAfter: new Date(scheduledAt).toISOString(),
+                      traceId: ctx.traceId,
+                    }
+                  );
+                } catch (error) {
+                  await markRecipientFailed(row.id, error);
+                }
+              },
+              meta: {
+                mutator: "scheduledMessage.create",
+                recipientId: row.recipientId,
+                scheduledMessageId,
+              },
+            });
+          })
+        );
+      }
     }
   ),
 
@@ -344,18 +225,18 @@ export const scheduledMessageMutators = {
 
       const now = Date.now();
       await tx.mutate.scheduledMessageRecipient.update({
-        id: args.recipientId,
-        status: "pending",
         error: null,
+        id: args.recipientId,
         retryCount: currentRetryCount + 1,
+        status: "pending",
         updatedAt: now,
       });
 
       if (tx.location === "server") {
-        const recipientId = args.recipientId;
+        const { recipientId } = args;
         const recipientRecipientId = recipient.recipientId;
         const recipientType = recipient.type;
-        const scheduledMessageId = recipient.scheduledMessageId;
+        const { scheduledMessageId } = recipient;
 
         // Resolve data before pushing to asyncTasks — tx.run() may not work post-commit
         const parent = await tx.run(
@@ -385,11 +266,6 @@ export const scheduledMessageMutators = {
         }
 
         ctx.asyncTasks?.push({
-          meta: {
-            mutator: "scheduledMessage.retryRecipient",
-            scheduledMessageId,
-            recipientId: recipientRecipientId,
-          },
           fn: async () => {
             try {
               const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -400,24 +276,159 @@ export const scheduledMessageMutators = {
               await enqueue(
                 "send-scheduled-whatsapp",
                 {
-                  recipientRowId: recipientId,
-                  scheduledMessageId,
-                  recipientType: recipientType as "group" | "user",
-                  targetAddress,
-                  message: parent.message,
                   attachments: parent.attachments ?? undefined,
                   enqueuedAt: Date.now(),
+                  message: parent.message,
+                  recipientRowId: recipientId,
+                  recipientType: recipientType as "group" | "user",
+                  scheduledMessageId,
+                  targetAddress,
                 },
                 {
-                  traceId: ctx.traceId,
                   startAfter,
+                  traceId: ctx.traceId,
                 }
               );
-            } catch (error) {
-              await markRecipientFailed(recipientId, error);
+            } catch (caughtError) {
+              await markRecipientFailed(recipientId, caughtError);
             }
           },
+          meta: {
+            mutator: "scheduledMessage.retryRecipient",
+            recipientId: recipientRecipientId,
+            scheduledMessageId,
+          },
         });
+      }
+    }
+  ),
+
+  update: defineMutator(
+    z.object({
+      attachments: z.array(attachmentSchema).max(5).optional(),
+      id: z.string(),
+      message: z.string().min(1),
+      recipients: z.array(recipientSchema).min(1).max(10),
+      scheduledAt: z.number(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "messages.schedule");
+
+      const existing = await tx.run(
+        zql.scheduledMessage.where("id", args.id).one()
+      );
+      if (!existing) {
+        throw new Error("Scheduled message not found");
+      }
+
+      const existingRecipients = await tx.run(
+        zql.scheduledMessageRecipient.where("scheduledMessageId", args.id)
+      );
+      if (existingRecipients.some((r) => r.status !== "pending")) {
+        throw new Error("Can only edit messages with all pending recipients");
+      }
+
+      const now = Date.now();
+
+      // Delete old recipient rows
+      await Promise.all(
+        existingRecipients.map(async (r) => {
+          await tx.mutate.scheduledMessageRecipient.delete({ id: r.id });
+        })
+      );
+
+      await tx.mutate.scheduledMessage.update({
+        attachments: args.attachments,
+        id: args.id,
+        message: args.message,
+        scheduledAt: args.scheduledAt,
+        updatedAt: now,
+      });
+
+      // Insert new recipient rows
+      const recipientRows = args.recipients.map((r) => ({
+        createdAt: now,
+        error: null,
+        id: uuidv7(),
+        label: r.label,
+        recipientId: r.id,
+        retryCount: 0,
+        scheduledMessageId: args.id,
+        sentAt: null,
+        status: "pending" as const,
+        type: r.type as "group" | "user",
+        updatedAt: now,
+      }));
+
+      await Promise.all(
+        recipientRows.map(async (row) => {
+          await tx.mutate.scheduledMessageRecipient.insert(row);
+        })
+      );
+
+      if (tx.location === "server") {
+        const enqueuedAt = now;
+        const scheduledMessageId = args.id;
+        const { message } = args;
+        const { attachments } = args;
+        const { scheduledAt } = args;
+
+        await Promise.all(
+          recipientRows.map(async (row) => {
+            ctx.asyncTasks?.push({
+              fn: async () => {
+                try {
+                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
+
+                  let targetAddress: string;
+                  if (row.type === "group") {
+                    const group = await tx.run(
+                      zql.whatsappGroup.where("id", row.recipientId).one()
+                    );
+                    if (!group) {
+                      throw new Error(
+                        `WhatsApp group ${row.recipientId} not found`
+                      );
+                    }
+                    targetAddress = group.jid;
+                  } else {
+                    const usr = await tx.run(
+                      zql.user.where("id", row.recipientId).one()
+                    );
+                    if (!usr?.phone) {
+                      throw new Error(`User ${row.recipientId} has no phone`);
+                    }
+                    targetAddress = usr.phone;
+                  }
+
+                  await enqueue(
+                    "send-scheduled-whatsapp",
+                    {
+                      attachments: attachments ?? undefined,
+                      enqueuedAt,
+                      message,
+                      recipientRowId: row.id,
+                      recipientType: row.type,
+                      scheduledMessageId,
+                      targetAddress,
+                    },
+                    {
+                      startAfter: new Date(scheduledAt).toISOString(),
+                      traceId: ctx.traceId,
+                    }
+                  );
+                } catch (error) {
+                  await markRecipientFailed(row.id, error);
+                }
+              },
+              meta: {
+                mutator: "scheduledMessage.update",
+                recipientId: row.recipientId,
+                scheduledMessageId,
+              },
+            });
+          })
+        );
       }
     }
   ),

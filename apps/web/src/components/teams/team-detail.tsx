@@ -8,7 +8,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
-import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
@@ -148,54 +147,52 @@ function matchesEventFilters(
 
 function buildDuplicateInitialValues(row: EventDisplayRow) {
   return {
-    id: row.eventId,
-    name: `Copy of ${row.event.name}`,
+    city: row.event.city,
     description: row.event.description,
     endTime: row.endTime,
-    isPublic: row.event.isPublic ?? false,
+    feedbackDeadline: row.event.feedbackDeadline,
+    feedbackEnabled: !!row.event.feedbackEnabled,
+    id: row.eventId,
+    inheritVolunteers: !row.seriesId && !!row.event.inheritVolunteers,
+    isPublic: row.event.isPublic,
     location: row.event.location,
-    city: row.event.city,
-    seriesId: null,
+    name: `Copy of ${row.event.name}`,
+    postEventNudgesEnabled: row.event.postEventNudgesEnabled,
+    postRsvpPoll: !!row.event.postRsvpPoll,
     recurrenceRule: null,
+    reminderIntervals: row.event.reminderIntervals as number[] | null,
+    reminderTarget: row.event.reminderTarget as string,
+    rsvpPollLeadMinutes: row.event.rsvpPollLeadMinutes,
+    seriesId: null,
     startTime: row.startTime,
     whatsappGroupId: null,
-    feedbackEnabled: !!row.event.feedbackEnabled,
-    feedbackDeadline: row.event.feedbackDeadline,
-    postRsvpPoll: !!row.event.postRsvpPoll,
-    rsvpPollLeadMinutes:
-      row.event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-    reminderIntervals: (row.event.reminderIntervals as number[] | null) ?? null,
-    reminderTarget: (row.event.reminderTarget as string) ?? "group",
-    postEventNudgesEnabled: row.event.postEventNudgesEnabled ?? true,
-    inheritVolunteers: !row.seriesId && !!row.event.inheritVolunteers,
   };
 }
 
 function buildEditInitialValues(row: EventDisplayRow) {
   return {
-    id: row.eventId,
-    name: row.event.name,
+    city: row.event.city,
     description: row.event.description,
     endTime: row.endTime,
-    isPublic: row.event.isPublic ?? false,
+    feedbackDeadline: row.event.feedbackDeadline,
+    feedbackEnabled: !!row.event.feedbackEnabled,
+    id: row.eventId,
+    inheritVolunteers: !!row.event.inheritVolunteers,
+    isPublic: row.event.isPublic,
     location: row.event.location,
-    city: row.event.city,
-    seriesId: row.seriesId,
+    name: row.event.name,
+    postEventNudgesEnabled: row.event.postEventNudgesEnabled,
+    postRsvpPoll: !!row.event.postRsvpPoll,
     recurrenceRule: row.event.recurrenceRule as {
       rrule: string;
       exdates?: string[];
     } | null,
+    reminderIntervals: row.event.reminderIntervals as number[] | null,
+    reminderTarget: row.event.reminderTarget as string,
+    rsvpPollLeadMinutes: row.event.rsvpPollLeadMinutes,
+    seriesId: row.seriesId,
     startTime: row.startTime,
     whatsappGroupId: row.event.whatsappGroupId,
-    feedbackEnabled: !!row.event.feedbackEnabled,
-    feedbackDeadline: row.event.feedbackDeadline,
-    postRsvpPoll: !!row.event.postRsvpPoll,
-    rsvpPollLeadMinutes:
-      row.event.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES,
-    reminderIntervals: (row.event.reminderIntervals as number[] | null) ?? null,
-    reminderTarget: (row.event.reminderTarget as string) ?? "group",
-    postEventNudgesEnabled: row.event.postEventNudgesEnabled ?? true,
-    inheritVolunteers: !!row.event.inheritVolunteers,
   };
 }
 
@@ -214,7 +211,7 @@ function useEditEventScope(
         setEditScopeRow(row);
         setEditScopeDialogOpen(true);
       } else {
-        dialog.open({ type: "editEvent", event: row });
+        dialog.open({ event: row, type: "editEvent" });
       }
     },
     [dialog]
@@ -222,7 +219,7 @@ function useEditEventScope(
 
   const handleDuplicateEvent = useCallback(
     (row: EventDisplayRow) => {
-      dialog.open({ type: "duplicateEvent", event: row });
+      dialog.open({ event: row, type: "duplicateEvent" });
     },
     [dialog]
   );
@@ -232,7 +229,7 @@ function useEditEventScope(
       setEditScopeDialogOpen(false);
       setEditScope(scope);
       if (editScopeRow) {
-        dialog.open({ type: "editEvent", event: editScopeRow });
+        dialog.open({ event: editScopeRow, type: "editEvent" });
       }
     },
     [dialog, editScopeRow]
@@ -240,14 +237,14 @@ function useEditEventScope(
 
   return {
     editScope,
-    setEditScope,
     editScopeDialogOpen,
-    setEditScopeDialogOpen,
     editScopeRow,
-    setEditScopeRow,
-    handleEditEvent,
     handleDuplicateEvent,
+    handleEditEvent,
     handleEditScopeSelect,
+    setEditScope,
+    setEditScopeDialogOpen,
+    setEditScopeRow,
   };
 }
 
@@ -259,7 +256,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
   );
 
   const cancelEvent = useConfirmAction<EventDisplayRow>({
-    onConfirm: (row) => {
+    onConfirm: (row: any) => {
       const mode = cancelScopeRef.current;
       if (mode && row.seriesId) {
         const targetId = mode === "this" ? row.eventId : row.seriesId;
@@ -267,9 +264,9 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
           mutators.teamEvent.cancelSeries({
             id: targetId,
             mode,
-            originalDate: row.originalDate ?? undefined,
             newExceptionId: mode === "this" ? uuidv7() : undefined,
             now: Date.now(),
+            originalDate: row.originalDate,
           })
         ).server;
       }
@@ -277,18 +274,18 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
         mutators.teamEvent.cancel({ id: row.event.id, now: Date.now() })
       ).server;
     },
-    onSuccess: () => {
-      toast.success("Event cancelled");
+    onError: (msg: any) => {
+      log.error({
+        component: "TeamDetail",
+        error: msg,
+        mutation: "teamEvent.cancel",
+      });
+      toast.error("Failed to cancel event");
       cancelScopeRef.current = null;
       setCancelScopeRow(null);
     },
-    onError: (msg) => {
-      log.error({
-        component: "TeamDetail",
-        mutation: "teamEvent.cancel",
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to cancel event");
+    onSuccess: () => {
+      toast.success("Event cancelled");
       cancelScopeRef.current = null;
       setCancelScopeRow(null);
     },
@@ -320,9 +317,9 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
   return {
     cancelEvent,
     cancelScopeDialogOpen,
-    setCancelScopeDialogOpen,
     handleCancelEvent,
     handleCancelScopeSelect,
+    setCancelScopeDialogOpen,
   };
 }
 
@@ -360,35 +357,35 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
   const deleteTeam = useConfirmAction({
     onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
+    onError: (msg: any) => {
+      log.error({
+        component: "TeamDetail",
+        entityId: team.id,
+        error: msg,
+        mutation: "team.delete",
+      });
+      toast.error("Failed to delete team");
+    },
     onSuccess: () => {
       toast.success("Team removed");
       navigate({ to: "/teams" });
     },
-    onError: (msg) => {
-      log.error({
-        component: "TeamDetail",
-        mutation: "team.delete",
-        entityId: team.id,
-        error: msg ?? "unknown",
-      });
-      toast.error("Failed to delete team");
-    },
   });
 
   const removeMember = useConfirmAction<string>({
-    onConfirm: (memberId) =>
-      zero.mutate(mutators.team.removeMember({ teamId: team.id, memberId }))
+    onConfirm: (memberId: any) =>
+      zero.mutate(mutators.team.removeMember({ memberId, teamId: team.id }))
         .server,
-    onSuccess: () => toast.success("Member removed"),
-    onError: (msg) => {
+    onError: (msg: any) => {
       log.error({
         component: "TeamDetail",
-        mutation: "team.removeMember",
         entityId: team.id,
-        error: msg ?? "unknown",
+        error: msg,
+        mutation: "team.removeMember",
       });
       toast.error("Failed to remove member");
     },
+    onSuccess: () => toast.success("Member removed"),
   });
 
   const {
@@ -414,14 +411,13 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
   const pendingInterestCount = canManage
     ? events.reduce(
-        (acc, e) =>
-          acc +
-          (e.interests?.filter((i) => i.status === "pending").length ?? 0),
+        (acc: any, e: any) =>
+          acc + e.interests?.filter((i: any) => i.status === "pending").length,
         0
       )
     : 0;
 
-  const leadCount = team.members.filter((m) => m.role === "lead").length;
+  const leadCount = team.members.filter((m: any) => m.role === "lead").length;
 
   const handleToggleRole = async (memberId: string, currentRole: string) => {
     const newRole = currentRole === "lead" ? "member" : "lead";
@@ -435,24 +431,56 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
       mutators.team.setMemberRole({ memberId, role: newRole })
     ).server;
     handleMutationResult(res, {
-      mutation: "team.setMemberRole",
       entityId: memberId,
-      successMsg: `Role updated to ${newRole}`,
       errorMsg: "Failed to update role",
+      mutation: "team.setMemberRole",
+      successMsg: `Role updated to ${newRole}`,
     });
   };
 
   const handleSelectEvent = (row: EventDisplayRow) => {
     navigate({
-      to: "/events/$id",
       params: { id: row.eventId },
       search:
         row.isVirtual && row.originalDate ? { occDate: row.originalDate } : {},
+      to: "/events/$id",
     });
   };
 
   const editEventData = dialog.getData("editEvent");
   const duplicateEventData = dialog.getData("duplicateEvent");
+  const stableOnDelete0 = () => deleteTeam.trigger();
+  const stableOnEdit1 = () => dialog.open({ type: "edit" });
+  const stableOnAddMember2 = () => dialog.open({ type: "addMember" });
+  const stableOnRemoveMember3 = (id: any) => removeMember.trigger(id);
+  const stableOnClearFilters4 = () => {
+    setEvStatusFilter("");
+    setEvVisFilter("");
+    setEvRecFilter("");
+  };
+  const stableOnClick5 = () => dialog.open({ type: "createEvent" });
+  const stableOnOpenChange6 = (open: any) => {
+    dialog.onOpenChange(open);
+    if (!open) {
+      setEditScope(null);
+      setEditScopeRow(null);
+    }
+  };
+  const stableOnOpenChange7 = (open: any) => {
+    if (!open) {
+      deleteTeam.cancel();
+    }
+  };
+  const stableOnOpenChange8 = (open: any) => {
+    if (!open) {
+      removeMember.cancel();
+    }
+  };
+  const stableOnOpenChange9 = (open: any) => {
+    if (!open) {
+      cancelEvent.cancel();
+    }
+  };
 
   return (
     <AppErrorBoundary level="section">
@@ -477,8 +505,8 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           <TeamHeaderActions
             canDelete={canDelete}
             canEdit={canEdit}
-            onDelete={() => deleteTeam.trigger()}
-            onEdit={() => dialog.open({ type: "edit" })}
+            onDelete={stableOnDelete0}
+            onEdit={stableOnEdit1}
           />
         </div>
 
@@ -490,8 +518,8 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           canRemoveLeads={canManageMembers}
           leadCount={leadCount}
           members={team.members}
-          onAddMember={() => dialog.open({ type: "addMember" })}
-          onRemoveMember={(id) => removeMember.trigger(id)}
+          onAddMember={stableOnAddMember2}
+          onRemoveMember={stableOnRemoveMember3}
           onToggleRole={handleToggleRole}
           userId={userId}
         />
@@ -521,24 +549,16 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             canCreate={canCreate}
             canManage={canManage}
             displayRowFilter={eventDisplayRowFilter}
-            events={(events as EventRow[]) ?? []}
+            events={events as EventRow[]}
             hasActiveFilters={!!(evStatusFilter || evVisFilter || evRecFilter)}
             onCancelEvent={handleCancelEvent}
-            onClearFilters={() => {
-              setEvStatusFilter("");
-              setEvVisFilter("");
-              setEvRecFilter("");
-            }}
+            onClearFilters={stableOnClearFilters4}
             onDuplicateEvent={handleDuplicateEvent}
             onEditEvent={handleEditEvent}
             onSelectEvent={handleSelectEvent}
             toolbarActions={
               canManage ? (
-                <Button
-                  onClick={() => dialog.open({ type: "createEvent" })}
-                  size="sm"
-                  type="button"
-                >
+                <Button onClick={stableOnClick5} size="sm" type="button">
                   <HugeiconsIcon
                     className="size-4"
                     icon={PlusSignIcon}
@@ -577,9 +597,9 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {canEdit ? (
           <TeamFormDialog
             initialValues={{
+              description: team.description,
               id: team.id,
               name: team.name,
-              description: team.description,
               whatsappGroupId: team.whatsappGroupId,
             }}
             onOpenChange={dialog.onOpenChange}
@@ -641,13 +661,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           <EventFormDialog
             editScope={editScope ?? undefined}
             initialValues={buildEditInitialValues(editEventData.event)}
-            onOpenChange={(open) => {
-              dialog.onOpenChange(open);
-              if (!open) {
-                setEditScope(null);
-                setEditScopeRow(null);
-              }
-            }}
+            onOpenChange={stableOnOpenChange6}
             open
             originalDate={editEventData.event.originalDate ?? undefined}
             teamId={team.id}
@@ -661,11 +675,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           loading={deleteTeam.isLoading}
           loadingLabel="Deleting..."
           onConfirm={deleteTeam.confirm}
-          onOpenChange={(open) => {
-            if (!open) {
-              deleteTeam.cancel();
-            }
-          }}
+          onOpenChange={stableOnOpenChange7}
           open={deleteTeam.isOpen}
           title="Delete team"
         />
@@ -677,11 +687,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           loading={removeMember.isLoading}
           loadingLabel="Removing..."
           onConfirm={removeMember.confirm}
-          onOpenChange={(open) => {
-            if (!open) {
-              removeMember.cancel();
-            }
-          }}
+          onOpenChange={stableOnOpenChange8}
           open={removeMember.isOpen}
           title="Remove member"
         />
@@ -694,11 +700,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           loading={cancelEvent.isLoading}
           loadingLabel="Cancelling..."
           onConfirm={cancelEvent.confirm}
-          onOpenChange={(open) => {
-            if (!open) {
-              cancelEvent.cancel();
-            }
-          }}
+          onOpenChange={stableOnOpenChange9}
           open={cancelEvent.isOpen}
           title="Cancel event"
         />

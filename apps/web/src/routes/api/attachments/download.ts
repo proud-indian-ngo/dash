@@ -44,8 +44,8 @@ export const Route = createFileRoute("/api/attachments/download")({
         try {
           const s3 = await getS3();
           const downloadUrl = s3.presign(key, {
-            method: "GET",
             expiresIn: 120,
+            method: "GET",
           });
 
           const upstream = await fetch(downloadUrl);
@@ -57,20 +57,20 @@ export const Route = createFileRoute("/api/attachments/download")({
             upstream.headers.get("content-type") ?? "application/octet-stream";
 
           return new Response(upstream.body, {
-            status: 200,
             headers: {
               "Cache-Control": "private, max-age=0, no-store",
               "Content-Disposition": `attachment; filename="${fileName}"`,
               "Content-Type": contentType,
               Vary: "Cookie",
             },
+            status: 200,
           });
         } catch (error) {
           const log = createRequestLogger({
             method: "GET",
             path: "/api/attachments/download",
           });
-          log.set({ userId: result.session.user.id, key, fileName });
+          log.set({ fileName, key, userId: result.session.user.id });
           log.error(error instanceof Error ? error : String(error));
           log.emit();
           return Response.json({ error: "Download failed" }, { status: 500 });

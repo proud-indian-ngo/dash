@@ -59,8 +59,8 @@ export function ReimbursementDetail({
   const typeLabel = REQUEST_TYPE_LABELS[request.type];
 
   const mutatorMap = {
-    reimbursement: { ns: mutators.reimbursement, name: "reimbursement" },
-    advance_payment: { ns: mutators.advancePayment, name: "advancePayment" },
+    advance_payment: { name: "advancePayment", ns: mutators.advancePayment },
+    reimbursement: { name: "reimbursement", ns: mutators.reimbursement },
   } as const;
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
@@ -72,33 +72,33 @@ export function ReimbursementDetail({
   const showResetAction = showAdminActions && request.status !== "pending";
 
   const total = request.lineItems.reduce(
-    (sum, item) => sum + Number(item.amount),
+    (sum: any, item: any) => sum + Number(item.amount),
     0
   );
 
   const handleApprove = async (message: string, screenshotKey?: string) => {
     const res = await zero.mutate(
       mutatorNs.approve({
+        approvalScreenshotKey: screenshotKey,
         id: request.id,
         note: message || undefined,
-        approvalScreenshotKey: screenshotKey,
       })
     ).server;
     handleMutationResult(res, {
-      mutation: `${mutatorName}.approve`,
       entityId: request.id,
-      successMsg: `${typeLabel} approved`,
       errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
+      mutation: `${mutatorName}.approve`,
+      successMsg: `${typeLabel} approved`,
     });
     if (res.type === "error" && screenshotKey) {
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error) => {
+      }).catch((error: any) => {
         log.error({
-          component: "ReimbursementDetail",
           action: "cleanupScreenshot",
-          screenshotKey,
+          component: "ReimbursementDetail",
           error: error instanceof Error ? error.message : String(error),
+          screenshotKey,
         });
       });
     }
@@ -120,10 +120,10 @@ export function ReimbursementDetail({
         })
       ).server;
       handleMutationResult(res, {
-        mutation: "reimbursement.generateVoucher",
         entityId: lineItemId,
-        successMsg: "Voucher generation started",
         errorMsg: "Couldn't generate voucher",
+        mutation: "reimbursement.generateVoucher",
+        successMsg: "Voucher generation started",
       });
     } finally {
       setGeneratingVoucherId(null);
@@ -134,10 +134,10 @@ export function ReimbursementDetail({
     const res = await zero.mutate(mutatorNs.reject({ id: request.id, reason }))
       .server;
     handleMutationResult(res, {
-      mutation: `${mutatorName}.reject`,
       entityId: request.id,
-      successMsg: `${typeLabel} rejected`,
       errorMsg: `Couldn't reject ${typeLabel.toLowerCase()}`,
+      mutation: `${mutatorName}.reject`,
+      successMsg: `${typeLabel} rejected`,
     });
     if (res.type !== "error") {
       setRejectOpen(false);
@@ -148,12 +148,13 @@ export function ReimbursementDetail({
     const res = await zero.mutate(mutatorNs.resetToPending({ id: request.id }))
       .server;
     handleMutationResult(res, {
-      mutation: `${mutatorName}.resetToPending`,
       entityId: request.id,
-      successMsg: `${typeLabel} reset to pending`,
       errorMsg: `Couldn't reset ${typeLabel.toLowerCase()} to pending`,
+      mutation: `${mutatorName}.resetToPending`,
+      successMsg: `${typeLabel} reset to pending`,
     });
   };
+  const stableOnClick1 = () => setRejectOpen(true);
 
   return (
     <AppErrorBoundary level="section">
@@ -200,7 +201,7 @@ export function ReimbursementDetail({
             <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-out-expo">
               {showApproveAction ? (
                 <Button
-                  onClick={() => setApproveOpen(true)}
+                  onClick={handleResetToPending}
                   type="button"
                   variant="default"
                 >
@@ -214,7 +215,7 @@ export function ReimbursementDetail({
               ) : null}
               {showRejectAction ? (
                 <Button
-                  onClick={() => setRejectOpen(true)}
+                  onClick={stableOnClick1}
                   type="button"
                   variant="destructive"
                 >
@@ -275,10 +276,10 @@ export function ReimbursementDetail({
                 className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                 download
                 href={getAttachmentDownloadHref({
-                  type: "file",
-                  objectKey: request.approvalScreenshotKey,
                   filename: "payment-proof",
                   mimeType: "image/jpeg",
+                  objectKey: request.approvalScreenshotKey,
+                  type: "file",
                   url: null,
                 })}
                 rel="noopener noreferrer"
@@ -304,7 +305,7 @@ export function ReimbursementDetail({
           <div className="flex flex-col gap-3">
             <h2 className="font-medium text-sm">Attachments</h2>
             <div className="flex flex-col gap-1.5">
-              {request.attachments.map((att) => (
+              {request.attachments.map((att: any) => (
                 <div
                   className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
                   key={att.id}
@@ -366,7 +367,7 @@ export function ReimbursementDetail({
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {request.history.map((entry) => (
+                {request.history.map((entry: any) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>
@@ -413,6 +414,7 @@ function VoucherCell({
   const amount = Number(item.amount);
   const hasVoucher = !!item.voucherAttachmentId;
   const isQualifying = amount > 0 && amount <= VOUCHER_AMOUNT_THRESHOLD;
+  const stableOnClick2 = () => onGenerate(item.id);
 
   if (hasVoucher) {
     return (
@@ -427,7 +429,7 @@ function VoucherCell({
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"
             disabled={isGenerating}
-            onClick={() => onGenerate(item.id)}
+            onClick={stableOnClick2}
             size="sm"
             type="button"
             variant="ghost"
@@ -444,6 +446,8 @@ function VoucherCell({
     );
   }
 
+  const stableOnClick3 = () => onGenerate(item.id);
+
   if (item.generateVoucher && isApproved && !hasVoucher) {
     return (
       <div className="flex items-center gap-1.5">
@@ -452,7 +456,7 @@ function VoucherCell({
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"
             disabled={isGenerating}
-            onClick={() => onGenerate(item.id)}
+            onClick={stableOnClick3}
             size="sm"
             type="button"
             variant="ghost"
@@ -464,12 +468,14 @@ function VoucherCell({
     );
   }
 
+  const stableOnClick4 = () => onGenerate(item.id);
+
   if (canApprove && isApproved && isQualifying) {
     return (
       <Button
         className="h-auto px-2 py-1 text-xs"
         disabled={isGenerating}
-        onClick={() => onGenerate(item.id)}
+        onClick={stableOnClick4}
         size="sm"
         type="button"
         variant="outline"
@@ -520,11 +526,11 @@ function LineItemsTable({
               </tr>
             </thead>
             <tbody>
-              {request.lineItems.map((item) => (
+              {request.lineItems.map((item: any) => (
                 <tr className="border-b last:border-0" key={item.id}>
-                  <td className="px-3 py-2">{item.category?.name ?? "—"}</td>
+                  <td className="px-3 py-2">{item.category?.name}</td>
                   <td className="px-3 py-2 text-muted-foreground">
-                    {item.description ?? "—"}
+                    {item.description}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {formatINR(Number(item.amount))}
@@ -570,9 +576,9 @@ function LineItemsTable({
 
 function getBankDetails(request: RequestDetailData) {
   return {
+    ifsc: request.bankAccountIfscCode?.trim() || null,
     name: request.bankAccountName?.trim() || null,
     number: request.bankAccountNumber?.trim() || null,
-    ifsc: request.bankAccountIfscCode?.trim() || null,
   };
 }
 

@@ -7,43 +7,19 @@ import { zql } from "../schema";
 export const whatsappGroupMutators = {
   create: defineMutator(
     z.object({
-      id: z.string(),
-      name: z.string().min(1),
-      jid: z.string().min(1),
       description: z.string().optional(),
+      id: z.string(),
+      jid: z.string().min(1),
+      name: z.string().min(1),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "settings.whatsapp_groups");
       await tx.mutate.whatsappGroup.insert({
-        id: args.id,
-        name: args.name,
-        jid: args.jid,
-        description: args.description ?? null,
         createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
-  ),
-  update: defineMutator(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1),
-      jid: z.string().min(1),
-      description: z.string().optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "settings.whatsapp_groups");
-      const existing = await tx.run(
-        zql.whatsappGroup.where("id", args.id).one()
-      );
-      if (!existing) {
-        throw new Error("WhatsApp group not found");
-      }
-      await tx.mutate.whatsappGroup.update({
+        description: args.description,
         id: args.id,
-        name: args.name,
         jid: args.jid,
-        description: args.description ?? null,
+        name: args.name,
         updatedAt: Date.now(),
       });
     }
@@ -61,9 +37,35 @@ export const whatsappGroupMutators = {
       await tx.mutate.whatsappGroup.delete({ id: args.id });
       // Clean up any appConfig rows referencing this group
       const configRows = await tx.run(zql.appConfig.where("value", args.id));
-      for (const row of configRows) {
-        await tx.mutate.appConfig.delete({ key: row.key });
+      await Promise.all(
+        configRows.map(async (row) => {
+          await tx.mutate.appConfig.delete({ key: row.key });
+        })
+      );
+    }
+  ),
+  update: defineMutator(
+    z.object({
+      description: z.string().optional(),
+      id: z.string(),
+      jid: z.string().min(1),
+      name: z.string().min(1),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "settings.whatsapp_groups");
+      const existing = await tx.run(
+        zql.whatsappGroup.where("id", args.id).one()
+      );
+      if (!existing) {
+        throw new Error("WhatsApp group not found");
       }
+      await tx.mutate.whatsappGroup.update({
+        description: args.description,
+        id: args.id,
+        jid: args.jid,
+        name: args.name,
+        updatedAt: Date.now(),
+      });
     }
   ),
 };

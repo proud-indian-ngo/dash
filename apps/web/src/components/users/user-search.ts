@@ -8,7 +8,7 @@ export const searchUser = (user: User, query: string): boolean => {
     return true;
   }
 
-  const dobText = user.dob == null ? "" : format(user.dob, SHORT_DATE);
+  const dobText = user.dob === null ? "" : format(user.dob, SHORT_DATE);
 
   return [
     user.name,

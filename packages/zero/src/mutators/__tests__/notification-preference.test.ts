@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import z from "zod";
 
 const upsertSchema = z.object({
-  topicId: z.string().min(1),
   channel: z.enum(["email", "whatsapp"]),
   enabled: z.boolean(),
+  topicId: z.string().min(1),
 });
 
 const adminUpsertSchema = upsertSchema.extend({
@@ -15,45 +15,45 @@ describe("notificationPreference mutator schemas", () => {
   describe("upsert", () => {
     it("accepts valid email preference", () => {
       const result = upsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "email",
         enabled: true,
+        topicId: "topic-1",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts valid whatsapp preference", () => {
       const result = upsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "whatsapp",
         enabled: true,
+        topicId: "topic-1",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts disabled preference", () => {
       const result = upsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "email",
         enabled: false,
+        topicId: "topic-1",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects invalid channel", () => {
       const result = upsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "sms",
         enabled: true,
+        topicId: "topic-1",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects empty topicId", () => {
       const result = upsertSchema.safeParse({
-        topicId: "",
         channel: "email",
         enabled: true,
+        topicId: "",
       });
       expect(result.success).toBe(false);
     });
@@ -68,16 +68,16 @@ describe("notificationPreference mutator schemas", () => {
 
     it("rejects missing channel", () => {
       const result = upsertSchema.safeParse({
-        topicId: "topic-1",
         enabled: true,
+        topicId: "topic-1",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects missing enabled", () => {
       const result = upsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "email",
+        topicId: "topic-1",
       });
       expect(result.success).toBe(false);
     });
@@ -86,9 +86,9 @@ describe("notificationPreference mutator schemas", () => {
   describe("adminUpsert", () => {
     it("accepts valid email preference with userId", () => {
       const result = adminUpsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "email",
         enabled: true,
+        topicId: "topic-1",
         userId: "user-123",
       });
       expect(result.success).toBe(true);
@@ -96,9 +96,9 @@ describe("notificationPreference mutator schemas", () => {
 
     it("accepts valid whatsapp preference with userId", () => {
       const result = adminUpsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "whatsapp",
         enabled: false,
+        topicId: "topic-1",
         userId: "user-456",
       });
       expect(result.success).toBe(true);
@@ -106,18 +106,18 @@ describe("notificationPreference mutator schemas", () => {
 
     it("rejects missing userId", () => {
       const result = adminUpsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "email",
         enabled: true,
+        topicId: "topic-1",
       });
       expect(result.success).toBe(false);
     });
 
     it("rejects empty userId", () => {
       const result = adminUpsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "email",
         enabled: true,
+        topicId: "topic-1",
         userId: "",
       });
       expect(result.success).toBe(false);
@@ -125,9 +125,9 @@ describe("notificationPreference mutator schemas", () => {
 
     it("rejects empty topicId", () => {
       const result = adminUpsertSchema.safeParse({
-        topicId: "",
         channel: "email",
         enabled: true,
+        topicId: "",
         userId: "user-123",
       });
       expect(result.success).toBe(false);
@@ -135,9 +135,9 @@ describe("notificationPreference mutator schemas", () => {
 
     it("rejects invalid channel", () => {
       const result = adminUpsertSchema.safeParse({
-        topicId: "topic-1",
         channel: "push",
         enabled: true,
+        topicId: "topic-1",
         userId: "user-123",
       });
       expect(result.success).toBe(false);

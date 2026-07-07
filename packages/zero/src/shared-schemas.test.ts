@@ -6,10 +6,10 @@ import {
 
 describe("mutatorLineItemSchema", () => {
   const valid = {
-    id: "li-1",
+    amount: 150.5,
     categoryId: "cat-1",
     description: "Taxi fare",
-    amount: 150.5,
+    id: "li-1",
     sortOrder: 0,
   };
 
@@ -51,31 +51,31 @@ describe("mutatorLineItemSchema", () => {
 describe("mutatorAttachmentSchema", () => {
   it("accepts valid file attachment", () => {
     const result = mutatorAttachmentSchema.safeParse({
-      id: "att-1",
-      type: "file",
       filename: "receipt.pdf",
+      id: "att-1",
       objectKey: "uploads/receipt.pdf",
+      type: "file",
     });
     expect(result.success).toBe(true);
   });
 
   it("accepts file attachment with mimeType", () => {
     const result = mutatorAttachmentSchema.safeParse({
-      id: "att-1",
-      type: "file",
       filename: "photo.jpg",
-      objectKey: "uploads/photo.jpg",
+      id: "att-1",
       mimeType: "image/jpeg",
+      objectKey: "uploads/photo.jpg",
+      type: "file",
     });
     expect(result.success).toBe(true);
   });
 
   it("rejects file attachment without filename", () => {
     const result = mutatorAttachmentSchema.safeParse({
-      id: "att-1",
-      type: "file",
       filename: "",
+      id: "att-1",
       objectKey: "uploads/x.pdf",
+      type: "file",
     });
     expect(result.success).toBe(false);
   });

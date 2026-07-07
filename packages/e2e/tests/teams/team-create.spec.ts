@@ -41,7 +41,7 @@ test.describe("Create team dialog (admin)", () => {
     await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue("");
 
     await expect(
-      dialog.getByRole("button", { name: "Create", exact: true })
+      dialog.getByRole("button", { exact: true, name: "Create" })
     ).toBeDisabled();
   });
 
@@ -80,7 +80,7 @@ test.describe("Create team dialog (admin)", () => {
     await dialog.getByLabel("Name", { exact: true }).fill(teamName);
     await dialog.getByLabel("Description").fill("Test team description");
 
-    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
     // Wait for success toast first, then dialog close
     await expect(page.getByText("Team created")).toBeVisible({

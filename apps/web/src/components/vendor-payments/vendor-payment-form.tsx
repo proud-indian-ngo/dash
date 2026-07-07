@@ -43,10 +43,10 @@ export function VendorPaymentForm({
   const pendingVendorList = (pendingVendors ?? []) as Vendor[];
 
   const vendorList = [...approvedVendorList, ...pendingVendorList].sort(
-    (a, b) => a.name.localeCompare(b.name)
+    (a: any, b: any) => a.name.localeCompare(b.name)
   );
 
-  const vendorOptions = vendorList.map((v) => ({
+  const vendorOptions = vendorList.map((v: any) => ({
     label: v.status === "pending" ? `${v.name} (pending approval)` : v.name,
     value: v.id,
   }));
@@ -55,9 +55,9 @@ export function VendorPaymentForm({
 
   function getFilteredEventOptions(selectedCity: string | undefined) {
     const filtered = selectedCity
-      ? eventList.filter((e) => e.city === selectedCity)
+      ? eventList.filter((e: any) => e.city === selectedCity)
       : eventList;
-    return filtered.map((e) => ({
+    return filtered.map((e: any) => ({
       label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
       value: e.id,
     }));
@@ -69,27 +69,27 @@ export function VendorPaymentForm({
     defaultValues: {
       ...getVendorPaymentDefaultValues(),
       ...initialValues,
-      lineItems: initialValues?.lineItems ?? [newLineItem()],
       attachments: initialValues?.attachments ?? [],
+      lineItems: initialValues?.lineItems ?? [newLineItem()],
     },
     onSubmit: async ({ value: rawValue }) => {
       const value = vendorPaymentFormSchema.parse(rawValue);
       const id = entityId;
 
-      const lineItems = value.lineItems.map((item, index) => ({
+      const lineItems = value.lineItems.map((item: any, index: any) => ({
         ...item,
         amount: Number(item.amount),
         sortOrder: index,
       }));
 
       const payload = {
-        id,
-        vendorId: value.vendorId,
-        title: value.title,
+        attachments: value.attachments,
         city: value.city,
         eventId: value.eventId ?? undefined,
+        id,
         lineItems,
-        attachments: value.attachments,
+        title: value.title,
+        vendorId: value.vendorId,
       };
 
       const mutation = existingId
@@ -98,10 +98,10 @@ export function VendorPaymentForm({
 
       const res = await mutation.server;
       handleMutationResult(res, {
-        mutation: `vendorPayment.${existingId ? "update" : "create"}`,
         entityId: id,
-        successMsg: "Vendor payment submitted",
         errorMsg: "Couldn't submit vendor payment",
+        mutation: `vendorPayment.${existingId ? "update" : "create"}`,
+        successMsg: "Vendor payment submitted",
       });
       if (res.type !== "error") {
         onSaved(id);
@@ -112,19 +112,21 @@ export function VendorPaymentForm({
       onSubmit: vendorPaymentFormSchema,
     },
   });
+  const stableSelector0 = (state: any) => ({
+    city: state.values.city,
+    eventId: state.values.eventId,
+  });
 
   return (
     <AppErrorBoundary level="section">
       <FormLayout className="flex flex-col gap-4" form={form}>
-        <form.Subscribe
-          selector={(state) => ({
-            city: state.values.city,
-            eventId: state.values.eventId,
-          })}
-        >
+        <form.Subscribe selector={stableSelector0}>
           {({ city: selectedCity, eventId }) => {
             const filteredOptions = getFilteredEventOptions(selectedCity);
-            if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
+            if (
+              eventId &&
+              !filteredOptions.some((o: any) => o.value === eventId)
+            ) {
               setTimeout(() => form.setFieldValue("eventId", undefined), 0);
             }
             return (
@@ -134,7 +136,9 @@ export function VendorPaymentForm({
                 eventOptions={filteredOptions}
                 isEdit={isEdit}
                 onCancel={onCancel}
-                onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
+                onVendorCreated={(id: any) =>
+                  form.setFieldValue("vendorId", id)
+                }
                 onVendorDialogOpenChange={setVendorDialogOpen}
                 vendorDialogOpen={vendorDialogOpen}
                 vendorOptions={vendorOptions}

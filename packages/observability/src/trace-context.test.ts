@@ -46,9 +46,9 @@ describe("parseTraceparent", () => {
       "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
     );
     expect(result).toEqual({
-      traceId: "0af7651916cd43dd8448eb211c80319c",
       spanId: "b7ad6b7169203331",
       traceFlags: 1,
+      traceId: "0af7651916cd43dd8448eb211c80319c",
     });
   });
 
@@ -101,6 +101,6 @@ describe("parseTraceparent", () => {
     const spanId = generateSpanId();
     const header = formatTraceparent(traceId, spanId);
     const parsed = parseTraceparent(header);
-    expect(parsed).toEqual({ traceId, spanId, traceFlags: 1 });
+    expect(parsed).toEqual({ spanId, traceFlags: 1, traceId });
   });
 });

@@ -76,59 +76,59 @@ interface SeedUser {
 const USERS: SeedUser[] = [
   {
     email: "admin@pi-dash.dev",
+    gender: "male",
     name: "Dev Admin",
     password: "Admin123!",
-    role: "super_admin",
-    gender: "male",
     phone: "+919876543210",
+    role: "super_admin",
   },
   {
     email: "lead@pi-dash.dev",
+    gender: "female",
     name: "Priya Sharma",
     password: "Lead123!",
-    role: "volunteer",
-    gender: "female",
     phone: "+919876543211",
+    role: "volunteer",
   },
   {
     email: "volunteer1@pi-dash.dev",
+    gender: "male",
     name: "Rahul Verma",
     password: "Volunteer123!",
-    role: "volunteer",
-    gender: "male",
     phone: "+919876543212",
+    role: "volunteer",
   },
   {
     email: "volunteer2@pi-dash.dev",
+    gender: "female",
     name: "Ananya Patel",
     password: "Volunteer123!",
-    role: "volunteer",
-    gender: "female",
     phone: "+919876543213",
+    role: "volunteer",
   },
   {
     email: "volunteer3@pi-dash.dev",
+    gender: "male",
     name: "Vikram Singh",
     password: "Volunteer123!",
-    role: "volunteer",
-    gender: "male",
     phone: "+919876543214",
+    role: "volunteer",
   },
   {
     email: "volunteer4@pi-dash.dev",
+    gender: "female",
     name: "Meera Reddy",
     password: "Volunteer123!",
-    role: "volunteer",
-    gender: "female",
     phone: "+919876543215",
+    role: "volunteer",
   },
   {
     email: "newbie@pi-dash.dev",
+    gender: "male",
     name: "Arjun Nair",
     password: "Newbie123!",
-    role: "unoriented_volunteer",
-    gender: "male",
     phone: "+919876543216",
+    role: "unoriented_volunteer",
   },
 ];
 
@@ -136,40 +136,42 @@ async function seedUsers(): Promise<Map<string, string>> {
   log("Seeding users...");
   const userMap = new Map<string, string>(); // email → id
 
-  for (const u of USERS) {
-    let record = await db.query.user.findFirst({
-      columns: { id: true },
-      where: (t, ops) => ops.eq(t.email, u.email),
-    });
-
-    if (!record) {
-      await auth.api.createUser({
-        body: { email: u.email, name: u.name, password: u.password },
-      });
-      record = await db.query.user.findFirst({
+  await Promise.all(
+    USERS.map(async (u) => {
+      let record = await db.query.user.findFirst({
         columns: { id: true },
         where: (t, ops) => ops.eq(t.email, u.email),
       });
-    }
 
-    if (!record) {
-      throw new Error(`Failed to create user: ${u.email}`);
-    }
+      if (!record) {
+        await auth.api.createUser({
+          body: { email: u.email, name: u.name, password: u.password },
+        });
+        record = await db.query.user.findFirst({
+          columns: { id: true },
+          where: (t, ops) => ops.eq(t.email, u.email),
+        });
+      }
 
-    await db
-      .update(user)
-      .set({
-        role: u.role,
-        emailVerified: true,
-        gender: u.gender,
-        phone: u.phone,
-        isOnWhatsapp: true,
-        isActive: true,
-      })
-      .where(eq(user.id, record.id));
+      if (!record) {
+        throw new Error(`Failed to create user: ${u.email}`);
+      }
 
-    userMap.set(u.email, record.id);
-  }
+      await db
+        .update(user)
+        .set({
+          emailVerified: true,
+          gender: u.gender,
+          isActive: true,
+          isOnWhatsapp: true,
+          phone: u.phone,
+          role: u.role,
+        })
+        .where(eq(user.id, record.id));
+
+      userMap.set(u.email, record.id);
+    })
+  );
 
   log(`Created ${userMap.size} users`);
   return userMap;
@@ -178,43 +180,45 @@ async function seedUsers(): Promise<Map<string, string>> {
 // ── 2. Expense Categories ────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { name: "Travel", description: "Transportation and commute expenses" },
-  { name: "Food", description: "Meals and refreshments" },
-  { name: "Accommodation", description: "Hotel and lodging" },
-  { name: "Supplies", description: "Office and event supplies" },
-  { name: "Printing", description: "Banners, flyers, and print material" },
-  { name: "Venue", description: "Venue rental and booking charges" },
-  { name: "Equipment", description: "Equipment rental and purchase" },
-  { name: "Miscellaneous", description: "Other uncategorized expenses" },
+  { description: "Transportation and commute expenses", name: "Travel" },
+  { description: "Meals and refreshments", name: "Food" },
+  { description: "Hotel and lodging", name: "Accommodation" },
+  { description: "Office and event supplies", name: "Supplies" },
+  { description: "Banners, flyers, and print material", name: "Printing" },
+  { description: "Venue rental and booking charges", name: "Venue" },
+  { description: "Equipment rental and purchase", name: "Equipment" },
+  { description: "Other uncategorized expenses", name: "Miscellaneous" },
 ];
 
 async function seedCategories(): Promise<Map<string, string>> {
   log("Seeding expense categories...");
   const catMap = new Map<string, string>();
 
-  for (const cat of CATEGORIES) {
-    let existing = await db.query.expenseCategory.findFirst({
-      where: (t, ops) => ops.eq(t.name, cat.name),
-    });
-    if (!existing) {
-      const id = uuidv7();
-      await db.insert(expenseCategory).values({
-        id,
-        name: cat.name,
-        description: cat.description,
-        createdAt: now,
-        updatedAt: now,
+  await Promise.all(
+    CATEGORIES.map(async (cat) => {
+      let existing = await db.query.expenseCategory.findFirst({
+        where: (t, ops) => ops.eq(t.name, cat.name),
       });
-      existing = {
-        id,
-        name: cat.name,
-        description: cat.description,
-        createdAt: now,
-        updatedAt: now,
-      };
-    }
-    catMap.set(cat.name, existing.id);
-  }
+      if (!existing) {
+        const id = uuidv7();
+        await db.insert(expenseCategory).values({
+          createdAt: now,
+          description: cat.description,
+          id,
+          name: cat.name,
+          updatedAt: now,
+        });
+        existing = {
+          createdAt: now,
+          description: cat.description,
+          id,
+          name: cat.name,
+          updatedAt: now,
+        };
+      }
+      catMap.set(cat.name, existing.id);
+    })
+  );
 
   log(`${catMap.size} categories ready`);
   return catMap;
@@ -227,39 +231,39 @@ async function seedBankAccounts(userMap: Map<string, string>): Promise<void> {
   const accounts = [
     {
       email: "admin@pi-dash.dev",
+      ifsc: "SBIN0001234",
       name: "Dev Admin Savings",
       num: "1001200034005600",
-      ifsc: "SBIN0001234",
     },
     {
       email: "lead@pi-dash.dev",
+      ifsc: "HDFC0002345",
       name: "Priya Savings",
       num: "2001200034005601",
-      ifsc: "HDFC0002345",
     },
     {
       email: "volunteer1@pi-dash.dev",
+      ifsc: "ICIC0003456",
       name: "Rahul Savings",
       num: "3001200034005602",
-      ifsc: "ICIC0003456",
     },
     {
       email: "volunteer2@pi-dash.dev",
+      ifsc: "AXIS0004567",
       name: "Ananya Savings",
       num: "4001200034005603",
-      ifsc: "AXIS0004567",
     },
     {
       email: "volunteer3@pi-dash.dev",
+      ifsc: "UTIB0005678",
       name: "Vikram Salary",
       num: "5001200034005604",
-      ifsc: "UTIB0005678",
     },
     {
       email: "volunteer4@pi-dash.dev",
+      ifsc: "KKBK0006789",
       name: "Meera Current",
       num: "6001200034005605",
-      ifsc: "KKBK0006789",
     },
   ];
 
@@ -273,14 +277,14 @@ async function seedBankAccounts(userMap: Map<string, string>): Promise<void> {
     });
     if (!existing) {
       await db.insert(bankAccount).values({
-        id: uuidv7(),
-        userId,
         accountName: a.name,
         accountNumber: a.num,
+        createdAt: now,
+        id: uuidv7(),
         ifscCode: a.ifsc,
         isDefault: true,
-        createdAt: now,
         updatedAt: now,
+        userId,
       });
     }
   }
@@ -292,30 +296,32 @@ async function seedBankAccounts(userMap: Map<string, string>): Promise<void> {
 async function seedWhatsappGroups(): Promise<Map<string, string>> {
   log("Seeding WhatsApp groups...");
   const groups = [
-    { name: "Teaching Team", jid: "120363001234567890@g.us" },
-    { name: "Kitchen Duty", jid: "120363002345678901@g.us" },
-    { name: "Event Coordinators", jid: "120363003456789012@g.us" },
-    { name: "Weekend Seva", jid: "120363004567890123@g.us" },
+    { jid: "120363001234567890@g.us", name: "Teaching Team" },
+    { jid: "120363002345678901@g.us", name: "Kitchen Duty" },
+    { jid: "120363003456789012@g.us", name: "Event Coordinators" },
+    { jid: "120363004567890123@g.us", name: "Weekend Seva" },
   ];
 
   const groupMap = new Map<string, string>();
-  for (const g of groups) {
-    let existing = await db.query.whatsappGroup.findFirst({
-      where: (t, ops) => ops.eq(t.jid, g.jid),
-    });
-    if (!existing) {
-      const id = uuidv7();
-      await db.insert(whatsappGroup).values({
-        id,
-        name: g.name,
-        jid: g.jid,
-        createdAt: now,
-        updatedAt: now,
+  await Promise.all(
+    groups.map(async (g) => {
+      let existing = await db.query.whatsappGroup.findFirst({
+        where: (t, ops) => ops.eq(t.jid, g.jid),
       });
-      existing = { id } as typeof existing;
-    }
-    groupMap.set(g.name, existing!.id);
-  }
+      if (!existing) {
+        const id = uuidv7();
+        await db.insert(whatsappGroup).values({
+          createdAt: now,
+          id,
+          jid: g.jid,
+          name: g.name,
+          updatedAt: now,
+        });
+        existing = { id } as typeof existing;
+      }
+      groupMap.set(g.name, existing!.id);
+    })
+  );
 
   log(`${groupMap.size} WhatsApp groups ready`);
   return groupMap;
@@ -337,71 +343,73 @@ async function seedTeams(
 
   const teams = [
     {
+      members: [
+        { role: "lead" as const, uid: leadId },
+        { role: "member" as const, uid: v1 },
+        { role: "member" as const, uid: v2 },
+      ],
       name: "Teaching",
       waGroup: "Teaching Team",
-      members: [
-        { uid: leadId, role: "lead" as const },
-        { uid: v1, role: "member" as const },
-        { uid: v2, role: "member" as const },
-      ],
     },
     {
+      members: [
+        { role: "lead" as const, uid: v3 },
+        { role: "member" as const, uid: v4 },
+        { role: "member" as const, uid: v1 },
+      ],
       name: "Kitchen",
       waGroup: "Kitchen Duty",
-      members: [
-        { uid: v3, role: "lead" as const },
-        { uid: v4, role: "member" as const },
-        { uid: v1, role: "member" as const },
-      ],
     },
     {
+      members: [
+        { role: "lead" as const, uid: adminId },
+        { role: "member" as const, uid: leadId },
+        { role: "member" as const, uid: v2 },
+        { role: "member" as const, uid: v3 },
+      ],
       name: "Events & Outreach",
       waGroup: "Event Coordinators",
-      members: [
-        { uid: adminId, role: "lead" as const },
-        { uid: leadId, role: "member" as const },
-        { uid: v2, role: "member" as const },
-        { uid: v3, role: "member" as const },
-      ],
     },
     {
+      members: [
+        { role: "lead" as const, uid: v4 },
+        { role: "member" as const, uid: v1 },
+      ],
       name: "Logistics",
       waGroup: null,
-      members: [
-        { uid: v4, role: "lead" as const },
-        { uid: v1, role: "member" as const },
-      ],
     },
   ];
 
   const teamMap = new Map<string, string>();
-  for (const t of teams) {
-    let existing = await db.query.team.findFirst({
-      where: (tbl, ops) => ops.eq(tbl.name, t.name),
-    });
-    if (!existing) {
-      const id = uuidv7();
-      await db.insert(team).values({
-        id,
-        name: t.name,
-        description: `The ${t.name} team`,
-        whatsappGroupId: t.waGroup ? waGroups.get(t.waGroup) : undefined,
-        createdAt: now,
-        updatedAt: now,
+  await Promise.all(
+    teams.map(async (t) => {
+      let existing = await db.query.team.findFirst({
+        where: (tbl, ops) => ops.eq(tbl.name, t.name),
       });
-      for (const m of t.members) {
-        await db.insert(teamMember).values({
-          id: uuidv7(),
-          teamId: id,
-          userId: m.uid,
-          role: m.role,
-          joinedAt: past(30),
+      if (!existing) {
+        const id = uuidv7();
+        await db.insert(team).values({
+          createdAt: now,
+          description: `The ${t.name} team`,
+          id,
+          name: t.name,
+          updatedAt: now,
+          whatsappGroupId: t.waGroup ? waGroups.get(t.waGroup) : undefined,
         });
+        for (const m of t.members) {
+          await db.insert(teamMember).values({
+            id: uuidv7(),
+            joinedAt: past(30),
+            role: m.role,
+            teamId: id,
+            userId: m.uid,
+          });
+        }
+        existing = { id } as typeof existing;
       }
-      existing = { id } as typeof existing;
-    }
-    teamMap.set(t.name, existing!.id);
-  }
+      teamMap.set(t.name, existing!.id);
+    })
+  );
 
   log(`${teamMap.size} teams ready`);
   return teamMap;
@@ -422,105 +430,107 @@ async function seedEvents(
 
   const events = [
     {
-      name: "Weekly Teaching Session",
-      teamName: "Teaching",
-      start: past(7),
-      end: addHours(past(7), 2),
-      isPublic: true,
       creator: leadId,
+      end: addHours(past(7), 2),
       feedbackEnabled: true,
+      isPublic: true,
       location: "Bangalore Community Hall",
+      name: "Weekly Teaching Session",
+      start: past(7),
+      teamName: "Teaching",
     },
     {
-      name: "Upcoming Teaching Session",
-      teamName: "Teaching",
-      start: future(2),
+      creator: leadId,
       end: addHours(future(2), 2),
       isPublic: true,
-      creator: leadId,
       location: "Bangalore Community Hall",
+      name: "Upcoming Teaching Session",
+      start: future(2),
+      teamName: "Teaching",
     },
     {
-      name: "Kitchen Prep Day",
-      teamName: "Kitchen",
-      start: past(3),
+      creator: v3,
       end: addHours(past(3), 4),
       isPublic: false,
-      creator: v3,
       location: "Main Kitchen",
+      name: "Kitchen Prep Day",
+      start: past(3),
+      teamName: "Kitchen",
     },
     {
-      name: "Community Outreach Drive",
-      teamName: "Events & Outreach",
-      start: future(7),
-      end: addHours(future(7), 6),
-      isPublic: true,
       creator: adminId,
+      end: addHours(future(7), 6),
       feedbackEnabled: true,
+      isPublic: true,
       location: "Cubbon Park, Bangalore",
+      name: "Community Outreach Drive",
+      start: future(7),
+      teamName: "Events & Outreach",
     },
     {
-      name: "Monthly Planning Meeting",
-      teamName: "Events & Outreach",
-      start: past(14),
+      creator: adminId,
       end: addHours(past(14), 1),
       isPublic: false,
-      creator: adminId,
       location: "Office Conference Room",
+      name: "Monthly Planning Meeting",
+      start: past(14),
+      teamName: "Events & Outreach",
     },
     {
-      name: "Supply Run",
-      teamName: "Logistics",
-      start: future(1),
+      creator: v1,
       end: addHours(future(1), 3),
       isPublic: false,
-      creator: v1,
       location: "Wholesale Market",
+      name: "Supply Run",
+      start: future(1),
+      teamName: "Logistics",
     },
   ];
 
   const eventMap = new Map<string, string>();
 
-  for (const e of events) {
-    const teamId = teamMap.get(e.teamName)!;
-    const id = uuidv7();
-    await db.insert(teamEvent).values({
-      id,
-      teamId,
-      name: e.name,
-      description: `${e.name} — organized by the ${e.teamName} team`,
-      location: e.location,
-      startTime: e.start,
-      endTime: e.end,
-      isPublic: e.isPublic,
-      feedbackEnabled: e.feedbackEnabled ?? false,
-      feedbackDeadline: e.feedbackEnabled ? future(3) : undefined,
-      createdBy: e.creator,
-      createdAt: subDays(e.start, 5),
-      updatedAt: subDays(e.start, 5),
-    });
-    eventMap.set(e.name, id);
+  await Promise.all(
+    events.map(async (e) => {
+      const teamId = teamMap.get(e.teamName)!;
+      const id = uuidv7();
+      await db.insert(teamEvent).values({
+        createdAt: subDays(e.start, 5),
+        createdBy: e.creator,
+        description: `${e.name} — organized by the ${e.teamName} team`,
+        endTime: e.end,
+        feedbackDeadline: e.feedbackEnabled ? future(3) : undefined,
+        feedbackEnabled: e.feedbackEnabled ?? false,
+        id,
+        isPublic: e.isPublic,
+        location: e.location,
+        name: e.name,
+        startTime: e.start,
+        teamId,
+        updatedAt: subDays(e.start, 5),
+      });
+      eventMap.set(e.name, id);
 
-    // Add members
-    const memberIds = [e.creator, v1, v2].slice(0, 3);
-    const isPast = e.start < now;
-    for (const uid of memberIds) {
-      if (isPast) {
-        await db.execute(sql`
+      // Add members
+      const memberIds = [e.creator, v1, v2].slice(0, 3);
+      const isPast = e.start < now;
+      for (const uid of memberIds) {
+        if (isPast) {
+          await db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at, attendance, attendance_marked_at, attendance_marked_by)
           VALUES (${uuidv7()}, ${id}, ${uid}, ${subDays(e.start, 3).toISOString()},
             'present'::attendance_status, ${e.end?.toISOString() ?? null}, ${e.creator})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
-      } else {
-        await db.execute(sql`
+        } else {
+          await db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at)
           VALUES (${uuidv7()}, ${id}, ${uid}, ${subDays(e.start, 3).toISOString()})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
+        }
       }
-    }
-  }
+    })
+  );
 
   log(`${eventMap.size} events ready`);
   return eventMap;
@@ -541,82 +551,82 @@ async function seedEventExtras(
   // Interest in public events
   const outreachId = eventMap.get("Community Outreach Drive")!;
   await db.insert(eventInterest).values({
-    id: uuidv7(),
-    eventId: outreachId,
-    userId: v3,
-    status: "approved",
-    message: "I'd love to help with the outreach drive!",
-    reviewedBy: adminId,
-    reviewedAt: now,
     createdAt: past(5),
+    eventId: outreachId,
+    id: uuidv7(),
+    message: "I'd love to help with the outreach drive!",
+    reviewedAt: now,
+    reviewedBy: adminId,
+    status: "approved",
+    userId: v3,
   });
   await db.insert(eventInterest).values({
-    id: uuidv7(),
-    eventId: outreachId,
-    userId: v4,
-    status: "pending",
-    message: "Can I join as a photographer?",
     createdAt: past(2),
+    eventId: outreachId,
+    id: uuidv7(),
+    message: "Can I join as a photographer?",
+    status: "pending",
+    userId: v4,
   });
 
   // Feedback for past events
   const teachingId = eventMap.get("Weekly Teaching Session")!;
   const fbId = uuidv7();
   await db.insert(eventFeedback).values({
-    id: fbId,
-    eventId: teachingId,
     content:
       "Great session! The kids were very engaged. Could use more art supplies next time.",
     createdAt: past(5),
+    eventId: teachingId,
+    id: fbId,
     updatedAt: past(5),
   });
 
   // Photos for past events
   await db.insert(eventPhoto).values({
-    id: uuidv7(),
-    eventId: teachingId,
-    r2Key: "dev/events/teaching-01.jpg",
     caption: "Kids during the drawing activity",
+    createdAt: past(6),
+    eventId: teachingId,
+    id: uuidv7(),
+    r2Key: "dev/events/teaching-01.jpg",
+    reviewedAt: past(5),
+    reviewedBy: adminId,
     status: "approved",
     uploadedBy: leadId,
-    reviewedBy: adminId,
-    reviewedAt: past(5),
-    createdAt: past(6),
   });
   await db.insert(eventPhoto).values({
-    id: uuidv7(),
-    eventId: teachingId,
-    r2Key: "dev/events/teaching-02.jpg",
     caption: "Group photo at the end",
+    createdAt: past(5),
+    eventId: teachingId,
+    id: uuidv7(),
+    r2Key: "dev/events/teaching-02.jpg",
     status: "pending",
     uploadedBy: v3,
-    createdAt: past(5),
   });
 
   // Event updates
   const planningId = eventMap.get("Monthly Planning Meeting")!;
   await db.insert(eventUpdate).values({
-    id: uuidv7(),
-    eventId: planningId,
     content:
       "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets.",
-    status: "approved",
-    createdBy: adminId,
-    reviewedBy: adminId,
-    reviewedAt: past(13),
     createdAt: past(13),
+    createdBy: adminId,
+    eventId: planningId,
+    id: uuidv7(),
+    reviewedAt: past(13),
+    reviewedBy: adminId,
+    status: "approved",
     updatedAt: past(13),
   });
   await db.insert(eventUpdate).values({
-    id: uuidv7(),
-    eventId: outreachId,
     content:
       "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM.",
-    status: "approved",
-    createdBy: adminId,
-    reviewedBy: adminId,
-    reviewedAt: past(1),
     createdAt: past(1),
+    createdBy: adminId,
+    eventId: outreachId,
+    id: uuidv7(),
+    reviewedAt: past(1),
+    reviewedBy: adminId,
+    status: "approved",
     updatedAt: past(1),
   });
 
@@ -640,117 +650,119 @@ async function seedReimbursements(
 
   const reimbursements = [
     {
-      userId: v1,
-      title: "Bus fare for teaching sessions (March)",
       city: "bangalore" as const,
-      status: "approved" as const,
       expenseDate: past(10),
-      reviewedBy: adminId,
       items: [
-        { cat: travelCat, desc: "Bus pass - monthly", amount: "1500.00" },
-        { cat: foodCat, desc: "Snacks for kids", amount: "450.00" },
+        { amount: "1500.00", cat: travelCat, desc: "Bus pass - monthly" },
+        { amount: "450.00", cat: foodCat, desc: "Snacks for kids" },
       ],
+      reviewedBy: adminId,
+      status: "approved" as const,
+      title: "Bus fare for teaching sessions (March)",
+      userId: v1,
     },
     {
-      userId: v2,
-      title: "Art supplies purchase",
       city: "bangalore" as const,
-      status: "pending" as const,
       expenseDate: past(5),
       items: [
         {
+          amount: "2200.00",
           cat: suppliesCat,
           desc: "Crayons and sketch pads",
-          amount: "2200.00",
         },
-        { cat: suppliesCat, desc: "Chart papers", amount: "350.00" },
+        { amount: "350.00", cat: suppliesCat, desc: "Chart papers" },
       ],
+      status: "pending" as const,
+      title: "Art supplies purchase",
+      userId: v2,
     },
     {
-      userId: leadId,
-      title: "Venue booking deposit",
       city: "mumbai" as const,
-      status: "pending" as const,
       expenseDate: past(2),
       items: [
-        { cat: suppliesCat, desc: "Community hall deposit", amount: "5000.00" },
+        { amount: "5000.00", cat: suppliesCat, desc: "Community hall deposit" },
       ],
+      status: "pending" as const,
+      title: "Venue booking deposit",
+      userId: leadId,
     },
     {
-      userId: v1,
-      title: "Auto fare for supply pickup",
       city: "bangalore" as const,
-      status: "rejected" as const,
       expenseDate: past(20),
-      reviewedBy: adminId,
-      rejectionReason: "Please submit with receipt",
       items: [
-        { cat: travelCat, desc: "Auto to wholesale market", amount: "300.00" },
+        { amount: "300.00", cat: travelCat, desc: "Auto to wholesale market" },
       ],
+      rejectionReason: "Please submit with receipt",
+      reviewedBy: adminId,
+      status: "rejected" as const,
+      title: "Auto fare for supply pickup",
+      userId: v1,
     },
   ];
 
-  for (const r of reimbursements) {
-    const id = uuidv7();
-    await db.insert(reimbursement).values({
-      id,
-      userId: r.userId,
-      title: r.title,
-      city: r.city,
-      expenseDate: r.expenseDate.toISOString().split("T")[0],
-      status: r.status,
-      rejectionReason: r.rejectionReason,
-      bankAccountName: "Savings Account",
-      bankAccountNumber: "1234567890",
-      bankAccountIfscCode: "SBIN0001234",
-      reviewedBy: r.reviewedBy,
-      reviewedAt: r.reviewedBy ? past(1) : undefined,
-      submittedAt: subDays(r.expenseDate, 1),
-      createdAt: subDays(r.expenseDate, 2),
-      updatedAt: now,
-    });
-
-    for (let i = 0; i < r.items.length; i++) {
-      const item = r.items[i];
-      await db.insert(reimbursementLineItem).values({
-        id: uuidv7(),
-        reimbursementId: id,
-        categoryId: item.cat,
-        description: item.desc,
-        amount: item.amount,
-        sortOrder: i,
-        createdAt: now,
+  await Promise.all(
+    reimbursements.map(async (r) => {
+      const id = uuidv7();
+      await db.insert(reimbursement).values({
+        bankAccountIfscCode: "SBIN0001234",
+        bankAccountName: "Savings Account",
+        bankAccountNumber: "1234567890",
+        city: r.city,
+        createdAt: subDays(r.expenseDate, 2),
+        expenseDate: r.expenseDate.toISOString().split("T")[0],
+        id,
+        rejectionReason: r.rejectionReason,
+        reviewedAt: r.reviewedBy ? past(1) : undefined,
+        reviewedBy: r.reviewedBy,
+        status: r.status,
+        submittedAt: subDays(r.expenseDate, 1),
+        title: r.title,
         updatedAt: now,
+        userId: r.userId,
       });
-    }
 
-    await db.insert(reimbursementHistory).values({
-      id: uuidv7(),
-      reimbursementId: id,
-      actorId: r.userId,
-      action: "created",
-      createdAt: subDays(r.expenseDate, 2),
-    });
+      for (let i = 0; i < r.items.length; i++) {
+        const item = r.items[i];
+        await db.insert(reimbursementLineItem).values({
+          amount: item.amount,
+          categoryId: item.cat,
+          createdAt: now,
+          description: item.desc,
+          id: uuidv7(),
+          reimbursementId: id,
+          sortOrder: i,
+          updatedAt: now,
+        });
+      }
 
-    await db.insert(reimbursementHistory).values({
-      id: uuidv7(),
-      reimbursementId: id,
-      actorId: r.userId,
-      action: "submitted",
-      createdAt: subDays(r.expenseDate, 1),
-    });
-
-    if (r.status === "approved" || r.status === "rejected") {
       await db.insert(reimbursementHistory).values({
+        action: "created",
+        actorId: r.userId,
+        createdAt: subDays(r.expenseDate, 2),
         id: uuidv7(),
         reimbursementId: id,
-        actorId: r.reviewedBy!,
-        action: r.status,
-        note: r.rejectionReason,
-        createdAt: past(1),
       });
-    }
-  }
+
+      await db.insert(reimbursementHistory).values({
+        action: "submitted",
+        actorId: r.userId,
+        createdAt: subDays(r.expenseDate, 1),
+        id: uuidv7(),
+        reimbursementId: id,
+      });
+
+      if (r.status === "approved" || r.status === "rejected") {
+        await db.insert(reimbursementHistory).values({
+          action: r.status,
+          actorId: r.reviewedBy!,
+          createdAt: past(1),
+          id: uuidv7(),
+          note: r.rejectionReason,
+          reimbursementId: id,
+        });
+      }
+    })
+  );
 
   log(`${reimbursements.length} reimbursements seeded`);
 }
@@ -769,62 +781,62 @@ async function seedAdvancePayments(
 
   const id = uuidv7();
   await db.insert(advancePayment).values({
-    id,
-    userId: leadId,
-    title: "Advance for community hall booking",
-    city: "bangalore",
-    status: "approved",
+    bankAccountIfscCode: "HDFC0002345",
     bankAccountName: "Priya Savings",
     bankAccountNumber: "2001200034005601",
-    bankAccountIfscCode: "HDFC0002345",
-    reviewedBy: adminId,
+    city: "bangalore",
+    createdAt: past(7),
+    id,
     reviewedAt: past(3),
+    reviewedBy: adminId,
+    status: "approved",
     submittedAt: past(5),
-    createdAt: past(7),
+    title: "Advance for community hall booking",
     updatedAt: past(3),
+    userId: leadId,
   });
 
   await db.insert(advancePaymentLineItem).values({
-    id: uuidv7(),
     advancePaymentId: id,
-    categoryId: venueCat,
-    description: "Hall booking advance (50%)",
     amount: "10000.00",
-    sortOrder: 0,
+    categoryId: venueCat,
     createdAt: past(7),
+    description: "Hall booking advance (50%)",
+    id: uuidv7(),
+    sortOrder: 0,
     updatedAt: past(7),
   });
   await db.insert(advancePaymentLineItem).values({
-    id: uuidv7(),
     advancePaymentId: id,
-    categoryId: equipCat,
-    description: "Sound system rental deposit",
     amount: "3000.00",
-    sortOrder: 1,
+    categoryId: equipCat,
     createdAt: past(7),
+    description: "Sound system rental deposit",
+    id: uuidv7(),
+    sortOrder: 1,
     updatedAt: past(7),
   });
 
   await db.insert(advancePaymentHistory).values({
-    id: uuidv7(),
-    advancePaymentId: id,
-    actorId: leadId,
     action: "created",
-    createdAt: past(7),
-  });
-  await db.insert(advancePaymentHistory).values({
-    id: uuidv7(),
-    advancePaymentId: id,
     actorId: leadId,
-    action: "submitted",
-    createdAt: past(5),
+    advancePaymentId: id,
+    createdAt: past(7),
+    id: uuidv7(),
   });
   await db.insert(advancePaymentHistory).values({
-    id: uuidv7(),
+    action: "submitted",
+    actorId: leadId,
     advancePaymentId: id,
-    actorId: adminId,
+    createdAt: past(5),
+    id: uuidv7(),
+  });
+  await db.insert(advancePaymentHistory).values({
     action: "approved",
+    actorId: adminId,
+    advancePaymentId: id,
     createdAt: past(3),
+    id: uuidv7(),
   });
 
   log("1 advance payment seeded");
@@ -846,164 +858,164 @@ async function seedVendors(
   // Vendor 1 — Approved
   const v1Id = uuidv7();
   await db.insert(vendor).values({
-    id: v1Id,
-    name: "QuickPrint Solutions",
-    contactEmail: "info@quickprint.dev",
-    contactPhone: "+919800011122",
+    address: "42 MG Road, Bangalore",
+    bankAccountIfscCode: "HDFC0007890",
     bankAccountName: "QuickPrint Solutions",
     bankAccountNumber: "7771234567890",
-    bankAccountIfscCode: "HDFC0007890",
-    address: "42 MG Road, Bangalore",
-    gstNumber: "29AABCQ1234F1ZA",
-    status: "approved",
-    createdBy: leadId,
+    contactEmail: "info@quickprint.dev",
+    contactPhone: "+919800011122",
     createdAt: past(60),
+    createdBy: leadId,
+    gstNumber: "29AABCQ1234F1ZA",
+    id: v1Id,
+    name: "QuickPrint Solutions",
+    status: "approved",
     updatedAt: past(55),
   });
 
   // Vendor 2 — Pending
   const v2Id = uuidv7();
   await db.insert(vendor).values({
-    id: v2Id,
-    name: "Fresh Kitchen Caterers",
-    contactEmail: "orders@freshkitchen.dev",
-    contactPhone: "+919800033344",
+    address: "15 Food Street, Bangalore",
+    bankAccountIfscCode: "ICIC0008901",
     bankAccountName: "Fresh Kitchen Caterers",
     bankAccountNumber: "8881234567891",
-    bankAccountIfscCode: "ICIC0008901",
-    address: "15 Food Street, Bangalore",
+    contactEmail: "orders@freshkitchen.dev",
+    contactPhone: "+919800033344",
+    createdAt: past(5),
+    createdBy: v1,
+    id: v2Id,
+    name: "Fresh Kitchen Caterers",
     panNumber: "AABCF1234G",
     status: "pending",
-    createdBy: v1,
-    createdAt: past(5),
     updatedAt: past(5),
   });
 
   // Vendor Payment for QuickPrint — approved, partially paid
   const vpId = uuidv7();
   await db.insert(vendorPayment).values({
+    createdAt: past(15),
     id: vpId,
+    reviewedAt: past(12),
+    reviewedBy: adminId,
+    status: "partially_paid",
+    submittedAt: past(14),
+    title: "Banner printing for outreach event",
+    updatedAt: past(8),
     userId: leadId,
     vendorId: v1Id,
-    title: "Banner printing for outreach event",
-    status: "partially_paid",
-    reviewedBy: adminId,
-    reviewedAt: past(12),
-    submittedAt: past(14),
-    createdAt: past(15),
-    updatedAt: past(8),
   });
 
   await db.insert(vendorPaymentLineItem).values({
-    id: uuidv7(),
-    vendorPaymentId: vpId,
-    categoryId: printCat,
-    description: "10 vinyl banners (6x3 ft)",
     amount: "8500.00",
-    sortOrder: 0,
+    categoryId: printCat,
     createdAt: past(15),
+    description: "10 vinyl banners (6x3 ft)",
+    id: uuidv7(),
+    sortOrder: 0,
     updatedAt: past(15),
+    vendorPaymentId: vpId,
   });
   await db.insert(vendorPaymentLineItem).values({
-    id: uuidv7(),
-    vendorPaymentId: vpId,
-    categoryId: printCat,
-    description: "500 flyers (A5)",
     amount: "2500.00",
-    sortOrder: 1,
+    categoryId: printCat,
     createdAt: past(15),
+    description: "500 flyers (A5)",
+    id: uuidv7(),
+    sortOrder: 1,
     updatedAt: past(15),
+    vendorPaymentId: vpId,
   });
 
   await db.insert(vendorPaymentHistory).values({
-    id: uuidv7(),
-    vendorPaymentId: vpId,
-    actorId: leadId,
     action: "created",
-    createdAt: past(15),
-  });
-  await db.insert(vendorPaymentHistory).values({
-    id: uuidv7(),
-    vendorPaymentId: vpId,
     actorId: leadId,
-    action: "submitted",
-    createdAt: past(14),
-  });
-  await db.insert(vendorPaymentHistory).values({
+    createdAt: past(15),
     id: uuidv7(),
     vendorPaymentId: vpId,
-    actorId: adminId,
+  });
+  await db.insert(vendorPaymentHistory).values({
+    action: "submitted",
+    actorId: leadId,
+    createdAt: past(14),
+    id: uuidv7(),
+    vendorPaymentId: vpId,
+  });
+  await db.insert(vendorPaymentHistory).values({
     action: "approved",
+    actorId: adminId,
     createdAt: past(12),
+    id: uuidv7(),
+    vendorPaymentId: vpId,
   });
 
   // Transaction for partial payment
   const txId = uuidv7();
   await db.insert(vendorPaymentTransaction).values({
-    id: txId,
-    vendorPaymentId: vpId,
-    userId: adminId,
     amount: "5000.00",
+    createdAt: past(10),
     description: "First installment via NEFT",
-    transactionDate: past(10),
+    id: txId,
     paymentMethod: "NEFT",
     paymentReference: "NEFT-REF-001",
-    status: "approved",
-    reviewedBy: adminId,
     reviewedAt: past(9),
-    createdAt: past(10),
+    reviewedBy: adminId,
+    status: "approved",
+    transactionDate: past(10),
     updatedAt: past(9),
+    userId: adminId,
+    vendorPaymentId: vpId,
   });
   await db.insert(vendorPaymentTransactionHistory).values({
-    id: uuidv7(),
-    vendorPaymentTransactionId: txId,
-    actorId: adminId,
     action: "created",
+    actorId: adminId,
     createdAt: past(10),
-  });
-  await db.insert(vendorPaymentTransactionHistory).values({
     id: uuidv7(),
     vendorPaymentTransactionId: txId,
-    actorId: adminId,
+  });
+  await db.insert(vendorPaymentTransactionHistory).values({
     action: "approved",
+    actorId: adminId,
     createdAt: past(9),
+    id: uuidv7(),
+    vendorPaymentTransactionId: txId,
   });
 
   // Second vendor payment — pending
   const vp2Id = uuidv7();
   await db.insert(vendorPayment).values({
+    createdAt: past(3),
     id: vp2Id,
-    userId: v1,
-    vendorId: v2Id,
-    title: "Catering for weekend seva",
     status: "pending",
     submittedAt: past(2),
-    createdAt: past(3),
+    title: "Catering for weekend seva",
     updatedAt: past(2),
+    userId: v1,
+    vendorId: v2Id,
   });
   await db.insert(vendorPaymentLineItem).values({
-    id: uuidv7(),
-    vendorPaymentId: vp2Id,
-    categoryId: foodCat,
-    description: "Lunch for 50 people",
     amount: "15000.00",
+    categoryId: foodCat,
+    createdAt: past(3),
+    description: "Lunch for 50 people",
+    id: uuidv7(),
     sortOrder: 0,
-    createdAt: past(3),
     updatedAt: past(3),
+    vendorPaymentId: vp2Id,
   });
   await db.insert(vendorPaymentHistory).values({
-    id: uuidv7(),
-    vendorPaymentId: vp2Id,
-    actorId: v1,
     action: "created",
+    actorId: v1,
     createdAt: past(3),
-  });
-  await db.insert(vendorPaymentHistory).values({
     id: uuidv7(),
     vendorPaymentId: vp2Id,
-    actorId: v1,
+  });
+  await db.insert(vendorPaymentHistory).values({
     action: "submitted",
+    actorId: v1,
     createdAt: past(2),
+    id: uuidv7(),
+    vendorPaymentId: vp2Id,
   });
 
   log("2 vendors, 2 payments, 1 transaction seeded");
@@ -1019,12 +1031,14 @@ async function seedAppConfig(): Promise<void> {
     { key: "reimbursement_auto_approve_limit", value: "500" },
   ];
 
-  for (const c of configs) {
-    await db
-      .insert(appConfig)
-      .values({ key: c.key, value: c.value, updatedAt: now })
-      .onConflictDoNothing();
-  }
+  await Promise.all(
+    configs.map(async (c) => {
+      await db
+        .insert(appConfig)
+        .values({ key: c.key, updatedAt: now, value: c.value })
+        .onConflictDoNothing();
+    })
+  );
   log(`${configs.length} config entries ready`);
 }
 

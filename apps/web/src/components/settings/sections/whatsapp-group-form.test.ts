@@ -4,34 +4,34 @@ import { groupSchema } from "./whatsapp-group-schema";
 describe("groupSchema", () => {
   it("accepts valid input with all fields", () => {
     const result = groupSchema.safeParse({
-      name: "General Chat",
-      jid: "120363012345678901@g.us",
       description: "Main group",
+      jid: "120363012345678901@g.us",
+      name: "General Chat",
     });
     expect(result.success).toBe(true);
   });
 
   it("accepts valid input without description", () => {
     const result = groupSchema.safeParse({
-      name: "General Chat",
       jid: "120363012345678901@g.us",
+      name: "General Chat",
     });
     expect(result.success).toBe(true);
   });
 
   it("accepts empty description", () => {
     const result = groupSchema.safeParse({
-      name: "General Chat",
-      jid: "120363012345678901@g.us",
       description: "",
+      jid: "120363012345678901@g.us",
+      name: "General Chat",
     });
     expect(result.success).toBe(true);
   });
 
   it("rejects empty name", () => {
     const result = groupSchema.safeParse({
-      name: "",
       jid: "120363012345678901@g.us",
+      name: "",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -48,8 +48,8 @@ describe("groupSchema", () => {
 
   it("rejects empty jid", () => {
     const result = groupSchema.safeParse({
-      name: "General Chat",
       jid: "",
+      name: "General Chat",
     });
     expect(result.success).toBe(false);
     if (!result.success) {

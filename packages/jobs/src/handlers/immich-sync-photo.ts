@@ -42,12 +42,12 @@ async function resolveAlbumId(
   }
 
   const albumRes = await fetch(`${immichUrl}/api/albums`, {
-    method: "POST",
-    headers: {
-      "x-api-key": immichKey,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ albumName: eventName }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": immichKey,
+    },
+    method: "POST",
   });
   if (!albumRes.ok) {
     throw new Error(
@@ -60,10 +60,10 @@ async function resolveAlbumId(
   const inserted = await db
     .insert(eventImmichAlbum)
     .values({
-      id: uuidv7(),
-      eventId,
-      immichAlbumId: createdAlbumId,
       createdAt: new Date(),
+      eventId,
+      id: uuidv7(),
+      immichAlbumId: createdAlbumId,
     })
     .onConflictDoNothing({ target: eventImmichAlbum.eventId })
     .returning({ immichAlbumId: eventImmichAlbum.immichAlbumId });
@@ -80,13 +80,13 @@ async function resolveAlbumId(
 
   if (winnerAlbumId !== createdAlbumId) {
     fetch(`${immichUrl}/api/albums/${createdAlbumId}`, {
-      method: "DELETE",
       headers: { "x-api-key": immichKey },
+      method: "DELETE",
     }).catch((error: unknown) => {
       emitLog("orphan_album_cleanup_failed", {
+        error: error instanceof Error ? error.message : String(error),
         eventId,
         orphanedAlbumId: createdAlbumId,
-        error: error instanceof Error ? error.message : String(error),
       });
     });
   }
@@ -106,25 +106,24 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
   const immichUrl = env.IMMICH_INTERNAL_URL ?? env.VITE_IMMICH_URL;
   const immichKey = env.IMMICH_API_KEY;
   if (!(immichUrl && immichKey)) {
-    emitLog("immich_not_configured", { photoId, eventId });
+    emitLog("immich_not_configured", { eventId, photoId });
     return;
   }
 
   // Retry resilience: if photo already has an immichAssetId, skip upload
   const currentPhoto = await db.query.eventPhoto.findFirst({
-    where: (t, { eq: e }) => e(t.id, photoId),
     columns: { immichAssetId: true },
+    where: (t, { eq: e }) => e(t.id, photoId),
   });
   if (currentPhoto?.immichAssetId) {
     emitLog("already_synced", {
-      photoId,
       immichAssetId: currentPhoto.immichAssetId,
+      photoId,
     });
     return;
   }
 
   const event = await db.query.teamEvent.findFirst({
-    where: (t, { eq: e }) => e(t.id, eventId),
     columns: {
       name: true,
       originalDate: true,
@@ -132,6 +131,7 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
       seriesId: true,
       startTime: true,
     },
+    where: (t, { eq: e }) => e(t.id, eventId),
   });
 
   const albumName = event ? buildImmichAlbumName(event) : eventName;
@@ -160,9 +160,9 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
   formData.append("fileModifiedAt", nowIso);
 
   const uploadRes = await fetch(`${immichUrl}/api/assets`, {
-    method: "POST",
-    headers: { "x-api-key": immichKey },
     body: formData,
+    headers: { "x-api-key": immichKey },
+    method: "POST",
   });
   if (!uploadRes.ok) {
     throw new Error(
@@ -180,12 +180,12 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
 
   // Add to album
   const addRes = await fetch(`${immichUrl}/api/albums/${albumId}/assets`, {
-    method: "PUT",
-    headers: {
-      "x-api-key": immichKey,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ ids: [assetId] }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": immichKey,
+    },
+    method: "PUT",
   });
   if (!addRes.ok) {
     throw new Error(
@@ -204,9 +204,9 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
     await s3.delete(r2Key);
   } catch (error) {
     emitLog("r2_cleanup_failed", {
+      error: error instanceof Error ? error.message : String(error),
       photoId,
       r2Key,
-      error: error instanceof Error ? error.message : String(error),
     });
   }
 }

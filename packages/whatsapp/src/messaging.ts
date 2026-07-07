@@ -22,9 +22,9 @@ export async function sendWhatsAppMessage(
   const formatted = formatPhoneForWhatsApp(phone);
 
   const response = await fetch(`${apiUrl}/send/message`, {
-    method: "POST",
+    body: JSON.stringify({ message, phone: formatted }),
     headers: getWhatsAppHeaders(),
-    body: JSON.stringify({ phone: formatted, message }),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -57,15 +57,15 @@ export async function sendWhatsAppGroupMessage(
     return;
   }
 
-  const body: Record<string, string> = { phone: groupJid, message };
+  const body: Record<string, string> = { message, phone: groupJid };
   if (options?.replyMessageId) {
     body.reply_message_id = options.replyMessageId;
   }
 
   const response = await fetch(`${apiUrl}/send/message`, {
-    method: "POST",
-    headers: getWhatsAppHeaders(),
     body: JSON.stringify(body),
+    headers: getWhatsAppHeaders(),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -92,7 +92,7 @@ export async function sendWhatsAppPoll(
     method: "POST",
     path: "sendWhatsAppPoll",
   });
-  log.set({ groupJid, question, optionCount: options.length, maxAnswer });
+  log.set({ groupJid, maxAnswer, optionCount: options.length, question });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -102,14 +102,14 @@ export async function sendWhatsAppPoll(
   }
 
   const response = await fetch(`${apiUrl}/send/poll`, {
-    method: "POST",
-    headers: getWhatsAppHeaders(),
     body: JSON.stringify({
+      max_answer: maxAnswer,
+      options,
       phone: groupJid,
       question,
-      options,
-      max_answer: maxAnswer,
     }),
+    headers: getWhatsAppHeaders(),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -145,7 +145,7 @@ export async function sendWhatsAppImage(
     method: "POST",
     path: "sendWhatsAppImage",
   });
-  log.set({ phone, imageUrl });
+  log.set({ imageUrl, phone });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -162,9 +162,9 @@ export async function sendWhatsAppImage(
   }
 
   const response = await fetch(`${apiUrl}/send/image`, {
-    method: "POST",
-    headers: getWhatsAppHeaders({ omitContentType: true }),
     body: formData,
+    headers: getWhatsAppHeaders({ omitContentType: true }),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -205,9 +205,9 @@ export async function sendWhatsAppVideo(
   }
 
   const response = await fetch(`${apiUrl}/send/video`, {
-    method: "POST",
-    headers: getWhatsAppHeaders({ omitContentType: true }),
     body: formData,
+    headers: getWhatsAppHeaders({ omitContentType: true }),
+    method: "POST",
   });
 
   if (!response.ok) {
@@ -228,7 +228,7 @@ export async function sendWhatsAppFile(
   caption?: string
 ): Promise<void> {
   const log = createRequestLogger({ method: "POST", path: "sendWhatsAppFile" });
-  log.set({ phone, fileUrl });
+  log.set({ fileUrl, phone });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -258,9 +258,9 @@ export async function sendWhatsAppFile(
   }
 
   const response = await fetch(`${apiUrl}/send/file`, {
-    method: "POST",
-    headers: getWhatsAppHeaders({ omitContentType: true }),
     body: formData,
+    headers: getWhatsAppHeaders({ omitContentType: true }),
+    method: "POST",
   });
 
   if (!response.ok) {

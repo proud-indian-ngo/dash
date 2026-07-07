@@ -2,26 +2,26 @@ import { describe, expect, it } from "vitest";
 import z from "zod";
 
 const attachmentSchema = z.object({
-  id: z.string(),
-  type: z.enum(["file", "url"]),
-  objectKey: z.string().optional(),
-  url: z.string().optional(),
   filename: z.string().optional(),
+  id: z.string(),
   mimeType: z.string().optional(),
+  objectKey: z.string().optional(),
+  type: z.enum(["file", "url"]),
+  url: z.string().optional(),
 });
 
 const createSchema = z.object({
-  id: z.string(),
-  vendorPaymentId: z.string(),
   amount: z
     .number()
     .positive("Amount must be greater than 0")
     .multipleOf(0.01, "Amount must have at most 2 decimal places"),
+  attachments: z.array(attachmentSchema),
   description: z.string().trim().optional(),
-  transactionDate: z.number(),
+  id: z.string(),
   paymentMethod: z.string().trim().optional(),
   paymentReference: z.string().trim().optional(),
-  attachments: z.array(attachmentSchema),
+  transactionDate: z.number(),
+  vendorPaymentId: z.string(),
 });
 
 const approveSchema = z.object({
@@ -39,11 +39,11 @@ const deleteSchema = z.object({ id: z.string() });
 describe("vendorPaymentTransaction mutator schemas", () => {
   describe("create", () => {
     const validInput = {
-      id: "txn-1",
-      vendorPaymentId: "vp-1",
       amount: 500.0,
-      transactionDate: Date.now(),
       attachments: [],
+      id: "txn-1",
+      transactionDate: Date.now(),
+      vendorPaymentId: "vp-1",
     };
 
     it("accepts valid input", () => {

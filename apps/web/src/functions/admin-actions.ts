@@ -57,7 +57,7 @@ export const triggerR2Cleanup = createServerFn({ method: "POST" })
       method: "POST",
       path: "triggerR2Cleanup",
     });
-    log.set({ userId: session.user.id, dryRun: data.dryRun });
+    log.set({ dryRun: data.dryRun, userId: session.user.id });
     try {
       await enqueue("cleanup-r2-orphans", { dryRun: data.dryRun });
       log.set({ event: "cleanup_enqueued" });

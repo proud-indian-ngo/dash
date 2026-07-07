@@ -70,34 +70,34 @@ export function toPhotoSlide(
   if (isVideoPhoto(photo)) {
     const hasRealPoster = thumbnailSrc !== EMPTY_PIXEL;
     return {
-      type: "video" as const,
-      width: 1920,
+      canApprove: permissions.canApprove,
+      canDelete: permissions.canDelete,
+      canReject: permissions.canReject,
+      caption: photo.caption ?? null,
       height: 1080,
+      photoId: photo.id,
+      poster: hasRealPoster ? thumbnailSrc : undefined,
       sources: [
         {
           src: getPhotoLightboxUrl(photo),
           type: photo.mimeType ?? "video/mp4",
         },
       ],
-      poster: hasRealPoster ? thumbnailSrc : undefined,
       thumbnailSrc,
-      photoId: photo.id,
-      caption: photo.caption ?? null,
+      type: "video" as const,
       uploader: photo.uploader,
-      canApprove: permissions.canApprove,
-      canReject: permissions.canReject,
-      canDelete: permissions.canDelete,
+      width: 1920,
     };
   }
   return {
-    type: "image" as const,
+    canApprove: permissions.canApprove,
+    canDelete: permissions.canDelete,
+    canReject: permissions.canReject,
+    caption: photo.caption ?? null,
+    photoId: photo.id,
     src: getPhotoLightboxUrl(photo),
     thumbnailSrc,
-    photoId: photo.id,
-    caption: photo.caption ?? null,
+    type: "image" as const,
     uploader: photo.uploader,
-    canApprove: permissions.canApprove,
-    canReject: permissions.canReject,
-    canDelete: permissions.canDelete,
   };
 }

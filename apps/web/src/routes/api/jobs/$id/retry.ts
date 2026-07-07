@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/jobs/$id/retry")({
         try {
           const rows = await db.execute<{ name: string; state: string }>(
             sql`SELECT name, state FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
-              QUEUE_NAMES.map((n) => sql`${n}`),
+              QUEUE_NAMES.map((n: any) => sql`${n}`),
               sql`, `
             )}) LIMIT 1`
           );
@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/jobs/$id/retry")({
             method: "POST",
             path: `/api/jobs/${id}/retry`,
           });
-          log.set({ userId: session.user.id, jobId: id });
+          log.set({ jobId: id, userId: session.user.id });
           log.error(err instanceof Error ? err : String(err));
           log.emit();
           return Response.json(
