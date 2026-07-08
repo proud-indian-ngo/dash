@@ -1,0 +1,21 @@
+apps/web/src/functions/immich-upload.ts
+  s_264a40a83848c8::t_e4f0462dea415d 159
+apps/web/src/lib/immich.ts
+  s_264a40a83848c8::t_e4f0462dea415d 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "031c875089ff5bbeeccebe32062685d2673f9a8c",
+  "prompts": {},
+  "sessions": {
+    "s_264a40a83848c8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4321-6f2d-7392-a139-913b6ca11c57",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
