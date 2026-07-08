@@ -54,7 +54,7 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Restore test durations cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: packages/e2e/.test-durations.json
           key: e2e-durations-${{ github.ref_name }}
@@ -150,7 +150,7 @@ jobs:
 
       - name: Restore Playwright cache
         id: playwright-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -162,7 +162,7 @@ jobs:
         run: bunx playwright install-deps chromium
       - name: Save Playwright cache
         if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -291,7 +291,7 @@ jobs:
           cp /tmp/merged-durations.json packages/e2e/.test-durations.json
       - name: Save durations cache
         if: needs.e2e.result == 'success'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: packages/e2e/.test-durations.json
           key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}
