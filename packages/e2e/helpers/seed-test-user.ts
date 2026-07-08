@@ -3,6 +3,12 @@ import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
+import {
+  eventFeedback,
+  eventFeedbackSubmission,
+} from "@pi-dash/db/schema/event-feedback";
+import { eventInterest } from "@pi-dash/db/schema/event-interest";
+import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
@@ -193,6 +199,34 @@ const SEED_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
 const SEED_UPCOMING_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000002";
 const SEED_VENDOR_ID = "e2e00000-0000-0000-0000-000000000003";
 const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
+const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
+const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
+const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
+const ZERO_AUTH_LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000202";
+const ZERO_AUTH_PROTECTED_INTEREST_ID = "e2e00000-0000-0000-0000-000000000301";
+const ZERO_AUTH_PROTECTED_UPDATE_ID = "e2e00000-0000-0000-0000-000000000302";
+const ZERO_AUTH_PROTECTED_PHOTO_ID = "e2e00000-0000-0000-0000-000000000303";
+const ZERO_AUTH_LEAD_FEEDBACK_ID = "e2e00000-0000-0000-0000-000000000304";
+const ZERO_AUTH_LEAD_FEEDBACK_SUBMISSION_ID =
+  "e2e00000-0000-0000-0000-000000000305";
+const ZERO_AUTH_PROTECTED_FEEDBACK_ID = "e2e00000-0000-0000-0000-000000000306";
+const ZERO_AUTH_PROTECTED_FEEDBACK_SUBMISSION_ID =
+  "e2e00000-0000-0000-0000-000000000307";
+const ZERO_AUTH_PROTECTED_ADMIN_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000401";
+const ZERO_AUTH_PROTECTED_VOLUNTEER_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000402";
+const ZERO_AUTH_LEAD_ADMIN_MEMBER_ID = "e2e00000-0000-0000-0000-000000000403";
+const ZERO_AUTH_LEAD_VOLUNTEER_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000404";
+const ZERO_AUTH_PROTECTED_ADMIN_EVENT_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000501";
+const ZERO_AUTH_PROTECTED_VOLUNTEER_EVENT_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000502";
+const ZERO_AUTH_LEAD_ADMIN_EVENT_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000503";
+const ZERO_AUTH_LEAD_VOLUNTEER_EVENT_MEMBER_ID =
+  "e2e00000-0000-0000-0000-000000000504";
 
 async function ensureReimbursement(
   userId: string,
@@ -366,6 +400,210 @@ async function ensureEventVendorPayment(
   });
 
   log("Created event vendor payment");
+}
+
+async function ensureZeroQueryAuthorizationFixtures(
+  adminUserId: string,
+  volunteerUserId: string
+): Promise<void> {
+  const now = new Date();
+  const pastStart = subDays(now, 2);
+
+  await db
+    .insert(team)
+    .values([
+      {
+        createdAt: now,
+        description: "Protected fixtures for Zero query authorization tests",
+        id: ZERO_AUTH_PROTECTED_TEAM_ID,
+        name: "E2E Zero Query Protected Team",
+        updatedAt: now,
+      },
+      {
+        createdAt: now,
+        description: "Lead fixtures for Zero query authorization tests",
+        id: ZERO_AUTH_LEAD_TEAM_ID,
+        name: "E2E Zero Query Lead Team",
+        updatedAt: now,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(teamMember)
+    .values([
+      {
+        id: ZERO_AUTH_PROTECTED_ADMIN_MEMBER_ID,
+        joinedAt: now,
+        role: "lead",
+        teamId: ZERO_AUTH_PROTECTED_TEAM_ID,
+        userId: adminUserId,
+      },
+      {
+        id: ZERO_AUTH_PROTECTED_VOLUNTEER_MEMBER_ID,
+        joinedAt: now,
+        role: "member",
+        teamId: ZERO_AUTH_PROTECTED_TEAM_ID,
+        userId: volunteerUserId,
+      },
+      {
+        id: ZERO_AUTH_LEAD_ADMIN_MEMBER_ID,
+        joinedAt: now,
+        role: "member",
+        teamId: ZERO_AUTH_LEAD_TEAM_ID,
+        userId: adminUserId,
+      },
+      {
+        id: ZERO_AUTH_LEAD_VOLUNTEER_MEMBER_ID,
+        joinedAt: now,
+        role: "lead",
+        teamId: ZERO_AUTH_LEAD_TEAM_ID,
+        userId: volunteerUserId,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(teamEvent)
+    .values([
+      {
+        createdAt: now,
+        createdBy: adminUserId,
+        description:
+          "Protected event for direct Zero query authorization tests",
+        feedbackEnabled: true,
+        id: ZERO_AUTH_PROTECTED_EVENT_ID,
+        isPublic: true,
+        name: "E2E Zero Query Protected Event",
+        startTime: pastStart,
+        teamId: ZERO_AUTH_PROTECTED_TEAM_ID,
+        updatedAt: now,
+      },
+      {
+        createdAt: now,
+        createdBy: adminUserId,
+        description: "Lead event for direct Zero query authorization tests",
+        feedbackEnabled: true,
+        id: ZERO_AUTH_LEAD_EVENT_ID,
+        isPublic: true,
+        name: "E2E Zero Query Lead Event",
+        startTime: pastStart,
+        teamId: ZERO_AUTH_LEAD_TEAM_ID,
+        updatedAt: now,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(teamEventMember)
+    .values([
+      {
+        addedAt: now,
+        eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+        id: ZERO_AUTH_PROTECTED_ADMIN_EVENT_MEMBER_ID,
+        userId: adminUserId,
+      },
+      {
+        addedAt: now,
+        eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+        id: ZERO_AUTH_PROTECTED_VOLUNTEER_EVENT_MEMBER_ID,
+        userId: volunteerUserId,
+      },
+      {
+        addedAt: now,
+        eventId: ZERO_AUTH_LEAD_EVENT_ID,
+        id: ZERO_AUTH_LEAD_ADMIN_EVENT_MEMBER_ID,
+        userId: adminUserId,
+      },
+      {
+        addedAt: now,
+        eventId: ZERO_AUTH_LEAD_EVENT_ID,
+        id: ZERO_AUTH_LEAD_VOLUNTEER_EVENT_MEMBER_ID,
+        userId: volunteerUserId,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(eventInterest)
+    .values({
+      createdAt: now,
+      eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+      id: ZERO_AUTH_PROTECTED_INTEREST_ID,
+      message: "Protected interest fixture",
+      status: "pending",
+      userId: volunteerUserId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(eventUpdate)
+    .values({
+      content: "Protected pending update fixture",
+      createdAt: now,
+      createdBy: volunteerUserId,
+      eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+      id: ZERO_AUTH_PROTECTED_UPDATE_ID,
+      status: "pending",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(eventPhoto)
+    .values({
+      caption: "Protected pending photo fixture",
+      createdAt: now,
+      eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+      id: ZERO_AUTH_PROTECTED_PHOTO_ID,
+      mimeType: "image/jpeg",
+      r2Key: "e2e/zero-query-protected-photo.jpg",
+      status: "pending",
+      uploadedBy: volunteerUserId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(eventFeedback)
+    .values([
+      {
+        content: "Protected lead feedback fixture",
+        createdAt: now,
+        eventId: ZERO_AUTH_LEAD_EVENT_ID,
+        id: ZERO_AUTH_LEAD_FEEDBACK_ID,
+        updatedAt: now,
+      },
+      {
+        content: "Protected participant feedback fixture",
+        createdAt: now,
+        eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+        id: ZERO_AUTH_PROTECTED_FEEDBACK_ID,
+        updatedAt: now,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(eventFeedbackSubmission)
+    .values([
+      {
+        eventId: ZERO_AUTH_LEAD_EVENT_ID,
+        feedbackId: ZERO_AUTH_LEAD_FEEDBACK_ID,
+        id: ZERO_AUTH_LEAD_FEEDBACK_SUBMISSION_ID,
+        submittedAt: now,
+        userId: adminUserId,
+      },
+      {
+        eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+        feedbackId: ZERO_AUTH_PROTECTED_FEEDBACK_ID,
+        id: ZERO_AUTH_PROTECTED_FEEDBACK_SUBMISSION_ID,
+        submittedAt: now,
+        userId: adminUserId,
+      },
+    ])
+    .onConflictDoNothing();
+
+  log("Zero query authorization fixtures ready");
 }
 
 const SEED_TEAM_NAME = "E2E Updates Team";
@@ -597,6 +835,7 @@ async function seed(): Promise<void> {
     superAdminUserId,
     volunteerUserId
   );
+  await ensureZeroQueryAuthorizationFixtures(superAdminUserId, volunteerUserId);
   await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),

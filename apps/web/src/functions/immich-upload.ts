@@ -9,7 +9,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
-import { uuidv7 } from "uuidv7";
 import {
   addAssetToAlbum,
   ensureImmichAlbum,
@@ -157,13 +156,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       );
       log.set({ albumId });
 
-      const deviceAssetId = `pi-dash-direct-${uuidv7()}`;
-      const assetId = await uploadAssetToImmich(
-        config,
-        file,
-        file.name,
-        deviceAssetId
-      );
+      const assetId = await uploadAssetToImmich(config, file, file.name);
       log.set({ immichAssetId: assetId });
 
       await addAssetToAlbum(config, albumId, assetId);

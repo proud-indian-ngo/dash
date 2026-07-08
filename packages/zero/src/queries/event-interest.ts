@@ -33,12 +33,45 @@ export const eventInterestQueries = {
   byCurrentUser: defineQuery(({ ctx }) =>
     zql.eventInterest.where("userId", ctx?.userId).related("event")
   ),
-  byEvent: defineQuery(
+  managerByEvent: defineQuery(
     z.object({ eventId: z.string() }),
-    ({ args: { eventId } }) =>
+    ({ args: { eventId }, ctx }) => {
+      if (ctx !== null && can(ctx, "events.manage_interest")) {
+        return zql.eventInterest
+          .where("eventId", eventId)
+          .related("user")
+          .orderBy("createdAt", "desc");
+      }
+
+      if (ctx === null) {
+        return zql.eventInterest
+          .where("eventId", eventId)
+          .where("id", "__never_match__")
+          .related("user")
+          .orderBy("createdAt", "desc");
+      }
+
+      return zql.eventInterest
+        .where("eventId", eventId)
+        .where(({ exists }) =>
+          exists("event", (e) =>
+            e.whereExists("team", (t) =>
+              t.whereExists("members", (m) =>
+                m.where("userId", ctx.userId).where("role", "lead")
+              )
+            )
+          )
+        )
+        .related("user")
+        .orderBy("createdAt", "desc");
+    }
+  ),
+  myByEvent: defineQuery(
+    z.object({ eventId: z.string() }),
+    ({ args: { eventId }, ctx }) =>
       zql.eventInterest
         .where("eventId", eventId)
-        .related("user")
-        .orderBy("createdAt", "desc")
+        .where("userId", ctx?.userId)
+        .related("event")
   ),
 };

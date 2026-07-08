@@ -54,9 +54,6 @@ export const Route = createFileRoute("/_app/events/$id")({
   loader: ({ context, params }) => {
     context.zero?.preload(queries.teamEvent.byId({ id: params.id }));
     context.zero?.preload(
-      queries.eventInterest.byEvent({ eventId: params.id })
-    );
-    context.zero?.preload(
       queries.eventUpdate.approvedByEvent({ eventId: params.id })
     );
     // Pending update/photo preloads omitted — conditionally fetched based on
@@ -100,7 +97,23 @@ function EventDetailRouteComponent() {
   );
   const parentEvent = (parentResult ?? null) as EventRow | null;
 
-  const [interests] = useQuery(queries.eventInterest.byEvent({ eventId: id }));
+  const isLead = team ? isTeamLead(team.members, session.user.id) : false;
+  const canManage = hasPermission("events.edit") || isLead;
+  const canCreate = hasPermission("events.create") || isLead;
+  const canManageAttendance =
+    hasPermission("events.manage_attendance") || isLead;
+  const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
+  const canManagePhotos = hasPermission("events.manage_photos") || isLead;
+  const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
+  const canManageInterest = hasPermission("events.manage_interest") || isLead;
+
+  const [myInterests] = useQuery(
+    queries.eventInterest.myByEvent({ eventId: id })
+  );
+  const [managerInterests] = useQuery(
+    queries.eventInterest.managerByEvent({ eventId: id }),
+    { enabled: canManageInterest }
+  );
 
   if (!event && eventStatus.type !== "complete") {
     return (
@@ -118,19 +131,10 @@ function EventDetailRouteComponent() {
     );
   }
 
-  const isLead = team ? isTeamLead(team.members, session.user.id) : false;
-  const canManage = hasPermission("events.edit") || isLead;
-  const canCreate = hasPermission("events.create") || isLead;
-  const canManageAttendance =
-    hasPermission("events.manage_attendance") || isLead;
-  const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
-  const canManagePhotos = hasPermission("events.manage_photos") || isLead;
-  const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
-  const canManageInterest = hasPermission("events.manage_interest") || isLead;
-  const myInterest = interests.find(
-    (i: EventInterest & { user: User | undefined }) =>
-      i.userId === session.user.id
-  );
+  const interests = canManageInterest ? managerInterests : [];
+  const myInterest = (myInterests[0] ?? null) as
+    | (EventInterest & { user: User | undefined })
+    | null;
   const isMember = event.members.some((m) => m.userId === session.user.id);
   const isTeamMember =
     team?.members.some((m) => m.userId === session.user.id) ?? false;
