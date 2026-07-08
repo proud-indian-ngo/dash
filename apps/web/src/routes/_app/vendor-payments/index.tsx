@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -41,8 +42,10 @@ function VendorPaymentsRouteComponent() {
   const { hasPermission } = useApp();
   const canDelete = hasPermission("requests.delete_all");
 
-  const handleDelete = async (id: string) =>
-    await zero.mutate(mutators.vendorPayment.delete({ id })).server;
+  const handleDelete = useEventCallback(
+    async (id: string) =>
+      await zero.mutate(mutators.vendorPayment.delete({ id })).server
+  );
   const [vendorPayments, result] = useQuery(queries.vendorPayment.all());
   const [statusFilter, setStatusFilter] = useQueryState(
     "status",
@@ -53,27 +56,33 @@ function VendorPaymentsRouteComponent() {
   const data = vendorPayments as VendorPaymentWithRelations[];
 
   const filtered = (() => {
-    let result = data;
+    let filteredData = data;
     if (statusFilter) {
-      result = result.filter((vp: any) => vp.status === statusFilter);
+      filteredData = filteredData.filter((vp) => vp.status === statusFilter);
     }
     if (cityFilter) {
-      result = result.filter((vp: any) => vp.city === cityFilter);
+      filteredData = filteredData.filter((vp) => vp.city === cityFilter);
     }
-    return result;
+    return filteredData;
   })();
 
   const isLoading = data.length === 0 && result.type !== "complete";
-  const stableOnClearFilters0 = () => {
+  const stableOnClearFilters0 = useEventCallback(() => {
     setStatusFilter(null);
     setCityFilter(null);
-  };
-  const stableOnNavigate1 = (id: any) => {
+  });
+  const stableOnNavigate1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/vendor-payments/$id" });
-  };
-  const stableOnClick2 = () => navigate({ to: "/vendor-payments/new" });
-  const stableOnChange3 = (val: any) => setCityFilter(val || null);
-  const stableOnChange4 = (val: any) => setStatusFilter(val || null);
+  });
+  const stableOnClick2 = useEventCallback(() =>
+    navigate({ to: "/vendor-payments/new" })
+  );
+  const stableOnChange3 = useEventCallback((val: string | null) =>
+    setCityFilter(val || null)
+  );
+  const stableOnChange4 = useEventCallback((val: string | null) =>
+    setStatusFilter(val || null)
+  );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

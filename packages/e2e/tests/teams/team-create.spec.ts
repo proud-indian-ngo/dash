@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { createTeamViaDialog } from "../../helpers/team";
 
 test.describe("Create team dialog (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
@@ -71,24 +72,9 @@ test.describe("Create team dialog (admin)", () => {
   });
 
   test("creates a new team successfully", async ({ page }) => {
-    const teamName = `E2E Team ${Date.now()}`;
-
-    await page.getByRole("button", { name: "Add team" }).click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    await dialog.getByLabel("Name", { exact: true }).fill(teamName);
-    await dialog.getByLabel("Description").fill("Test team description");
-
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
-
-    // Wait for success toast first, then dialog close
-    await expect(page.getByText("Team created")).toBeVisible({
-      timeout: 10_000,
+    await createTeamViaDialog(page, {
+      description: "Test team description",
+      prefix: "E2E Team",
     });
-    await expect(dialog).toBeHidden({ timeout: 10_000 });
-
-    // Verify team appears in the table
-    await expect(page.getByText(teamName)).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -18,7 +18,7 @@ const passwordSchema = z
     newPassword: z.string().min(8, "Password must be at least 8 characters"),
     revokeOtherSessions: z.boolean(),
   })
-  .superRefine((data: any, ctx: any) => {
+  .superRefine((data, ctx) => {
     if (data.confirmPassword !== data.newPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

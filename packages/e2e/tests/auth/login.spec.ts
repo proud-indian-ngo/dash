@@ -1,5 +1,5 @@
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import dotenv from "dotenv";
 
 dotenv.config({
@@ -9,7 +9,8 @@ dotenv.config({
 
 test.describe("Login page", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
+    await page.context().clearCookies();
+    await openLoginPage(page);
   });
 
   test("renders login form", async ({ page }) => {
@@ -37,10 +38,11 @@ test.describe("Login page", () => {
   });
 
   test("successful login redirects to dashboard", async ({ page }) => {
-    await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL!);
-    await page.getByLabel("Password").fill(process.env.ADMIN_PASSWORD!);
-    await page.getByRole("button", { name: "Login" }).click();
-    await page.waitForURL("/");
+    await loginToDashboard(
+      page,
+      process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test",
+      process.env.ADMIN_PASSWORD ?? "TestAdmin123!"
+    );
     await expect(
       page.getByRole("heading", { name: "Dashboard" })
     ).toBeVisible();
@@ -49,8 +51,53 @@ test.describe("Login page", () => {
   test("forgot password link navigates to /forgot-password", async ({
     page,
   }) => {
-    await expect(page.getByText("Forgot password?")).toBeVisible();
-    await page.getByText("Forgot password?").click();
+    const forgotPasswordLink = page.getByRole("link", {
+      name: "Forgot password?",
+    });
+    await expect(forgotPasswordLink).toBeVisible();
+    await forgotPasswordLink.click();
     await page.waitForURL("/forgot-password");
   });
 });
+
+async function openLoginPage(page: Page) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto("/login");
+    if (
+      await page
+        .getByLabel("Email")
+        .isVisible({ timeout: 10_000 })
+        .catch(() => false)
+    ) {
+      return;
+    }
+
+    if (attempt === 2) {
+      await expect(page.getByLabel("Email")).toBeVisible();
+      return;
+    }
+  }
+}
+
+async function loginToDashboard(page: Page, email: string, password: string) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Login" }).click();
+
+    if (
+      await page
+        .waitForURL("/", { timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      return;
+    }
+
+    if (attempt < 2) {
+      await openLoginPage(page);
+    }
+  }
+
+  await page.waitForURL("/", { timeout: 10_000 });
+}

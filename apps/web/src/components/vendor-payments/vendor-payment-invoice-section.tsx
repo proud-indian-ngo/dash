@@ -6,6 +6,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
@@ -48,7 +49,7 @@ function InvoiceAttachmentList({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      {attachments.map((att: any) => (
+      {attachments.map((att) => (
         <div
           className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
           key={att.id}
@@ -171,7 +172,7 @@ export function VendorPaymentInvoiceSection({
   const [invoiceApproveOpen, setInvoiceApproveOpen] = useState(false);
   const [invoiceRejectOpen, setInvoiceRejectOpen] = useState(false);
 
-  const handleApproveInvoice = async (message: string) => {
+  const handleApproveInvoice = useEventCallback(async (message: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.approveInvoice({
         id: request.id,
@@ -187,9 +188,9 @@ export function VendorPaymentInvoiceSection({
     if (res.type !== "error") {
       setInvoiceApproveOpen(false);
     }
-  };
+  });
 
-  const handleRejectInvoice = async (reason: string) => {
+  const handleRejectInvoice = useEventCallback(async (reason: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.rejectInvoice({ id: request.id, reason })
     ).server;
@@ -202,11 +203,11 @@ export function VendorPaymentInvoiceSection({
     if (res.type !== "error") {
       setInvoiceRejectOpen(false);
     }
-  };
-  const stableOnClick0 = () => setInvoiceFormOpen(true);
-  const stableOnClick1 = () => setInvoiceFormOpen(true);
-  const stableOnClick2 = () => setInvoiceApproveOpen(true);
-  const stableOnClick3 = () => setInvoiceRejectOpen(true);
+  });
+  const stableOnClick0 = useEventCallback(() => setInvoiceFormOpen(true));
+  const stableOnClick1 = useEventCallback(() => setInvoiceFormOpen(true));
+  const stableOnClick2 = useEventCallback(() => setInvoiceApproveOpen(true));
+  const stableOnClick3 = useEventCallback(() => setInvoiceRejectOpen(true));
 
   if (!INVOICE_STATUSES.has(status)) {
     return null;

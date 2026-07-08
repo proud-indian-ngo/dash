@@ -22,12 +22,12 @@ export function initPostHog(): void {
   posthogJs.init(key, {
     api_host: env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com",
     autocapture: false,
-    before_send: (event: any) => {
+    before_send: (event) => {
       if (!event) {
         return null;
       }
       const payload = JSON.stringify(event.properties ?? {});
-      if (IGNORED_LOG_PATTERNS.some((p: any) => payload.includes(p))) {
+      if (IGNORED_LOG_PATTERNS.some((p) => payload.includes(p))) {
         return null;
       }
       return event;
@@ -67,7 +67,7 @@ export function captureException(
   if (!initialized) {
     return;
   }
-  if (IGNORED_ERRORS.some((msg: any) => error.message?.includes(msg))) {
+  if (IGNORED_ERRORS.some((msg) => error.message?.includes(msg))) {
     return;
   }
   posthogJs.captureException(error, properties);

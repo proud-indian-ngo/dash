@@ -112,7 +112,7 @@ export const getRoleById = createServerFn({ method: "GET" })
 
       return {
         ...found,
-        permissionIds: perms.map((p: any) => p.permissionId),
+        permissionIds: perms.map((p) => p.permissionId),
       };
     } catch (error) {
       logErrorAndRethrow(
@@ -207,7 +207,7 @@ export const createRole = createServerFn({ method: "POST" })
         throw new Error(`Role ID "${data.id}" already exists`);
       }
 
-      await db.transaction(async (tx: any) => {
+      await db.transaction(async (tx) => {
         await tx.insert(role).values({
           description: data.description ?? null,
           id: data.id,
@@ -217,7 +217,7 @@ export const createRole = createServerFn({ method: "POST" })
 
         if (data.permissionIds.length > 0) {
           await tx.insert(rolePermission).values(
-            data.permissionIds.map((permId: any) => ({
+            data.permissionIds.map((permId) => ({
               permissionId: permId,
               roleId: data.id,
             }))
@@ -279,7 +279,7 @@ export const updateRole = createServerFn({ method: "POST" })
         throw new Error("Cannot modify a system role");
       }
 
-      await db.transaction(async (tx: any) => {
+      await db.transaction(async (tx) => {
         await tx
           .update(role)
           .set({ description: data.description ?? null, name: data.name })
@@ -291,7 +291,7 @@ export const updateRole = createServerFn({ method: "POST" })
 
         if (data.permissionIds.length > 0) {
           await tx.insert(rolePermission).values(
-            data.permissionIds.map((permId: any) => ({
+            data.permissionIds.map((permId) => ({
               permissionId: permId,
               roleId: data.roleId,
             }))

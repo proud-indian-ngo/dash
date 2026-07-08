@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
 import type {
   BankAccount,
@@ -83,21 +84,21 @@ function ReimbursementFormInner({
 
   function getFilteredEventOptions(selectedCity: string | undefined) {
     const filtered = selectedCity
-      ? eventList.filter((e: any) => e.city === selectedCity)
+      ? eventList.filter((e) => e.city === selectedCity)
       : eventList;
-    return filtered.map((e: any) => ({
+    return filtered.map((e) => ({
       label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
       value: e.id,
     }));
   }
 
-  const bankAccountOptions = bankAccountList.map((account: any) => ({
+  const bankAccountOptions = bankAccountList.map((account) => ({
     label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
     value: account.id,
   }));
 
   const defaultBankAccount =
-    bankAccountList.find((a: any) => a.isDefault) ?? bankAccountList[0];
+    bankAccountList.find((a) => a.isDefault) ?? bankAccountList[0];
 
   const strippedInitialValues = (() => {
     if (!initialValues || requestType === "reimbursement") {
@@ -191,20 +192,19 @@ function ReimbursementFormInner({
     bankAccountsStatus = "error";
   }
 
-  const stableSelector0 = (state: any) => ({
-    city: state.values.city,
-    eventId: state.values.eventId,
-  });
+  const stableSelector0 = useEventCallback(
+    (state: { values: { city?: string; eventId?: string } }) => ({
+      city: state.values.city,
+      eventId: state.values.eventId,
+    })
+  );
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
       <form.Subscribe selector={stableSelector0}>
         {({ city: selectedCity, eventId }) => {
           const filteredOptions = getFilteredEventOptions(selectedCity);
-          if (
-            eventId &&
-            !filteredOptions.some((o: any) => o.value === eventId)
-          ) {
+          if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
             setTimeout(() => form.setFieldValue("eventId", undefined), 0);
           }
           return (
@@ -218,7 +218,7 @@ function ReimbursementFormInner({
               eventOptions={filteredOptions}
               form={form}
               isEdit={isEdit}
-              onBankAccountSelected={(account: any) => {
+              onBankAccountSelected={(account) => {
                 form.setFieldValue("bankAccountNumber", account.accountNumber);
                 form.setFieldValue("bankAccountIfscCode", account.ifscCode);
               }}

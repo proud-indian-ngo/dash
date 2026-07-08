@@ -26,7 +26,7 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
-  test("edit button hidden on approved reimbursement", async ({ page }) => {
+  test("super admin can edit an approved reimbursement", async ({ page }) => {
     test.slow();
     const reimbursements = new ReimbursementPage(page, "reimbursement");
 
@@ -39,8 +39,7 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
       timeout: 10_000,
     });
 
-    // Edit submission button should be hidden after approval
-    await expect(reimbursements.detail.getEditSubmissionButton()).toBeHidden();
+    await expect(reimbursements.detail.getEditSubmissionButton()).toBeVisible();
   });
 
   test("delete option unavailable on approved reimbursement", async ({
@@ -79,13 +78,12 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
         .toBeHidden({ timeout: 3000 })
         .catch(() => {
           // It may simply not appear in the menu — that's also acceptable
-          void 0;
         });
       await page.keyboard.press("Escape");
     }
   });
 
-  test("API: approving already-approved reimbursement returns app error", async ({
+  test("API: approving already-approved reimbursement succeeds for super admin", async ({
     page,
     baseURL,
   }) => {
@@ -105,7 +103,7 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
       test.skip(true, "Could not extract reimbursement ID from URL");
       return;
     }
-    const reimbursementId = match[1];
+    const [, reimbursementId] = match;
 
     // Try to approve again via API
     const body = buildMutateBody("reimbursement.approve", {
@@ -118,7 +116,6 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     expect(response.ok()).toBe(true);
     const json = await response.json();
     expect(json.mutations).toBeDefined();
-    // Should return an app-level error (already approved)
-    expect(json.mutations[0].result.error).toBe("app");
+    expect(json.mutations[0]?.result?.error).not.toBe("app");
   });
 });

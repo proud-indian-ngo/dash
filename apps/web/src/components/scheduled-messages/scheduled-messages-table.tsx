@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   deriveMessageStatus,
   type ScheduledMessageDerivedStatus,
@@ -28,7 +29,7 @@ import type {
 } from "@pi-dash/zero/schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
@@ -92,23 +93,10 @@ function createColumns(
   return [
     {
       cell: ({ row }) => (
-        <Button
-          aria-label={row.getIsExpanded() ? "Collapse" : "Expand"}
-          className="size-7"
-          onClick={(e: any) => {
-            e.stopPropagation();
-            row.toggleExpanded();
-          }}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={row.getIsExpanded() ? ArrowDown01Icon : ArrowRight01Icon}
-            strokeWidth={2}
-          />
-        </Button>
+        <ExpandButton
+          expanded={row.getIsExpanded()}
+          onToggle={row.toggleExpanded}
+        />
       ),
       enableColumnOrdering: false,
       enableHiding: false,
@@ -126,7 +114,7 @@ function createColumns(
       size: 40,
     },
     {
-      accessorFn: (row: any) => row.message,
+      accessorFn: (row) => row.message,
       cell: ({ row }) => (
         <span className="truncate text-sm">
           {row.original.message.length > 80
@@ -146,7 +134,7 @@ function createColumns(
       size: 300,
     },
     {
-      accessorFn: (row: any) => row.scheduledAt,
+      accessorFn: (row) => row.scheduledAt,
       cell: ({ row }) => (
         <span className="text-sm">{formatTs(row.original.scheduledAt)}</span>
       ),
@@ -162,7 +150,7 @@ function createColumns(
       size: 180,
     },
     {
-      accessorFn: (row: any) => deriveMessageStatus(row.recipients),
+      accessorFn: (row) => deriveMessageStatus(row.recipients),
       cell: ({ row }) => {
         const status = deriveMessageStatus(row.original.recipients);
         const badge = getStatusBadge(status);
@@ -180,7 +168,7 @@ function createColumns(
       size: 120,
     },
     {
-      accessorFn: (row: any) => row.recipients.length,
+      accessorFn: (row) => row.recipients.length,
       cell: ({ row }) => {
         const count = row.original.recipients.length;
         return (
@@ -201,7 +189,7 @@ function createColumns(
       size: 120,
     },
     {
-      accessorFn: (row: any) => row.creator?.name ?? "",
+      accessorFn: (row) => row.creator?.name ?? "",
       cell: ({ row }) => (
         <span className="text-sm">
           {row.original.creator?.name ?? "\u2014"}
@@ -224,73 +212,14 @@ function createColumns(
         const isPending = deriveMessageStatus(msg.recipients) === "pending";
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label="Row actions"
-                  className="size-8"
-                  data-testid="row-actions"
-                  onClick={(e: any) => e.stopPropagation()}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={MoreVerticalIcon}
-                    strokeWidth={2}
-                  />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => onView(msg)}>
-                <HugeiconsIcon
-                  className="mr-2 size-4"
-                  icon={ViewIcon}
-                  strokeWidth={2}
-                />
-                View details
-              </DropdownMenuItem>
-              {isPending && (
-                <DropdownMenuItem onClick={() => onEdit(msg)}>
-                  <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={PencilEdit01Icon}
-                    strokeWidth={2}
-                  />
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {isPending && (
-                <DropdownMenuItem
-                  onClick={() => onCancel(msg)}
-                  variant="destructive"
-                >
-                  <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={Cancel01Icon}
-                    strokeWidth={2}
-                  />
-                  Cancel
-                </DropdownMenuItem>
-              )}
-              {!isPending && (
-                <DropdownMenuItem
-                  onClick={() => onDelete(msg)}
-                  variant="destructive"
-                >
-                  <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={Delete02Icon}
-                    strokeWidth={2}
-                  />
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ScheduledMessageActions
+            isPending={isPending}
+            message={msg}
+            onCancel={onCancel}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            onView={onView}
+          />
         );
       },
       enableColumnOrdering: false,
@@ -308,6 +237,120 @@ function createColumns(
       size: 52,
     },
   ];
+}
+
+function ExpandButton({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const handleClick = useEventCallback((e: MouseEvent) => {
+    e.stopPropagation();
+    onToggle();
+  });
+
+  return (
+    <Button
+      aria-label={expanded ? "Collapse" : "Expand"}
+      className="size-7"
+      onClick={handleClick}
+      size="icon"
+      type="button"
+      variant="ghost"
+    >
+      <HugeiconsIcon
+        className="size-4"
+        icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+        strokeWidth={2}
+      />
+    </Button>
+  );
+}
+
+function ScheduledMessageActions({
+  isPending,
+  message,
+  onCancel,
+  onDelete,
+  onEdit,
+  onView,
+}: {
+  isPending: boolean;
+  message: ScheduledMessageRow;
+  onCancel: (row: ScheduledMessageRow) => void;
+  onDelete: (row: ScheduledMessageRow) => void;
+  onEdit: (row: ScheduledMessageRow) => void;
+  onView: (row: ScheduledMessageRow) => void;
+}) {
+  const stopPropagation = useEventCallback((e: MouseEvent) => {
+    e.stopPropagation();
+  });
+  const handleView = useEventCallback(() => onView(message));
+  const handleEdit = useEventCallback(() => onEdit(message));
+  const handleCancel = useEventCallback(() => onCancel(message));
+  const handleDelete = useEventCallback(() => onDelete(message));
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Row actions"
+            className="size-8"
+            data-testid="row-actions"
+            onClick={stopPropagation}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={MoreVerticalIcon}
+              strokeWidth={2}
+            />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuItem onClick={handleView}>
+          <HugeiconsIcon className="mr-2 size-4" icon={ViewIcon} strokeWidth={2} />
+          View details
+        </DropdownMenuItem>
+        {isPending && (
+          <DropdownMenuItem onClick={handleEdit}>
+            <HugeiconsIcon
+              className="mr-2 size-4"
+              icon={PencilEdit01Icon}
+              strokeWidth={2}
+            />
+            Edit
+          </DropdownMenuItem>
+        )}
+        {isPending && (
+          <DropdownMenuItem onClick={handleCancel} variant="destructive">
+            <HugeiconsIcon
+              className="mr-2 size-4"
+              icon={Cancel01Icon}
+              strokeWidth={2}
+            />
+            Cancel
+          </DropdownMenuItem>
+        )}
+        {!isPending && (
+          <DropdownMenuItem onClick={handleDelete} variant="destructive">
+            <HugeiconsIcon
+              className="mr-2 size-4"
+              icon={Delete02Icon}
+              strokeWidth={2}
+            />
+            Delete
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 interface ScheduledMessagesTableProps {
@@ -340,8 +383,8 @@ export function ScheduledMessagesTable({
   toolbarFilters,
 }: ScheduledMessagesTableProps) {
   const columns = createColumns(onView, onEdit, onCancel, onDelete, onRetry);
-  const stableGetRowCanExpand0 = () => true;
-  const stableGetRowId1 = (row: any) => row.id;
+  const stableGetRowCanExpand0 = useEventCallback(() => true);
+  const stableGetRowId1 = useEventCallback((row: { id: string }) => row.id);
 
   return (
     <DataTableWrapper<ScheduledMessageRow>

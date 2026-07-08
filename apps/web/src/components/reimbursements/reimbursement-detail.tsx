@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -72,42 +73,44 @@ export function ReimbursementDetail({
   const showResetAction = showAdminActions && request.status !== "pending";
 
   const total = request.lineItems.reduce(
-    (sum: any, item: any) => sum + Number(item.amount),
+    (sum, item) => sum + Number(item.amount),
     0
   );
 
-  const handleApprove = async (message: string, screenshotKey?: string) => {
-    const res = await zero.mutate(
-      mutatorNs.approve({
-        approvalScreenshotKey: screenshotKey,
-        id: request.id,
-        note: message || undefined,
-      })
-    ).server;
-    handleMutationResult(res, {
-      entityId: request.id,
-      errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
-      mutation: `${mutatorName}.approve`,
-      successMsg: `${typeLabel} approved`,
-    });
-    if (res.type === "error" && screenshotKey) {
-      deleteUploadedAsset({
-        data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error: any) => {
-        log.error({
-          action: "cleanupScreenshot",
-          component: "ReimbursementDetail",
-          error: error instanceof Error ? error.message : String(error),
-          screenshotKey,
-        });
+  const handleApprove = useEventCallback(
+    async (message: string, screenshotKey?: string) => {
+      const res = await zero.mutate(
+        mutatorNs.approve({
+          approvalScreenshotKey: screenshotKey,
+          id: request.id,
+          note: message || undefined,
+        })
+      ).server;
+      handleMutationResult(res, {
+        entityId: request.id,
+        errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
+        mutation: `${mutatorName}.approve`,
+        successMsg: `${typeLabel} approved`,
       });
+      if (res.type === "error" && screenshotKey) {
+        deleteUploadedAsset({
+          data: { key: screenshotKey, subfolder: "approval-screenshots" },
+        }).catch((error) => {
+          log.error({
+            action: "cleanupScreenshot",
+            component: "ReimbursementDetail",
+            error: error instanceof Error ? error.message : String(error),
+            screenshotKey,
+          });
+        });
+      }
+      if (res.type !== "error") {
+        setApproveOpen(false);
+      }
     }
-    if (res.type !== "error") {
-      setApproveOpen(false);
-    }
-  };
+  );
 
-  const handleGenerateVoucher = async (lineItemId: string) => {
+  const handleGenerateVoucher = useEventCallback(async (lineItemId: string) => {
     if (request.type !== "reimbursement" || generatingVoucherId) {
       return;
     }
@@ -128,9 +131,9 @@ export function ReimbursementDetail({
     } finally {
       setGeneratingVoucherId(null);
     }
-  };
+  });
 
-  const handleReject = async (reason: string) => {
+  const handleReject = useEventCallback(async (reason: string) => {
     const res = await zero.mutate(mutatorNs.reject({ id: request.id, reason }))
       .server;
     handleMutationResult(res, {
@@ -142,9 +145,9 @@ export function ReimbursementDetail({
     if (res.type !== "error") {
       setRejectOpen(false);
     }
-  };
+  });
 
-  const handleResetToPending = async () => {
+  const handleResetToPending = useEventCallback(async () => {
     const res = await zero.mutate(mutatorNs.resetToPending({ id: request.id }))
       .server;
     handleMutationResult(res, {
@@ -153,8 +156,9 @@ export function ReimbursementDetail({
       mutation: `${mutatorName}.resetToPending`,
       successMsg: `${typeLabel} reset to pending`,
     });
-  };
-  const stableOnClick1 = () => setRejectOpen(true);
+  });
+  const stableOnClick0 = useEventCallback(() => setApproveOpen(true));
+  const stableOnClick1 = useEventCallback(() => setRejectOpen(true));
 
   return (
     <AppErrorBoundary level="section">
@@ -201,7 +205,7 @@ export function ReimbursementDetail({
             <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-out-expo">
               {showApproveAction ? (
                 <Button
-                  onClick={handleResetToPending}
+                  onClick={stableOnClick0}
                   type="button"
                   variant="default"
                 >
@@ -305,7 +309,7 @@ export function ReimbursementDetail({
           <div className="flex flex-col gap-3">
             <h2 className="font-medium text-sm">Attachments</h2>
             <div className="flex flex-col gap-1.5">
-              {request.attachments.map((att: any) => (
+              {request.attachments.map((att) => (
                 <div
                   className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
                   key={att.id}
@@ -367,7 +371,7 @@ export function ReimbursementDetail({
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {request.history.map((entry: any) => (
+                {request.history.map((entry) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>
@@ -414,7 +418,7 @@ function VoucherCell({
   const amount = Number(item.amount);
   const hasVoucher = !!item.voucherAttachmentId;
   const isQualifying = amount > 0 && amount <= VOUCHER_AMOUNT_THRESHOLD;
-  const stableOnClick2 = () => onGenerate(item.id);
+  const handleGenerate = useEventCallback(() => onGenerate(item.id));
 
   if (hasVoucher) {
     return (
@@ -429,7 +433,7 @@ function VoucherCell({
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"
             disabled={isGenerating}
-            onClick={stableOnClick2}
+            onClick={handleGenerate}
             size="sm"
             type="button"
             variant="ghost"
@@ -446,8 +450,6 @@ function VoucherCell({
     );
   }
 
-  const stableOnClick3 = () => onGenerate(item.id);
-
   if (item.generateVoucher && isApproved && !hasVoucher) {
     return (
       <div className="flex items-center gap-1.5">
@@ -456,7 +458,7 @@ function VoucherCell({
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"
             disabled={isGenerating}
-            onClick={stableOnClick3}
+            onClick={handleGenerate}
             size="sm"
             type="button"
             variant="ghost"
@@ -468,14 +470,12 @@ function VoucherCell({
     );
   }
 
-  const stableOnClick4 = () => onGenerate(item.id);
-
   if (canApprove && isApproved && isQualifying) {
     return (
       <Button
         className="h-auto px-2 py-1 text-xs"
         disabled={isGenerating}
-        onClick={stableOnClick4}
+        onClick={handleGenerate}
         size="sm"
         type="button"
         variant="outline"
@@ -526,7 +526,7 @@ function LineItemsTable({
               </tr>
             </thead>
             <tbody>
-              {request.lineItems.map((item: any) => (
+              {request.lineItems.map((item) => (
                 <tr className="border-b last:border-0" key={item.id}>
                   <td className="px-3 py-2">{item.category?.name}</td>
                   <td className="px-3 py-2 text-muted-foreground">
@@ -585,7 +585,7 @@ function getBankDetails(request: RequestDetailData) {
 function BankAccountCard({ request }: { request: RequestDetailData }) {
   const bank = getBankDetails(request);
 
-  if (!(bank && (bank.name || bank.number || bank.ifsc))) {
+  if (!(bank.name || bank.number || bank.ifsc)) {
     return null;
   }
 

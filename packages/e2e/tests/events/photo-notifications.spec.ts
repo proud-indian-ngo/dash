@@ -46,10 +46,11 @@ test.describe("Photo notifications — admin batch approval", () => {
 
     // Try up to 5 events to find one with pending photos
     const linkCount = await eventLinks.count();
-    let foundPhotos = false;
-
-    for (let i = 0; i < Math.min(linkCount, 5); i += 1) {
-      await eventLinks.nth(i).click();
+    const findPendingPhotos = async (index: number): Promise<boolean> => {
+      if (index >= Math.min(linkCount, 5)) {
+        return false;
+      }
+      await eventLinks.nth(index).click();
       await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
       const photosTab = page.getByRole("tab", { name: /Photos/ });
@@ -61,8 +62,7 @@ test.describe("Photo notifications — admin batch approval", () => {
         if (
           await approveAllButton.isVisible({ timeout: 3000 }).catch(() => false)
         ) {
-          foundPhotos = true;
-          break;
+          return true;
         }
       }
 
@@ -71,7 +71,10 @@ test.describe("Photo notifications — admin batch approval", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
         timeout: 10_000,
       });
-    }
+      return findPendingPhotos(index + 1);
+    };
+
+    const foundPhotos = await findPendingPhotos(0);
 
     if (!foundPhotos) {
       test.skip(true, "No events with multiple pending photos found");
@@ -171,10 +174,11 @@ test.describe("Photo notifications — admin single approval", () => {
     }
 
     const linkCount = await eventLinks.count();
-    let foundPhoto = false;
-
-    for (let i = 0; i < Math.min(linkCount, 5); i += 1) {
-      await eventLinks.nth(i).click();
+    const findPendingPhoto = async (index: number): Promise<boolean> => {
+      if (index >= Math.min(linkCount, 5)) {
+        return false;
+      }
+      await eventLinks.nth(index).click();
       await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
       const photosTab = page.getByRole("tab", { name: /Photos/ });
@@ -190,9 +194,8 @@ test.describe("Photo notifications — admin single approval", () => {
             .isVisible({ timeout: 3000 })
             .catch(() => false)
         ) {
-          foundPhoto = true;
           await approveButton.first().click();
-          break;
+          return true;
         }
       }
 
@@ -201,7 +204,10 @@ test.describe("Photo notifications — admin single approval", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
         timeout: 10_000,
       });
-    }
+      return findPendingPhoto(index + 1);
+    };
+
+    const foundPhoto = await findPendingPhoto(0);
 
     if (!foundPhoto) {
       test.skip(true, "No events with pending photos found");

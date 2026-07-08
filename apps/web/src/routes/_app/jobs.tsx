@@ -1,6 +1,7 @@
 import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -70,7 +71,7 @@ function fetchJobsData(
   if (queueFilter) {
     params.set("queue", queueFilter);
   }
-  return fetch(`/api/jobs?${params.toString()}`).then(async (res: any) => {
+  return fetch(`/api/jobs?${params.toString()}`).then(async (res) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch jobs: ${res.status}`);
     }
@@ -83,7 +84,7 @@ function fetchJobsData(
 }
 
 function fetchStatsData() {
-  return fetch("/api/jobs/stats").then(async (res: any) => {
+  return fetch("/api/jobs/stats").then(async (res) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch stats: ${res.status}`);
     }
@@ -171,48 +172,48 @@ function JobsRouteComponent() {
   }, [stateFilter, queueFilter, pageIndex, pageSize, refreshKey]);
 
   const queueOptions = queues
-    .map((q: any) => ({ label: q.queue, value: q.queue }))
-    .sort((a: any, b: any) => a.label.localeCompare(b.label));
+    .map((q) => ({ label: q.queue, value: q.queue }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   // Reset page when filter changes
-  const handleFilterChange = (value: string) => {
+  const handleFilterChange = useEventCallback((value: string) => {
     setPagination({ pageIndex: 0 });
     setStateFilter(value);
-  };
+  });
 
-  const handleQueueFilterChange = (value: string) => {
+  const handleQueueFilterChange = useEventCallback((value: string) => {
     setPagination({ pageIndex: 0 });
     setQueueFilter(value);
-  };
+  });
 
-  const handleRefresh = () => {
+  const handleRefresh = useEventCallback(() => {
     setIsLoading(true);
-    setRefreshKey((k: any) => k + 1);
-  };
+    setRefreshKey((k) => k + 1);
+  });
 
-  const handleView = (job: JobRow) => {
+  const handleView = useEventCallback((job: JobRow) => {
     setSelectedJob(job);
     setSheetOpen(true);
-  };
+  });
 
-  const handleCancelRequest = (job: JobRow) => {
+  const handleCancelRequest = useEventCallback((job: JobRow) => {
     setCancelTarget(job);
-  };
-  const stableOnClearFilters0 = () => {
+  });
+  const stableOnClearFilters0 = useEventCallback(() => {
     handleFilterChange("");
     handleQueueFilterChange("");
-  };
-  const stableOnOpenChange1 = (open: any) => {
+  });
+  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       setCancelTarget(null);
     }
-  };
-  const stableOnOpenChange2 = (open: any) => {
+  });
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       setRetryTarget(null);
     }
-  };
-  const handleCancelConfirm = async () => {
+  });
+  const handleCancelConfirm = useEventCallback(async () => {
     if (!cancelTarget) {
       return;
     }
@@ -227,7 +228,7 @@ function JobsRouteComponent() {
       }
       toast.success("Job cancelled");
       setCancelTarget(null);
-      setRefreshKey((k: any) => k + 1);
+      setRefreshKey((k) => k + 1);
     } catch (error) {
       log.error({
         action: "cancelJob",
@@ -240,13 +241,13 @@ function JobsRouteComponent() {
     } finally {
       setIsCancelling(false);
     }
-  };
+  });
 
-  const handleRetryRequest = (job: JobRow) => {
+  const handleRetryRequest = useEventCallback((job: JobRow) => {
     setRetryTarget(job);
-  };
+  });
 
-  const handleRetryConfirm = async () => {
+  const handleRetryConfirm = useEventCallback(async () => {
     if (!retryTarget) {
       return;
     }
@@ -261,7 +262,7 @@ function JobsRouteComponent() {
       }
       toast.success("Queued for retry");
       setRetryTarget(null);
-      setRefreshKey((k: any) => k + 1);
+      setRefreshKey((k) => k + 1);
     } catch (error) {
       log.error({
         action: "retryJob",
@@ -274,7 +275,7 @@ function JobsRouteComponent() {
     } finally {
       setIsRetrying(false);
     }
-  };
+  });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

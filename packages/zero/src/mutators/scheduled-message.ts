@@ -107,9 +107,9 @@ export const scheduledMessageMutators = {
       }));
 
       await Promise.all(
-        recipientRows.map(async (row) => {
-          await tx.mutate.scheduledMessageRecipient.insert(row);
-        })
+        recipientRows.map((row) =>
+          tx.mutate.scheduledMessageRecipient.insert(row)
+        )
       );
 
       if (tx.location === "server") {
@@ -119,62 +119,60 @@ export const scheduledMessageMutators = {
         const { attachments } = args;
         const { scheduledAt } = args;
 
-        await Promise.all(
-          recipientRows.map(async (row) => {
-            ctx.asyncTasks?.push({
-              fn: async () => {
-                try {
-                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        for (const row of recipientRows) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              try {
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
 
-                  let targetAddress: string;
-                  if (row.type === "group") {
-                    const group = await tx.run(
-                      zql.whatsappGroup.where("id", row.recipientId).one()
-                    );
-                    if (!group) {
-                      throw new Error(
-                        `WhatsApp group ${row.recipientId} not found`
-                      );
-                    }
-                    targetAddress = group.jid;
-                  } else {
-                    const usr = await tx.run(
-                      zql.user.where("id", row.recipientId).one()
-                    );
-                    if (!usr?.phone) {
-                      throw new Error(`User ${row.recipientId} has no phone`);
-                    }
-                    targetAddress = usr.phone;
-                  }
-
-                  await enqueue(
-                    "send-scheduled-whatsapp",
-                    {
-                      attachments: attachments ?? undefined,
-                      enqueuedAt,
-                      message,
-                      recipientRowId: row.id,
-                      recipientType: row.type,
-                      scheduledMessageId,
-                      targetAddress,
-                    },
-                    {
-                      startAfter: new Date(scheduledAt).toISOString(),
-                      traceId: ctx.traceId,
-                    }
+                let targetAddress: string;
+                if (row.type === "group") {
+                  const group = await tx.run(
+                    zql.whatsappGroup.where("id", row.recipientId).one()
                   );
-                } catch (error) {
-                  await markRecipientFailed(row.id, error);
+                  if (!group) {
+                    throw new Error(
+                      `WhatsApp group ${row.recipientId} not found`
+                    );
+                  }
+                  targetAddress = group.jid;
+                } else {
+                  const usr = await tx.run(
+                    zql.user.where("id", row.recipientId).one()
+                  );
+                  if (!usr?.phone) {
+                    throw new Error(`User ${row.recipientId} has no phone`);
+                  }
+                  targetAddress = usr.phone;
                 }
-              },
-              meta: {
-                mutator: "scheduledMessage.create",
-                recipientId: row.recipientId,
-                scheduledMessageId,
-              },
-            });
-          })
-        );
+
+                await enqueue(
+                  "send-scheduled-whatsapp",
+                  {
+                    attachments: attachments ?? undefined,
+                    enqueuedAt,
+                    message,
+                    recipientRowId: row.id,
+                    recipientType: row.type,
+                    scheduledMessageId,
+                    targetAddress,
+                  },
+                  {
+                    startAfter: new Date(scheduledAt).toISOString(),
+                    traceId: ctx.traceId,
+                  }
+                );
+              } catch (error) {
+                await markRecipientFailed(row.id, error);
+              }
+            },
+            meta: {
+              mutator: "scheduledMessage.create",
+              recipientId: row.recipientId,
+              scheduledMessageId,
+            },
+          });
+        }
       }
     }
   ),
@@ -361,9 +359,9 @@ export const scheduledMessageMutators = {
       }));
 
       await Promise.all(
-        recipientRows.map(async (row) => {
-          await tx.mutate.scheduledMessageRecipient.insert(row);
-        })
+        recipientRows.map((row) =>
+          tx.mutate.scheduledMessageRecipient.insert(row)
+        )
       );
 
       if (tx.location === "server") {
@@ -373,62 +371,60 @@ export const scheduledMessageMutators = {
         const { attachments } = args;
         const { scheduledAt } = args;
 
-        await Promise.all(
-          recipientRows.map(async (row) => {
-            ctx.asyncTasks?.push({
-              fn: async () => {
-                try {
-                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        for (const row of recipientRows) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              try {
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
 
-                  let targetAddress: string;
-                  if (row.type === "group") {
-                    const group = await tx.run(
-                      zql.whatsappGroup.where("id", row.recipientId).one()
-                    );
-                    if (!group) {
-                      throw new Error(
-                        `WhatsApp group ${row.recipientId} not found`
-                      );
-                    }
-                    targetAddress = group.jid;
-                  } else {
-                    const usr = await tx.run(
-                      zql.user.where("id", row.recipientId).one()
-                    );
-                    if (!usr?.phone) {
-                      throw new Error(`User ${row.recipientId} has no phone`);
-                    }
-                    targetAddress = usr.phone;
-                  }
-
-                  await enqueue(
-                    "send-scheduled-whatsapp",
-                    {
-                      attachments: attachments ?? undefined,
-                      enqueuedAt,
-                      message,
-                      recipientRowId: row.id,
-                      recipientType: row.type,
-                      scheduledMessageId,
-                      targetAddress,
-                    },
-                    {
-                      startAfter: new Date(scheduledAt).toISOString(),
-                      traceId: ctx.traceId,
-                    }
+                let targetAddress: string;
+                if (row.type === "group") {
+                  const group = await tx.run(
+                    zql.whatsappGroup.where("id", row.recipientId).one()
                   );
-                } catch (error) {
-                  await markRecipientFailed(row.id, error);
+                  if (!group) {
+                    throw new Error(
+                      `WhatsApp group ${row.recipientId} not found`
+                    );
+                  }
+                  targetAddress = group.jid;
+                } else {
+                  const usr = await tx.run(
+                    zql.user.where("id", row.recipientId).one()
+                  );
+                  if (!usr?.phone) {
+                    throw new Error(`User ${row.recipientId} has no phone`);
+                  }
+                  targetAddress = usr.phone;
                 }
-              },
-              meta: {
-                mutator: "scheduledMessage.update",
-                recipientId: row.recipientId,
-                scheduledMessageId,
-              },
-            });
-          })
-        );
+
+                await enqueue(
+                  "send-scheduled-whatsapp",
+                  {
+                    attachments: attachments ?? undefined,
+                    enqueuedAt,
+                    message,
+                    recipientRowId: row.id,
+                    recipientType: row.type,
+                    scheduledMessageId,
+                    targetAddress,
+                  },
+                  {
+                    startAfter: new Date(scheduledAt).toISOString(),
+                    traceId: ctx.traceId,
+                  }
+                );
+              } catch (error) {
+                await markRecipientFailed(row.id, error);
+              }
+            },
+            meta: {
+              mutator: "scheduledMessage.update",
+              recipientId: row.recipientId,
+              scheduledMessageId,
+            },
+          });
+        }
       }
     }
   ),

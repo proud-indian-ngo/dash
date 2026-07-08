@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import {
   INVOICE_LOCKED_STATUSES,
@@ -66,7 +67,7 @@ export function VendorPaymentTransactions({
     0
   );
   const paidAmount = transactions
-    .filter((t: any) => t.status === "approved")
+    .filter((t) => t.status === "approved")
     .reduce(
       (sum: number, t: { amount: number | string }) => sum + Number(t.amount),
       0
@@ -75,7 +76,7 @@ export function VendorPaymentTransactions({
 
   // Sum of all non-rejected transactions (approved + pending) for cap enforcement
   const recordableTotal = transactions
-    .filter((t: any) => t.status !== "rejected")
+    .filter((t) => t.status !== "rejected")
     .reduce((sum: number, t) => sum + Number(t.amount), 0);
   const remainingForCreate = Math.max(0, totalOwed - recordableTotal);
 
@@ -91,7 +92,7 @@ export function VendorPaymentTransactions({
     });
   };
 
-  const handleRejectTransaction = async (reason: string) => {
+  const handleRejectTransaction = useEventCallback(async (reason: string) => {
     if (!rejectingId) {
       return;
     }
@@ -107,9 +108,9 @@ export function VendorPaymentTransactions({
     if (res.type !== "error") {
       setRejectingId(null);
     }
-  };
+  });
 
-  const confirmDeleteTransaction = async () => {
+  const confirmDeleteTransaction = useEventCallback(async () => {
     if (!deletingId) {
       return;
     }
@@ -130,23 +131,23 @@ export function VendorPaymentTransactions({
     } finally {
       setDeleteLoading(false);
     }
-  };
-  const stableOnClick0 = () => setFormOpen(true);
-  const stableOnOpenChange1 = (open: any) => {
+  });
+  const stableOnClick0 = useEventCallback(() => setFormOpen(true));
+  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       setEditingTransaction(null);
     }
-  };
-  const stableOnOpenChange2 = (open: any) => {
+  });
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       setRejectingId(null);
     }
-  };
-  const stableOnOpenChange3 = (open: any) => {
+  });
+  const stableOnOpenChange3 = useEventCallback((open: boolean) => {
     if (!open) {
       setDeletingId(null);
     }
-  };
+  });
 
   if (!RECORDABLE_STATUSES.has(request.status as string)) {
     return null;
@@ -219,7 +220,7 @@ export function VendorPaymentTransactions({
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t: any) => {
+                {transactions.map((t) => {
                   const badge = getStatusBadge(t.status);
                   const isPending = t.status === "pending";
                   const isTransactionOwner = isOwner || t.userId === user.id;

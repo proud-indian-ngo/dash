@@ -90,7 +90,7 @@ export async function handleWhatsAppAddMember(
       log.set({ groupId, jobId: job.id, userId });
 
       const group = await db.query.whatsappGroup.findFirst({
-        where: (t, { eq }) => eq(t.id, groupId),
+        where: (row, { eq: equals }) => equals(row.id, groupId),
       });
       if (group) {
         const phone = await getUserPhone(userId);
@@ -118,7 +118,7 @@ export async function handleWhatsAppAddMembers(
       log.set({ groupId, jobId: job.id, userCount: userIds.length });
 
       const group = await db.query.whatsappGroup.findFirst({
-        where: (t, { eq }) => eq(t.id, groupId),
+        where: (row, { eq: equals }) => equals(row.id, groupId),
       });
       if (group) {
         const phoneMap = await getUserPhones(userIds);
@@ -145,7 +145,7 @@ export async function handleWhatsAppRemoveMember(
       log.set({ groupId, jobId: job.id, userId });
 
       const group = await db.query.whatsappGroup.findFirst({
-        where: (t, { eq }) => eq(t.id, groupId),
+        where: (row, { eq: equals }) => equals(row.id, groupId),
       });
       if (group) {
         const phone = await getUserPhone(userId);
@@ -224,16 +224,20 @@ export async function handleWhatsAppRemoveFromAllGroups(
       const { phone, groupJids } = job.data;
       log.set({ groupCount: groupJids.length, jobId: job.id, phone });
 
-      const errors: Error[] = [];
-      for (const jid of groupJids) {
-        try {
-          await removeFromWhatsAppGroup(jid, phone);
-        } catch (error) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          log.error(err);
-          errors.push(err);
+      const results = await Promise.allSettled(
+        groupJids.map((jid) => removeFromWhatsAppGroup(jid, phone))
+      );
+      const errors = results.flatMap((result) => {
+        if (result.status === "fulfilled") {
+          return [];
         }
-      }
+        const err =
+          result.reason instanceof Error
+            ? result.reason
+            : new Error(String(result.reason));
+        log.error(err);
+        return [err];
+      });
 
       if (errors.length > 0) {
         log.set({

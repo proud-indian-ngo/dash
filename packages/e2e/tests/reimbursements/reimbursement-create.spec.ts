@@ -60,9 +60,9 @@ test.describe("New reimbursement form", () => {
   });
 
   test("submits a reimbursement successfully", async ({ page }) => {
+    await reimbursements.form.selectBankAccount();
     await reimbursements.form.fillTitle("E2E Test Reimbursement");
     await reimbursements.form.selectCity("Bangalore");
-    await reimbursements.form.selectBankAccount();
     await reimbursements.selectExpenseDate();
 
     await reimbursements.form.fillLineItem({
@@ -72,7 +72,10 @@ test.describe("New reimbursement form", () => {
 
     await reimbursements.form.submit();
 
-    await page.waitForURL(/\/reimbursements\/[a-z0-9-]+$/, { timeout: 10_000 });
+    await page.waitForURL(
+      /\/reimbursements\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      { timeout: 10_000 }
+    );
     await expect(page.getByText("Reimbursement submitted")).toBeVisible();
   });
 });

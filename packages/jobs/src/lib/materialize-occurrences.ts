@@ -150,7 +150,7 @@ export async function getOrMaterializeOccurrenceId(
       )
     )
     .limit(1);
-  const row = existing[0];
+  const [row] = existing;
   if (!row) {
     throw new Error(
       `Exception row missing after onConflictDoNothing: series=${parent.id} date=${occurrence.date}`

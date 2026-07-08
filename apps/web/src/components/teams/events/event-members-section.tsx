@@ -7,6 +7,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -45,14 +46,14 @@ function EventMemberRow({
       })
     );
     result.server
-      .then((res: any) =>
+      .then((res) =>
         handleMutationResult(res, {
           entityId: member.id,
           errorMsg: "Failed to update attendance",
           mutation: "teamEvent.markAttendance",
         })
       )
-      .catch((e: any) =>
+      .catch((e) =>
         log.error({
           action: "markAttendance",
           component: "EventMembersSection",
@@ -62,9 +63,9 @@ function EventMemberRow({
       );
   }
 
-  const markAllPresent = () => toggleAttendance("present");
-  const stableOnClick1 = () => toggleAttendance("absent");
-  const stableOnClick2 = () => onRemove(member.id);
+  const markAllPresent = useEventCallback(() => toggleAttendance("present"));
+  const stableOnClick1 = useEventCallback(() => toggleAttendance("absent"));
+  const stableOnClick2 = useEventCallback(() => onRemove(member.id));
 
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
@@ -156,11 +157,9 @@ export function EventMembersSection({
   onRemoveMember: (id: string) => void;
 }) {
   const zero = useZero();
-  const presentCount = members.filter(
-    (m: any) => m.attendance === "present"
-  ).length;
+  const presentCount = members.filter((m) => m.attendance === "present").length;
 
-  function markAllPresent() {
+  const markAllPresent = useEventCallback(() => {
     const result = zero.mutate(
       mutators.teamEvent.markAllPresent({
         eventId,
@@ -168,7 +167,7 @@ export function EventMembersSection({
       })
     );
     result.server
-      .then((res: any) =>
+      .then((res) =>
         handleMutationResult(res, {
           entityId: eventId,
           errorMsg: "Failed to mark attendance",
@@ -176,7 +175,7 @@ export function EventMembersSection({
           successMsg: "All marked present",
         })
       )
-      .catch((e: any) =>
+      .catch((e) =>
         log.error({
           action: "markAllPresent",
           component: "EventMembersSection",
@@ -184,7 +183,7 @@ export function EventMembersSection({
           error: e instanceof Error ? e.message : String(e),
         })
       );
-  }
+  });
 
   return (
     <>
@@ -219,7 +218,7 @@ export function EventMembersSection({
       </div>
 
       <div className="flex flex-col gap-2">
-        {members.map((member: any) => (
+        {members.map((member) => (
           <EventMemberRow
             canManage={canManage}
             canMarkAttendance={canMarkAttendance}

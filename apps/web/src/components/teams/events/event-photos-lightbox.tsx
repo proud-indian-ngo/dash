@@ -5,6 +5,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { Slide } from "yet-another-react-lightbox";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
@@ -36,9 +37,9 @@ export function LightboxFooter({
   slide,
 }: LightboxFooterProps) {
   const hasActions = slide.canApprove || slide.canReject || slide.canDelete;
-  const stableOnClick0 = () => onApprove(slide.photoId);
-  const stableOnClick1 = () => onReject(slide.photoId);
-  const stableOnClick2 = () => onDelete(slide.photoId);
+  const stableOnClick0 = useEventCallback(() => onApprove(slide.photoId));
+  const stableOnClick1 = useEventCallback(() => onReject(slide.photoId));
+  const stableOnClick2 = useEventCallback(() => onDelete(slide.photoId));
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 bg-black/60 px-4 py-3">

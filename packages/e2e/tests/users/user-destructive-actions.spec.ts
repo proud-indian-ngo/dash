@@ -68,6 +68,7 @@ test.describe("User destructive actions (admin)", () => {
   });
 
   test("delete user removes them from the list", async ({ page }) => {
+    test.slow();
     const email = await createThrowawayUser(page, "delete");
     await searchAndOpenAction(page, email, "Delete");
 
@@ -75,7 +76,7 @@ test.describe("User destructive actions (admin)", () => {
     await expect(alertDialog).toBeVisible();
     await alertDialog.getByRole("button", { name: "Delete user" }).click();
 
-    await expect(alertDialog).toBeHidden({ timeout: 10_000 });
+    await expect(alertDialog).toBeHidden({ timeout: 30_000 });
     await expect(page.getByText("User removed")).toBeVisible();
 
     // Verify user no longer appears

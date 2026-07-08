@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -152,14 +153,14 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
       to: "/reimbursements/$id",
     });
   };
-  const stableOnClick0 = () => setEditMode(false);
-  const stableOnCancel1 = () => {
+  const stableOnClick0 = useEventCallback(() => setEditMode(false));
+  const stableOnCancel1 = useEventCallback(() => {
     navigate({ to: "/reimbursements" });
-  };
-  const stableOnSaved2 = () => {
+  });
+  const stableOnSaved2 = useEventCallback(() => {
     setEditMode(false);
-  };
-  const stableOnClick3 = () => setEditMode(true);
+  });
+  const stableOnClick3 = useEventCallback(() => setEditMode(true));
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">

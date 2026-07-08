@@ -10,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@pi-dash/design-system/components/ui/chart";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import type { ApprovalTimeBucket } from "@/lib/stats";
 
@@ -21,9 +22,11 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
-  const hasData = data.some((b: any) => b.count > 0);
-  const stableFormatter0 = (value: unknown) =>
-    `${value} ${Number(value) === 1 ? "request" : "requests"}`;
+  const hasData = data.some((b) => b.count > 0);
+  const stableFormatter0 = useEventCallback(
+    (value: unknown) =>
+      `${value} ${Number(value) === 1 ? "request" : "requests"}`
+  );
 
   if (!hasData) {
     return (

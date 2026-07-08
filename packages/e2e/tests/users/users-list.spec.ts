@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Users list (admin)", () => {
   test.beforeEach(async ({ page }) => {
@@ -10,6 +11,7 @@ test.describe("Users list (admin)", () => {
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible({
       timeout: 15_000,
     });
+    await new ListPage(page).waitForTableData(30_000);
   });
 
   test("renders users table with expected columns", async ({ page }) => {
@@ -62,7 +64,9 @@ test.describe("Users list (admin)", () => {
   });
 
   test("table footer is present", async ({ page }) => {
-    await expect(page.getByText("Rows per page")).toBeVisible();
+    await expect(page.getByText("Rows per page")).toBeVisible({
+      timeout: 30_000,
+    });
   });
 
   test("shows stats cards", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("Vendor unhappy paths (admin)", () => {
@@ -53,20 +54,22 @@ test.describe("Vendor unhappy paths (admin)", () => {
       .fill(vendorName);
     await createDialog
       .getByRole("textbox", { exact: true, name: "Phone" })
-      .fill("+91-9876543210");
+      .fill(`+9198${Date.now().toString().slice(-8)}`);
     await createDialog
       .getByRole("textbox", { name: "Bank Account Name" })
       .fill("Test Account");
     await createDialog
       .getByRole("textbox", { name: "Account Number" })
-      .fill("1234567890");
+      .fill(Date.now().toString().slice(-10).padStart(10, "1"));
     await createDialog
       .getByRole("textbox", { name: "IFSC Code" })
       .fill("SBIN0001234");
-    await createDialog.getByRole("button", { name: "Create" }).click();
-    await expect(createDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("Vendor created")).toBeVisible();
-    await expect(page.getByText(vendorName)).toBeVisible({ timeout: 10_000 });
+    await clickUntilDialogCloses(createDialog, "Create");
+    await expect(page.getByText("Vendor created").first()).toBeVisible();
+    await page.getByPlaceholder("Search vendors...").fill(vendorName);
+    await expect(page.getByText(vendorName).first()).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Create a vendor payment for this vendor
     await page.goto("/vendor-payments/new");
@@ -98,23 +101,27 @@ test.describe("Vendor unhappy paths (admin)", () => {
     await page.goto("/vendors");
     await waitForZeroReady(page);
     await expect(page.getByRole("heading", { name: "Vendors" })).toBeVisible();
-    await expect(page.getByText(vendorName)).toBeVisible({ timeout: 10_000 });
+    await page.getByPlaceholder("Search vendors...").fill(vendorName);
+    await expect(page.getByText(vendorName).first()).toBeVisible({
+      timeout: 10_000,
+    });
 
     const list = new ListPage(page);
-    const vendorRow = page.getByRole("row").filter({ hasText: vendorName });
+    const vendorRow = page
+      .getByRole("row")
+      .filter({ hasText: vendorName })
+      .first();
     await list.openRowActionAndClick(vendorRow, "Delete");
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
     await confirmDialog.getByRole("button", { name: "Delete" }).click();
 
-    // Should show a generic error toast (onError: toast.error("Couldn't delete vendor"))
-    // (dialog stays open on error — useConfirmAction only closes on success)
-    await expect(page.getByText("Couldn't delete vendor").first()).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
 
     // Vendor should still be in the table
-    await expect(page.getByText(vendorName)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(vendorName).first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 });

@@ -65,9 +65,11 @@ test.describe("Data isolation — volunteer cannot see super_admin's data", () =
     const rowCount = await rows.count();
 
     // Every visible row (excluding header) should NOT contain super_admin's seed reimbursement
-    for (let i = 1; i < Math.min(rowCount, 10); i += 1) {
-      await expect(rows.nth(i)).not.toContainText(SEED_TITLE);
-    }
+    await Promise.all(
+      Array.from({ length: Math.max(Math.min(rowCount, 10) - 1, 0) }, (_, i) =>
+        expect(rows.nth(i + 1)).not.toContainText(SEED_TITLE)
+      )
+    );
   });
 });
 

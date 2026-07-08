@@ -80,7 +80,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
         ]),
       })
       .refine(
-        (data: any) =>
+        (data) =>
           data.subfolder === R2_SUBFOLDERS.scheduledMessages ||
           (ALLOWED_MIME_TYPES as readonly string[]).includes(data.mimeType),
         {
@@ -88,7 +88,7 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
           path: ["mimeType"],
         }
       )
-      .superRefine((data: any, ctx: any) => {
+      .superRefine((data, ctx) => {
         const maxBytes = data.mimeType.startsWith("video/")
           ? MAX_VIDEO_SIZE_BYTES
           : MAX_ATTACHMENT_FILE_SIZE_BYTES;
@@ -263,7 +263,7 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
     }
     try {
       const s3 = await getS3();
-      await Promise.all(data.keys.map((key: any) => s3.delete(key)));
+      await Promise.all(data.keys.map((key) => s3.delete(key)));
       return { success: true };
     } catch (error) {
       logErrorAndRethrow(

@@ -231,7 +231,7 @@ function RoleEditPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {Object.entries(permissionGroups).map(([category, perms]) => {
-              const allSelected = perms.every((p: any) =>
+              const allSelected = perms.every((p) =>
                 selectedPermissions.has(p.id)
               );
 
@@ -248,9 +248,8 @@ function RoleEditPage() {
                       <span className="ml-2 text-muted-foreground text-xs">
                         (
                         {
-                          perms.filter((p: any) =>
-                            selectedPermissions.has(p.id)
-                          ).length
+                          perms.filter((p) => selectedPermissions.has(p.id))
+                            .length
                         }
                         /{perms.length})
                       </span>
@@ -258,7 +257,7 @@ function RoleEditPage() {
                   </div>
                   <CollapsibleContent>
                     <div className="ml-6 space-y-1 pb-2">
-                      {perms.map((p: any) => (
+                      {perms.map((p) => (
                         <div
                           className="flex items-start gap-2 rounded-md px-2 py-1.5"
                           key={p.id}

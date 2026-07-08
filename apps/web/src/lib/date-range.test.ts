@@ -76,7 +76,7 @@ describe("filterByDateRange", () => {
       accessor
     );
     expect(result).toHaveLength(3);
-    expect(result.every((i: any) => i.ts !== null)).toBe(true);
+    expect(result.every((i) => i.ts !== null)).toBe(true);
   });
 
   it("handles from-only range", () => {

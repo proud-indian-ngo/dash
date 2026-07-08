@@ -89,7 +89,7 @@ export function resolveDateRange(
     }
     return { from: null, to: null };
   }
-  const preset = DATE_PRESETS.find((p: any) => p.key === rangeKey);
+  const preset = DATE_PRESETS.find((p) => p.key === rangeKey);
   return preset ? preset.getRange() : { from: null, to: null };
 }
 
@@ -106,7 +106,7 @@ export function filterByDateRange<T>(
   const fromMs = from ? from.getTime() : 0;
   const toMs = to ? to.getTime() : Number.POSITIVE_INFINITY;
 
-  return items.filter((item: any) => {
+  return items.filter((item) => {
     const ts = dateAccessor(item);
     if (ts === null) {
       return false;

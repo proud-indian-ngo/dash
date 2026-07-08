@@ -39,7 +39,7 @@ export function EventDateGroup({
         {formatGroupDate(date)}
       </h2>
       <div className="flex flex-col gap-2 pt-px">
-        {rows.map((row: any) => (
+        {rows.map((row) => (
           <EventCard
             key={`${row.eventId}-${row.startTime}`}
             myInterests={myInterests}

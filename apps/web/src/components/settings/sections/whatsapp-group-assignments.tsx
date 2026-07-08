@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -24,13 +25,13 @@ export function GroupAssignments({
   const [configRows] = useQuery(queries.appConfig.all());
 
   const configMap = new Map(
-    (configRows ?? []).map((row: any) => [row.key, row.value])
+    (configRows ?? []).map((row) => [row.key, row.value])
   );
 
   const orientationGroupId = configMap.get(ORIENTATION_GROUP_ID) ?? "";
   const allVolunteersGroupId = configMap.get(ALL_VOLUNTEERS_GROUP_ID) ?? "";
 
-  const groupNameMap = new Map(groups.map((g: any) => [g.id, g.name]));
+  const groupNameMap = new Map(groups.map((g) => [g.id, g.name]));
 
   const handleChange = async (key: string, value: string) => {
     const res = await zero.mutate(mutators.appConfig.upsert({ key, value }))
@@ -42,16 +43,16 @@ export function GroupAssignments({
       successMsg: "Assignment updated",
     });
   };
-  const stableOnValueChange0 = (v: any) => {
+  const stableOnValueChange0 = useEventCallback((v: string | null) => {
     if (v) {
       handleChange(ORIENTATION_GROUP_ID, v);
     }
-  };
-  const stableOnValueChange1 = (v: any) => {
+  });
+  const stableOnValueChange1 = useEventCallback((v: string | null) => {
     if (v) {
       handleChange(ALL_VOLUNTEERS_GROUP_ID, v);
     }
-  };
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,7 +70,7 @@ export function GroupAssignments({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {groups.map((g: any) => (
+              {groups.map((g) => (
                 <SelectItem key={g.id} value={g.id}>
                   {g.name}
                 </SelectItem>
@@ -92,7 +93,7 @@ export function GroupAssignments({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {groups.map((g: any) => (
+              {groups.map((g) => (
                 <SelectItem key={g.id} value={g.id}>
                   {g.name}
                 </SelectItem>

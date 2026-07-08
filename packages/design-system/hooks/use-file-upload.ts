@@ -73,7 +73,7 @@ const isAcceptedFileType = (
     }
 
     if (acceptedType.endsWith("/*")) {
-      const baseType = acceptedType.split("/")[0];
+      const [baseType] = acceptedType.split("/");
       return fileType.startsWith(`${baseType}/`);
     }
 
@@ -394,7 +394,7 @@ export const useFileUpload = (
         if (multiple) {
           addFiles(e.dataTransfer.files);
         } else {
-          const file = e.dataTransfer.files[0];
+          const [file] = e.dataTransfer.files;
           if (file) {
             addFiles([file]);
           }

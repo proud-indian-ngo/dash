@@ -46,7 +46,7 @@ export function Breadcrumbs() {
     pathname === "/"
       ? []
       : pathnames.reduce<{ path: string; title: string }[]>(
-          (acc: any, _segment: any, index: any) => {
+          (acc, _segment, index) => {
             const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
             const title = resolveTitle(navItemsMap, currentPath);
             if (title) {

@@ -91,13 +91,11 @@ function RootDocument() {
       .then(({ initClientLogger }) => initClientLogger())
       .catch(() => {
         // Non-critical
-        void 0;
       });
     import("@/lib/posthog")
       .then(({ initPostHog }) => initPostHog())
       .catch(() => {
         // Non-critical
-        void 0;
       });
   }, []);
 

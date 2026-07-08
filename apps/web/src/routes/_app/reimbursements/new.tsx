@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
@@ -11,12 +12,12 @@ export const Route = createFileRoute("/_app/reimbursements/new")({
 
 function NewReimbursementRouteComponent() {
   const navigate = useNavigate();
-  const stableOnCancel0 = () => {
+  const stableOnCancel0 = useEventCallback(() => {
     navigate({ to: "/reimbursements" });
-  };
-  const stableOnSaved1 = (id: any) => {
+  });
+  const stableOnSaved1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/reimbursements/$id" });
-  };
+  });
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">

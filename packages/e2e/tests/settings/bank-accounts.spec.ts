@@ -22,16 +22,26 @@ function uniqueAccountNumber(suffix: string) {
 }
 
 test.describe("Banking settings — bank account management", () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "unoriented_volunteer",
+      "Banking settings behavior is role-independent; run against isolated user"
+    );
+  });
+
   test.afterEach(async ({ page }) => {
     const cleanup = async () => {
       const dialog = await openBankingSettings(page);
-      for (let i = 0; i < 5; i += 1) {
+      const cleanupOne = async (attempt: number): Promise<void> => {
+        if (attempt >= 5) {
+          return;
+        }
         const e2eCard = dialog
           .locator(".rounded-md.border")
           .filter({ hasText: /^E2E / })
           .first();
         if (!(await e2eCard.isVisible({ timeout: 2000 }).catch(() => false))) {
-          break;
+          return;
         }
         const setDefaultBtn = dialog
           .locator(".rounded-md.border")
@@ -51,7 +61,9 @@ test.describe("Banking settings — bank account management", () => {
           .getByRole("button", { name: "Delete" })
           .click({ timeout: 5000 });
         await expect(e2eCard).toBeHidden({ timeout: 5000 });
-      }
+        await cleanupOne(attempt + 1);
+      };
+      await cleanupOne(0);
     };
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {

@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import type { FormInstance } from "./form-context";
@@ -52,11 +53,13 @@ export function FormLayout({
   const submitErrorMessage = showSubmitError
     ? getSubmitErrorMessage(form)
     : null;
-  const stableOnSubmit0 = (event: any) => {
-    event.preventDefault();
-    event.stopPropagation();
-    form.handleSubmit();
-  };
+  const stableOnSubmit0 = useEventCallback(
+    (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+      event.preventDefault();
+      event.stopPropagation();
+      form.handleSubmit();
+    }
+  );
 
   return (
     <FormContextProvider form={form}>

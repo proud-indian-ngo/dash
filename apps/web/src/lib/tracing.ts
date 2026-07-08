@@ -1,7 +1,7 @@
 function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
-  return Array.from(arr, (b: any) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function generateTraceId(): string {

@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { TeamMember } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -54,10 +55,10 @@ function AddMemberFormContent({
   }, [open]);
 
   const eligibleUsers = allUsers.filter(
-    (u: any) => u.role !== "unoriented_volunteer" && u.isActive
+    (u) => u.role !== "unoriented_volunteer" && u.isActive
   );
 
-  const existingUserIds = new Set(existingMembers.map((m: any) => m.userId));
+  const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 
   const form = useForm({
     defaultValues: {
@@ -68,7 +69,7 @@ function AddMemberFormContent({
       const effectiveRole = value.userIds.length > 1 ? "member" : value.role;
       const results = await Promise.all(
         value.userIds.map(
-          (userId: any) =>
+          (userId) =>
             zero.mutate(
               mutators.team.addMember({
                 id: uuidv7(),
@@ -79,7 +80,7 @@ function AddMemberFormContent({
             ).server
         )
       );
-      const failed = results.filter((r: any) => r.type === "error").length;
+      const failed = results.filter((r) => r.type === "error").length;
       if (failed > 0) {
         toast.error(`Couldn't add ${failed} member(s)`);
       } else {
@@ -95,16 +96,18 @@ function AddMemberFormContent({
       onSubmit: addTeamMemberSchema,
     },
   });
-  const stableSelector0 = (state: any) => state.values.userIds.length;
+  const stableSelector0 = useEventCallback(
+    (state: { values: { userIds: string[] } }) => state.values.userIds.length
+  );
 
   return (
     <FormLayout form={form}>
       <CustomField<string[]> isRequired label="Search users" name="userIds">
-        {(field: any) => (
+        {(field) => (
           <>
             <UserPicker
               excludeUserIds={existingUserIds}
-              onValueChange={(ids: any) => field.handleChange(ids)}
+              onValueChange={field.handleChange}
               users={eligibleUsers}
               value={field.state.value ?? []}
             />
@@ -117,7 +120,7 @@ function AddMemberFormContent({
         )}
       </CustomField>
       <form.Subscribe selector={stableSelector0}>
-        {(count: any) => (
+        {(count) => (
           <>
             {canSetRole && count === 1 ? (
               <SelectField
@@ -150,12 +153,12 @@ export function AddMemberDialog({
 }: AddMemberDialogProps) {
   const [formKey, setFormKey] = useState(0);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
     }
     onOpenChange(nextOpen);
-  };
+  });
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>

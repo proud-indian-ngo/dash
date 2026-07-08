@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
@@ -256,7 +257,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
   );
 
   const cancelEvent = useConfirmAction<EventDisplayRow>({
-    onConfirm: (row: any) => {
+    onConfirm: (row) => {
       const mode = cancelScopeRef.current;
       if (mode && row.seriesId) {
         const targetId = mode === "this" ? row.eventId : row.seriesId;
@@ -266,7 +267,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
             mode,
             newExceptionId: mode === "this" ? uuidv7() : undefined,
             now: Date.now(),
-            originalDate: row.originalDate,
+            originalDate: row.originalDate ?? undefined,
           })
         ).server;
       }
@@ -274,7 +275,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
         mutators.teamEvent.cancel({ id: row.event.id, now: Date.now() })
       ).server;
     },
-    onError: (msg: any) => {
+    onError: (msg) => {
       log.error({
         component: "TeamDetail",
         error: msg,
@@ -357,7 +358,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
   const deleteTeam = useConfirmAction({
     onConfirm: () => zero.mutate(mutators.team.delete({ id: team.id })).server,
-    onError: (msg: any) => {
+    onError: (msg) => {
       log.error({
         component: "TeamDetail",
         entityId: team.id,
@@ -373,10 +374,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   });
 
   const removeMember = useConfirmAction<string>({
-    onConfirm: (memberId: any) =>
+    onConfirm: (memberId) =>
       zero.mutate(mutators.team.removeMember({ memberId, teamId: team.id }))
         .server,
-    onError: (msg: any) => {
+    onError: (msg) => {
       log.error({
         component: "TeamDetail",
         entityId: team.id,
@@ -411,76 +412,84 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
   const pendingInterestCount = canManage
     ? events.reduce(
-        (acc: any, e: any) =>
-          acc + e.interests?.filter((i: any) => i.status === "pending").length,
+        (acc, e) =>
+          acc + e.interests?.filter((i) => i.status === "pending").length,
         0
       )
     : 0;
 
-  const leadCount = team.members.filter((m: any) => m.role === "lead").length;
+  const leadCount = team.members.filter((m) => m.role === "lead").length;
 
-  const handleToggleRole = async (memberId: string, currentRole: string) => {
-    const newRole = currentRole === "lead" ? "member" : "lead";
-    if (newRole === "member" && leadCount === 1) {
-      toast.warning(
-        "Cannot demote the last lead. Promote another member first."
-      );
-      return;
+  const handleToggleRole = useEventCallback(
+    async (memberId: string, currentRole: string) => {
+      const newRole = currentRole === "lead" ? "member" : "lead";
+      if (newRole === "member" && leadCount === 1) {
+        toast.warning(
+          "Cannot demote the last lead. Promote another member first."
+        );
+        return;
+      }
+      const res = await zero.mutate(
+        mutators.team.setMemberRole({ memberId, role: newRole })
+      ).server;
+      handleMutationResult(res, {
+        entityId: memberId,
+        errorMsg: "Failed to update role",
+        mutation: "team.setMemberRole",
+        successMsg: `Role updated to ${newRole}`,
+      });
     }
-    const res = await zero.mutate(
-      mutators.team.setMemberRole({ memberId, role: newRole })
-    ).server;
-    handleMutationResult(res, {
-      entityId: memberId,
-      errorMsg: "Failed to update role",
-      mutation: "team.setMemberRole",
-      successMsg: `Role updated to ${newRole}`,
-    });
-  };
+  );
 
-  const handleSelectEvent = (row: EventDisplayRow) => {
+  const handleSelectEvent = useEventCallback((row: EventDisplayRow) => {
     navigate({
       params: { id: row.eventId },
       search:
         row.isVirtual && row.originalDate ? { occDate: row.originalDate } : {},
       to: "/events/$id",
     });
-  };
+  });
 
   const editEventData = dialog.getData("editEvent");
   const duplicateEventData = dialog.getData("duplicateEvent");
-  const stableOnDelete0 = () => deleteTeam.trigger();
-  const stableOnEdit1 = () => dialog.open({ type: "edit" });
-  const stableOnAddMember2 = () => dialog.open({ type: "addMember" });
-  const stableOnRemoveMember3 = (id: any) => removeMember.trigger(id);
-  const stableOnClearFilters4 = () => {
+  const stableOnDelete0 = useEventCallback(() => deleteTeam.trigger());
+  const stableOnEdit1 = useEventCallback(() => dialog.open({ type: "edit" }));
+  const stableOnAddMember2 = useEventCallback(() =>
+    dialog.open({ type: "addMember" })
+  );
+  const stableOnRemoveMember3 = useEventCallback((id: string) =>
+    removeMember.trigger(id)
+  );
+  const stableOnClearFilters4 = useEventCallback(() => {
     setEvStatusFilter("");
     setEvVisFilter("");
     setEvRecFilter("");
-  };
-  const stableOnClick5 = () => dialog.open({ type: "createEvent" });
-  const stableOnOpenChange6 = (open: any) => {
+  });
+  const stableOnClick5 = useEventCallback(() =>
+    dialog.open({ type: "createEvent" })
+  );
+  const stableOnOpenChange6 = useEventCallback((open: boolean) => {
     dialog.onOpenChange(open);
     if (!open) {
       setEditScope(null);
       setEditScopeRow(null);
     }
-  };
-  const stableOnOpenChange7 = (open: any) => {
+  });
+  const stableOnOpenChange7 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteTeam.cancel();
     }
-  };
-  const stableOnOpenChange8 = (open: any) => {
+  });
+  const stableOnOpenChange8 = useEventCallback((open: boolean) => {
     if (!open) {
       removeMember.cancel();
     }
-  };
-  const stableOnOpenChange9 = (open: any) => {
+  });
+  const stableOnOpenChange9 = useEventCallback((open: boolean) => {
     if (!open) {
       cancelEvent.cancel();
     }
-  };
+  });
 
   return (
     <AppErrorBoundary level="section">

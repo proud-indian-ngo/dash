@@ -86,7 +86,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
       const uploaded: MediaAttachment[] = [];
 
       await Promise.all(
-        filesToUpload.map(async (file: any) => {
+        filesToUpload.map(async (file) => {
           try {
             const attachment = await uploadSingleFile(
               file,
@@ -132,7 +132,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
     },
     onFilesAdded: (addedFiles: FileWithPreview[]) => {
       const files = addedFiles
-        .map((item: any) => item.file)
+        .map((item) => item.file)
         .filter((f): f is File => f instanceof File);
       uploadFiles(files).catch((error: unknown) => {
         log.error({
@@ -146,7 +146,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
   });
 
   const removeAttachment = (index: number) => {
-    onChange(value.filter((_: any, i: any) => i !== index));
+    onChange(value.filter((_, i) => i !== index));
   };
 
   return (
@@ -196,7 +196,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
 
       {value.length > 0 && (
         <div className="flex flex-col gap-1">
-          {value.map((attachment: any, index: any) => (
+          {value.map((attachment, index) => (
             <div
               className="flex items-center gap-2 rounded-md border px-3 py-1.5"
               key={attachment.r2Key}

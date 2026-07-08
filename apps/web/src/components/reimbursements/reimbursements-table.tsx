@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -35,10 +36,7 @@ import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
-  return lineItems.reduce(
-    (sum: any, item: any) => sum + Number(item.amount),
-    0
-  );
+  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
 }
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
@@ -78,7 +76,9 @@ function RowActions({
   id: string;
   onRequestDelete: () => void;
 }) {
-  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
 
   return (
     <DropdownMenu>
@@ -174,7 +174,7 @@ export function ReimbursementsTable({
   const onDeleteRef = useRef(onDelete);
   onDeleteRef.current = onDelete;
 
-  const confirmDelete = async () => {
+  const confirmDelete = useEventCallback(async () => {
     if (!deleteTarget) {
       return;
     }
@@ -193,11 +193,11 @@ export function ReimbursementsTable({
       setDeleteLoading(false);
       setDeleteTarget(null);
     }
-  };
+  });
 
   const columns: ColumnDef<RequestRow>[] = [
     {
-      accessorFn: (row: any) => row.title,
+      accessorFn: (row) => row.title,
       cell: ({ row }) => (
         <span className="truncate font-medium text-sm">
           {row.original.title}
@@ -229,7 +229,7 @@ export function ReimbursementsTable({
       size: 150,
     },
     {
-      accessorFn: (row: any) => row.city,
+      accessorFn: (row) => row.city,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm capitalize">
           {row.original.city}
@@ -244,7 +244,7 @@ export function ReimbursementsTable({
       size: 120,
     },
     {
-      accessorFn: (row: any) => (isReimbursement(row) ? row.event?.name : ""),
+      accessorFn: (row) => (isReimbursement(row) ? row.event?.name : ""),
       cell: ({ row }) => {
         const r = row.original;
         const name = isReimbursement(r) ? r.event?.name : undefined;
@@ -261,7 +261,7 @@ export function ReimbursementsTable({
       size: 180,
     },
     {
-      accessorFn: (row: any) => row.user?.name,
+      accessorFn: (row) => row.user?.name,
       cell: ({ row }) => {
         const { user } = row.original;
         if (!user) {
@@ -296,7 +296,7 @@ export function ReimbursementsTable({
       size: 220,
     },
     {
-      accessorFn: (row: any) => row.status,
+      accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, variant } = getStatusBadge(row.original.status);
         return <Badge variant={variant}>{label}</Badge>;
@@ -313,7 +313,7 @@ export function ReimbursementsTable({
       size: 120,
     },
     {
-      accessorFn: (row: any) => computeTotal(row.lineItems),
+      accessorFn: (row) => computeTotal(row.lineItems),
       cell: ({ row }) => {
         const total = computeTotal(row.original.lineItems);
         return <span className="truncate text-sm">{formatINR(total)}</span>;
@@ -326,7 +326,7 @@ export function ReimbursementsTable({
       size: 120,
     },
     {
-      accessorFn: (row: any) => (isReimbursement(row) ? row.expenseDate : null),
+      accessorFn: (row) => (isReimbursement(row) ? row.expenseDate : null),
       cell: ({ row }) => {
         const r = row.original;
         if (!(isReimbursement(r) && r.expenseDate)) {
@@ -350,7 +350,7 @@ export function ReimbursementsTable({
       size: 130,
     },
     {
-      accessorFn: (row: any) =>
+      accessorFn: (row) =>
         row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
@@ -402,13 +402,15 @@ export function ReimbursementsTable({
   const deleteType = deleteTarget
     ? REQUEST_TYPE_LABELS[deleteTarget.type].toLowerCase()
     : "request";
-  const stableGetRowId1 = (row: any) => row.id;
-  const stableOnRowClick2 = (row: any) => onNavigate(row.id);
-  const stableOnOpenChange3 = (open: any) => {
+  const stableGetRowId1 = useEventCallback((row: { id: string }) => row.id);
+  const stableOnRowClick2 = useEventCallback((row: { id: string }) =>
+    onNavigate(row.id)
+  );
+  const stableOnOpenChange3 = useEventCallback((open: boolean) => {
     if (!open) {
       setDeleteTarget(null);
     }
-  };
+  });
 
   return (
     <>

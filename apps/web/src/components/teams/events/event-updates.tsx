@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -77,7 +78,7 @@ export function EventUpdates({
     !showPendingSection &&
     !showMyPendingSection;
 
-  const handleCreate = async (content: string) => {
+  const handleCreate = useEventCallback(async (content: string) => {
     setSaving(true);
     try {
       const now = Date.now();
@@ -96,7 +97,7 @@ export function EventUpdates({
     } finally {
       setSaving(false);
     }
-  };
+  });
 
   const handleApprove = async (id: string) => {
     const res = await zero.mutate(
@@ -110,7 +111,7 @@ export function EventUpdates({
     });
   };
 
-  const handleEdit = async (id: string, content: string) => {
+  const handleEdit = useEventCallback(async (id: string, content: string) => {
     const res = await zero.mutate(
       mutators.eventUpdate.update({ content, id, now: Date.now() })
     ).server;
@@ -120,7 +121,7 @@ export function EventUpdates({
       mutation: "eventUpdate.update",
       successMsg: "Update saved",
     });
-  };
+  });
 
   const handleReject = async (id: string) => {
     const res = await zero.mutate(
@@ -133,16 +134,17 @@ export function EventUpdates({
       successMsg: "Update rejected",
     });
   };
-  const stableOnDelete0 = (id: any) => deleteAction.trigger(id);
-  const stableOnOpenChange1 = (open: any) => {
+  const stableOnDelete0 = useEventCallback((id: string) =>
+    deleteAction.trigger(id)
+  );
+  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
     }
-  };
+  });
   const deleteAction = useConfirmAction<string>({
-    onConfirm: (id: any) =>
-      zero.mutate(mutators.eventUpdate.delete({ id })).server,
-    onError: (msg: any) => {
+    onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
+    onError: (msg) => {
       log.error({
         component: "EventUpdates",
         error: msg ?? "unknown",
@@ -172,7 +174,7 @@ export function EventUpdates({
           <h3 className="font-medium text-sm">
             Pending Approval ({pendingUpdates.length})
           </h3>
-          {pendingUpdates.map((update: any) => (
+          {pendingUpdates.map((update) => (
             <PendingUpdateCard
               eventId={eventId}
               key={update.id}
@@ -192,7 +194,7 @@ export function EventUpdates({
           <h3 className="font-medium text-sm">
             Your Pending Updates ({pendingUpdates.length})
           </h3>
-          {pendingUpdates.map((update: any) => (
+          {pendingUpdates.map((update) => (
             <PendingUpdateCard
               eventId={eventId}
               key={update.id}
@@ -259,10 +261,12 @@ function TimelineItem({
   const canEdit = canManage;
   const canDelete = isAuthor || canManage;
   const isEdited = update.updatedAt !== update.createdAt;
-  const stableOnClick2 = () => onEditStart(update.id);
-  const stableOnClick3 = () => onDelete(update.id);
-  const stableOnCancel4 = () => onEditStart(null);
-  const stableOnSave5 = (content: any) => onEdit(update.id, content);
+  const stableOnClick2 = useEventCallback(() => onEditStart(update.id));
+  const stableOnClick3 = useEventCallback(() => onDelete(update.id));
+  const stableOnCancel4 = useEventCallback(() => onEditStart(null));
+  const stableOnSave5 = useEventCallback((content: string) =>
+    onEdit(update.id, content)
+  );
 
   return (
     <div className="relative pl-10">
@@ -375,7 +379,7 @@ function UpdateTimeline({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const handleUpdate = async (id: string, content: string) => {
+  const handleUpdate = useEventCallback(async (id: string, content: string) => {
     setSaving(true);
     try {
       const res = await zero.mutate(
@@ -393,7 +397,7 @@ function UpdateTimeline({
     } finally {
       setSaving(false);
     }
-  };
+  });
 
   return (
     <div className="relative">
@@ -401,7 +405,7 @@ function UpdateTimeline({
       <div className="absolute top-0 bottom-3.5 left-3.5 w-px bg-border" />
 
       <div className="flex flex-col gap-6">
-        {updates.map((update: any) => (
+        {updates.map((update) => (
           <TimelineItem
             canManage={canManage}
             editingId={editingId}
@@ -438,7 +442,7 @@ function PendingUpdateCard({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async (content: string) => {
+  const handleSave = useEventCallback(async (content: string) => {
     if (!onEdit) {
       return;
     }
@@ -449,9 +453,9 @@ function PendingUpdateCard({
     } finally {
       setSaving(false);
     }
-  };
-  const stableOnClick6 = () => setEditing(true);
-  const stableOnCancel7 = () => setEditing(false);
+  });
+  const stableOnClick6 = useEventCallback(() => setEditing(true));
+  const stableOnCancel7 = useEventCallback(() => setEditing(false));
 
   return (
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">

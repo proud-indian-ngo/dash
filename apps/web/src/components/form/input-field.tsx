@@ -1,8 +1,10 @@
 import { Input } from "@pi-dash/design-system/components/ui/input";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import type { ChangeEvent, ComponentPropsWithoutRef, ReactNode } from "react";
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
+  type FormFieldApi,
   type FormInstance,
   fieldErrorProps,
   useResolvedForm,
@@ -22,6 +24,43 @@ interface InputFieldProps extends BaseInputProps {
   name: string;
   type?: ComponentPropsWithoutRef<typeof Input>["type"];
   validators?: FieldValidatorConfig<string | number>;
+}
+
+interface InputFieldControlProps extends BaseInputProps {
+  field: FormFieldApi<string | number>;
+  isRequired: boolean;
+  submitted: boolean;
+  type: ComponentPropsWithoutRef<typeof Input>["type"];
+}
+
+function InputFieldControl({
+  field,
+  isRequired,
+  submitted,
+  type,
+  ...props
+}: InputFieldControlProps) {
+  const handleChange = useEventCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextValue =
+        type === "number" ? Number(event.target.value) : event.target.value;
+      field.handleChange(nextValue);
+    }
+  );
+
+  return (
+    <Input
+      {...props}
+      {...fieldErrorProps(field, submitted)}
+      aria-required={isRequired}
+      id={field.name}
+      name={field.name}
+      onBlur={field.handleBlur}
+      onChange={handleChange}
+      type={type}
+      value={(field.state.value ?? "") as string | number}
+    />
+  );
 }
 
 export function InputField({
@@ -46,23 +85,13 @@ export function InputField({
       name={name}
       validators={validators}
     >
-      {(field: any) => (
-        <Input
+      {(field) => (
+        <InputFieldControl
           {...props}
-          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
-          aria-required={isRequired}
-          id={field.name}
-          name={field.name}
-          onBlur={field.handleBlur}
-          onChange={(event: any) => {
-            const nextValue =
-              type === "number"
-                ? Number(event.target.value)
-                : event.target.value;
-            field.handleChange(nextValue);
-          }}
+          field={field}
+          isRequired={isRequired}
+          submitted={resolvedForm.state.submissionAttempts > 0}
           type={type}
-          value={(field.state.value ?? "") as string | number}
         />
       )}
     </CustomField>

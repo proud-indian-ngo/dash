@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
@@ -65,7 +66,7 @@ export function EventsTable({
     onEditEvent,
     onSelectEvent,
   });
-  const stableGetRowId0 = (row: any) => row.key;
+  const stableGetRowId0 = useEventCallback((row: { key: string }) => row.key);
 
   return (
     <DataTableWrapper<EventDisplayRow>

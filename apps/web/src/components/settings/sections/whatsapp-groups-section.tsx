@@ -6,6 +6,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -39,7 +40,7 @@ export function WhatsAppGroupsSection() {
   const canManageGroups = hasPermission("settings.whatsapp_groups");
 
   const existingJids = useMemo(
-    () => new Set(groupList.map((g: any) => g.jid)),
+    () => new Set(groupList.map((g) => g.jid)),
     [groupList]
   );
 
@@ -48,7 +49,7 @@ export function WhatsAppGroupsSection() {
       return;
     }
     fetchWhatsAppGroups()
-      .then((result: any) => setWapiConfigured(result.configured))
+      .then((result) => setWapiConfigured(result.configured))
       .catch((error: unknown) => {
         log.error({
           action: "checkWapiConfig",
@@ -61,41 +62,41 @@ export function WhatsAppGroupsSection() {
       });
   }, [canManageGroups]);
 
-  const handleBulkCreate = async (
-    selectedGroups: { jid: string; name: string }[]
-  ) => {
-    const results = await Promise.allSettled(
-      selectedGroups.map(async (group: any) => {
-        const id = uuidv7();
-        const res = await zero.mutate(
-          mutators.whatsappGroup.create({
-            description: "",
-            id,
-            jid: group.jid,
-            name: group.name,
-          })
-        ).server;
-        return { name: group.name, res };
-      })
-    );
-
-    const succeeded = results.filter(
-      (r: any) => r.status === "fulfilled" && r.value.res.type !== "error"
-    ).length;
-    const failed = results.length - succeeded;
-
-    if (failed === 0) {
-      toast.success(
-        succeeded === 1 ? "Group added" : `${succeeded} groups added`
+  const handleBulkCreate = useEventCallback(
+    async (selectedGroups: { jid: string; name: string }[]) => {
+      const results = await Promise.allSettled(
+        selectedGroups.map(async (group) => {
+          const id = uuidv7();
+          const res = await zero.mutate(
+            mutators.whatsappGroup.create({
+              description: "",
+              id,
+              jid: group.jid,
+              name: group.name,
+            })
+          ).server;
+          return { name: group.name, res };
+        })
       );
-    } else {
-      toast.error(
-        `Added ${succeeded} of ${results.length} groups. ${failed} failed.`
-      );
+
+      const succeeded = results.filter(
+        (r) => r.status === "fulfilled" && r.value.res.type !== "error"
+      ).length;
+      const failed = results.length - succeeded;
+
+      if (failed === 0) {
+        toast.success(
+          succeeded === 1 ? "Group added" : `${succeeded} groups added`
+        );
+      } else {
+        toast.error(
+          `Added ${succeeded} of ${results.length} groups. ${failed} failed.`
+        );
+      }
     }
-  };
+  );
 
-  const handleUpdate = async (values: GroupFormValues) => {
+  const handleUpdate = useEventCallback(async (values: GroupFormValues) => {
     if (!editMode) {
       return;
     }
@@ -116,9 +117,9 @@ export function WhatsAppGroupsSection() {
     if (res.type !== "error") {
       setEditMode(null);
     }
-  };
+  });
 
-  const handleDelete = async () => {
+  const handleDelete = useEventCallback(async () => {
     if (rowAction?.kind !== "delete") {
       return;
     }
@@ -134,15 +135,15 @@ export function WhatsAppGroupsSection() {
     if (res.type !== "error") {
       setRowAction(null);
     }
-  };
+  });
 
   const showAddButton = canManageGroups && wapiConfigured !== false;
-  const stableOnClick0 = () => setPickerOpen(true);
-  const stableOnOpenChange1 = (open: any) => {
+  const stableOnClick0 = useEventCallback(() => setPickerOpen(true));
+  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       setRowAction(null);
     }
-  };
+  });
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -167,7 +168,7 @@ export function WhatsAppGroupsSection() {
 
       {groupList.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {groupList.map((group: any) => {
+          {groupList.map((group) => {
             const editingGroup =
               editMode && editMode.group.id === group.id
                 ? editMode.group

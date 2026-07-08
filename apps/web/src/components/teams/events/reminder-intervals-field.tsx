@@ -3,6 +3,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@pi-dash/design-system/components/ui/toggle-group";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReminderTarget } from "@pi-dash/shared/constants";
 import { REMINDER_PRESETS } from "@pi-dash/shared/event-reminders";
 
@@ -24,14 +25,15 @@ export function ReminderIntervalsField({
   const showGroupWarning =
     !hasWhatsappGroup &&
     (reminderTarget === "group" || reminderTarget === "both");
-  const stableOnValueChange0 = (selected: any) =>
-    onChange(selected.map(Number));
-  const stableOnValueChange1 = (selected: any) => {
+  const stableOnValueChange0 = useEventCallback((selected: string[]) =>
+    onChange(selected.map(Number))
+  );
+  const stableOnValueChange1 = useEventCallback((selected: string[]) => {
     const val = selected.at(-1);
     if (val) {
       onTargetChange(val as ReminderTarget);
     }
-  };
+  });
 
   return (
     <div className="space-y-2">
@@ -44,7 +46,7 @@ export function ReminderIntervalsField({
         value={value.map(String)}
         variant="outline"
       >
-        {REMINDER_PRESETS.map((preset: any) => (
+        {REMINDER_PRESETS.map((preset) => (
           <ToggleGroupItem
             className="aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
             key={preset.minutes}

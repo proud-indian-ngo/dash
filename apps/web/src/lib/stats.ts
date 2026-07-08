@@ -23,21 +23,18 @@ export interface WithStatusAndLineItems {
 export function sumAmounts(
   items: readonly { amount: string | number }[]
 ): number {
-  return items.reduce((sum: any, li: any) => sum + Number(li.amount), 0);
+  return items.reduce((sum, li) => sum + Number(li.amount), 0);
 }
 
 export function sumTotal(data: readonly WithStatusAndLineItems[]): number {
-  return data.reduce(
-    (sum: any, item: any) => sum + sumAmounts(item.lineItems),
-    0
-  );
+  return data.reduce((sum, item) => sum + sumAmounts(item.lineItems), 0);
 }
 
 export function byStatus(
   data: readonly WithStatusAndLineItems[],
   status: string
 ): readonly WithStatusAndLineItems[] {
-  return data.filter((item: any) => item.status === status);
+  return data.filter((item) => item.status === status);
 }
 
 export function formatTotal(data: readonly WithStatusAndLineItems[]): string {
@@ -130,8 +127,8 @@ export function computeTrendData(
   to: Date | null
 ): TrendDataPoint[] {
   const timestamps = items
-    .filter((i: any) => i.createdAt !== null)
-    .map((i: any) => i.createdAt as number);
+    .filter((i) => i.createdAt !== null)
+    .map((i) => i.createdAt as number);
   if (timestamps.length === 0 || !from || !to) {
     return [];
   }
@@ -143,9 +140,9 @@ export function computeTrendData(
 
   if (useWeeks) {
     const weeks = eachWeekOfInterval({ end, start }, { weekStartsOn: 1 });
-    return weeks.map((weekStart: any) => {
+    return weeks.map((weekStart) => {
       const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-      const weekItems = items.filter((item: any) => {
+      const weekItems = items.filter((item) => {
         const ts = item.createdAt;
         return (
           ts !== null && ts >= weekStart.getTime() && ts < weekEnd.getTime()
@@ -160,9 +157,9 @@ export function computeTrendData(
   }
 
   const months = eachMonthOfInterval({ end, start });
-  return months.map((monthStart: any) => {
+  return months.map((monthStart) => {
     const monthEnd = endOfMonth(monthStart);
-    const monthItems = items.filter((item: any) => {
+    const monthItems = items.filter((item) => {
       const ts = item.createdAt;
       return (
         ts !== null && ts >= monthStart.getTime() && ts < monthEnd.getTime()
@@ -193,7 +190,7 @@ export function computeCategoryData(
 
   const sorted = [...map.entries()]
     .map(([name, data]) => ({ name, ...data }))
-    .sort((a: any, b: any) => b.amount - a.amount);
+    .sort((a, b) => b.amount - a.amount);
 
   if (sorted.length <= 8) {
     return sorted;
@@ -202,7 +199,7 @@ export function computeCategoryData(
   const top = sorted.slice(0, 7);
   const rest = sorted.slice(7);
   const other = rest.reduce(
-    (acc: any, item: any) => ({
+    (acc, item) => ({
       amount: acc.amount + item.amount,
       count: acc.count + item.count,
       name: "Other",
@@ -234,9 +231,7 @@ export function computeSubmitterData(
     map.set(email, existing);
   }
 
-  return [...map.values()]
-    .sort((a: any, b: any) => b.amount - a.amount)
-    .slice(0, 10);
+  return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
 }
 
 export interface EventDataPoint {
@@ -272,7 +267,7 @@ export function computeEventData(
 
   return [...map.entries()]
     .map(([eventId, data]) => ({ eventId, ...data }))
-    .sort((a: any, b: any) => b.amount - a.amount)
+    .sort((a, b) => b.amount - a.amount)
     .slice(0, 10);
 }
 
@@ -316,13 +311,13 @@ export function computeApprovalTimeData(
     if (days < 0) {
       continue;
     }
-    const idx = APPROVAL_BUCKETS.findIndex((b: any) => days < b.maxDays);
+    const idx = APPROVAL_BUCKETS.findIndex((b) => days < b.maxDays);
     if (idx >= 0 && counts[idx] !== undefined) {
       counts[idx] += 1;
     }
   }
 
-  return APPROVAL_BUCKETS.map((b: any, i: any) => ({
+  return APPROVAL_BUCKETS.map((b, i) => ({
     count: counts[i] ?? 0,
     label: b.label,
   }));
@@ -352,7 +347,5 @@ export function computeVendorData(
     map.set(name, existing);
   }
 
-  return [...map.values()]
-    .sort((a: any, b: any) => b.amount - a.amount)
-    .slice(0, 10);
+  return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
 }

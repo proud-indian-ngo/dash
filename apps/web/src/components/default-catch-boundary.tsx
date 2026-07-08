@@ -1,6 +1,7 @@
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   type ErrorComponentProps,
   Link,
@@ -16,7 +17,7 @@ import { AppContext } from "@/context/app-context";
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
   const router = useRouter();
   const isRoot = useMatch({
-    select: (state: any) => state.id === rootRouteId,
+    select: (state) => state.id === rootRouteId,
     strict: false,
   });
 
@@ -38,13 +39,15 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     }
   }, [error]);
 
-  const stableOnClick0 = async () => {
+  const stableOnClick0 = useEventCallback(async () => {
     await router.invalidate();
-  };
-  const stableOnClick1 = (e: any) => {
-    e.preventDefault();
-    window.history.back();
-  };
+  });
+  const stableOnClick1 = useEventCallback(
+    (e: { preventDefault: () => void }) => {
+      e.preventDefault();
+      window.history.back();
+    }
+  );
 
   return (
     <div

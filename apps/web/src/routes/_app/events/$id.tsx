@@ -131,9 +131,9 @@ function EventDetailRouteComponent() {
     (i: EventInterest & { user: User | undefined }) =>
       i.userId === session.user.id
   );
-  const isMember = event.members.some((m: any) => m.userId === session.user.id);
+  const isMember = event.members.some((m) => m.userId === session.user.id);
   const isTeamMember =
-    team?.members.some((m: any) => m.userId === session.user.id) ?? false;
+    team?.members.some((m) => m.userId === session.user.id) ?? false;
 
   const { displayEvent } = deriveDisplayEvent(event, occDate);
 

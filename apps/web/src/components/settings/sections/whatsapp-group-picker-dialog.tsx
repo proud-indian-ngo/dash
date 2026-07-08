@@ -6,6 +6,7 @@ import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { ScrollArea } from "@pi-dash/design-system/components/ui/scroll-area";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
 import {
@@ -52,7 +53,9 @@ function DialogBody({
   totalFetched: number;
   toggleGroup: (jid: string) => void;
 }) {
-  const stableOnChange0 = (e: any) => onSearchChange(e.target.value);
+  const stableOnChange0 = useEventCallback((e: { target: { value: string } }) =>
+    onSearchChange(e.target.value)
+  );
   if (error) {
     return <p className="py-4 text-center text-destructive text-sm">{error}</p>;
   }
@@ -60,7 +63,7 @@ function DialogBody({
   if (loading) {
     return (
       <div className="flex flex-col gap-2 py-4">
-        {["s1", "s2", "s3", "s4", "s5"].map((id: any) => (
+        {["s1", "s2", "s3", "s4", "s5"].map((id) => (
           <Skeleton className="h-10 w-full" key={id} />
         ))}
       </div>
@@ -105,7 +108,7 @@ function DialogBody({
               No groups match your search.
             </p>
           ) : (
-            filtered.map((group: any) => (
+            filtered.map((group) => (
               <button
                 className="flex w-full cursor-pointer items-start gap-3 rounded-md p-2 text-left hover:bg-accent"
                 key={group.jid}
@@ -167,22 +170,23 @@ export function WhatsAppGroupPickerDialog({
     setError(null);
 
     fetchWhatsAppGroups()
-      .then((result: any) => {
+      .then((result) => {
         if (cancelled) {
           return;
         }
-        const withJid = result.groups.filter((g: any) => g.jid);
+        const withJid = result.groups.filter((g) => g.jid);
         setAllGroups(withJid);
         setLoading(false);
       })
-      .catch((error: unknown) => {
+      .catch((loadError: unknown) => {
         if (cancelled) {
           return;
         }
         log.error({
           action: "fetchGroups",
           component: "WhatsAppGroupPickerDialog",
-          error: error instanceof Error ? error.message : String(error),
+          error:
+            loadError instanceof Error ? loadError.message : String(loadError),
         });
         setError(
           "Failed to fetch WhatsApp groups. Check that the WhatsApp gateway is running."
@@ -195,17 +199,15 @@ export function WhatsAppGroupPickerDialog({
     };
   }, [open]);
 
-  const availableGroups = allGroups.filter(
-    (g: any) => !existingJids.has(g.jid)
-  );
+  const availableGroups = allGroups.filter((g) => !existingJids.has(g.jid));
 
   const filtered = search
-    ? availableGroups.filter((g: any) =>
+    ? availableGroups.filter((g) =>
         g.name.toLowerCase().includes(search.toLowerCase())
       )
     : availableGroups;
 
-  const toggleGroup = (jid: string) => {
+  const toggleGroup = useEventCallback((jid: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(jid)) {
@@ -215,12 +217,12 @@ export function WhatsAppGroupPickerDialog({
       }
       return next;
     });
-  };
+  });
 
-  const handleAdd = async () => {
+  const handleAdd = useEventCallback(async () => {
     const selectedGroups = availableGroups
-      .filter((g: any) => selected.has(g.jid))
-      .map((g: any) => ({ jid: g.jid, name: g.name }));
+      .filter((g) => selected.has(g.jid))
+      .map((g) => ({ jid: g.jid, name: g.name }));
     setSubmitting(true);
     try {
       await onAdd(selectedGroups);
@@ -228,8 +230,8 @@ export function WhatsAppGroupPickerDialog({
       setSubmitting(false);
       onOpenChange(false);
     }
-  };
-  const stableOnClick1 = () => onOpenChange(false);
+  });
+  const stableOnClick1 = useEventCallback(() => onOpenChange(false));
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

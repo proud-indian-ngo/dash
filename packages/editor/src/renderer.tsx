@@ -35,8 +35,18 @@ import {
 function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
   const { align = "center" } = props.element;
   const width = props.element.width as string | number | undefined;
-  const caption = props.element.caption as Array<{ text: string }> | undefined;
-  const captionText = caption?.map((c) => c.text).join("");
+  const caption = props.element.caption as unknown;
+  const captionText = Array.isArray(caption)
+    ? caption
+        .map((c) => {
+          if (!(typeof c === "object" && c && "text" in c)) {
+            return "";
+          }
+          const { text } = c as { text?: unknown };
+          return typeof text === "string" ? text : "";
+        })
+        .join("")
+    : "";
 
   const alignClasses: Record<string, string> = {
     left: "mr-auto",

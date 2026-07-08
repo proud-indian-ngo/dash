@@ -16,7 +16,21 @@ import { createRequestLogger } from "evlog";
 import {
   getUserIdFromNewSession,
   reactivateUserAfterSignIn,
+  type SignInReactivationResult,
 } from "./reactivation";
+
+type SignInReactivationStatus = SignInReactivationResult["status"];
+
+const REACTIVATION_LOG_PAYLOADS = {
+  "already-active": { event: "already_active" },
+  "missing-user": { warning: "signed-in user not found in database" },
+  reactivated: { event: "reactivated_on_login" },
+  "skipped-banned": { event: "skip_banned_user" },
+  "update-skipped": { event: "reactivation_update_skipped" },
+} satisfies Record<
+  SignInReactivationStatus,
+  { event?: string; warning?: string }
+>;
 
 interface AuthHookContext {
   context: {
@@ -149,27 +163,8 @@ async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
       },
     });
 
-    switch (result.status) {
-      case "missing-user":
-        log.set({ warning: "signed-in user not found in database" });
-        break;
-      case "skipped-banned":
-        log.set({ event: "skip_banned_user" });
-        break;
-      case "already-active":
-        log.set({ event: "already_active" });
-        break;
-      case "update-skipped":
-        log.set({ event: "reactivation_update_skipped", role: result.role });
-        break;
-      case "reactivated":
-        log.set({ event: "reactivated_on_login", role: result.role });
-        break;
-      default: {
-        const exhaustive: never = result;
-        throw new Error(`Unhandled sign-in reactivation result: ${exhaustive}`);
-      }
-    }
+    const payload = REACTIVATION_LOG_PAYLOADS[result.status];
+    log.set("role" in result ? { ...payload, role: result.role } : payload);
 
     log.emit();
   } catch (caughtError) {

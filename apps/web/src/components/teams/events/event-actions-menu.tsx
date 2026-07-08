@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
 export interface EventActionsMenuProps {
   canCancel: boolean;
@@ -28,7 +29,9 @@ export function EventActionsMenu({
   onEditEvent,
   onSelectEvent,
 }: EventActionsMenuProps) {
-  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
 
   return (
     <DropdownMenu>

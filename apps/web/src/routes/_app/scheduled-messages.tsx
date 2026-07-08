@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { deriveMessageStatus } from "@pi-dash/shared/scheduled-message";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -58,7 +59,7 @@ function ScheduledMessagesPage() {
 
   const messages = statusFilter
     ? allMessages.filter(
-        (m: any) => deriveMessageStatus(m.recipients) === statusFilter
+        (m) => deriveMessageStatus(m.recipients) === statusFilter
       )
     : allMessages;
 
@@ -68,7 +69,7 @@ function ScheduledMessagesPage() {
     null
   );
   const selectedMessage = selectedMessageId
-    ? (allMessages.find((m: any) => m.id === selectedMessageId) ?? null)
+    ? (allMessages.find((m) => m.id === selectedMessageId) ?? null)
     : null;
   const [cancelTarget, setCancelTarget] = useState<ScheduledMessageRow | null>(
     null
@@ -79,78 +80,80 @@ function ScheduledMessagesPage() {
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleView = (row: ScheduledMessageRow) => {
+  const handleView = useEventCallback((row: ScheduledMessageRow) => {
     setSelectedMessageId(row.id);
     setSheetOpen(true);
-  };
+  });
 
-  const handleEdit = (row: ScheduledMessageRow) => {
+  const handleEdit = useEventCallback((row: ScheduledMessageRow) => {
     setSheetOpen(false);
     setDialogMode({ kind: "edit", message: row });
-  };
+  });
 
-  const handleCancelRequest = (row: ScheduledMessageRow) => {
+  const handleCancelRequest = useEventCallback((row: ScheduledMessageRow) => {
     setSheetOpen(false);
     setCancelTarget(row);
-  };
+  });
 
-  const handleDeleteRequest = (row: ScheduledMessageRow) => {
+  const handleDeleteRequest = useEventCallback((row: ScheduledMessageRow) => {
     setSheetOpen(false);
     setDeleteTarget(row);
-  };
+  });
 
-  const handleFormSubmit = async (values: {
-    message: string;
-    scheduledAt: number;
-    recipients: Recipient[];
-    attachments?: MediaAttachment[];
-    sendNow?: boolean;
-  }) => {
-    if (dialogMode?.kind === "edit") {
-      const res = await zero.mutate(
-        mutators.scheduledMessage.update({
-          attachments: values.attachments,
-          id: dialogMode.message.id,
-          message: values.message,
-          recipients: values.recipients,
-          scheduledAt: values.scheduledAt,
-        })
-      ).server;
-      handleMutationResult(res, {
-        entityId: dialogMode.message.id,
-        errorMsg: "Couldn't update message",
-        mutation: "scheduledMessage.update",
-        successMsg: "Message updated",
-      });
-      if (res.type !== "error") {
-        setDialogMode(null);
-      }
-    } else {
-      const id = uuidv7();
-      const res = await zero.mutate(
-        mutators.scheduledMessage.create({
-          attachments: values.attachments,
-          id,
-          message: values.message,
-          recipients: values.recipients,
-          scheduledAt: values.scheduledAt,
-        })
-      ).server;
-      handleMutationResult(res, {
-        entityId: id,
-        errorMsg: values.sendNow
-          ? "Couldn't send message"
-          : "Couldn't schedule message",
-        mutation: "scheduledMessage.create",
-        successMsg: values.sendNow ? "Message sent" : "Message scheduled",
-      });
-      if (res.type !== "error") {
-        setDialogMode(null);
+  const handleFormSubmit = useEventCallback(
+    async (values: {
+      message: string;
+      scheduledAt: number;
+      recipients: Recipient[];
+      attachments?: MediaAttachment[];
+      sendNow?: boolean;
+    }) => {
+      if (dialogMode?.kind === "edit") {
+        const res = await zero.mutate(
+          mutators.scheduledMessage.update({
+            attachments: values.attachments,
+            id: dialogMode.message.id,
+            message: values.message,
+            recipients: values.recipients,
+            scheduledAt: values.scheduledAt,
+          })
+        ).server;
+        handleMutationResult(res, {
+          entityId: dialogMode.message.id,
+          errorMsg: "Couldn't update message",
+          mutation: "scheduledMessage.update",
+          successMsg: "Message updated",
+        });
+        if (res.type !== "error") {
+          setDialogMode(null);
+        }
+      } else {
+        const id = uuidv7();
+        const res = await zero.mutate(
+          mutators.scheduledMessage.create({
+            attachments: values.attachments,
+            id,
+            message: values.message,
+            recipients: values.recipients,
+            scheduledAt: values.scheduledAt,
+          })
+        ).server;
+        handleMutationResult(res, {
+          entityId: id,
+          errorMsg: values.sendNow
+            ? "Couldn't send message"
+            : "Couldn't schedule message",
+          mutation: "scheduledMessage.create",
+          successMsg: values.sendNow ? "Message sent" : "Message scheduled",
+        });
+        if (res.type !== "error") {
+          setDialogMode(null);
+        }
       }
     }
-  };
+  );
 
-  const handleRetryRecipient = async (recipientId: string) => {
+  const handleRetryRecipient = useEventCallback(async (recipientId: string) => {
     try {
       const res = await zero.mutate(
         mutators.scheduledMessage.retryRecipient({ recipientId })
@@ -169,9 +172,9 @@ function ScheduledMessagesPage() {
         recipientId,
       });
     }
-  };
+  });
 
-  const handleCancelConfirm = async () => {
+  const handleCancelConfirm = useEventCallback(async () => {
     if (!cancelTarget) {
       return;
     }
@@ -199,9 +202,9 @@ function ScheduledMessagesPage() {
     } finally {
       setIsCancelling(false);
     }
-  };
+  });
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useEventCallback(async () => {
     if (!deleteTarget) {
       return;
     }
@@ -229,35 +232,37 @@ function ScheduledMessagesPage() {
     } finally {
       setIsDeleting(false);
     }
-  };
-  const stableOnClearFilters0 = () => setStatusFilter("");
-  const stableOnClick1 = () => setDialogMode({ kind: "create" });
-  const stableOnCancel2 = () => {
+  });
+  const stableOnClearFilters0 = useEventCallback(() => setStatusFilter(""));
+  const stableOnClick1 = useEventCallback(() =>
+    setDialogMode({ kind: "create" })
+  );
+  const stableOnCancel2 = useEventCallback(() => {
     if (selectedMessage) {
       handleCancelRequest(selectedMessage);
     }
-  };
-  const stableOnDelete3 = () => {
+  });
+  const stableOnDelete3 = useEventCallback(() => {
     if (selectedMessage) {
       handleDeleteRequest(selectedMessage);
     }
-  };
-  const stableOnEdit4 = () => {
+  });
+  const stableOnEdit4 = useEventCallback(() => {
     if (selectedMessage) {
       handleEdit(selectedMessage);
     }
-  };
-  const stableOnClose5 = () => setDialogMode(null);
-  const stableOnOpenChange6 = (open: any) => {
+  });
+  const stableOnClose5 = useEventCallback(() => setDialogMode(null));
+  const stableOnOpenChange6 = useEventCallback((open: boolean) => {
     if (!open) {
       setCancelTarget(null);
     }
-  };
-  const stableOnOpenChange7 = (open: any) => {
+  });
+  const stableOnOpenChange7 = useEventCallback((open: boolean) => {
     if (!open) {
       setDeleteTarget(null);
     }
-  };
+  });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

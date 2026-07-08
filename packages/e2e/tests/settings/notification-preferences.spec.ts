@@ -45,15 +45,18 @@ test.describe("Notification preferences settings", () => {
     await expect(allWaSwitches.first()).toBeVisible({ timeout: 10_000 });
 
     const count = await allWaSwitches.count();
-    let firstWaSwitch = allWaSwitches.first();
-    for (let i = 0; i < count; i += 1) {
-      const sw = allWaSwitches.nth(i);
-      const disabled = await sw.getAttribute("aria-disabled");
-      if (disabled !== "true") {
-        firstWaSwitch = sw;
-        break;
-      }
-    }
+    const disabledStates = await Promise.all(
+      Array.from({ length: count }, (_, i) =>
+        allWaSwitches.nth(i).getAttribute("aria-disabled")
+      )
+    );
+    const firstEnabledIndex = disabledStates.findIndex(
+      (disabled) => disabled !== "true"
+    );
+    const firstWaSwitch =
+      firstEnabledIndex === -1
+        ? allWaSwitches.first()
+        : allWaSwitches.nth(firstEnabledIndex);
 
     const wasChecked = await firstWaSwitch.isChecked();
 

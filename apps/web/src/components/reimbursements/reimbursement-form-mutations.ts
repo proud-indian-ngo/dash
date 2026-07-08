@@ -17,7 +17,7 @@ export function buildMutation(
   existingId: string | undefined,
   bankAccountList: BankAccount[]
 ) {
-  const lineItems = value.lineItems.map((item: any, index: any) => ({
+  const lineItems = value.lineItems.map((item, index) => ({
     ...item,
     amount: Number(item.amount),
     sortOrder: index,
@@ -26,7 +26,7 @@ export function buildMutation(
   const id = existingId ?? entityId;
 
   const selectedAccount = bankAccountList.find(
-    (account: any) => account.accountNumber === value.bankAccountNumber
+    (account) => account.accountNumber === value.bankAccountNumber
   );
   const basePayload = {
     attachments,

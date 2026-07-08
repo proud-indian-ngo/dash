@@ -28,9 +28,9 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   const isLoading = preferences.length === 0 && result.type !== "complete";
 
-  const prefMap = new Map(preferences.map((p: any) => [p.topicId, p]));
+  const prefMap = new Map(preferences.map((p) => [p.topicId, p]));
 
-  const topicsWithPrefs = TOPIC_CATALOG.map((meta: any) => {
+  const topicsWithPrefs = TOPIC_CATALOG.map((meta) => {
     const pref = prefMap.get(meta.id);
     return {
       description: meta.description,
@@ -44,7 +44,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
     };
   });
 
-  const groupedTopics = groupBy(topicsWithPrefs, (t: any) => t.group);
+  const groupedTopics = groupBy(topicsWithPrefs, (t) => t.group);
 
   const handleToggle = async (
     topicId: string,
@@ -85,7 +85,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
       <div className="flex flex-col gap-6 p-4">
         <Skeleton className="h-4 w-64" />
         <div className="space-y-6">
-          {[1, 2, 3, 4, 5, 6, 7].map((i: any) => (
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div
               className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
               key={i}
@@ -108,7 +108,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      {NOTIFICATION_GROUP_ORDER.flatMap((groupName: any, groupIndex: any) => {
+      {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
         const items = groupedTopics.get(groupName);
         if (!items || items.length === 0) {
           return [];
@@ -149,7 +149,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                 </div>
               )}
             </div>
-            {items.map((topic: any) => (
+            {items.map((topic) => (
               <div
                 className="flex items-center justify-between gap-4"
                 key={topic.topicId}
@@ -168,7 +168,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                     checked={topic.inboxEnabled}
                     disabled={topic.required}
                     id={`${topic.topicId}-inbox`}
-                    onCheckedChange={(checked: any) =>
+                    onCheckedChange={(checked) =>
                       handleToggle(topic.topicId, "inbox", checked)
                     }
                   />
@@ -177,7 +177,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                     checked={topic.emailEnabled}
                     disabled={topic.required}
                     id={`${topic.topicId}-email`}
-                    onCheckedChange={(checked: any) =>
+                    onCheckedChange={(checked) =>
                       handleToggle(topic.topicId, "email", checked)
                     }
                   />
@@ -186,7 +186,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
                     checked={topic.whatsappEnabled}
                     disabled={topic.required}
                     id={`${topic.topicId}-whatsapp`}
-                    onCheckedChange={(checked: any) =>
+                    onCheckedChange={(checked) =>
                       handleToggle(topic.topicId, "whatsapp", checked)
                     }
                   />

@@ -6,6 +6,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   type FileWithPreview,
   formatBytes,
@@ -170,8 +171,8 @@ export function AttachmentsSection({
       let failedCount = 0;
 
       await Promise.all(
-        filesToUpload.map(async (file: any) => {
-          setUploadProgress((prev: any) => ({
+        filesToUpload.map(async (file) => {
+          setUploadProgress((prev) => ({
             ...prev,
             current: prev.current + 1,
           }));
@@ -238,7 +239,7 @@ export function AttachmentsSection({
     multiple: true,
     onFilesAdded: (addedFiles: FileWithPreview[]) => {
       const files = addedFiles
-        .map((item: any) => item.file)
+        .map((item) => item.file)
         .filter((candidate): candidate is File => candidate instanceof File);
       uploadFilesRef.current(files).finally(() => {
         uploadActions.clearFiles();
@@ -246,7 +247,7 @@ export function AttachmentsSection({
     },
   });
 
-  const handleAddUrl = (url: string): boolean => {
+  const handleAddUrl = useEventCallback((url: string): boolean => {
     if (!url.trim()) {
       return false;
     }
@@ -258,7 +259,7 @@ export function AttachmentsSection({
 
     onChange([...value, { id: uuidv7(), type: "url", url: url.trim() }]);
     return true;
-  };
+  });
 
   return (
     <div className="flex flex-col gap-3">
@@ -324,7 +325,7 @@ export function AttachmentsSection({
           className="flex flex-col gap-1 rounded-md border border-destructive/50 px-3 py-2"
           role="alert"
         >
-          {errors.map((error: any) => (
+          {errors.map((error) => (
             <p className="text-destructive text-xs" key={error}>
               {error}
             </p>
@@ -361,7 +362,7 @@ export function AttachmentsSection({
 
       {value.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          {value.map((attachment: any) => (
+          {value.map((attachment) => (
             <div
               className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)"
               key={attachment.id}

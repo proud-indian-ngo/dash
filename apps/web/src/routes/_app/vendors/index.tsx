@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -56,17 +57,17 @@ function VendorsRouteComponent() {
   );
 
   const filteredVendorRows = statusFilter
-    ? vendorRows.filter((v: any) => v.status === statusFilter)
+    ? vendorRows.filter((v) => v.status === statusFilter)
     : vendorRows;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [viewingVendorId, setViewingVendorId] = useState<string | null>(null);
   const viewingVendor = viewingVendorId
-    ? (vendorRows.find((v: any) => v.id === viewingVendorId) ?? null)
+    ? (vendorRows.find((v) => v.id === viewingVendorId) ?? null)
     : null;
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useEventCallback(async (id: string) => {
     const res = await zero.mutate(mutators.vendor.delete({ id })).server;
     handleMutationResult(res, {
       entityId: id,
@@ -75,9 +76,9 @@ function VendorsRouteComponent() {
       successMsg: "Vendor deleted",
     });
     return res;
-  };
+  });
 
-  const handleApprove = async (vendor: VendorRow) => {
+  const handleApprove = useEventCallback(async (vendor: VendorRow) => {
     const res = await zero.mutate(mutators.vendor.approve({ id: vendor.id }))
       .server;
     handleMutationResult(res, {
@@ -87,9 +88,9 @@ function VendorsRouteComponent() {
       successMsg: "Vendor approved",
     });
     return res;
-  };
+  });
 
-  const handleUnapprove = async (vendor: VendorRow) => {
+  const handleUnapprove = useEventCallback(async (vendor: VendorRow) => {
     const res = await zero.mutate(mutators.vendor.unapprove({ id: vendor.id }))
       .server;
     handleMutationResult(res, {
@@ -99,32 +100,32 @@ function VendorsRouteComponent() {
       successMsg: "Vendor unapproved",
     });
     return res;
-  };
+  });
 
-  const handleEdit = (vendor: VendorRow) => {
+  const handleEdit = useEventCallback((vendor: VendorRow) => {
     setEditingVendor(vendor);
     setFormOpen(true);
-  };
+  });
 
-  const handleView = (vendor: VendorRow) => {
+  const handleView = useEventCallback((vendor: VendorRow) => {
     setViewingVendorId(vendor.id);
-  };
-  const stableOnClearFilters0 = () => setStatusFilter("");
-  const stableOnClick1 = () => {
+  });
+  const stableOnClearFilters0 = useEventCallback(() => setStatusFilter(""));
+  const stableOnClick1 = useEventCallback(() => {
     setEditingVendor(null);
     setFormOpen(true);
-  };
-  const stableOnOpenChange2 = (open: any) => {
+  });
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     setFormOpen(open);
     if (!open) {
       setEditingVendor(null);
     }
-  };
-  const stableOnOpenChange3 = (open: any) => {
+  });
+  const stableOnOpenChange3 = useEventCallback((open: boolean) => {
     if (!open) {
       setViewingVendorId(null);
     }
-  };
+  });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

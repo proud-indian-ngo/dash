@@ -19,6 +19,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@pi-dash/design-system/components/ui/tooltip";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import {
@@ -72,7 +73,7 @@ interface LineItemRowProps {
   form: FormInstance;
   index: number;
   name: string;
-  onRemove: () => void;
+  removeValue: (index: number) => void;
   showVoucher?: boolean;
   submitted: boolean;
 }
@@ -94,75 +95,179 @@ function formatFieldError(error: unknown): string {
   return "";
 }
 
+function CategorySelect({
+  categoryOptions,
+  field,
+  index,
+  submitted,
+}: {
+  categoryOptions: { label: string; value: string }[];
+  field: SubFieldApi;
+  index: number;
+  submitted: boolean;
+}) {
+  const { hasError, errorId } = subFieldErrorProps(field, submitted);
+  const handleOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      field.handleBlur();
+    }
+  });
+  const handleValueChange = useEventCallback((selectedValue: string) => {
+    field.handleChange(selectedValue ?? "");
+  });
+
+  return (
+    <div className="col-span-3 min-w-0 sm:col-span-1">
+      <Select
+        onOpenChange={handleOpenChange}
+        onValueChange={handleValueChange}
+        value={field.state.value}
+      >
+        <SelectTrigger
+          aria-describedby={hasError ? errorId : undefined}
+          aria-invalid={hasError || undefined}
+          aria-label={`Category for line item ${index + 1}`}
+          className="w-full"
+        >
+          <span
+            className="flex flex-1 items-center text-left"
+            data-slot="select-value"
+          >
+            {
+              categoryOptions.find(
+                (option) => option.value === field.state.value
+              )?.label
+            }
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {categoryOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {Boolean(hasError) && (
+        <p className="mt-1 text-destructive text-xs" id={errorId} role="alert">
+          {formatFieldError(field.state.meta.errors[0])}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LineTextInput({
+  field,
+  index,
+  label,
+  placeholder,
+  submitted,
+  type = "text",
+}: {
+  field: SubFieldApi;
+  index: number;
+  label: "Amount" | "Description";
+  placeholder: string;
+  submitted: boolean;
+  type?: "number" | "text";
+}) {
+  const { hasError, errorId } = subFieldErrorProps(field, submitted);
+  const handleChange = useEventCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      field.handleChange(event.target.value);
+    }
+  );
+
+  return (
+    <div className="min-w-0">
+      <Input
+        aria-describedby={hasError ? errorId : undefined}
+        aria-invalid={hasError || undefined}
+        aria-label={`${label} for line item ${index + 1}`}
+        inputMode={type === "number" ? "decimal" : undefined}
+        min={type === "number" ? "0" : undefined}
+        onBlur={field.handleBlur}
+        onChange={handleChange}
+        placeholder={placeholder}
+        step={type === "number" ? "0.01" : undefined}
+        type={type}
+        value={field.state.value}
+      />
+      {Boolean(hasError) && (
+        <p className="mt-1 text-destructive text-xs" id={errorId} role="alert">
+          {formatFieldError(field.state.meta.errors[0])}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function VoucherCheckbox({
+  checkboxId,
+  field,
+}: {
+  checkboxId: string;
+  field: { handleChange: (value: boolean) => void; state: { value: boolean } };
+}) {
+  const handleCheckedChange = useEventCallback((checked: boolean | "indeterminate") => {
+    field.handleChange(checked === true);
+  });
+
+  return (
+    <Checkbox
+      checked={field.state.value}
+      id={checkboxId}
+      onCheckedChange={handleCheckedChange}
+    />
+  );
+}
+
+function AddLineItemButton({ pushValue }: { pushValue: (value: LineItem) => void }) {
+  const handleClick = useEventCallback(() => pushValue(newLineItem()));
+
+  return (
+    <Button
+      className="self-start"
+      onClick={handleClick}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      <HugeiconsIcon className="size-3.5" icon={PlusSignIcon} strokeWidth={2} />
+      Add line item
+    </Button>
+  );
+}
+
 function LineItemRow({
   categoryOptions,
   form,
   index,
   name,
-  onRemove,
+  removeValue,
   showVoucher,
   submitted,
 }: LineItemRowProps) {
-  const stableSelector0 = (state: unknown) => {
+  const handleRemove = useEventCallback(() => removeValue(index));
+  const stableSelector0 = useEventCallback((state: unknown) => {
     const items = selectLineItems(state, name);
     const amt = Number(items[index]?.amount);
     return !Number.isNaN(amt) && amt > 0 && amt <= VOUCHER_AMOUNT_THRESHOLD;
-  };
+  });
 
   return (
     <div className="fade-in-0 grid animate-in grid-cols-[1fr_100px_32px] items-start gap-2 duration-150 ease-(--ease-out-expo) sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
         {(rawField: unknown) => {
           const field = asSubField(rawField);
-          const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
-            <div className="col-span-3 min-w-0 sm:col-span-1">
-              <Select
-                onOpenChange={(open: any) => {
-                  if (!open) {
-                    field.handleBlur();
-                  }
-                }}
-                onValueChange={(selectedValue: any) =>
-                  field.handleChange(selectedValue)
-                }
-                value={field.state.value}
-              >
-                <SelectTrigger
-                  aria-describedby={hasError ? errorId : undefined}
-                  aria-invalid={hasError || undefined}
-                  aria-label={`Category for line item ${index + 1}`}
-                  className="w-full"
-                >
-                  <span
-                    className="flex flex-1 items-center text-left"
-                    data-slot="select-value"
-                  >
-                    {
-                      categoryOptions.find(
-                        (option: any) => option.value === field.state.value
-                      )?.label
-                    }
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map((option: any) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {Boolean(hasError) && (
-                <p
-                  className="mt-1 text-destructive text-xs"
-                  id={errorId}
-                  role="alert"
-                >
-                  {formatFieldError(field.state.meta.errors[0])}
-                </p>
-              )}
-            </div>
+            <CategorySelect
+              categoryOptions={categoryOptions}
+              field={field}
+              index={index}
+              submitted={submitted}
+            />
           );
         }}
       </form.Field>
@@ -170,30 +275,14 @@ function LineItemRow({
       <form.Field name={`${name}[${index}].description`}>
         {(rawField: unknown) => {
           const field = asSubField(rawField);
-          const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
-            <div className="min-w-0">
-              <Input
-                aria-describedby={hasError ? errorId : undefined}
-                aria-invalid={hasError || undefined}
-                aria-label={`Description for line item ${index + 1}`}
-                onBlur={field.handleBlur}
-                onChange={(event: any) =>
-                  field.handleChange(event.target.value)
-                }
-                placeholder="Description"
-                value={field.state.value}
-              />
-              {Boolean(hasError) && (
-                <p
-                  className="mt-1 text-destructive text-xs"
-                  id={errorId}
-                  role="alert"
-                >
-                  {formatFieldError(field.state.meta.errors[0])}
-                </p>
-              )}
-            </div>
+            <LineTextInput
+              field={field}
+              index={index}
+              label="Description"
+              placeholder="Description"
+              submitted={submitted}
+            />
           );
         }}
       </form.Field>
@@ -201,41 +290,22 @@ function LineItemRow({
       <form.Field name={`${name}[${index}].amount`}>
         {(rawField: unknown) => {
           const field = asSubField(rawField);
-          const { hasError, errorId } = subFieldErrorProps(field, submitted);
           return (
-            <div className="min-w-0">
-              <Input
-                aria-describedby={hasError ? errorId : undefined}
-                aria-invalid={hasError || undefined}
-                aria-label={`Amount for line item ${index + 1}`}
-                inputMode="decimal"
-                min="0"
-                onBlur={field.handleBlur}
-                onChange={(event: any) =>
-                  field.handleChange(event.target.value)
-                }
-                placeholder="0.00"
-                step="0.01"
-                type="number"
-                value={field.state.value}
-              />
-              {Boolean(hasError) && (
-                <p
-                  className="mt-1 text-destructive text-xs"
-                  id={errorId}
-                  role="alert"
-                >
-                  {formatFieldError(field.state.meta.errors[0])}
-                </p>
-              )}
-            </div>
+            <LineTextInput
+              field={field}
+              index={index}
+              label="Amount"
+              placeholder="0.00"
+              submitted={submitted}
+              type="number"
+            />
           );
         }}
       </form.Field>
 
       <Button
         aria-label={`Remove line item ${index + 1}`}
-        onClick={onRemove}
+        onClick={handleRemove}
         size="icon"
         type="button"
         variant="ghost"
@@ -260,13 +330,7 @@ function LineItemRow({
                         className="flex cursor-pointer items-center gap-2"
                         htmlFor={checkboxId}
                       >
-                        <Checkbox
-                          checked={field.state.value}
-                          id={checkboxId}
-                          onCheckedChange={(checked: any) =>
-                            field.handleChange(checked === true)
-                          }
-                        />
+                        <VoucherCheckbox checkboxId={checkboxId} field={field} />
                         <span className="text-muted-foreground text-xs">
                           Generate cash voucher
                         </span>
@@ -307,12 +371,13 @@ export function LineItemsEditor({
 }: LineItemsEditorProps) {
   const form = useResolvedForm(formProp, "LineItemsEditor");
 
-  const categoryOptions = categories.map((category: any) => ({
+  const categoryOptions = categories.map((category) => ({
     label: category.name,
     value: category.id,
   }));
-  const stableSelector1 = (state: unknown) =>
-    computeRunningTotal(selectLineItems(state, name));
+  const stableSelector1 = useEventCallback((state: unknown) =>
+    computeRunningTotal(selectLineItems(state, name))
+  );
 
   return (
     <>
@@ -337,14 +402,14 @@ export function LineItemsEditor({
             <div className="flex flex-col gap-3">
               {arrayField.state.value.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  {arrayField.state.value.map((item: any, index: any) => (
+                  {arrayField.state.value.map((item, index) => (
                     <LineItemRow
                       categoryOptions={categoryOptions}
                       form={form}
                       index={index}
                       key={item.id}
                       name={name}
-                      onRemove={() => arrayField.removeValue(index)}
+                      removeValue={arrayField.removeValue}
                       showVoucher={showVoucher}
                       submitted={form.state.submissionAttempts > 0}
                     />
@@ -363,20 +428,7 @@ export function LineItemsEditor({
                 </p>
               ) : null}
 
-              <Button
-                className="self-start"
-                onClick={() => arrayField.pushValue(newLineItem())}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <HugeiconsIcon
-                  className="size-3.5"
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                />
-                Add line item
-              </Button>
+              <AddLineItemButton pushValue={arrayField.pushValue} />
             </div>
           );
         }}

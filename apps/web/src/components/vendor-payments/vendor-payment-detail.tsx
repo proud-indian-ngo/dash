@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import capitalize from "lodash/capitalize";
@@ -174,7 +175,7 @@ function QuotationAttachmentList({
     <div className="flex flex-col gap-3">
       <h2 className="font-medium text-sm">Quotation / Supporting Documents</h2>
       <div className="flex flex-col gap-1.5">
-        {attachments.map((att: any) => (
+        {attachments.map((att) => (
           <div
             className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
             key={att.id}
@@ -290,7 +291,7 @@ export function VendorPaymentDetail({
     0
   );
 
-  const handleApprove = async (message: string) => {
+  const handleApprove = useEventCallback(async (message: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.approve({
         id: request.id,
@@ -306,9 +307,9 @@ export function VendorPaymentDetail({
     if (res.type !== "error") {
       setApproveOpen(false);
     }
-  };
+  });
 
-  const handleReject = async (reason: string) => {
+  const handleReject = useEventCallback(async (reason: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.reject({ id: request.id, reason })
     ).server;
@@ -321,9 +322,9 @@ export function VendorPaymentDetail({
     if (res.type !== "error") {
       setRejectOpen(false);
     }
-  };
+  });
 
-  const handleResetToPending = async () => {
+  const handleResetToPending = useEventCallback(async () => {
     const res = await zero.mutate(
       mutators.vendorPayment.resetToPending({ id: request.id })
     ).server;
@@ -333,16 +334,16 @@ export function VendorPaymentDetail({
       mutation: "vendorPayment.resetToPending",
       successMsg: "Vendor payment reset to pending",
     });
-  };
+  });
 
   const invoiceAttachments = request.attachments.filter(
-    (att: any) => att.purpose === "invoice"
+    (att) => att.purpose === "invoice"
   );
   const quotationAttachments = request.attachments.filter(
-    (att: any) => att.purpose !== "invoice"
+    (att) => att.purpose !== "invoice"
   );
-  const stableOnApprove0 = () => setApproveOpen(true);
-  const stableOnReject1 = () => setRejectOpen(true);
+  const stableOnApprove0 = useEventCallback(() => setApproveOpen(true));
+  const stableOnReject1 = useEventCallback(() => setRejectOpen(true));
 
   return (
     <AppErrorBoundary level="section">
@@ -405,7 +406,7 @@ export function VendorPaymentDetail({
             <div className="flex flex-col gap-2">
               <h2 className="font-medium text-sm">History</h2>
               <div className="flex flex-col">
-                {request.history.map((entry: any) => (
+                {request.history.map((entry) => (
                   <HistoryEntry entry={entry} key={entry.id} />
                 ))}
               </div>

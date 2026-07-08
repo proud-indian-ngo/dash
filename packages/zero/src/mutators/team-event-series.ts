@@ -110,7 +110,6 @@ export interface UpdateArgs {
   whatsappGroupId?: string;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one conditional spread per optional field
 export function buildUpdateFields(args: UpdateArgs) {
   return {
     id: args.id,
@@ -156,25 +155,30 @@ export function buildUpdateFields(args: UpdateArgs) {
 
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+abstract class BivariantZeroMutation {
+  abstract bivarianceHack(args: unknown): Promise<void>;
+}
+type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
+abstract class BivariantZeroRun {
+  abstract bivarianceHack(query: unknown): Promise<unknown>;
+}
+type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
+
 // Structural type for the tx parameter from defineMutator.
 // Catches typos (tx.mutat) while avoiding dependency on Zero's deep internal types.
 export interface Tx {
   location: string;
   mutate: {
     teamEvent: {
-      delete: (args: { id: string }) => Promise<void>;
-      // biome-ignore lint/suspicious/noExplicitAny: row shapes vary per call and can't be expressed without Zero's generic
-      insert: (args: any) => Promise<void>;
-      // biome-ignore lint/suspicious/noExplicitAny: same as above
-      update: (args: any) => Promise<void>;
+      delete: ZeroMutationFn;
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
     };
     teamEventMember: {
-      // biome-ignore lint/suspicious/noExplicitAny: row shapes vary per call
-      insert: (args: any) => Promise<void>;
+      insert: ZeroMutationFn;
     };
   };
-  // biome-ignore lint/suspicious/noExplicitAny: Zero's Query type is deeply generic
-  run: (query: any) => Promise<unknown>;
+  run: ZeroRunFn;
 }
 
 // ---------------------------------------------------------------------------

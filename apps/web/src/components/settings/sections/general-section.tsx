@@ -1,5 +1,6 @@
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -19,15 +20,15 @@ export function GeneralSection() {
   const isLoading = configs.length === 0 && result.type !== "complete";
 
   const notificationsDisabled =
-    configs.find((c: any) => c.key === KILL_SWITCH_KEY)?.value === "true";
+    configs.find((c) => c.key === KILL_SWITCH_KEY)?.value === "true";
 
-  const handleToggle = async (checked: boolean) => {
+  const handleToggle = useEventCallback(async (checked: boolean) => {
     if (checked) {
       setConfirmOpen(true);
       return;
     }
     await applyToggle(false);
-  };
+  });
 
   const applyToggle = async (checked: boolean) => {
     try {
@@ -58,10 +59,10 @@ export function GeneralSection() {
       toast.error("Couldn't update notification setting");
     }
   };
-  const stableOnConfirm0 = () => {
+  const stableOnConfirm0 = useEventCallback(() => {
     setConfirmOpen(false);
     applyToggle(true);
-  };
+  });
 
   if (isLoading) {
     return (

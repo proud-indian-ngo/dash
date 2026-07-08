@@ -49,7 +49,7 @@ const MAX_EVENTS = 5;
 function UpcomingEventsSkeleton() {
   return (
     <div className="space-y-3">
-      {[1, 2, 3].map((i: any) => (
+      {[1, 2, 3].map((i) => (
         <div key={i}>
           <Skeleton className="h-4 w-40" />
           <Skeleton className="mt-1 h-3 w-24" />
@@ -75,7 +75,7 @@ const GHOST_EVENTS = [
 function UpcomingEventsEmpty() {
   return (
     <GhostEmptyState
-      ghostContent={GHOST_EVENTS.map((event: any) => (
+      ghostContent={GHOST_EVENTS.map((event) => (
         <div className="rounded-md p-2" key={event.name}>
           <p className="truncate font-medium text-sm">{event.name}</p>
           <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
@@ -102,7 +102,7 @@ function UpcomingEventsEmpty() {
 function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
   return (
     <div className="space-y-3">
-      {items.map((item: any) => (
+      {items.map((item) => (
         <Link
           className="block rounded-md p-2 transition-colors hover:bg-muted/50"
           key={`${item.eventId}-${item.startTime}`}
@@ -122,7 +122,7 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
             {Boolean(item.team) && (
               <>
                 <span>&middot;</span>
-                <span>{item.team.name}</span>
+                <span>{item.team?.name}</span>
               </>
             )}
             {item.interestCount > 0 && (
@@ -176,7 +176,7 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
       continue;
     }
 
-    const exceptions = event.exceptions;
+    const { exceptions } = event;
     const exceptionDates = new Set<string>();
     for (const exc of exceptions) {
       if (exc.originalDate) {
@@ -208,7 +208,7 @@ function buildUpcomingItems(events: readonly TeamEvent[]): UpcomingItem[] {
     }
   }
 
-  items.sort((a: any, b: any) => a.startTime - b.startTime);
+  items.sort((a, b) => a.startTime - b.startTime);
   return items.slice(0, MAX_EVENTS);
 }
 

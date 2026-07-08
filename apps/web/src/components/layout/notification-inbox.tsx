@@ -14,6 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@pi-dash/design-system/components/ui/tooltip";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -65,15 +66,23 @@ function NotificationItem({
   onClick: (id: string, clickAction?: string | null) => void;
   onToggleRead: (e: React.MouseEvent, id: string, isRead: boolean) => void;
 }) {
-  const handleMarkAllRead = () => onClick(n.id, n.clickAction);
-  const stableOnKeyDown1 = (e: any) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onClick(n.id, n.clickAction);
+  const handleMarkAllRead = useEventCallback(() =>
+    onClick(n.id, n.clickAction)
+  );
+  const stableOnKeyDown1 = useEventCallback(
+    (e: { key: string; preventDefault: () => void }) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onClick(n.id, n.clickAction);
+      }
     }
-  };
-  const stableOnClick2 = (e: any) => onToggleRead(e, n.id, !!n.read);
-  const stableOnClick3 = (e: any) => onArchive(e, n.id);
+  );
+  const stableOnClick2 = useEventCallback((e: React.MouseEvent) =>
+    onToggleRead(e, n.id, !!n.read)
+  );
+  const stableOnClick3 = useEventCallback((e: React.MouseEvent) =>
+    onArchive(e, n.id)
+  );
 
   return (
     // biome-ignore lint/a11y/useSemanticElements: can't use <button> — contains child <button> elements (TooltipTrigger)
@@ -149,7 +158,7 @@ function NotificationItem({
 export function NotificationInboxSkeleton() {
   return (
     <div>
-      {[0, 1, 2, 3].map((i: any) => (
+      {[0, 1, 2, 3].map((i) => (
         <div
           className="flex gap-0 border-border border-b last:border-b-0"
           key={`skeleton-${i}`}
@@ -185,53 +194,55 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
     queries.notification.forCurrentUser()
   );
   const isLoading = notifications.length === 0 && result.type !== "complete";
-  const hasUnread = notifications.some((n: any) => !n.read);
+  const hasUnread = notifications.some((n) => !n.read);
 
-  async function handleMarkAllRead() {
+  const handleMarkAllRead = useEventCallback(async () => {
     try {
       await zero.mutate(mutators.notification.markAllAsRead({}));
     } catch {
       toast.error("Couldn't mark notifications as read");
     }
-  }
+  });
 
-  async function handleClick(id: string, clickAction?: string | null) {
-    if (clickAction) {
+  const handleClick = useEventCallback(
+    async (id: string, clickAction?: string | null) => {
+      if (clickAction) {
+        try {
+          await zero.mutate(mutators.notification.markAsRead({ id }));
+        } catch {
+          /* navigation still proceeds */
+        }
+        onClose();
+        navigate({ to: clickAction });
+      }
+    }
+  );
+
+  const handleToggleRead = useEventCallback(
+    async (e: React.MouseEvent, id: string, isRead: boolean) => {
+      e.stopPropagation();
       try {
-        await zero.mutate(mutators.notification.markAsRead({ id }));
+        if (isRead) {
+          await zero.mutate(mutators.notification.markAsUnread({ id }));
+        } else {
+          await zero.mutate(mutators.notification.markAsRead({ id }));
+        }
       } catch {
-        /* navigation still proceeds */
+        toast.error("Couldn't update notification");
       }
-      onClose();
-      navigate({ to: clickAction });
     }
-  }
+  );
 
-  async function handleToggleRead(
-    e: React.MouseEvent,
-    id: string,
-    isRead: boolean
-  ) {
-    e.stopPropagation();
-    try {
-      if (isRead) {
-        await zero.mutate(mutators.notification.markAsUnread({ id }));
-      } else {
-        await zero.mutate(mutators.notification.markAsRead({ id }));
+  const handleArchive = useEventCallback(
+    async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      try {
+        await zero.mutate(mutators.notification.archive({ id }));
+      } catch {
+        toast.error("Couldn't archive notification");
       }
-    } catch {
-      toast.error("Couldn't update notification");
     }
-  }
-
-  async function handleArchive(e: React.MouseEvent, id: string) {
-    e.stopPropagation();
-    try {
-      await zero.mutate(mutators.notification.archive({ id }));
-    } catch {
-      toast.error("Couldn't archive notification");
-    }
-  }
+  );
 
   function renderContent() {
     if (isLoading) {
@@ -242,7 +253,7 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
     }
     return (
       <div>
-        {notifications.map((n: any) => (
+        {notifications.map((n) => (
           <NotificationItem
             key={n.id}
             notification={n}

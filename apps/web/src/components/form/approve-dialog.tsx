@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -52,14 +53,14 @@ export function ApproveDialog({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const cleanup = () => {
+  const cleanup = useEventCallback(() => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     if (screenshotKey) {
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error: any) => {
+      }).catch((error) => {
         log.error({
           action: "cleanup",
           component: "ApproveDialog",
@@ -72,82 +73,84 @@ export function ApproveDialog({
     setScreenshotKey(null);
     setPreviewUrl(null);
     setUploading(false);
-  };
+  });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    if (!file) {
-      return;
-    }
+  const handleFileChange = useEventCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      if (!file) {
+        return;
+      }
 
-    if (
-      !ALLOWED_IMAGE_TYPES.includes(
-        file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
-      )
-    ) {
-      toast.error(
-        "Invalid file type. Please upload a JPEG, PNG, or WebP image."
-      );
-      return;
-    }
-    const mimeType = toAllowedMimeType(file.type);
-    if (file.size > MAX_SCREENSHOT_SIZE) {
-      toast.error("File too large. Maximum size is 10 MB.");
-      return;
-    }
+      if (
+        !ALLOWED_IMAGE_TYPES.includes(
+          file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
+        )
+      ) {
+        toast.error(
+          "Invalid file type. Please upload a JPEG, PNG, or WebP image."
+        );
+        return;
+      }
+      const mimeType = toAllowedMimeType(file.type);
+      if (file.size > MAX_SCREENSHOT_SIZE) {
+        toast.error("File too large. Maximum size is 10 MB.");
+        return;
+      }
 
-    setUploading(true);
-    try {
-      const { presignedUrl, key } = await getPresignedUploadUrl({
-        data: {
+      setUploading(true);
+      try {
+        const { presignedUrl, key } = await getPresignedUploadUrl({
+          data: {
+            entityId,
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType,
+            subfolder: "approval-screenshots",
+          },
+        });
+
+        const uploadRes = await fetch(presignedUrl, {
+          body: file,
+          headers: { "Content-Type": file.type },
+          method: "PUT",
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`Upload failed: ${uploadRes.status}`);
+        }
+
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
+        setScreenshotKey(key);
+        setPreviewUrl(URL.createObjectURL(file));
+      } catch (error) {
+        log.error({
+          action: "uploadScreenshot",
+          component: "ApproveDialog",
           entityId,
+          error: error instanceof Error ? error.message : String(error),
           fileName: file.name,
-          fileSize: file.size,
-          mimeType,
-          subfolder: "approval-screenshots",
-        },
-      });
-
-      const uploadRes = await fetch(presignedUrl, {
-        body: file,
-        headers: { "Content-Type": file.type },
-        method: "PUT",
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error(`Upload failed: ${uploadRes.status}`);
+        });
+        toast.error("Couldn't upload screenshot — try again");
+      } finally {
+        setUploading(false);
       }
-
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      setScreenshotKey(key);
-      setPreviewUrl(URL.createObjectURL(file));
-    } catch (error) {
-      log.error({
-        action: "uploadScreenshot",
-        component: "ApproveDialog",
-        entityId,
-        error: error instanceof Error ? error.message : String(error),
-        fileName: file.name,
-      });
-      toast.error("Couldn't upload screenshot — try again");
-    } finally {
-      setUploading(false);
     }
-  };
+  );
 
-  const handleRemoveScreenshot = () => {
+  const handleRemoveScreenshot = useEventCallback(() => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     if (screenshotKey) {
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
-      }).catch((error: any) => {
+      }).catch((error) => {
         log.error({
           action: "removeScreenshot",
           component: "ApproveDialog",
@@ -158,17 +161,20 @@ export function ApproveDialog({
     }
     setScreenshotKey(null);
     setPreviewUrl(null);
-  };
-  const stableOnOpenChange0 = (isOpen: any) => {
+  });
+  const stableOnOpenChange0 = useEventCallback((isOpen: boolean) => {
     if (!isOpen) {
       cleanup();
     }
     onOpenChange(isOpen);
-  };
-  const stableOnClick2 = () => onConfirm(message, screenshotKey ?? undefined);
-  const stableOnMessageChange1 = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => setMessage(event.target.value);
+  });
+  const stableOnClick2 = useEventCallback(() =>
+    onConfirm(message, screenshotKey ?? undefined)
+  );
+  const stableOnMessageChange1 = useEventCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) =>
+      setMessage(event.target.value)
+  );
 
   return (
     <AlertDialog onOpenChange={stableOnOpenChange0} open={open}>

@@ -7,6 +7,7 @@ import {
   ComboboxList,
 } from "@pi-dash/design-system/components/ui/combobox";
 import { InputGroupAddon } from "@pi-dash/design-system/components/ui/input-group";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
 interface TableFilterSelectProps {
   label: string;
@@ -22,18 +23,19 @@ export function TableFilterSelect({
   value,
 }: TableFilterSelectProps) {
   const optionMap = new Map(
-    options.map((option: any) => [option.value, option.label])
+    options.map((option) => [option.value, option.label])
   );
-  const items = ["__all__", ...options.map((option: any) => option.value)];
+  const items = ["__all__", ...options.map((option) => option.value)];
   const selectedLabel = value ? (optionMap.get(value) ?? value) : "All";
-  const stableItemToStringLabel0 = (v: any) => {
+  const stableItemToStringLabel0 = useEventCallback((v: string | null) => {
     if (v === "__all__") {
       return "All";
     }
-    return optionMap.get(v) ?? String(v);
-  };
-  const stableOnValueChange1 = (v: any) =>
-    onChange(v === "__all__" || !v ? "" : v);
+    return v ? (optionMap.get(v) ?? v) : "";
+  });
+  const stableOnValueChange1 = useEventCallback((v: string | null) =>
+    onChange(v === "__all__" || !v ? "" : v)
+  );
 
   return (
     <Combobox
@@ -56,7 +58,7 @@ export function TableFilterSelect({
       </ComboboxInput>
       <ComboboxContent className="w-max min-w-[var(--anchor-width)]">
         <ComboboxList>
-          {(itemValue: any) => (
+          {(itemValue) => (
             <ComboboxItem key={itemValue} value={itemValue}>
               {itemValue === "__all__"
                 ? "All"

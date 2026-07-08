@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -23,7 +24,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
   const zero = useZero();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleApprove = async () => {
+  const handleApprove = useEventCallback(async () => {
     setIsSubmitting(true);
     const res = await zero.mutate(
       mutators.eventInterest.approve({ id: interest.id, now: Date.now() })
@@ -35,9 +36,9 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
       mutation: "eventInterest.approve",
       successMsg: "Interest approved",
     });
-  };
+  });
 
-  const handleReject = async () => {
+  const handleReject = useEventCallback(async () => {
     setIsSubmitting(true);
     const res = await zero.mutate(
       mutators.eventInterest.reject({ id: interest.id, now: Date.now() })
@@ -49,7 +50,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
       mutation: "eventInterest.reject",
       successMsg: "Interest rejected",
     });
-  };
+  });
 
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
@@ -134,7 +135,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
 }
 
 export function InterestRequests({ interests }: InterestRequestsProps) {
-  const pendingInterests = interests.filter((i: any) => i.status === "pending");
+  const pendingInterests = interests.filter((i) => i.status === "pending");
 
   if (pendingInterests.length === 0) {
     return null;
@@ -147,7 +148,7 @@ export function InterestRequests({ interests }: InterestRequestsProps) {
         <h2 className="font-medium text-sm">
           Interest Requests ({pendingInterests.length})
         </h2>
-        {pendingInterests.map((interest: any) => (
+        {pendingInterests.map((interest) => (
           <InterestRow interest={interest} key={interest.id} />
         ))}
       </div>

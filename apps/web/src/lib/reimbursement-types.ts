@@ -77,16 +77,16 @@ export function normalizeToRequestRows(
   reimbursements: readonly Omit<ReimbursementRequestRow, "type">[],
   advancePayments: readonly Omit<AdvancePaymentRequestRow, "type">[]
 ): RequestRow[] {
-  const reimbursementRows: RequestRow[] = reimbursements.map((r: any) => ({
+  const reimbursementRows: RequestRow[] = reimbursements.map((r) => ({
     ...r,
     type: "reimbursement" as const,
   }));
-  const advancePaymentRows: RequestRow[] = advancePayments.map((ap: any) => ({
+  const advancePaymentRows: RequestRow[] = advancePayments.map((ap) => ({
     ...ap,
     type: "advance_payment" as const,
   }));
 
   return [...reimbursementRows, ...advancePaymentRows].sort(
-    (a: any, b: any) => b.createdAt - a.createdAt
+    (a, b) => b.createdAt - a.createdAt
   );
 }

@@ -15,8 +15,9 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import type { JobRow } from "@/components/jobs/job-stats";
@@ -42,7 +43,7 @@ function createJobColumns(
 ): ColumnDef<JobRow>[] {
   return [
     {
-      accessorFn: (row: any) => row.name,
+      accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <span className="truncate font-medium">{row.original.name}</span>
       ),
@@ -57,7 +58,7 @@ function createJobColumns(
       size: 200,
     },
     {
-      accessorFn: (row: any) => row.state,
+      accessorFn: (row) => row.state,
       cell: ({ row }) => {
         const badge = getStateBadge(row.original.state);
         return <Badge variant={badge.variant}>{badge.label}</Badge>;
@@ -73,7 +74,7 @@ function createJobColumns(
       size: 120,
     },
     {
-      accessorFn: (row: any) => formatTimestamp(row.createdOn),
+      accessorFn: (row) => formatTimestamp(row.createdOn),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -89,7 +90,7 @@ function createJobColumns(
       size: 180,
     },
     {
-      accessorFn: (row: any) => formatTimestamp(row.startAfter),
+      accessorFn: (row) => formatTimestamp(row.startAfter),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -105,7 +106,7 @@ function createJobColumns(
       size: 180,
     },
     {
-      accessorFn: (row: any) => formatTimestamp(row.completedOn),
+      accessorFn: (row) => formatTimestamp(row.completedOn),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -127,60 +128,14 @@ function createJobColumns(
         const canRetry = job.state === "failed";
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label="Row actions"
-                  className="size-8"
-                  data-testid="row-actions"
-                  onClick={(e: any) => e.stopPropagation()}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={MoreVerticalIcon}
-                    strokeWidth={2}
-                  />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => onView(job)}>
-                <HugeiconsIcon
-                  className="mr-2 size-4"
-                  icon={ViewIcon}
-                  strokeWidth={2}
-                />
-                View details
-              </DropdownMenuItem>
-              {Boolean(canCancel) && (
-                <DropdownMenuItem
-                  onClick={() => onCancel(job)}
-                  variant="destructive"
-                >
-                  <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={Cancel01Icon}
-                    strokeWidth={2}
-                  />
-                  Cancel
-                </DropdownMenuItem>
-              )}
-              {Boolean(canRetry) && (
-                <DropdownMenuItem onClick={() => onRetry(job)}>
-                  <HugeiconsIcon
-                    className="mr-2 size-4"
-                    icon={RepeatIcon}
-                    strokeWidth={2}
-                  />
-                  Retry
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <JobActions
+            canCancel={canCancel}
+            canRetry={canRetry}
+            job={job}
+            onCancel={onCancel}
+            onRetry={onRetry}
+            onView={onView}
+          />
         );
       },
       enableColumnOrdering: false,
@@ -198,6 +153,79 @@ function createJobColumns(
       size: 52,
     },
   ];
+}
+
+function JobActions({
+  canCancel,
+  canRetry,
+  job,
+  onCancel,
+  onRetry,
+  onView,
+}: {
+  canCancel: boolean;
+  canRetry: boolean;
+  job: JobRow;
+  onCancel: (job: JobRow) => void;
+  onRetry: (job: JobRow) => void;
+  onView: (job: JobRow) => void;
+}) {
+  const stopPropagation = useEventCallback((e: MouseEvent) => {
+    e.stopPropagation();
+  });
+  const handleView = useEventCallback(() => onView(job));
+  const handleCancel = useEventCallback(() => onCancel(job));
+  const handleRetry = useEventCallback(() => onRetry(job));
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Row actions"
+            className="size-8"
+            data-testid="row-actions"
+            onClick={stopPropagation}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={MoreVerticalIcon}
+              strokeWidth={2}
+            />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuItem onClick={handleView}>
+          <HugeiconsIcon className="mr-2 size-4" icon={ViewIcon} strokeWidth={2} />
+          View details
+        </DropdownMenuItem>
+        {Boolean(canCancel) && (
+          <DropdownMenuItem onClick={handleCancel} variant="destructive">
+            <HugeiconsIcon
+              className="mr-2 size-4"
+              icon={Cancel01Icon}
+              strokeWidth={2}
+            />
+            Cancel
+          </DropdownMenuItem>
+        )}
+        {Boolean(canRetry) && (
+          <DropdownMenuItem onClick={handleRetry}>
+            <HugeiconsIcon
+              className="mr-2 size-4"
+              icon={RepeatIcon}
+              strokeWidth={2}
+            />
+            Retry
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 interface JobsTableProps {
@@ -228,7 +256,7 @@ export function JobsTable({
   onClearFilters,
 }: JobsTableProps) {
   const columns = createJobColumns(onView, onCancel, onRetry);
-  const stableGetRowId0 = (row: any) => row.id;
+  const stableGetRowId0 = useEventCallback((row: { id: string }) => row.id);
 
   return (
     <DataTableWrapper<JobRow>

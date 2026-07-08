@@ -8,6 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@pi-dash/design-system/components/ui/select";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { expandSeries } from "@pi-dash/shared/rrule-expand";
 import {
   buildExcludeRRule,
@@ -85,8 +86,9 @@ function IntervalInput({
   interval: number;
   onChange: (interval: number) => void;
 }) {
-  const stableOnChange0 = (e: any) =>
-    onChange(Number.parseInt(e.target.value, 10) || 1);
+  const stableOnChange0 = useEventCallback((e: { target: { value: string } }) =>
+    onChange(Number.parseInt(e.target.value, 10) || 1)
+  );
 
   return (
     <div className="flex items-center gap-2">
@@ -116,7 +118,7 @@ function WeekdayPicker({
     <div className="space-y-1.5">
       <Label>On days</Label>
       <div className="flex gap-1">
-        {WEEKDAY_LABELS.map((d: any) => {
+        {WEEKDAY_LABELS.map((d) => {
           const isSelected = byDay.includes(d.value);
           return (
             <Button
@@ -124,7 +126,7 @@ function WeekdayPicker({
               key={d.value}
               onClick={() => {
                 const next = isSelected
-                  ? byDay.filter((v: any) => v !== d.value)
+                  ? byDay.filter((v) => v !== d.value)
                   : [...byDay, d.value];
                 onChange(next);
               }}
@@ -148,7 +150,9 @@ function MonthlyPositionPicker({
   bySetPos: number | undefined;
   onChange: (bySetPos: number | undefined) => void;
 }) {
-  const stableOnValueChange1 = (v: any) => onChange(v ? Number(v) : undefined);
+  const stableOnValueChange1 = useEventCallback((v: string | null) =>
+    onChange(v ? Number(v) : undefined)
+  );
 
   return (
     <div className="space-y-1.5">
@@ -186,21 +190,25 @@ function EndConditionPicker({
   onChange: (patch: Partial<RRuleFormState>) => void;
   until: string | undefined;
 }) {
-  const stableOnValueChange2 = (v: any) =>
-    onChange({ endType: (v ?? "never") as RRuleFormState["endType"] });
-  const stableOnChange3 = (e: any) =>
-    onChange({ count: Number.parseInt(e.target.value, 10) || 1 });
-  const stableOnChange4 = (e: any) => onChange({ until: e.target.value });
+  const stableOnValueChange2 = useEventCallback((v: string | null) =>
+    onChange({ endType: (v ?? "never") as RRuleFormState["endType"] })
+  );
+  const stableOnChange3 = useEventCallback((e: { target: { value: string } }) =>
+    onChange({ count: Number.parseInt(e.target.value, 10) || 1 })
+  );
+  const stableOnChange4 = useEventCallback((e: { target: { value: string } }) =>
+    onChange({ until: e.target.value })
+  );
 
   return (
     <div className="space-y-1.5">
       <Label>Ends</Label>
       <Select onValueChange={stableOnValueChange2} value={endType}>
         <SelectTrigger>
-          {END_TYPE_OPTIONS.find((o: any) => o.value === endType)?.label}
+          {END_TYPE_OPTIONS.find((o) => o.value === endType)?.label}
         </SelectTrigger>
         <SelectContent>
-          {END_TYPE_OPTIONS.map((o: any) => (
+          {END_TYPE_OPTIONS.map((o) => (
             <SelectItem key={o.value} value={o.value}>
               {o.label}
             </SelectItem>
@@ -257,25 +265,29 @@ function ExclusionPicker({
   const [nth, setNth] = useState(3);
   const [weekday, setWeekday] = useState(5); // Saturday
 
-  const addExclusion = () => {
+  const addExclusion = useEventCallback(() => {
     const rule = buildExcludeRRule(nth, weekday);
     if (!excludeRules.includes(rule)) {
       onChange([...excludeRules, rule]);
     }
-  };
+  });
 
   const removeExclusion = (index: number) => {
-    onChange(excludeRules.filter((_: any, i: any) => i !== index));
+    onChange(excludeRules.filter((_, i) => i !== index));
   };
-  const stableOnValueChange5 = (v: any) => setNth(Number(v));
-  const stableOnValueChange6 = (v: any) => setWeekday(Number(v));
+  const stableOnValueChange5 = useEventCallback((v: string | null) =>
+    setNth(Number(v))
+  );
+  const stableOnValueChange6 = useEventCallback((v: string | null) =>
+    setWeekday(Number(v))
+  );
 
   return (
     <div className="space-y-1.5">
       <Label>Skip on</Label>
       {excludeRules.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {excludeRules.map((rule: any, i: any) => (
+          {excludeRules.map((rule, i) => (
             <Badge className="gap-1 pr-1" key={rule} variant="secondary">
               {excludeRuleLabel(rule)}
               <Button
@@ -294,10 +306,10 @@ function ExclusionPicker({
       <div className="flex items-center gap-1.5">
         <Select onValueChange={stableOnValueChange5} value={String(nth)}>
           <SelectTrigger className="w-20">
-            {EXCLUSION_POSITIONS.find((p: any) => p.value === nth)?.label}
+            {EXCLUSION_POSITIONS.find((p) => p.value === nth)?.label}
           </SelectTrigger>
           <SelectContent>
-            {EXCLUSION_POSITIONS.map((p: any) => (
+            {EXCLUSION_POSITIONS.map((p) => (
               <SelectItem key={p.value} value={String(p.value)}>
                 {p.label}
               </SelectItem>
@@ -306,10 +318,10 @@ function ExclusionPicker({
         </Select>
         <Select onValueChange={stableOnValueChange6} value={String(weekday)}>
           <SelectTrigger className="w-28">
-            {EXCLUSION_WEEKDAYS.find((d: any) => d.value === weekday)?.label}
+            {EXCLUSION_WEEKDAYS.find((d) => d.value === weekday)?.label}
           </SelectTrigger>
           <SelectContent>
-            {EXCLUSION_WEEKDAYS.map((d: any) => (
+            {EXCLUSION_WEEKDAYS.map((d) => (
               <SelectItem key={d.value} value={String(d.value)}>
                 {d.label}
               </SelectItem>
@@ -373,7 +385,7 @@ function OccurrencePreview({
         Next {dates.length} occurrences
       </Label>
       <div className="flex flex-wrap gap-1">
-        {dates.map((occ: any) => (
+        {dates.map((occ) => (
           <Badge key={occ.date} variant="secondary">
             {format(new Date(occ.startTime), SHORT_MONTH_DATE_TIME)}
           </Badge>
@@ -426,11 +438,11 @@ export function RecurrenceBuilder({
     onChangeRef.current(rrule);
   }, [state, frequency, startTime]);
 
-  const handleExcludeRulesChange = (rules: string[]) => {
+  const handleExcludeRulesChange = useEventCallback((rules: string[]) => {
     setExcludeRules(rules);
     onExcludeRulesChangeRef.current?.(rules);
-  };
-  const stableOnValueChange7 = (v: any) => {
+  });
+  const stableOnValueChange7 = useEventCallback((v: string | null) => {
     setFrequency(v ?? "");
     if (v && !state.frequency) {
       setState(DEFAULT_STATE);
@@ -438,13 +450,19 @@ export function RecurrenceBuilder({
     if (!v) {
       handleExcludeRulesChange([]);
     }
-  };
-  const stableOnChange8 = (interval: any) => updateState({ interval });
-  const stableOnChange9 = (byDay: any) => updateState({ byDay });
-  const stableOnChange10 = (bySetPos: any) => updateState({ bySetPos });
-  const updateState = (patch: Partial<RRuleFormState>) => {
-    setState((prev: any) => ({ ...prev, ...patch }));
-  };
+  });
+  const stableOnChange8 = useEventCallback((interval: number) =>
+    updateState({ interval })
+  );
+  const stableOnChange9 = useEventCallback((byDay: number[]) =>
+    updateState({ byDay })
+  );
+  const stableOnChange10 = useEventCallback((bySetPos: number | undefined) =>
+    updateState({ bySetPos })
+  );
+  const updateState = useEventCallback((patch: Partial<RRuleFormState>) => {
+    setState((prev) => ({ ...prev, ...patch }));
+  });
 
   return (
     <div className="space-y-3">
@@ -452,11 +470,11 @@ export function RecurrenceBuilder({
         <Label>Recurrence</Label>
         <Select onValueChange={stableOnValueChange7} value={frequency}>
           <SelectTrigger>
-            {FREQUENCY_OPTIONS.find((o: any) => o.value === frequency)?.label ??
+            {FREQUENCY_OPTIONS.find((o) => o.value === frequency)?.label ??
               "None"}
           </SelectTrigger>
           <SelectContent>
-            {FREQUENCY_OPTIONS.map((o: any) => (
+            {FREQUENCY_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {o.label}
               </SelectItem>

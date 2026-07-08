@@ -67,7 +67,7 @@ describe("expandSeries", () => {
     );
 
     expect(result).toHaveLength(1);
-    const occ = result[0];
+    const [occ] = result;
     if (
       !occ ||
       typeof occ.startTime !== "number" ||

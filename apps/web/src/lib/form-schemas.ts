@@ -7,7 +7,7 @@ export const MAX_ATTACHMENT_FILES = 10;
 export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const ATTACHMENT_ACCEPT = "image/*,application/pdf";
 
-export const cityOptions = cityValues.map((value: any) => ({
+export const cityOptions = cityValues.map((value) => ({
   label: capitalize(value),
   value,
 }));
@@ -21,7 +21,7 @@ export const lineItemSchema = z.object({
   amount: z
     .string()
     .min(1, "Amount required")
-    .refine((value: any) => amountSchema.safeParse(Number(value)).success, {
+    .refine((value) => amountSchema.safeParse(Number(value)).success, {
       message: "Must be > 0 with max 2 decimals",
     }),
   categoryId: z.string().min(1, "Category required"),
@@ -57,7 +57,7 @@ export const newLineItem = (): LineItem => ({
 });
 
 export const computeRunningTotal = (lineItems: LineItem[]): number =>
-  lineItems.reduce((sum: any, item: any) => {
+  lineItems.reduce((sum, item) => {
     const parsedAmount = Number(item.amount);
     return sum + (Number.isNaN(parsedAmount) ? 0 : parsedAmount);
   }, 0);

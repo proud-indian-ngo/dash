@@ -123,7 +123,7 @@ function has(permissions: string[], id: string): boolean {
 }
 
 function hasAny(permissions: string[], ...ids: string[]): boolean {
-  return ids.some((id: any) => permissions.includes(id));
+  return ids.some((id) => permissions.includes(id));
 }
 
 /** Build flat nav item list based purely on user permissions. */

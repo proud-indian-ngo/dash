@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { ExpenseCategory, TeamEvent, Vendor } from "@pi-dash/zero/schema";
@@ -43,10 +44,10 @@ export function VendorPaymentForm({
   const pendingVendorList = (pendingVendors ?? []) as Vendor[];
 
   const vendorList = [...approvedVendorList, ...pendingVendorList].sort(
-    (a: any, b: any) => a.name.localeCompare(b.name)
+    (a, b) => a.name.localeCompare(b.name)
   );
 
-  const vendorOptions = vendorList.map((v: any) => ({
+  const vendorOptions = vendorList.map((v) => ({
     label: v.status === "pending" ? `${v.name} (pending approval)` : v.name,
     value: v.id,
   }));
@@ -55,9 +56,9 @@ export function VendorPaymentForm({
 
   function getFilteredEventOptions(selectedCity: string | undefined) {
     const filtered = selectedCity
-      ? eventList.filter((e: any) => e.city === selectedCity)
+      ? eventList.filter((e) => e.city === selectedCity)
       : eventList;
-    return filtered.map((e: any) => ({
+    return filtered.map((e) => ({
       label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
       value: e.id,
     }));
@@ -76,7 +77,7 @@ export function VendorPaymentForm({
       const value = vendorPaymentFormSchema.parse(rawValue);
       const id = entityId;
 
-      const lineItems = value.lineItems.map((item: any, index: any) => ({
+      const lineItems = value.lineItems.map((item, index) => ({
         ...item,
         amount: Number(item.amount),
         sortOrder: index,
@@ -112,10 +113,12 @@ export function VendorPaymentForm({
       onSubmit: vendorPaymentFormSchema,
     },
   });
-  const stableSelector0 = (state: any) => ({
-    city: state.values.city,
-    eventId: state.values.eventId,
-  });
+  const stableSelector0 = useEventCallback(
+    (state: { values: { city?: string; eventId?: string } }) => ({
+      city: state.values.city,
+      eventId: state.values.eventId,
+    })
+  );
 
   return (
     <AppErrorBoundary level="section">
@@ -123,10 +126,7 @@ export function VendorPaymentForm({
         <form.Subscribe selector={stableSelector0}>
           {({ city: selectedCity, eventId }) => {
             const filteredOptions = getFilteredEventOptions(selectedCity);
-            if (
-              eventId &&
-              !filteredOptions.some((o: any) => o.value === eventId)
-            ) {
+            if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
               setTimeout(() => form.setFieldValue("eventId", undefined), 0);
             }
             return (
@@ -136,9 +136,7 @@ export function VendorPaymentForm({
                 eventOptions={filteredOptions}
                 isEdit={isEdit}
                 onCancel={onCancel}
-                onVendorCreated={(id: any) =>
-                  form.setFieldValue("vendorId", id)
-                }
+                onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
                 onVendorDialogOpenChange={setVendorDialogOpen}
                 vendorDialogOpen={vendorDialogOpen}
                 vendorOptions={vendorOptions}

@@ -50,7 +50,7 @@ function LogIdentitySync() {
       .then(({ identifyUser }) =>
         identifyUser(user.id, { role: user.role ?? "volunteer" })
       )
-      .catch((error: any) => {
+      .catch((error) => {
         log.error({
           action: "identifyPostHogUser",
           component: "LogIdentitySync",
@@ -64,7 +64,7 @@ function LogIdentitySync() {
       );
       import("@/lib/posthog")
         .then(({ resetUser }) => resetUser())
-        .catch((error: any) => {
+        .catch((error) => {
           log.error({
             action: "resetPostHogUser",
             component: "LogIdentitySync",

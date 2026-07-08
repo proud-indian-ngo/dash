@@ -78,7 +78,7 @@ export async function handleSendSingleRsvpPoll(
       .where(eq(teamEvent.id, eventId))
       .limit(1);
 
-    const event = events[0];
+    const [event] = events;
     if (!event) {
       log.set({ event: "event_not_found" });
       log.emit();

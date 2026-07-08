@@ -2,6 +2,7 @@ import { UserRemoveIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -36,8 +37,10 @@ export function MemberRow({
   onToggleRole,
 }: MemberRowProps) {
   const { user } = member;
-  const stableOnClick0 = () => onToggleRole(member.id, member.role ?? "member");
-  const stableOnClick1 = () => onRemove(member.id);
+  const stableOnClick0 = useEventCallback(() =>
+    onToggleRole(member.id, member.role ?? "member")
+  );
+  const stableOnClick1 = useEventCallback(() => onRemove(member.id));
 
   return (
     <div className="flex items-center justify-between border-b px-3 py-2.5 last:border-0">

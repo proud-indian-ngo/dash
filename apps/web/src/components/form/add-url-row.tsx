@@ -1,5 +1,6 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useState } from "react";
 import z from "zod";
 
@@ -26,7 +27,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
       : (result.error.issues[0]?.message ?? "Must be a valid URL");
   };
 
-  const tryAdd = () => {
+  const tryAdd = useEventCallback(() => {
     const error = validate(urlInput);
     if (error) {
       setUrlError(error);
@@ -39,25 +40,29 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
       setUrlError(null);
       setTouched(false);
     }
-  };
+  });
 
   const isDisabled = !urlInput.trim() || urlError !== null;
-  const stableOnBlur0 = () => {
+  const stableOnBlur0 = useEventCallback(() => {
     setTouched(true);
     setUrlError(validate(urlInput));
-  };
-  const stableOnChange1 = (event: any) => {
-    setUrlInput(event.target.value);
-    if (touched) {
-      setUrlError(validate(event.target.value));
+  });
+  const stableOnChange1 = useEventCallback(
+    (event: { target: { value: string } }) => {
+      setUrlInput(event.target.value);
+      if (touched) {
+        setUrlError(validate(event.target.value));
+      }
     }
-  };
-  const stableOnKeyDown2 = (event: any) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      tryAdd();
+  );
+  const stableOnKeyDown2 = useEventCallback(
+    (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        tryAdd();
+      }
     }
-  };
+  );
 
   return (
     <div className="flex flex-col gap-1">

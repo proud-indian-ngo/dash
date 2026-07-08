@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -53,9 +54,9 @@ function AddEventMemberFormContent({
     getUsersForPicker().then(setAllUsers);
   }, [open]);
 
-  const eligibleUsers = allUsers.filter((u: any) => u.isActive);
+  const eligibleUsers = allUsers.filter((u) => u.isActive);
 
-  const existingUserIds = new Set(existingMembers.map((m: any) => m.userId));
+  const existingUserIds = new Set(existingMembers.map((m) => m.userId));
 
   const form = useForm({
     defaultValues: { userIds: [] as string[] },
@@ -65,7 +66,7 @@ function AddEventMemberFormContent({
         ? ((await onBeforeAdd()) ?? eventId)
         : eventId;
 
-      const members = value.userIds.map((userId: any) => ({
+      const members = value.userIds.map((userId) => ({
         id: uuidv7(),
         userId,
       }));
@@ -94,7 +95,9 @@ function AddEventMemberFormContent({
       onSubmit: addMemberSchema,
     },
   });
-  const stableSelector0 = (state: any) => state.values.userIds.length;
+  const stableSelector0 = useEventCallback(
+    (state: { values: { userIds: string[] } }) => state.values.userIds.length
+  );
 
   return (
     <FormLayout form={form}>
@@ -103,20 +106,20 @@ function AddEventMemberFormContent({
         label="Search volunteers"
         name="userIds"
       >
-        {(field: any) => (
+        {(field) => (
           <UserPicker
             emptyMessage="No matching volunteers found."
             excludeUserIds={existingUserIds}
             highlightedUserIds={teamMemberIds}
             highlightLabel="Team Member"
-            onValueChange={(ids: any) => field.handleChange(ids)}
+            onValueChange={field.handleChange}
             users={eligibleUsers}
             value={field.state.value ?? []}
           />
         )}
       </CustomField>
       <form.Subscribe selector={stableSelector0}>
-        {(count: any) => (
+        {(count) => (
           <FormActions
             onCancel={() => onOpenChange(false)}
             submitLabel={
@@ -140,12 +143,12 @@ export function AddEventMemberDialog({
 }: AddEventMemberDialogProps) {
   const [formKey, setFormKey] = useState(0);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
     }
     onOpenChange(nextOpen);
-  };
+  });
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>

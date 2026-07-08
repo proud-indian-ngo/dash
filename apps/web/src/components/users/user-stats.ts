@@ -13,10 +13,10 @@ interface UserLike {
 }
 
 export function computeUserStats(users: readonly UserLike[]): StatItem[] {
-  const active = users.filter((u: any) => u.isActive && !u.banned);
-  const inactive = users.filter((u: any) => !u.isActive || u.banned);
+  const active = users.filter((u) => u.isActive && !u.banned);
+  const inactive = users.filter((u) => !u.isActive || u.banned);
   const needsOrientation = users.filter(
-    (u: any) => u.role === "unoriented_volunteer"
+    (u) => u.role === "unoriented_volunteer"
   );
 
   return [

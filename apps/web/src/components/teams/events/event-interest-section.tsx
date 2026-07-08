@@ -1,5 +1,6 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -41,7 +42,7 @@ export function VolunteerInterestSection({
   const showInterest = !(excluded || isTeamMember || myInterest) && isPublic;
   const showLeave = isMember && !canManage && !!onLeaveEvent;
 
-  const handleCancel = async () => {
+  const handleCancel = useEventCallback(async () => {
     if (!myInterest) {
       return;
     }
@@ -54,7 +55,7 @@ export function VolunteerInterestSection({
       mutation: "eventInterest.cancel",
       successMsg: "Interest cancelled",
     });
-  };
+  });
 
   return (
     <>

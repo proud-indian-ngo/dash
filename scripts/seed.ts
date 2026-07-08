@@ -568,18 +568,20 @@ async function seedTeams(userMap: Map<string, string>): Promise<void> {
         })
         .onConflictDoNothing();
 
-      for (const m of t.members) {
-        await db
-          .insert(teamMember)
-          .values({
-            id: m.id,
-            joinedAt: past(30),
-            role: m.role,
-            teamId: t.id,
-            userId: m.uid,
-          })
-          .onConflictDoNothing();
-      }
+      await Promise.all(
+        t.members.map((m) =>
+          db
+            .insert(teamMember)
+            .values({
+              id: m.id,
+              joinedAt: past(30),
+              role: m.role,
+              teamId: t.id,
+              userId: m.uid,
+            })
+            .onConflictDoNothing()
+        )
+      );
     })
   );
   log(`${teams.length} teams ready`);
@@ -700,22 +702,23 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
         .onConflictDoNothing();
 
       const isPast = e.start < now;
-      for (const uid of e.members) {
-        if (isPast) {
-          await db.execute(sql`
+      await Promise.all(
+        e.members.map((uid) => {
+          if (isPast) {
+            return db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at, attendance, attendance_marked_at, attendance_marked_by)
           VALUES (${uuidv7()}, ${e.id}, ${uid}, ${subDays(e.start, 3).toISOString()},
             'present'::attendance_status, ${e.end.toISOString()}, ${e.creator})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
-        } else {
-          await db.execute(sql`
+          }
+          return db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at)
           VALUES (${uuidv7()}, ${e.id}, ${uid}, ${past(3).toISOString()})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
-        }
-      }
+        })
+      );
     })
   );
   log(`${events.length} events ready`);
@@ -1088,108 +1091,110 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
     },
   ];
 
-  for (const r of reimbursements) {
-    await db
-      .insert(reimbursement)
-      .values({
-        bankAccountIfscCode: "SBIN0001234",
-        bankAccountName: "Savings Account",
-        bankAccountNumber: "1234567890",
-        city: r.city,
-        createdAt: subDays(r.expenseDate, 2),
-        eventId: r.eventId,
-        expenseDate: r.expenseDate.toISOString().slice(0, 10),
-        id: r.id,
-        rejectionReason: r.rejectionReason,
-        reviewedAt: r.reviewedBy ? past(1) : null,
-        reviewedBy: r.reviewedBy,
-        status: r.status,
-        submittedAt: subDays(r.expenseDate, 1),
-        title: r.title,
-        updatedAt: now,
-        userId: r.userId,
-      })
-      .onConflictDoNothing();
+  await Promise.all(
+    reimbursements.map(async (r) => {
+      await db
+        .insert(reimbursement)
+        .values({
+          bankAccountIfscCode: "SBIN0001234",
+          bankAccountName: "Savings Account",
+          bankAccountNumber: "1234567890",
+          city: r.city,
+          createdAt: subDays(r.expenseDate, 2),
+          eventId: r.eventId,
+          expenseDate: r.expenseDate.toISOString().slice(0, 10),
+          id: r.id,
+          rejectionReason: r.rejectionReason,
+          reviewedAt: r.reviewedBy ? past(1) : null,
+          reviewedBy: r.reviewedBy,
+          status: r.status,
+          submittedAt: subDays(r.expenseDate, 1),
+          title: r.title,
+          updatedAt: now,
+          userId: r.userId,
+        })
+        .onConflictDoNothing();
 
-    await Promise.all(
-      r.items.entries().map(async ([i, item]) => {
-        await db
-          .insert(reimbursementLineItem)
-          .values({
-            amount: item.amount,
-            categoryId: item.cat,
-            createdAt: now,
-            description: item.desc,
-            generateVoucher: item.generateVoucher ?? false,
-            id: item.id,
-            reimbursementId: r.id,
-            sortOrder: i,
-            updatedAt: now,
-          })
-          .onConflictDoNothing();
-      })
-    );
+      await Promise.all(
+        r.items.entries().map(async ([i, item]) => {
+          await db
+            .insert(reimbursementLineItem)
+            .values({
+              amount: item.amount,
+              categoryId: item.cat,
+              createdAt: now,
+              description: item.desc,
+              generateVoucher: item.generateVoucher ?? false,
+              id: item.id,
+              reimbursementId: r.id,
+              sortOrder: i,
+              updatedAt: now,
+            })
+            .onConflictDoNothing();
+        })
+      );
 
-    // History entries
-    interface HistoryEntry {
-      action: "created" | "submitted" | "approved" | "rejected";
-      actorId: string;
-      createdAt: Date;
-      id: string;
-      note?: string;
-    }
-    const firstHistoryId = r.historyIds[0];
-    if (!firstHistoryId) {
-      continue;
-    }
-    const historyEntries: HistoryEntry[] = [
-      {
-        action: "created",
-        actorId: r.userId,
-        createdAt: subDays(r.expenseDate, 2),
-        id: firstHistoryId,
-      },
-    ];
+      // History entries
+      interface HistoryEntry {
+        action: "created" | "submitted" | "approved" | "rejected";
+        actorId: string;
+        createdAt: Date;
+        id: string;
+        note?: string;
+      }
+      const [firstHistoryId] = r.historyIds;
+      if (!firstHistoryId) {
+        return;
+      }
+      const historyEntries: HistoryEntry[] = [
+        {
+          action: "created",
+          actorId: r.userId,
+          createdAt: subDays(r.expenseDate, 2),
+          id: firstHistoryId,
+        },
+      ];
 
-    if (r.historyIds[1]) {
-      historyEntries.push({
-        action: "submitted",
-        actorId: r.userId,
-        createdAt: subDays(r.expenseDate, 1),
-        id: r.historyIds[1],
-      });
-    }
+      if (r.historyIds[1]) {
+        historyEntries.push({
+          action: "submitted",
+          actorId: r.userId,
+          createdAt: subDays(r.expenseDate, 1),
+          id: r.historyIds[1],
+        });
+      }
 
-    if (
-      (r.status === "approved" || r.status === "rejected") &&
-      r.reviewedBy &&
-      r.historyIds[2]
-    ) {
-      historyEntries.push({
-        action: r.status,
-        actorId: r.reviewedBy,
-        createdAt: past(1),
-        id: r.historyIds[2],
-        note: r.rejectionReason,
-      });
-    }
+      if (
+        (r.status === "approved" || r.status === "rejected") &&
+        r.reviewedBy &&
+        r.historyIds[2]
+      ) {
+        historyEntries.push({
+          action: r.status,
+          actorId: r.reviewedBy,
+          createdAt: past(1),
+          id: r.historyIds[2],
+          note: r.rejectionReason,
+        });
+      }
 
-    await Promise.all(
-      historyEntries.map(async (h) => {
-        await db
-          .insert(reimbursementHistory)
-          .values({
-            action: h.action,
-            actorId: h.actorId,
-            createdAt: h.createdAt,
-            id: h.id,
-            note: h.note,
-            reimbursementId: r.id,
-          })
-          .onConflictDoNothing();
-      })
-    );
-  }
+      await Promise.all(
+        historyEntries.map(async (h) => {
+          await db
+            .insert(reimbursementHistory)
+            .values({
+              action: h.action,
+              actorId: h.actorId,
+              createdAt: h.createdAt,
+              id: h.id,
+              note: h.note,
+              reimbursementId: r.id,
+            })
+            .onConflictDoNothing();
+        })
+      );
+    })
+  );
 
   // Attachments
   await db

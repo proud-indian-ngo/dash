@@ -113,7 +113,7 @@ export const exportVendorPaymentsCsv = createServerFn({ method: "POST" })
         );
 
       // Get approved transaction totals per VP
-      const vpIds = results.map((r: any) => r.id);
+      const vpIds = results.map((r) => r.id);
       const txTotals =
         vpIds.length > 0
           ? await db
@@ -132,10 +132,10 @@ export const exportVendorPaymentsCsv = createServerFn({ method: "POST" })
           : [];
 
       const paidMap = new Map(
-        txTotals.map((t: any) => [t.vendorPaymentId, Number(t.paidAmount ?? 0)])
+        txTotals.map((t) => [t.vendorPaymentId, Number(t.paidAmount ?? 0)])
       );
 
-      const rows: VendorPaymentExportRow[] = results.map((r: any) => {
+      const rows: VendorPaymentExportRow[] = results.map((r) => {
         const total = Number(r.totalAmount ?? 0);
         const paid = paidMap.get(r.id) ?? 0;
         return {
@@ -172,9 +172,9 @@ export const exportVendorPaymentsCsv = createServerFn({ method: "POST" })
           .innerJoin(user, eq(vendorPaymentTransaction.userId, user.id))
           .where(inArray(vendorPaymentTransaction.vendorPaymentId, vpIds));
 
-        const titleMap = new Map(results.map((r: any) => [r.id, r.title]));
+        const titleMap = new Map(results.map((r) => [r.id, r.title]));
 
-        transactionRows = txResults.map((t: any) => ({
+        transactionRows = txResults.map((t) => ({
           amount: String(t.amount),
           description: t.description ?? "",
           paymentMethod: t.paymentMethod ?? "",

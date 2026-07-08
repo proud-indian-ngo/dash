@@ -12,19 +12,17 @@ const SKIP_PREFIXES = ["/_build/", "/assets/", "/_server/"];
 const SKIP_EXACT = new Set(["/api/log/ingest", "/api/health"]);
 
 function shouldSkip(path: string): boolean {
-  return (
-    SKIP_EXACT.has(path) || SKIP_PREFIXES.some((p: any) => path.startsWith(p))
-  );
+  return SKIP_EXACT.has(path) || SKIP_PREFIXES.some((p) => path.startsWith(p));
 }
 
-export default defineMiddleware(async (event: any, next: any) => {
+export default defineMiddleware(async (event, next) => {
   const path = event.url.pathname;
   if (shouldSkip(path)) {
     return next();
   }
 
   const incoming = parseTraceparent(event.req.headers.get("traceparent"));
-  const traceId = incoming?.traceId ?? generateTraceId();
+  const traceId = incoming === null ? generateTraceId() : incoming.traceId;
   const spanId = generateSpanId();
 
   event.context.traceId = traceId;
@@ -41,7 +39,7 @@ export default defineMiddleware(async (event: any, next: any) => {
     path,
     requestId: traceId,
   });
-  const status = event.res.status;
+  const { status } = event.res;
   log.set({
     spanId,
     traceId,

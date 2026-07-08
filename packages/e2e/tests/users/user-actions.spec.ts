@@ -1,4 +1,4 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("User row actions (admin)", () => {
@@ -7,15 +7,28 @@ test.describe("User row actions (admin)", () => {
   test.beforeEach(async ({ page }) => {
     list = new ListPage(page);
     await page.goto("/users");
+    await waitForZeroReady(page);
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
-    // Search for the volunteer to ensure it's visible (may be paginated)
-    const searchBox = page.getByPlaceholder("Search users...");
-    await searchBox.fill("test-volunteer");
-    // Wait for filtered table data to show the volunteer
-    await expect(page.getByText("test-volunteer@pi-dash.test")).toBeVisible({
-      timeout: 15_000,
-    });
+    await findVolunteerRow(page);
   });
+
+  async function findVolunteerRow(page: import("@playwright/test").Page) {
+    const searchBox = page.getByPlaceholder("Search users...");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await searchBox.fill("");
+      await list.waitForTableData(30_000);
+      await searchBox.fill("test-volunteer");
+      const row = getVolunteerRow();
+      if (await row.isVisible({ timeout: 15_000 }).catch(() => false)) {
+        return;
+      }
+      await page.reload();
+      await waitForZeroReady(page);
+    }
+
+    await searchBox.fill("test-volunteer");
+    await expect(getVolunteerRow()).toBeVisible({ timeout: 30_000 });
+  }
 
   function getVolunteerRow() {
     return list

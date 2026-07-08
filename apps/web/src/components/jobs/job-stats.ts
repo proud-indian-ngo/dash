@@ -33,8 +33,8 @@ export function computeJobStats(
   queues: readonly QueueStat[],
   stateCounts: Readonly<Record<string, number>>
 ): StatItem[] {
-  const active = queues.reduce((sum: any, q: any) => sum + q.active, 0);
-  const scheduled = queues.reduce((sum: any, q: any) => sum + q.size, 0);
+  const active = queues.reduce((sum, q) => sum + q.active, 0);
+  const scheduled = queues.reduce((sum, q) => sum + q.size, 0);
 
   return [
     {

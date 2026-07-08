@@ -163,11 +163,16 @@ export async function notifyEventUpdatePending({
   });
 
   // Find team leads + users with event_updates.approve permission
-  const { eq, and } = await import("drizzle-orm");
+  const { and: drizzleAnd, eq: drizzleEq } = await import("drizzle-orm");
   const leadUserIds = await db
     .selectDistinct({ userId: teamMember.userId })
     .from(teamMember)
-    .where(and(eq(teamMember.teamId, teamId), eq(teamMember.role, "lead")));
+    .where(
+      drizzleAnd(
+        drizzleEq(teamMember.teamId, teamId),
+        drizzleEq(teamMember.role, "lead")
+      )
+    );
   const adminUserIds = await getUserIdsWithPermission("event_updates.approve");
   const allUserIds = [
     ...new Set([...leadUserIds.map((l) => l.userId), ...adminUserIds]),

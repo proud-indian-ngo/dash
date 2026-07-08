@@ -1,13 +1,47 @@
-import { expect, test } from "../../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../../fixtures/test";
+import { clickUntilDialogCloses } from "../../../helpers/dialog-submit";
+import { ListPage } from "../../../pages/list-page";
+
+async function findRoleRow(
+  page: import("@playwright/test").Page,
+  roleName: string
+) {
+  await page.getByPlaceholder("Search roles...").fill(roleName);
+  const row = page.getByRole("row").filter({ hasText: roleName }).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  return row;
+}
+
+async function expectRedirectToDashboard(
+  page: import("@playwright/test").Page
+) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto("/settings/roles");
+    if (
+      await page
+        .getByRole("heading", { name: "Dashboard" })
+        .isVisible({ timeout: 10_000 })
+        .catch(() => false)
+    ) {
+      return;
+    }
+  }
+
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+    timeout: 10_000,
+  });
+}
 
 test.describe("Role management (super_admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin-only test");
 
     await page.goto("/settings/roles");
+    await waitForZeroReady(page);
     await expect(page.getByRole("heading", { name: "Roles" })).toBeVisible({
       timeout: 10_000,
     });
+    await new ListPage(page).waitForTableData(30_000);
   });
 
   test("roles list renders with system roles", async ({ page }) => {
@@ -44,11 +78,9 @@ test.describe("Role management (super_admin)", () => {
 
     await dialog.getByLabel("ID (slug)").fill(roleId);
     await dialog.getByLabel("Name").fill(roleName);
-    await dialog.getByRole("button", { name: "Create role" }).click();
-
-    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    await clickUntilDialogCloses(dialog, "Create role");
     await expect(page.getByText("Role created!")).toBeVisible();
-    await expect(page.getByText(roleName)).toBeVisible({ timeout: 10_000 });
+    await findRoleRow(page, roleName);
   });
 
   test("navigates to role detail page", async ({ page }) => {
@@ -60,12 +92,11 @@ test.describe("Role management (super_admin)", () => {
     const createDialog = page.getByRole("dialog");
     await createDialog.getByLabel("ID (slug)").fill(roleId);
     await createDialog.getByLabel("Name").fill(roleName);
-    await createDialog.getByRole("button", { name: "Create role" }).click();
-    await expect(createDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText(roleName)).toBeVisible({ timeout: 10_000 });
+    await clickUntilDialogCloses(createDialog, "Create role");
+    await findRoleRow(page, roleName);
 
     // Click the role row to navigate to detail
-    const roleRow = page.getByRole("row").filter({ hasText: roleName });
+    const roleRow = page.getByRole("row").filter({ hasText: roleName }).first();
     await roleRow.click();
     await page.waitForURL(/\/settings\/roles\//, { timeout: 10_000 });
 
@@ -84,28 +115,29 @@ test.describe("Role management (super_admin)", () => {
     const createDialog = page.getByRole("dialog");
     await createDialog.getByLabel("ID (slug)").fill(roleId);
     await createDialog.getByLabel("Name").fill(roleName);
-    await createDialog.getByRole("button", { name: "Create role" }).click();
-    await expect(createDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText(roleName)).toBeVisible({ timeout: 10_000 });
+    await clickUntilDialogCloses(createDialog, "Create role");
+    await findRoleRow(page, roleName);
 
     // Navigate to detail
-    const roleRow = page.getByRole("row").filter({ hasText: roleName });
+    const roleRow = page.getByRole("row").filter({ hasText: roleName }).first();
     await roleRow.click();
     await page.waitForURL(/\/settings\/roles\//, { timeout: 10_000 });
 
-    // Expand a permission group (click a CollapsibleTrigger)
-    const firstGroup = page
+    const reimbursementsGroup = page
       .getByRole("button", { name: /Reimbursements/i })
       .first();
-    if (await firstGroup.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await firstGroup.click();
+    if (
+      await reimbursementsGroup.isVisible({ timeout: 5000 }).catch(() => false)
+    ) {
+      await reimbursementsGroup.click();
     }
 
-    // Check a permission checkbox
-    const firstCheckbox = page.getByRole("checkbox").first();
-    await expect(firstCheckbox).toBeVisible({ timeout: 5000 });
-    const wasChecked = await firstCheckbox.isChecked();
-    await firstCheckbox.click();
+    const permissionCheckbox = page.locator("[id='perm-requests.approve']");
+    await expect(permissionCheckbox).toBeVisible({ timeout: 5000 });
+    await page
+      .getByText("Approve/Reject Reimbursements", { exact: true })
+      .click();
+    await expect(permissionCheckbox).toBeChecked();
 
     // Save
     await page.getByRole("button", { name: "Save changes" }).click();
@@ -119,15 +151,7 @@ test.describe("Role management (super_admin)", () => {
       timeout: 10_000,
     });
 
-    // Verify checkbox state was toggled
-    if (await firstGroup.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await firstGroup.click();
-    }
-    if (wasChecked) {
-      await expect(page.getByRole("checkbox").first()).not.toBeChecked();
-    } else {
-      await expect(page.getByRole("checkbox").first()).toBeChecked();
-    }
+    await expect(page.locator("[id='perm-requests.approve']")).toBeChecked();
   });
 
   test("deletes a custom role", async ({ page }) => {
@@ -140,15 +164,14 @@ test.describe("Role management (super_admin)", () => {
     const createDialog = page.getByRole("dialog");
     await createDialog.getByLabel("ID (slug)").fill(roleId);
     await createDialog.getByLabel("Name").fill(roleName);
-    await createDialog.getByRole("button", { name: "Create role" }).click();
-    await expect(createDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText(roleName)).toBeVisible({ timeout: 10_000 });
+    await clickUntilDialogCloses(createDialog, "Create role");
+    await findRoleRow(page, roleName);
 
     // Delete via row action
     const list = await import("../../../pages/list-page").then(
       (m) => new m.ListPage(page)
     );
-    const roleRow = page.getByRole("row").filter({ hasText: roleName });
+    const roleRow = page.getByRole("row").filter({ hasText: roleName }).first();
     await list.openRowActionAndClick(roleRow, "Delete");
 
     const confirmDialog = page.getByRole("alertdialog");
@@ -172,8 +195,7 @@ test.describe("Roles route guard — non-super_admin redirect", () => {
     }, testInfo) => {
       test.skip(testInfo.project.name !== role, `${role}-only test`);
 
-      await page.goto("/settings/roles");
-      await page.waitForURL("/", { timeout: 10_000 });
+      await expectRedirectToDashboard(page);
     });
   }
 });

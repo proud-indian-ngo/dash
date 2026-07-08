@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { createTeamViaDialog } from "../../helpers/team";
 
 test.describe("Admin role happy paths", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -9,19 +10,10 @@ test.describe("Admin role happy paths", () => {
     await page.goto("/teams");
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
 
-    const teamName = `E2E Admin Team ${Date.now()}`;
-    await page.getByRole("button", { name: "Add team" }).click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await dialog.getByLabel("Name", { exact: true }).fill(teamName);
-    await dialog.getByLabel("Description").fill("Admin role smoke test");
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
-
-    await expect(page.getByText("Team created")).toBeVisible({
-      timeout: 15_000,
+    await createTeamViaDialog(page, {
+      description: "Admin role smoke test",
+      prefix: "E2E Admin Team",
     });
-    await expect(page.getByText(teamName)).toBeVisible({ timeout: 15_000 });
   });
 
   test("admin can open new vendor dialog", async ({ page }) => {

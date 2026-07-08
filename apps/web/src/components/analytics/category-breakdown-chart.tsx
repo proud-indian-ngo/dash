@@ -10,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@pi-dash/design-system/components/ui/chart";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Cell, Pie, PieChart } from "recharts";
 import { formatINR } from "@/lib/form-schemas";
 import type { CategoryDataPoint } from "@/lib/stats";
@@ -30,7 +31,9 @@ export function CategoryBreakdownChart({
 }: {
   data: CategoryDataPoint[];
 }) {
-  const stableFormatter0 = (value: unknown) => formatINR(Number(value));
+  const stableFormatter0 = useEventCallback((value: unknown) =>
+    formatINR(Number(value))
+  );
   if (data.length === 0) {
     return (
       <Card>
@@ -45,7 +48,7 @@ export function CategoryBreakdownChart({
   }
 
   const chartConfig = Object.fromEntries(
-    data.map((d: any, i: any) => [
+    data.map((d, i) => [
       d.name,
       { color: COLORS[i % COLORS.length], label: d.name },
     ])
@@ -74,14 +77,14 @@ export function CategoryBreakdownChart({
               outerRadius={100}
               paddingAngle={2}
             >
-              {data.map((entry: any, index: any) => (
+              {data.map((entry, index) => (
                 <Cell fill={COLORS[index % COLORS.length]} key={entry.name} />
               ))}
             </Pie>
           </PieChart>
         </ChartContainer>
         <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1">
-          {data.map((entry: any, index: any) => (
+          {data.map((entry, index) => (
             <div className="flex items-center gap-1.5 text-xs" key={entry.name}>
               <span
                 className="size-2.5 rounded-full"

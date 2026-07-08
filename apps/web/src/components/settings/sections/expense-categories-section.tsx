@@ -6,6 +6,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
@@ -78,7 +79,7 @@ export function ExpenseCategoriesSection() {
 
   const categoryList = categories ?? [];
 
-  const handleCreate = async (values: CategoryFormValues) => {
+  const handleCreate = useEventCallback(async (values: CategoryFormValues) => {
     const id = uuidv7();
     const res = await zero.mutate(
       mutators.expenseCategory.create({
@@ -96,9 +97,9 @@ export function ExpenseCategoriesSection() {
     if (res.type !== "error") {
       setInlineMode(null);
     }
-  };
+  });
 
-  const handleUpdate = async (values: CategoryFormValues) => {
+  const handleUpdate = useEventCallback(async (values: CategoryFormValues) => {
     if (inlineMode?.kind !== "edit") {
       return;
     }
@@ -118,9 +119,9 @@ export function ExpenseCategoriesSection() {
     if (res.type !== "error") {
       setInlineMode(null);
     }
-  };
+  });
 
-  const handleDelete = async () => {
+  const handleDelete = useEventCallback(async () => {
     if (rowAction?.kind !== "delete") {
       return;
     }
@@ -136,14 +137,16 @@ export function ExpenseCategoriesSection() {
     if (res.type !== "error") {
       setRowAction(null);
     }
-  };
-  const stableOnClick0 = () => setInlineMode({ kind: "create" });
-  const stableOnCancel1 = () => setInlineMode(null);
-  const stableOnOpenChange2 = (open: any) => {
+  });
+  const stableOnClick0 = useEventCallback(() =>
+    setInlineMode({ kind: "create" })
+  );
+  const stableOnCancel1 = useEventCallback(() => setInlineMode(null));
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       setRowAction(null);
     }
-  };
+  });
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -174,7 +177,7 @@ export function ExpenseCategoriesSection() {
 
       {categoryList.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {categoryList.map((category: any) => (
+          {categoryList.map((category) => (
             <div key={category.id}>
               {inlineMode?.kind === "edit" &&
               inlineMode.category.id === category.id ? (

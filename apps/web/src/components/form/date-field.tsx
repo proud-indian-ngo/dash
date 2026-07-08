@@ -7,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@pi-dash/design-system/components/ui/popover";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
@@ -66,12 +67,14 @@ function DateInputPicker({
     }
   }, [value]);
 
-  const stableOnOpenChange0 = (open: any) => {
+  const stableOnOpenChange0 = useEventCallback((open: boolean) => {
     if (!open) {
       onBlur();
     }
-  };
-  const stableOnSelect1 = (date: any) => onChange(date);
+  });
+  const stableOnSelect1 = useEventCallback((date: Date | undefined) =>
+    onChange(date)
+  );
 
   return (
     <Popover onOpenChange={stableOnOpenChange0}>
@@ -89,7 +92,7 @@ function DateInputPicker({
             type="button"
             variant="outline"
           >
-            {value ? format(value, LONG_DATE) : placeholder}
+            {value === undefined ? placeholder : format(value, LONG_DATE)}
             <HugeiconsIcon
               className="size-4 opacity-60"
               icon={Calendar01Icon}
@@ -142,7 +145,7 @@ export function DateField({
       name={name}
       validators={validators}
     >
-      {(field: any) => {
+      {(field) => {
         const submitted = resolvedForm.state.submissionAttempts > 0;
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
@@ -158,7 +161,7 @@ export function DateField({
             id={field.name}
             maxDate={maxDate}
             onBlur={field.handleBlur}
-            onChange={(value: any) => field.handleChange(value)}
+            onChange={field.handleChange}
             placeholder={placeholder}
             startMonth={startMonth}
             value={field.state.value}

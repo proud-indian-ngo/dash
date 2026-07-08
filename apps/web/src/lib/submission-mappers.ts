@@ -20,7 +20,7 @@ interface RawAttachment {
 export function mapLineItemsToFormValues(
   lineItems: readonly RawLineItem[]
 ): LineItem[] {
-  return lineItems.map((li: any) => ({
+  return lineItems.map((li) => ({
     amount: String(li.amount),
     categoryId: li.categoryId,
     description: li.description ?? "",
@@ -32,7 +32,7 @@ export function mapLineItemsToFormValues(
 export function mapAttachmentsToFormValues(
   attachments: readonly RawAttachment[]
 ): Attachment[] {
-  return attachments.map((att: any) =>
+  return attachments.map((att) =>
     att.type === "file"
       ? {
           filename: att.filename ?? "attachment",
@@ -62,9 +62,9 @@ export function mapTransactionToFormValues(t: RawTransaction) {
   return {
     amount: String(t.amount),
     attachments: mapAttachmentsToFormValues(t.attachments ?? []),
-    description: (t.description as string) ?? "",
-    paymentMethod: (t.paymentMethod as string) ?? "",
-    paymentReference: (t.paymentReference as string) ?? "",
+    description: t.description ?? "",
+    paymentMethod: t.paymentMethod ?? "",
+    paymentReference: t.paymentReference ?? "",
     transactionDate: t.transactionDate
       ? new Date(t.transactionDate)
       : new Date(),

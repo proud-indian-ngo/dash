@@ -11,6 +11,7 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -65,7 +66,7 @@ export function TeamFormDialog({
   const zero = useZero();
   const isEdit = !!initialValues;
 
-  const [name, setName] = useState(initialValues?.name ?? "");
+  const [name, setName] = useState(initialValues ? initialValues.name : "");
   const [description, setDescription] = useState(
     initialValues?.description ?? ""
   );
@@ -99,23 +100,23 @@ export function TeamFormDialog({
     .filter((group: WhatsappGroup) => !usedGroupIds.has(group.id))
     .map((group: WhatsappGroup) => ({ label: group.name, value: group.id }));
   const whatsappGroupLabelByValue = new Map(
-    whatsappGroupOptions.map((option: any) => [option.value, option.label])
+    whatsappGroupOptions.map((option) => [option.value, option.label])
   );
   const whatsappGroupItems = [
     NONE_WHATSAPP_GROUP,
-    ...whatsappGroupOptions.map((option: any) => option.value),
+    ...whatsappGroupOptions.map((option) => option.value),
   ];
 
   useEffect(() => {
     if (open) {
-      setName(initialValues?.name ?? "");
+      setName(initialValues ? initialValues.name : "");
       setDescription(initialValues?.description ?? "");
       setWhatsappGroupId(initialValues?.whatsappGroupId);
       setCreateWaGroup(false);
     }
   }, [open, initialValues]);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = useEventCallback(async (e: FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -153,26 +154,30 @@ export function TeamFormDialog({
     if (res.type !== "error") {
       onOpenChange(false);
     }
-  };
-  const stableOnChange0 = (e: any) => setName(e.target.value);
-  const stableItemToStringLabel1 = (value: any) => {
+  });
+  const stableOnChange0 = useEventCallback((e: { target: { value: string } }) =>
+    setName(e.target.value)
+  );
+  const stableItemToStringLabel1 = useEventCallback((value: string | null) => {
     if (value === NONE_WHATSAPP_GROUP) {
       return "None";
     }
 
-    return whatsappGroupLabelByValue.get(value);
-  };
-  const stableOnValueChange2 = (value: any) => {
+    return value ? (whatsappGroupLabelByValue.get(value) ?? value) : "";
+  });
+  const stableOnValueChange2 = useEventCallback((value: string | null) => {
     setWhatsappGroupId(value === NONE_WHATSAPP_GROUP || !value ? "" : value);
-  };
-  const stableOnChange3 = (e: any) => setDescription(e.target.value);
-  const stableOnCheckedChange4 = (checked: any) => {
+  });
+  const stableOnChange3 = useEventCallback((e: { target: { value: string } }) =>
+    setDescription(e.target.value)
+  );
+  const stableOnCheckedChange4 = useEventCallback((checked: boolean) => {
     setCreateWaGroup(checked);
     if (checked) {
       setWhatsappGroupId("");
     }
-  };
-  const stableOnClick5 = () => onOpenChange(false);
+  });
+  const stableOnClick5 = useEventCallback(() => onOpenChange(false));
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -212,7 +217,7 @@ export function TeamFormDialog({
                 />
                 <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
                   <ComboboxList>
-                    {(itemValue: any) => (
+                    {(itemValue) => (
                       <ComboboxItem
                         className="items-start"
                         key={itemValue}

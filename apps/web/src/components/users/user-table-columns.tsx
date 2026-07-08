@@ -28,7 +28,7 @@ export function createUserColumns(
 ): (ColumnDef<User> & { enableColumnOrdering?: boolean })[] {
   return [
     {
-      accessorFn: (row: any) => row.name,
+      accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <div className="flex min-w-0 items-center gap-3">
           <UserAvatar className="size-8" user={row.original} />
@@ -53,7 +53,7 @@ export function createUserColumns(
       size: 240,
     },
     {
-      accessorFn: (row: any) => row.role ?? "volunteer",
+      accessorFn: (row) => row.role ?? "volunteer",
       cell: ({ row }) => {
         const roleName = row.original.role ?? "volunteer";
         return roleName === "admin" ? (
@@ -75,7 +75,7 @@ export function createUserColumns(
       size: 120,
     },
     {
-      accessorFn: (row: any) => (row.gender ? capitalize(row.gender) : "—"),
+      accessorFn: (row) => (row.gender ? capitalize(row.gender) : "—"),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -91,7 +91,7 @@ export function createUserColumns(
       size: 110,
     },
     {
-      accessorFn: (row: any) => {
+      accessorFn: (row) => {
         if (row.dob === null) {
           return "—";
         }
@@ -108,7 +108,7 @@ export function createUserColumns(
       size: 120,
     },
     {
-      accessorFn: (row: any) => (row.isActive ? "yes" : "no"),
+      accessorFn: (row) => (row.isActive ? "yes" : "no"),
       cell: ({ row }) =>
         row.original.isActive ? (
           <Badge variant="success-outline">Active</Badge>
@@ -130,7 +130,7 @@ export function createUserColumns(
       size: 110,
     },
     {
-      accessorFn: (row: any) => (row.isOnWhatsapp ? "yes" : "no"),
+      accessorFn: (row) => (row.isOnWhatsapp ? "yes" : "no"),
       cell: ({ row }) =>
         row.original.isOnWhatsapp ? (
           <Badge variant="success-outline">Yes</Badge>
@@ -152,7 +152,7 @@ export function createUserColumns(
       size: 110,
     },
     {
-      accessorFn: (row: any) => row.phone ?? "—",
+      accessorFn: (row) => row.phone ?? "—",
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Phone" visibility={true} />
       ),
@@ -164,7 +164,7 @@ export function createUserColumns(
       size: 140,
     },
     {
-      accessorFn: (row: any) => (row.emailVerified ? "yes" : "no"),
+      accessorFn: (row) => (row.emailVerified ? "yes" : "no"),
       cell: ({ row }) =>
         row.original.emailVerified ? (
           <Badge variant="success-outline">Verified</Badge>
@@ -186,7 +186,7 @@ export function createUserColumns(
       size: 130,
     },
     {
-      accessorFn: (row: any) => (row.banned ? "yes" : "no"),
+      accessorFn: (row) => (row.banned ? "yes" : "no"),
       cell: ({ row }) => {
         const isBanned = Boolean(row.original.banned);
         return (
@@ -215,7 +215,7 @@ export function createUserColumns(
       size: 110,
     },
     {
-      accessorFn: (row: any) => row.banReason ?? "—",
+      accessorFn: (row) => row.banReason ?? "—",
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -231,7 +231,7 @@ export function createUserColumns(
       size: 180,
     },
     {
-      accessorFn: (row: any) => {
+      accessorFn: (row) => {
         if (row.banExpires === null) {
           return "—";
         }
@@ -252,7 +252,7 @@ export function createUserColumns(
       size: 180,
     },
     {
-      accessorFn: (row: any) => {
+      accessorFn: (row) => {
         if (row.createdAt === null) {
           return "—";
         }
@@ -273,7 +273,7 @@ export function createUserColumns(
       size: 180,
     },
     {
-      accessorFn: (row: any) => {
+      accessorFn: (row) => {
         if (row.updatedAt === null) {
           return "—";
         }

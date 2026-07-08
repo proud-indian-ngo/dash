@@ -50,7 +50,7 @@ export function createEventsTableColumns({
 })[] {
   return [
     {
-      accessorFn: (row: any) => row.event.name,
+      accessorFn: (row) => row.event.name,
       cell: ({ row }) => {
         const seriesIcon = getSeriesIcon(row.original);
         return (
@@ -64,7 +64,7 @@ export function createEventsTableColumns({
             )}
             <button
               className="truncate text-left font-medium text-sm hover:underline"
-              onClick={(e: any) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 onSelectEvent(row.original);
               }}
@@ -106,7 +106,7 @@ export function createEventsTableColumns({
       size: 90,
     },
     {
-      accessorFn: (row: any) => row.startTime,
+      accessorFn: (row) => row.startTime,
       cell: ({ row }) => (
         <span className="truncate text-sm">
           {format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME)}
@@ -127,7 +127,7 @@ export function createEventsTableColumns({
       size: 180,
     },
     {
-      accessorFn: (row: any) => row.event.location,
+      accessorFn: (row) => row.event.location,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.event.location || "\u2014"}
@@ -148,7 +148,7 @@ export function createEventsTableColumns({
       size: 140,
     },
     {
-      accessorFn: (row: any) => row.event.city,
+      accessorFn: (row) => row.event.city,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm capitalize">
           {row.original.event.city || "\u2014"}
@@ -165,7 +165,7 @@ export function createEventsTableColumns({
       size: 120,
     },
     {
-      accessorFn: (row: any) => row.event.isPublic,
+      accessorFn: (row) => row.event.isPublic,
       cell: ({ row }) =>
         row.original.event.isPublic ? (
           <Badge variant="default">Public</Badge>
@@ -216,7 +216,7 @@ export function createEventsTableColumns({
       size: 100,
     },
     {
-      accessorFn: (row: any) => row.members.length,
+      accessorFn: (row) => row.members.length,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.members.length}</span>
       ),

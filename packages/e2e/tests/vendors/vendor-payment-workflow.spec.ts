@@ -163,12 +163,14 @@ test.describe("Vendor payment workflow (volunteer)", () => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
   });
 
-  test("volunteer can create VP and lands on edit form", async ({ page }) => {
+  test("volunteer can create VP and reopen the edit form", async ({ page }) => {
     test.slow();
 
     const title = await createVolunteerVP(page, "Volunteer");
 
-    // Volunteer on a pending VP sees the edit form (can still modify before review)
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    await page.getByRole("button", { name: "Edit submission" }).click();
+
     await expect(
       page.getByRole("heading", { name: "Edit Vendor Payment" })
     ).toBeVisible();

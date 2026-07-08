@@ -1,4 +1,5 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { createTeamViaDialog } from "../../helpers/team";
 import { TeamDetailPage } from "../../pages/team-detail-page";
 
 // Member cards display the user's NAME, not email — use the seeded volunteer name
@@ -15,16 +16,9 @@ async function createAndNavigateToTeam(
   await waitForZeroReady(page);
   await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
 
-  const teamName = `E2E Detail Team ${Date.now()}`;
-  await page.getByRole("button", { name: "Add team" }).click();
-  const createDialog = page.getByRole("dialog");
-  await expect(createDialog).toBeVisible();
-  await createDialog.getByLabel("Name", { exact: true }).fill(teamName);
-  await createDialog
-    .getByRole("button", { exact: true, name: "Create" })
-    .click();
-  await expect(createDialog).toBeHidden({ timeout: 10_000 });
-  await expect(page.getByText("Team created")).toBeVisible();
+  const teamName = await createTeamViaDialog(page, {
+    prefix: "E2E Detail Team",
+  });
 
   // Reload to force a fresh Zero sync — mutation is server-confirmed but Zero client
   // view can lag. A reload + waitForZeroReady guarantees the new team is in the view.
@@ -32,8 +26,9 @@ async function createAndNavigateToTeam(
   await waitForZeroReady(page);
 
   // Navigate to the team detail page by clicking the team row link
-  const teamRow = page.getByRole("row").filter({ hasText: teamName });
-  await expect(teamRow).toBeVisible({ timeout: 20_000 });
+  await page.getByPlaceholder("Search teams...").fill(teamName);
+  const teamRow = page.getByRole("row").filter({ hasText: teamName }).first();
+  await expect(teamRow).toBeVisible({ timeout: 45_000 });
   // Click the row title button (teams table uses data-testid="row-title")
   await teamRow.getByTestId("row-title").click();
   await page.waitForURL(/\/teams\/[a-z0-9-]+/, { timeout: 10_000 });

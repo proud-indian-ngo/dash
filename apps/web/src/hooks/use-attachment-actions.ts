@@ -28,7 +28,7 @@ export const useAttachmentActions = ({
         });
       }
 
-      onChange(value.filter((item: any) => item.id !== attachmentId));
+      onChange(value.filter((item) => item.id !== attachmentId));
     } catch (error) {
       log.error({
         action: "deleteAttachment",

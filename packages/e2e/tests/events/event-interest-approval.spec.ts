@@ -21,8 +21,11 @@ async function navigateToEventWithPendingInterest(
 
   const linkCount = await eventLink.count();
 
-  for (let i = 0; i < Math.min(linkCount, 5); i += 1) {
-    await eventLink.nth(i).click();
+  const findRequest = async (index: number): Promise<boolean> => {
+    if (index >= Math.min(linkCount, 5)) {
+      return false;
+    }
+    await eventLink.nth(index).click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: 10_000,
@@ -39,9 +42,10 @@ async function navigateToEventWithPendingInterest(
     ).toBeVisible({
       timeout: 10_000,
     });
-  }
+    return findRequest(index + 1);
+  };
 
-  return false;
+  return findRequest(0);
 }
 
 test.describe("Event interest approval (admin)", () => {

@@ -49,7 +49,7 @@ export function expandSeriesOccurrences(
 
   const seriesStartDate = format(new Date(startTime), "yyyy-MM-dd");
 
-  const occurrences: ExpandedOccurrence[] = virtualOccs.map((occ: any) => ({
+  const occurrences: ExpandedOccurrence[] = virtualOccs.map((occ) => ({
     date: occ.date,
     endTime: occ.endTime,
     isSeriesParent: occ.date === seriesStartDate,
@@ -63,7 +63,7 @@ export function sortUpcomingFirstThenPast<T extends { startTime: number }>(
   rows: T[]
 ): T[] {
   const now = Date.now();
-  rows.sort((a: any, b: any) => {
+  rows.sort((a, b) => {
     const aUpcoming = a.startTime >= now;
     const bUpcoming = b.startTime >= now;
     if (aUpcoming && !bUpcoming) {

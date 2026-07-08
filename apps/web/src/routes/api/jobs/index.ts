@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/jobs/")({
           if (conditions.length === 0) {
             conditions.push(
               sql`name IN (${sql.join(
-                QUEUE_NAMES.map((n: any) => sql`${n}`),
+                QUEUE_NAMES.map((n) => sql`${n}`),
                 sql`, `
               )})`
             );

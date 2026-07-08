@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
@@ -88,52 +89,56 @@ function RolesPage() {
     loadRoles();
   }, [loadRoles]);
 
-  const handleCreate = async (values: CreateRoleFormValues) => {
-    try {
-      await createRoleFn({
-        data: {
-          description: values.description,
-          id: values.id,
-          name: values.name,
-          permissionIds: [],
-        },
-      });
-      toast.success("Role created!");
-      setCreateOpen(false);
-      loadRoles();
-    } catch (error) {
-      log.error({
-        action: "createRole",
-        component: "RolesPage",
-        error: error instanceof Error ? error.message : String(error),
-        roleId: values.id,
-      });
-      toast.error(getErrorMessage(error));
-      throw error;
+  const handleCreate = useEventCallback(
+    async (values: CreateRoleFormValues) => {
+      try {
+        await createRoleFn({
+          data: {
+            description: values.description,
+            id: values.id,
+            name: values.name,
+            permissionIds: [],
+          },
+        });
+        toast.success("Role created!");
+        setCreateOpen(false);
+        loadRoles();
+      } catch (error) {
+        log.error({
+          action: "createRole",
+          component: "RolesPage",
+          error: error instanceof Error ? error.message : String(error),
+          roleId: values.id,
+        });
+        toast.error(getErrorMessage(error));
+        throw error;
+      }
     }
-  };
+  );
 
-  const handleDelete = async ({ id: roleId }: { id: string; name: string }) => {
-    try {
-      await deleteRoleFn({ data: { roleId } });
-      loadRoles();
-      return { type: "success" as const };
-    } catch (error) {
-      log.error({
-        action: "deleteRole",
-        component: "RolesPage",
-        error: error instanceof Error ? error.message : String(error),
-        roleId,
-      });
-      return {
-        error: { message: getErrorMessage(error) },
-        type: "error" as const,
-      };
+  const handleDelete = useEventCallback(
+    async ({ id: roleId }: { id: string; name: string }) => {
+      try {
+        await deleteRoleFn({ data: { roleId } });
+        loadRoles();
+        return { type: "success" as const };
+      } catch (error) {
+        log.error({
+          action: "deleteRole",
+          component: "RolesPage",
+          error: error instanceof Error ? error.message : String(error),
+          roleId,
+        });
+        return {
+          error: { message: getErrorMessage(error) },
+          type: "error" as const,
+        };
+      }
     }
-  };
-  const stableOnClearFilters0 = () => setTypeFilter("");
-  const stableOnClick1 = () => setCreateOpen(true);
-  const stableOnCancel2 = () => setCreateOpen(false);
+  );
+  const stableOnClearFilters0 = useEventCallback(() => setTypeFilter(""));
+  const stableOnClick1 = useEventCallback(() => setCreateOpen(true));
+  const stableOnCancel2 = useEventCallback(() => setCreateOpen(false));
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -144,7 +149,7 @@ function RolesPage() {
         <RolesTable
           data={
             typeFilter
-              ? roles.filter((r: any) =>
+              ? roles.filter((r) =>
                   typeFilter === "system" ? r.isSystem : !r.isSystem
                 )
               : roles

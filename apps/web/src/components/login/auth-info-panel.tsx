@@ -34,7 +34,7 @@ export function SignupInfoPanel() {
         </p>
       </div>
       <ol className="space-y-4">
-        {steps.map((step: any) => (
+        {steps.map((step) => (
           <li className="flex items-start gap-3" key={step.number}>
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-foreground/10 font-semibold text-sm">
               {step.number}

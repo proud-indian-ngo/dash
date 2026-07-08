@@ -1,9 +1,11 @@
 import { FieldDescription } from "@pi-dash/design-system/components/ui/field";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
+  type FormFieldApi,
   type FormInstance,
   fieldErrorProps,
   useResolvedForm,
@@ -18,6 +20,34 @@ interface CheckboxFieldProps {
   name: string;
   readonly?: boolean;
   validators?: FieldValidatorConfig<boolean>;
+}
+
+function CheckboxFieldControl({
+  field,
+  isRequired,
+  readonly,
+  submitted,
+}: {
+  field: FormFieldApi<boolean>;
+  isRequired: boolean;
+  readonly: boolean;
+  submitted: boolean;
+}) {
+  const handleCheckedChange = useEventCallback((checked: boolean) => {
+    field.handleChange(Boolean(checked));
+  });
+
+  return (
+    <Switch
+      {...fieldErrorProps(field, submitted)}
+      aria-required={isRequired}
+      checked={Boolean(field.state.value)}
+      disabled={readonly}
+      id={field.name}
+      onBlur={field.handleBlur}
+      onCheckedChange={handleCheckedChange}
+    />
+  );
 }
 
 export function CheckboxField({
@@ -42,20 +72,12 @@ export function CheckboxField({
         orientation="horizontal"
         validators={validators}
       >
-        {(field: any) => (
-          <Switch
-            {...fieldErrorProps(
-              field,
-              resolvedForm.state.submissionAttempts > 0
-            )}
-            aria-required={isRequired}
-            checked={Boolean(field.state.value)}
-            disabled={readonly}
-            id={field.name}
-            onBlur={field.handleBlur}
-            onCheckedChange={(checked: any) =>
-              field.handleChange(Boolean(checked))
-            }
+        {(field) => (
+          <CheckboxFieldControl
+            field={field}
+            isRequired={isRequired}
+            readonly={readonly}
+            submitted={resolvedForm.state.submissionAttempts > 0}
           />
         )}
       </CustomField>

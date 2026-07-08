@@ -64,15 +64,21 @@ export class ListPage {
       name: expectMenuItem,
     });
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    const tryOpen = async (attempt: number): Promise<boolean> => {
       await trigger.click();
       try {
         await expect(viewItem).toBeVisible({ timeout: 3000 });
-        return;
+        return true;
       } catch {
         // Menu didn't open — retry click
-        void 0;
+        if (attempt >= 2) {
+          return false;
+        }
+        return tryOpen(attempt + 1);
       }
+    };
+    if (await tryOpen(0)) {
+      return;
     }
     await trigger.click();
     await expect(viewItem).toBeVisible();
@@ -94,11 +100,11 @@ export class ListPage {
     const trigger = row.getByTestId("row-actions");
     const menuItem = this.page.getByRole("menuitem", { name: menuItemName });
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    const tryClick = async (attempt: number): Promise<boolean> => {
       try {
         await trigger.click({ timeout: 5000 });
         await menuItem.click({ timeout: 3000 });
-        return;
+        return true;
       } catch (caughtError) {
         if (this.page.isClosed()) {
           throw new Error("Page closed during retry", { cause: caughtError });
@@ -114,7 +120,14 @@ export class ListPage {
         });
         // Brief pause to let Zero sync settle
         await this.page.waitForTimeout(500);
+        if (attempt >= 4) {
+          return false;
+        }
+        return tryClick(attempt + 1);
       }
+    };
+    if (await tryClick(0)) {
+      return;
     }
     // Final attempt — let it fail with a clear error
     await trigger.click();

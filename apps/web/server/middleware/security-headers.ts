@@ -27,7 +27,7 @@ function buildCsp(): string {
   ].join("; ");
 }
 
-export default defineEventHandler((event: any) => {
+export default defineEventHandler((event) => {
   setHeaders(event, {
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",

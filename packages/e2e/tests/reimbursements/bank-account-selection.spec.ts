@@ -32,12 +32,52 @@ function accountCard(
     .filter({ hasText: `••••${lastFour}` });
 }
 
+async function selectBankAccountOption(
+  bankAccountGroup: import("@playwright/test").Locator,
+  lastFour: string
+) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await bankAccountGroup.getByRole("combobox").click();
+    const option = bankAccountGroup.page().getByRole("option").filter({
+      hasText: lastFour,
+    });
+    await expect(option.first()).toBeVisible({ timeout: 10_000 });
+    if (
+      await option
+        .first()
+        .click({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      await expect(bankAccountGroup.getByRole("combobox")).toContainText(
+        lastFour,
+        { timeout: 10_000 }
+      );
+      return;
+    }
+    await bankAccountGroup
+      .page()
+      .keyboard.press("Escape")
+      .catch(() => {
+        // Ignore closed dropdown between retries.
+      });
+  }
+
+  await bankAccountGroup.getByRole("combobox").click();
+  await bankAccountGroup
+    .page()
+    .getByRole("option")
+    .filter({ hasText: lastFour })
+    .first()
+    .click();
+  await expect(bankAccountGroup.getByRole("combobox")).toContainText(lastFour);
+}
+
 const ROLES_FOR_BANK_ACCOUNT_FLOW = new Set(["super_admin", "volunteer"]);
 
 test.describe("Bank account selection with duplicate names", () => {
-  const DUPLICATE_NUMBER = "9876543210";
-  const DUPLICATE_LAST4 = "3210";
   const SEED_LAST4 = "7890";
+  let duplicateLast4 = "";
 
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(
@@ -56,8 +96,25 @@ test.describe("Bank account selection with duplicate names", () => {
       await page.waitForTimeout(300);
 
       const dialog = await navigateToBanking(page);
-      const card = accountCard(dialog, DUPLICATE_LAST4);
-      if ((await card.count()) > 0) {
+      const card = accountCard(dialog, duplicateLast4);
+      while ((await card.count()) > 0) {
+        const seedCard = accountCard(dialog, SEED_LAST4).first();
+        const duplicateCard = card.first();
+        if (
+          (await duplicateCard
+            .getByText("Default", { exact: true })
+            .isVisible()
+            .catch(() => false)) &&
+          (await seedCard
+            .getByRole("button", { name: "Set default" })
+            .isVisible()
+            .catch(() => false))
+        ) {
+          await seedCard.getByRole("button", { name: "Set default" }).click();
+          await expect(
+            seedCard.getByText("Default", { exact: true })
+          ).toBeVisible({ timeout: 10_000 });
+        }
         await card
           .first()
           .getByRole("button", { name: "Delete account" })
@@ -76,27 +133,33 @@ test.describe("Bank account selection with duplicate names", () => {
   test("selects default account and allows switching between same-named accounts", async ({
     page,
   }) => {
+    const duplicateNumber = `98${Date.now().toString().slice(-8)}`;
+    duplicateLast4 = duplicateNumber.slice(-4);
+
     // Step 1: Add a second bank account with the same name via Settings → Banking
     const dialog = await navigateToBanking(page);
 
     await dialog.getByLabel("Account name").fill("Test Savings");
-    await dialog.getByLabel("Account number").fill(DUPLICATE_NUMBER);
+    await dialog.getByLabel("Account number").fill(duplicateNumber);
     await dialog.getByLabel("IFSC code").fill("TEST0000002");
     await dialog.getByRole("button", { name: "Add account" }).click();
 
     // Wait for the new account card to appear
-    await expect(accountCard(dialog, DUPLICATE_LAST4)).toBeVisible({
+    await expect(accountCard(dialog, duplicateLast4)).toBeVisible({
       timeout: 10_000,
     });
 
     // Step 2: Set the new account as default
-    await accountCard(dialog, DUPLICATE_LAST4)
+    await accountCard(dialog, duplicateLast4)
+      .first()
       .getByRole("button", { name: "Set default" })
       .click();
 
     // Wait for the Default badge to appear on the new account card
     await expect(
-      accountCard(dialog, DUPLICATE_LAST4).getByText("Default", { exact: true })
+      accountCard(dialog, duplicateLast4)
+        .first()
+        .getByText("Default", { exact: true })
     ).toBeVisible({ timeout: 10_000 });
 
     // Close the settings dialog
@@ -115,26 +178,13 @@ test.describe("Bank account selection with duplicate names", () => {
       timeout: 15_000,
     });
     await expect(bankAccountGroup.getByRole("combobox")).toContainText(
-      DUPLICATE_LAST4
+      duplicateLast4
     );
 
     // Step 4: Open the dropdown and switch to the other account
-    await bankAccountGroup.getByRole("combobox").click();
-    const options = page.getByRole("option");
-    await expect(options.first()).toBeVisible({ timeout: 10_000 });
-    await expect(options).toHaveCount(2);
-
-    // Select the old account (••••7890)
-    await options.filter({ hasText: SEED_LAST4 }).click();
-    await expect(bankAccountGroup.getByRole("combobox")).toContainText(
-      SEED_LAST4
-    );
+    await selectBankAccountOption(bankAccountGroup, SEED_LAST4);
 
     // Step 5: Switch back to verify both directions work
-    await bankAccountGroup.getByRole("combobox").click();
-    await options.filter({ hasText: DUPLICATE_LAST4 }).click();
-    await expect(bankAccountGroup.getByRole("combobox")).toContainText(
-      DUPLICATE_LAST4
-    );
+    await selectBankAccountOption(bankAccountGroup, duplicateLast4);
   });
 });

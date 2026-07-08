@@ -5,6 +5,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
 import { RSVP_POLL_LEAD_PRESETS } from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -64,7 +65,7 @@ const eventFormSchema = z.object({
   whatsappGroupId: z.string().optional(),
 });
 
-const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p: any) => ({
+const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
   label: `${p.label} before`,
   value: String(p.minutes),
 }));
@@ -81,12 +82,15 @@ function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
     return withEndTimeCheck;
   }
   return withEndTimeCheck.refine(
-    (data: any) => data.startTime === null || data.startTime > new Date(),
+    (data) => !data.startTime || data.startTime > new Date(),
     { message: "Start time must be in the future", path: ["startTime"] }
   );
 }
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
+interface EventFormState {
+  values: EventFormValues;
+}
 
 interface InitialValues {
   city: string | null;
@@ -393,16 +397,28 @@ function EventFormContent({
   );
 
   const configured = !showAdvanced && hasAdvancedValues(form.state.values);
-  const stableSelector0 = (state: any) => state.values.startTime;
-  const stableSelector1 = (s: any) => s.values.rrule;
-  const stableSelector2 = (state: any) => ({
+  const stableSelector0 = useEventCallback(
+    (state: EventFormState) => state.values.startTime
+  );
+  const stableSelector1 = useEventCallback(
+    (state: EventFormState) => state.values.rrule
+  );
+  const stableSelector2 = useEventCallback((state: EventFormState) => ({
     whatsappGroupId: state.values.whatsappGroupId,
-  });
-  const stableSelector3 = (state: any) => state.values.whatsappGroupId;
-  const stableSelector4 = (state: any) => state.values.postRsvpPoll;
-  const stableSelector5 = (state: any) => state.values.feedbackEnabled;
-  const stableSelector6 = (state: any) => state.values.whatsappGroupId;
-  const stableOnCancel7 = () => onOpenChange(false);
+  }));
+  const stableSelector3 = useEventCallback(
+    (state: EventFormState) => state.values.whatsappGroupId
+  );
+  const stableSelector4 = useEventCallback(
+    (state: EventFormState) => state.values.postRsvpPoll
+  );
+  const stableSelector5 = useEventCallback(
+    (state: EventFormState) => state.values.feedbackEnabled
+  );
+  const stableSelector6 = useEventCallback(
+    (state: EventFormState) => state.values.whatsappGroupId
+  );
+  const stableOnCancel7 = useEventCallback(() => onOpenChange(false));
 
   return (
     <FormLayout form={form}>
@@ -435,7 +451,7 @@ function EventFormContent({
           placeholder="Select city"
         />
         <form.Subscribe selector={stableSelector0}>
-          {(startTime: any) => (
+          {(startTime) => (
             <DateTimeField
               description={
                 canBackdate && startTime && startTime < new Date()
@@ -473,17 +489,23 @@ function EventFormContent({
             editScope === "following" ||
             (!editScope && !!initialValues?.recurrenceRule)) && (
             <form.Field name="rrule">
-              {(rruleField: any) => (
+              {(rruleField) => (
                 <form.Field name="excludeRules">
-                  {(excludeField: any) => (
+                  {(excludeField) => (
                     <RecurrenceBuilder
-                      excludeRules={excludeField.state.value}
-                      onChange={(v: any) => rruleField.handleChange(v)}
-                      onExcludeRulesChange={(v: any) =>
-                        excludeField.handleChange(v)
+                      excludeRules={
+                        Array.isArray(excludeField.state.value)
+                          ? excludeField.state.value
+                          : []
                       }
+                      onChange={rruleField.handleChange}
+                      onExcludeRulesChange={excludeField.handleChange}
                       startTime={form.state.values.startTime}
-                      value={rruleField.state.value}
+                      value={
+                        typeof rruleField.state.value === "string"
+                          ? rruleField.state.value
+                          : ""
+                      }
                     />
                   )}
                 </form.Field>
@@ -492,7 +514,7 @@ function EventFormContent({
           )}
 
           <form.Subscribe selector={stableSelector1}>
-            {(rrule: any) =>
+            {(rrule) =>
               rrule ? (
                 <CheckboxField
                   description="Copy volunteers from the series to each occurrence"
@@ -536,7 +558,7 @@ function EventFormContent({
               name="postEventNudgesEnabled"
             />
             <form.Subscribe selector={stableSelector3}>
-              {(whatsappGroupId: any) => {
+              {(whatsappGroupId) => {
                 const hasGroup = !!whatsappGroupId || teamHasWhatsAppGroup;
                 return (
                   <CheckboxField
@@ -553,7 +575,7 @@ function EventFormContent({
               }}
             </form.Subscribe>
             <form.Subscribe selector={stableSelector4}>
-              {(postRsvpPoll: any) =>
+              {(postRsvpPoll) =>
                 postRsvpPoll ? (
                   <SelectField
                     label="Post poll"
@@ -566,7 +588,7 @@ function EventFormContent({
           </div>
 
           <form.Subscribe selector={stableSelector5}>
-            {(feedbackEnabled: any) =>
+            {(feedbackEnabled) =>
               feedbackEnabled ? (
                 <DateTimeField
                   description="Leave empty for no deadline"
@@ -578,17 +600,17 @@ function EventFormContent({
           </form.Subscribe>
 
           <form.Subscribe selector={stableSelector6}>
-            {(whatsappGroupId: any) => (
+            {(whatsappGroupId) => (
               <form.Field name="reminderIntervals">
-                {(intervalsField: any) => (
+                {(intervalsField) => (
                   <form.Field name="reminderTarget">
-                    {(targetField: any) => (
+                    {(targetField) => (
                       <ReminderIntervalsField
                         hasWhatsappGroup={
                           !!whatsappGroupId || teamHasWhatsAppGroup
                         }
-                        onChange={(v: any) => intervalsField.handleChange(v)}
-                        onTargetChange={(v: any) => targetField.handleChange(v)}
+                        onChange={intervalsField.handleChange}
+                        onTargetChange={targetField.handleChange}
                         reminderTarget={targetField.state.value}
                         value={intervalsField.state.value}
                       />
@@ -665,12 +687,12 @@ export function EventFormDialog({
   const { user } = useApp();
   const userIsTeamLead = isTeamLead(team?.members ?? [], user.id);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
     }
     onOpenChange(nextOpen);
-  };
+  });
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>

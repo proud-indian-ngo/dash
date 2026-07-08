@@ -25,10 +25,8 @@ function getR2Credentials() {
 async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
   const credentials = getR2Credentials();
   const keys = new Set<string>();
-  let startAfter: string | undefined;
 
-  let hasMore = true;
-  while (hasMore) {
+  const collectPage = async (startAfter?: string): Promise<void> => {
     const batch = await S3Client.list(
       { maxKeys: 1000, prefix: env.R2_KEY_PREFIX, startAfter },
       credentials
@@ -42,12 +40,14 @@ async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
       }
     }
 
-    hasMore = batch.isTruncated ?? false;
+    const hasMore = batch.isTruncated ?? false;
     if (!(hasMore && contents.length)) {
-      break;
+      return;
     }
-    startAfter = contents.at(-1)?.key;
-  }
+    await collectPage(contents.at(-1)?.key);
+  };
+
+  await collectPage();
 
   return keys;
 }
@@ -131,8 +131,13 @@ async function deleteOrphans(
   const deletedKeys: string[] = [];
   const failedKeys: string[] = [];
 
-  for (let i = 0; i < orphans.length; i += DELETE_CONCURRENCY) {
-    const batch = orphans.slice(i, i + DELETE_CONCURRENCY);
+  const batches = Array.from(
+    { length: Math.ceil(orphans.length / DELETE_CONCURRENCY) },
+    (_, i) =>
+      orphans.slice(i * DELETE_CONCURRENCY, (i + 1) * DELETE_CONCURRENCY)
+  );
+  await batches.reduce<Promise<void>>(async (previous, batch) => {
+    await previous;
     const results = await Promise.allSettled(
       batch.map((key) => S3Client.delete(key, credentials))
     );
@@ -148,7 +153,7 @@ async function deleteOrphans(
         failedKeys.push(key);
       }
     }
-  }
+  }, Promise.resolve());
 
   return { deletedKeys, failedKeys };
 }
@@ -157,7 +162,7 @@ export async function handleCleanupR2Orphans(
   _jobs: Job<CleanupR2OrphansPayload>[]
 ) {
   const data = _jobs[0]?.data ?? {};
-  const dryRun = data.dryRun;
+  const { dryRun } = data;
   const log = createRequestLogger({
     method: "JOB",
     path: "cleanup-r2-orphans",

@@ -16,6 +16,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@pi-dash/design-system/components/ui/drawer";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import {
@@ -49,7 +50,9 @@ export function Dialog({
   open?: boolean;
 }) {
   const isMobile = useIsMobile();
-  const stableOnOpenChange0 = (nextOpen: any) => onOpenChange?.(nextOpen);
+  const stableOnOpenChange0 = useEventCallback((nextOpen: boolean) =>
+    onOpenChange?.(nextOpen)
+  );
 
   return (
     <ResponsiveDialogContext.Provider value={{ isMobile }}>

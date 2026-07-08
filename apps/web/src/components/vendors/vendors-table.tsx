@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
@@ -51,7 +52,9 @@ function RowActions({
   onView: () => void;
   status: string;
 }) {
-  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
 
   return (
     <DropdownMenu>
@@ -131,7 +134,7 @@ export function VendorsTable({
   onClearFilters,
 }: VendorsTableProps) {
   const deleteAction = useConfirmAction<string>({
-    onConfirm: async (id: any) => {
+    onConfirm: async (id) => {
       const res = await onDelete(id);
       return res;
     },
@@ -140,7 +143,7 @@ export function VendorsTable({
 
   const columns: ColumnDef<VendorRow>[] = [
     {
-      accessorFn: (row: any) => row.name,
+      accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <span className="truncate font-medium text-sm">
           {row.original.name}
@@ -154,7 +157,7 @@ export function VendorsTable({
       size: 200,
     },
     {
-      accessorFn: (row: any) => row.contactPhone,
+      accessorFn: (row) => row.contactPhone,
       cell: ({ row }) => (
         <span className="truncate text-sm">{row.original.contactPhone}</span>
       ),
@@ -166,7 +169,7 @@ export function VendorsTable({
       size: 150,
     },
     {
-      accessorFn: (row: any) => row.contactEmail,
+      accessorFn: (row) => row.contactEmail,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.contactEmail ?? "—"}
@@ -180,7 +183,7 @@ export function VendorsTable({
       size: 200,
     },
     {
-      accessorFn: (row: any) => row.bankAccountName,
+      accessorFn: (row) => row.bankAccountName,
       cell: ({ row }) => (
         <span className="truncate text-sm">
           {row.original.bankAccountName} (••••
@@ -202,7 +205,7 @@ export function VendorsTable({
       size: 220,
     },
     {
-      accessorFn: (row: any) => row.pendingCount,
+      accessorFn: (row) => row.pendingCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.pendingCount}</span>
       ),
@@ -218,7 +221,7 @@ export function VendorsTable({
       size: 140,
     },
     {
-      accessorFn: (row: any) => row.activeCount,
+      accessorFn: (row) => row.activeCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.activeCount}</span>
       ),
@@ -234,7 +237,7 @@ export function VendorsTable({
       size: 140,
     },
     {
-      accessorFn: (row: any) => row.completedCount,
+      accessorFn: (row) => row.completedCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.completedCount}</span>
       ),
@@ -250,7 +253,7 @@ export function VendorsTable({
       size: 120,
     },
     {
-      accessorFn: (row: any) => row.pendingAmount,
+      accessorFn: (row) => row.pendingAmount,
       cell: ({ row }) => (
         <span className="text-sm">{formatINR(row.original.pendingAmount)}</span>
       ),
@@ -266,7 +269,7 @@ export function VendorsTable({
       size: 150,
     },
     {
-      accessorFn: (row: any) => row.activeAmount,
+      accessorFn: (row) => row.activeAmount,
       cell: ({ row }) => (
         <span className="text-sm">{formatINR(row.original.activeAmount)}</span>
       ),
@@ -282,7 +285,7 @@ export function VendorsTable({
       size: 140,
     },
     {
-      accessorFn: (row: any) => row.completedAmount,
+      accessorFn: (row) => row.completedAmount,
       cell: ({ row }) => (
         <span className="text-sm">
           {formatINR(row.original.completedAmount)}
@@ -300,7 +303,7 @@ export function VendorsTable({
       size: 160,
     },
     {
-      accessorFn: (row: any) => row.rejectedCount,
+      accessorFn: (row) => row.rejectedCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.rejectedCount}</span>
       ),
@@ -316,7 +319,7 @@ export function VendorsTable({
       size: 150,
     },
     {
-      accessorFn: (row: any) => row.rejectedAmount,
+      accessorFn: (row) => row.rejectedAmount,
       cell: ({ row }) => (
         <span className="text-sm">
           {formatINR(row.original.rejectedAmount)}
@@ -334,7 +337,7 @@ export function VendorsTable({
       size: 150,
     },
     {
-      accessorFn: (row: any) => row.status,
+      accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const status = row.original.status ?? "pending";
         const badge = STATUS_BADGE_MAP[status] ?? {
@@ -382,12 +385,12 @@ export function VendorsTable({
       size: 52,
     },
   ];
-  const stableGetRowId1 = (row: any) => row.id;
-  const stableOnOpenChange2 = (open: any) => {
+  const stableGetRowId1 = useEventCallback((row: { id: string }) => row.id);
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
     }
-  };
+  });
 
   return (
     <>

@@ -237,12 +237,16 @@ test.describe("Team events list filters (admin)", () => {
     const rowCount = await rows.count();
 
     let foundPast = false;
-    for (let i = 1; i < rowCount; i += 1) {
-      const row = rows.nth(i);
-      const statusText = await row
-        .getByText(/Upcoming|Past|Cancelled/, { exact: true })
-        .first()
-        .textContent();
+    const statusTexts = await Promise.all(
+      Array.from({ length: Math.max(rowCount - 1, 0) }, (_, i) =>
+        rows
+          .nth(i + 1)
+          .getByText(/Upcoming|Past|Cancelled/, { exact: true })
+          .first()
+          .textContent()
+      )
+    );
+    for (const statusText of statusTexts) {
       if (statusText === "Past") {
         foundPast = true;
       }

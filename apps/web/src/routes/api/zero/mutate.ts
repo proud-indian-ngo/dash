@@ -44,8 +44,8 @@ export const Route = createFileRoute("/api/zero/mutate")({
 
         const result = await handleMutateRequest(
           dbProvider,
-          async (transact: any) =>
-            await transact(async (tx: any, name: any, args: any) => {
+          async (transact) =>
+            await transact(async (tx, name, args) => {
               const mutator = mustGetMutator(mutators, name);
               return await mutator.fn({ args, ctx, tx });
             }),

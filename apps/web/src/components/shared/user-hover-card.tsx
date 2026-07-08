@@ -6,6 +6,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@pi-dash/design-system/components/ui/hover-card";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -49,7 +50,9 @@ export function UserHoverCard({
   const { hasPermission, user: appUser } = useApp();
   const canSeeFullDetails =
     hasPermission("users.view") || user.id === appUser.id;
-  const stableOnClick0 = (e: any) => e.stopPropagation();
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
 
   return (
     <HoverCard>

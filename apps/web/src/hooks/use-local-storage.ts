@@ -9,7 +9,8 @@ const defaultDeserialize = <T>(value: string): T | undefined => {
   try {
     return JSON.parse(value) as T;
   } catch {
-    void 0;
+    const fallback = undefined;
+    return fallback;
   }
 };
 
@@ -61,7 +62,6 @@ export function useLocalStorage<T>(
       window.localStorage.setItem(key, serialize(storedValue));
     } catch {
       // Ignore write errors (e.g. storage full/private mode restrictions).
-      void 0;
     }
   }, [key, serialize, storedValue]);
 

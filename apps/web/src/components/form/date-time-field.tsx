@@ -11,6 +11,7 @@ import {
   ScrollArea,
   ScrollBar,
 } from "@pi-dash/design-system/components/ui/scroll-area";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
@@ -21,8 +22,8 @@ import { applyTimeChange } from "./date-time-utils";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
 import { getFieldErrorState, useResolvedForm } from "./form-context";
 
-const HOURS = Array.from({ length: 12 }, (_: any, i: any) => i + 1);
-const MINUTES = Array.from({ length: 12 }, (_: any, i: any) => i * 5);
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
 function getAmPm(date: Date): "AM" | "PM" {
   return date.getHours() >= 12 ? "PM" : "AM";
@@ -43,6 +44,37 @@ function scrollToSelected(container: HTMLDivElement | null, index: number) {
   if (target) {
     target.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
+}
+
+function TimeButton({
+  children,
+  disabled,
+  isSelected,
+  onTimeChange,
+  type,
+  value,
+}: {
+  children: ReactNode;
+  disabled: boolean;
+  isSelected: boolean;
+  onTimeChange: (type: "hour" | "minute" | "ampm", val: string) => void;
+  type: "hour" | "minute" | "ampm";
+  value: string;
+}) {
+  const handleClick = useEventCallback(() => onTimeChange(type, value));
+
+  return (
+    <Button
+      className="aspect-square shrink-0 sm:w-full"
+      disabled={disabled}
+      onClick={handleClick}
+      size="icon"
+      type="button"
+      variant={isSelected ? "default" : "ghost"}
+    >
+      {children}
+    </Button>
+  );
 }
 
 interface DateTimeFieldProps {
@@ -109,16 +141,18 @@ function DateTimePicker({
     });
   }, [isOpen, value]);
 
-  const handleDateSelect = (selectedDate: Date | undefined) => {
-    if (!selectedDate) {
-      return;
+  const handleDateSelect = useEventCallback(
+    (selectedDate: Date | undefined) => {
+      if (!selectedDate) {
+        return;
+      }
+      const merged = new Date(selectedDate);
+      if (value) {
+        merged.setHours(value.getHours(), value.getMinutes());
+      }
+      onChange(merged);
     }
-    const merged = new Date(selectedDate);
-    if (value) {
-      merged.setHours(value.getHours(), value.getMinutes());
-    }
-    onChange(merged);
-  };
+  );
 
   const handleTimeChange = useCallback(
     (type: "hour" | "minute" | "ampm", val: string) => {
@@ -156,7 +190,9 @@ function DateTimePicker({
             type="button"
             variant="outline"
           >
-            {value ? format(value, SHORT_MONTH_DATE_TIME) : placeholder}
+            {value === undefined
+              ? placeholder
+              : format(value, SHORT_MONTH_DATE_TIME)}
             <HugeiconsIcon
               className="size-4 opacity-60"
               icon={Calendar01Icon}
@@ -186,55 +222,50 @@ function DateTimePicker({
           >
             <ScrollArea className="w-64 sm:w-auto" ref={hourRef}>
               <div className="flex p-2 sm:flex-col">
-                {HOURS.map((hour: any) => (
-                  <Button
-                    className="aspect-square shrink-0 sm:w-full"
+                {HOURS.map((hour) => (
+                  <TimeButton
                     disabled={!hasDate}
+                    isSelected={currentHour === hour}
                     key={hour}
-                    onClick={() => handleTimeChange("hour", hour.toString())}
-                    size="icon"
-                    type="button"
-                    variant={currentHour === hour ? "default" : "ghost"}
+                    onTimeChange={handleTimeChange}
+                    type="hour"
+                    value={hour.toString()}
                   >
                     {hour}
-                  </Button>
+                  </TimeButton>
                 ))}
               </div>
               <ScrollBar className="sm:hidden" orientation="horizontal" />
             </ScrollArea>
             <ScrollArea className="w-64 sm:w-auto" ref={minuteRef}>
               <div className="flex p-2 sm:flex-col">
-                {MINUTES.map((minute: any) => (
-                  <Button
-                    className="aspect-square shrink-0 sm:w-full"
+                {MINUTES.map((minute) => (
+                  <TimeButton
                     disabled={!hasDate}
+                    isSelected={currentMinute === minute}
                     key={minute}
-                    onClick={() =>
-                      handleTimeChange("minute", minute.toString())
-                    }
-                    size="icon"
-                    type="button"
-                    variant={currentMinute === minute ? "default" : "ghost"}
+                    onTimeChange={handleTimeChange}
+                    type="minute"
+                    value={minute.toString()}
                   >
                     {minute.toString().padStart(2, "0")}
-                  </Button>
+                  </TimeButton>
                 ))}
               </div>
               <ScrollBar className="sm:hidden" orientation="horizontal" />
             </ScrollArea>
             <div className="flex p-2 sm:flex-col">
-              {(["AM", "PM"] as const).map((ampm: any) => (
-                <Button
-                  className="aspect-square shrink-0 sm:w-full"
+              {(["AM", "PM"] as const).map((ampm) => (
+                <TimeButton
                   disabled={!hasDate}
+                  isSelected={currentAmPm === ampm}
                   key={ampm}
-                  onClick={() => handleTimeChange("ampm", ampm)}
-                  size="icon"
-                  type="button"
-                  variant={currentAmPm === ampm ? "default" : "ghost"}
+                  onTimeChange={handleTimeChange}
+                  type="ampm"
+                  value={ampm}
                 >
                   {ampm}
-                </Button>
+                </TimeButton>
               ))}
             </div>
           </div>
@@ -268,7 +299,7 @@ export function DateTimeField({
       name={name}
       validators={validators}
     >
-      {(field: any) => {
+      {(field) => {
         const submitted = resolvedForm.state.submissionAttempts > 0;
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
@@ -284,7 +315,7 @@ export function DateTimeField({
             maxDate={maxDate}
             minDate={minDate}
             onBlur={field.handleBlur}
-            onChange={(value: any) => field.handleChange(value)}
+            onChange={field.handleChange}
             placeholder={placeholder}
             value={field.state.value}
           />

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
@@ -36,12 +37,15 @@ function RowActions({
   roleId: string;
 }) {
   const navigate = useNavigate();
-  const stableOnClick0 = (e: any) => e.stopPropagation();
-  const stableOnClick1 = () =>
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
+  const stableOnClick1 = useEventCallback(() =>
     navigate({
       params: { roleId },
       to: "/settings/roles/$roleId",
-    });
+    })
+  );
 
   return (
     <DropdownMenu>
@@ -115,14 +119,14 @@ export function RolesTable({
 }: RolesTableProps) {
   const navigate = useNavigate();
   const deleteAction = useConfirmAction<{ id: string; name: string }>({
-    onConfirm: (payload: any) => onDelete(payload),
-    onError: (msg: any) => toast.error(msg ?? "Couldn't delete role"),
+    onConfirm: (payload) => onDelete(payload),
+    onError: (msg) => toast.error(msg ?? "Couldn't delete role"),
     onSuccess: () => toast.success("Role removed"),
   });
 
   const columns: ColumnDef<RoleListItem>[] = [
     {
-      accessorFn: (row: any) => row.name,
+      accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <div className="min-w-0">
           <div className="truncate font-medium text-sm">
@@ -141,7 +145,7 @@ export function RolesTable({
       size: 200,
     },
     {
-      accessorFn: (row: any) => row.description ?? "",
+      accessorFn: (row) => row.description ?? "",
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.description || "\u2014"}
@@ -159,7 +163,7 @@ export function RolesTable({
       size: 280,
     },
     {
-      accessorFn: (row: any) => (row.isSystem ? "System" : "Custom"),
+      accessorFn: (row) => (row.isSystem ? "System" : "Custom"),
       cell: ({ row }) =>
         row.original.isSystem ? (
           <Badge variant="info-light">System</Badge>
@@ -174,7 +178,7 @@ export function RolesTable({
       size: 110,
     },
     {
-      accessorFn: (row: any) => row.permissionCount,
+      accessorFn: (row) => row.permissionCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.permissionCount}</span>
       ),
@@ -190,7 +194,7 @@ export function RolesTable({
       size: 130,
     },
     {
-      accessorFn: (row: any) => row.userCount,
+      accessorFn: (row) => row.userCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.userCount}</span>
       ),
@@ -231,17 +235,18 @@ export function RolesTable({
       size: 52,
     },
   ];
-  const stableGetRowId2 = (row: any) => row.id;
-  const stableOnRowClick3 = (row: any) =>
+  const stableGetRowId2 = useEventCallback((row: { id: string }) => row.id);
+  const stableOnRowClick3 = useEventCallback((row: { id: string }) =>
     navigate({
       params: { roleId: row.id },
       to: "/settings/roles/$roleId",
-    });
-  const stableOnOpenChange4 = (open: any) => {
+    })
+  );
+  const stableOnOpenChange4 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
     }
-  };
+  });
 
   return (
     <>

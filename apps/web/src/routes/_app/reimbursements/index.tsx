@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -90,25 +91,25 @@ function ReimbursementsRouteComponent() {
   const filteredData = (() => {
     let result = allData;
     if (statusFilter) {
-      result = result.filter((r: any) => r.status === statusFilter);
+      result = result.filter((r) => r.status === statusFilter);
     }
     if (typeFilter) {
-      result = result.filter((r: any) => r.type === typeFilter);
+      result = result.filter((r) => r.type === typeFilter);
     }
     if (cityFilter) {
-      result = result.filter((r: any) => r.city === cityFilter);
+      result = result.filter((r) => r.city === cityFilter);
     }
     return result;
   })();
 
-  const handleDelete = async (row: RequestRow) => {
+  const handleDelete = useEventCallback(async (row: RequestRow) => {
     const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
     try {
       const item = await fetchRequestItem(zero, row);
       const r2Keys =
         item?.attachments
-          ?.filter((a: any) => a.type === "file" && a.objectKey)
-          .map((a: any) => a.objectKey as string) ?? [];
+          ?.filter((a) => a.type === "file" && a.objectKey)
+          .map((a) => a.objectKey as string) ?? [];
 
       if (r2Keys.length > 0) {
         await deleteUploadedAssets({
@@ -129,18 +130,18 @@ function ReimbursementsRouteComponent() {
       });
       toast.error(`Failed to delete ${typeLabel}`);
     }
-  };
-  const stableOnClearFilters0 = () => {
+  });
+  const stableOnClearFilters0 = useEventCallback(() => {
     setStatusFilter("");
     setTypeFilter("");
     setCityFilter("");
-  };
-  const stableOnNavigate1 = (id: any) => {
+  });
+  const stableOnNavigate1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/reimbursements/$id" });
-  };
-  const stableOnClick2 = () => {
+  });
+  const stableOnClick2 = useEventCallback(() => {
     navigate({ to: "/reimbursements/new" });
-  };
+  });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

@@ -1,5 +1,6 @@
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -26,9 +27,11 @@ export function RejectDialog({
   open,
 }: RejectDialogProps) {
   const [reason, setReason] = useState("");
-  const stableOnChange0 = (e: any) => setReason(e.target.value);
-  const stableOnClick1 = () => setReason("");
-  const stableOnClick2 = () => onConfirm(reason);
+  const stableOnChange0 = useEventCallback((e: { target: { value: string } }) =>
+    setReason(e.target.value)
+  );
+  const stableOnClick1 = useEventCallback(() => setReason(""));
+  const stableOnClick2 = useEventCallback(() => onConfirm(reason));
 
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>

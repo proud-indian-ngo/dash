@@ -48,7 +48,7 @@ function NavMenuItem({
           ) : null}
           <span>{item.title}</span>
         </SidebarMenuButton>
-        {item.subItems?.some((s: any) => !s.isHidden) && (
+        {item.subItems?.some((s) => !s.isHidden) && (
           <>
             <CollapsibleTrigger
               aria-label={`Toggle ${item.title} submenu`}
@@ -65,8 +65,8 @@ function NavMenuItem({
             <CollapsibleContent>
               <SidebarMenuSub>
                 {item.subItems
-                  ?.filter((s: any) => !s.isHidden)
-                  .map((subItem: any) => (
+                  .filter((s) => !s.isHidden)
+                  .map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
                       <SidebarMenuSubButton render={<Link to={subItem.url} />}>
                         {subItem.title}
@@ -87,13 +87,13 @@ export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
 
   return (
     <>
-      {groups.map((group: any) => (
+      {groups.map((group) => (
         <SidebarGroup key={group.label}>
           {group.label ? (
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
           ) : null}
           <SidebarMenu>
-            {group.items.map((item: any) => (
+            {group.items.map((item) => (
               <NavMenuItem
                 activePath={activePath}
                 item={item}

@@ -48,10 +48,11 @@ export function RecipientSubTable({
           </tr>
         </thead>
         <tbody>
-          {recipients.map((r: any) => {
+          {recipients.map((r) => {
             const badge = getRecipientStatusBadge(r.status);
+            const retryCount = r.retryCount ?? 0;
             const canRetry =
-              r.status === "failed" && r.retryCount < MAX_RECIPIENT_RETRIES;
+              r.status === "failed" && retryCount < MAX_RECIPIENT_RETRIES;
 
             return (
               <tr className="border-b last:border-0" key={r.id}>
@@ -82,7 +83,7 @@ export function RecipientSubTable({
                       </Tooltip>
                     )}
                     {r.status === "failed" &&
-                      r.retryCount >= MAX_RECIPIENT_RETRIES && (
+                      retryCount >= MAX_RECIPIENT_RETRIES && (
                         <span className="text-muted-foreground text-xs">
                           Max retries reached
                         </span>
@@ -92,7 +93,7 @@ export function RecipientSubTable({
                 <td className="py-2">
                   {canRetry && onRetry ? (
                     <Button
-                      onClick={(e: any) => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         onRetry(r.id);
                       }}

@@ -23,7 +23,7 @@ function PublicEventsRouteComponent() {
   const isLoading = data.length === 0 && result.type !== "complete";
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());
-  const myTeamIds = new Set(myTeams.map((t: any) => t.id));
+  const myTeamIds = new Set(myTeams.map((t) => t.id));
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

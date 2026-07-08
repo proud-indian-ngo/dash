@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/health")({
         try {
           await Promise.race([
             db.execute(sql`SELECT 1`),
-            new Promise((_: any, reject: any) =>
+            new Promise((_, reject) =>
               setTimeout(
                 () => reject(new Error("DB health check timeout")),
                 3000

@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { User } from "@pi-dash/zero/schema";
 import type { VisibilityState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
@@ -106,25 +107,27 @@ function UserActionsMenu({
   const { data: session } = authClient.useSession();
   const isSelf = user.id === (session?.user?.id ?? "");
   const isBanned = Boolean(user.banned);
-  const stableOnClick0 = (e: any) => e.stopPropagation();
-  const stableOnClick1 = () => {
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
+  const stableOnClick1 = useEventCallback(() => {
     onOpenForm("edit");
-  };
-  const stableOnClick2 = () => {
+  });
+  const stableOnClick2 = useEventCallback(() => {
     onOpenForm("password");
-  };
-  const stableOnClick3 = () => {
+  });
+  const stableOnClick3 = useEventCallback(() => {
     onOpenForm("notifications");
-  };
-  const stableOnClick4 = async () => {
+  });
+  const stableOnClick4 = useEventCallback(async () => {
     await onUnbanUser();
-  };
-  const stableOnClick5 = () => {
+  });
+  const stableOnClick5 = useEventCallback(() => {
     onOpenForm("ban");
-  };
-  const stableOnClick6 = () => {
+  });
+  const stableOnClick6 = useEventCallback(() => {
     onOpenForm("delete");
-  };
+  });
 
   return (
     <DropdownMenu>
@@ -198,11 +201,11 @@ function UserRowActions({
   const [isBanning, setIsBanning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = useEventCallback(async () => {
     try {
       setIsDeleting(true);
-      await onDelete(user.id);
       onCloseForm("delete");
+      await onDelete(user.id);
       onCloseForm("edit");
       onCloseForm("password");
       onCloseForm("notifications");
@@ -210,29 +213,27 @@ function UserRowActions({
     } finally {
       setIsDeleting(false);
     }
-  };
+  });
 
-  const handleUnban = async () => {
+  const handleUnban = useEventCallback(async () => {
     try {
       setIsBanning(true);
       await onUnbanUser(user.id);
     } finally {
       setIsBanning(false);
     }
-  };
+  });
 
-  const handleBan = async (
-    userId: string,
-    banReason: string,
-    banExpires?: string
-  ) => {
-    try {
-      setIsBanning(true);
-      await onBanUser(userId, banReason, banExpires);
-    } finally {
-      setIsBanning(false);
+  const handleBan = useEventCallback(
+    async (userId: string, banReason: string, banExpires?: string) => {
+      try {
+        setIsBanning(true);
+        await onBanUser(userId, banReason, banExpires);
+      } finally {
+        setIsBanning(false);
+      }
     }
-  };
+  );
 
   return (
     <>
@@ -281,46 +282,56 @@ function UserRowActionDialogs({
     activeRowForm?.userId === user.id && activeRowForm.kind === "ban";
   const isNotificationsOpen =
     activeRowForm?.userId === user.id && activeRowForm.kind === "notifications";
-  const stableOnOpenChange7 = (open: any) => {
+  const stableOnOpenChange7 = useEventCallback((open: boolean) => {
     if (!open) {
       onCloseForm("edit");
     }
-  };
-  const stableOnCancel8 = () => onCloseForm("edit");
-  const stableOnSubmit9 = async (value: any) => {
-    await onUpdateUser(value);
-    onCloseForm("edit");
-  };
-  const stableOnOpenChange10 = (open: any) => {
+  });
+  const stableOnCancel8 = useEventCallback(() => onCloseForm("edit"));
+  const stableOnSubmit9 = useEventCallback(
+    async (value: EditUserFormValues) => {
+      await onUpdateUser(value);
+      onCloseForm("edit");
+    }
+  );
+  const stableOnOpenChange10 = useEventCallback((open: boolean) => {
     if (!open) {
       onCloseForm("password");
     }
-  };
-  const stableOnCancel11 = () => onCloseForm("password");
-  const stableOnSubmit12 = async (value: any) => {
-    await onSetPassword(value.userId, value.newPassword);
-    onCloseForm("password");
-  };
-  const stableOnOpenChange13 = (open: any) => {
+  });
+  const stableOnCancel11 = useEventCallback(() => onCloseForm("password"));
+  const stableOnSubmit12 = useEventCallback(
+    async (value: { newPassword: string; userId: string }) => {
+      await onSetPassword(value.userId, value.newPassword);
+      onCloseForm("password");
+    }
+  );
+  const stableOnOpenChange13 = useEventCallback((open: boolean) => {
     if (!open) {
       onCloseForm("ban");
     }
-  };
-  const stableOnCancel14 = () => onCloseForm("ban");
-  const stableOnSubmit15 = async (value: any) => {
-    await onBanUser(value.userId, value.banReason ?? "", value.banExpires);
-    onCloseForm("ban");
-  };
-  const stableOnOpenChange16 = (open: any) => {
+  });
+  const stableOnCancel14 = useEventCallback(() => onCloseForm("ban"));
+  const stableOnSubmit15 = useEventCallback(
+    async (value: {
+      banExpires?: string;
+      banReason?: string;
+      userId: string;
+    }) => {
+      await onBanUser(value.userId, value.banReason ?? "", value.banExpires);
+      onCloseForm("ban");
+    }
+  );
+  const stableOnOpenChange16 = useEventCallback((open: boolean) => {
     if (!open) {
       onCloseForm("notifications");
     }
-  };
-  const stableOnOpenChange17 = (open: boolean) => {
+  });
+  const stableOnOpenChange17 = useEventCallback((open: boolean) => {
     if (!open) {
       onCloseForm("delete");
     }
-  };
+  });
 
   return (
     <>
@@ -420,25 +431,22 @@ export function UsersTable({
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
 
   const handleFilteredDataChange = (filtered: User[]) => {
-    if (
-      activeRowForm &&
-      !filtered.some((u: any) => u.id === activeRowForm.userId)
-    ) {
+    if (activeRowForm && !filtered.some((u) => u.id === activeRowForm.userId)) {
       setActiveRowForm(null);
     }
   };
 
-  const columns = createUserColumns((user: any) => (
+  const columns = createUserColumns((user) => (
     <UserRowActions
       activeRowForm={activeRowForm}
       onBanUser={onBanUser}
-      onCloseForm={(kind: any) => {
-        setActiveRowForm((current: any) =>
+      onCloseForm={(kind) => {
+        setActiveRowForm((current) =>
           current?.kind === kind && current.userId === user.id ? null : current
         );
       }}
       onDelete={onDelete}
-      onOpenForm={(kind: any) => {
+      onOpenForm={(kind) => {
         setActiveRowForm({
           kind,
           userId: user.id,
@@ -451,7 +459,7 @@ export function UsersTable({
       user={user}
     />
   ));
-  const stableGetRowId18 = (user: any) => user.id;
+  const stableGetRowId18 = useEventCallback((user: { id: string }) => user.id);
   const stableOnFilteredDataChange8 = handleFilteredDataChange;
 
   return (

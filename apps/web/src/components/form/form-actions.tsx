@@ -1,5 +1,6 @@
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentPropsWithoutRef } from "react";
 import type { FormInstance } from "./form-context";
@@ -33,14 +34,16 @@ export function FormActions({
   submittingLabel = "Submitting...",
 }: FormActionsProps) {
   const resolvedForm = useResolvedForm(form, "FormActions");
-  const stableSelector0 = (state: any) => ({
-    canSubmit: state.canSubmit,
-    isSubmitting: state.isSubmitting,
-  });
+  const stableSelector0 = useEventCallback(
+    (state: { canSubmit: boolean; isSubmitting: boolean }) => ({
+      canSubmit: state.canSubmit,
+      isSubmitting: state.isSubmitting,
+    })
+  );
 
   return (
     <resolvedForm.Subscribe selector={stableSelector0}>
-      {(state: any) => {
+      {(state) => {
         const disableSubmit =
           disabled ||
           (disableWhenInvalid

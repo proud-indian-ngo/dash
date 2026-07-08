@@ -224,7 +224,7 @@ export async function handleDeadLetterScheduledWhatsApp(
 export async function handleSendScheduledWhatsApp(
   jobs: Job<SendScheduledWhatsAppPayload>[]
 ): Promise<void> {
-  const job = jobs[0];
+  const [job] = jobs;
   if (!job) {
     return;
   }

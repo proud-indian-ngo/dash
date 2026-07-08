@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -58,7 +59,7 @@ export function LoginForm() {
           password: value.password,
         },
         {
-          onError: (error: any) => {
+          onError: (error) => {
             const message = error.error.message || error.error.statusText;
             log.error({
               action: "signIn",
@@ -98,7 +99,7 @@ export function LoginForm() {
     },
   });
 
-  async function handleResendVerification() {
+  const handleResendVerification = useEventCallback(async () => {
     if (!unverifiedEmail || resending) {
       return;
     }
@@ -120,7 +121,7 @@ export function LoginForm() {
     } finally {
       setResending(false);
     }
-  }
+  });
 
   if (isPending) {
     return <Loader />;

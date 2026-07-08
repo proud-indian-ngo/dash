@@ -56,7 +56,7 @@ async function main() {
         updatedAt: u.updatedAt,
         userId: u.id,
       });
-      created++;
+      created += 1;
     })
   );
 

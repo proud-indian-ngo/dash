@@ -449,6 +449,16 @@ function parseTimestamp(ts: string | null): Date {
   return new Date(`${ts}Z`);
 }
 
+async function processSequentially<T>(
+  items: Iterable<T>,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  await Array.from(items).reduce<Promise<void>>(async (previous, item) => {
+    await previous;
+    await fn(item);
+  }, Promise.resolve());
+}
+
 function mapCity(cityId: number | null): "bangalore" | "mumbai" | null {
   if (cityId === 225) {
     return "bangalore";
@@ -623,7 +633,7 @@ async function migrateCategories(
         name: cat.name,
         updatedAt: now,
       });
-      stats.categories.migrated++;
+      stats.categories.migrated += 1;
     })
   );
 
@@ -640,21 +650,21 @@ async function migrateUsers(
   const seenEmails = new Set<string>();
   const seenPhones = new Set<string>();
 
-  for (const u of users) {
+  await processSequentially(users, async (u) => {
     const email = u.email.toLowerCase().trim();
 
     // Skip invalid emails
     if (!email?.includes("@") || email.includes(" ")) {
       warn(`Skipping user ${u.id} "${u.name}": invalid email "${u.email}"`);
       stats.users.skipped += 1;
-      continue;
+      return;
     }
 
     // Deduplicate by email
     if (seenEmails.has(email)) {
       warn(`Skipping duplicate email user ${u.id} "${u.name}": ${email}`);
       stats.users.skipped += 1;
-      continue;
+      return;
     }
     seenEmails.add(email);
 
@@ -685,7 +695,7 @@ async function migrateUsers(
       name: u.name.trim(),
       phone,
       role,
-      updatedAt: updatedAt || createdAt,
+      updatedAt,
     });
 
     // Create account row so Better Auth recognises this user.
@@ -695,7 +705,7 @@ async function migrateUsers(
       createdAt,
       id: uuidv7(),
       providerId: "credential",
-      updatedAt: updatedAt || createdAt,
+      updatedAt,
       userId: newId,
     });
     stats.users.migrated += 1;
@@ -703,7 +713,7 @@ async function migrateUsers(
     if (phone) {
       pendingWhatsAppChecks.push({ phone, userId: newId });
     }
-  }
+  });
 
   log(
     `Users migrated: ${stats.users.migrated}, skipped: ${stats.users.skipped}`
@@ -740,12 +750,12 @@ async function migrateBankAccounts(
   // Track defaults per user to enforce one-default constraint
   const defaultsByUser = new Set<number>();
 
-  for (const b of byKey.values()) {
+  await processSequentially(byKey.values(), async (b) => {
     const newUserId = userMap.get(b.user_id);
     if (!newUserId) {
       warn(`Skipping bank account ${b.id}: user ${b.user_id} not migrated`);
       stats.bankAccounts.skipped += 1;
-      continue;
+      return;
     }
 
     // Validate IFSC
@@ -753,7 +763,7 @@ async function migrateBankAccounts(
     if (!IFSC_REGEX.test(ifsc)) {
       warn(`Skipping bank account ${b.id}: invalid IFSC "${b.ifsc_code}"`);
       stats.bankAccounts.skipped += 1;
-      continue;
+      return;
     }
 
     // Enforce one default per user
@@ -779,7 +789,7 @@ async function migrateBankAccounts(
       userId: newUserId,
     });
     stats.bankAccounts.migrated += 1;
-  }
+  });
 
   log(
     `Bank accounts migrated: ${stats.bankAccounts.migrated}, skipped: ${stats.bankAccounts.skipped}`
@@ -822,7 +832,7 @@ async function insertReimbursementRow(
     ...(reviewedBy ? { reviewedAt, reviewedBy } : {}),
     createdAt,
     submittedAt: createdAt,
-    updatedAt: updatedAt || createdAt,
+    updatedAt,
   });
 
   await tx.insert(schema.reimbursementLineItem).values({
@@ -833,7 +843,7 @@ async function insertReimbursementRow(
     id: uuidv7(),
     reimbursementId: newId,
     sortOrder: 0,
-    updatedAt: updatedAt || createdAt,
+    updatedAt,
   });
 }
 
@@ -856,12 +866,12 @@ async function migrateReimbursements(
   // Filter deleted
   const active = reimbursements.filter((r) => !r.deleted_at);
 
-  for (const r of active) {
+  await processSequentially(active, async (r) => {
     const newUserId = userMap.get(r.user_id);
     if (!newUserId) {
       warn(`Skipping reimbursement ${r.id}: user ${r.user_id} not migrated`);
       stats.reimbursements.skipped += 1;
-      continue;
+      return;
     }
 
     const newCategoryId = categoryMap.get(r.reimbursement_category_id);
@@ -870,7 +880,7 @@ async function migrateReimbursements(
         `Skipping reimbursement ${r.id}: category ${r.reimbursement_category_id} not mapped`
       );
       stats.reimbursements.skipped += 1;
-      continue;
+      return;
     }
 
     const newId = uuidv7();
@@ -886,7 +896,7 @@ async function migrateReimbursements(
       userMap
     );
     stats.reimbursements.migrated += 1;
-  }
+  });
 
   log(
     `Reimbursements migrated: ${stats.reimbursements.migrated}, skipped: ${stats.reimbursements.skipped}`
@@ -921,14 +931,14 @@ async function migrateAdvancePayments(
 
   const active = advancePayments.filter((ap) => !ap.deleted_at);
 
-  for (const ap of active) {
+  await processSequentially(active, async (ap) => {
     const newUserId = userMap.get(ap.user_id);
     if (!newUserId) {
       warn(
         `Skipping advance payment ${ap.id}: user ${ap.user_id} not migrated`
       );
       stats.advancePayments.skipped += 1;
-      continue;
+      return;
     }
 
     const newId = uuidv7();
@@ -958,7 +968,7 @@ async function migrateAdvancePayments(
     );
 
     stats.advancePayments.migrated += 1;
-  }
+  });
 
   log(
     `Advance payments migrated: ${stats.advancePayments.migrated}, skipped: ${stats.advancePayments.skipped}`
@@ -996,7 +1006,7 @@ async function insertAdvancePaymentRow(
     createdAt,
     reviewedAt,
     submittedAt: createdAt,
-    updatedAt: updatedAt || createdAt,
+    updatedAt,
   });
 }
 
@@ -1028,7 +1038,7 @@ async function insertAPLineItemsForParent(
       description: ap.description?.trim() || ap.remarks?.trim() || null,
       id: uuidv7(),
       sortOrder: 0,
-      updatedAt: updatedAt || createdAt,
+      updatedAt,
     });
   }
 }
@@ -1039,15 +1049,13 @@ async function insertAPLineItems(
   entries: OldAdvancePaymentEntry[],
   categoryMap: Map<number, string>
 ): Promise<void> {
-  for (let i = 0; i < entries.length; i += 1) {
-    // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee index is valid
-    const entry = entries[i]!;
+  await processSequentially(entries.entries(), async ([i, entry]) => {
     const newCategoryId = categoryMap.get(entry.category_id);
     if (!newCategoryId) {
       warn(
         `Skipping AP entry ${entry.id}: category ${entry.category_id} not mapped`
       );
-      continue;
+      return;
     }
 
     const entryCreatedAt = parseTimestamp(entry.created_at);
@@ -1061,9 +1069,9 @@ async function insertAPLineItems(
       description: entry.remarks?.trim() || null,
       id: uuidv7(),
       sortOrder: i,
-      updatedAt: entryUpdatedAt || entryCreatedAt,
+      updatedAt: entryUpdatedAt,
     });
-  }
+  });
 }
 
 async function migrateAttachments(
@@ -1077,12 +1085,12 @@ async function migrateAttachments(
   // Filter deleted
   const active = files.filter((f) => !f.deleted_at);
 
-  for (const f of active) {
+  await processSequentially(active, async (f) => {
     const isReimbursement = f.fileable_type.includes("ExpenseReimbursement");
     const isAdvancePayment = f.fileable_type.includes("AdvancePayment");
 
     if (!(isReimbursement || isAdvancePayment)) {
-      continue;
+      return;
     }
 
     const createdAt = parseTimestamp(f.created_at);
@@ -1092,7 +1100,7 @@ async function migrateAttachments(
       const newParentId = reimbursementMap.get(f.fileable_id);
       if (!newParentId) {
         stats.reimbursementAttachments.skipped += 1;
-        continue;
+        return;
       }
       const attValues = buildAttachmentValues(
         f,
@@ -1111,7 +1119,7 @@ async function migrateAttachments(
       const newParentId = advancePaymentMap.get(f.fileable_id);
       if (!newParentId) {
         stats.advancePaymentAttachments.skipped += 1;
-        continue;
+        return;
       }
       const attValues = buildAttachmentValues(
         f,
@@ -1127,7 +1135,7 @@ async function migrateAttachments(
       });
       stats.advancePaymentAttachments.migrated += 1;
     }
-  }
+  });
 
   log(
     `Reimbursement attachments migrated: ${stats.reimbursementAttachments.migrated}, skipped: ${stats.reimbursementAttachments.skipped}`
@@ -1149,11 +1157,11 @@ async function migrateHistoryRecords(
 
   // Reimbursement history
   const activeReimbursements = reimbursements.filter((r) => !r.deleted_at);
-  for (const r of activeReimbursements) {
+  await processSequentially(activeReimbursements, async (r) => {
     const newReimbId = reimbursementMap.get(r.id);
     const newUserId = userMap.get(r.user_id);
     if (!(newReimbId && newUserId)) {
-      continue;
+      return;
     }
 
     await tx.insert(schema.reimbursementHistory).values({
@@ -1165,15 +1173,15 @@ async function migrateHistoryRecords(
       reimbursementId: newReimbId,
     });
     stats.reimbursementHistory.migrated += 1;
-  }
+  });
 
   // Advance payment history
   const activeAPs = advancePayments.filter((ap) => !ap.deleted_at);
-  for (const ap of activeAPs) {
+  await processSequentially(activeAPs, async (ap) => {
     const newAPId = advancePaymentMap.get(ap.id);
     const newUserId = userMap.get(ap.user_id);
     if (!(newAPId && newUserId)) {
-      continue;
+      return;
     }
 
     await tx.insert(schema.advancePaymentHistory).values({
@@ -1185,7 +1193,7 @@ async function migrateHistoryRecords(
       note: "Migrated from legacy system",
     });
     stats.advancePaymentHistory.migrated += 1;
-  }
+  });
 
   log(`Reimbursement history records: ${stats.reimbursementHistory.migrated}`);
   log(
@@ -1238,9 +1246,9 @@ async function purgeR2Files(): Promise<void> {
     allKeys.map(async (key) => {
       try {
         await newS3.delete(key);
-        deleted++;
+        deleted += 1;
       } catch {
-        failed++;
+        failed += 1;
         warn(`Failed to delete R2 file: ${key}`);
       }
     })
@@ -1441,14 +1449,14 @@ async function syncWhatsAppStatuses(): Promise<void> {
           .update(schema.user)
           .set({ isOnWhatsapp })
           .where(eq(schema.user.id, userId));
-        stats.whatsappChecks.checked++;
+        stats.whatsappChecks.checked += 1;
         if (isOnWhatsapp) {
-          stats.whatsappChecks.onWhatsapp++;
+          stats.whatsappChecks.onWhatsapp += 1;
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         warn(`WhatsApp check failed for ${phone}: ${msg}`);
-        stats.whatsappChecks.failed++;
+        stats.whatsappChecks.failed += 1;
       }
 
       // Small delay to avoid hammering the WhatsApp Web socket
@@ -1492,9 +1500,9 @@ async function copyR2Files(): Promise<void> {
     pendingR2Copies.map(async (copy) => {
       const ok = await copyOneFile(oldS3, newS3, copy);
       if (ok) {
-        stats.r2Files.copied++;
+        stats.r2Files.copied += 1;
       } else {
-        stats.r2Files.failed++;
+        stats.r2Files.failed += 1;
       }
     })
   );

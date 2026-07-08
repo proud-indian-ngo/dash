@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { Vendor } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -107,7 +108,7 @@ function VendorFormContent({
       onSubmit: vendorFormSchema,
     },
   });
-  const stableOnCancel0 = () => onOpenChange(false);
+  const stableOnCancel0 = useEventCallback(() => onOpenChange(false));
 
   return (
     <FormLayout form={form}>
@@ -193,12 +194,12 @@ export function VendorFormDialog({
   const isEdit = !!vendor;
   const [formKey, setFormKey] = useState(0);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
     }
     onOpenChange(nextOpen);
-  };
+  });
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>

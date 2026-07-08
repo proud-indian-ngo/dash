@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { User } from "@pi-dash/zero/schema";
@@ -70,7 +71,7 @@ function UsersRouteComponent() {
   const allUsers = (usersData ?? []) as User[];
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const selectedUser = selectedUserId
-    ? (allUsers.find((u: any) => u.id === selectedUserId) ?? null)
+    ? (allUsers.find((u) => u.id === selectedUserId) ?? null)
     : null;
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleSelectOptions, setRoleSelectOptions] = useState<
@@ -79,12 +80,12 @@ function UsersRouteComponent() {
 
   useEffect(() => {
     getRoleOptions()
-      .then((roles: any) => {
+      .then((roles) => {
         if (!roles) {
           return;
         }
         setRoleSelectOptions(
-          roles.map((r: any) => ({ label: r.name, value: r.id }))
+          roles.map((r) => ({ label: r.name, value: r.id }))
         );
       })
       .catch((error: unknown) => {
@@ -116,18 +117,18 @@ function UsersRouteComponent() {
   const users = (() => {
     let filtered = allUsers;
     if (roleFilter) {
-      filtered = filtered.filter((u: any) => u.role === roleFilter);
+      filtered = filtered.filter((u) => u.role === roleFilter);
     }
     if (activeFilter) {
-      filtered = filtered.filter((u: any) =>
+      filtered = filtered.filter((u) =>
         activeFilter === "yes" ? u.isActive : !u.isActive
       );
     }
     if (genderFilter) {
-      filtered = filtered.filter((u: any) => u.gender === genderFilter);
+      filtered = filtered.filter((u) => u.gender === genderFilter);
     }
     if (bannedFilter) {
-      filtered = filtered.filter((u: any) =>
+      filtered = filtered.filter((u) =>
         bannedFilter === "yes" ? u.banned : !u.banned
       );
     }
@@ -141,67 +142,73 @@ function UsersRouteComponent() {
     bannedFilter
   );
 
-  const clearFilters = () => {
+  const clearFilters = useEventCallback(() => {
     setRoleFilter("");
     setActiveFilter("");
     setGenderFilter("");
     setBannedFilter("");
-  };
+  });
 
-  const handleCreateUser = async (value: CreateUserFormValues) => {
-    try {
-      await createUser({ data: value });
-      toast.success("User created!");
-      setCreateModalOpen(false);
-    } catch (error) {
-      log.error({
-        action: "createUser",
-        component: "UsersRoute",
-        error: error instanceof Error ? error.message : String(error),
-      });
-      toast.error(getErrorMessage(error));
-      throw error;
+  const handleCreateUser = useEventCallback(
+    async (value: CreateUserFormValues) => {
+      try {
+        await createUser({ data: value });
+        toast.success("User created!");
+        setCreateModalOpen(false);
+      } catch (error) {
+        log.error({
+          action: "createUser",
+          component: "UsersRoute",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error(getErrorMessage(error));
+        throw error;
+      }
     }
-  };
+  );
 
-  const handleUpdateUser = async (value: EditUserFormValues) => {
-    try {
-      await updateUser({ data: value });
-      toast.success("Changes saved");
-    } catch (error) {
-      log.error({
-        action: "updateUser",
-        component: "UsersRoute",
-        error: error instanceof Error ? error.message : String(error),
-        userId: value.userId,
-      });
-      toast.error(getErrorMessage(error));
-      throw error;
+  const handleUpdateUser = useEventCallback(
+    async (value: EditUserFormValues) => {
+      try {
+        await updateUser({ data: value });
+        toast.success("Changes saved");
+      } catch (error) {
+        log.error({
+          action: "updateUser",
+          component: "UsersRoute",
+          error: error instanceof Error ? error.message : String(error),
+          userId: value.userId,
+        });
+        toast.error(getErrorMessage(error));
+        throw error;
+      }
     }
-  };
+  );
 
-  const handleResetPassword = async (userId: string, newPassword: string) => {
-    try {
-      await setPassword({
-        data: {
-          newPassword,
+  const handleResetPassword = useEventCallback(
+    async (userId: string, newPassword: string) => {
+      try {
+        await setPassword({
+          data: {
+            newPassword,
+            userId,
+          },
+        });
+        toast.success("Password updated!");
+      } catch (error) {
+        log.error({
+          action: "resetPassword",
+          component: "UsersRoute",
+          error: error instanceof Error ? error.message : String(error),
           userId,
-        },
-      });
-      toast.success("Password updated!");
-    } catch (error) {
-      log.error({
-        action: "resetPassword",
-        component: "UsersRoute",
-        error: error instanceof Error ? error.message : String(error),
-        userId,
-      });
-      toast.error(getErrorMessage(error));
-      throw error;
+        });
+        toast.error(getErrorMessage(error));
+        throw error;
+      }
     }
-  };
+  );
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = useEventCallback(async (userId: string) => {
     try {
       await deleteUser({
         data: {
@@ -219,36 +226,34 @@ function UsersRouteComponent() {
       toast.error(getErrorMessage(error));
       throw error;
     }
-  };
+  });
 
-  const handleBanUser = async (
-    userId: string,
-    banReason: string,
-    banExpires?: string
-  ) => {
-    try {
-      await setUserBan({
-        data: {
-          banExpires,
-          banned: true,
-          banReason,
+  const handleBanUser = useEventCallback(
+    async (userId: string, banReason: string, banExpires?: string) => {
+      try {
+        await setUserBan({
+          data: {
+            banExpires,
+            banned: true,
+            banReason,
+            userId,
+          },
+        });
+        toast.success("User has been banned");
+      } catch (error) {
+        log.error({
+          action: "banUser",
+          component: "UsersRoute",
+          error: error instanceof Error ? error.message : String(error),
           userId,
-        },
-      });
-      toast.success("User has been banned");
-    } catch (error) {
-      log.error({
-        action: "banUser",
-        component: "UsersRoute",
-        error: error instanceof Error ? error.message : String(error),
-        userId,
-      });
-      toast.error(getErrorMessage(error));
-      throw error;
+        });
+        toast.error(getErrorMessage(error));
+        throw error;
+      }
     }
-  };
+  );
 
-  const handleUnbanUser = async (userId: string) => {
+  const handleUnbanUser = useEventCallback(async (userId: string) => {
     try {
       await setUserBan({
         data: {
@@ -267,17 +272,19 @@ function UsersRouteComponent() {
       toast.error(getErrorMessage(error));
       throw error;
     }
-  };
-  const stableOnRowClick0 = (user: any) => setSelectedUserId(user.id);
-  const stableOnClick1 = () => {
+  });
+  const stableOnRowClick0 = useEventCallback((user: { id: string }) =>
+    setSelectedUserId(user.id)
+  );
+  const stableOnClick1 = useEventCallback(() => {
     setCreateModalOpen(true);
-  };
-  const stableOnOpenChange2 = (open: any) => {
+  });
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       setSelectedUserId(null);
     }
-  };
-  const stableOnCancel3 = () => setCreateModalOpen(false);
+  });
+  const stableOnCancel3 = useEventCallback(() => setCreateModalOpen(false));
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

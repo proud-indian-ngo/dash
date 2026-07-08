@@ -30,7 +30,7 @@ export const getMyEventFeedback = createServerFn({ method: "GET" })
       )
       .limit(1);
 
-    const first = submission[0];
+    const [first] = submission;
     if (!first) {
       return null;
     }

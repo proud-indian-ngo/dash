@@ -58,7 +58,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     });
 
     await expect(reimbursements.detail.getApproveButton()).toBeHidden();
-    await expect(reimbursements.detail.getRejectButton()).toBeHidden();
+    await expect(reimbursements.detail.getRejectButton()).toBeVisible();
   });
 
   test("admin rejects a pending reimbursement with reason", async ({
@@ -75,7 +75,8 @@ test.describe("Reimbursement detail (reimbursement)", () => {
       timeout: 10_000,
     });
 
-    await expect(reimbursements.detail.getApproveButton()).toBeHidden();
+    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
+    await expect(reimbursements.detail.getRejectButton()).toBeHidden();
   });
 
   test("admin edit submission button opens edit form", async ({
@@ -127,21 +128,11 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
+    await reimbursements.createReimbursement("Line Items Table");
 
-    // Click the seeded reimbursement row
-    const seedRow = reimbursements.list
-      .getTable()
-      .getByRole("row")
-      .filter({ hasText: "E2E Seed Reimbursement" });
-    await expect(seedRow).toBeVisible({ timeout: 10_000 });
-    await seedRow.click();
-    await page.waitForURL(/\/reimbursements\/[a-z0-9-]/, { timeout: 10_000 });
-
-    await expect(page.getByText("Line items")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Line items" })
+    ).toBeVisible({ timeout: 10_000 });
     await expect(
       page.getByRole("columnheader", { name: /Category/ })
     ).toBeVisible();

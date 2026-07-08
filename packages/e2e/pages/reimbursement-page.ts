@@ -6,6 +6,8 @@ import { RequestFormPage } from "./request-form-page";
 
 // Type retained for routing logic (navigateToNew); selectType() removed as UI no longer offers type selection.
 type RequestType = "reimbursement" | "advance_payment";
+const reimbursementDetailUrlPattern =
+  /\/reimbursements\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class ReimbursementPage {
   readonly page: Page;
@@ -49,13 +51,23 @@ export class ReimbursementPage {
     ).toBeHidden();
   }
 
+  async waitForDetail(title: string): Promise<void> {
+    await this.page.waitForURL(reimbursementDetailUrlPattern, {
+      timeout: 10_000,
+    });
+    await waitForZeroReady(this.page);
+    await expect(this.page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 30_000,
+    });
+  }
+
   async createReimbursement(titleSuffix: string): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
 
+    await this.form.selectBankAccount();
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
-    await this.form.selectBankAccount();
 
     if (this.type === "reimbursement") {
       await this.selectExpenseDate();
@@ -66,9 +78,7 @@ export class ReimbursementPage {
       description: "Test item",
     });
     await this.form.submit();
-    await this.page.waitForURL(/\/reimbursements\/[a-z0-9-]+$/, {
-      timeout: 10_000,
-    });
+    await this.waitForDetail(title);
     return title;
   }
 
@@ -76,9 +86,9 @@ export class ReimbursementPage {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
 
+    await this.form.selectBankAccount();
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
-    await this.form.selectBankAccount();
     await this.selectExpenseDate();
 
     await this.form.fillLineItem({
@@ -89,9 +99,7 @@ export class ReimbursementPage {
     await this.form.toggleCashVoucher(0);
 
     await this.form.submit();
-    await this.page.waitForURL(/\/reimbursements\/[a-z0-9-]+$/, {
-      timeout: 10_000,
-    });
+    await this.waitForDetail(title);
     return title;
   }
 }

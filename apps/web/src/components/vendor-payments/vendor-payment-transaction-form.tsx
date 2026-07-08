@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -29,12 +30,11 @@ function buildTransactionFormSchema(remainingAmount?: number) {
     amount: z
       .string()
       .min(1, "Amount is required")
-      .refine((v: any) => !Number.isNaN(Number(v)) && Number(v) > 0, {
+      .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
         message: "Must be a positive number",
       })
       .refine(
-        (v: any) =>
-          remainingAmount === undefined || Number(v) <= remainingAmount,
+        (v) => remainingAmount === undefined || Number(v) <= remainingAmount,
         {
           message: `Exceeds remaining balance of ${formatINR(remainingAmount ?? 0)}`,
         }
@@ -168,7 +168,7 @@ function TransactionFormContent({
     submittingLabel = "Recording...";
   }
 
-  const stableOnCancel0 = () => onOpenChange(false);
+  const stableOnCancel0 = useEventCallback(() => onOpenChange(false));
 
   return (
     <FormLayout form={form}>
@@ -192,10 +192,10 @@ function TransactionFormContent({
       </div>
 
       <CustomField<Attachment[]> label="Attachments" name="attachments">
-        {(field: any) => (
+        {(field) => (
           <AttachmentsSection
             entityId={entityId}
-            onChange={(attachments: any) => field.handleChange(attachments)}
+            onChange={field.handleChange}
             value={field.state.value ?? []}
           />
         )}
@@ -223,12 +223,12 @@ export function TransactionFormDialog({
 }: TransactionFormDialogProps) {
   const [formKey, setFormKey] = useState(0);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
     }
     onOpenChange(nextOpen);
-  };
+  });
 
   const isEdit = mode === "edit";
   let title = "Request Payment";

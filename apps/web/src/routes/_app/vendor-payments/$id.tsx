@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -74,14 +75,14 @@ function VendorPaymentDetailRouteComponent() {
   const [vendorPayment, result] = useQuery(queries.vendorPayment.byId({ id }));
 
   const isLoading = !vendorPayment && result.type !== "complete";
-  const stableOnCancel0 = () => {
+  const stableOnCancel0 = useEventCallback(() => {
     navigate({ to: "/vendor-payments" });
-  };
-  const stableOnSaved1 = () => {
+  });
+  const stableOnSaved1 = useEventCallback(() => {
     setEditMode(false);
-  };
-  const stableOnViewDetails2 = () => setEditMode(false);
-  const stableOnClick3 = () => setEditMode(true);
+  });
+  const stableOnViewDetails2 = useEventCallback(() => setEditMode(false));
+  const stableOnClick3 = useEventCallback(() => setEditMode(true));
 
   if (isLoading) {
     return (

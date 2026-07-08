@@ -124,7 +124,7 @@ function groupByEvent<
 
   return [...map.entries()]
     .map(([eventId, data]) => ({ eventId, ...data }))
-    .sort((a: any, b: any) => b.latestAt - a.latestAt);
+    .sort((a, b) => b.latestAt - a.latestAt);
 }
 
 // --- Skeleton ---
@@ -132,11 +132,11 @@ function groupByEvent<
 function PendingReviewsSkeleton() {
   return (
     <div className="space-y-4">
-      {[1, 2, 3].map((i: any) => (
+      {[1, 2, 3].map((i) => (
         <div className="space-y-2" key={i}>
           <Skeleton className="h-4 w-40" />
           <div className="space-y-1.5">
-            {[1, 2].map((j: any) => (
+            {[1, 2].map((j) => (
               <Skeleton className="h-8 w-full" key={j} />
             ))}
           </div>
@@ -233,7 +233,7 @@ function FinancialGroup({
         label={label}
       />
       <div>
-        {displayed.map((item: any) => (
+        {displayed.map((item) => (
           <Link
             className="-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
             key={item.id}
@@ -282,7 +282,7 @@ function VendorPaymentGroup({
         label="Vendor Payments"
       />
       <div>
-        {displayed.map((item: any) => (
+        {displayed.map((item) => (
           <Link
             className="-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
             key={item.id}
@@ -331,7 +331,7 @@ function EventGroupSection({
   if (groups.length === 0) {
     return null;
   }
-  const totalCount = groups.reduce((sum: any, g: any) => sum + g.count, 0);
+  const totalCount = groups.reduce((sum, g) => sum + g.count, 0);
   const displayed = groups.slice(0, MAX_ITEMS_PER_GROUP);
 
   return (
@@ -343,7 +343,7 @@ function EventGroupSection({
         label={label}
       />
       <div>
-        {displayed.map((group: any) => (
+        {displayed.map((group) => (
           <Link
             className="-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
             key={group.eventId}
@@ -402,13 +402,13 @@ export function PendingReviews({
 
   // Event items grouped by event (already scoped by Zero query)
   const photoGroups = canManagePhotos
-    ? groupByEvent(eventPhotos, (p: any) => p.uploader?.name)
+    ? groupByEvent(eventPhotos, (p) => p.uploader?.name ?? "Unknown")
     : [];
   const updateGroups = canApproveUpdates
-    ? groupByEvent(eventUpdates, (u: any) => u.author?.name)
+    ? groupByEvent(eventUpdates, (u) => u.author?.name ?? "Unknown")
     : [];
   const interestGroups = canManageInterest
-    ? groupByEvent(eventInterests, (i: any) => i.user?.name)
+    ? groupByEvent(eventInterests, (i) => i.user?.name ?? "Unknown")
     : [];
 
   const totalCount =

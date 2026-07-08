@@ -44,14 +44,14 @@ export function PhoneField({
       name={name}
       validators={validators}
     >
-      {(field: any) => (
+      {(field) => (
         <PhoneInput
           {...props}
           {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
           aria-required={isRequired}
           id={field.name}
           onBlur={field.handleBlur}
-          onChange={(value: any) => field.handleChange(value)}
+          onChange={field.handleChange}
           value={(field.state.value ?? "") as string}
         />
       )}

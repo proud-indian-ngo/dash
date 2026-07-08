@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format, isValid, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
 import { useState } from "react";
@@ -58,7 +59,7 @@ export function DateRangeFilter() {
     }
   );
 
-  function handlePresetChange(value: string | null) {
+  const handlePresetChange = useEventCallback((value: string | null) => {
     if (!value) {
       return;
     }
@@ -67,20 +68,22 @@ export function DateRangeFilter() {
       return;
     }
     setParams({ from: "", range: value, to: "" });
-  }
+  });
 
-  function handleCustomRangeSelect(range: RangeSelection | undefined) {
-    setCustomRange(range);
-    if (range?.from && range?.to) {
-      setParams({
-        from: format(range.from, ISO_DATE),
-        range: "custom",
-        to: format(range.to, ISO_DATE),
-      });
+  const handleCustomRangeSelect = useEventCallback(
+    (range: RangeSelection | undefined) => {
+      setCustomRange(range);
+      if (range?.from && range?.to) {
+        setParams({
+          from: format(range.from, ISO_DATE),
+          range: "custom",
+          to: format(range.to, ISO_DATE),
+        });
+      }
     }
-  }
+  );
 
-  const activePreset = DATE_PRESETS.find((p: any) => p.key === params.range);
+  const activePreset = DATE_PRESETS.find((p) => p.key === params.range);
   const isCustom = params.range === "custom";
 
   function getDisplayLabel() {
@@ -104,7 +107,7 @@ export function DateRangeFilter() {
           <SelectValue>{displayLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {DATE_PRESETS.map((preset: any) => (
+          {DATE_PRESETS.map((preset) => (
             <SelectItem key={preset.key} value={preset.key}>
               {preset.label}
             </SelectItem>

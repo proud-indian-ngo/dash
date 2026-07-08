@@ -40,11 +40,14 @@ const rsvpPollLeadMinutesSchema = z
 
 interface MutatorCtx {
   asyncTasks?: {
-    // biome-ignore lint/suspicious/noExplicitAny: matches Zero's internal push signature
-    push: (task: any) => void;
+    push: BivariantTaskPush["bivarianceHack"];
   };
   traceId?: string;
   userId: string;
+}
+
+abstract class BivariantTaskPush {
+  abstract bivarianceHack(task: unknown): void;
 }
 
 export function computeOccurrenceStart(
@@ -654,7 +657,6 @@ export const teamEventMutators = {
       teamId: z.string(),
       whatsappGroupId: z.string().optional(),
     }),
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: insert maps many optional fields + server-side tasks
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       if (args.endTime !== undefined && args.endTime <= args.startTime) {

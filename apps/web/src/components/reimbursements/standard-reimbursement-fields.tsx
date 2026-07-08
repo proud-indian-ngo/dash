@@ -78,9 +78,9 @@ export function StandardReimbursementFields({
           label="Bank Account"
           name="bankAccountName"
         >
-          {(field: any) => {
+          {(field) => {
             const selectedAccount = bankAccountList.find(
-              (account: any) =>
+              (account) =>
                 account.accountNumber ===
                 form.getFieldValue("bankAccountNumber")
             );
@@ -89,14 +89,14 @@ export function StandardReimbursementFields({
             return (
               <Select
                 disabled={disableBankAccountSelection}
-                onOpenChange={(open: any) => {
+                onOpenChange={(open) => {
                   if (!open) {
                     field.handleBlur();
                   }
                 }}
-                onValueChange={(accountId: any) => {
+                onValueChange={(accountId) => {
                   const account = bankAccountList.find(
-                    (entry: any) => entry.id === accountId
+                    (entry) => entry.id === accountId
                   );
 
                   if (account) {
@@ -116,15 +116,14 @@ export function StandardReimbursementFields({
                     data-slot="select-value"
                   >
                     {bankAccountOptions.find(
-                      (option: any) =>
-                        option.value === (selectedAccount?.id ?? "")
+                      (option) => option.value === (selectedAccount?.id ?? "")
                     )?.label ??
                       field.state.value ??
                       "Select bank account"}
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {bankAccountOptions.map((option: any) => (
+                  {bankAccountOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -185,18 +184,18 @@ export function StandardReimbursementFields({
         ) : null}
         {requestType === "reimbursement" ? (
           <CustomField<string | undefined> label="Event" name="eventId">
-            {(field: any) => {
-              const items = ["", ...eventOptions.map((o: any) => o.value)];
+            {(field) => {
+              const items = ["", ...eventOptions.map((o) => o.value)];
               const optionMap = new Map(
-                eventOptions.map((o: any) => [o.value, o.label])
+                eventOptions.map((o) => [o.value, o.label])
               );
               return (
                 <Combobox
                   items={items}
-                  itemToStringLabel={(v: any) =>
+                  itemToStringLabel={(v) =>
                     v === "" ? "No event" : (optionMap.get(v) ?? String(v))
                   }
-                  onValueChange={(v: any) =>
+                  onValueChange={(v) =>
                     field.handleChange(v === "" ? undefined : v)
                   }
                   value={field.state.value ?? ""}
@@ -210,7 +209,7 @@ export function StandardReimbursementFields({
                   />
                   <ComboboxContent>
                     <ComboboxList>
-                      {(itemValue: any) => (
+                      {(itemValue) => (
                         <ComboboxItem key={itemValue} value={itemValue}>
                           {itemValue === ""
                             ? "No event"
@@ -238,7 +237,7 @@ export function StandardReimbursementFields({
         {(field: FormFieldApi<unknown[]>) => (
           <AttachmentsSection
             entityId={entityId}
-            onChange={(attachments: any) => field.handleChange(attachments)}
+            onChange={field.handleChange}
             value={field.state.value as Attachment[]}
           />
         )}

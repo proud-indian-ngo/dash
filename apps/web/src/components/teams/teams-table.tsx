@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
   Team,
   TeamMember,
@@ -45,8 +46,10 @@ function RowActions({
   onNavigate: (id: string) => void;
   onRequestDelete: () => void;
 }) {
-  const stableOnClick0 = (e: any) => e.stopPropagation();
-  const stableOnClick1 = () => onNavigate(id);
+  const stableOnClick0 = useEventCallback(
+    (e: { stopPropagation: () => void }) => e.stopPropagation()
+  );
+  const stableOnClick1 = useEventCallback(() => onNavigate(id));
 
   return (
     <DropdownMenu>
@@ -111,7 +114,7 @@ export function TeamsTable({
   const canDeleteTeam = hasPermission("teams.delete");
 
   const deleteAction = useConfirmAction<string>({
-    onConfirm: async (id: any) => {
+    onConfirm: async (id) => {
       await onDelete(id);
       return { type: "ok" };
     },
@@ -120,7 +123,7 @@ export function TeamsTable({
 
   const columns: ColumnDef<TeamRow>[] = [
     {
-      accessorFn: (row: any) => row.name,
+      accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <button
           className="truncate text-left font-medium text-sm hover:underline"
@@ -139,7 +142,7 @@ export function TeamsTable({
       size: 200,
     },
     {
-      accessorFn: (row: any) => row.description,
+      accessorFn: (row) => row.description,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.description || "—"}
@@ -157,7 +160,7 @@ export function TeamsTable({
       size: 280,
     },
     {
-      accessorFn: (row: any) => row.members.length,
+      accessorFn: (row) => row.members.length,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.members.length}</span>
       ),
@@ -173,7 +176,7 @@ export function TeamsTable({
       size: 100,
     },
     {
-      accessorFn: (row: any) => row.whatsappGroup?.name,
+      accessorFn: (row) => row.whatsappGroup?.name,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.whatsappGroup?.name || "—"}
@@ -210,13 +213,15 @@ export function TeamsTable({
       size: 52,
     },
   ];
-  const stableGetRowId2 = (row: any) => row.id;
-  const stableOnRowClick3 = (row: any) => onNavigate(row.id);
-  const stableOnOpenChange4 = (open: any) => {
+  const stableGetRowId2 = useEventCallback((row: { id: string }) => row.id);
+  const stableOnRowClick3 = useEventCallback((row: { id: string }) =>
+    onNavigate(row.id)
+  );
+  const stableOnOpenChange4 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
     }
-  };
+  });
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { waitForZeroReady } from "../fixtures/test";
 
 export class RequestFormPage {
   readonly page: Page;
@@ -28,11 +29,11 @@ export class RequestFormPage {
   }
 
   getDescriptionInputs(): Locator {
-    return this.page.getByPlaceholder("Description");
+    return this.page.getByLabel(/Description for line item/);
   }
 
   getAmountInputs(): Locator {
-    return this.page.getByPlaceholder("0.00");
+    return this.page.getByLabel(/Amount for line item/);
   }
 
   getRemoveButtons(): Locator {
@@ -53,21 +54,37 @@ export class RequestFormPage {
   }
 
   async selectBankAccount(timeout = 25_000): Promise<void> {
-    const bankAccountGroup = this.page
-      .getByRole("group")
-      .filter({ hasText: "Bank Account" });
-    const combobox = bankAccountGroup.getByRole("combobox");
-    await expect(combobox).toBeVisible({ timeout });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const bankAccountGroup = this.page
+        .getByRole("group")
+        .filter({ hasText: "Bank Account" });
+      const combobox = bankAccountGroup.getByRole("combobox");
 
-    // If a default is already selected, skip — just verify it has a value
-    const text = await combobox.textContent();
-    if (text?.includes("••••")) {
-      return;
+      if (await combobox.isVisible({ timeout }).catch(() => false)) {
+        const text = await combobox.textContent();
+        if (text?.includes("••••")) {
+          return;
+        }
+
+        await combobox.click();
+        await expect(this.page.getByRole("option")).toBeVisible({ timeout });
+        await this.page.getByRole("option").first().click();
+        return;
+      }
+
+      await this.page.goto("/reimbursements/new");
+      await waitForZeroReady(this.page);
+      await expect(
+        this.page.getByRole("heading", { name: "New Reimbursement" })
+      ).toBeVisible({ timeout });
     }
 
-    await combobox.click();
-    await expect(this.page.getByRole("option")).toBeVisible({ timeout });
-    await this.page.getByRole("option").first().click();
+    await expect(
+      this.page
+        .getByRole("group")
+        .filter({ hasText: "Bank Account" })
+        .getByRole("combobox")
+    ).toBeVisible({ timeout });
   }
 
   async fillLineItem(opts: {
@@ -75,9 +92,10 @@ export class RequestFormPage {
     amount: string;
     selectCategory?: boolean;
   }): Promise<void> {
+    const index = (await this.getDescriptionInputs().count()) - 1;
     if (opts.selectCategory !== false) {
       await this.page
-        .locator('[data-slot="select-value"]:has-text("Category")')
+        .getByRole("combobox", { name: `Category for line item ${index + 1}` })
         .click();
       await this.page.getByRole("option").first().click();
     }

@@ -33,12 +33,12 @@ export const Route = createFileRoute("/api/jobs/$id/cancel")({
         try {
           const rows = await db.execute<{ name: string }>(
             sql`SELECT name FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
-              QUEUE_NAMES.map((n: any) => sql`${n}`),
+              QUEUE_NAMES.map((n) => sql`${n}`),
               sql`, `
             )}) LIMIT 1`
           );
 
-          const row = rows[0];
+          const [row] = rows;
           if (!row) {
             return Response.json({ error: "Job not found" }, { status: 404 });
           }

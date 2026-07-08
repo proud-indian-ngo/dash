@@ -20,7 +20,7 @@ function buildDrain() {
   });
 }
 
-export default definePlugin((nitroApp: any) => {
+export default definePlugin((nitroApp) => {
   initLogger({
     drain: buildDrain(),
     env: {
@@ -31,7 +31,7 @@ export default definePlugin((nitroApp: any) => {
     redact: { builtins: ["creditCard", "email", "jwt", "bearer", "iban"] },
   });
 
-  nitroApp.hooks.hook("evlog:enrich", (ctx: any) => {
+  nitroApp.hooks.hook("evlog:enrich", (ctx) => {
     const traceId = getCurrentTraceId();
     if (traceId && !ctx.event.traceId) {
       ctx.event.traceId = traceId;

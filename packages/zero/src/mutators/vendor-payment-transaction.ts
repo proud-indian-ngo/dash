@@ -35,9 +35,26 @@ const createSchema = z.object({
 const fk = (id: string) => ({ vendorPaymentTransactionId: id });
 const toCents = (v: number | string) => Math.round(Number(v) * 100);
 
+abstract class BivariantZeroMutation {
+  abstract bivarianceHack(args: unknown): Promise<void>;
+}
+type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
+abstract class BivariantZeroRun {
+  abstract bivarianceHack(query: unknown): Promise<unknown>;
+}
+type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
+
+interface VendorPaymentTransactionTx {
+  mutate: {
+    vendorPayment: {
+      update: ZeroMutationFn;
+    };
+  };
+  run: ZeroRunFn;
+}
+
 async function assertWithinPaymentCap(
-  // biome-ignore lint/suspicious/noExplicitAny: tx type is complex and varies by context
-  tx: any,
+  tx: VendorPaymentTransactionTx,
   vendorPaymentId: string,
   newAmountCents: number,
   excludeTransactionId?: string
@@ -68,8 +85,7 @@ async function assertWithinPaymentCap(
 }
 
 export async function recalculateParentStatus(
-  // biome-ignore lint/suspicious/noExplicitAny: tx type is complex and varies by context
-  tx: any,
+  tx: VendorPaymentTransactionTx,
   vendorPaymentId: string,
   now: number
 ): Promise<string | null> {
@@ -94,12 +110,13 @@ export async function recalculateParentStatus(
   const current = await tx.run(
     zql.vendorPayment.where("id", vendorPaymentId).one()
   );
+  const currentStatus = (current as { status?: string } | undefined)?.status;
   if (
     current &&
-    current.status !== newStatus &&
-    current.status !== "pending" &&
-    current.status !== "rejected" &&
-    !INVOICE_LOCKED_STATUSES.has(current.status as string)
+    currentStatus !== newStatus &&
+    currentStatus !== "pending" &&
+    currentStatus !== "rejected" &&
+    !INVOICE_LOCKED_STATUSES.has(currentStatus ?? "")
   ) {
     await tx.mutate.vendorPayment.update({
       id: vendorPaymentId,
@@ -215,7 +232,6 @@ export const vendorPaymentTransactionMutators = {
       }
     }
   ),
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: notification branching after tx.run adds 1 point over limit
   create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.record_payment");

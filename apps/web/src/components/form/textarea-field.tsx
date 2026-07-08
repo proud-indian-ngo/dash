@@ -1,8 +1,10 @@
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import type { ChangeEvent, ComponentPropsWithoutRef, ReactNode } from "react";
 import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
+  type FormFieldApi,
   type FormInstance,
   fieldErrorProps,
   useResolvedForm,
@@ -21,6 +23,38 @@ interface TextareaFieldProps extends BaseTextareaProps {
   label: string;
   name: string;
   validators?: FieldValidatorConfig<string>;
+}
+
+interface TextareaFieldControlProps extends BaseTextareaProps {
+  field: FormFieldApi<string>;
+  isRequired: boolean;
+  submitted: boolean;
+}
+
+function TextareaFieldControl({
+  field,
+  isRequired,
+  submitted,
+  ...props
+}: TextareaFieldControlProps) {
+  const handleChange = useEventCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      field.handleChange(event.target.value);
+    }
+  );
+
+  return (
+    <Textarea
+      {...props}
+      {...fieldErrorProps(field, submitted)}
+      aria-required={isRequired}
+      id={field.name}
+      name={field.name}
+      onBlur={field.handleBlur}
+      onChange={handleChange}
+      value={(field.state.value ?? "") as string}
+    />
+  );
 }
 
 export function TextareaField({
@@ -44,16 +78,12 @@ export function TextareaField({
       name={name}
       validators={validators}
     >
-      {(field: any) => (
-        <Textarea
+      {(field) => (
+        <TextareaFieldControl
           {...props}
-          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
-          aria-required={isRequired}
-          id={field.name}
-          name={field.name}
-          onBlur={field.handleBlur}
-          onChange={(event: any) => field.handleChange(event.target.value)}
-          value={(field.state.value ?? "") as string}
+          field={field}
+          isRequired={isRequired}
+          submitted={resolvedForm.state.submissionAttempts > 0}
         />
       )}
     </CustomField>

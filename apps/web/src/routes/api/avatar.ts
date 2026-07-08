@@ -9,7 +9,7 @@ const AVATAR_CACHE_CONTROL = "private, max-age=31536000, immutable";
 const toVariant = (value: number): string =>
   `variant${value.toString().padStart(2, "0")}`;
 const createVariantRange = (start: number, end: number): string[] =>
-  Array.from({ length: end - start + 1 }, (_: any, index: any) =>
+  Array.from({ length: end - start + 1 }, (_, index) =>
     toVariant(start + index)
   );
 
@@ -51,7 +51,8 @@ const toHttpUrl = (value: unknown): string | undefined => {
     }
     return parsed.toString();
   } catch {
-    void 0;
+    const fallback = undefined;
+    return fallback;
   }
 };
 

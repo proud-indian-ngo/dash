@@ -15,7 +15,7 @@ const passwordResetFields = {
 
 const passwordResetSchema = z
   .object(passwordResetFields)
-  .refine((data: any) => data.newPassword === data.confirmPassword, {
+  .refine((data) => data.newPassword === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });

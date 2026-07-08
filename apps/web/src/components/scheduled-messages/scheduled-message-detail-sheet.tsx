@@ -41,7 +41,7 @@ function parseAttachments(value: unknown): Attachment[] | null {
   if (!Array.isArray(value) || value.length === 0) {
     return null;
   }
-  const first = value[0];
+  const [first] = value;
   if (
     typeof first !== "object" ||
     first === null ||
@@ -176,7 +176,7 @@ export function ScheduledMessageDetailSheet({
                 Attachments ({attachments.length})
               </h3>
               <div className="flex flex-col gap-1.5">
-                {attachments.map((a: any) => (
+                {attachments.map((a) => (
                   <a
                     className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
                     download={a.fileName}

@@ -66,6 +66,6 @@ export async function handleSendNotification(
       });
     })
   );
-  const first = outputs[0];
+  const [first] = outputs;
   return outputs.length === 1 && first ? first : { batch: outputs };
 }

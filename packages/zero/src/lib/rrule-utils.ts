@@ -63,7 +63,7 @@ export function rruleToFormState(rruleString: string): RRuleFormState {
   }
 
   let bySetPos: number | undefined;
-  if (opts.bysetpos != null) {
+  if (opts.bysetpos !== null && opts.bysetpos !== undefined) {
     bySetPos = Array.isArray(opts.bysetpos) ? opts.bysetpos[0] : opts.bysetpos;
   }
 
@@ -71,10 +71,10 @@ export function rruleToFormState(rruleString: string): RRuleFormState {
   let count: number | undefined;
   let until: string | undefined;
 
-  if (opts.count != null) {
+  if (opts.count !== null && opts.count !== undefined) {
     endType = "count";
-    count = opts.count;
-  } else if (opts.until != null) {
+    ({ count } = opts);
+  } else if (opts.until !== null && opts.until !== undefined) {
     endType = "until";
     until = toISODateUTC(opts.until);
   }
@@ -97,11 +97,15 @@ export function formStateToRRule(
     options.byweekday = state.byDay;
   }
 
-  if (state.bySetPos != null) {
+  if (state.bySetPos !== null && state.bySetPos !== undefined) {
     options.bysetpos = state.bySetPos;
   }
 
-  if (state.endType === "count" && state.count != null) {
+  if (
+    state.endType === "count" &&
+    state.count !== null &&
+    state.count !== undefined
+  ) {
     options.count = state.count;
   } else if (state.endType === "until" && state.until) {
     options.until = new Date(`${state.until}T23:59:59Z`);
@@ -177,14 +181,14 @@ export function parseExcludeRRule(
   const bysetpos = Array.isArray(opts.bysetpos)
     ? opts.bysetpos[0]
     : opts.bysetpos;
-  if (bysetpos == null) {
+  if (bysetpos === null || bysetpos === undefined) {
     return null;
   }
 
   const byweekday = Array.isArray(opts.byweekday)
     ? opts.byweekday[0]
     : opts.byweekday;
-  if (byweekday == null) {
+  if (byweekday === null || byweekday === undefined) {
     return null;
   }
 
@@ -192,9 +196,9 @@ export function parseExcludeRRule(
   if (typeof byweekday === "number") {
     weekday = byweekday;
   } else if (typeof byweekday === "object" && "weekday" in byweekday) {
-    weekday = byweekday.weekday;
+    ({ weekday } = byweekday);
   }
-  if (weekday == null) {
+  if (weekday === null || weekday === undefined) {
     return null;
   }
 

@@ -10,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@pi-dash/design-system/components/ui/chart";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import { formatINR } from "@/lib/form-schemas";
 import type { VendorDataPoint } from "@/lib/stats";
@@ -22,9 +23,11 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function TopVendorsChart({ data }: { data: VendorDataPoint[] }) {
-  const stableTickFormatter0 = (v: number) => formatINR(v);
-  const stableFormatter1 = (value: unknown, _name: unknown, props: unknown) =>
-    `${formatINR(Number(value))} (${(props as { payload: VendorDataPoint }).payload.count} payments)`;
+  const stableTickFormatter0 = useEventCallback((v: number) => formatINR(v));
+  const stableFormatter1 = useEventCallback(
+    (value: unknown, _name: unknown, props: unknown) =>
+      `${formatINR(Number(value))} (${(props as { payload: VendorDataPoint }).payload.count} payments)`
+  );
   if (data.length === 0) {
     return (
       <Card>

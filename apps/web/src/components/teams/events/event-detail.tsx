@@ -10,6 +10,7 @@ import {
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -34,7 +35,10 @@ import {
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
 import type { TeamDetailData } from "@/components/teams/team-detail";
-import { postEventRsvpPoll } from "@/functions/event-poll";
+import {
+  type PostEventRsvpPollResult,
+  postEventRsvpPoll,
+} from "@/functions/event-poll";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
@@ -55,6 +59,21 @@ import { EventPhotos } from "./event-photos";
 import { EventQuickStats } from "./event-quick-stats";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
+
+type PostEventRsvpPollErrorCode = Extract<
+  PostEventRsvpPollResult,
+  { type: "error" }
+>["code"];
+
+const RSVP_POLL_ERROR_MESSAGES = {
+  forbidden: "You don't have permission to post polls",
+  no_whatsapp_group: "No WhatsApp group linked to this event or team",
+  not_eligible: "Event is not eligible for an RSVP poll",
+  not_found: "Event not found or was deleted",
+  poll_exists: "Poll already posted for this event",
+  unauthorized: "You are not signed in",
+} satisfies Record<Exclude<PostEventRsvpPollErrorCode, "unknown">, string>;
+
 import type { InterestWithUser } from "./interest-requests";
 import { ShowInterestDialog } from "./show-interest-dialog";
 
@@ -137,7 +156,9 @@ function InterestSection(props: {
   onJoinAsMember: () => void;
   onLeaveEvent: () => void;
 }) {
-  const stableOnShowInterest0 = () => props.dialog.open({ type: "interest" });
+  const stableOnShowInterest0 = useEventCallback(() =>
+    props.dialog.open({ type: "interest" })
+  );
   if (props.hasStarted) {
     return (
       <PastInterestBadge
@@ -252,7 +273,7 @@ function useScopeDialogs(
         scopeOccDate,
         cancelReason
       ),
-    onError: (msg: any) => {
+    onError: (msg) => {
       log.error({
         component: "EventDetail",
         entityId: event.id,
@@ -381,8 +402,9 @@ function EventHeader({
 }) {
   const navigate = useNavigate();
   const { label, variant } = STATUS_CONFIG[status];
-  const stableOnClick1 = () =>
-    navigate({ params: { id: event.teamId }, to: "/teams/$id" });
+  const stableOnClick1 = useEventCallback(() =>
+    navigate({ params: { id: event.teamId }, to: "/teams/$id" })
+  );
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -478,8 +500,9 @@ function EventTabs({
       "expenses",
     ]).withDefault("updates")
   );
-  const stableOnValueChange2 = (v: any) =>
-    setTab(v as "updates" | "photos" | "feedback" | "expenses");
+  const stableOnValueChange2 = useEventCallback((v: string | null) =>
+    setTab(v as "updates" | "photos" | "feedback" | "expenses")
+  );
 
   return (
     <Tabs onValueChange={stableOnValueChange2} value={tab}>
@@ -637,8 +660,8 @@ function calcTotalExpenses(
     | undefined
 ): number {
   return [...(reimbursements ?? []), ...(vendorPayments ?? [])].reduce(
-    (sum: any, expense: any) =>
-      sum + expense.lineItems.reduce((s: any, li: any) => s + li.amount, 0),
+    (sum, expense) =>
+      sum + expense.lineItems.reduce((s, li) => s + li.amount, 0),
     0
   );
 }
@@ -647,7 +670,7 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
   const feedbackDeadlinePassed =
     !!event.feedbackDeadline && new Date(event.feedbackDeadline) < new Date();
   const presentCount = event.members.filter(
-    (m: any) => m.attendance === "present"
+    (m) => m.attendance === "present"
   ).length;
   const recurrence = event.recurrenceRule as
     | { rrule: string; exdates?: string[] }
@@ -834,33 +857,21 @@ export function EventDetail({
         toast.success("Poll queued");
         return;
       }
-      switch (res.code) {
-        case "poll_exists":
-          toast.info("Poll already posted for this event");
-          break;
-        case "not_eligible":
-          toast.error("Event is not eligible for an RSVP poll");
-          break;
-        case "no_whatsapp_group":
-          toast.error("No WhatsApp group linked to this event or team");
-          break;
-        case "not_found":
-          toast.error("Event not found or was deleted");
-          break;
-        case "unauthorized":
-          toast.error("You are not signed in");
-          break;
-        case "forbidden":
-          toast.error("You don't have permission to post polls");
-          break;
-        default:
-          log.error({
-            component: "EventDetail",
-            entityId: targetId,
-            error: res.code,
-            fn: "postEventRsvpPoll",
-          });
-          toast.error("Couldn't post poll");
+      if (res.code === "unknown") {
+        log.error({
+          component: "EventDetail",
+          entityId: targetId,
+          error: res.code,
+          fn: "postEventRsvpPoll",
+        });
+        toast.error("Couldn't post poll");
+        return;
+      }
+      const message = RSVP_POLL_ERROR_MESSAGES[res.code];
+      if (res.code === "poll_exists") {
+        toast.info(message);
+      } else {
+        toast.error(message);
       }
     } catch (caughtError) {
       log.error({
@@ -907,14 +918,14 @@ export function EventDetail({
   );
 
   const removeMember = useConfirmAction<string>({
-    onConfirm: (memberId: any) =>
+    onConfirm: (memberId) =>
       zero.mutate(
         mutators.teamEvent.removeMember({
           eventId: event.id,
           memberId,
         })
       ).server,
-    onError: (msg: any) => {
+    onError: (msg) => {
       log.error({
         component: "EventDetail",
         entityId: event.id,
@@ -953,7 +964,7 @@ export function EventDetail({
           now: Date.now(),
         })
       ).server,
-    onError: (msg: any) => {
+    onError: (msg) => {
       log.error({
         component: "EventDetail",
         entityId: event.id,
@@ -964,43 +975,51 @@ export function EventDetail({
     },
     onSuccess: () => toast.success("Left event"),
   });
-  const stableOnDuplicate3 = () => dialog.open({ type: "duplicate" });
-  const stableOnLeaveEvent4 = () => leaveEventAction.trigger();
-  const stableOnRemoveMember5 = (id: any) => removeMember.trigger(id);
-  const stableOnOpenChange6 = (open: any) => {
+  const stableOnDuplicate3 = useEventCallback(() =>
+    dialog.open({ type: "duplicate" })
+  );
+  const stableOnLeaveEvent4 = useEventCallback(() =>
+    leaveEventAction.trigger()
+  );
+  const stableOnRemoveMember5 = useEventCallback((id: string) =>
+    removeMember.trigger(id)
+  );
+  const stableOnOpenChange6 = useEventCallback((open: boolean) => {
     dialog.onOpenChange(open);
     if (!open) {
       setEditScope(null);
     }
-  };
-  const stableOnOpenChange7 = (open: any) => {
+  });
+  const stableOnOpenChange7 = useEventCallback((open: boolean) => {
     dialog.onOpenChange(open);
     if (!open) {
       setAddMemberScope(null);
     }
-  };
-  const stableOnOpenChange8 = (open: any) => {
+  });
+  const stableOnOpenChange8 = useEventCallback((open: boolean) => {
     if (!open) {
       cancelAction.cancel();
       setCancelReason("");
     }
-  };
-  const stableOnChange9 = (e: any) => setCancelReason(e.target.value);
-  const stableOnOpenChange10 = (open: any) => {
+  });
+  const stableOnChange9 = useEventCallback((e: { target: { value: string } }) =>
+    setCancelReason(e.target.value)
+  );
+  const stableOnOpenChange10 = useEventCallback((open: boolean) => {
     if (!open) {
       removeMember.cancel();
     }
-  };
-  const stableOnOpenChange11 = (open: any) => {
+  });
+  const stableOnOpenChange11 = useEventCallback((open: boolean) => {
     if (!open) {
       leaveEventAction.cancel();
     }
-  };
-  const stableOnOpenChange12 = (open: any) => {
+  });
+  const stableOnOpenChange12 = useEventCallback((open: boolean) => {
     if (!isPostingPoll) {
       setPostPollDialogOpen(open);
     }
-  };
+  });
 
   return (
     <AppErrorBoundary level="section">
@@ -1153,7 +1172,7 @@ export function EventDetail({
         onOpenChange={stableOnOpenChange7}
         open={dialog.isOpen("addMember")}
         teamMemberIds={
-          team ? new Set(team.members.map((m: any) => m.userId)) : undefined
+          team ? new Set(team.members.map((m) => m.userId)) : undefined
         }
       />
 

@@ -74,8 +74,8 @@ function toFinancialActivities(
   label: string,
   route: string
 ): ActivityItem[] {
-  return items.map((item: any) => ({
-    amount: item.lineItems.reduce((sum: any, li: any) => sum + li.amount, 0),
+  return items.map((item) => ({
+    amount: item.lineItems.reduce((sum, li) => sum + li.amount, 0),
     createdAt: item.createdAt,
     entityId: item.id,
     icon,
@@ -88,7 +88,7 @@ function toFinancialActivities(
 }
 
 function toEventActivities(events: readonly EventItem[]): ActivityItem[] {
-  return events.map((event: any) => {
+  return events.map((event) => {
     const isCancelled = event.cancelledAt !== null;
     const teamName = event.team?.name;
     return {
@@ -131,13 +131,10 @@ function toRegistrationActivities(
 function toVendorPaymentActivities(
   payments: readonly VendorPaymentItem[]
 ): ActivityItem[] {
-  return payments.map((payment: any) => {
+  return payments.map((payment) => {
     const vendorName = payment.vendor?.name;
     return {
-      amount: payment.lineItems.reduce(
-        (sum: any, li: any) => sum + li.amount,
-        0
-      ),
+      amount: payment.lineItems.reduce((sum, li) => sum + li.amount, 0),
       createdAt: payment.createdAt,
       entityId: payment.id,
       icon: Store01Icon,
@@ -160,7 +157,7 @@ const GHOST_ACTIVITIES = [
 function RecentActivityEmpty() {
   return (
     <GhostEmptyState
-      ghostContent={GHOST_ACTIVITIES.map((activity: any) => (
+      ghostContent={GHOST_ACTIVITIES.map((activity) => (
         <div className="flex items-start gap-3" key={activity.title}>
           <HugeiconsIcon
             className="mt-0.5 size-4 shrink-0 text-muted-foreground"
@@ -187,7 +184,7 @@ function RecentActivityEmpty() {
 function RecentActivitySkeleton() {
   return (
     <div className="space-y-3">
-      {[1, 2, 3, 4].map((i: any) => (
+      {[1, 2, 3, 4].map((i) => (
         <div className="flex items-center gap-3" key={i}>
           <Skeleton className="size-4 shrink-0 rounded-full" />
           <div className="flex-1">
@@ -203,7 +200,7 @@ function RecentActivitySkeleton() {
 function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
   return (
     <div className="space-y-3">
-      {activities.map((activity: any) => {
+      {activities.map((activity) => {
         const statusInfo = activity.status
           ? getStatusBadge(activity.status)
           : null;
@@ -233,7 +230,9 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
               </div>
               <p className="text-muted-foreground text-xs">
                 {activity.label}
-                {activity.amount != null && ` · ${formatINR(activity.amount)}`}
+                {activity.amount !== null &&
+                  activity.amount !== undefined &&
+                  ` · ${formatINR(activity.amount)}`}
                 {" · "}
                 {formatDistanceToNow(activity.createdAt, {
                   addSuffix: true,
@@ -301,7 +300,7 @@ export function RecentActivity({
     ...toRegistrationActivities(eventInterests),
     ...toVendorPaymentActivities(vendorPayments),
   ]
-    .sort((a: any, b: any) => b.createdAt - a.createdAt)
+    .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, MAX_ITEMS);
 
   return (

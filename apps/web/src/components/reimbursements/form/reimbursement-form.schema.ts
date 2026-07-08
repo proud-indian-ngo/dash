@@ -31,9 +31,9 @@ export const reimbursementRequestFormSchema = z.object({
   expenseDate: z
     .date()
     .optional()
-    .refine((d): d is Date => d !== null, "Expense date is required")
+    .refine((d): d is Date => d !== undefined, "Expense date is required")
     .refine(
-      (d: any) => startOfDay(d) <= startOfDay(new Date()),
+      (d) => startOfDay(d) <= startOfDay(new Date()),
       "Expense date cannot be in the future"
     ),
   type: z.literal("reimbursement"),

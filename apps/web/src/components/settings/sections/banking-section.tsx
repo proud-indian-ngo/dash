@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -57,7 +58,7 @@ export function BankingSection() {
   });
 
   const accountList = accounts ?? [];
-  const stableOnConfirm0 = async () => {
+  const stableOnConfirm0 = useEventCallback(async () => {
     if (!deleteTarget) {
       return;
     }
@@ -72,12 +73,12 @@ export function BankingSection() {
     if (res.type !== "error") {
       setDeleteTarget(null);
     }
-  };
-  const stableOnOpenChange1 = (open: any) => {
+  });
+  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       setDeleteTarget(null);
     }
-  };
+  });
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -100,7 +101,7 @@ export function BankingSection() {
         <>
           <Separator />
           <div className="flex flex-col gap-2">
-            {accountList.map((account: any) => (
+            {accountList.map((account) => (
               <div
                 className="flex items-start justify-between rounded-md border p-3"
                 key={account.id}

@@ -11,13 +11,14 @@ import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Lightbox, { type Slide } from "yet-another-react-lightbox";
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
 import "yet-another-react-lightbox/plugins/thumbnails.css";
 import Video from "yet-another-react-lightbox/plugins/video";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -134,6 +135,90 @@ async function uploadSinglePhoto({
   ).server;
 }
 
+function PendingPhotoCard({
+  index,
+  onApprove,
+  onDelete,
+  onOpen,
+  onReject,
+  photo,
+}: {
+  index: number;
+  onApprove: (id: string) => void;
+  onDelete: (id: string) => void;
+  onOpen: (index: number) => void;
+  onReject: (id: string) => void;
+  photo: PhotoWithUploader;
+}) {
+  const handleApprove = useEventCallback(() => onApprove(photo.id));
+  const handleClick = useEventCallback(() => onOpen(index));
+  const handleDelete = useEventCallback(() => onDelete(photo.id));
+  const handleReject = useEventCallback(() => onReject(photo.id));
+
+  return (
+    <PhotoCard
+      canDelete
+      onApprove={handleApprove}
+      onClick={handleClick}
+      onDelete={handleDelete}
+      onReject={handleReject}
+      pending
+      photo={photo}
+    />
+  );
+}
+
+function PendingOwnPhotoCard({
+  index,
+  onDelete,
+  onOpen,
+  photo,
+}: {
+  index: number;
+  onDelete: (id: string) => void;
+  onOpen: (index: number) => void;
+  photo: PhotoWithUploader;
+}) {
+  const handleClick = useEventCallback(() => onOpen(index));
+  const handleDelete = useEventCallback(() => onDelete(photo.id));
+
+  return (
+    <PhotoCard
+      canDelete
+      onClick={handleClick}
+      onDelete={handleDelete}
+      pending
+      photo={photo}
+    />
+  );
+}
+
+function ApprovedPhotoCard({
+  canDelete,
+  index,
+  onDelete,
+  onOpen,
+  photo,
+}: {
+  canDelete: boolean;
+  index: number;
+  onDelete: (id: string) => void;
+  onOpen: (index: number) => void;
+  photo: PhotoWithUploader;
+}) {
+  const handleClick = useEventCallback(() => onOpen(index));
+  const handleDelete = useEventCallback(() => onDelete(photo.id));
+
+  return (
+    <PhotoCard
+      canDelete={canDelete}
+      onClick={handleClick}
+      onDelete={handleDelete}
+      photo={photo}
+    />
+  );
+}
+
 interface EventPhotosProps {
   approvedPhotos: readonly PhotoWithUploader[];
   canManage: boolean;
@@ -192,14 +277,14 @@ export function EventPhotos({
     if (slides.length === 0) {
       setLightboxOpen(false);
     } else {
-      setLightboxIndex((i: any) => Math.min(i, slides.length - 1));
+      setLightboxIndex((i) => Math.min(i, slides.length - 1));
     }
   }, [lightboxOpen, slides.length]);
 
-  const openLightbox = (index: number) => {
+  const openLightbox = useEventCallback((index: number) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
-  };
+  });
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) {
@@ -216,7 +301,7 @@ export function EventPhotos({
     let failedCount = 0;
 
     await Promise.all(
-      validFiles.map(async (file: any) => {
+      validFiles.map(async (file) => {
         try {
           await uploadSinglePhoto({
             callImmichUpload,
@@ -249,33 +334,35 @@ export function EventPhotos({
       successMsg: `${pendingPhotos.length} media item${pendingPhotos.length > 1 ? "s" : ""} approved`,
     },
     onConfirm: () => {
-      const ids = pendingPhotos.map((p: any) => p.id);
+      const ids = pendingPhotos.map((p) => p.id);
       return zero.mutate(
         mutators.eventPhoto.approveBatch({ ids, now: Date.now() })
       ).server;
     },
   });
-  const stableOnClick0 = () => fileInputRef.current?.click();
-  const stableOnChange1 = (e: any) => handleUpload(e.target.files);
-  const stableOnClick2 = () => deleteAlbumAction.trigger();
-  const stableOnClick3 = () => approveAllAction.trigger();
-  const stableClose4 = () => setLightboxOpen(false);
-  const stableOnOpenChange5 = (open: any) => {
+  const stableOnClick0 = useEventCallback(() => fileInputRef.current?.click());
+  const stableOnChange1 = useEventCallback(
+    (e: { target: { files: FileList | null } }) => handleUpload(e.target.files)
+  );
+  const stableOnClick2 = useEventCallback(() => deleteAlbumAction.trigger());
+  const stableOnClick3 = useEventCallback(() => approveAllAction.trigger());
+  const stableClose4 = useEventCallback(() => setLightboxOpen(false));
+  const stableOnOpenChange5 = useEventCallback((open: boolean) => {
     if (!open) {
       approveAllAction.cancel();
     }
-  };
-  const stableOnOpenChange6 = (open: any) => {
+  });
+  const stableOnOpenChange6 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
     }
-  };
-  const stableOnOpenChange7 = (open: any) => {
+  });
+  const stableOnOpenChange7 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAlbumAction.cancel();
     }
-  };
-  const handleApprove = async (id: string) => {
+  });
+  const handleApprove = useEventCallback(async (id: string) => {
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.approve({ id, now })).server;
@@ -292,9 +379,9 @@ export function EventPhotos({
       });
       toast.error("Failed to approve");
     }
-  };
+  });
 
-  const handleReject = async (id: string) => {
+  const handleReject = useEventCallback(async (id: string) => {
     const now = Date.now();
     try {
       await zero.mutate(mutators.eventPhoto.reject({ id, now })).server;
@@ -311,17 +398,16 @@ export function EventPhotos({
       });
       toast.error("Failed to reject");
     }
-  };
+  });
 
   const deleteAction = useConfirmAction<string>({
     mutationMeta: {
-      entityId: (id: any) => id,
+      entityId: (id) => id,
       errorMsg: "Failed to delete",
       mutation: "eventPhoto.delete",
       successMsg: "Deleted",
     },
-    onConfirm: (id: any) =>
-      zero.mutate(mutators.eventPhoto.delete({ id })).server,
+    onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
   });
 
   const deleteAlbumAction = useConfirmAction({
@@ -334,6 +420,48 @@ export function EventPhotos({
     onConfirm: () =>
       zero.mutate(mutators.eventImmichAlbum.deleteAlbum({ eventId })).server,
   });
+  const handleDelete = useEventCallback((id: string) =>
+    deleteAction.trigger(id)
+  );
+  const handleLightboxView = useCallback(
+    ({ index }: { index: number }) => setLightboxIndex(index),
+    []
+  );
+  const handleLightboxDelete = useEventCallback((id: string) =>
+    deleteAction.trigger(id)
+  );
+  const renderSlideFooter = useCallback(
+    ({ slide }: { slide: Slide }) =>
+      isPhotoSlide(slide) ? (
+        <LightboxFooter
+          onApprove={handleApprove}
+          onDelete={handleLightboxDelete}
+          onReject={handleReject}
+          slide={slide}
+        />
+      ) : null,
+    [handleApprove, handleLightboxDelete, handleReject]
+  );
+  const renderThumbnail = useCallback(
+    ({ slide }: { slide: Slide }) =>
+      isPhotoSlide(slide) ? (
+        <img
+          alt=""
+          className="size-full object-cover"
+          height={64}
+          src={slide.thumbnailSrc}
+          width={64}
+        />
+      ) : null,
+    []
+  );
+  const lightboxOn = useMemo(() => ({ view: handleLightboxView }), [
+    handleLightboxView,
+  ]);
+  const lightboxRender = useMemo(
+    () => ({ slideFooter: renderSlideFooter, thumbnail: renderThumbnail }),
+    [renderSlideFooter, renderThumbnail]
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -418,15 +546,14 @@ export function EventPhotos({
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {pendingPhotos.map((photo: any, i: any) => (
-              <PhotoCard
-                canDelete
+            {pendingPhotos.map((photo, i) => (
+              <PendingPhotoCard
+                index={i}
                 key={photo.id}
-                onApprove={() => handleApprove(photo.id)}
-                onClick={() => openLightbox(i)}
-                onDelete={() => deleteAction.trigger(photo.id)}
-                onReject={() => handleReject(photo.id)}
-                pending
+                onApprove={handleApprove}
+                onDelete={handleDelete}
+                onOpen={openLightbox}
+                onReject={handleReject}
                 photo={photo}
               />
             ))}
@@ -439,13 +566,12 @@ export function EventPhotos({
             Your Pending Media ({myPendingPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {myPendingPhotos.map((photo: any, i: any) => (
-              <PhotoCard
-                canDelete
+            {myPendingPhotos.map((photo, i) => (
+              <PendingOwnPhotoCard
+                index={i}
                 key={photo.id}
-                onClick={() => openLightbox(i)}
-                onDelete={() => deleteAction.trigger(photo.id)}
-                pending
+                onDelete={handleDelete}
+                onOpen={openLightbox}
                 photo={photo}
               />
             ))}
@@ -460,12 +586,13 @@ export function EventPhotos({
             Approved ({approvedPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {approvedPhotos.map((photo: any, i: any) => (
-              <PhotoCard
+            {approvedPhotos.map((photo, i) => (
+              <ApprovedPhotoCard
                 canDelete={canManage}
+                index={approvedSectionOffset + i}
                 key={photo.id}
-                onClick={() => openLightbox(approvedSectionOffset + i)}
-                onDelete={() => deleteAction.trigger(photo.id)}
+                onDelete={handleDelete}
+                onOpen={openLightbox}
                 photo={photo}
               />
             ))}
@@ -490,30 +617,10 @@ export function EventPhotos({
       <Lightbox
         close={stableClose4}
         index={lightboxIndex}
-        on={{ view: ({ index }) => setLightboxIndex(index) }}
+        on={lightboxOn}
         open={lightboxOpen}
         plugins={[Zoom, Thumbnails, Video]}
-        render={{
-          slideFooter: ({ slide }) =>
-            isPhotoSlide(slide) ? (
-              <LightboxFooter
-                onApprove={handleApprove}
-                onDelete={(id: any) => deleteAction.trigger(id)}
-                onReject={handleReject}
-                slide={slide}
-              />
-            ) : null,
-          thumbnail: ({ slide }) =>
-            isPhotoSlide(slide) ? (
-              <img
-                alt=""
-                className="size-full object-cover"
-                height={64}
-                src={slide.thumbnailSrc}
-                width={64}
-              />
-            ) : null,
-        }}
+        render={lightboxRender}
         slides={slides}
         styles={{
           container: { backgroundColor: "rgba(0, 0, 0, 0.92)" },

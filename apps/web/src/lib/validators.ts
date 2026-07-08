@@ -26,7 +26,7 @@ export const vendorFormSchema = z.object({
   contactPhone: z
     .string()
     .min(1, "Phone is required")
-    .refine((v: any) => isValidPhoneNumber(v), "Invalid phone number"),
+    .refine((v) => isValidPhoneNumber(v), "Invalid phone number"),
   gstNumber: z.union([z.literal(""), gstNumber]),
   name: z.string().min(1, "Name is required"),
   panNumber: z.union([z.literal(""), panNumber]),

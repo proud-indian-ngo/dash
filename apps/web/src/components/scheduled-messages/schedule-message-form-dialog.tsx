@@ -5,6 +5,7 @@ import {
 } from "@pi-dash/design-system/components/ui/field";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
   ScheduledMessage,
   ScheduledMessageRecipient,
@@ -46,7 +47,7 @@ const scheduledFormSchema = z.object({
     .array(recipientSchema)
     .min(1, "At least one recipient is required")
     .max(10),
-  scheduledAt: z.date().refine((val: any) => val.getTime() > Date.now(), {
+  scheduledAt: z.date().refine((val) => val.getTime() > Date.now(), {
     message: "Must be in the future",
   }),
 });
@@ -98,7 +99,7 @@ export function ScheduleMessageFormDialog({
     defaultValues: {
       attachments: (initialValues?.attachments ?? []) as MediaAttachment[],
       message: initialValues?.message ?? "",
-      recipients: (initialValues?.recipients ?? []).map((r: any) => ({
+      recipients: (initialValues?.recipients ?? []).map((r) => ({
         id: r.recipientId,
         label: r.label,
         type: r.type as "group" | "user",
@@ -122,13 +123,13 @@ export function ScheduleMessageFormDialog({
       onSubmit: formSchema,
     },
   });
-  const stableOnOpenChange0 = (v: any) => {
+  const stableOnOpenChange0 = useEventCallback((v: boolean) => {
     if (!v) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
       setSendNow(false);
       onClose();
     }
-  };
+  });
 
   return (
     <FormModal
@@ -172,7 +173,7 @@ export function ScheduleMessageFormDialog({
         )}
 
         <form.Field name="recipients">
-          {(field: any) => {
+          {(field) => {
             const submitted = form.state.submissionAttempts > 0;
             const hasError =
               (field.state.meta.isBlurred || submitted) &&
@@ -186,7 +187,7 @@ export function ScheduleMessageFormDialog({
                   </span>
                 </FieldLabel>
                 <RecipientPicker
-                  onChange={(val: any) => field.handleChange(val)}
+                  onChange={field.handleChange}
                   value={field.state.value}
                 />
                 {Boolean(hasError) && (
@@ -198,10 +199,10 @@ export function ScheduleMessageFormDialog({
         </form.Field>
 
         <form.Field name="attachments">
-          {(field: any) => (
+          {(field) => (
             <MediaUpload
               entityId={entityId}
-              onChange={(val: any) => field.handleChange(val)}
+              onChange={field.handleChange}
               value={field.state.value}
             />
           )}

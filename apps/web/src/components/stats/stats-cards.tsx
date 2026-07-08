@@ -96,7 +96,7 @@ export function StatCard({
 function StatsCardsSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id: any) => (
+      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id) => (
         <Card key={id} size="sm">
           <CardHeader>
             <CardTitle>
@@ -127,7 +127,7 @@ export function StatsCards({
   }
   return (
     <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
-      {items.map((item: any, index: any) => (
+      {items.map((item, index) => (
         <StatCard
           animationDelay={index * STAGGER_DELAY_MS}
           item={item}

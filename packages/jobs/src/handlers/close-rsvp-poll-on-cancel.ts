@@ -31,7 +31,7 @@ export async function handleCloseRsvpPollOnCancel(
       .where(eq(eventRsvpPoll.eventId, eventId))
       .limit(1);
 
-    const poll = polls[0];
+    const [poll] = polls;
     if (!poll) {
       log.set({ event: "no_poll" });
       log.emit();

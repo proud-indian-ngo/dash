@@ -130,7 +130,7 @@ async function collectRecurringEvents(
         endTime: occurrence.endTime ?? null,
         location: parent.location,
         name: parent.name,
-        startTime: occurrence.startTime ?? parent.startTime.getTime(),
+        startTime: occurrence.startTime,
       });
     }
   }
@@ -175,7 +175,7 @@ export async function handleSendWeeklyEventsDigest(
       const jid = await getGroupJidByConfigKey(key);
       if (jid) {
         await sendWhatsAppGroupMessage(jid, message);
-        groupsSent++;
+        groupsSent += 1;
       }
     })
   );

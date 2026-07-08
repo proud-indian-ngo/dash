@@ -124,10 +124,7 @@ async function dispatchSeriesParent(
   const parentStartMs = event.startTime.getTime();
 
   for (const occ of occurrences) {
-    const pollMs = pollTriggerMs(
-      occ.startTime ?? event.startTime.getTime(),
-      event.rsvpPollLeadMinutes
-    );
+    const pollMs = pollTriggerMs(occ.startTime, event.rsvpPollLeadMinutes);
     if (!inWindow(pollMs, now)) {
       continue;
     }

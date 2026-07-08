@@ -7,6 +7,8 @@ dotenv.config({
   quiet: true,
 });
 
+setup.describe.configure({ mode: "serial" });
+
 const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL!;
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD!;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL!;
@@ -40,7 +42,8 @@ const unorientedVolunteerAuthFile = path.resolve(
 async function authenticate(
   page: import("@playwright/test").Page,
   email: string,
-  password: string
+  password: string,
+  attempt = 0
 ) {
   // Log auth API responses for CI debugging
   page.on("response", (res) => {
@@ -54,7 +57,18 @@ async function authenticate(
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Login" }).click();
-  await page.waitForURL("/");
+  const reachedDashboard = await page
+    .waitForURL("/", { timeout: 10_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (reachedDashboard) {
+    return;
+  }
+  if (attempt >= 2) {
+    throw new Error(`Authentication failed for ${email}`);
+  }
+  await page.waitForTimeout(500);
+  await authenticate(page, email, password, attempt + 1);
 }
 
 setup("authenticate as super_admin", async ({ page }) => {

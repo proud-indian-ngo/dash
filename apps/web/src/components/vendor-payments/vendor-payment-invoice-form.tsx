@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -93,7 +94,7 @@ function InvoiceFormContent({
       onSubmit: invoiceFormSchema,
     },
   });
-  const stableOnCancel0 = () => onOpenChange(false);
+  const stableOnCancel0 = useEventCallback(() => onOpenChange(false));
 
   return (
     <FormLayout form={form}>
@@ -103,10 +104,10 @@ function InvoiceFormContent({
       </div>
 
       <form.Field name="attachments">
-        {(field: any) => (
+        {(field) => (
           <AttachmentsSection
             entityId={entityId}
-            onChange={(attachments: any) => field.handleChange(attachments)}
+            onChange={field.handleChange}
             value={(field.state.value ?? []) as Attachment[]}
           />
         )}
@@ -131,12 +132,12 @@ export function InvoiceFormDialog({
 }: InvoiceFormDialogProps) {
   const [formKey, setFormKey] = useState(0);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setFormKey((k: any) => k + 1);
+      setFormKey((k) => k + 1);
     }
     onOpenChange(nextOpen);
-  };
+  });
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>

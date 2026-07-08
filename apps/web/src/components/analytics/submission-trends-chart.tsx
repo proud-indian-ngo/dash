@@ -10,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@pi-dash/design-system/components/ui/chart";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   Bar,
   CartesianGrid,
@@ -33,9 +34,10 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
-  const stableTickFormatter0 = (v: number) => formatINR(v);
-  const stableFormatter1 = (value: unknown, name: unknown) =>
-    name === "amount" ? formatINR(Number(value)) : String(value);
+  const stableTickFormatter0 = useEventCallback((v: number) => formatINR(v));
+  const stableFormatter1 = useEventCallback((value: unknown, name: unknown) =>
+    name === "amount" ? formatINR(Number(value)) : String(value)
+  );
   if (data.length === 0) {
     return (
       <Card>

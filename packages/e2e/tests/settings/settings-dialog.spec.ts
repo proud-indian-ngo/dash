@@ -1,8 +1,15 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 async function openSettings(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await waitForZeroReady(page);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto("/");
+    if (await waitForDashboardReady(page).catch(() => false)) {
+      break;
+    }
+    if (attempt === 1) {
+      await waitForDashboardReady(page);
+    }
+  }
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   const sidebar = page.locator("[data-sidebar='sidebar']");
@@ -17,6 +24,18 @@ async function openSettings(page: import("@playwright/test").Page) {
   await page.getByRole("menuitem", { name: "Settings" }).click();
 
   await expect(page.getByRole("dialog")).toBeVisible();
+}
+
+async function waitForDashboardReady(page: import("@playwright/test").Page) {
+  const appError = page.getByRole("heading", {
+    name: /This page couldn't load|We hit an unexpected error/,
+  });
+  await Promise.race([
+    waitForZeroReady(page, 15_000),
+    appError.waitFor({ timeout: 15_000 }).then(() => {
+      throw new Error("App error boundary rendered while opening settings");
+    }),
+  ]);
 }
 
 test.describe("Settings dialog", () => {

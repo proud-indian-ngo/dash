@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import { useNavigate } from "@tanstack/react-router";
@@ -68,11 +69,12 @@ export function EventDetailsCard({
     | { rrule: string; exdates?: string[] }
     | null
     | undefined;
-  const stableOnClick0 = () =>
+  const stableOnClick0 = useEventCallback(() =>
     navigate({
       params: { id: event.seriesId as string },
       to: "/events/$id",
-    });
+    })
+  );
 
   return (
     <Card size="sm">
@@ -144,8 +146,8 @@ export function EventDetailsCard({
           <PropertyRow icon={NotificationIcon} label="Reminders">
             <div className="flex flex-wrap gap-1">
               {[...reminderIntervals]
-                .sort((a: any, b: any) => b - a)
-                .map((m: any) => (
+                .sort((a, b) => b - a)
+                .map((m) => (
                   <Badge key={m} size="xs" variant="secondary">
                     {formatReminderInterval(m)}
                   </Badge>

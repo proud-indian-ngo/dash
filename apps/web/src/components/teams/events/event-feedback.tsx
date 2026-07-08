@@ -1,5 +1,6 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -119,7 +120,7 @@ function EventFeedbackAdmin({
           No feedback submitted yet.
         </p>
       ) : (
-        feedback.map((item: any, index: any) => {
+        feedback.map((item, index) => {
           const isEdited = item.updatedAt !== item.createdAt;
           return (
             <div className="rounded-lg border p-4" key={item.id}>
@@ -197,12 +198,12 @@ function EventFeedbackParticipant({
   useEffect(() => {
     let cancelled = false;
     fetchFeedbackForEvent(eventId)
-      .then((result: any) => {
+      .then((result) => {
         if (!cancelled) {
           setMyFeedback(result);
         }
       })
-      .catch((err: any) => {
+      .catch((err) => {
         if (!cancelled) {
           log.error({
             action: "fetchMyFeedback",
@@ -222,7 +223,7 @@ function EventFeedbackParticipant({
     };
   }, [eventId]);
 
-  const handleSubmit = async (content: string) => {
+  const handleSubmit = useEventCallback(async (content: string) => {
     setSaving(true);
     try {
       const feedbackId = uuidv7();
@@ -261,9 +262,9 @@ function EventFeedbackParticipant({
     } finally {
       setSaving(false);
     }
-  };
+  });
 
-  const handleUpdate = async (content: string) => {
+  const handleUpdate = useEventCallback(async (content: string) => {
     if (!myFeedback) {
       return;
     }
@@ -302,9 +303,9 @@ function EventFeedbackParticipant({
     } finally {
       setSaving(false);
     }
-  };
-  const stableOnClick0 = () => setEditing(true);
-  const stableOnCancel1 = () => setEditing(false);
+  });
+  const stableOnClick0 = useEventCallback(() => setEditing(true));
+  const stableOnCancel1 = useEventCallback(() => setEditing(false));
 
   if (loading) {
     return (

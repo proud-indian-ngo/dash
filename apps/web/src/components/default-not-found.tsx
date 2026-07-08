@@ -1,8 +1,9 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
 
 export function DefaultNotFound() {
-  const stableOnClick0 = () => window.history.back();
+  const stableOnClick0 = useEventCallback(() => window.history.back());
 
   return (
     <div className="space-y-2 p-2" role="status">

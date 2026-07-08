@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -31,7 +32,7 @@ function TeamsRouteComponent() {
   const [data, result] = useQuery(queries.team.all());
   const isLoading = data.length === 0 && result.type !== "complete";
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useEventCallback(async (id: string) => {
     const res = await zero.mutate(mutators.team.delete({ id })).server;
     handleMutationResult(res, {
       entityId: id,
@@ -39,11 +40,11 @@ function TeamsRouteComponent() {
       mutation: "team.delete",
       successMsg: "Team deleted",
     });
-  };
-  const stableOnNavigate0 = (id: any) => {
+  });
+  const stableOnNavigate0 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/teams/$id" });
-  };
-  const stableOnClick1 = () => setCreateOpen(true);
+  });
+  const stableOnClick1 = useEventCallback(() => setCreateOpen(true));
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

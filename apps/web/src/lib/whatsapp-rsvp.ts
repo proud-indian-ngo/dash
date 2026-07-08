@@ -103,7 +103,7 @@ export async function processWhatsAppPollVoteWebhook(
     .where(eq(eventRsvpPoll.messageId, webhook.payload.poll_message_id))
     .limit(1);
 
-  const poll = polls[0];
+  const [poll] = polls;
   if (!poll) {
     log.warn("rsvp_poll_not_found");
     log.emit();
@@ -177,7 +177,7 @@ export async function processWhatsAppPollVoteWebhook(
     .from(teamEvent)
     .where(eq(teamEvent.id, poll.eventId))
     .limit(1);
-  const event = eventRows[0];
+  const [event] = eventRows;
 
   if (event?.cancelledAt) {
     log.warn("rsvp_vote_event_cancelled");

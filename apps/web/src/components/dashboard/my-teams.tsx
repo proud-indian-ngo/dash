@@ -20,7 +20,7 @@ interface Team {
 function MyTeamsSkeleton() {
   return (
     <div className="space-y-3">
-      {[1, 2, 3].map((i: any) => (
+      {[1, 2, 3].map((i) => (
         <div className="flex items-center justify-between" key={i}>
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-4 w-16" />
@@ -42,7 +42,7 @@ const GHOST_TEAMS = [
 function MyTeamsEmpty() {
   return (
     <GhostEmptyState
-      ghostContent={GHOST_TEAMS.map((team: any) => (
+      ghostContent={GHOST_TEAMS.map((team) => (
         <div
           className="flex items-center justify-between rounded-md p-2"
           key={team.name}
@@ -75,7 +75,7 @@ function MyTeamsEmpty() {
 function MyTeamsList({ teams }: { teams: readonly Team[] }) {
   return (
     <div className="space-y-3">
-      {teams.map((team: any) => (
+      {teams.map((team) => (
         <Link
           className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50"
           key={team.id}

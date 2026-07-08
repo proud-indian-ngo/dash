@@ -23,9 +23,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@pi-dash/design-system/components/ui/sidebar";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useZero } from "@rocicorp/zero/react";
-import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
 import { NotificationInbox } from "@/components/layout/notification-inbox";
@@ -39,7 +39,6 @@ import { authClient } from "@/lib/auth-client";
 export function NavUser() {
   const { isMobile } = useSidebar();
   const zero = useZero();
-  const navigate = useNavigate();
   const { user, openSettings } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const unreadCount = useUnreadNotificationCount();
@@ -48,7 +47,7 @@ export function NavUser() {
 
   useEffect(() => {
     if (unreadCount > previousUnreadCount.current) {
-      setBadgePulseToken((current: any) => current + 1);
+      setBadgePulseToken((current) => current + 1);
     }
     previousUnreadCount.current = unreadCount;
   }, [unreadCount]);
@@ -56,9 +55,9 @@ export function NavUser() {
   const hasUnreadNotifications = unreadCount > 0;
   const hasPulsed = badgePulseToken > 0;
   const unreadCountLabel = unreadCount > 99 ? "99+" : unreadCount;
-  const stableOnClose0 = () => setMenuOpen(false);
-  const stableOnClick1 = () => openSettings("profile");
-  const stableOnClick2 = async () => {
+  const stableOnClose0 = useEventCallback(() => setMenuOpen(false));
+  const stableOnClick1 = useEventCallback(() => openSettings("profile"));
+  const stableOnClick2 = useEventCallback(async () => {
     try {
       await zero.delete();
     } catch (error: unknown) {
@@ -68,17 +67,15 @@ export function NavUser() {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    authClient.signOut({
+    await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
           invalidateAuthCache();
-          navigate({
-            to: "/",
-          });
+          window.location.replace("/login");
         },
       },
     });
-  };
+  });
 
   return (
     <SidebarMenu>

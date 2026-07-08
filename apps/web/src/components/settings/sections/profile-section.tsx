@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
@@ -41,80 +42,85 @@ function AvatarUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    // Reset input so the same file can be re-selected
-    e.target.value = "";
-
-    if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type)) {
-      toast.error("Please select a JPG, PNG, GIF, or WebP image");
-      return;
-    }
-    if (file.size > MAX_AVATAR_FILE_SIZE_BYTES) {
-      toast.error("Image must be under 5 MB");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const mimeType = file.type as
-        | "image/gif"
-        | "image/jpeg"
-        | "image/png"
-        | "image/webp";
-      const { presignedUrl, key } = await getProfilePictureUploadUrl({
-        data: {
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType,
-        },
-      });
-
-      const uploadRes = await fetch(presignedUrl, {
-        body: file,
-        headers: { "Content-Type": file.type },
-        method: "PUT",
-      });
-      if (!uploadRes.ok) {
-        toast.error("Couldn't upload");
+  const handleFileSelect = useEventCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) {
         return;
       }
 
-      const cdnUrl = `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
-      const { error } = await authClient.updateUser({ image: cdnUrl });
-      if (error) {
-        toast.error(error.message);
-        deleteProfilePicture({ data: { key } }).catch((error: any) => {
-          log.error({
-            action: "cleanupOrphanedR2",
-            component: "ProfileSection",
-            error: error instanceof Error ? error.message : String(error),
-            key,
-          });
-        });
-      } else {
-        toast.success("Looking good!");
-      }
-    } catch (caughtError) {
-      log.error({
-        action: "uploadProfilePicture",
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "ProfileSection",
-      });
-      toast.error("Couldn't upload profile picture");
-    } finally {
-      setUploading(false);
-    }
-  };
+      // Reset input so the same file can be re-selected
+      e.target.value = "";
 
-  const handleRemove = async () => {
+      if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type)) {
+        toast.error("Please select a JPG, PNG, GIF, or WebP image");
+        return;
+      }
+      if (file.size > MAX_AVATAR_FILE_SIZE_BYTES) {
+        toast.error("Image must be under 5 MB");
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const mimeType = file.type as
+          | "image/gif"
+          | "image/jpeg"
+          | "image/png"
+          | "image/webp";
+        const { presignedUrl, key } = await getProfilePictureUploadUrl({
+          data: {
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType,
+          },
+        });
+
+        const uploadRes = await fetch(presignedUrl, {
+          body: file,
+          headers: { "Content-Type": file.type },
+          method: "PUT",
+        });
+        if (!uploadRes.ok) {
+          toast.error("Couldn't upload");
+          return;
+        }
+
+        const cdnUrl = `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
+        const { error } = await authClient.updateUser({ image: cdnUrl });
+        if (error) {
+          toast.error(error.message);
+          deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
+            log.error({
+              action: "cleanupOrphanedR2",
+              component: "ProfileSection",
+              error:
+                cleanupError instanceof Error
+                  ? cleanupError.message
+                  : String(cleanupError),
+              key,
+            });
+          });
+        } else {
+          toast.success("Looking good!");
+        }
+      } catch (caughtError) {
+        log.error({
+          action: "uploadProfilePicture",
+          caughtError:
+            caughtError instanceof Error
+              ? caughtError.message
+              : String(caughtError),
+          component: "ProfileSection",
+        });
+        toast.error("Couldn't upload profile picture");
+      } finally {
+        setUploading(false);
+      }
+    }
+  );
+
+  const handleRemove = useEventCallback(async () => {
     if (!user?.image) {
       return;
     }
@@ -134,11 +140,14 @@ function AvatarUpload() {
       const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
       if (imageUrl.startsWith(cdnBase)) {
         const key = imageUrl.slice(cdnBase.length + 1);
-        deleteProfilePicture({ data: { key } }).catch((error: any) => {
+        deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
           log.error({
             action: "cleanupR2AfterRemove",
             component: "ProfileSection",
-            error: error instanceof Error ? error.message : String(error),
+            error:
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : String(cleanupError),
             key,
           });
         });
@@ -158,7 +167,7 @@ function AvatarUpload() {
     } finally {
       setUploading(false);
     }
-  };
+  });
 
   if (!user) {
     return null;

@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/jobs/stats")({
         try {
           const boss = await ensureBossReady();
           const stats = await Promise.all(
-            QUEUE_NAMES.map(async (queue: any) => {
+            QUEUE_NAMES.map(async (queue) => {
               try {
                 const [result] = await boss.getQueueStats(queue);
                 if (!result) {
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/jobs/stats")({
             count: number;
           }>(
             sql`SELECT state, COUNT(*)::int AS count FROM pgboss.job_common WHERE name IN (${sql.join(
-              QUEUE_NAMES.map((n: any) => sql`${n}`),
+              QUEUE_NAMES.map((n) => sql`${n}`),
               sql`, `
             )}) GROUP BY state`
           );

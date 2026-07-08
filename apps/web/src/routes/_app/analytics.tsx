@@ -1,4 +1,5 @@
 import { Invoice01Icon } from "@hugeicons/core-free-icons";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -98,7 +99,7 @@ function AnalyticsPage() {
 
   const allCities = new Set(
     [...reimbursements, ...advancePayments, ...vendorPayments]
-      .map((item: any) => (item as { city: string | null }).city)
+      .map((item) => (item as { city: string | null }).city)
       .filter(Boolean)
   );
   const hasMultipleCities = allCities.size > 1;
@@ -108,7 +109,7 @@ function AnalyticsPage() {
     if (!cityFilter) {
       return items;
     }
-    return items.filter((item: any) => cityAccessor(item) === cityFilter);
+    return items.filter((item) => cityAccessor(item) === cityFilter);
   };
 
   const filteredReimbursements = filterByCity(
@@ -150,7 +151,9 @@ function AnalyticsPage() {
   const vendorData = computeVendorData(
     filteredVendorPayments as unknown as Parameters<typeof computeVendorData>[0]
   );
-  const stableOnChange0 = (val: any) => setCityFilter(val || null);
+  const stableOnChange0 = useEventCallback((val: string | null) =>
+    setCityFilter(val || null)
+  );
   const eventData = computeEventData(
     allFiltered as unknown as Parameters<typeof computeEventData>[0]
   );

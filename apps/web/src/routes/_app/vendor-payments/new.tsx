@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
@@ -13,12 +14,12 @@ export const Route = createFileRoute("/_app/vendor-payments/new")({
 
 function NewVendorPaymentRouteComponent() {
   const navigate = useNavigate();
-  const stableOnCancel0 = () => {
+  const stableOnCancel0 = useEventCallback(() => {
     navigate({ to: "/vendor-payments" });
-  };
-  const stableOnSaved1 = (id: any) => {
+  });
+  const stableOnSaved1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/vendor-payments/$id" });
-  };
+  });
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">

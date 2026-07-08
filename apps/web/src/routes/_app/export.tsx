@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -42,7 +43,7 @@ const FY_OPTIONS = (() => {
   const now = new Date();
   const currentFyStart =
     now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  return Array.from({ length: 4 }, (_: any, i: any) => {
+  return Array.from({ length: 4 }, (_, i) => {
     const start = currentFyStart - i;
     return {
       label: `FY ${start}-${String(start + 1).slice(2)}`,
@@ -118,8 +119,8 @@ function formatAttachments(attachments: ExportAttachment[]): string {
     return "";
   }
   return attachments
-    .map((a: any) => getAttachmentPreviewHref(a))
-    .filter((href: any) => href !== "#")
+    .map((a) => getAttachmentPreviewHref(a))
+    .filter((href) => href !== "#")
     .join(" | ");
 }
 
@@ -386,7 +387,7 @@ function ExportRouteComponent() {
     (hasRequestSelection ? selectedStatuses.size > 0 : true) &&
     (includeVendorPayments ? selectedVPStatuses.size > 0 : true);
 
-  const handleExport = async () => {
+  const handleExport = useEventCallback(async () => {
     if (!hasSelection) {
       return;
     }
@@ -410,16 +411,22 @@ function ExportRouteComponent() {
     } finally {
       setIsExporting(false);
     }
-  };
-  const stableOnCheckedChange0 = (checked: any) =>
-    setIncludeReimbursements(checked === true);
-  const stableOnCheckedChange1 = (checked: any) =>
-    setIncludeAdvancePayments(checked === true);
-  const stableOnCheckedChange2 = (checked: any) =>
-    setIncludeVendorPayments(checked === true);
-  const stableOnCheckedChange3 = (checked: any) =>
-    setIncludeTransactions(checked === true);
-  const stableOnValueChange4 = (v: any) => v && setFyStart(v);
+  });
+  const stableOnCheckedChange0 = useEventCallback((checked: boolean) =>
+    setIncludeReimbursements(checked === true)
+  );
+  const stableOnCheckedChange1 = useEventCallback((checked: boolean) =>
+    setIncludeAdvancePayments(checked === true)
+  );
+  const stableOnCheckedChange2 = useEventCallback((checked: boolean) =>
+    setIncludeVendorPayments(checked === true)
+  );
+  const stableOnCheckedChange3 = useEventCallback((checked: boolean) =>
+    setIncludeTransactions(checked === true)
+  );
+  const stableOnValueChange4 = useEventCallback(
+    (v: string | null) => v && setFyStart(v)
+  );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -523,7 +530,7 @@ function ExportRouteComponent() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {fyOptions.map((opt: any) => (
+              {fyOptions.map((opt) => (
                 <SelectItem key={opt.value} value={String(opt.value)}>
                   {opt.label}
                 </SelectItem>

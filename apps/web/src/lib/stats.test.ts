@@ -108,7 +108,7 @@ describe("computeTrendData", () => {
       new Date(2026, 5, 30)
     );
     expect(result.length).toBeGreaterThan(3);
-    const janBucket = result.find((r: any) => r.period === "Jan 2026");
+    const janBucket = result.find((r) => r.period === "Jan 2026");
     expect(janBucket?.count).toBe(2);
     expect(janBucket?.amount).toBe(300);
   });
@@ -127,7 +127,7 @@ describe("computeTrendData", () => {
     );
     expect(result.length).toBeGreaterThanOrEqual(1);
     // Week containing Jan 5-6 should have both items
-    const weekWithData = result.find((r: any) => r.count > 0);
+    const weekWithData = result.find((r) => r.count > 0);
     expect(weekWithData?.count).toBe(2);
     expect(weekWithData?.amount).toBe(300);
   });
@@ -155,7 +155,7 @@ describe("computeCategoryData", () => {
   });
 
   it("caps at 8 categories with Other bucket", () => {
-    const items = Array.from({ length: 10 }, (_: any, i: any) =>
+    const items = Array.from({ length: 10 }, (_, i) =>
       makeItem({ amount: (10 - i) * 100, category: `Cat ${i}` })
     );
     const result = computeCategoryData(items);
@@ -186,7 +186,7 @@ describe("computeSubmitterData", () => {
   });
 
   it("limits to top 10", () => {
-    const items = Array.from({ length: 15 }, (_: any, i: any) =>
+    const items = Array.from({ length: 15 }, (_, i) =>
       makeItem({ amount: 100, email: `user${i}@test.com` })
     );
     const result = computeSubmitterData(items);
@@ -235,7 +235,7 @@ describe("computeEventData", () => {
   });
 
   it("limits to top 10", () => {
-    const items = Array.from({ length: 15 }, (_: any, i: any) =>
+    const items = Array.from({ length: 15 }, (_, i) =>
       makeEventItem(`evt${i}`, 100)
     );
     expect(computeEventData(items)).toHaveLength(10);
@@ -262,12 +262,12 @@ describe("computeApprovalTimeData", () => {
   it("returns all 6 buckets with zero counts for empty input", () => {
     const result = computeApprovalTimeData([]);
     expect(result).toHaveLength(6);
-    expect(result.every((b: any) => b.count === 0)).toBe(true);
+    expect(result.every((b) => b.count === 0)).toBe(true);
   });
 
   it("skips pending items", () => {
     const result = computeApprovalTimeData([makeApprovalItem(1, "pending")]);
-    expect(result.every((b: any) => b.count === 0)).toBe(true);
+    expect(result.every((b) => b.count === 0)).toBe(true);
   });
 
   it("skips items with missing timestamps", () => {
@@ -275,7 +275,7 @@ describe("computeApprovalTimeData", () => {
       { reviewedAt: base, status: "approved", submittedAt: null },
       { reviewedAt: null, status: "approved", submittedAt: base },
     ]);
-    expect(result.every((b: any) => b.count === 0)).toBe(true);
+    expect(result.every((b) => b.count === 0)).toBe(true);
   });
 
   it("bins < 1 day (0 elapsed days) into first bucket", () => {
@@ -319,6 +319,6 @@ describe("computeApprovalTimeData", () => {
       submittedAt: base,
     };
     const result = computeApprovalTimeData([item]);
-    expect(result.every((b: any) => b.count === 0)).toBe(true);
+    expect(result.every((b) => b.count === 0)).toBe(true);
   });
 });

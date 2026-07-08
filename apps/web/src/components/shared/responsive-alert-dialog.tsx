@@ -11,6 +11,7 @@ import {
   AlertDialogTitle as DesktopAlertDialogTitle,
 } from "@pi-dash/design-system/components/ui/alert-dialog";
 import type { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ComponentProps, ReactNode } from "react";
 
 export function AlertDialog({
@@ -22,7 +23,9 @@ export function AlertDialog({
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
 }) {
-  const stableOnOpenChange0 = (nextOpen: any) => onOpenChange?.(nextOpen);
+  const stableOnOpenChange0 = useEventCallback((nextOpen: boolean) =>
+    onOpenChange?.(nextOpen)
+  );
 
   return (
     <DesktopAlertDialog onOpenChange={stableOnOpenChange0} open={open}>

@@ -152,7 +152,7 @@ async function queryExportRows(
     .where(whereClause)
     .groupBy(...groupByFields)) as unknown as RawResultRow[];
 
-  const ids: string[] = results.map((r: any) => r.id);
+  const ids: string[] = results.map((r) => r.id);
   const rawAttachments =
     ids.length > 0
       ? await db
@@ -170,7 +170,7 @@ async function queryExportRows(
 
   const attachmentsByRecord = groupAttachments(rawAttachments);
 
-  return results.map((r: any) => ({
+  return results.map((r) => ({
     attachments: attachmentsByRecord.get(r.id) ?? [],
     city: r.city ?? "",
     createdAt: r.createdAt.toISOString(),

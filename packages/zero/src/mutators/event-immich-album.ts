@@ -46,9 +46,7 @@ export const eventImmichAlbumMutators = {
 
       // Delete all photo records
       await Promise.all(
-        photos.map(async (photo) => {
-          await tx.mutate.eventPhoto.delete({ id: photo.id });
-        })
+        photos.map((photo) => tx.mutate.eventPhoto.delete({ id: photo.id }))
       );
 
       // Delete the album record
@@ -56,39 +54,37 @@ export const eventImmichAlbumMutators = {
 
       // Enqueue async cleanup jobs on the server
       if (tx.location === "server") {
-        await Promise.all(
-          photos.map(async (photo) => {
-            if (photo.r2Key) {
-              const r2Key = photo.r2Key;
-              ctx.asyncTasks?.push({
-                fn: async () => {
-                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                  await enqueue(
-                    "delete-r2-object",
-                    { r2Key },
-                    { traceId: ctx.traceId }
-                  );
-                },
-                meta: { mutator: MUTATOR_NAME, photoId: photo.id },
-              });
-            }
+        for (const photo of photos) {
+          if (photo.r2Key) {
+            const { r2Key } = photo;
+            ctx.asyncTasks?.push({
+              fn: async () => {
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                await enqueue(
+                  "delete-r2-object",
+                  { r2Key },
+                  { traceId: ctx.traceId }
+                );
+              },
+              meta: { mutator: MUTATOR_NAME, photoId: photo.id },
+            });
+          }
 
-            if (photo.immichAssetId) {
-              const immichAssetId = photo.immichAssetId;
-              ctx.asyncTasks?.push({
-                fn: async () => {
-                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                  await enqueue(
-                    "immich-delete-asset",
-                    { immichAssetId },
-                    { traceId: ctx.traceId }
-                  );
-                },
-                meta: { mutator: MUTATOR_NAME, photoId: photo.id },
-              });
-            }
-          })
-        );
+          if (photo.immichAssetId) {
+            const { immichAssetId } = photo;
+            ctx.asyncTasks?.push({
+              fn: async () => {
+                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                await enqueue(
+                  "immich-delete-asset",
+                  { immichAssetId },
+                  { traceId: ctx.traceId }
+                );
+              },
+              meta: { mutator: MUTATOR_NAME, photoId: photo.id },
+            });
+          }
+        }
 
         const { immichAlbumId } = album;
         ctx.asyncTasks?.push({

@@ -1,6 +1,7 @@
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { log } from "evlog";
 import { type ReactNode, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
@@ -12,9 +13,9 @@ type Level = "root" | "section" | "inline";
 function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
-  const stableOnClick0 = () => {
+  const stableOnClick0 = useEventCallback(() => {
     window.location.href = "/";
-  };
+  });
 
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-4">

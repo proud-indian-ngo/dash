@@ -88,7 +88,7 @@ export function createNotifyHandler<T extends object, R = void>(
         }
       })
     );
-    const first = outputs[0];
+    const [first] = outputs;
     return outputs.length === 1 && first ? first : { batch: outputs };
   };
 }

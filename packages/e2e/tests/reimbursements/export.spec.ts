@@ -75,7 +75,7 @@ test.describe("Export CSV (admin)", () => {
       chunks.push(chunk);
     }
     const content = Buffer.concat(chunks).toString();
-    const headerLine = content.split("\n")[0];
+    const [headerLine] = content.split("\n");
     expect(headerLine).toContain("Type");
     expect(headerLine).toContain("Title");
     expect(headerLine).toContain("Status");
@@ -151,21 +151,26 @@ test.describe("Export CSV (admin)", () => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
     await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
 
-    // Uncheck all VP statuses (use exact to avoid "Pending" matching "Invoice Pending",
-    // and "Paid" matching "Partially Paid")
-    await Promise.all(
-      [
-        "Approved",
-        "Rejected",
-        "Partially Paid",
-        "Invoice Pending",
-        "Completed",
-      ].map(async (status) => {
-        await page.getByRole("checkbox", { name: status }).click();
-      })
-    );
-    await page.getByRole("checkbox", { exact: true, name: "Pending" }).click();
-    await page.getByRole("checkbox", { exact: true, name: "Paid" }).click();
+    const vpStatusGroup = page.getByRole("group", {
+      name: "Vendor payment status",
+    });
+
+    // Uncheck all VP statuses. Scope to the VP fieldset because request
+    // statuses share labels such as Pending, Approved, and Rejected.
+    await [
+      "Pending",
+      "Approved",
+      "Rejected",
+      "Partially Paid",
+      "Paid",
+      "Invoice Pending",
+      "Completed",
+    ].reduce(async (previousClick, status) => {
+      await previousClick;
+      await vpStatusGroup
+        .getByRole("checkbox", { exact: true, name: status })
+        .click();
+    }, Promise.resolve());
 
     await expect(
       page.getByRole("button", { name: "Export CSV" })

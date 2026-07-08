@@ -45,12 +45,12 @@ export const Route = createFileRoute("/api/jobs/$id")({
             startAfter: string;
           }>(
             sql`SELECT id, name, data, output, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
-              QUEUE_NAMES.map((n: any) => sql`${n}`),
+              QUEUE_NAMES.map((n) => sql`${n}`),
               sql`, `
             )}) LIMIT 1`
           );
 
-          const job = rows[0];
+          const [job] = rows;
           if (!job) {
             return Response.json({ error: "Job not found" }, { status: 404 });
           }

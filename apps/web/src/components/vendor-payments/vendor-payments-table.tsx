@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -32,10 +33,7 @@ import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 function computeTotal(
   lineItems: VendorPaymentWithRelations["lineItems"]
 ): number {
-  return lineItems.reduce(
-    (sum: any, item: any) => sum + Number(item.amount),
-    0
-  );
+  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
 }
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
@@ -101,12 +99,12 @@ export function VendorPaymentsTable({
   const deleteAction = useConfirmAction<{ id: string; title: string }>({
     onConfirm: async (payload) =>
       onDelete ? onDelete(payload.id) : { type: "success" },
-    onError: (msg: any) => toast.error(msg),
+    onError: (msg) => toast.error(msg),
     onSuccess: () => toast.success("Vendor payment removed"),
   });
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {
-      accessorFn: (row: any) => row.title,
+      accessorFn: (row) => row.title,
       cell: ({ row }) => (
         <span className="truncate font-medium text-sm">
           {row.original.title}
@@ -121,7 +119,7 @@ export function VendorPaymentsTable({
       size: 240,
     },
     {
-      accessorFn: (row: any) => row.vendor?.name,
+      accessorFn: (row) => row.vendor?.name,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.vendor?.name}
@@ -140,7 +138,7 @@ export function VendorPaymentsTable({
       size: 180,
     },
     {
-      accessorFn: (row: any) => row.city,
+      accessorFn: (row) => row.city,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm capitalize">
           {row.original.city}
@@ -155,7 +153,7 @@ export function VendorPaymentsTable({
       size: 120,
     },
     {
-      accessorFn: (row: any) => row.event?.name,
+      accessorFn: (row) => row.event?.name,
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
           {row.original.event?.name}
@@ -170,7 +168,7 @@ export function VendorPaymentsTable({
       size: 180,
     },
     {
-      accessorFn: (row: any) => row.user?.name,
+      accessorFn: (row) => row.user?.name,
       cell: ({ row }) => {
         const { user } = row.original;
         if (!user) {
@@ -205,7 +203,7 @@ export function VendorPaymentsTable({
       size: 220,
     },
     {
-      accessorFn: (row: any) => computeTotal(row.lineItems),
+      accessorFn: (row) => computeTotal(row.lineItems),
       cell: ({ row }) => (
         <span className="truncate text-sm tabular-nums">
           {formatINR(computeTotal(row.original.lineItems))}
@@ -224,7 +222,7 @@ export function VendorPaymentsTable({
       size: 120,
     },
     {
-      accessorFn: (row: any) =>
+      accessorFn: (row) =>
         row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
       cell: ({ row }) => (
         <span className="truncate text-muted-foreground text-sm">
@@ -245,7 +243,7 @@ export function VendorPaymentsTable({
       size: 130,
     },
     {
-      accessorFn: (row: any) => row.status,
+      accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, variant } = getStatusBadge(row.original.status);
         return <Badge variant={variant}>{label}</Badge>;
@@ -281,7 +279,7 @@ export function VendorPaymentsTable({
                   aria-label="Row actions"
                   className="size-8"
                   data-testid="row-actions"
-                  onClick={(e: any) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -344,13 +342,17 @@ export function VendorPaymentsTable({
       size: 52,
     },
   ];
-  const stableGetRowId0 = (row: any) => row.id as string;
-  const stableOnRowClick1 = (row: any) => onNavigate(row.id as string);
-  const stableOnOpenChange2 = (open: any) => {
+  const stableGetRowId0 = useEventCallback(
+    (row: { id: string }) => row.id as string
+  );
+  const stableOnRowClick1 = useEventCallback((row: { id: string }) =>
+    onNavigate(row.id as string)
+  );
+  const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
     }
-  };
+  });
 
   return (
     <>

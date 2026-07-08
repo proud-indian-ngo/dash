@@ -144,7 +144,7 @@ function computeDashboardStats({
             icon: Calendar03Icon,
             label: "Upcoming Events",
             value: events.filter(
-              (e: any) => e.startTime !== null && e.startTime > Date.now()
+              (e) => e.startTime !== null && e.startTime > Date.now()
             ).length,
           },
         ]),
@@ -210,7 +210,7 @@ function OrientedDashboard() {
   const [eventInterests] = useQuery(queries.eventInterest.byCurrentUser());
 
   // Team leads can approve event photos/updates/interest for their teams
-  const isLeadOfAnyTeam = teams.some((t: any) =>
+  const isLeadOfAnyTeam = teams.some((t) =>
     isTeamLead(t.members, session?.user.id ?? "")
   );
   const canManagePhotos =
@@ -322,7 +322,7 @@ function OrientedDashboard() {
       <div className="mt-6">
         <PendingReviews
           advancePayments={advancePayments.filter(
-            (a: any) => a.status === "pending"
+            (a) => a.status === "pending"
           )}
           eventInterests={pendingInterests}
           eventPhotos={pendingPhotos}
@@ -334,12 +334,8 @@ function OrientedDashboard() {
             canManageInterest,
             canManagePhotos,
           }}
-          reimbursements={reimbursements.filter(
-            (r: any) => r.status === "pending"
-          )}
-          vendorPayments={vendorPayments.filter(
-            (v: any) => v.status === "pending"
-          )}
+          reimbursements={reimbursements.filter((r) => r.status === "pending")}
+          vendorPayments={vendorPayments.filter((v) => v.status === "pending")}
         />
       </div>
 

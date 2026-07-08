@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useEffect, useState } from "react";
@@ -63,12 +64,16 @@ export function ShowInterestDialog({
       onOpenChange(false);
     }
   };
-  const stableOnSubmit0 = (e: any) => {
-    e.preventDefault();
-    handleSubmit();
-  };
-  const stableOnChange1 = (e: any) => setMessage(e.target.value);
-  const stableOnClick2 = () => onOpenChange(false);
+  const stableOnSubmit0 = useEventCallback(
+    (e: { preventDefault: () => void }) => {
+      e.preventDefault();
+      handleSubmit();
+    }
+  );
+  const stableOnChange1 = useEventCallback((e: { target: { value: string } }) =>
+    setMessage(e.target.value)
+  );
+  const stableOnClick2 = useEventCallback(() => onOpenChange(false));
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

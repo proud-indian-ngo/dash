@@ -20,7 +20,7 @@ describe("sortUpcomingFirstThenPast", () => {
       { label: "upcoming", startTime: Date.UTC(2026, 3, 25) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r: any) => r.label)).toEqual(["upcoming", "past"]);
+    expect(rows.map((r) => r.label)).toEqual(["upcoming", "past"]);
   });
 
   it("sorts upcoming ascending (nearest first)", () => {
@@ -30,7 +30,7 @@ describe("sortUpcomingFirstThenPast", () => {
       { label: "mid", startTime: Date.UTC(2026, 3, 26) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r: any) => r.label)).toEqual(["near", "mid", "far"]);
+    expect(rows.map((r) => r.label)).toEqual(["near", "mid", "far"]);
   });
 
   it("sorts past descending (most recent first)", () => {
@@ -40,7 +40,7 @@ describe("sortUpcomingFirstThenPast", () => {
       { label: "mid", startTime: Date.UTC(2026, 3, 15) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r: any) => r.label)).toEqual(["recent", "mid", "old"]);
+    expect(rows.map((r) => r.label)).toEqual(["recent", "mid", "old"]);
   });
 
   it("handles mixed upcoming and past", () => {
@@ -51,7 +51,7 @@ describe("sortUpcomingFirstThenPast", () => {
       { label: "upcoming-near", startTime: Date.UTC(2026, 3, 23) },
     ];
     sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r: any) => r.label)).toEqual([
+    expect(rows.map((r) => r.label)).toEqual([
       "upcoming-near",
       "upcoming-far",
       "past-recent",
@@ -123,11 +123,11 @@ describe("expandSeriesOccurrences", () => {
   it("marks series start date as seriesParent", () => {
     const result = expandWeekly(Date.UTC(2026, 3, 20, 23, 59));
 
-    const parent = result.occurrences.find((o: any) => o.isSeriesParent);
+    const parent = result.occurrences.find((o) => o.isSeriesParent);
     expect(parent).toBeDefined();
     expect(parent?.date).toBe("2026-04-06");
 
-    const virtuals = result.occurrences.filter((o: any) => !o.isSeriesParent);
+    const virtuals = result.occurrences.filter((o) => !o.isSeriesParent);
     expect(virtuals.length).toBeGreaterThan(0);
   });
 
@@ -136,7 +136,7 @@ describe("expandSeriesOccurrences", () => {
       { originalDate: "2026-04-13" },
     ]);
 
-    const dates = result.occurrences.map((o: any) => o.date);
+    const dates = result.occurrences.map((o) => o.date);
     expect(dates).not.toContain("2026-04-13");
     expect(dates).toContain("2026-04-06");
     expect(dates).toContain("2026-04-20");

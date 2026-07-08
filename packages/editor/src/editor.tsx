@@ -172,13 +172,15 @@ export function PlateEditor({
     }
   }
 
-  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      await handleImageUpload(file);
+  const handleFileChange = useEventCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await handleImageUpload(file);
+      }
+      e.target.value = "";
     }
-    e.target.value = "";
-  }
+  );
 
   function handleSave() {
     const { children } = editor;
@@ -189,7 +191,9 @@ export function PlateEditor({
     editor.tf.reset();
   }
 
-  const preventToolbarFocus = (e: MouseEvent) => e.preventDefault();
+  const preventToolbarFocus = useEventCallback((e: MouseEvent) =>
+    e.preventDefault()
+  );
   const stableOnClick0 = useEventCallback(() => fileInputRef.current?.click());
 
   return (

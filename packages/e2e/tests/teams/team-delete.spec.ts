@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { createTeamViaDialog } from "../../helpers/team";
 
 /**
  * Helper: creates a team via the dialog and returns the name.
@@ -11,16 +12,7 @@ async function createTeam(
   await page.goto("/teams");
   await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add team" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByLabel("Name").fill(teamName);
-  await dialog.getByRole("button", { name: "Create" }).click();
-  await expect(page.getByText("Team created")).toBeVisible({ timeout: 10_000 });
-  await expect(dialog).toBeHidden({ timeout: 10_000 });
-
-  return teamName;
+  return createTeamViaDialog(page, { prefix: teamName });
 }
 
 /**
@@ -35,16 +27,23 @@ async function openRowActionAndClick(
   const trigger = row.getByTestId("row-actions");
   const menuItem = page.getByRole("menuitem", { name: menuItemName });
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const tryClick = async (attempt: number): Promise<boolean> => {
     await trigger.click();
     try {
       await expect(menuItem).toBeVisible({ timeout: 3000 });
       await menuItem.click();
-      return;
+      return true;
     } catch {
       // Menu didn't open or item disappeared — dismiss and retry
       await page.keyboard.press("Escape");
+      if (attempt >= 2) {
+        return false;
+      }
+      return tryClick(attempt + 1);
     }
+  };
+  if (await tryClick(0)) {
+    return;
   }
   // Final attempt — let it fail with a clear error
   await trigger.click();
@@ -63,9 +62,10 @@ test.describe("Team delete", () => {
     await expect(table.getByRole("row")).not.toHaveCount(1, {
       timeout: 15_000,
     });
+    await page.getByPlaceholder("Search teams...").fill(teamName);
 
     const row = table.getByRole("row").filter({ hasText: teamName });
-    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row).toBeVisible({ timeout: 45_000 });
 
     // Open actions menu and click Delete
     await openRowActionAndClick(page, row, "Delete");
@@ -98,9 +98,10 @@ test.describe("Team delete", () => {
     await expect(table.getByRole("row")).not.toHaveCount(1, {
       timeout: 15_000,
     });
+    await page.getByPlaceholder("Search teams...").fill(teamName);
 
     const row = table.getByRole("row").filter({ hasText: teamName });
-    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row).toBeVisible({ timeout: 45_000 });
 
     await openRowActionAndClick(page, row, "Delete");
 

@@ -49,7 +49,7 @@ function renderHoverCard({
       AppContext,
       {
         value: {
-          hasPermission: (permission: any) => permissions.includes(permission),
+          hasPermission: (permission) => permissions.includes(permission),
           navGroups: [],
           navItems: [],
           openSettings: () => undefined,

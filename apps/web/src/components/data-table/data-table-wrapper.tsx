@@ -29,6 +29,7 @@ import {
   ScrollArea,
   ScrollBar,
 } from "@pi-dash/design-system/components/ui/scroll-area";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
   ColumnDef,
   ColumnPinningState,
@@ -124,7 +125,7 @@ export function DataTableWrapper<TData extends object>({
   onClearFilters,
 }: DataTableWrapperProps<TData>) {
   const initialColumnOrder = columns
-    .map((column: any) => column.id)
+    .map((column) => column.id)
     .filter((id): id is string => typeof id === "string");
 
   const {
@@ -177,7 +178,7 @@ export function DataTableWrapper<TData extends object>({
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
   const resetPage = () => {
-    setPagination((current: any) => ({
+    setPagination((current) => ({
       ...current,
       pageIndex: 0,
     }));
@@ -201,11 +202,8 @@ export function DataTableWrapper<TData extends object>({
     setLocalSearch(searchQuery);
   }, [searchQuery]);
 
-  const globalFilterFn: FilterFn<TData> = (
-    row: any,
-    _columnId: any,
-    value: any
-  ) => searchFn(row.original, String(value));
+  const globalFilterFn: FilterFn<TData> = (row, _columnId, value) =>
+    searchFn(row.original, String(value));
 
   const onPaginationChange = (updater: Updater<PaginationState>) => {
     const nextPagination = resolveUpdater(updater, pagination);
@@ -257,7 +255,7 @@ export function DataTableWrapper<TData extends object>({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const handleColumnDragEnd = (event: DragEndEvent) => {
+  const handleColumnDragEnd = useEventCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) {
@@ -281,24 +279,26 @@ export function DataTableWrapper<TData extends object>({
     }
 
     setColumnOrder(arrayMove(columnOrder, oldIndex, newIndex));
-  };
+  });
 
   const filteredRows = table.getFilteredRowModel().rows;
-  const filteredData = filteredRows.map((row: any) => row.original);
+  const filteredData = filteredRows.map((row) => row.original);
   const displayCount =
     manualPagination && rowCount !== undefined ? rowCount : filteredRows.length;
-  const stableOnChange0 = (event: any) => {
-    const { value } = event.target;
-    setLocalSearch(value);
-    resetPage();
-    debouncedSyncRef.current(value);
-  };
-  const stableOnClick1 = () => {
+  const stableOnChange0 = useEventCallback(
+    (event: { target: { value: string } }) => {
+      const { value } = event.target;
+      setLocalSearch(value);
+      resetPage();
+      debouncedSyncRef.current(value);
+    }
+  );
+  const stableOnClick1 = useEventCallback(() => {
     setLocalSearch("");
     debouncedSyncRef.current.cancel();
     resetPage();
     setSearchQuery("");
-  };
+  });
 
   useEffect(() => {
     onFilteredDataChange?.(filteredData);

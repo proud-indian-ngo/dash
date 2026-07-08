@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -42,7 +43,7 @@ export function ForgotPasswordForm() {
     setCooldown(COOLDOWN_SECONDS);
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setCooldown((prev: any) => {
+      setCooldown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
           return 0;
@@ -84,7 +85,7 @@ export function ForgotPasswordForm() {
     },
   });
 
-  async function handleResend() {
+  const handleResend = useEventCallback(async () => {
     if (cooldown > 0 || resending) {
       return;
     }
@@ -106,7 +107,7 @@ export function ForgotPasswordForm() {
     }
     startCooldown();
     setResending(false);
-  }
+  });
 
   return (
     <div className="flex flex-col gap-6">

@@ -147,7 +147,12 @@ describe("eventFeedback submit validation logic", () => {
       endTime: number | null;
       feedbackDeadline: number | null;
     }> = {}
-  ) => ({
+  ): {
+    endTime: number | null;
+    feedbackDeadline: number | null;
+    feedbackEnabled: boolean;
+    startTime: number;
+  } => ({
     endTime: 1_699_995_000_000,
     feedbackDeadline: null,
     feedbackEnabled: true,
@@ -243,7 +248,9 @@ describe("eventFeedback update validation logic", () => {
   });
 
   it("errors when feedback deadline has passed", () => {
-    const event = { feedbackDeadline: now - 1 };
+    const event: { feedbackDeadline: null | number } = {
+      feedbackDeadline: now - 1,
+    };
     expect(
       event.feedbackDeadline !== null && event.feedbackDeadline < now
     ).toBe(true);

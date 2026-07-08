@@ -267,27 +267,29 @@ async function seedBankAccounts(userMap: Map<string, string>): Promise<void> {
     },
   ];
 
-  for (const a of accounts) {
-    const userId = userMap.get(a.email);
-    if (!userId) {
-      continue;
-    }
-    const existing = await db.query.bankAccount.findFirst({
-      where: (t, ops) => ops.eq(t.userId, userId),
-    });
-    if (!existing) {
-      await db.insert(bankAccount).values({
-        accountName: a.name,
-        accountNumber: a.num,
-        createdAt: now,
-        id: uuidv7(),
-        ifscCode: a.ifsc,
-        isDefault: true,
-        updatedAt: now,
-        userId,
+  await Promise.all(
+    accounts.map(async (a) => {
+      const userId = userMap.get(a.email);
+      if (!userId) {
+        return;
+      }
+      const existing = await db.query.bankAccount.findFirst({
+        where: (t, ops) => ops.eq(t.userId, userId),
       });
-    }
-  }
+      if (!existing) {
+        await db.insert(bankAccount).values({
+          accountName: a.name,
+          accountNumber: a.num,
+          createdAt: now,
+          id: uuidv7(),
+          ifscCode: a.ifsc,
+          isDefault: true,
+          updatedAt: now,
+          userId,
+        });
+      }
+    })
+  );
   log(`${accounts.length} bank accounts ready`);
 }
 
@@ -396,15 +398,17 @@ async function seedTeams(
           updatedAt: now,
           whatsappGroupId: t.waGroup ? waGroups.get(t.waGroup) : undefined,
         });
-        for (const m of t.members) {
-          await db.insert(teamMember).values({
-            id: uuidv7(),
-            joinedAt: past(30),
-            role: m.role,
-            teamId: id,
-            userId: m.uid,
-          });
-        }
+        await Promise.all(
+          t.members.map((m) =>
+            db.insert(teamMember).values({
+              id: uuidv7(),
+              joinedAt: past(30),
+              role: m.role,
+              teamId: id,
+              userId: m.uid,
+            })
+          )
+        );
         existing = { id } as typeof existing;
       }
       teamMap.set(t.name, existing!.id);
@@ -513,22 +517,23 @@ async function seedEvents(
       // Add members
       const memberIds = [e.creator, v1, v2].slice(0, 3);
       const isPast = e.start < now;
-      for (const uid of memberIds) {
-        if (isPast) {
-          await db.execute(sql`
+      await Promise.all(
+        memberIds.map((uid) => {
+          if (isPast) {
+            return db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at, attendance, attendance_marked_at, attendance_marked_by)
           VALUES (${uuidv7()}, ${id}, ${uid}, ${subDays(e.start, 3).toISOString()},
             'present'::attendance_status, ${e.end?.toISOString() ?? null}, ${e.creator})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
-        } else {
-          await db.execute(sql`
+          }
+          return db.execute(sql`
           INSERT INTO team_event_member (id, event_id, user_id, added_at)
           VALUES (${uuidv7()}, ${id}, ${uid}, ${subDays(e.start, 3).toISOString()})
           ON CONFLICT (event_id, user_id) DO NOTHING
         `);
-        }
-      }
+        })
+      );
     })
   );
 
@@ -721,19 +726,20 @@ async function seedReimbursements(
         userId: r.userId,
       });
 
-      for (let i = 0; i < r.items.length; i++) {
-        const item = r.items[i];
-        await db.insert(reimbursementLineItem).values({
-          amount: item.amount,
-          categoryId: item.cat,
-          createdAt: now,
-          description: item.desc,
-          id: uuidv7(),
-          reimbursementId: id,
-          sortOrder: i,
-          updatedAt: now,
-        });
-      }
+      await Promise.all(
+        r.items.map((item, i) =>
+          db.insert(reimbursementLineItem).values({
+            amount: item.amount,
+            categoryId: item.cat,
+            createdAt: now,
+            description: item.desc,
+            id: uuidv7(),
+            reimbursementId: id,
+            sortOrder: i,
+            updatedAt: now,
+          })
+        )
+      );
 
       await db.insert(reimbursementHistory).values({
         action: "created",

@@ -43,7 +43,7 @@ export function TeamMembersSection({
 
       {members.length > 0 ? (
         <div className="overflow-hidden rounded-md border">
-          {members.map((member: any) => (
+          {members.map((member) => (
             <MemberRow
               canManage={canManage}
               canRemove={
@@ -56,7 +56,7 @@ export function TeamMembersSection({
               }
               key={member.id}
               member={member}
-              onRemove={(id: any) => onRemoveMember(id)}
+              onRemove={(id) => onRemoveMember(id)}
               onToggleRole={onToggleRole}
             />
           ))}

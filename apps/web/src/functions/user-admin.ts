@@ -25,8 +25,8 @@ const BETTER_AUTH_ROLES = ["admin", "volunteer"] as const;
 type BetterAuthRole = (typeof BETTER_AUTH_ROLES)[number];
 
 /** Better Auth only understands "admin" | "volunteer". Map admin-tier roles to "admin". */
-function toBetterAuthRole(role: string): BetterAuthRole {
-  if (ADMIN_TIER_ROLES.has(role)) {
+function toBetterAuthRole(roleId: string): BetterAuthRole {
+  if (ADMIN_TIER_ROLES.has(roleId)) {
     return "admin";
   }
   return "volunteer";
@@ -94,8 +94,8 @@ async function ensurePermission(
   if (!context.session) {
     throw new Error("Unauthorized");
   }
-  const role = context.session.user.role ?? "unoriented_volunteer";
-  const perms = await resolvePermissions(role);
+  const currentRole = context.session.user.role ?? "unoriented_volunteer";
+  const perms = await resolvePermissions(currentRole);
   if (!perms.includes(permissionId)) {
     throw new Error("Forbidden");
   }
@@ -248,7 +248,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       .from(user)
       .where(eq(user.id, data.userId))
       .limit(1)
-      .then((rows: any) => rows[0]);
+      .then((rows) => rows[0]);
     if (!currentUser) {
       throw new Error("User not found");
     }
@@ -300,8 +300,8 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         .select({ name: role.name })
         .from(role)
         .where(eq(role.id, newRole))
-        .then((rows: any) => rows[0]);
-      const roleName = roleRecord?.name;
+        .then((rows) => rows[0]);
+      const roleName = roleRecord?.name ?? newRole;
 
       // Enqueue role change notification
       withFireAndForgetLog(
@@ -389,7 +389,6 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
       await notifyUserDeleted({ userId: data.userId });
     } catch {
       // Best-effort: don't block deletion if notification fails
-      void 0;
     }
 
     // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).

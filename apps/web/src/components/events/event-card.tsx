@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest } from "@pi-dash/zero/schema";
@@ -84,13 +85,13 @@ export function EventCard({
   const now = Date.now();
   const hasStarted = row.startTime <= now;
   const isOver = row.endTime !== null && row.endTime <= now;
-  const isMember = row.members.some((m: any) => m.userId === userId);
+  const isMember = row.members.some((m) => m.userId === userId);
   const isOwnTeam = Boolean(row.team?.id && myTeamIds.has(row.team.id));
   const canManageInterest = hasPermission("events.manage_interest");
   const canSeeVolunteers = isOver || canManageInterest || isOwnTeam;
-  const interest = myInterests.find((i: any) => i.eventId === row.eventId);
+  const interest = myInterests.find((i) => i.eventId === row.eventId);
 
-  const handleShowInterest = async (e: React.MouseEvent) => {
+  const handleShowInterest = useEventCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     const id = uuidv7();
     const res = await zero.mutate(
@@ -106,9 +107,9 @@ export function EventCard({
       mutation: "eventInterest.create",
       successMsg: "Interest submitted!",
     });
-  };
+  });
 
-  const handleJoinAsMember = async (e: React.MouseEvent) => {
+  const handleJoinAsMember = useEventCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (row.isVirtualOccurrence && !row.occDate) {
       return;
@@ -132,7 +133,7 @@ export function EventCard({
       mutation: "teamEvent.joinAsMember",
       successMsg: "Joined event",
     });
-  };
+  });
 
   const handleCancelInterest = async (
     e: React.MouseEvent,
@@ -149,13 +150,13 @@ export function EventCard({
     });
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = useEventCallback(() => {
     navigate({
       params: { id: row.eventId },
       search: row.occDate ? { occDate: row.occDate } : {},
       to: "/events/$id",
     });
-  };
+  });
 
   const renderAction = () => {
     const action = deriveCardActionState({
@@ -174,7 +175,7 @@ export function EventCard({
           <Badge variant="secondary">Interest Pending</Badge>
         ) : (
           <Button
-            onClick={(e: any) => handleCancelInterest(e, action.interestId)}
+            onClick={(e) => handleCancelInterest(e, action.interestId)}
             size="sm"
             variant="outline"
           >

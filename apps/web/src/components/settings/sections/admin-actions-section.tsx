@@ -1,5 +1,6 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
@@ -20,7 +21,7 @@ export function AdminActionsSection() {
   const [r2CleanupConfirmOpen, setR2CleanupConfirmOpen] = useState(false);
   const [r2Cleaning, setR2Cleaning] = useState(false);
 
-  const handleScanGroups = async () => {
+  const handleScanGroups = useEventCallback(async () => {
     setScanningGroups(true);
     try {
       await scanWhatsAppGroups();
@@ -38,9 +39,9 @@ export function AdminActionsSection() {
       setScanningGroups(false);
       setScanConfirmOpen(false);
     }
-  };
+  });
 
-  const handleR2DryRun = async () => {
+  const handleR2DryRun = useEventCallback(async () => {
     setR2Cleaning(true);
     try {
       await r2Cleanup({ data: { dryRun: true } });
@@ -57,9 +58,9 @@ export function AdminActionsSection() {
     } finally {
       setR2Cleaning(false);
     }
-  };
+  });
 
-  const handleR2Cleanup = async () => {
+  const handleR2Cleanup = useEventCallback(async () => {
     setR2Cleaning(true);
     try {
       await r2Cleanup({ data: { dryRun: false } });
@@ -75,8 +76,8 @@ export function AdminActionsSection() {
       setR2Cleaning(false);
       setR2CleanupConfirmOpen(false);
     }
-  };
-  const stableOnClick1 = () => setR2CleanupConfirmOpen(true);
+  });
+  const stableOnClick1 = useEventCallback(() => setR2CleanupConfirmOpen(true));
 
   return (
     <div className="flex flex-col gap-6 p-4">

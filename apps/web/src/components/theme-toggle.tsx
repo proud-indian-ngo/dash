@@ -7,13 +7,20 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useTheme } from "@pi-dash/design-system/lib/theme-provider";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const stableOnCheckedChange0 = (v: any) => v && setTheme("light");
-  const stableOnCheckedChange1 = (v: any) => v && setTheme("dark");
-  const stableOnCheckedChange2 = (v: any) => v && setTheme("system");
+  const stableOnCheckedChange0 = useEventCallback(
+    (v: boolean) => v && setTheme("light")
+  );
+  const stableOnCheckedChange1 = useEventCallback(
+    (v: boolean) => v && setTheme("dark")
+  );
+  const stableOnCheckedChange2 = useEventCallback(
+    (v: boolean) => v && setTheme("system")
+  );
 
   return (
     <DropdownMenu>

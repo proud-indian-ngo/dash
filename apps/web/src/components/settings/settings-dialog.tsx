@@ -34,6 +34,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@pi-dash/design-system/components/ui/sidebar";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import {
   Dialog,
@@ -126,12 +127,14 @@ export function SettingsDialog() {
   } = useApp();
 
   const navItems = NAV_ITEMS_BASE.filter(
-    (item: any) => !item.permission || hasPermission(item.permission)
+    (item) => !item.permission || hasPermission(item.permission)
   );
 
   const activeLabel =
-    navItems.find((item: any) => item.id === settingsSection)?.label ?? "";
-  const stableOnValueChange0 = (v: any) => setSettingsSection(v as Section);
+    navItems.find((item) => item.id === settingsSection)?.label ?? "";
+  const stableOnValueChange0 = useEventCallback((v: string | null) =>
+    setSettingsSection(v as Section)
+  );
 
   return (
     <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
@@ -149,7 +152,7 @@ export function SettingsDialog() {
               <SidebarGroup>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {navItems.map((item: any) => (
+                    {navItems.map((item) => (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton
                           aria-current={
@@ -179,7 +182,7 @@ export function SettingsDialog() {
                     <SelectValue>{activeLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {navItems.map((item: any) => (
+                    {navItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.label}
                       </SelectItem>

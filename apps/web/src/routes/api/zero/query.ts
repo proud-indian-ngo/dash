@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/zero/query")({
 
         return Response.json(
           await handleQueryRequest(
-            (name: any, args: any) => {
+            (name, args) => {
               const query = mustGetQuery(queries, name);
               return query.fn({ args, ctx });
             },
