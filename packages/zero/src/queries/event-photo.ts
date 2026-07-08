@@ -59,19 +59,45 @@ export const eventPhotoQueries = {
         .orderBy("createdAt", "desc")
   ),
   /**
-   * All pending photos for an event — no query-level auth gating.
-   * Team leads are checked via team membership at the mutator level, which
-   * ZQL cannot replicate in a where clause. Use `enabled` flag on the client
-   * to restrict subscription to managers/leads only.
+   * All pending photos for an event the current user can review.
+   * Admins with `events.manage_photos` see all; team leads see only their
+   * teams' events.
    */
   pendingByEvent: defineQuery(
     z.object({ eventId: z.string() }),
-    ({ args: { eventId } }) =>
-      zql.eventPhoto
+    ({ args: { eventId }, ctx }) => {
+      if (ctx !== null && can(ctx, "events.manage_photos")) {
+        return zql.eventPhoto
+          .where("eventId", eventId)
+          .where("status", "pending")
+          .related("uploader")
+          .orderBy("createdAt", "desc");
+      }
+
+      if (ctx === null) {
+        return zql.eventPhoto
+          .where("eventId", eventId)
+          .where("status", "pending")
+          .where("id", "__never_match__")
+          .related("uploader")
+          .orderBy("createdAt", "desc");
+      }
+
+      return zql.eventPhoto
         .where("eventId", eventId)
         .where("status", "pending")
+        .where(({ exists }) =>
+          exists("event", (e) =>
+            e.whereExists("team", (t) =>
+              t.whereExists("members", (m) =>
+                m.where("userId", ctx.userId).where("role", "lead")
+              )
+            )
+          )
+        )
         .related("uploader")
-        .orderBy("createdAt", "desc")
+        .orderBy("createdAt", "desc");
+    }
   ),
 };
 

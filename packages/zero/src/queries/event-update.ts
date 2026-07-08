@@ -59,18 +59,44 @@ export const eventUpdateQueries = {
         .orderBy("createdAt", "desc")
   ),
   /**
-   * All pending updates for an event — no query-level auth gating.
-   * Team leads are checked via team membership at the mutator level, which
-   * ZQL cannot replicate in a where clause. Use `enabled` flag on the client
-   * to restrict subscription to approvers/leads only.
+   * All pending updates for an event the current user can review.
+   * Admins with `event_updates.approve` see all; team leads see only their
+   * teams' events.
    */
   pendingByEvent: defineQuery(
     z.object({ eventId: z.string() }),
-    ({ args: { eventId } }) =>
-      zql.eventUpdate
+    ({ args: { eventId }, ctx }) => {
+      if (ctx !== null && can(ctx, "event_updates.approve")) {
+        return zql.eventUpdate
+          .where("eventId", eventId)
+          .where("status", "pending")
+          .related("author")
+          .orderBy("createdAt", "desc");
+      }
+
+      if (ctx === null) {
+        return zql.eventUpdate
+          .where("eventId", eventId)
+          .where("status", "pending")
+          .where("id", "__never_match__")
+          .related("author")
+          .orderBy("createdAt", "desc");
+      }
+
+      return zql.eventUpdate
         .where("eventId", eventId)
         .where("status", "pending")
+        .where(({ exists }) =>
+          exists("event", (e) =>
+            e.whereExists("team", (t) =>
+              t.whereExists("members", (m) =>
+                m.where("userId", ctx.userId).where("role", "lead")
+              )
+            )
+          )
+        )
         .related("author")
-        .orderBy("createdAt", "desc")
+        .orderBy("createdAt", "desc");
+    }
   ),
 };

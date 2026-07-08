@@ -613,11 +613,8 @@ function EventPostEventPanel({
 /**
  * Queries for the event detail page. Pending queries use `enabled` flags to
  * control Zero subscriptions: approvers/leads get all pending, regular members
- * get only their own (via ctx.userId in myPendingByEvent).
- *
- * Note: pendingByEvent has no query-level auth because team lead status is
- * per-team and ZQL can't check team membership. The `enabled` flag prevents
- * non-approvers from subscribing. Mutators enforce team-scoped authorization.
+ * get only their own (via ctx.userId in myPendingByEvent). Query definitions
+ * enforce authorization; `enabled` only avoids unnecessary subscriptions.
  */
 function useEventDetailQueries(
   eventId: string,
