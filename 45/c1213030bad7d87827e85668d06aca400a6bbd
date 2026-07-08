@@ -1,0 +1,28 @@
+packages/auth/src/index.ts
+  s_ba6048d9fcf357::t_e65a57602a4a4a 1
+  s_ba6048d9fcf357::t_b378b7a6632672 2
+packages/auth/src/auth.ts
+  s_ba6048d9fcf357::t_b378b7a6632672 1-326
+biome.jsonc
+  s_ba6048d9fcf357::t_f9ac1b09f6c50b 17
+  s_ba6048d9fcf357::t_ffe5326e40f4a0 18
+  s_ba6048d9fcf357::t_b378b7a6632672 16
+apps/web/src/lib/posthog.ts
+  s_ba6048d9fcf357::t_6bbd04b17a2fe0 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "45c1213030bad7d87827e85668d06aca400a6bbd",
+  "prompts": {},
+  "sessions": {
+    "s_ba6048d9fcf357": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f41a1-2a42-7a40-91f0-174ea9eb76c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
