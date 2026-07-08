@@ -1,0 +1,40 @@
+apps/web/src/routes/_app/events/$id.tsx
+  s_34e6086973f48e::t_d3434bd498dff9 100-116,134-137
+packages/zero/src/queries/event-update.ts
+  s_34e6086973f48e::t_24dd2dd87c71b4 62-64,94
+  s_34e6086973f48e::t_a3b65ba65c865a 68-86,89-93,95-97,99-100
+packages/zero/src/queries/event-interest.ts
+  s_34e6086973f48e::t_a3b65ba65c865a 36,38-54,56-64,66-68
+  s_34e6086973f48e::t_612b40348cae04 69-75
+packages/zero/src/queries/event-photo.ts
+  s_34e6086973f48e::t_ffff081d8f72f2 62-64,94
+  s_34e6086973f48e::t_a3b65ba65c865a 68-86,89-93,95-97,99-100
+apps/web/src/components/teams/events/event-detail.tsx
+  s_34e6086973f48e::t_3ab8fff6c4bebc 616-617
+packages/e2e/helpers/seed-test-user.ts
+  s_34e6086973f48e::t_a3b65ba65c865a 206-208,212,219,472-473
+  s_34e6086973f48e::t_75432245984ad6 213-214,568-583,588-603
+  s_34e6086973f48e::t_37abb5abdcc56d 6-11,202-205,209-211,215-218,220-229,405-471,474-567,584-587,604-608,838
+packages/e2e/tests/authorization/zero-query-authorization.spec.ts
+  s_34e6086973f48e::t_73a7013c003411 1-3,5,9,11-99,103-107,111-170,174-178,182-202
+  s_34e6086973f48e::t_a3b65ba65c865a 4,6-8,10,100-102,108-110,171-173,179-181
+packages/zero/src/queries/event-feedback.ts
+  s_34e6086973f48e::t_13789b8f4f547d 31
+  s_34e6086973f48e::t_a3b65ba65c865a 9-30,32-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2b5cbf8a74e32a1df3308a808839b4d36b9a79d8",
+  "prompts": {},
+  "sessions": {
+    "s_34e6086973f48e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f42ab-dfe5-7a73-bc17-3f3ffd70357d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
