@@ -1,0 +1,21 @@
+packages/e2e/helpers/vendor-payment.ts
+  s_71ec9b89e4b63c::t_fdb60bc501dec8 10,17,26,30,34,76
+.github/workflows/ci.yml
+  s_71ec9b89e4b63c::t_4491f444d6c1ec 151-157,194,200-201,216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1c276ad1cd40e513f23714a40bd1b14d339f782b",
+  "prompts": {},
+  "sessions": {
+    "s_71ec9b89e4b63c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f421f-a515-7942-983c-a968f43a20d6",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
