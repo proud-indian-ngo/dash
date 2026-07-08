@@ -23,14 +23,15 @@ export const Route = createFileRoute("/api/zero/query")({
         const ctx = await buildSessionContext(session);
 
         return Response.json(
-          await handleQueryRequest(
-            (name, args) => {
+          await handleQueryRequest({
+            handler: (name, args) => {
               const query = mustGetQuery(queries, name);
               return query.fn({ args, ctx });
             },
+            request,
             schema,
-            request
-          )
+            userID: session.user.id,
+          })
         );
       },
     },

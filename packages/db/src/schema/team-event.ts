@@ -77,8 +77,12 @@ export const teamEvent = pgTable(
     ),
   },
   (table) => [
+    index("team_event_active_root_startTime_id_idx")
+      .on(table.startTime.desc(), table.id.asc())
+      .where(sql`cancelled_at IS NULL AND series_id IS NULL`),
     index("team_event_teamId_idx").on(table.teamId),
     index("team_event_seriesId_idx").on(table.seriesId),
+    index("team_event_seriesId_id_idx").on(table.seriesId, table.id.asc()),
     // PostgreSQL treats each NULL as distinct in unique indexes, so rows with
     // seriesId = NULL are never constrained by this index. Only exception
     // rows (non-NULL seriesId) are deduplicated by (series, originalDate).
@@ -120,6 +124,7 @@ export const teamEventMember = pgTable(
       table.eventId,
       table.userId
     ),
+    index("team_event_member_eventId_id_idx").on(table.eventId, table.id.asc()),
     index("team_event_member_eventId_idx").on(table.eventId),
     index("team_event_member_userId_idx").on(table.userId),
   ]

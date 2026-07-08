@@ -51,6 +51,16 @@
     "zero:generate": {
       "cache": false
     },
+    "zero:analyze": {
+      "cache": false,
+      "env": [
+        "COOKIE",
+        "ZERO_ADMIN_PASSWORD",
+        "ZERO_ANALYZE_EVENT_ID",
+        "ZERO_AUTH_TOKEN",
+        "ZERO_CACHE_URL"
+      ]
+    },
     "ui:add": {
       "cache": false
     },

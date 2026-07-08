@@ -268,6 +268,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | Script | Description |
 |---|---|
 | `bun run zero:generate` | Regenerate Zero schema from Drizzle schema |
+| `bun run zero:analyze` | Analyze configured Zero named queries against a Zero cache |
 | `bun run auth:seed-admin` | Create/promote admin user |
 | `bun run ui:add` | Add shadcn/ui components to the design system |
 

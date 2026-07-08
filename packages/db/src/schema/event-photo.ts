@@ -39,6 +39,17 @@ export const eventPhoto = pgTable(
       .references(() => user.id),
   },
   (table) => [
+    index("event_photo_status_createdAt_id_idx").on(
+      table.status,
+      table.createdAt.desc(),
+      table.id.asc()
+    ),
+    index("event_photo_eventId_status_createdAt_id_idx").on(
+      table.eventId,
+      table.status,
+      table.createdAt.desc(),
+      table.id.asc()
+    ),
     index("event_photo_eventId_idx").on(table.eventId),
     index("event_photo_uploadedBy_idx").on(table.uploadedBy),
   ]

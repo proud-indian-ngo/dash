@@ -17,6 +17,7 @@ import type {
   User,
   WhatsappGroup,
 } from "@pi-dash/zero/schema";
+import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
@@ -88,26 +89,16 @@ function RowActions({
   );
 }
 
-function TeamNameButton({
-  id,
-  name,
-  onNavigate,
-}: {
-  id: string;
-  name: string;
-  onNavigate: (id: string) => void;
-}) {
-  const handleClick = useEventCallback(() => onNavigate(id));
-
+function TeamNameButton({ id, name }: { id: string; name: string }) {
   return (
-    <button
+    <Link
       className="truncate text-left font-medium text-sm hover:underline"
       data-testid="row-title"
-      onClick={handleClick}
-      type="button"
+      params={{ id }}
+      to="/teams/$id"
     >
       {name}
-    </button>
+    </Link>
   );
 }
 
@@ -152,11 +143,7 @@ export function TeamsTable({
     {
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
-        <TeamNameButton
-          id={row.original.id}
-          name={row.original.name}
-          onNavigate={onNavigate}
-        />
+        <TeamNameButton id={row.original.id} name={row.original.name} />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />

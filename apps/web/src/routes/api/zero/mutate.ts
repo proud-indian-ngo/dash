@@ -42,15 +42,16 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const asyncTasks: AsyncTask[] = [];
         const ctx = { asyncTasks, permissions, role, traceId, userId };
 
-        const result = await handleMutateRequest(
+        const result = await handleMutateRequest({
           dbProvider,
-          async (transact) =>
+          handler: async (transact) =>
             await transact(async (tx, name, args) => {
               const mutator = mustGetMutator(mutators, name);
               return await mutator.fn({ args, ctx, tx });
             }),
-          request
-        );
+          request,
+          userID: userId,
+        });
 
         // Fire-and-forget: enqueue jobs after commit without blocking the response.
         // pg-boss handles persistence and retries from here.

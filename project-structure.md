@@ -15,6 +15,7 @@ All paths are relative to project root.
 | `bun run db:push` | Push schema changes to database |
 | `bun run db:migrate` | Run pending migrations |
 | `bun run zero:generate` | Regenerate Zero schema |
+| `bun run zero:analyze` | Analyze configured Zero named queries against a Zero cache |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
 | `bun run whatsapp:stop` | Stop WhatsApp gateway container |
 | `bun run dev:webhook-proxy` | Start WhatsApp webhook proxy (required for local webhook testing — Vite dev server can't handle chunked POST from Go) |

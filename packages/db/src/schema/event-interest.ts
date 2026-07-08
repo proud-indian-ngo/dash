@@ -40,6 +40,11 @@ export const eventInterest = pgTable(
       table.eventId,
       table.userId
     ),
+    index("event_interest_status_createdAt_id_idx").on(
+      table.status,
+      table.createdAt.desc(),
+      table.id.asc()
+    ),
     index("event_interest_eventId_idx").on(table.eventId),
     index("event_interest_userId_idx").on(table.userId),
   ]
