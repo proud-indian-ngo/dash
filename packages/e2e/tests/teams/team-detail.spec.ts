@@ -4,6 +4,7 @@ import { TeamDetailPage } from "../../pages/team-detail-page";
 
 // Member cards display the user's NAME, not email — use the seeded volunteer name
 const VOLUNTEER_NAME = "Test Volunteer";
+const VOLUNTEER_MEMBER_TEAM_NAME = "E2E Updates Team";
 
 /**
  * Creates a new team and navigates to its detail page.
@@ -166,28 +167,30 @@ test.describe("Team detail — volunteer view", () => {
     await waitForZeroReady(page);
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
 
-    // Check if any team exists to navigate to
-    const firstTeamLink = page.getByRole("table").getByRole("link").first();
-    const hasTeams = await firstTeamLink
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    if (!hasTeams) {
-      test.skip(true, "No teams visible to volunteer");
-      return;
-    }
-
-    await firstTeamLink.click();
+    await page
+      .getByPlaceholder("Search teams...")
+      .fill(VOLUNTEER_MEMBER_TEAM_NAME);
+    const teamRow = page
+      .getByRole("row")
+      .filter({ hasText: VOLUNTEER_MEMBER_TEAM_NAME })
+      .first();
+    await expect(teamRow).toBeVisible({ timeout: 45_000 });
+    await teamRow.getByTestId("row-title").click();
     await page.waitForURL(/\/teams\/[a-z0-9-]+/, { timeout: 10_000 });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: 10_000,
     });
+    const teamDetail = new TeamDetailPage(page);
 
     // Volunteer should see the members section heading
     await expect(page.getByRole("heading", { name: /Members/ })).toBeVisible({
       timeout: 10_000,
     });
+    await expect(teamDetail.getMemberRoleBadge(VOLUNTEER_NAME)).toContainText(
+      "Member"
+    );
 
     // But should NOT see Add Member button
-    await expect(page.getByRole("button", { name: "Add Member" })).toBeHidden();
+    await expect(teamDetail.getAddMemberButton()).toBeHidden();
   });
 });

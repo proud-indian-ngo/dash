@@ -59,6 +59,7 @@ jobs:
           path: packages/e2e/.test-durations.json
           key: e2e-durations-${{ github.ref_name }}
           restore-keys: |
+            e2e-durations-${{ github.ref_name }}-
             e2e-durations-master
             e2e-durations-
       - name: Generate shard lists
@@ -148,6 +149,13 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
 
+      - name: Resolve zero-cache image
+        id: zero-cache
+        run: |
+          ZERO_VERSION=$(bun -e 'const text = await Bun.file("bun.lock").text(); const match = text.match(/"@rocicorp\/zero": \["@rocicorp\/zero@([^"]+)"/); if (!match) throw new Error("Could not resolve @rocicorp/zero version from bun.lock"); console.log(match[1]);')
+          echo "version=${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image=rocicorp/zero:${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Restore Playwright cache
         id: playwright-cache
         uses: actions/cache/restore@v6
@@ -157,9 +165,6 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
-      - name: Install Playwright system deps
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
       - name: Save Playwright cache
         if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
@@ -184,14 +189,14 @@ jobs:
         uses: actions/cache@v6
         with:
           path: /tmp/zero-cache-image.tar
-          key: zero-cache-${{ runner.os }}-1.3.0
+          key: zero-cache-${{ runner.os }}-${{ steps.zero-cache.outputs.version }}
       - name: Load or pull zero-cache image
         run: |
           if [ -f /tmp/zero-cache-image.tar ]; then
             docker load -i /tmp/zero-cache-image.tar
           else
-            docker pull rocicorp/zero:1.3.0
-            docker save rocicorp/zero:1.3.0 -o /tmp/zero-cache-image.tar
+            docker pull "${{ steps.zero-cache.outputs.image }}"
+            docker save "${{ steps.zero-cache.outputs.image }}" -o /tmp/zero-cache-image.tar
           fi
       - name: Start zero-cache
         run: |
@@ -206,7 +211,7 @@ jobs:
             -e ZERO_QUERY_FORWARD_COOKIES=true \
             -e ZERO_ADMIN_PASSWORD=ci-test-admin \
             -e ZERO_LOG_LEVEL=info \
-            rocicorp/zero:1.3.0
+            "${{ steps.zero-cache.outputs.image }}"
           # Wait for zero-cache to be ready (use root path, not /keepalive)
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
