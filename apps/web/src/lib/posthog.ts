@@ -67,7 +67,7 @@ export function captureException(
   if (!initialized) {
     return;
   }
-  if (IGNORED_ERRORS.some((msg) => error.message?.includes(msg))) {
+  if (IGNORED_ERRORS.some((msg) => error.message.includes(msg))) {
     return;
   }
   posthogJs.captureException(error, properties);
