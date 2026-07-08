@@ -1,0 +1,19 @@
+.gitignore
+  s_34e6086973f48e::t_6d5e9e875ef1fe 69,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "bae282303b627c6c4c9d727c2d39b7d5481734de",
+  "prompts": {},
+  "sessions": {
+    "s_34e6086973f48e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f42ab-dfe5-7a73-bc17-3f3ffd70357d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
