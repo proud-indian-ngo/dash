@@ -166,21 +166,20 @@ function ReimbursementFormInner({
   });
 
   const hasInitialBankAccount = "bankAccountName" in (initialValues ?? {});
-  const bankAccountApplied = useRef(false);
+  const autoBankAccountNumber = useRef(defaultBankAccount?.accountNumber);
   useEffect(() => {
-    if (
-      bankAccountApplied.current ||
-      !defaultBankAccount ||
-      isEdit ||
-      hasInitialBankAccount
-    ) {
+    if (!defaultBankAccount || isEdit || hasInitialBankAccount) {
       return;
     }
-    if (!form.getFieldValue("bankAccountName")) {
+    const currentBankAccountNumber = form.getFieldValue("bankAccountNumber");
+    if (
+      !currentBankAccountNumber ||
+      currentBankAccountNumber === autoBankAccountNumber.current
+    ) {
       form.setFieldValue("bankAccountName", defaultBankAccount.accountName);
       form.setFieldValue("bankAccountNumber", defaultBankAccount.accountNumber);
       form.setFieldValue("bankAccountIfscCode", defaultBankAccount.ifscCode);
-      bankAccountApplied.current = true;
+      autoBankAccountNumber.current = defaultBankAccount.accountNumber;
     }
   }, [defaultBankAccount, form, isEdit, hasInitialBankAccount]);
 

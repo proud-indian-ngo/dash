@@ -20,7 +20,7 @@ const DURATIONS_FILE = path.resolve(
   ".test-durations.json"
 );
 const OUTPUT_DIR = path.resolve(import.meta.dirname, "shard-lists");
-const _DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
+const DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
 
 const totalShards = Number.parseInt(process.argv[2], 10);
 if (totalShards < 2) {
@@ -109,7 +109,7 @@ const entries: TestEntry[] = testLines.map((line) => {
       }
     }
   }
-  return { duration, line };
+  return { duration: duration ?? DEFAULT_DURATION_MS, line };
 });
 
 // 4. Greedy bin-packing (Longest Processing Time first)

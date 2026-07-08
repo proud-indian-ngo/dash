@@ -7,13 +7,21 @@ const vendorPaymentDetailUrlPattern =
   /\/vendor-payments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 async function dismissComboboxOverlay(page: Page) {
+  const listbox = page.getByRole("listbox");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
   const overlay = page.locator(OVERLAY_SELECTOR);
   if (await overlay.isVisible({ timeout: 1000 }).catch(() => false)) {
     await page.keyboard.press("Escape");
   }
+  await expect(listbox).toBeHidden({ timeout: 10_000 });
   await expect(overlay).toHaveCount(0, { timeout: 10_000 });
+}
+
+async function hasSelectedVendor(page: Page): Promise<boolean> {
+  const vendorTrigger = page.getByRole("combobox", { name: "Vendor" });
+  const value = (await vendorTrigger.textContent())?.trim();
+  return Boolean(value && value !== "Select vendor");
 }
 
 async function selectFirstVendorOption(page: Page): Promise<boolean> {
@@ -21,15 +29,18 @@ async function selectFirstVendorOption(page: Page): Promise<boolean> {
   const firstOption = page.getByRole("option").first();
 
   const trySelect = async (attempt: number): Promise<boolean> => {
+    if (await hasSelectedVendor(page)) {
+      return true;
+    }
+    await dismissComboboxOverlay(page);
     await vendorTrigger.click();
     if (await firstOption.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await firstOption.click();
+      await expect(page.getByRole("listbox")).toBeHidden({ timeout: 10_000 });
       return true;
     }
 
-    await page.keyboard.press("Escape").catch(() => {
-      // Ignore stale overlays between retries.
-    });
+    await dismissComboboxOverlay(page);
     await waitForZeroReady(page).catch(() => {
       // Form pages may already be ready.
     });
@@ -68,14 +79,13 @@ async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
   await clickUntilDialogCloses(dialog, /Create/i);
   await waitForZeroReady(page);
 
+  if (await hasSelectedVendor(page)) {
+    return;
+  }
   if (await selectFirstVendorOption(page)) {
     return;
   }
-  await page.getByRole("combobox", { name: "Vendor" }).click();
-  await expect(page.getByRole("option").first()).toBeVisible({
-    timeout: 10_000,
-  });
-  await page.getByRole("option").first().click();
+  throw new Error("Could not select a vendor after creating one");
 }
 
 async function fillLineItemAndSubmit(
