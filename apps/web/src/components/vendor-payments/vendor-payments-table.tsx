@@ -82,6 +82,79 @@ interface VendorPaymentsTableProps {
   toolbarFilters?: ReactNode;
 }
 
+function VendorPaymentRowActions({
+  canDelete,
+  canEdit,
+  id,
+  onDelete,
+  payment,
+}: {
+  canDelete?: boolean;
+  canEdit: boolean;
+  id: string;
+  onDelete: (payload: { id: string; title: string }) => void;
+  payment: VendorPaymentWithRelations;
+}) {
+  const stopPropagation = useEventCallback(
+    (event: { stopPropagation: () => void }) => event.stopPropagation()
+  );
+  const handleDelete = useEventCallback(() =>
+    onDelete({ id, title: payment.title })
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Row actions"
+            className="size-8"
+            data-testid="row-actions"
+            onClick={stopPropagation}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={MoreVerticalIcon}
+              strokeWidth={2}
+            />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-32">
+        <DropdownMenuItem
+          render={<Link params={{ id }} to="/vendor-payments/$id" />}
+        >
+          View
+        </DropdownMenuItem>
+        {canEdit ? (
+          <DropdownMenuItem
+            render={
+              <Link
+                params={{ id }}
+                search={{ mode: "edit" }}
+                to="/vendor-payments/$id"
+              />
+            }
+          >
+            Edit
+          </DropdownMenuItem>
+        ) : null}
+        {canDelete ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleDelete} variant="destructive">
+              Delete
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function VendorPaymentsTable({
   canDelete,
   data,
@@ -102,6 +175,9 @@ export function VendorPaymentsTable({
     onError: (msg) => toast.error(msg),
     onSuccess: () => toast.success("Vendor payment removed"),
   });
+  const handleDeleteRequest = useEventCallback(
+    (payload: { id: string; title: string }) => deleteAction.trigger(payload)
+  );
   const columns: ColumnDef<VendorPaymentWithRelations>[] = [
     {
       accessorFn: (row) => row.title,
@@ -272,63 +348,13 @@ export function VendorPaymentsTable({
           : false;
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label="Row actions"
-                  className="size-8"
-                  data-testid="row-actions"
-                  onClick={(e) => e.stopPropagation()}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={MoreVerticalIcon}
-                    strokeWidth={2}
-                  />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-32">
-              <DropdownMenuItem
-                render={<Link params={{ id }} to="/vendor-payments/$id" />}
-              >
-                View
-              </DropdownMenuItem>
-              {canEdit ? (
-                <DropdownMenuItem
-                  render={
-                    <Link
-                      params={{ id }}
-                      search={{ mode: "edit" }}
-                      to="/vendor-payments/$id"
-                    />
-                  }
-                >
-                  Edit
-                </DropdownMenuItem>
-              ) : null}
-              {canDelete && onDelete ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() =>
-                      deleteAction.trigger({
-                        id,
-                        title: request.title,
-                      })
-                    }
-                    variant="destructive"
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <VendorPaymentRowActions
+            canDelete={canDelete && Boolean(onDelete)}
+            canEdit={canEdit}
+            id={id}
+            onDelete={handleDeleteRequest}
+            payment={request}
+          />
         );
       },
       enableColumnOrdering: false,

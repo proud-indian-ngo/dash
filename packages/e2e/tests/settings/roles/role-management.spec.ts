@@ -15,7 +15,7 @@ async function findRoleRow(
 async function expectRedirectToDashboard(
   page: import("@playwright/test").Page
 ) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  async function tryRedirect(attempt: number): Promise<void> {
     await page.goto("/settings/roles");
     if (
       await page
@@ -25,8 +25,13 @@ async function expectRedirectToDashboard(
     ) {
       return;
     }
+
+    if (attempt < 1) {
+      await tryRedirect(attempt + 1);
+    }
   }
 
+  await tryRedirect(0);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 10_000,
   });

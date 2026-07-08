@@ -175,49 +175,52 @@ export async function materializePastOccurrences(now: number): Promise<number> {
   const seriesParents = await querySeriesParents();
   log.set({ seriesParentCount: seriesParents.length });
 
-  let materialized = 0;
-
-  for (const parent of seriesParents) {
-    if (!(await hasMembers(parent.id))) {
-      continue;
-    }
-
-    const rule = parseRecurrenceRule(parent.recurrenceRule);
-    if (!rule) {
-      continue;
-    }
-
-    const exceptionDates = await getExceptionDates(parent.id);
-
-    // Look back 25h + event duration to cover the post-event nudge window
-    const duration =
-      parent.endTime && parent.startTime
-        ? parent.endTime.getTime() - parent.startTime.getTime()
-        : 0;
-    const rangeStart = now - 25 * 60 * 60 * 1000 - duration;
-
-    const occurrences = expandSeries(
-      rule,
-      parent.startTime.getTime(),
-      parent.endTime?.getTime() ?? null,
-      rangeStart,
-      now,
-      exceptionDates
-    );
-
-    for (const occ of occurrences) {
-      if (occ.startTime > now) {
-        continue;
+  const materializedCounts = await Promise.all(
+    seriesParents.map(async (parent) => {
+      if (!(await hasMembers(parent.id))) {
+        return 0;
       }
-      // Skip the first occurrence — the parent itself is the canonical event
-      if (occ.startTime === parent.startTime.getTime()) {
-        continue;
+
+      const rule = parseRecurrenceRule(parent.recurrenceRule);
+      if (!rule) {
+        return 0;
       }
-      if (await materializeOccurrence(parent, occ, now)) {
-        materialized += 1;
-      }
-    }
-  }
+
+      const exceptionDates = await getExceptionDates(parent.id);
+
+      // Look back 25h + event duration to cover the post-event nudge window
+      const duration =
+        parent.endTime && parent.startTime
+          ? parent.endTime.getTime() - parent.startTime.getTime()
+          : 0;
+      const rangeStart = now - 25 * 60 * 60 * 1000 - duration;
+
+      const occurrences = expandSeries(
+        rule,
+        parent.startTime.getTime(),
+        parent.endTime?.getTime() ?? null,
+        rangeStart,
+        now,
+        exceptionDates
+      );
+
+      const eligibleOccurrences = occurrences.filter(
+        (occ) =>
+          occ.startTime <= now && occ.startTime !== parent.startTime.getTime()
+      );
+
+      const insertedIds = await Promise.all(
+        eligibleOccurrences.map((occ) =>
+          materializeOccurrence(parent, occ, now)
+        )
+      );
+      return insertedIds.filter(Boolean).length;
+    })
+  );
+  const materialized = materializedCounts.reduce(
+    (total, count) => total + count,
+    0
+  );
 
   log.set({ event: "materialization_complete", materialized });
   log.emit();

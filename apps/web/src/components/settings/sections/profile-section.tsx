@@ -168,6 +168,9 @@ function AvatarUpload() {
       setUploading(false);
     }
   });
+  const handleChangePhoto = useEventCallback(() =>
+    fileInputRef.current?.click()
+  );
 
   if (!user) {
     return null;
@@ -179,7 +182,7 @@ function AvatarUpload() {
         <div className="flex gap-2">
           <Button
             disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handleChangePhoto}
             size="sm"
             type="button"
             variant="outline"

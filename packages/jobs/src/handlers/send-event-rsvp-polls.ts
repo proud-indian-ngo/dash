@@ -123,21 +123,23 @@ async function dispatchSeriesParent(
   const parent = toSeriesParent(event);
   const parentStartMs = event.startTime.getTime();
 
-  for (const occ of occurrences) {
+  const eligibleOccurrences = occurrences.filter((occ) => {
     const pollMs = pollTriggerMs(occ.startTime, event.rsvpPollLeadMinutes);
-    if (!inWindow(pollMs, now)) {
-      continue;
-    }
+    return inWindow(pollMs, now);
+  });
+
+  await eligibleOccurrences.reduce<Promise<void>>(async (previous, occ) => {
+    await previous;
     // First occurrence IS the series parent row — attach poll directly,
     // don't materialize an exception (would orphan parent's poll/reminder fields).
     if (occ.startTime === parentStartMs) {
       await tryEnqueuePoll(event.id, enqueued, totals);
-      continue;
+      return;
     }
     const eventId = await getOrMaterializeOccurrenceId(parent, occ, now);
     totals.materialized += 1;
     await tryEnqueuePoll(eventId, enqueued, totals);
-  }
+  }, Promise.resolve());
 }
 
 async function dispatchStandalone(

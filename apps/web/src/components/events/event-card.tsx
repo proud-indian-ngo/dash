@@ -14,6 +14,7 @@ import type { EventInterest } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
+import type { MouseEvent } from "react";
 import { uuidv7 } from "uuidv7";
 import type { PublicDisplayRow } from "@/components/events/public-events-table";
 import { useApp } from "@/context/app-context";
@@ -135,20 +136,19 @@ export function EventCard({
     });
   });
 
-  const handleCancelInterest = async (
-    e: React.MouseEvent,
-    interestId: string
-  ) => {
-    e.stopPropagation();
-    const res = await zero.mutate(
-      mutators.eventInterest.cancel({ id: interestId })
-    ).server;
-    handleMutationResult(res, {
-      entityId: interestId,
-      errorMsg: "Couldn't cancel interest",
-      mutation: "eventInterest.cancel",
-    });
-  };
+  const handleCancelInterest = useEventCallback(
+    async (e: MouseEvent, interestId: string) => {
+      e.stopPropagation();
+      const res = await zero.mutate(
+        mutators.eventInterest.cancel({ id: interestId })
+      ).server;
+      handleMutationResult(res, {
+        entityId: interestId,
+        errorMsg: "Couldn't cancel interest",
+        mutation: "eventInterest.cancel",
+      });
+    }
+  );
 
   const handleCardClick = useEventCallback(() => {
     navigate({
@@ -174,13 +174,10 @@ export function EventCard({
         return action.started ? (
           <Badge variant="secondary">Interest Pending</Badge>
         ) : (
-          <Button
-            onClick={(e) => handleCancelInterest(e, action.interestId)}
-            size="sm"
-            variant="outline"
-          >
-            Cancel Interest
-          </Button>
+          <CancelInterestButton
+            interestId={action.interestId}
+            onCancel={handleCancelInterest}
+          />
         );
       case "interestApproved":
         return <Badge variant="default">Interest Approved</Badge>;
@@ -252,5 +249,23 @@ export function EventCard({
         </CardHeader>
       </div>
     </Card>
+  );
+}
+
+function CancelInterestButton({
+  interestId,
+  onCancel,
+}: {
+  interestId: string;
+  onCancel: (event: MouseEvent, interestId: string) => void;
+}) {
+  const handleClick = useEventCallback((event: MouseEvent) =>
+    onCancel(event, interestId)
+  );
+
+  return (
+    <Button onClick={handleClick} size="sm" variant="outline">
+      Cancel Interest
+    </Button>
   );
 }

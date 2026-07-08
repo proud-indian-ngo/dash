@@ -212,6 +212,33 @@ function toggleSetItem<T>(
   });
 }
 
+function StatusCheckbox<T extends string>({
+  checked,
+  id,
+  label,
+  onToggle,
+  value,
+}: {
+  checked: boolean;
+  id: string;
+  label: string;
+  onToggle: (value: T) => void;
+  value: T;
+}) {
+  const handleCheckedChange = useEventCallback(() => onToggle(value));
+
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox
+        checked={checked}
+        id={id}
+        onCheckedChange={handleCheckedChange}
+      />
+      <Label htmlFor={id}>{label}</Label>
+    </div>
+  );
+}
+
 async function exportRequests(
   runExport: ReturnType<typeof useServerFn<typeof exportCsvData>>,
   opts: {
@@ -427,6 +454,12 @@ function ExportRouteComponent() {
   const stableOnValueChange4 = useEventCallback(
     (v: string | null) => v && setFyStart(v)
   );
+  const toggleRequestStatus = useEventCallback((status: Status) =>
+    toggleSetItem(setSelectedStatuses, status)
+  );
+  const toggleVendorPaymentStatus = useEventCallback((status: VPStatus) =>
+    toggleSetItem(setSelectedVPStatuses, status)
+  );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -485,18 +518,14 @@ function ExportRouteComponent() {
               Reimbursement status
             </legend>
             {ALL_STATUSES.map((status) => (
-              <div className="flex items-center gap-2" key={status}>
-                <Checkbox
-                  checked={selectedStatuses.has(status)}
-                  id={`status-${status}`}
-                  onCheckedChange={() =>
-                    toggleSetItem(setSelectedStatuses, status)
-                  }
-                />
-                <Label htmlFor={`status-${status}`}>
-                  {STATUS_LABELS[status]}
-                </Label>
-              </div>
+              <StatusCheckbox
+                checked={selectedStatuses.has(status)}
+                id={`status-${status}`}
+                key={status}
+                label={STATUS_LABELS[status]}
+                onToggle={toggleRequestStatus}
+                value={status}
+              />
             ))}
           </fieldset>
         )}
@@ -507,18 +536,14 @@ function ExportRouteComponent() {
               Vendor payment status
             </legend>
             {VP_STATUSES.map((status) => (
-              <div className="flex items-center gap-2" key={`vp-${status}`}>
-                <Checkbox
-                  checked={selectedVPStatuses.has(status)}
-                  id={`vp-status-${status}`}
-                  onCheckedChange={() =>
-                    toggleSetItem(setSelectedVPStatuses, status)
-                  }
-                />
-                <Label htmlFor={`vp-status-${status}`}>
-                  {VP_STATUS_LABELS[status]}
-                </Label>
-              </div>
+              <StatusCheckbox
+                checked={selectedVPStatuses.has(status)}
+                id={`vp-status-${status}`}
+                key={`vp-${status}`}
+                label={VP_STATUS_LABELS[status]}
+                onToggle={toggleVendorPaymentStatus}
+                value={status}
+              />
             ))}
           </fieldset>
         )}

@@ -61,7 +61,7 @@ test.describe("Login page", () => {
 });
 
 async function openLoginPage(page: Page) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  async function tryOpen(attempt: number): Promise<void> {
     await page.goto("/login");
     if (
       await page
@@ -76,11 +76,15 @@ async function openLoginPage(page: Page) {
       await expect(page.getByLabel("Email")).toBeVisible();
       return;
     }
+
+    await tryOpen(attempt + 1);
   }
+
+  await tryOpen(0);
 }
 
 async function loginToDashboard(page: Page, email: string, password: string) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  async function tryLogin(attempt: number): Promise<void> {
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Login" }).click();
@@ -96,8 +100,12 @@ async function loginToDashboard(page: Page, email: string, password: string) {
 
     if (attempt < 2) {
       await openLoginPage(page);
+      await tryLogin(attempt + 1);
+      return;
     }
+
+    await page.waitForURL("/", { timeout: 10_000 });
   }
 
-  await page.waitForURL("/", { timeout: 10_000 });
+  await tryLogin(0);
 }

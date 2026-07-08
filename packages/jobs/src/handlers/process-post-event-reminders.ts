@@ -72,46 +72,48 @@ async function processFeedbackNudges(now: number): Promise<number> {
 
   log.set({ candidateEvents: events.length });
 
-  let sent = 0;
-  for (const event of events) {
-    if (
-      !(await tryInsertReminderSent(
-        event.id,
-        null,
-        POST_EVENT_SENTINELS.feedbackNudge
-      ))
-    ) {
-      continue;
-    }
+  const results: number[] = await Promise.all(
+    events.map(async (event) => {
+      if (
+        !(await tryInsertReminderSent(
+          event.id,
+          null,
+          POST_EVENT_SENTINELS.feedbackNudge
+        ))
+      ) {
+        return 0;
+      }
 
-    const members = await db
-      .select({ userId: teamEventMember.userId })
-      .from(teamEventMember)
-      .where(eq(teamEventMember.eventId, event.id));
+      const members = await db
+        .select({ userId: teamEventMember.userId })
+        .from(teamEventMember)
+        .where(eq(teamEventMember.eventId, event.id));
 
-    const submitted = await db
-      .select({ userId: eventFeedbackSubmission.userId })
-      .from(eventFeedbackSubmission)
-      .where(eq(eventFeedbackSubmission.eventId, event.id));
+      const submitted = await db
+        .select({ userId: eventFeedbackSubmission.userId })
+        .from(eventFeedbackSubmission)
+        .where(eq(eventFeedbackSubmission.eventId, event.id));
 
-    const submittedSet = new Set(submitted.map((r) => r.userId));
-    const pending = members.filter((m) => !submittedSet.has(m.userId));
+      const submittedSet = new Set(submitted.map((r) => r.userId));
+      const pending = members.filter((m) => !submittedSet.has(m.userId));
 
-    if (pending.length === 0) {
-      continue;
-    }
+      if (pending.length === 0) {
+        return 0;
+      }
 
-    await Promise.allSettled(
-      pending.map((m) =>
-        notifyFeedbackNudge({
-          eventId: event.id,
-          eventName: event.name,
-          userId: m.userId,
-        })
-      )
-    );
-    sent += 1;
-  }
+      await Promise.allSettled(
+        pending.map((m) =>
+          notifyFeedbackNudge({
+            eventId: event.id,
+            eventName: event.name,
+            userId: m.userId,
+          })
+        )
+      );
+      return 1;
+    })
+  );
+  const sent = results.reduce((total, count) => total + count, 0);
 
   log.set({ event: "feedback_nudges_complete", sent });
   log.emit();
@@ -147,56 +149,58 @@ async function processAttendanceReminders(now: number): Promise<number> {
 
   log.set({ candidateEvents: events.length });
 
-  let sent = 0;
-  for (const event of events) {
-    const markedMembers = await db
-      .select({ id: teamEventMember.id })
-      .from(teamEventMember)
-      .where(
-        and(
-          eq(teamEventMember.eventId, event.id),
-          isNotNull(teamEventMember.attendance)
+  const results: number[] = await Promise.all(
+    events.map(async (event) => {
+      const markedMembers = await db
+        .select({ id: teamEventMember.id })
+        .from(teamEventMember)
+        .where(
+          and(
+            eq(teamEventMember.eventId, event.id),
+            isNotNull(teamEventMember.attendance)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (markedMembers.length > 0) {
-      continue;
-    }
+      if (markedMembers.length > 0) {
+        return 0;
+      }
 
-    if (
-      !(await tryInsertReminderSent(
-        event.id,
-        null,
-        POST_EVENT_SENTINELS.attendanceReminder
-      ))
-    ) {
-      continue;
-    }
+      if (
+        !(await tryInsertReminderSent(
+          event.id,
+          null,
+          POST_EVENT_SENTINELS.attendanceReminder
+        ))
+      ) {
+        return 0;
+      }
 
-    const leads = await db
-      .select({ userId: teamMember.userId })
-      .from(teamMember)
-      .where(
-        and(eq(teamMember.teamId, event.teamId), eq(teamMember.role, "lead"))
+      const leads = await db
+        .select({ userId: teamMember.userId })
+        .from(teamMember)
+        .where(
+          and(eq(teamMember.teamId, event.teamId), eq(teamMember.role, "lead"))
+        );
+
+      const recipientIds = new Set([
+        event.createdBy,
+        ...leads.map((l) => l.userId),
+      ]);
+
+      await Promise.allSettled(
+        Array.from(recipientIds).map((userId) =>
+          notifyAttendanceNotMarked({
+            eventId: event.id,
+            eventName: event.name,
+            userId,
+          })
+        )
       );
-
-    const recipientIds = new Set([
-      event.createdBy,
-      ...leads.map((l) => l.userId),
-    ]);
-
-    await Promise.allSettled(
-      Array.from(recipientIds).map((userId) =>
-        notifyAttendanceNotMarked({
-          eventId: event.id,
-          eventName: event.name,
-          userId,
-        })
-      )
-    );
-    sent += 1;
-  }
+      return 1;
+    })
+  );
+  const sent = results.reduce((total, count) => total + count, 0);
 
   log.set({ event: "attendance_reminders_complete", sent });
   log.emit();
@@ -230,44 +234,46 @@ async function processPhotoNudges(now: number): Promise<number> {
 
   log.set({ candidateEvents: events.length });
 
-  let sent = 0;
-  for (const event of events) {
-    const photos = await db
-      .select({ id: eventPhoto.id })
-      .from(eventPhoto)
-      .where(eq(eventPhoto.eventId, event.id))
-      .limit(1);
+  const results: number[] = await Promise.all(
+    events.map(async (event) => {
+      const photos = await db
+        .select({ id: eventPhoto.id })
+        .from(eventPhoto)
+        .where(eq(eventPhoto.eventId, event.id))
+        .limit(1);
 
-    if (photos.length > 0) {
-      continue;
-    }
+      if (photos.length > 0) {
+        return 0;
+      }
 
-    if (
-      !(await tryInsertReminderSent(
-        event.id,
-        null,
-        POST_EVENT_SENTINELS.photoNudge
-      ))
-    ) {
-      continue;
-    }
+      if (
+        !(await tryInsertReminderSent(
+          event.id,
+          null,
+          POST_EVENT_SENTINELS.photoNudge
+        ))
+      ) {
+        return 0;
+      }
 
-    const members = await db
-      .select({ userId: teamEventMember.userId })
-      .from(teamEventMember)
-      .where(eq(teamEventMember.eventId, event.id));
+      const members = await db
+        .select({ userId: teamEventMember.userId })
+        .from(teamEventMember)
+        .where(eq(teamEventMember.eventId, event.id));
 
-    if (members.length === 0) {
-      continue;
-    }
+      if (members.length === 0) {
+        return 0;
+      }
 
-    await notifyPhotoUploadNudge({
-      eventId: event.id,
-      eventName: event.name,
-      userIds: members.map((m) => m.userId),
-    });
-    sent += 1;
-  }
+      await notifyPhotoUploadNudge({
+        eventId: event.id,
+        eventName: event.name,
+        userIds: members.map((m) => m.userId),
+      });
+      return 1;
+    })
+  );
+  const sent = results.reduce((total, count) => total + count, 0);
 
   log.set({ event: "photo_nudges_complete", sent });
   log.emit();

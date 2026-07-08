@@ -14,6 +14,53 @@ import {
 
 const STALE_THRESHOLD_DAYS = 7;
 
+async function enqueueAttachmentCleanupForMessage(
+  messageId: string,
+  log: { set: (fields: { event: string; r2Key: string }) => void }
+): Promise<void> {
+  const siblings = await db
+    .select({
+      retryCount: scheduledMessageRecipient.retryCount,
+      status: scheduledMessageRecipient.status,
+    })
+    .from(scheduledMessageRecipient)
+    .where(eq(scheduledMessageRecipient.scheduledMessageId, messageId));
+
+  const allDone = siblings.every((s) => {
+    if (s.status === "sent" || s.status === "cancelled") {
+      return true;
+    }
+    if (s.status === "failed" && s.retryCount >= MAX_RECIPIENT_RETRIES) {
+      return true;
+    }
+    return false;
+  });
+
+  if (!allDone) {
+    return;
+  }
+
+  const [parent] = await db
+    .select({ attachments: scheduledMessage.attachments })
+    .from(scheduledMessage)
+    .where(eq(scheduledMessage.id, messageId))
+    .limit(1);
+
+  if (!parent?.attachments?.length) {
+    return;
+  }
+
+  await Promise.all(
+    parent.attachments.map(async (att) => {
+      try {
+        await enqueue("delete-r2-object", { r2Key: att.r2Key });
+      } catch {
+        log.set({ event: "r2_cleanup_enqueue_failed", r2Key: att.r2Key });
+      }
+    })
+  );
+}
+
 export async function handleCleanupStaleScheduledRecipients(
   _jobs: Job<CleanupStaleScheduledRecipientsPayload>[]
 ): Promise<void> {
@@ -71,49 +118,11 @@ export async function handleCleanupStaleScheduledRecipients(
     ...new Set(staleRecipients.map((r) => r.scheduledMessageId)),
   ];
 
-  for (const messageId of affectedMessageIds) {
-    const siblings = await db
-      .select({
-        retryCount: scheduledMessageRecipient.retryCount,
-        status: scheduledMessageRecipient.status,
-      })
-      .from(scheduledMessageRecipient)
-      .where(eq(scheduledMessageRecipient.scheduledMessageId, messageId));
-
-    const allDone = siblings.every((s) => {
-      if (s.status === "sent" || s.status === "cancelled") {
-        return true;
-      }
-      if (s.status === "failed" && s.retryCount >= MAX_RECIPIENT_RETRIES) {
-        return true;
-      }
-      return false;
-    });
-
-    if (!allDone) {
-      continue;
-    }
-
-    const [parent] = await db
-      .select({ attachments: scheduledMessage.attachments })
-      .from(scheduledMessage)
-      .where(eq(scheduledMessage.id, messageId))
-      .limit(1);
-
-    if (!parent?.attachments?.length) {
-      continue;
-    }
-
-    await Promise.all(
-      parent.attachments.map(async (att) => {
-        try {
-          await enqueue("delete-r2-object", { r2Key: att.r2Key });
-        } catch {
-          log.set({ event: "r2_cleanup_enqueue_failed", r2Key: att.r2Key });
-        }
-      })
-    );
-  }
+  await Promise.all(
+    affectedMessageIds.map((messageId) =>
+      enqueueAttachmentCleanupForMessage(messageId, log)
+    )
+  );
 
   log.set({
     cleanedUp: staleRecipients.length,

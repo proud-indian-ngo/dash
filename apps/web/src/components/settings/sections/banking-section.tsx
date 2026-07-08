@@ -6,6 +6,7 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
+import type { BankAccount } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
@@ -19,6 +20,63 @@ import {
   type BankAccountFormValues,
   bankAccountSchema,
 } from "./banking-schema";
+
+function BankAccountListRow({
+  account,
+  onDelete,
+  onSetDefault,
+}: {
+  account: BankAccount;
+  onDelete: (id: string) => void;
+  onSetDefault: (id: string) => void;
+}) {
+  const handleSetDefault = useEventCallback(() => onSetDefault(account.id));
+  const handleDelete = useEventCallback(() => onDelete(account.id));
+
+  return (
+    <div className="flex items-start justify-between rounded-md border p-3">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">{account.accountName}</span>
+          {account.isDefault ? (
+            <Badge variant="secondary">Default</Badge>
+          ) : null}
+        </div>
+        <span className="text-muted-foreground text-xs">
+          ••••{account.accountNumber.slice(-4)}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {account.ifscCode}
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        {account.isDefault ? null : (
+          <Button
+            onClick={handleSetDefault}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Set default
+          </Button>
+        )}
+        <Button
+          aria-label="Delete account"
+          onClick={handleDelete}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={Delete02Icon}
+            strokeWidth={2}
+          />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function BankingSection() {
   const zero = useZero();
@@ -58,6 +116,18 @@ export function BankingSection() {
   });
 
   const accountList = accounts ?? [];
+  const handleSetDefault = useEventCallback(async (id: string) => {
+    const res = await zero.mutate(mutators.bankAccount.setDefault({ id }))
+      .server;
+    handleMutationResult(res, {
+      entityId: id,
+      errorMsg: "Couldn't set default bank account",
+      mutation: "bankAccount.setDefault",
+    });
+  });
+  const handleDeleteRequest = useEventCallback((id: string) =>
+    setDeleteTarget(id)
+  );
   const stableOnConfirm0 = useEventCallback(async () => {
     if (!deleteTarget) {
       return;
@@ -102,61 +172,12 @@ export function BankingSection() {
           <Separator />
           <div className="flex flex-col gap-2">
             {accountList.map((account) => (
-              <div
-                className="flex items-start justify-between rounded-md border p-3"
+              <BankAccountListRow
+                account={account}
                 key={account.id}
-              >
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">
-                      {account.accountName}
-                    </span>
-                    {account.isDefault ? (
-                      <Badge variant="secondary">Default</Badge>
-                    ) : null}
-                  </div>
-                  <span className="text-muted-foreground text-xs">
-                    ••••{account.accountNumber.slice(-4)}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {account.ifscCode}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  {account.isDefault ? null : (
-                    <Button
-                      onClick={async () => {
-                        const res = await zero.mutate(
-                          mutators.bankAccount.setDefault({ id: account.id })
-                        ).server;
-                        handleMutationResult(res, {
-                          entityId: account.id,
-                          errorMsg: "Couldn't set default bank account",
-                          mutation: "bankAccount.setDefault",
-                        });
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      Set default
-                    </Button>
-                  )}
-                  <Button
-                    aria-label="Delete account"
-                    onClick={() => setDeleteTarget(account.id)}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <HugeiconsIcon
-                      className="size-4"
-                      icon={Delete02Icon}
-                      strokeWidth={2}
-                    />
-                  </Button>
-                </div>
-              </div>
+                onDelete={handleDeleteRequest}
+                onSetDefault={handleSetDefault}
+              />
             ))}
           </div>
         </>

@@ -109,35 +109,55 @@ function DialogBody({
             </p>
           ) : (
             filtered.map((group) => (
-              <button
-                className="flex w-full cursor-pointer items-start gap-3 rounded-md p-2 text-left hover:bg-accent"
+              <GroupPickerOption
+                group={group}
                 key={group.jid}
-                onClick={() => toggleGroup(group.jid)}
-                type="button"
-              >
-                <Checkbox
-                  checked={selected.has(group.jid)}
-                  className="mt-0.5"
-                  onCheckedChange={() => toggleGroup(group.jid)}
-                  tabIndex={-1}
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="whitespace-normal break-words font-medium text-sm leading-snug">
-                    {group.name}
-                  </span>
-                  <span className="truncate text-muted-foreground text-xs">
-                    {group.jid}
-                  </span>
-                </div>
-                <Badge className="shrink-0 self-start" variant="secondary">
-                  {group.participantCount}
-                </Badge>
-              </button>
+                onToggle={toggleGroup}
+                selected={selected.has(group.jid)}
+              />
             ))
           )}
         </div>
       </ScrollArea>
     </>
+  );
+}
+
+function GroupPickerOption({
+  group,
+  onToggle,
+  selected,
+}: {
+  group: WapiGroup;
+  onToggle: (jid: string) => void;
+  selected: boolean;
+}) {
+  const handleToggle = useEventCallback(() => onToggle(group.jid));
+
+  return (
+    <button
+      className="flex w-full cursor-pointer items-start gap-3 rounded-md p-2 text-left hover:bg-accent"
+      onClick={handleToggle}
+      type="button"
+    >
+      <Checkbox
+        checked={selected}
+        className="mt-0.5"
+        onCheckedChange={handleToggle}
+        tabIndex={-1}
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="whitespace-normal break-words font-medium text-sm leading-snug">
+          {group.name}
+        </span>
+        <span className="truncate text-muted-foreground text-xs">
+          {group.jid}
+        </span>
+      </div>
+      <Badge className="shrink-0 self-start" variant="secondary">
+        {group.participantCount}
+      </Badge>
+    </button>
   );
 }
 

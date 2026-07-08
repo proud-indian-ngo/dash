@@ -99,7 +99,7 @@ export function EventUpdates({
     }
   });
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = useEventCallback(async (id: string) => {
     const res = await zero.mutate(
       mutators.eventUpdate.approve({ id, now: Date.now() })
     ).server;
@@ -109,7 +109,7 @@ export function EventUpdates({
       mutation: "eventUpdate.approve",
       successMsg: "Update approved",
     });
-  };
+  });
 
   const handleEdit = useEventCallback(async (id: string, content: string) => {
     const res = await zero.mutate(
@@ -123,7 +123,7 @@ export function EventUpdates({
     });
   });
 
-  const handleReject = async (id: string) => {
+  const handleReject = useEventCallback(async (id: string) => {
     const res = await zero.mutate(
       mutators.eventUpdate.reject({ id, now: Date.now() })
     ).server;
@@ -133,7 +133,7 @@ export function EventUpdates({
       mutation: "eventUpdate.reject",
       successMsg: "Update rejected",
     });
-  };
+  });
   const stableOnDelete0 = useEventCallback((id: string) =>
     deleteAction.trigger(id)
   );
@@ -178,10 +178,10 @@ export function EventUpdates({
             <PendingUpdateCard
               eventId={eventId}
               key={update.id}
-              onApprove={() => handleApprove(update.id)}
-              onDelete={() => deleteAction.trigger(update.id)}
+              onApprove={handleApprove}
+              onDelete={stableOnDelete0}
               onEdit={handleEdit}
-              onReject={() => handleReject(update.id)}
+              onReject={handleReject}
               update={update}
             />
           ))}
@@ -198,7 +198,7 @@ export function EventUpdates({
             <PendingUpdateCard
               eventId={eventId}
               key={update.id}
-              onDelete={() => deleteAction.trigger(update.id)}
+              onDelete={stableOnDelete0}
               onEdit={handleEdit}
               update={update}
             />
@@ -433,10 +433,10 @@ function PendingUpdateCard({
   update,
 }: {
   eventId: string;
-  onApprove?: () => void;
-  onDelete?: () => void;
+  onApprove?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onEdit?: (id: string, content: string) => Promise<void>;
-  onReject?: () => void;
+  onReject?: (id: string) => void;
   update: UpdateWithAuthor;
 }) {
   const [editing, setEditing] = useState(false);
@@ -456,6 +456,9 @@ function PendingUpdateCard({
   });
   const stableOnClick6 = useEventCallback(() => setEditing(true));
   const stableOnCancel7 = useEventCallback(() => setEditing(false));
+  const stableOnApprove = useEventCallback(() => onApprove?.(update.id));
+  const stableOnDelete = useEventCallback(() => onDelete?.(update.id));
+  const stableOnReject = useEventCallback(() => onReject?.(update.id));
 
   return (
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
@@ -506,7 +509,7 @@ function PendingUpdateCard({
               <Button
                 aria-label="Approve"
                 className="size-7"
-                onClick={onApprove}
+                onClick={stableOnApprove}
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -522,7 +525,7 @@ function PendingUpdateCard({
               <Button
                 aria-label="Reject"
                 className="size-7"
-                onClick={onReject}
+                onClick={stableOnReject}
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -538,7 +541,7 @@ function PendingUpdateCard({
               <Button
                 aria-label="Delete"
                 className="size-7"
-                onClick={onDelete}
+                onClick={stableOnDelete}
                 size="icon"
                 type="button"
                 variant="ghost"

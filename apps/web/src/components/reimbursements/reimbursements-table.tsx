@@ -69,16 +69,19 @@ function RowActions({
   canDelete,
   canEdit,
   id,
+  request,
   onRequestDelete,
 }: {
   canDelete: boolean;
   canEdit: boolean;
   id: string;
-  onRequestDelete: () => void;
+  request: RequestRow;
+  onRequestDelete: (row: RequestRow) => void;
 }) {
   const stableOnClick0 = useEventCallback(
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
+  const handleDelete = useEventCallback(() => onRequestDelete(request));
 
   return (
     <DropdownMenu>
@@ -123,7 +126,7 @@ function RowActions({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={!canDelete}
-          onClick={onRequestDelete}
+          onClick={handleDelete}
           variant="destructive"
         >
           Delete
@@ -173,6 +176,9 @@ export function ReimbursementsTable({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const onDeleteRef = useRef(onDelete);
   onDeleteRef.current = onDelete;
+  const handleDeleteRequest = useEventCallback((row: RequestRow) =>
+    setDeleteTarget({ row, type: row.type })
+  );
 
   const confirmDelete = useEventCallback(async () => {
     if (!deleteTarget) {
@@ -383,7 +389,8 @@ export function ReimbursementsTable({
             canDelete={canDelete}
             canEdit={canEdit}
             id={r.id}
-            onRequestDelete={() => setDeleteTarget({ row: r, type: r.type })}
+            onRequestDelete={handleDeleteRequest}
+            request={r}
           />
         );
       },

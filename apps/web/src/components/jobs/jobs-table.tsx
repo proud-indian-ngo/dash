@@ -200,7 +200,11 @@ function JobActions({
       />
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuItem onClick={handleView}>
-          <HugeiconsIcon className="mr-2 size-4" icon={ViewIcon} strokeWidth={2} />
+          <HugeiconsIcon
+            className="mr-2 size-4"
+            icon={ViewIcon}
+            strokeWidth={2}
+          />
           View details
         </DropdownMenuItem>
         {Boolean(canCancel) && (

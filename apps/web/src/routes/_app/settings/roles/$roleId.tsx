@@ -16,6 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
 import { Label } from "@pi-dash/design-system/components/ui/label";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -54,6 +55,68 @@ type PermissionGroups = Record<
   string,
   { id: string; name: string; description: string | null }[]
 >;
+
+function PermissionCategoryCheckbox({
+  allSelected,
+  disabled,
+  onToggle,
+  permissions,
+}: {
+  allSelected: boolean;
+  disabled: boolean;
+  onToggle: (categoryPerms: { id: string }[], allSelected: boolean) => void;
+  permissions: { id: string }[];
+}) {
+  const handleCheckedChange = useEventCallback(() =>
+    onToggle(permissions, allSelected)
+  );
+
+  return (
+    <Checkbox
+      checked={allSelected}
+      disabled={disabled}
+      onCheckedChange={handleCheckedChange}
+    />
+  );
+}
+
+function PermissionCheckbox({
+  checked,
+  disabled,
+  permission,
+  onToggle,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onToggle: (permissionId: string) => void;
+  permission: { id: string; name: string; description: string | null };
+}) {
+  const handleCheckedChange = useEventCallback(() => onToggle(permission.id));
+
+  return (
+    <div className="flex items-start gap-2 rounded-md px-2 py-1.5">
+      <Checkbox
+        checked={checked}
+        disabled={disabled}
+        id={`perm-${permission.id}`}
+        onCheckedChange={handleCheckedChange}
+      />
+      <div className="grid gap-0.5">
+        <Label
+          className="cursor-pointer text-sm"
+          htmlFor={`perm-${permission.id}`}
+        >
+          {permission.name}
+        </Label>
+        {permission.description ? (
+          <span className="text-muted-foreground text-xs">
+            {permission.description}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function RoleEditPage() {
   const { roleId } = Route.useParams();
@@ -128,7 +191,7 @@ function RoleEditPage() {
     },
   });
 
-  const togglePermission = (permId: string) => {
+  const togglePermission = useEventCallback((permId: string) => {
     setSelectedPermissions((prev) => {
       const next = new Set(prev);
       if (next.has(permId)) {
@@ -138,24 +201,23 @@ function RoleEditPage() {
       }
       return next;
     });
-  };
+  });
 
-  const toggleCategory = (
-    categoryPerms: { id: string }[],
-    allSelected: boolean
-  ) => {
-    setSelectedPermissions((prev) => {
-      const next = new Set(prev);
-      for (const p of categoryPerms) {
-        if (allSelected) {
-          next.delete(p.id);
-        } else {
-          next.add(p.id);
+  const toggleCategory = useEventCallback(
+    (categoryPerms: { id: string }[], allSelected: boolean) => {
+      setSelectedPermissions((prev) => {
+        const next = new Set(prev);
+        for (const p of categoryPerms) {
+          if (allSelected) {
+            next.delete(p.id);
+          } else {
+            next.add(p.id);
+          }
         }
-      }
-      return next;
-    });
-  };
+        return next;
+      });
+    }
+  );
 
   if (loading) {
     return <Loader />;
@@ -238,10 +300,11 @@ function RoleEditPage() {
               return (
                 <Collapsible defaultOpen key={category}>
                   <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
-                    <Checkbox
-                      checked={allSelected}
+                    <PermissionCategoryCheckbox
+                      allSelected={allSelected}
                       disabled={isSystemRole}
-                      onCheckedChange={() => toggleCategory(perms, allSelected)}
+                      onToggle={toggleCategory}
+                      permissions={perms}
                     />
                     <CollapsibleTrigger className="flex-1 text-left font-medium text-sm capitalize">
                       {category.replace(/_/g, " ")}
@@ -258,30 +321,13 @@ function RoleEditPage() {
                   <CollapsibleContent>
                     <div className="ml-6 space-y-1 pb-2">
                       {perms.map((p) => (
-                        <div
-                          className="flex items-start gap-2 rounded-md px-2 py-1.5"
+                        <PermissionCheckbox
+                          checked={selectedPermissions.has(p.id)}
+                          disabled={isSystemRole}
                           key={p.id}
-                        >
-                          <Checkbox
-                            checked={selectedPermissions.has(p.id)}
-                            disabled={isSystemRole}
-                            id={`perm-${p.id}`}
-                            onCheckedChange={() => togglePermission(p.id)}
-                          />
-                          <div className="grid gap-0.5">
-                            <Label
-                              className="cursor-pointer text-sm"
-                              htmlFor={`perm-${p.id}`}
-                            >
-                              {p.name}
-                            </Label>
-                            {p.description ? (
-                              <span className="text-muted-foreground text-xs">
-                                {p.description}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
+                          onToggle={togglePermission}
+                          permission={p}
+                        />
                       ))}
                     </div>
                   </CollapsibleContent>

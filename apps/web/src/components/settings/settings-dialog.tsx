@@ -117,6 +117,29 @@ const SECTION_CONTENT: Record<Section, React.ReactNode> = {
   "whatsapp-groups": <WhatsAppGroupsSection />,
 };
 
+function SettingsNavButton({
+  active,
+  item,
+  onSelect,
+}: {
+  active: boolean;
+  item: NavItem;
+  onSelect: (section: Section) => void;
+}) {
+  const handleClick = useEventCallback(() => onSelect(item.id));
+
+  return (
+    <SidebarMenuButton
+      aria-current={active ? "page" : undefined}
+      isActive={active}
+      onClick={handleClick}
+    >
+      <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+      <span>{item.label}</span>
+    </SidebarMenuButton>
+  );
+}
+
 export function SettingsDialog() {
   const {
     hasPermission,
@@ -154,16 +177,11 @@ export function SettingsDialog() {
                   <SidebarMenu>
                     {navItems.map((item) => (
                       <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton
-                          aria-current={
-                            settingsSection === item.id ? "page" : undefined
-                          }
-                          isActive={settingsSection === item.id}
-                          onClick={() => setSettingsSection(item.id)}
-                        >
-                          <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                          <span>{item.label}</span>
-                        </SidebarMenuButton>
+                        <SettingsNavButton
+                          active={settingsSection === item.id}
+                          item={item}
+                          onSelect={setSettingsSection}
+                        />
                       </SidebarMenuItem>
                     ))}
                   </SidebarMenu>

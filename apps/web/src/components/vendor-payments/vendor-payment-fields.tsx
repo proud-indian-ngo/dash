@@ -8,10 +8,12 @@ import {
   SelectTrigger,
 } from "@pi-dash/design-system/components/ui/select";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
+import type { FormFieldApi } from "@/components/form/form-context";
 import {
   fieldErrorProps,
   useResolvedForm,
@@ -34,6 +36,113 @@ interface VendorPaymentFieldsProps {
   onVendorDialogOpenChange: (open: boolean) => void;
   vendorDialogOpen: boolean;
   vendorOptions: { label: string; value: string }[];
+}
+
+function VendorSelectField({
+  field,
+  onVendorDialogOpenChange,
+  submitted,
+  vendorOptions,
+}: {
+  field: FormFieldApi<string | undefined>;
+  onVendorDialogOpenChange: (open: boolean) => void;
+  submitted: boolean;
+  vendorOptions: { label: string; value: string }[];
+}) {
+  const handleOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      field.handleBlur();
+    }
+  });
+  const handleAddVendor = useEventCallback(() =>
+    onVendorDialogOpenChange(true)
+  );
+  const handleValueChange = useEventCallback((value: string | null) => {
+    field.handleChange(value ?? undefined);
+  });
+
+  return (
+    <div className="flex gap-2">
+      <Select
+        onOpenChange={handleOpenChange}
+        onValueChange={handleValueChange}
+        value={field.state.value ?? ""}
+      >
+        <SelectTrigger
+          {...fieldErrorProps(field, submitted)}
+          className="w-full"
+          id={field.name}
+        >
+          <span
+            className="flex flex-1 items-center text-left"
+            data-slot="select-value"
+          >
+            {vendorOptions.find((o) => o.value === field.state.value)?.label ??
+              "Select vendor"}
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {vendorOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        aria-label="Add new vendor"
+        onClick={handleAddVendor}
+        size="icon"
+        type="button"
+        variant="outline"
+      >
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+      </Button>
+    </div>
+  );
+}
+
+function EventSelectField({
+  eventOptions,
+  field,
+}: {
+  eventOptions: SelectOption[];
+  field: FormFieldApi<string | undefined>;
+}) {
+  const handleOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      field.handleBlur();
+    }
+  });
+  const handleValueChange = useEventCallback((value: string | null) =>
+    field.handleChange(value === "" || value === null ? undefined : value)
+  );
+
+  return (
+    <Select
+      onOpenChange={handleOpenChange}
+      onValueChange={handleValueChange}
+      value={field.state.value ?? ""}
+    >
+      <SelectTrigger className="w-full" id={field.name}>
+        <span
+          className="flex flex-1 items-center text-left"
+          data-slot="select-value"
+        >
+          {eventOptions.find((o) => o.value === field.state.value)?.label ??
+            "No event"}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="">No event</SelectItem>
+        {eventOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function VendorPaymentFields({
@@ -67,81 +176,18 @@ export function VendorPaymentFields({
           {(field) => {
             const submitted = resolvedForm.state.submissionAttempts > 0;
             return (
-              <div className="flex gap-2">
-                <Select
-                  onOpenChange={(open) => {
-                    if (!open) {
-                      field.handleBlur();
-                    }
-                  }}
-                  onValueChange={field.handleChange}
-                  value={field.state.value ?? ""}
-                >
-                  <SelectTrigger
-                    {...fieldErrorProps(field, submitted)}
-                    className="w-full"
-                    id={field.name}
-                  >
-                    <span
-                      className="flex flex-1 items-center text-left"
-                      data-slot="select-value"
-                    >
-                      {vendorOptions.find((o) => o.value === field.state.value)
-                        ?.label ?? "Select vendor"}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendorOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  aria-label="Add new vendor"
-                  onClick={() => onVendorDialogOpenChange(true)}
-                  size="icon"
-                  type="button"
-                  variant="outline"
-                >
-                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-                </Button>
-              </div>
+              <VendorSelectField
+                field={field}
+                onVendorDialogOpenChange={onVendorDialogOpenChange}
+                submitted={submitted}
+                vendorOptions={vendorOptions}
+              />
             );
           }}
         </CustomField>
         <CustomField<string | undefined> label="Event" name="eventId">
           {(field) => (
-            <Select
-              onOpenChange={(open) => {
-                if (!open) {
-                  field.handleBlur();
-                }
-              }}
-              onValueChange={(val) =>
-                field.handleChange(val === "" ? undefined : val)
-              }
-              value={field.state.value ?? ""}
-            >
-              <SelectTrigger className="w-full" id={field.name}>
-                <span
-                  className="flex flex-1 items-center text-left"
-                  data-slot="select-value"
-                >
-                  {eventOptions.find((o) => o.value === field.state.value)
-                    ?.label ?? "No event"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">No event</SelectItem>
-                {eventOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <EventSelectField eventOptions={eventOptions} field={field} />
           )}
         </CustomField>
       </div>

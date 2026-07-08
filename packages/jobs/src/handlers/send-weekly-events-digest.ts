@@ -99,43 +99,42 @@ async function collectRecurringEvents(
       )
     );
 
-  const result: DigestEvent[] = [];
-  for (const parent of seriesParents) {
-    const rule = parseRecurrenceRule(parent.recurrenceRule);
-    if (!rule) {
-      continue;
-    }
+  const parentResults = await Promise.all(
+    seriesParents.map(async (parent) => {
+      const rule = parseRecurrenceRule(parent.recurrenceRule);
+      if (!rule) {
+        return [];
+      }
 
-    const exceptions = await db
-      .select({ originalDate: teamEvent.originalDate })
-      .from(teamEvent)
-      .where(eq(teamEvent.seriesId, parent.id));
-    const exceptionDates = new Set(
-      exceptions
-        .map((exception) => exception.originalDate)
-        .filter((date): date is string => date !== null)
-    );
+      const exceptions = await db
+        .select({ originalDate: teamEvent.originalDate })
+        .from(teamEvent)
+        .where(eq(teamEvent.seriesId, parent.id));
+      const exceptionDates = new Set(
+        exceptions
+          .map((exception) => exception.originalDate)
+          .filter((date): date is string => date !== null)
+      );
 
-    const occurrences = expandSeries(
-      rule,
-      parent.startTime.getTime(),
-      parent.endTime?.getTime() ?? null,
-      weekStartMs,
-      weekEndMs,
-      exceptionDates
-    );
+      const occurrences = expandSeries(
+        rule,
+        parent.startTime.getTime(),
+        parent.endTime?.getTime() ?? null,
+        weekStartMs,
+        weekEndMs,
+        exceptionDates
+      );
 
-    for (const occurrence of occurrences) {
-      result.push({
+      return occurrences.map((occurrence) => ({
         endTime: occurrence.endTime ?? null,
         location: parent.location,
         name: parent.name,
         startTime: occurrence.startTime,
-      });
-    }
-  }
+      }));
+    })
+  );
 
-  return result;
+  return parentResults.flat();
 }
 
 export async function handleSendWeeklyEventsDigest(

@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { TOPIC_CATALOG } from "@pi-dash/notifications/topics";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -16,6 +17,71 @@ import { toast } from "sonner";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
+
+interface TopicPreferenceRowProps {
+  onToggle: (
+    topicId: string,
+    channel: "email" | "whatsapp" | "inbox",
+    enabled: boolean
+  ) => void;
+  topic: {
+    description: string;
+    emailEnabled: boolean;
+    inboxEnabled: boolean;
+    required: boolean;
+    topicId: string;
+    topicName: string;
+    whatsappEnabled: boolean;
+  };
+}
+
+function TopicPreferenceRow({ onToggle, topic }: TopicPreferenceRowProps) {
+  const handleInboxChange = useEventCallback((checked: boolean) =>
+    onToggle(topic.topicId, "inbox", checked)
+  );
+  const handleEmailChange = useEventCallback((checked: boolean) =>
+    onToggle(topic.topicId, "email", checked)
+  );
+  const handleWhatsappChange = useEventCallback((checked: boolean) =>
+    onToggle(topic.topicId, "whatsapp", checked)
+  );
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="font-medium text-sm">{topic.topicName}</p>
+        <p className="text-muted-foreground text-sm">
+          {topic.required
+            ? "This notification is required and cannot be disabled."
+            : topic.description}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-6">
+        <Switch
+          aria-label={`${topic.topicName} in-app`}
+          checked={topic.inboxEnabled}
+          disabled={topic.required}
+          id={`${topic.topicId}-inbox`}
+          onCheckedChange={handleInboxChange}
+        />
+        <Switch
+          aria-label={`${topic.topicName} email`}
+          checked={topic.emailEnabled}
+          disabled={topic.required}
+          id={`${topic.topicId}-email`}
+          onCheckedChange={handleEmailChange}
+        />
+        <Switch
+          aria-label={`${topic.topicName} WhatsApp`}
+          checked={topic.whatsappEnabled}
+          disabled={topic.required}
+          id={`${topic.topicId}-whatsapp`}
+          onCheckedChange={handleWhatsappChange}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function NotificationsSection() {
   const { hasPermission } = useApp();
@@ -48,37 +114,41 @@ export function NotificationsSection() {
 
   const groupedTopics = groupBy(topicsWithPrefs, (t) => t.group);
 
-  const handleToggle = async (
-    topicId: string,
-    channel: "email" | "whatsapp" | "inbox",
-    enabled: boolean
-  ) => {
-    try {
-      const res = await zero.mutate(
-        mutators.notificationPreference.upsert({
+  const handleToggle = useEventCallback(
+    async (
+      topicId: string,
+      channel: "email" | "whatsapp" | "inbox",
+      enabled: boolean
+    ) => {
+      try {
+        const res = await zero.mutate(
+          mutators.notificationPreference.upsert({
+            channel,
+            enabled,
+            topicId,
+          })
+        ).server;
+        handleMutationResult(res, {
+          entityId: topicId,
+          errorMsg: "Couldn't update notification preference",
+          mutation: "notificationPreference.upsert",
+          successMsg: enabled
+            ? "Notification enabled"
+            : "Notification disabled",
+        });
+      } catch (error) {
+        log.error({
+          action: "updatePreference",
           channel,
+          component: "NotificationsSection",
           enabled,
+          error: error instanceof Error ? error.message : String(error),
           topicId,
-        })
-      ).server;
-      handleMutationResult(res, {
-        entityId: topicId,
-        errorMsg: "Couldn't update notification preference",
-        mutation: "notificationPreference.upsert",
-        successMsg: enabled ? "Notification enabled" : "Notification disabled",
-      });
-    } catch (error) {
-      log.error({
-        action: "updatePreference",
-        channel,
-        component: "NotificationsSection",
-        enabled,
-        error: error instanceof Error ? error.message : String(error),
-        topicId,
-      });
-      toast.error("Couldn't update notification preference");
+        });
+        toast.error("Couldn't update notification preference");
+      }
     }
-  };
+  );
 
   if (isLoading) {
     return (
@@ -154,48 +224,11 @@ export function NotificationsSection() {
               )}
             </div>
             {items.map((topic) => (
-              <div
-                className="flex items-center justify-between gap-4"
+              <TopicPreferenceRow
                 key={topic.topicId}
-              >
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="font-medium text-sm">{topic.topicName}</p>
-                  <p className="text-muted-foreground text-sm">
-                    {topic.required
-                      ? "This notification is required and cannot be disabled."
-                      : topic.description}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-6">
-                  <Switch
-                    aria-label={`${topic.topicName} in-app`}
-                    checked={topic.inboxEnabled}
-                    disabled={topic.required}
-                    id={`${topic.topicId}-inbox`}
-                    onCheckedChange={(checked) =>
-                      handleToggle(topic.topicId, "inbox", checked)
-                    }
-                  />
-                  <Switch
-                    aria-label={`${topic.topicName} email`}
-                    checked={topic.emailEnabled}
-                    disabled={topic.required}
-                    id={`${topic.topicId}-email`}
-                    onCheckedChange={(checked) =>
-                      handleToggle(topic.topicId, "email", checked)
-                    }
-                  />
-                  <Switch
-                    aria-label={`${topic.topicName} WhatsApp`}
-                    checked={topic.whatsappEnabled}
-                    disabled={topic.required}
-                    id={`${topic.topicId}-whatsapp`}
-                    onCheckedChange={(checked) =>
-                      handleToggle(topic.topicId, "whatsapp", checked)
-                    }
-                  />
-                </div>
-              </div>
+                onToggle={handleToggle}
+                topic={topic}
+              />
             ))}
           </div>,
         ];

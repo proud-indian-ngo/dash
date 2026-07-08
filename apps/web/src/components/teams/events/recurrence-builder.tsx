@@ -114,6 +114,13 @@ function WeekdayPicker({
   byDay: number[];
   onChange: (byDay: number[]) => void;
 }) {
+  const handleChange = useEventCallback((value: number) => {
+    const next = byDay.includes(value)
+      ? byDay.filter((day) => day !== value)
+      : [...byDay, value];
+    onChange(next);
+  });
+
   return (
     <div className="space-y-1.5">
       <Label>On days</Label>
@@ -121,25 +128,43 @@ function WeekdayPicker({
         {WEEKDAY_LABELS.map((d) => {
           const isSelected = byDay.includes(d.value);
           return (
-            <Button
-              className="h-8 w-8 text-xs"
+            <WeekdayButton
+              isSelected={isSelected}
               key={d.value}
-              onClick={() => {
-                const next = isSelected
-                  ? byDay.filter((v) => v !== d.value)
-                  : [...byDay, d.value];
-                onChange(next);
-              }}
-              size="icon"
-              type="button"
-              variant={isSelected ? "default" : "outline"}
-            >
-              {d.label}
-            </Button>
+              label={d.label}
+              onChange={handleChange}
+              value={d.value}
+            />
           );
         })}
       </div>
     </div>
+  );
+}
+
+function WeekdayButton({
+  isSelected,
+  label,
+  onChange,
+  value,
+}: {
+  isSelected: boolean;
+  label: string;
+  onChange: (value: number) => void;
+  value: number;
+}) {
+  const handleClick = useEventCallback(() => onChange(value));
+
+  return (
+    <Button
+      className="h-8 w-8 text-xs"
+      onClick={handleClick}
+      size="icon"
+      type="button"
+      variant={isSelected ? "default" : "outline"}
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -272,9 +297,9 @@ function ExclusionPicker({
     }
   });
 
-  const removeExclusion = (index: number) => {
+  const removeExclusion = useEventCallback((index: number) => {
     onChange(excludeRules.filter((_, i) => i !== index));
-  };
+  });
   const stableOnValueChange5 = useEventCallback((v: string | null) =>
     setNth(Number(v))
   );
@@ -288,18 +313,12 @@ function ExclusionPicker({
       {excludeRules.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {excludeRules.map((rule, i) => (
-            <Badge className="gap-1 pr-1" key={rule} variant="secondary">
-              {excludeRuleLabel(rule)}
-              <Button
-                className="h-4 w-4 p-0"
-                onClick={() => removeExclusion(i)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                ×
-              </Button>
-            </Badge>
+            <ExclusionBadge
+              index={i}
+              key={rule}
+              onRemove={removeExclusion}
+              rule={rule}
+            />
           ))}
         </div>
       )}
@@ -338,6 +357,33 @@ function ExclusionPicker({
         </Button>
       </div>
     </div>
+  );
+}
+
+function ExclusionBadge({
+  index,
+  onRemove,
+  rule,
+}: {
+  index: number;
+  onRemove: (index: number) => void;
+  rule: string;
+}) {
+  const handleRemove = useEventCallback(() => onRemove(index));
+
+  return (
+    <Badge className="gap-1 pr-1" variant="secondary">
+      {excludeRuleLabel(rule)}
+      <Button
+        className="h-4 w-4 p-0"
+        onClick={handleRemove}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        ×
+      </Button>
+    </Badge>
   );
 }
 

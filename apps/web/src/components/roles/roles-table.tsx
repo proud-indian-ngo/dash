@@ -30,10 +30,12 @@ const SKELETON_ACTIONS = <Skeleton className="size-7" />;
 function RowActions({
   isSystem,
   onRequestDelete,
+  role,
   roleId,
 }: {
   isSystem: boolean;
-  onRequestDelete: () => void;
+  onRequestDelete: (role: RoleListItem) => void;
+  role: RoleListItem;
   roleId: string;
 }) {
   const navigate = useNavigate();
@@ -46,6 +48,7 @@ function RowActions({
       to: "/settings/roles/$roleId",
     })
   );
+  const handleDelete = useEventCallback(() => onRequestDelete(role));
 
   return (
     <DropdownMenu>
@@ -74,7 +77,7 @@ function RowActions({
         {!isSystem && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
+            <DropdownMenuItem onClick={handleDelete} variant="destructive">
               Delete
             </DropdownMenuItem>
           </>
@@ -123,6 +126,12 @@ export function RolesTable({
     onError: (msg) => toast.error(msg ?? "Couldn't delete role"),
     onSuccess: () => toast.success("Role removed"),
   });
+  const handleDeleteRequest = useEventCallback((role: RoleListItem) =>
+    deleteAction.trigger({
+      id: role.id,
+      name: role.name,
+    })
+  );
 
   const columns: ColumnDef<RoleListItem>[] = [
     {
@@ -209,12 +218,8 @@ export function RolesTable({
       cell: ({ row }) => (
         <RowActions
           isSystem={row.original.isSystem}
-          onRequestDelete={() =>
-            deleteAction.trigger({
-              id: row.original.id,
-              name: row.original.name,
-            })
-          }
+          onRequestDelete={handleDeleteRequest}
+          role={row.original}
           roleId={row.original.id}
         />
       ),

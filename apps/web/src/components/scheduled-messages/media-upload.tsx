@@ -2,6 +2,7 @@ import { Delete02Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   type FileWithPreview,
   formatBytes,
@@ -61,6 +62,38 @@ interface MediaUploadProps {
   entityId: string;
   onChange: (attachments: MediaAttachment[]) => void;
   value: MediaAttachment[];
+}
+
+function MediaAttachmentRow({
+  attachment,
+  index,
+  onRemove,
+}: {
+  attachment: MediaAttachment;
+  index: number;
+  onRemove: (index: number) => void;
+}) {
+  const handleRemove = useEventCallback(() => onRemove(index));
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+      <span className="min-w-0 flex-1 truncate text-sm">
+        {attachment.fileName}
+      </span>
+      <span className="shrink-0 text-muted-foreground text-xs">
+        {attachment.mimeType.split("/")[0]}
+      </span>
+      <Button
+        aria-label={`Remove ${attachment.fileName}`}
+        onClick={handleRemove}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <HugeiconsIcon className="size-4" icon={Delete02Icon} strokeWidth={2} />
+      </Button>
+    </div>
+  );
 }
 
 export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
@@ -145,9 +178,9 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
     },
   });
 
-  const removeAttachment = (index: number) => {
+  const removeAttachment = useEventCallback((index: number) => {
     onChange(value.filter((_, i) => i !== index));
-  };
+  });
 
   return (
     <div className="flex flex-col gap-2">
@@ -197,30 +230,12 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
       {value.length > 0 && (
         <div className="flex flex-col gap-1">
           {value.map((attachment, index) => (
-            <div
-              className="flex items-center gap-2 rounded-md border px-3 py-1.5"
+            <MediaAttachmentRow
+              attachment={attachment}
+              index={index}
               key={attachment.r2Key}
-            >
-              <span className="min-w-0 flex-1 truncate text-sm">
-                {attachment.fileName}
-              </span>
-              <span className="shrink-0 text-muted-foreground text-xs">
-                {attachment.mimeType.split("/")[0]}
-              </span>
-              <Button
-                aria-label={`Remove ${attachment.fileName}`}
-                onClick={() => removeAttachment(index)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                />
-              </Button>
-            </div>
+              onRemove={removeAttachment}
+            />
           ))}
         </div>
       )}

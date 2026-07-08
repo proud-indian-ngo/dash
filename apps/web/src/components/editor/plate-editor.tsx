@@ -1,3 +1,4 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { EditorProps } from "@pi-dash/editor/editor";
 import { PlateEditor as BaseEditor } from "@pi-dash/editor/editor";
 import { env } from "@pi-dash/env/web";
@@ -16,43 +17,43 @@ interface PlateEditorProps extends Omit<EditorProps, "onImageUpload"> {
 }
 
 export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
-  async function onImageUpload(
-    file: File
-  ): Promise<{ url: string } | undefined> {
-    try {
-      const { key, presignedUrl } = await getPresignedUploadUrl({
-        data: {
+  const onImageUpload = useEventCallback(
+    async (file: File): Promise<{ url: string } | undefined> => {
+      try {
+        const { key, presignedUrl } = await getPresignedUploadUrl({
+          data: {
+            entityId,
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type as AllowedImageMimeType,
+            subfolder: "updates",
+          },
+        });
+
+        const uploadRes = await fetch(presignedUrl, {
+          body: file,
+          headers: { "Content-Type": file.type },
+          method: "PUT",
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(
+            `Upload failed: ${uploadRes.status} ${uploadRes.statusText}`
+          );
+        }
+
+        return { url: getCdnUrl(key) };
+      } catch (error) {
+        log.error({
+          action: "imageUpload",
+          component: "PlateEditor",
           entityId,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type as AllowedImageMimeType,
-          subfolder: "updates",
-        },
-      });
-
-      const uploadRes = await fetch(presignedUrl, {
-        body: file,
-        headers: { "Content-Type": file.type },
-        method: "PUT",
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error(
-          `Upload failed: ${uploadRes.status} ${uploadRes.statusText}`
-        );
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Couldn't upload image — try again");
       }
-
-      return { url: getCdnUrl(key) };
-    } catch (error) {
-      log.error({
-        action: "imageUpload",
-        component: "PlateEditor",
-        entityId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      toast.error("Couldn't upload image — try again");
     }
-  }
+  );
 
   return <BaseEditor {...props} onImageUpload={onImageUpload} />;
 }

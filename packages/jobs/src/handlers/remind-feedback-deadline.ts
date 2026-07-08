@@ -41,43 +41,47 @@ export async function handleRemindFeedbackDeadline(
     return;
   }
 
-  let notifiedCount = 0;
+  const notifiedCounts = await Promise.all(
+    events.map(async (event) => {
+      // Get all event members
+      const members = await db
+        .select({ userId: teamEventMember.userId })
+        .from(teamEventMember)
+        .where(eq(teamEventMember.eventId, event.id));
 
-  for (const event of events) {
-    // Get all event members
-    const members = await db
-      .select({ userId: teamEventMember.userId })
-      .from(teamEventMember)
-      .where(eq(teamEventMember.eventId, event.id));
+      if (members.length === 0) {
+        return 0;
+      }
 
-    if (members.length === 0) {
-      continue;
-    }
+      // Get members who already submitted feedback
+      const submittedUserIds = await db
+        .select({ userId: eventFeedbackSubmission.userId })
+        .from(eventFeedbackSubmission)
+        .where(eq(eventFeedbackSubmission.eventId, event.id));
 
-    // Get members who already submitted feedback
-    const submittedUserIds = await db
-      .select({ userId: eventFeedbackSubmission.userId })
-      .from(eventFeedbackSubmission)
-      .where(eq(eventFeedbackSubmission.eventId, event.id));
+      const submittedSet = new Set(submittedUserIds.map((r) => r.userId));
+      const pendingMembers = members.filter((m) => !submittedSet.has(m.userId));
 
-    const submittedSet = new Set(submittedUserIds.map((r) => r.userId));
-    const pendingMembers = members.filter((m) => !submittedSet.has(m.userId));
+      if (pendingMembers.length === 0) {
+        return 0;
+      }
 
-    if (pendingMembers.length === 0) {
-      continue;
-    }
-
-    const results = await Promise.allSettled(
-      pendingMembers.map((m) =>
-        notifyFeedbackDeadline({
-          eventId: event.id,
-          eventName: event.name,
-          userId: m.userId,
-        })
-      )
-    );
-    notifiedCount += results.filter((r) => r.status === "fulfilled").length;
-  }
+      const results = await Promise.allSettled(
+        pendingMembers.map((m) =>
+          notifyFeedbackDeadline({
+            eventId: event.id,
+            eventName: event.name,
+            userId: m.userId,
+          })
+        )
+      );
+      return results.filter((r) => r.status === "fulfilled").length;
+    })
+  );
+  const notifiedCount = notifiedCounts.reduce(
+    (total, count) => total + count,
+    0
+  );
 
   log.set({ event: "job_complete", notifiedCount });
   log.emit();

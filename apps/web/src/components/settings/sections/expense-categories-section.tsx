@@ -71,6 +71,60 @@ type InlineMode =
   | { kind: "edit"; category: ExpenseCategory }
   | null;
 
+function ExpenseCategoryDisplayRow({
+  category,
+  onDelete,
+  onEdit,
+}: {
+  category: ExpenseCategory;
+  onDelete: (category: ExpenseCategory) => void;
+  onEdit: (category: ExpenseCategory) => void;
+}) {
+  const handleEdit = useEventCallback(() => onEdit(category));
+  const handleDelete = useEventCallback(() => onDelete(category));
+
+  return (
+    <div className="flex items-start justify-between rounded-md border p-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-medium text-sm">{category.name}</span>
+        {category.description ? (
+          <span className="text-muted-foreground text-xs">
+            {category.description}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          aria-label="Edit category"
+          onClick={handleEdit}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={PencilEdit01Icon}
+            strokeWidth={2}
+          />
+        </Button>
+        <Button
+          aria-label="Delete category"
+          onClick={handleDelete}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={Delete02Icon}
+            strokeWidth={2}
+          />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ExpenseCategoriesSection() {
   const zero = useZero();
   const [categories] = useQuery(queries.expenseCategory.all());
@@ -142,6 +196,12 @@ export function ExpenseCategoriesSection() {
     setInlineMode({ kind: "create" })
   );
   const stableOnCancel1 = useEventCallback(() => setInlineMode(null));
+  const handleEditRequest = useEventCallback((category: ExpenseCategory) =>
+    setInlineMode({ category, kind: "edit" })
+  );
+  const handleDeleteRequest = useEventCallback((category: ExpenseCategory) =>
+    setRowAction({ category, kind: "delete" })
+  );
   const stableOnOpenChange2 = useEventCallback((open: boolean) => {
     if (!open) {
       setRowAction(null);
@@ -189,49 +249,16 @@ export function ExpenseCategoriesSection() {
                       name: category.name,
                     }}
                     key={`edit-${category.id}`}
-                    onCancel={() => setInlineMode(null)}
+                    onCancel={stableOnCancel1}
                     onSubmit={handleUpdate}
                   />
                 </div>
               ) : (
-                <div className="flex items-start justify-between rounded-md border p-3">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-sm">{category.name}</span>
-                    {category.description ? (
-                      <span className="text-muted-foreground text-xs">
-                        {category.description}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      aria-label="Edit category"
-                      onClick={() => setInlineMode({ category, kind: "edit" })}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <HugeiconsIcon
-                        className="size-4"
-                        icon={PencilEdit01Icon}
-                        strokeWidth={2}
-                      />
-                    </Button>
-                    <Button
-                      aria-label="Delete category"
-                      onClick={() => setRowAction({ category, kind: "delete" })}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <HugeiconsIcon
-                        className="size-4"
-                        icon={Delete02Icon}
-                        strokeWidth={2}
-                      />
-                    </Button>
-                  </div>
-                </div>
+                <ExpenseCategoryDisplayRow
+                  category={category}
+                  onDelete={handleDeleteRequest}
+                  onEdit={handleEditRequest}
+                />
               )}
             </div>
           ))}

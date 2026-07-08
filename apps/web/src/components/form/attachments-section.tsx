@@ -106,6 +106,77 @@ const showUploadResultToasts = (
   }
 };
 
+function AttachmentRow({
+  attachment,
+  deleting,
+  onRemove,
+}: {
+  attachment: Attachment;
+  deleting: boolean;
+  onRemove: (attachment: Attachment) => Promise<void>;
+}) {
+  const handleRemove = useEventCallback(async () => {
+    await onRemove(attachment);
+  });
+
+  return (
+    <div className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)">
+      <span className="min-w-0 flex-1 truncate text-sm">
+        {getAttachmentLabel(attachment)}
+      </span>
+      <div className="flex shrink-0 items-center gap-2">
+        {attachment.type === "url" ? (
+          <a
+            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+            href={getAttachmentPreviewHref(attachment)}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            View link
+            <span className="sr-only">
+              {getAttachmentLabel(attachment)} (opens in new tab)
+            </span>
+          </a>
+        ) : (
+          <>
+            <a
+              className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+              href={getAttachmentPreviewHref(attachment)}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Preview
+            </a>
+            <a
+              className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+              download
+              href={getAttachmentDownloadHref(attachment)}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Download
+            </a>
+          </>
+        )}
+        <Button
+          aria-label="Remove attachment"
+          disabled={deleting}
+          onClick={handleRemove}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={Delete02Icon}
+            strokeWidth={2}
+          />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AttachmentsSection({
   entityId,
   onChange,
@@ -363,65 +434,12 @@ export function AttachmentsSection({
       {value.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           {value.map((attachment) => (
-            <div
-              className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)"
+            <AttachmentRow
+              attachment={attachment}
+              deleting={deletingIds.has(attachment.id)}
               key={attachment.id}
-            >
-              <span className="min-w-0 flex-1 truncate text-sm">
-                {getAttachmentLabel(attachment)}
-              </span>
-              <div className="flex shrink-0 items-center gap-2">
-                {attachment.type === "url" ? (
-                  <a
-                    className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                    href={getAttachmentPreviewHref(attachment)}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    View link
-                    <span className="sr-only">
-                      {getAttachmentLabel(attachment)} (opens in new tab)
-                    </span>
-                  </a>
-                ) : (
-                  <>
-                    <a
-                      className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                      href={getAttachmentPreviewHref(attachment)}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      Preview
-                    </a>
-                    <a
-                      className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                      download
-                      href={getAttachmentDownloadHref(attachment)}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      Download
-                    </a>
-                  </>
-                )}
-                <Button
-                  aria-label="Remove attachment"
-                  disabled={deletingIds.has(attachment.id)}
-                  onClick={async () => {
-                    await removeAttachment(attachment);
-                  }}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Delete02Icon}
-                    strokeWidth={2}
-                  />
-                </Button>
-              </div>
-            </div>
+              onRemove={removeAttachment}
+            />
           ))}
         </div>
       ) : null}

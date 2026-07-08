@@ -193,11 +193,18 @@ function ReimbursementFormInner({
   }
 
   const stableSelector0 = useEventCallback(
-    (state: { values: { city?: string; eventId?: string } }) => ({
+    (state: {
+      values: { bankAccountNumber?: string; city?: string; eventId?: string };
+    }) => ({
+      bankAccountNumber: state.values.bankAccountNumber,
       city: state.values.city,
       eventId: state.values.eventId,
     })
   );
+  const handleBankAccountSelected = useEventCallback((account: BankAccount) => {
+    form.setFieldValue("bankAccountNumber", account.accountNumber);
+    form.setFieldValue("bankAccountIfscCode", account.ifscCode);
+  });
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
@@ -218,10 +225,7 @@ function ReimbursementFormInner({
               eventOptions={filteredOptions}
               form={form}
               isEdit={isEdit}
-              onBankAccountSelected={(account) => {
-                form.setFieldValue("bankAccountNumber", account.accountNumber);
-                form.setFieldValue("bankAccountIfscCode", account.ifscCode);
-              }}
+              onBankAccountSelected={handleBankAccountSelected}
               onCancel={onCancel}
               requestType={requestType}
             />

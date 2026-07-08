@@ -17,6 +17,7 @@ import {
 } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
+import type { ComponentProps } from "react";
 import { useState } from "react";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -80,7 +81,7 @@ export function VendorPaymentTransactions({
     .reduce((sum: number, t) => sum + Number(t.amount), 0);
   const remainingForCreate = Math.max(0, totalOwed - recordableTotal);
 
-  const handleApproveTransaction = async (id: string) => {
+  const handleApproveTransaction = useEventCallback(async (id: string) => {
     const res = await zero.mutate(
       mutators.vendorPaymentTransaction.approve({ id })
     ).server;
@@ -90,7 +91,7 @@ export function VendorPaymentTransactions({
       mutation: "vendorPaymentTransaction.approve",
       successMsg: "Transaction approved",
     });
-  };
+  });
 
   const handleRejectTransaction = useEventCallback(async (reason: string) => {
     if (!rejectingId) {
@@ -133,6 +134,9 @@ export function VendorPaymentTransactions({
     }
   });
   const stableOnClick0 = useEventCallback(() => setFormOpen(true));
+  const stableFormOpenChange = useEventCallback((open: boolean) =>
+    setFormOpen(open)
+  );
   const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       setEditingTransaction(null);
@@ -229,93 +233,19 @@ export function VendorPaymentTransactions({
                   const canEditTxn = ownerCanModify || canEditAll;
                   const canDeleteTxn = ownerCanModify || canDeleteAll;
                   return (
-                    <tr className="border-b last:border-0" key={t.id}>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {formatINR(Number(t.amount))}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {t.description ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {t.transactionDate
-                          ? format(t.transactionDate, LONG_DATE)
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {t.paymentMethod ?? "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {canApprove && isPending ? (
-                            <>
-                              <Button
-                                aria-label="Approve transaction"
-                                onClick={() => handleApproveTransaction(t.id)}
-                                size="icon"
-                                title="Approve"
-                                type="button"
-                                variant="ghost"
-                              >
-                                <HugeiconsIcon
-                                  className="size-4 text-green-600"
-                                  icon={CheckmarkCircle01Icon}
-                                  strokeWidth={2}
-                                />
-                              </Button>
-                              <Button
-                                aria-label="Reject transaction"
-                                onClick={() => setRejectingId(t.id)}
-                                size="icon"
-                                title="Reject"
-                                type="button"
-                                variant="ghost"
-                              >
-                                <HugeiconsIcon
-                                  className="size-4 text-destructive"
-                                  icon={Cancel01Icon}
-                                  strokeWidth={2}
-                                />
-                              </Button>
-                            </>
-                          ) : null}
-                          {canEditTxn ? (
-                            <Button
-                              aria-label="Edit transaction"
-                              onClick={() => setEditingTransaction(t)}
-                              size="icon"
-                              title="Edit"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <HugeiconsIcon
-                                className="size-4 text-muted-foreground"
-                                icon={PencilEdit01Icon}
-                                strokeWidth={2}
-                              />
-                            </Button>
-                          ) : null}
-                          {canDeleteTxn ? (
-                            <Button
-                              aria-label="Delete transaction"
-                              onClick={() => setDeletingId(t.id)}
-                              size="icon"
-                              title="Delete"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <HugeiconsIcon
-                                className="size-4 text-muted-foreground"
-                                icon={Delete02Icon}
-                                strokeWidth={2}
-                              />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
+                    <TransactionRow
+                      badge={badge}
+                      canApprove={canApprove}
+                      canDeleteTxn={canDeleteTxn}
+                      canEditTxn={canEditTxn}
+                      isPending={isPending}
+                      key={t.id}
+                      onApprove={handleApproveTransaction}
+                      onDelete={setDeletingId}
+                      onEdit={setEditingTransaction}
+                      onReject={setRejectingId}
+                      transaction={t}
+                    />
                   );
                 })}
               </tbody>
@@ -330,7 +260,7 @@ export function VendorPaymentTransactions({
 
       <TransactionFormDialog
         canApprove={canApprove}
-        onOpenChange={setFormOpen}
+        onOpenChange={stableFormOpenChange}
         open={formOpen}
         remainingAmount={remainingForCreate}
         vendorPaymentId={request.id as string}
@@ -378,5 +308,124 @@ export function VendorPaymentTransactions({
         variant="destructive"
       />
     </>
+  );
+}
+
+function TransactionRow({
+  badge,
+  canApprove,
+  canDeleteTxn,
+  canEditTxn,
+  isPending,
+  onApprove,
+  onDelete,
+  onEdit,
+  onReject,
+  transaction,
+}: {
+  badge: { label: string; variant: ComponentProps<typeof Badge>["variant"] };
+  canApprove: boolean;
+  canDeleteTxn: boolean;
+  canEditTxn: boolean;
+  isPending: boolean;
+  onApprove: (id: string) => void;
+  onDelete: (id: string) => void;
+  onEdit: (transaction: VendorPaymentTransactionWithRelations) => void;
+  onReject: (id: string) => void;
+  transaction: VendorPaymentTransactionWithRelations;
+}) {
+  const handleApprove = useEventCallback(() => onApprove(transaction.id));
+  const handleReject = useEventCallback(() => onReject(transaction.id));
+  const handleEdit = useEventCallback(() => onEdit(transaction));
+  const handleDelete = useEventCallback(() => onDelete(transaction.id));
+
+  return (
+    <tr className="border-b last:border-0">
+      <td className="px-3 py-2 text-right tabular-nums">
+        {formatINR(Number(transaction.amount))}
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">
+        {transaction.description ?? "—"}
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">
+        {transaction.transactionDate
+          ? format(transaction.transactionDate, LONG_DATE)
+          : "—"}
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">
+        {transaction.paymentMethod ?? "—"}
+      </td>
+      <td className="px-3 py-2">
+        <Badge variant={badge.variant}>{badge.label}</Badge>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <div className="flex items-center justify-end gap-1">
+          {canApprove && isPending ? (
+            <>
+              <Button
+                aria-label="Approve transaction"
+                onClick={handleApprove}
+                size="icon"
+                title="Approve"
+                type="button"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  className="size-4 text-green-600"
+                  icon={CheckmarkCircle01Icon}
+                  strokeWidth={2}
+                />
+              </Button>
+              <Button
+                aria-label="Reject transaction"
+                onClick={handleReject}
+                size="icon"
+                title="Reject"
+                type="button"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  className="size-4 text-destructive"
+                  icon={Cancel01Icon}
+                  strokeWidth={2}
+                />
+              </Button>
+            </>
+          ) : null}
+          {canEditTxn ? (
+            <Button
+              aria-label="Edit transaction"
+              onClick={handleEdit}
+              size="icon"
+              title="Edit"
+              type="button"
+              variant="ghost"
+            >
+              <HugeiconsIcon
+                className="size-4 text-muted-foreground"
+                icon={PencilEdit01Icon}
+                strokeWidth={2}
+              />
+            </Button>
+          ) : null}
+          {canDeleteTxn ? (
+            <Button
+              aria-label="Delete transaction"
+              onClick={handleDelete}
+              size="icon"
+              title="Delete"
+              type="button"
+              variant="ghost"
+            >
+              <HugeiconsIcon
+                className="size-4 text-muted-foreground"
+                icon={Delete02Icon}
+                strokeWidth={2}
+              />
+            </Button>
+          ) : null}
+        </div>
+      </td>
+    </tr>
   );
 }

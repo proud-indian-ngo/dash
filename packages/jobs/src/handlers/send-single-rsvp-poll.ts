@@ -40,125 +40,132 @@ async function getGroupJid(groupId: string | null): Promise<string | null> {
   return rows[0]?.jid ?? null;
 }
 
+async function processSendSingleRsvpPollJob(
+  job: Job<SendSingleRsvpPollPayload>
+): Promise<void> {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "send-single-rsvp-poll",
+  });
+  const { eventId } = job.data;
+  log.set({ eventId, jobId: job.id });
+
+  // Check idempotency
+  const existingPoll = await db
+    .select({ id: eventRsvpPoll.id })
+    .from(eventRsvpPoll)
+    .where(eq(eventRsvpPoll.eventId, eventId))
+    .limit(1);
+
+  if (existingPoll.length > 0) {
+    log.set({ event: "poll_already_exists" });
+    log.emit();
+    return;
+  }
+
+  // Fetch event + team data
+  const events = await db
+    .select({
+      cancelledAt: teamEvent.cancelledAt,
+      eventWhatsappGroupId: teamEvent.whatsappGroupId,
+      name: teamEvent.name,
+      startTime: teamEvent.startTime,
+      teamWhatsappGroupId: team.whatsappGroupId,
+    })
+    .from(teamEvent)
+    .innerJoin(team, eq(team.id, teamEvent.teamId))
+    .where(eq(teamEvent.id, eventId))
+    .limit(1);
+
+  const [event] = events;
+  if (!event) {
+    log.set({ event: "event_not_found" });
+    log.emit();
+    return;
+  }
+
+  if (event.cancelledAt) {
+    log.set({ event: "event_cancelled" });
+    log.emit();
+    return;
+  }
+
+  const eventGroupJid = await getGroupJid(event.eventWhatsappGroupId);
+  const teamGroupJid = await getGroupJid(event.teamWhatsappGroupId);
+  const targetChatJid = eventGroupJid ?? teamGroupJid;
+  const targetChatSource = eventGroupJid ? "event_group" : "team_group";
+
+  if (!targetChatJid) {
+    log.set({
+      event: "missing_target_group",
+      eventWhatsappGroupId: event.eventWhatsappGroupId,
+      teamWhatsappGroupId: event.teamWhatsappGroupId,
+    });
+    log.emit();
+    return;
+  }
+
+  const question = buildPollQuestion(event.name, event.startTime);
+  const pollId = uuidv7();
+  const tempMessageId = uuidv7();
+
+  // Insert pending poll record before sending
+  await db.insert(eventRsvpPoll).values({
+    closedAt: null,
+    eventId,
+    id: pollId,
+    messageId: tempMessageId,
+    noOptionHash: hashPollOption(NO_OPTION),
+    question,
+    sentAt: new Date(),
+    targetChatJid,
+    targetChatSource,
+    yesOptionHash: hashPollOption(YES_OPTION),
+  });
+
+  // Recheck cancelledAt after insert to close the race window:
+  // if cancel happened between the first check and now, the close-on-cancel
+  // job will find this pending record and close it. We also bail here.
+  const recheck = await db
+    .select({ cancelledAt: teamEvent.cancelledAt })
+    .from(teamEvent)
+    .where(eq(teamEvent.id, eventId))
+    .limit(1);
+
+  if (recheck[0]?.cancelledAt) {
+    await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, pollId));
+    log.set({ event: "event_cancelled_after_insert" });
+    log.emit();
+    return;
+  }
+
+  let messageId: string;
+  try {
+    messageId = await sendWhatsAppPoll(targetChatJid, question, [
+      YES_OPTION,
+      NO_OPTION,
+    ]);
+  } catch (caughtError) {
+    // Send failed — remove pending record so retry can try again
+    await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, pollId));
+    throw caughtError;
+  }
+
+  // Update with real messageId
+  await db
+    .update(eventRsvpPoll)
+    .set({ messageId })
+    .where(eq(eventRsvpPoll.id, pollId));
+
+  log.set({ event: "poll_sent", messageId, targetChatJid });
+  log.emit();
+}
+
 export async function handleSendSingleRsvpPoll(
   jobs: Job<SendSingleRsvpPollPayload>[]
 ): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "send-single-rsvp-poll",
-    });
-    const { eventId } = job.data;
-    log.set({ eventId, jobId: job.id });
-
-    // Check idempotency
-    const existingPoll = await db
-      .select({ id: eventRsvpPoll.id })
-      .from(eventRsvpPoll)
-      .where(eq(eventRsvpPoll.eventId, eventId))
-      .limit(1);
-
-    if (existingPoll.length > 0) {
-      log.set({ event: "poll_already_exists" });
-      log.emit();
-      continue;
-    }
-
-    // Fetch event + team data
-    const events = await db
-      .select({
-        cancelledAt: teamEvent.cancelledAt,
-        eventWhatsappGroupId: teamEvent.whatsappGroupId,
-        name: teamEvent.name,
-        startTime: teamEvent.startTime,
-        teamWhatsappGroupId: team.whatsappGroupId,
-      })
-      .from(teamEvent)
-      .innerJoin(team, eq(team.id, teamEvent.teamId))
-      .where(eq(teamEvent.id, eventId))
-      .limit(1);
-
-    const [event] = events;
-    if (!event) {
-      log.set({ event: "event_not_found" });
-      log.emit();
-      continue;
-    }
-
-    if (event.cancelledAt) {
-      log.set({ event: "event_cancelled" });
-      log.emit();
-      continue;
-    }
-
-    const eventGroupJid = await getGroupJid(event.eventWhatsappGroupId);
-    const teamGroupJid = await getGroupJid(event.teamWhatsappGroupId);
-    const targetChatJid = eventGroupJid ?? teamGroupJid;
-    const targetChatSource = eventGroupJid ? "event_group" : "team_group";
-
-    if (!targetChatJid) {
-      log.set({
-        event: "missing_target_group",
-        eventWhatsappGroupId: event.eventWhatsappGroupId,
-        teamWhatsappGroupId: event.teamWhatsappGroupId,
-      });
-      log.emit();
-      continue;
-    }
-
-    const question = buildPollQuestion(event.name, event.startTime);
-    const pollId = uuidv7();
-    const tempMessageId = uuidv7();
-
-    // Insert pending poll record before sending
-    await db.insert(eventRsvpPoll).values({
-      closedAt: null,
-      eventId,
-      id: pollId,
-      messageId: tempMessageId,
-      noOptionHash: hashPollOption(NO_OPTION),
-      question,
-      sentAt: new Date(),
-      targetChatJid,
-      targetChatSource,
-      yesOptionHash: hashPollOption(YES_OPTION),
-    });
-
-    // Recheck cancelledAt after insert to close the race window:
-    // if cancel happened between the first check and now, the close-on-cancel
-    // job will find this pending record and close it. We also bail here.
-    const recheck = await db
-      .select({ cancelledAt: teamEvent.cancelledAt })
-      .from(teamEvent)
-      .where(eq(teamEvent.id, eventId))
-      .limit(1);
-
-    if (recheck[0]?.cancelledAt) {
-      await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, pollId));
-      log.set({ event: "event_cancelled_after_insert" });
-      log.emit();
-      continue;
-    }
-
-    let messageId: string;
-    try {
-      messageId = await sendWhatsAppPoll(targetChatJid, question, [
-        YES_OPTION,
-        NO_OPTION,
-      ]);
-    } catch (caughtError) {
-      // Send failed — remove pending record so retry can try again
-      await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, pollId));
-      throw caughtError;
-    }
-
-    // Update with real messageId
-    await db
-      .update(eventRsvpPoll)
-      .set({ messageId })
-      .where(eq(eventRsvpPoll.id, pollId));
-
-    log.set({ event: "poll_sent", messageId, targetChatJid });
-    log.emit();
-  }
+  await jobs.reduce(
+    (previous, job) => previous.then(() => processSendSingleRsvpPollJob(job)),
+    Promise.resolve()
+  );
 }

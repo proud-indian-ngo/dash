@@ -1,6 +1,7 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 import { MemberRow } from "@/components/teams/team-member-row";
 
@@ -25,6 +26,8 @@ export function TeamMembersSection({
   onToggleRole,
   userId,
 }: TeamMembersSectionProps) {
+  const stableOnRemove = useEventCallback((id: string) => onRemoveMember(id));
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -56,7 +59,7 @@ export function TeamMembersSection({
               }
               key={member.id}
               member={member}
-              onRemove={(id) => onRemoveMember(id)}
+              onRemove={stableOnRemove}
               onToggleRole={onToggleRole}
             />
           ))}

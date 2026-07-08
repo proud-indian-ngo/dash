@@ -182,14 +182,14 @@ export function PlateEditor({
     }
   );
 
-  function handleSave() {
+  const handleSave = useEventCallback(() => {
     const { children } = editor;
     if (!Array.isArray(children) || children.length === 0) {
       return;
     }
     onSave(JSON.stringify(children));
     editor.tf.reset();
-  }
+  });
 
   const preventToolbarFocus = useEventCallback((e: MouseEvent) =>
     e.preventDefault()

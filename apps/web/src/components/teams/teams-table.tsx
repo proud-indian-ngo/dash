@@ -44,12 +44,13 @@ function RowActions({
   canDelete: boolean;
   id: string;
   onNavigate: (id: string) => void;
-  onRequestDelete: () => void;
+  onRequestDelete: (id: string) => void;
 }) {
   const stableOnClick0 = useEventCallback(
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
   const stableOnClick1 = useEventCallback(() => onNavigate(id));
+  const handleDelete = useEventCallback(() => onRequestDelete(id));
 
   return (
     <DropdownMenu>
@@ -77,13 +78,36 @@ function RowActions({
         {canDelete ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
+            <DropdownMenuItem onClick={handleDelete} variant="destructive">
               Delete
             </DropdownMenuItem>
           </>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function TeamNameButton({
+  id,
+  name,
+  onNavigate,
+}: {
+  id: string;
+  name: string;
+  onNavigate: (id: string) => void;
+}) {
+  const handleClick = useEventCallback(() => onNavigate(id));
+
+  return (
+    <button
+      className="truncate text-left font-medium text-sm hover:underline"
+      data-testid="row-title"
+      onClick={handleClick}
+      type="button"
+    >
+      {name}
+    </button>
   );
 }
 
@@ -120,19 +144,19 @@ export function TeamsTable({
     },
     onError: () => toast.error("Couldn't delete team"),
   });
+  const handleDeleteRequest = useEventCallback((id: string) =>
+    deleteAction.trigger(id)
+  );
 
   const columns: ColumnDef<TeamRow>[] = [
     {
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
-        <button
-          className="truncate text-left font-medium text-sm hover:underline"
-          data-testid="row-title"
-          onClick={() => onNavigate(row.original.id)}
-          type="button"
-        >
-          {row.original.name}
-        </button>
+        <TeamNameButton
+          id={row.original.id}
+          name={row.original.name}
+          onNavigate={onNavigate}
+        />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
@@ -199,7 +223,7 @@ export function TeamsTable({
           canDelete={canDeleteTeam}
           id={row.original.id}
           onNavigate={onNavigate}
-          onRequestDelete={() => deleteAction.trigger(row.original.id)}
+          onRequestDelete={handleDeleteRequest}
         />
       ),
       enableColumnOrdering: false,

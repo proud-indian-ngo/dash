@@ -131,6 +131,37 @@ function emptyMessage(filter: EventFilter, scope: TimeScope): string {
   return `No events ${period}.`;
 }
 
+function ReferencedEventDateGroup({
+  dateStr,
+  myInterests,
+  myTeamIds,
+  rows,
+  setGroupRef,
+  userId,
+}: {
+  dateStr: string;
+  myInterests: readonly EventInterest[];
+  myTeamIds: ReadonlySet<string>;
+  rows: PublicDisplayRow[];
+  setGroupRef: (dateStr: string, el: HTMLDivElement | null) => void;
+  userId: string;
+}) {
+  const groupRef = useEventCallback((el: HTMLDivElement | null) =>
+    setGroupRef(dateStr, el)
+  );
+
+  return (
+    <EventDateGroup
+      date={parseLocalDate(dateStr)}
+      groupRef={groupRef}
+      myInterests={myInterests}
+      myTeamIds={myTeamIds}
+      rows={rows}
+      userId={userId}
+    />
+  );
+}
+
 export function EventsCalendarView({
   data,
   isLoading,
@@ -219,6 +250,15 @@ export function EventsCalendarView({
   );
 
   const dateRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const setGroupRef = useEventCallback(
+    (dateStr: string, el: HTMLDivElement | null) => {
+      if (el) {
+        dateRefs.current.set(dateStr, el);
+      } else {
+        dateRefs.current.delete(dateStr);
+      }
+    }
+  );
 
   const handleDateSelect = useCallback((dateStr: string) => {
     setSelectedDate(dateStr);
@@ -444,19 +484,13 @@ export function EventsCalendarView({
         ) : (
           <div className="space-y-6">
             {upcomingEntries.map(([dateStr, rows]) => (
-              <EventDateGroup
-                date={parseLocalDate(dateStr)}
-                groupRef={(el) => {
-                  if (el) {
-                    dateRefs.current.set(dateStr, el);
-                  } else {
-                    dateRefs.current.delete(dateStr);
-                  }
-                }}
+              <ReferencedEventDateGroup
+                dateStr={dateStr}
                 key={dateStr}
                 myInterests={myInterests}
                 myTeamIds={myTeamIds}
                 rows={rows}
+                setGroupRef={setGroupRef}
                 userId={userId}
               />
             ))}
@@ -466,19 +500,13 @@ export function EventsCalendarView({
                   Past Events
                 </h2>
                 {pastEntries.map(([dateStr, rows]) => (
-                  <EventDateGroup
-                    date={parseLocalDate(dateStr)}
-                    groupRef={(el) => {
-                      if (el) {
-                        dateRefs.current.set(dateStr, el);
-                      } else {
-                        dateRefs.current.delete(dateStr);
-                      }
-                    }}
+                  <ReferencedEventDateGroup
+                    dateStr={dateStr}
                     key={dateStr}
                     myInterests={myInterests}
                     myTeamIds={myTeamIds}
                     rows={rows}
+                    setGroupRef={setGroupRef}
                     userId={userId}
                   />
                 ))}

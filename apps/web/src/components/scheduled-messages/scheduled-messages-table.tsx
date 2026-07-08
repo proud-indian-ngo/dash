@@ -315,10 +315,14 @@ function ScheduledMessageActions({
       />
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuItem onClick={handleView}>
-          <HugeiconsIcon className="mr-2 size-4" icon={ViewIcon} strokeWidth={2} />
+          <HugeiconsIcon
+            className="mr-2 size-4"
+            icon={ViewIcon}
+            strokeWidth={2}
+          />
           View details
         </DropdownMenuItem>
-        {isPending && (
+        {isPending ? (
           <DropdownMenuItem onClick={handleEdit}>
             <HugeiconsIcon
               className="mr-2 size-4"
@@ -327,8 +331,8 @@ function ScheduledMessageActions({
             />
             Edit
           </DropdownMenuItem>
-        )}
-        {isPending && (
+        ) : null}
+        {isPending ? (
           <DropdownMenuItem onClick={handleCancel} variant="destructive">
             <HugeiconsIcon
               className="mr-2 size-4"
@@ -337,8 +341,8 @@ function ScheduledMessageActions({
             />
             Cancel
           </DropdownMenuItem>
-        )}
-        {!isPending && (
+        ) : null}
+        {isPending ? null : (
           <DropdownMenuItem onClick={handleDelete} variant="destructive">
             <HugeiconsIcon
               className="mr-2 size-4"

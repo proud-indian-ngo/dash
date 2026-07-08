@@ -43,18 +43,33 @@ function RowActions({
   onRequestDelete,
   onUnapprove,
   onView,
+  vendor,
   status,
 }: {
-  onApprove?: () => void;
-  onEdit: () => void;
-  onRequestDelete: () => void;
-  onUnapprove?: () => void;
-  onView: () => void;
+  onApprove?: (vendor: VendorRow) => void;
+  onEdit: (vendor: VendorRow) => void;
+  onRequestDelete: (id: string) => void;
+  onUnapprove?: (vendor: VendorRow) => void;
+  onView: (vendor: VendorRow) => void;
   status: string;
+  vendor: VendorRow;
 }) {
   const stableOnClick0 = useEventCallback(
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
+  const handleView = useEventCallback(() => onView(vendor));
+  const handleEdit = useEventCallback(() => onEdit(vendor));
+  const handleApprove = useEventCallback(() => {
+    if (onApprove) {
+      onApprove(vendor);
+    }
+  });
+  const handleUnapprove = useEventCallback(() => {
+    if (onUnapprove) {
+      onUnapprove(vendor);
+    }
+  });
+  const handleDelete = useEventCallback(() => onRequestDelete(vendor.id));
 
   return (
     <DropdownMenu>
@@ -78,16 +93,18 @@ function RowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={onView}>View</DropdownMenuItem>
-        <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleView}>View</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
         {onApprove && status === "pending" && (
-          <DropdownMenuItem onClick={onApprove}>Approve</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleApprove}>Approve</DropdownMenuItem>
         )}
         {onUnapprove && status === "approved" && (
-          <DropdownMenuItem onClick={onUnapprove}>Unapprove</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleUnapprove}>
+            Unapprove
+          </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onRequestDelete} variant="destructive">
+        <DropdownMenuItem onClick={handleDelete} variant="destructive">
           Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -140,6 +157,9 @@ export function VendorsTable({
     },
     onError: () => toast.error("Couldn't delete vendor"),
   });
+  const handleDeleteRequest = useEventCallback((id: string) =>
+    deleteAction.trigger(id)
+  );
 
   const columns: ColumnDef<VendorRow>[] = [
     {
@@ -364,14 +384,13 @@ export function VendorsTable({
     {
       cell: ({ row }) => (
         <RowActions
-          onApprove={onApprove ? () => onApprove(row.original) : undefined}
-          onEdit={() => onEdit(row.original)}
-          onRequestDelete={() => deleteAction.trigger(row.original.id)}
-          onUnapprove={
-            onUnapprove ? () => onUnapprove(row.original) : undefined
-          }
-          onView={() => onView(row.original)}
+          onApprove={onApprove}
+          onEdit={onEdit}
+          onRequestDelete={handleDeleteRequest}
+          onUnapprove={onUnapprove}
+          onView={onView}
           status={row.original.status ?? "pending"}
+          vendor={row.original}
         />
       ),
       enableColumnOrdering: false,

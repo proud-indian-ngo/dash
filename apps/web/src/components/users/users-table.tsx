@@ -11,7 +11,7 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { User } from "@pi-dash/zero/schema";
 import type { VisibilityState } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { FormModal } from "@/components/form/form-modal";
@@ -78,11 +78,21 @@ interface UserRowActionDialogsProps {
   user: User;
 }
 
-interface UserRowActionsProps
-  extends Omit<UsersTableProps, "users" | "toolbarActions"> {
-  activeRowForm: RowFormAction;
-  onCloseForm: (kind: RowFormKind) => void;
-  onOpenForm: (kind: RowFormKind) => void;
+interface UserRowActionsProps {
+  isBanning: boolean;
+  isDeleting: boolean;
+  onOpenForm: (userId: string, kind: RowFormKind) => void;
+  onSetBanningUserId: Dispatch<SetStateAction<string | null>>;
+  onUnbanUser: (userId: string) => Promise<void>;
+  user: User;
+}
+
+interface UserActionsCellProps {
+  isBanning: boolean;
+  isDeleting: boolean;
+  onOpenForm: (userId: string, kind: RowFormKind) => void;
+  onSetBanningUserId: Dispatch<SetStateAction<string | null>>;
+  onUnbanUser: (userId: string) => Promise<void>;
   user: User;
 }
 
@@ -187,75 +197,54 @@ function UserActionsMenu({
 }
 
 function UserRowActions({
-  activeRowForm,
-  onBanUser,
-  onCloseForm,
-  onDelete,
+  isBanning,
+  isDeleting,
   onOpenForm,
-  onSetPassword,
+  onSetBanningUserId,
   onUnbanUser,
-  onUpdateUser,
-  roleOptions,
   user,
 }: UserRowActionsProps) {
-  const [isBanning, setIsBanning] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDelete = useEventCallback(async () => {
-    try {
-      setIsDeleting(true);
-      onCloseForm("delete");
-      await onDelete(user.id);
-      onCloseForm("edit");
-      onCloseForm("password");
-      onCloseForm("notifications");
-      onCloseForm("ban");
-    } finally {
-      setIsDeleting(false);
-    }
-  });
-
   const handleUnban = useEventCallback(async () => {
     try {
-      setIsBanning(true);
+      onSetBanningUserId(user.id);
       await onUnbanUser(user.id);
     } finally {
-      setIsBanning(false);
+      onSetBanningUserId(null);
     }
   });
 
-  const handleBan = useEventCallback(
-    async (userId: string, banReason: string, banExpires?: string) => {
-      try {
-        setIsBanning(true);
-        await onBanUser(userId, banReason, banExpires);
-      } finally {
-        setIsBanning(false);
-      }
-    }
-  );
+  const handleOpenForm = useEventCallback((kind: RowFormKind) => {
+    onOpenForm(user.id, kind);
+  });
 
   return (
-    <>
-      <UserActionsMenu
-        isBanning={isBanning}
-        isDeleting={isDeleting}
-        onOpenForm={onOpenForm}
-        onUnbanUser={handleUnban}
-        user={user}
-      />
-      <UserRowActionDialogs
-        activeRowForm={activeRowForm}
-        isDeleting={isDeleting}
-        onBanUser={handleBan}
-        onCloseForm={onCloseForm}
-        onDelete={handleDelete}
-        onSetPassword={onSetPassword}
-        onUpdateUser={onUpdateUser}
-        roleOptions={roleOptions}
-        user={user}
-      />
-    </>
+    <UserActionsMenu
+      isBanning={isBanning}
+      isDeleting={isDeleting}
+      onOpenForm={handleOpenForm}
+      onUnbanUser={handleUnban}
+      user={user}
+    />
+  );
+}
+
+function UserActionsCell({
+  isBanning,
+  isDeleting,
+  onOpenForm,
+  onSetBanningUserId,
+  onUnbanUser,
+  user,
+}: UserActionsCellProps) {
+  return (
+    <UserRowActions
+      isBanning={isBanning}
+      isDeleting={isDeleting}
+      onOpenForm={onOpenForm}
+      onSetBanningUserId={onSetBanningUserId}
+      onUnbanUser={onUnbanUser}
+      user={user}
+    />
   );
 }
 
@@ -429,64 +418,120 @@ export function UsersTable({
   users,
 }: UsersTableProps) {
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
+  const [banningUserId, setBanningUserId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const activeUser =
+    activeRowForm === null
+      ? null
+      : (users.find((user) => user.id === activeRowForm.userId) ?? null);
 
-  const handleFilteredDataChange = (filtered: User[]) => {
+  const closeForm = useEventCallback((kind: RowFormKind) => {
+    setActiveRowForm((current) => (current?.kind === kind ? null : current));
+  });
+
+  const openForm = useEventCallback((userId: string, kind: RowFormKind) => {
+    setActiveRowForm({ kind, userId });
+  });
+
+  const handleDialogDelete = useEventCallback(async () => {
+    if (activeRowForm === null) {
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      await onDelete(activeRowForm.userId);
+      setActiveRowForm(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  });
+
+  const handleDialogBan = useEventCallback(
+    async (userId: string, banReason: string, banExpires?: string) => {
+      try {
+        setBanningUserId(userId);
+        await onBanUser(userId, banReason, banExpires);
+        setActiveRowForm(null);
+      } finally {
+        setBanningUserId(null);
+      }
+    }
+  );
+
+  const handleDialogUpdateUser = useEventCallback(
+    async (value: EditUserFormValues) => {
+      await onUpdateUser(value);
+      setActiveRowForm(null);
+    }
+  );
+
+  const handleDialogSetPassword = useEventCallback(
+    async (userId: string, newPassword: string) => {
+      await onSetPassword(userId, newPassword);
+      setActiveRowForm(null);
+    }
+  );
+
+  const handleFilteredDataChange = useEventCallback((filtered: User[]) => {
     if (activeRowForm && !filtered.some((u) => u.id === activeRowForm.userId)) {
       setActiveRowForm(null);
     }
-  };
+  });
 
-  const columns = createUserColumns((user) => (
-    <UserRowActions
-      activeRowForm={activeRowForm}
-      onBanUser={onBanUser}
-      onCloseForm={(kind) => {
-        setActiveRowForm((current) =>
-          current?.kind === kind && current.userId === user.id ? null : current
-        );
-      }}
-      onDelete={onDelete}
-      onOpenForm={(kind) => {
-        setActiveRowForm({
-          kind,
-          userId: user.id,
-        });
-      }}
-      onSetPassword={onSetPassword}
+  const renderActions = useEventCallback((user: User) => (
+    <UserActionsCell
+      isBanning={banningUserId === user.id}
+      isDeleting={isDeleting}
+      onOpenForm={openForm}
+      onSetBanningUserId={setBanningUserId}
       onUnbanUser={onUnbanUser}
-      onUpdateUser={onUpdateUser}
-      roleOptions={roleOptions}
       user={user}
     />
   ));
+
+  const columns = createUserColumns(renderActions);
   const stableGetRowId18 = useEventCallback((user: { id: string }) => user.id);
-  const stableOnFilteredDataChange8 = handleFilteredDataChange;
 
   return (
-    <DataTableWrapper<User>
-      columns={columns}
-      data={users}
-      defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
-      emptyMessage="No users found."
-      getRowId={stableGetRowId18}
-      hasActiveFilters={hasActiveFilters}
-      isLoading={isLoading}
-      onClearFilters={onClearFilters}
-      onFilteredDataChange={stableOnFilteredDataChange8}
-      onRowClick={onRowClick}
-      paginationSizes={[10, 20, 50]}
-      searchFn={searchUser}
-      searchPlaceholder="Search users..."
-      storageKey="users_table_state_v1"
-      tableLayout={{
-        columnsDraggable: true,
-        columnsMovable: true,
-        columnsPinnable: true,
-        columnsResizable: true,
-        columnsVisibility: true,
-      }}
-      toolbarActions={toolbarActions}
-      toolbarFilters={toolbarFilters}
-    />
+    <>
+      <DataTableWrapper<User>
+        columns={columns}
+        data={users}
+        defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
+        emptyMessage="No users found."
+        getRowId={stableGetRowId18}
+        hasActiveFilters={hasActiveFilters}
+        isLoading={isLoading}
+        onClearFilters={onClearFilters}
+        onFilteredDataChange={handleFilteredDataChange}
+        onRowClick={onRowClick}
+        paginationSizes={[10, 20, 50]}
+        searchFn={searchUser}
+        searchPlaceholder="Search users..."
+        storageKey="users_table_state_v1"
+        tableLayout={{
+          columnsDraggable: true,
+          columnsMovable: true,
+          columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
+        }}
+        toolbarActions={toolbarActions}
+        toolbarFilters={toolbarFilters}
+      />
+      {activeUser ? (
+        <UserRowActionDialogs
+          activeRowForm={activeRowForm}
+          isDeleting={isDeleting}
+          onBanUser={handleDialogBan}
+          onCloseForm={closeForm}
+          onDelete={handleDialogDelete}
+          onSetPassword={handleDialogSetPassword}
+          onUpdateUser={handleDialogUpdateUser}
+          roleOptions={roleOptions}
+          user={activeUser}
+        />
+      ) : null}
+    </>
   );
 }

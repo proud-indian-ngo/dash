@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,22 @@ interface EditScopeDialogProps {
   title: string;
 }
 
+function ScopeButton({
+  onSelect,
+  scope,
+}: {
+  onSelect: (scope: EditScope) => void;
+  scope: EditScope;
+}) {
+  const handleClick = useEventCallback(() => onSelect(scope));
+
+  return (
+    <Button className="justify-start" onClick={handleClick} variant="outline">
+      {SCOPE_LABELS[scope]}
+    </Button>
+  );
+}
+
 export function EditScopeDialog({
   onOpenChange,
   onSelect,
@@ -44,14 +61,7 @@ export function EditScopeDialog({
         </DialogHeader>
         <div className="flex flex-col gap-2">
           {scopes.map((scope) => (
-            <Button
-              className="justify-start"
-              key={scope}
-              onClick={() => onSelect(scope)}
-              variant="outline"
-            >
-              {SCOPE_LABELS[scope]}
-            </Button>
+            <ScopeButton key={scope} onSelect={onSelect} scope={scope} />
           ))}
         </div>
       </DialogContent>

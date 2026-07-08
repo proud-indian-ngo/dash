@@ -16,16 +16,34 @@ async function dismissComboboxOverlay(page: Page) {
   await expect(overlay).toHaveCount(0, { timeout: 10_000 });
 }
 
-async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
+async function selectFirstVendorOption(page: Page): Promise<boolean> {
   const vendorTrigger = page.getByRole("combobox", { name: "Vendor" });
-  await vendorTrigger.click();
   const firstOption = page.getByRole("option").first();
-  const hasOptions = await firstOption
-    .isVisible({ timeout: 10_000 })
-    .catch(() => false);
 
-  if (hasOptions) {
-    await firstOption.click();
+  const trySelect = async (attempt: number): Promise<boolean> => {
+    await vendorTrigger.click();
+    if (await firstOption.isVisible({ timeout: 10_000 }).catch(() => false)) {
+      await firstOption.click();
+      return true;
+    }
+
+    await page.keyboard.press("Escape").catch(() => {
+      // Ignore stale overlays between retries.
+    });
+    await waitForZeroReady(page).catch(() => {
+      // Form pages may already be ready.
+    });
+    if (attempt >= 2) {
+      return false;
+    }
+    return trySelect(attempt + 1);
+  };
+
+  return await trySelect(0);
+}
+
+async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
+  if (await selectFirstVendorOption(page)) {
     return;
   }
 
@@ -48,10 +66,16 @@ async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
     .fill(uniqueSuffix.slice(-10).padStart(10, "1"));
   await dialog.getByRole("textbox", { name: "IFSC Code" }).fill("SBIN0001234");
   await clickUntilDialogCloses(dialog, /Create/i);
+  await waitForZeroReady(page);
 
+  if (await selectFirstVendorOption(page)) {
+    return;
+  }
   await page.getByRole("combobox", { name: "Vendor" }).click();
-  await expect(firstOption).toBeVisible({ timeout: 10_000 });
-  await firstOption.click();
+  await expect(page.getByRole("option").first()).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.getByRole("option").first().click();
 }
 
 async function fillLineItemAndSubmit(

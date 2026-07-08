@@ -189,36 +189,38 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
 export async function handleDeadLetterScheduledWhatsApp(
   jobs: Job<SendScheduledWhatsAppPayload>[]
 ): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "dead-letter/scheduled-whatsapp",
-    });
-    const { recipientRowId, scheduledMessageId } = job.data;
-    log.set({ jobId: job.id, recipientRowId, scheduledMessageId });
+  await Promise.all(
+    jobs.map(async (job) => {
+      const log = createRequestLogger({
+        method: "JOB",
+        path: "dead-letter/scheduled-whatsapp",
+      });
+      const { recipientRowId, scheduledMessageId } = job.data;
+      log.set({ jobId: job.id, recipientRowId, scheduledMessageId });
 
-    if (!recipientRowId) {
-      log.set({ event: "job_skip", reason: "no_recipient_row_id" });
+      if (!recipientRowId) {
+        log.set({ event: "job_skip", reason: "no_recipient_row_id" });
+        log.emit();
+        return;
+      }
+
+      await db
+        .update(scheduledMessageRecipient)
+        .set({
+          error: "All retries exhausted",
+          status: "failed",
+          updatedAt: new Date(),
+        })
+        .where(eq(scheduledMessageRecipient.id, recipientRowId));
+
+      log.set({ event: "status_set_failed" });
       log.emit();
-      continue;
-    }
 
-    await db
-      .update(scheduledMessageRecipient)
-      .set({
-        error: "All retries exhausted",
-        status: "failed",
-        updatedAt: new Date(),
-      })
-      .where(eq(scheduledMessageRecipient.id, recipientRowId));
-
-    log.set({ event: "status_set_failed" });
-    log.emit();
-
-    if (scheduledMessageId) {
-      await cleanupR2IfAllTerminal(scheduledMessageId);
-    }
-  }
+      if (scheduledMessageId) {
+        await cleanupR2IfAllTerminal(scheduledMessageId);
+      }
+    })
+  );
 }
 
 export async function handleSendScheduledWhatsApp(

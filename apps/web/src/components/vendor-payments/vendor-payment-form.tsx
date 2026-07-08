@@ -119,6 +119,12 @@ export function VendorPaymentForm({
       eventId: state.values.eventId,
     })
   );
+  const handleVendorCreated = useEventCallback((id: string) =>
+    form.setFieldValue("vendorId", id)
+  );
+  const handleVendorDialogOpenChange = useEventCallback((open: boolean) =>
+    setVendorDialogOpen(open)
+  );
 
   return (
     <AppErrorBoundary level="section">
@@ -136,8 +142,8 @@ export function VendorPaymentForm({
                 eventOptions={filteredOptions}
                 isEdit={isEdit}
                 onCancel={onCancel}
-                onVendorCreated={(id) => form.setFieldValue("vendorId", id)}
-                onVendorDialogOpenChange={setVendorDialogOpen}
+                onVendorCreated={handleVendorCreated}
+                onVendorDialogOpenChange={handleVendorDialogOpenChange}
                 vendorDialogOpen={vendorDialogOpen}
                 vendorOptions={vendorOptions}
               />

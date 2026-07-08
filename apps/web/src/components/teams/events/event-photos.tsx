@@ -455,9 +455,10 @@ export function EventPhotos({
       ) : null,
     []
   );
-  const lightboxOn = useMemo(() => ({ view: handleLightboxView }), [
-    handleLightboxView,
-  ]);
+  const lightboxOn = useMemo(
+    () => ({ view: handleLightboxView }),
+    [handleLightboxView]
+  );
   const lightboxRender = useMemo(
     () => ({ slideFooter: renderSlideFooter, thumbnail: renderThumbnail }),
     [renderSlideFooter, renderThumbnail]

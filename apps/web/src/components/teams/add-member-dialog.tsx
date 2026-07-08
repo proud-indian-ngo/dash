@@ -99,6 +99,7 @@ function AddMemberFormContent({
   const stableSelector0 = useEventCallback(
     (state: { values: { userIds: string[] } }) => state.values.userIds.length
   );
+  const stableOnCancel = useEventCallback(() => onOpenChange(false));
 
   return (
     <FormLayout form={form}>
@@ -133,7 +134,7 @@ function AddMemberFormContent({
               />
             ) : null}
             <FormActions
-              onCancel={() => onOpenChange(false)}
+              onCancel={stableOnCancel}
               submitLabel={count > 1 ? `Add ${count} Members` : "Add Member"}
               submittingLabel="Adding..."
             />

@@ -9,67 +9,72 @@ import type { CloseRsvpPollOnCancelPayload } from "../enqueue";
 /** UUIDv7 placeholder messageIds start with a hex timestamp; real WhatsApp IDs don't. */
 const UUIDV7_RE = /^[\da-f]{8}-[\da-f]{4}-7/;
 
+async function processCloseRsvpPollJob(
+  job: Job<CloseRsvpPollOnCancelPayload>
+): Promise<void> {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "close-rsvp-poll-on-cancel",
+  });
+  const { eventId, eventName, reason } = job.data;
+  log.set({ eventId, eventName, jobId: job.id });
+
+  const polls = await db
+    .select({
+      closedAt: eventRsvpPoll.closedAt,
+      id: eventRsvpPoll.id,
+      messageId: eventRsvpPoll.messageId,
+      targetChatJid: eventRsvpPoll.targetChatJid,
+    })
+    .from(eventRsvpPoll)
+    .where(eq(eventRsvpPoll.eventId, eventId))
+    .limit(1);
+
+  const [poll] = polls;
+  if (!poll) {
+    log.set({ event: "no_poll" });
+    log.emit();
+    return;
+  }
+
+  if (poll.closedAt) {
+    // Already closed and message sent on a previous attempt
+    log.set({ event: "already_closed" });
+    log.emit();
+    return;
+  }
+
+  // Send the cancel message FIRST — if this fails, pg-boss retries and
+  // the poll stays open so we'll try again. A duplicate cancel notice on
+  // retry is acceptable; a lost one is not.
+  const message = reason
+    ? `⚠️ "${eventName}" has been cancelled. Reason: ${reason}`
+    : `⚠️ "${eventName}" has been cancelled.`;
+
+  const replyMessageId = UUIDV7_RE.test(poll.messageId)
+    ? undefined
+    : poll.messageId;
+
+  await sendWhatsAppGroupMessage(poll.targetChatJid, message, {
+    replyMessageId,
+  });
+
+  // Close the poll only after the message is sent successfully.
+  // This ensures retries re-send the message if it failed previously.
+  await db
+    .update(eventRsvpPoll)
+    .set({ closedAt: new Date() })
+    .where(and(eq(eventRsvpPoll.id, poll.id), isNull(eventRsvpPoll.closedAt)));
+
+  log.set({ event: "cancel_message_sent" });
+  log.emit();
+}
+
 export async function handleCloseRsvpPollOnCancel(
   jobs: Job<CloseRsvpPollOnCancelPayload>[]
 ): Promise<void> {
-  for (const job of jobs) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "close-rsvp-poll-on-cancel",
-    });
-    const { eventId, eventName, reason } = job.data;
-    log.set({ eventId, eventName, jobId: job.id });
-
-    const polls = await db
-      .select({
-        closedAt: eventRsvpPoll.closedAt,
-        id: eventRsvpPoll.id,
-        messageId: eventRsvpPoll.messageId,
-        targetChatJid: eventRsvpPoll.targetChatJid,
-      })
-      .from(eventRsvpPoll)
-      .where(eq(eventRsvpPoll.eventId, eventId))
-      .limit(1);
-
-    const [poll] = polls;
-    if (!poll) {
-      log.set({ event: "no_poll" });
-      log.emit();
-      continue;
-    }
-
-    if (poll.closedAt) {
-      // Already closed and message sent on a previous attempt
-      log.set({ event: "already_closed" });
-      log.emit();
-      continue;
-    }
-
-    // Send the cancel message FIRST — if this fails, pg-boss retries and
-    // the poll stays open so we'll try again. A duplicate cancel notice on
-    // retry is acceptable; a lost one is not.
-    const message = reason
-      ? `⚠️ "${eventName}" has been cancelled. Reason: ${reason}`
-      : `⚠️ "${eventName}" has been cancelled.`;
-
-    const replyMessageId = UUIDV7_RE.test(poll.messageId)
-      ? undefined
-      : poll.messageId;
-
-    await sendWhatsAppGroupMessage(poll.targetChatJid, message, {
-      replyMessageId,
-    });
-
-    // Close the poll only after the message is sent successfully.
-    // This ensures retries re-send the message if it failed previously.
-    await db
-      .update(eventRsvpPoll)
-      .set({ closedAt: new Date() })
-      .where(
-        and(eq(eventRsvpPoll.id, poll.id), isNull(eventRsvpPoll.closedAt))
-      );
-
-    log.set({ event: "cancel_message_sent" });
-    log.emit();
-  }
+  await jobs.reduce(
+    (previous, job) => previous.then(() => processCloseRsvpPollJob(job)),
+    Promise.resolve()
+  );
 }

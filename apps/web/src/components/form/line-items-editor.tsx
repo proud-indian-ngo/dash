@@ -22,6 +22,7 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
+import type { ChangeEvent } from "react";
 import {
   computeRunningTotal,
   formatINR,
@@ -112,7 +113,7 @@ function CategorySelect({
       field.handleBlur();
     }
   });
-  const handleValueChange = useEventCallback((selectedValue: string) => {
+  const handleValueChange = useEventCallback((selectedValue: string | null) => {
     field.handleChange(selectedValue ?? "");
   });
 
@@ -174,7 +175,7 @@ function LineTextInput({
 }) {
   const { hasError, errorId } = subFieldErrorProps(field, submitted);
   const handleChange = useEventCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
+    (event: ChangeEvent<HTMLInputElement>) => {
       field.handleChange(event.target.value);
     }
   );
@@ -210,9 +211,11 @@ function VoucherCheckbox({
   checkboxId: string;
   field: { handleChange: (value: boolean) => void; state: { value: boolean } };
 }) {
-  const handleCheckedChange = useEventCallback((checked: boolean | "indeterminate") => {
-    field.handleChange(checked === true);
-  });
+  const handleCheckedChange = useEventCallback(
+    (checked: boolean | "indeterminate") => {
+      field.handleChange(checked === true);
+    }
+  );
 
   return (
     <Checkbox
@@ -223,7 +226,11 @@ function VoucherCheckbox({
   );
 }
 
-function AddLineItemButton({ pushValue }: { pushValue: (value: LineItem) => void }) {
+function AddLineItemButton({
+  pushValue,
+}: {
+  pushValue: (value: LineItem) => void;
+}) {
   const handleClick = useEventCallback(() => pushValue(newLineItem()));
 
   return (
@@ -330,7 +337,10 @@ function LineItemRow({
                         className="flex cursor-pointer items-center gap-2"
                         htmlFor={checkboxId}
                       >
-                        <VoucherCheckbox checkboxId={checkboxId} field={field} />
+                        <VoucherCheckbox
+                          checkboxId={checkboxId}
+                          field={field}
+                        />
                         <span className="text-muted-foreground text-xs">
                           Generate cash voucher
                         </span>

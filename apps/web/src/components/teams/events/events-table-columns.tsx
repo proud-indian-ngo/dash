@@ -2,6 +2,7 @@ import { GitForkIcon, RepeatIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
@@ -37,6 +38,61 @@ function getSeriesIcon(row: EventDisplayRow) {
   return null;
 }
 
+function EventNameButton({
+  onSelectEvent,
+  row,
+}: {
+  onSelectEvent: (row: EventDisplayRow) => void;
+  row: EventDisplayRow;
+}) {
+  const handleClick = useEventCallback(
+    (event: { stopPropagation: () => void }) => {
+      event.stopPropagation();
+      onSelectEvent(row);
+    }
+  );
+
+  return (
+    <button
+      className="truncate text-left font-medium text-sm hover:underline"
+      onClick={handleClick}
+      type="button"
+    >
+      {row.event.name}
+    </button>
+  );
+}
+
+function EventActionsCell({
+  canCancelPast,
+  canCreate,
+  canManage,
+  onCancelEvent,
+  onDuplicateEvent,
+  onEditEvent,
+  onSelectEvent,
+  row,
+}: ColumnCallbacks & { row: EventDisplayRow }) {
+  const handleCancel = useEventCallback(() => onCancelEvent(row));
+  const handleDuplicate = useEventCallback(() => onDuplicateEvent(row));
+  const handleEdit = useEventCallback(() => onEditEvent(row));
+  const handleSelect = useEventCallback(() => onSelectEvent(row));
+
+  return (
+    <EventActionsMenu
+      canCancel={
+        canManage && (canCancelPast || row.event.startTime > Date.now())
+      }
+      canCreate={canCreate}
+      canManage={canManage}
+      onCancelEvent={handleCancel}
+      onDuplicateEvent={handleDuplicate}
+      onEditEvent={handleEdit}
+      onSelectEvent={handleSelect}
+    />
+  );
+}
+
 export function createEventsTableColumns({
   canCancelPast,
   canCreate,
@@ -62,16 +118,7 @@ export function createEventsTableColumns({
                 strokeWidth={2}
               />
             )}
-            <button
-              className="truncate text-left font-medium text-sm hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectEvent(row.original);
-              }}
-              type="button"
-            >
-              {row.original.event.name}
-            </button>
+            <EventNameButton onSelectEvent={onSelectEvent} row={row.original} />
           </div>
         );
       },
@@ -237,17 +284,15 @@ export function createEventsTableColumns({
     },
     {
       cell: ({ row }) => (
-        <EventActionsMenu
-          canCancel={
-            canManage &&
-            (canCancelPast || row.original.event.startTime > Date.now())
-          }
+        <EventActionsCell
+          canCancelPast={canCancelPast}
           canCreate={canCreate}
           canManage={canManage}
-          onCancelEvent={() => onCancelEvent(row.original)}
-          onDuplicateEvent={() => onDuplicateEvent(row.original)}
-          onEditEvent={() => onEditEvent(row.original)}
-          onSelectEvent={() => onSelectEvent(row.original)}
+          onCancelEvent={onCancelEvent}
+          onDuplicateEvent={onDuplicateEvent}
+          onEditEvent={onEditEvent}
+          onSelectEvent={onSelectEvent}
+          row={row.original}
         />
       ),
       enableColumnOrdering: false,

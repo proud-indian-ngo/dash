@@ -13,7 +13,7 @@ export async function createTeamViaDialog(
 ) {
   let lastTeamName = "";
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  async function tryCreateTeam(attempt: number): Promise<string | undefined> {
     const teamName = `${prefix} ${Date.now()}${attempt ? ` ${attempt}` : ""}`;
     lastTeamName = teamName;
 
@@ -37,6 +37,13 @@ export async function createTeamViaDialog(
     if (await rowTitle.isVisible({ timeout: 20_000 }).catch(() => false)) {
       return teamName;
     }
+
+    return attempt < 1 ? tryCreateTeam(attempt + 1) : undefined;
+  }
+
+  const createdTeamName = await tryCreateTeam(0);
+  if (createdTeamName) {
+    return createdTeamName;
   }
 
   await page.getByPlaceholder("Search teams...").fill(lastTeamName);

@@ -1,15 +1,20 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 async function openSettings(page: import("@playwright/test").Page) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  async function tryOpen(attempt: number): Promise<void> {
     await page.goto("/");
     if (await waitForDashboardReady(page).catch(() => false)) {
-      break;
+      return;
     }
     if (attempt === 1) {
       await waitForDashboardReady(page);
+      return;
     }
+
+    await tryOpen(attempt + 1);
   }
+
+  await tryOpen(0);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   const sidebar = page.locator("[data-sidebar='sidebar']");

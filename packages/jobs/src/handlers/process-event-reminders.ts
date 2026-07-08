@@ -87,61 +87,68 @@ export async function handleProcessEventReminders(
     log.set({ event: "partial_failure", ...info });
   };
 
-  for (const event of events) {
-    const intervals = event.reminderIntervals as number[] | null;
-    if (!intervals || intervals.length === 0) {
-      continue;
-    }
+  const eventResults = await Promise.all(
+    events.map(async (event) => {
+      const intervals = event.reminderIntervals as number[] | null;
+      if (!intervals || intervals.length === 0) {
+        return { sent: 0, skipped: 0 };
+      }
 
-    const rule = parseRecurrenceRule(event.recurrenceRule);
+      const rule = parseRecurrenceRule(event.recurrenceRule);
 
-    if (rule && !event.seriesId) {
-      // Series parent — expand to instances
-      const rangeStart = now - WINDOW_MS;
-      const rangeEnd = now + LOOKAHEAD_MS;
+      if (rule && !event.seriesId) {
+        // Series parent — expand to instances
+        const rangeStart = now - WINDOW_MS;
+        const rangeEnd = now + LOOKAHEAD_MS;
 
-      const exceptions = await db
-        .select({ originalDate: teamEvent.originalDate })
-        .from(teamEvent)
-        .where(eq(teamEvent.seriesId, event.id));
-      const exceptionDates = new Set(
-        exceptions
-          .map((e) => e.originalDate)
-          .filter((d): d is string => d !== null)
-      );
+        const exceptions = await db
+          .select({ originalDate: teamEvent.originalDate })
+          .from(teamEvent)
+          .where(eq(teamEvent.seriesId, event.id));
+        const exceptionDates = new Set(
+          exceptions
+            .map((e) => e.originalDate)
+            .filter((d): d is string => d !== null)
+        );
 
-      const occurrences = expandSeries(
-        rule,
-        event.startTime.getTime(),
-        event.endTime?.getTime() ?? null,
-        rangeStart,
-        rangeEnd,
-        exceptionDates
-      );
+        const occurrences = expandSeries(
+          rule,
+          event.startTime.getTime(),
+          event.endTime?.getTime() ?? null,
+          rangeStart,
+          rangeEnd,
+          exceptionDates
+        );
 
-      await Promise.all(
-        occurrences.map(async (occurrence) => {
-          const result = await processRemindersForEvent({
-            eventId: event.id,
-            eventName: event.name,
-            eventWhatsappGroupId: event.whatsappGroupId,
-            instanceDate: occurrence.date,
-            intervals,
-            location: event.location,
-            now,
-            onPartialFailure,
-            reminderTarget: event.reminderTarget ?? "group",
-            startTime: occurrence.startTime ?? event.startTime.getTime(),
-            teamWhatsappGroupId: event.teamWhatsappGroupId,
-            windowStart,
-          });
-          sentCount += result.sent;
-          skippedCount += result.skipped;
-        })
-      );
-    } else {
+        const occurrenceResults = await Promise.all(
+          occurrences.map(
+            async (occurrence) =>
+              await processRemindersForEvent({
+                eventId: event.id,
+                eventName: event.name,
+                eventWhatsappGroupId: event.whatsappGroupId,
+                instanceDate: occurrence.date,
+                intervals,
+                location: event.location,
+                now,
+                onPartialFailure,
+                reminderTarget: event.reminderTarget ?? "group",
+                startTime: occurrence.startTime ?? event.startTime.getTime(),
+                teamWhatsappGroupId: event.teamWhatsappGroupId,
+                windowStart,
+              })
+          )
+        );
+        return occurrenceResults.reduce(
+          (total, result) => ({
+            sent: total.sent + result.sent,
+            skipped: total.skipped + result.skipped,
+          }),
+          { sent: 0, skipped: 0 }
+        );
+      }
       // Standalone event or materialized exception
-      const result = await processRemindersForEvent({
+      return await processRemindersForEvent({
         eventId: event.id,
         eventName: event.name,
         eventWhatsappGroupId: event.whatsappGroupId,
@@ -155,10 +162,13 @@ export async function handleProcessEventReminders(
         teamWhatsappGroupId: event.teamWhatsappGroupId,
         windowStart,
       });
-      sentCount += result.sent;
-      skippedCount += result.skipped;
-    }
-  }
+    })
+  );
+  sentCount = eventResults.reduce((total, result) => total + result.sent, 0);
+  skippedCount = eventResults.reduce(
+    (total, result) => total + result.skipped,
+    0
+  );
 
   log.set({ event: "job_complete", sentCount, skippedCount });
   log.emit();
@@ -269,42 +279,49 @@ async function processRemindersForEvent(
         .where(eq(teamEventMember.eventId, params.eventId))
     : [];
 
-  for (const intervalMinutes of params.intervals) {
-    const reminderTime = params.startTime - intervalMinutes * 60 * 1000;
+  const intervalResults = await Promise.all(
+    params.intervals.map(async (intervalMinutes) => {
+      const reminderTime = params.startTime - intervalMinutes * 60 * 1000;
 
-    if (
-      reminderTime < params.windowStart.getTime() ||
-      reminderTime > params.now
-    ) {
-      continue;
-    }
+      if (
+        reminderTime < params.windowStart.getTime() ||
+        reminderTime > params.now
+      ) {
+        return { sent: 0, skipped: 0 };
+      }
 
-    const isNew = await tryInsertReminderSent(
-      params.eventId,
-      params.instanceDate,
-      intervalMinutes
-    );
-    if (!isNew) {
-      skipped += 1;
-      continue;
-    }
+      const isNew = await tryInsertReminderSent(
+        params.eventId,
+        params.instanceDate,
+        intervalMinutes
+      );
+      if (!isNew) {
+        return { sent: 0, skipped: 1 };
+      }
 
-    if (groupJid) {
-      await notifyEventReminderGroup({
-        eventId: params.eventId,
-        eventName: params.eventName,
-        groupJid,
-        intervalMinutes,
-        location: params.location,
-        startTime: params.startTime,
-      });
-    }
+      if (groupJid) {
+        await notifyEventReminderGroup({
+          eventId: params.eventId,
+          eventName: params.eventName,
+          groupJid,
+          intervalMinutes,
+          location: params.location,
+          startTime: params.startTime,
+        });
+      }
 
-    if (sendToParticipants) {
-      await sendParticipantReminders(params, members, intervalMinutes);
-    }
-    sent += 1;
-  }
+      if (sendToParticipants) {
+        await sendParticipantReminders(params, members, intervalMinutes);
+      }
+      return { sent: 1, skipped: 0 };
+    })
+  );
+
+  sent = intervalResults.reduce((total, result) => total + result.sent, 0);
+  skipped = intervalResults.reduce(
+    (total, result) => total + result.skipped,
+    0
+  );
 
   return { sent, skipped };
 }

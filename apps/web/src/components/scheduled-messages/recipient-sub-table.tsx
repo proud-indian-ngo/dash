@@ -11,8 +11,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@pi-dash/design-system/components/ui/tooltip";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import type { ScheduledMessageRecipient } from "@pi-dash/zero/schema";
+import type { MouseEvent } from "react";
 
 function getRecipientStatusBadge(status: string | null) {
   switch (status) {
@@ -30,6 +32,30 @@ function getRecipientStatusBadge(status: string | null) {
 interface RecipientSubTableProps {
   onRetry?: (recipientId: string) => void;
   recipients: ScheduledMessageRecipient[];
+}
+
+function RetryRecipientButton({
+  onRetry,
+  recipientId,
+}: {
+  onRetry: (recipientId: string) => void;
+  recipientId: string;
+}) {
+  const handleClick = useEventCallback((event: MouseEvent) => {
+    event.stopPropagation();
+    onRetry(recipientId);
+  });
+
+  return (
+    <Button onClick={handleClick} size="sm" variant="outline">
+      <HugeiconsIcon
+        className="size-3.5"
+        icon={ArrowReloadHorizontalIcon}
+        strokeWidth={2}
+      />
+      Retry
+    </Button>
+  );
 }
 
 export function RecipientSubTable({
@@ -92,21 +118,10 @@ export function RecipientSubTable({
                 </td>
                 <td className="py-2">
                   {canRetry && onRetry ? (
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRetry(r.id);
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <HugeiconsIcon
-                        className="size-3.5"
-                        icon={ArrowReloadHorizontalIcon}
-                        strokeWidth={2}
-                      />
-                      Retry
-                    </Button>
+                    <RetryRecipientButton
+                      onRetry={onRetry}
+                      recipientId={r.id}
+                    />
                   ) : null}
                 </td>
               </tr>

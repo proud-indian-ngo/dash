@@ -103,6 +103,7 @@ export class ListPage {
     const tryClick = async (attempt: number): Promise<boolean> => {
       try {
         await trigger.click({ timeout: 5000 });
+        await expect(menuItem).toBeVisible({ timeout: 3000 });
         await menuItem.click({ timeout: 3000 });
         return true;
       } catch (caughtError) {

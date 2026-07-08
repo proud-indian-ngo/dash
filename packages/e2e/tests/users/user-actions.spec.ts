@@ -1,7 +1,10 @@
+import type { Locator, Page } from "@playwright/test";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("User row actions (admin)", () => {
+  test.describe.configure({ mode: "serial" });
+
   let list: ListPage;
 
   test.beforeEach(async ({ page }) => {
@@ -12,9 +15,9 @@ test.describe("User row actions (admin)", () => {
     await findVolunteerRow(page);
   });
 
-  async function findVolunteerRow(page: import("@playwright/test").Page) {
+  async function findVolunteerRow(page: Page) {
     const searchBox = page.getByPlaceholder("Search users...");
-    for (let attempt = 0; attempt < 3; attempt++) {
+    async function tryFind(attempt: number): Promise<void> {
       await searchBox.fill("");
       await list.waitForTableData(30_000);
       await searchBox.fill("test-volunteer");
@@ -24,8 +27,12 @@ test.describe("User row actions (admin)", () => {
       }
       await page.reload();
       await waitForZeroReady(page);
+      if (attempt < 2) {
+        await tryFind(attempt + 1);
+      }
     }
 
+    await tryFind(0);
     await searchBox.fill("test-volunteer");
     await expect(getVolunteerRow()).toBeVisible({ timeout: 30_000 });
   }
@@ -35,6 +42,29 @@ test.describe("User row actions (admin)", () => {
       .getTable()
       .getByRole("row")
       .filter({ hasText: "test-volunteer@pi-dash.test" });
+  }
+
+  async function openVolunteerActionAndWaitFor(
+    page: Page,
+    action: string,
+    target: Locator
+  ): Promise<void> {
+    const tryOpen = async (attempt: number): Promise<void> => {
+      await list.openRowActionAndClick(getVolunteerRow(), action);
+      if (await target.isVisible({ timeout: 3000 }).catch(() => false)) {
+        return;
+      }
+      await page.keyboard.press("Escape").catch(() => {
+        // Ignore stale overlays between retries.
+      });
+      if (attempt >= 2) {
+        await expect(target).toBeVisible({ timeout: 10_000 });
+        return;
+      }
+      await tryOpen(attempt + 1);
+    };
+
+    await tryOpen(0);
   }
 
   test("row action menu shows Edit, Reset password, Ban user, Delete", async ({
@@ -53,10 +83,8 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Edit opens dialog with pre-populated fields", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Edit");
-
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
+    await openVolunteerActionAndWaitFor(page, "Edit", dialog);
     await expect(dialog.getByText(/Edit\s/)).toBeVisible();
 
     // Should have Name field pre-populated
@@ -66,18 +94,15 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Edit cancel closes dialog", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Edit");
-
     const dialog = page.getByRole("dialog");
+    await openVolunteerActionAndWaitFor(page, "Edit", dialog);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
   });
 
   test("Delete opens confirmation alertdialog", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Delete");
-
     const alertDialog = page.getByRole("alertdialog");
-    await expect(alertDialog).toBeVisible();
+    await openVolunteerActionAndWaitFor(page, "Delete", alertDialog);
     await expect(
       alertDialog.getByRole("heading", { name: "Delete user" })
     ).toBeVisible();
@@ -90,35 +115,29 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Delete cancel closes confirmation", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Delete");
-
     const alertDialog = page.getByRole("alertdialog");
+    await openVolunteerActionAndWaitFor(page, "Delete", alertDialog);
     await alertDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(alertDialog).toBeHidden();
   });
 
   test("Ban user opens dialog with Ban reason", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Ban user");
-
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
+    await openVolunteerActionAndWaitFor(page, "Ban user", dialog);
     await expect(dialog.getByRole("heading", { name: /Ban\s/ })).toBeVisible();
     await expect(dialog.getByLabel("Ban reason")).toBeVisible();
   });
 
   test("Ban user cancel closes dialog", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Ban user");
-
     const dialog = page.getByRole("dialog");
+    await openVolunteerActionAndWaitFor(page, "Ban user", dialog);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
   });
 
   test("Reset password opens dialog", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Reset password");
-
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
+    await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
     await expect(dialog.getByText(/Reset Password/)).toBeVisible();
     await expect(
       dialog.getByRole("textbox", { name: /^New password/ })
@@ -132,9 +151,8 @@ test.describe("User row actions (admin)", () => {
   });
 
   test("Reset password cancel closes dialog", async ({ page }) => {
-    await list.openRowActionAndClick(getVolunteerRow(), "Reset password");
-
     const dialog = page.getByRole("dialog");
+    await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
   });

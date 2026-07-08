@@ -54,7 +54,7 @@ export class RequestFormPage {
   }
 
   async selectBankAccount(timeout = 25_000): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const trySelectBankAccount = async (attempt: number): Promise<void> => {
       const bankAccountGroup = this.page
         .getByRole("group")
         .filter({ hasText: "Bank Account" });
@@ -67,8 +67,9 @@ export class RequestFormPage {
         }
 
         await combobox.click();
-        await expect(this.page.getByRole("option")).toBeVisible({ timeout });
-        await this.page.getByRole("option").first().click();
+        const firstOption = this.page.getByRole("option").first();
+        await expect(firstOption).toBeVisible({ timeout });
+        await firstOption.click();
         return;
       }
 
@@ -77,7 +78,12 @@ export class RequestFormPage {
       await expect(
         this.page.getByRole("heading", { name: "New Reimbursement" })
       ).toBeVisible({ timeout });
-    }
+      if (attempt < 2) {
+        await trySelectBankAccount(attempt + 1);
+      }
+    };
+
+    await trySelectBankAccount(0);
 
     await expect(
       this.page

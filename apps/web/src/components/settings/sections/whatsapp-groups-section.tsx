@@ -27,6 +27,61 @@ type RowAction = { kind: "delete"; group: WhatsappGroup } | null;
 
 type EditMode = { group: WhatsappGroup } | null;
 
+function WhatsAppGroupDisplayRow({
+  group,
+  onDelete,
+  onEdit,
+}: {
+  group: WhatsappGroup;
+  onDelete: (group: WhatsappGroup) => void;
+  onEdit: (group: WhatsappGroup) => void;
+}) {
+  const handleEdit = useEventCallback(() => onEdit(group));
+  const handleDelete = useEventCallback(() => onDelete(group));
+
+  return (
+    <div className="flex items-start justify-between rounded-md border p-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-medium text-sm">{group.name}</span>
+        <span className="text-muted-foreground text-xs">{group.jid}</span>
+        {group.description ? (
+          <span className="text-muted-foreground text-xs">
+            {group.description}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          aria-label="Edit group"
+          onClick={handleEdit}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={PencilEdit01Icon}
+            strokeWidth={2}
+          />
+        </Button>
+        <Button
+          aria-label="Delete group"
+          onClick={handleDelete}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={Delete02Icon}
+            strokeWidth={2}
+          />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function WhatsAppGroupsSection() {
   const zero = useZero();
   const { hasPermission } = useApp();
@@ -139,6 +194,16 @@ export function WhatsAppGroupsSection() {
 
   const showAddButton = canManageGroups && wapiConfigured !== false;
   const stableOnClick0 = useEventCallback(() => setPickerOpen(true));
+  const stableOnCancelEdit = useEventCallback(() => setEditMode(null));
+  const handleEditRequest = useEventCallback((group: WhatsappGroup) =>
+    setEditMode({ group })
+  );
+  const handleDeleteRequest = useEventCallback((group: WhatsappGroup) =>
+    setRowAction({ group, kind: "delete" })
+  );
+  const stablePickerOpenChange = useEventCallback((open: boolean) =>
+    setPickerOpen(open)
+  );
   const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
       setRowAction(null);
@@ -185,52 +250,16 @@ export function WhatsAppGroupsSection() {
                         name: editingGroup.name,
                       }}
                       key={`edit-${group.id}`}
-                      onCancel={() => setEditMode(null)}
+                      onCancel={stableOnCancelEdit}
                       onSubmit={handleUpdate}
                     />
                   </div>
                 ) : (
-                  <div className="flex items-start justify-between rounded-md border p-3">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium text-sm">{group.name}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {group.jid}
-                      </span>
-                      {group.description ? (
-                        <span className="text-muted-foreground text-xs">
-                          {group.description}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        aria-label="Edit group"
-                        onClick={() => setEditMode({ group })}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <HugeiconsIcon
-                          className="size-4"
-                          icon={PencilEdit01Icon}
-                          strokeWidth={2}
-                        />
-                      </Button>
-                      <Button
-                        aria-label="Delete group"
-                        onClick={() => setRowAction({ group, kind: "delete" })}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <HugeiconsIcon
-                          className="size-4"
-                          icon={Delete02Icon}
-                          strokeWidth={2}
-                        />
-                      </Button>
-                    </div>
-                  </div>
+                  <WhatsAppGroupDisplayRow
+                    group={group}
+                    onDelete={handleDeleteRequest}
+                    onEdit={handleEditRequest}
+                  />
                 )}
               </div>
             );
@@ -257,7 +286,7 @@ export function WhatsAppGroupsSection() {
       <WhatsAppGroupPickerDialog
         existingJids={existingJids}
         onAdd={handleBulkCreate}
-        onOpenChange={setPickerOpen}
+        onOpenChange={stablePickerOpenChange}
         open={pickerOpen}
       />
 

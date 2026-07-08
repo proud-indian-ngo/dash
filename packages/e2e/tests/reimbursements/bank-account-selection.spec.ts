@@ -36,7 +36,7 @@ async function selectBankAccountOption(
   bankAccountGroup: import("@playwright/test").Locator,
   lastFour: string
 ) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  async function trySelect(attempt: number): Promise<boolean> {
     await bankAccountGroup.getByRole("combobox").click();
     const option = bankAccountGroup.page().getByRole("option").filter({
       hasText: lastFour,
@@ -53,7 +53,7 @@ async function selectBankAccountOption(
         lastFour,
         { timeout: 10_000 }
       );
-      return;
+      return true;
     }
     await bankAccountGroup
       .page()
@@ -61,6 +61,12 @@ async function selectBankAccountOption(
       .catch(() => {
         // Ignore closed dropdown between retries.
       });
+
+    return attempt < 2 ? trySelect(attempt + 1) : false;
+  }
+
+  if (await trySelect(0)) {
+    return;
   }
 
   await bankAccountGroup.getByRole("combobox").click();
@@ -71,6 +77,45 @@ async function selectBankAccountOption(
     .first()
     .click();
   await expect(bankAccountGroup.getByRole("combobox")).toContainText(lastFour);
+}
+
+async function deleteDuplicateAccounts(
+  page: import("@playwright/test").Page,
+  dialog: import("@playwright/test").Locator,
+  duplicateLast4: string,
+  seedLast4: string
+): Promise<void> {
+  const card = accountCard(dialog, duplicateLast4);
+  const count = await card.count();
+  if (count === 0) {
+    return;
+  }
+
+  const seedCard = accountCard(dialog, seedLast4).first();
+  const duplicateCard = card.first();
+  if (
+    (await duplicateCard
+      .getByText("Default", { exact: true })
+      .isVisible()
+      .catch(() => false)) &&
+    (await seedCard
+      .getByRole("button", { name: "Set default" })
+      .isVisible()
+      .catch(() => false))
+  ) {
+    await seedCard.getByRole("button", { name: "Set default" }).click();
+    await expect(seedCard.getByText("Default", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+  }
+  await card.first().getByRole("button", { name: "Delete account" }).click();
+  const confirmBtn = page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete" });
+  await confirmBtn.click({ timeout: 5000 });
+  await expect(card).toHaveCount(count - 1, { timeout: 10_000 });
+
+  await deleteDuplicateAccounts(page, dialog, duplicateLast4, seedLast4);
 }
 
 const ROLES_FOR_BANK_ACCOUNT_FLOW = new Set(["super_admin", "volunteer"]);
@@ -96,35 +141,7 @@ test.describe("Bank account selection with duplicate names", () => {
       await page.waitForTimeout(300);
 
       const dialog = await navigateToBanking(page);
-      const card = accountCard(dialog, duplicateLast4);
-      while ((await card.count()) > 0) {
-        const seedCard = accountCard(dialog, SEED_LAST4).first();
-        const duplicateCard = card.first();
-        if (
-          (await duplicateCard
-            .getByText("Default", { exact: true })
-            .isVisible()
-            .catch(() => false)) &&
-          (await seedCard
-            .getByRole("button", { name: "Set default" })
-            .isVisible()
-            .catch(() => false))
-        ) {
-          await seedCard.getByRole("button", { name: "Set default" }).click();
-          await expect(
-            seedCard.getByText("Default", { exact: true })
-          ).toBeVisible({ timeout: 10_000 });
-        }
-        await card
-          .first()
-          .getByRole("button", { name: "Delete account" })
-          .click();
-        const confirmBtn = page
-          .getByRole("alertdialog")
-          .getByRole("button", { name: "Delete" });
-        await confirmBtn.click({ timeout: 5000 });
-        await expect(card).toHaveCount(0, { timeout: 10_000 });
-      }
+      await deleteDuplicateAccounts(page, dialog, duplicateLast4, SEED_LAST4);
     } catch {
       // Best-effort cleanup — don't fail the test
     }
