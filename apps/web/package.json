@@ -41,14 +41,14 @@
     "libphonenumber-js": "^1.13.8",
     "lodash": "catalog:",
     "nuqs": "^2.9.0",
-    "posthog-js": "^1.398.3",
+    "posthog-js": "^1.398.6",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-error-boundary": "^6.1.2",
     "recharts": "^3.9.2",
     "sonner": "catalog:",
     "uuidv7": "catalog:",
-    "yet-another-react-lightbox": "^3.32.0",
+    "yet-another-react-lightbox": "^3.32.1",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -66,6 +66,7 @@ temp
 .grepai/
 .pi/
 docs/plans/
+/plans/
 
 # Worktrees
 .worktrees/
