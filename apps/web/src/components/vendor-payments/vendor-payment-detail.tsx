@@ -10,6 +10,7 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
 import capitalize from "lodash/capitalize";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -240,7 +241,18 @@ function VendorPaymentHeader({
         <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
           {request.vendor ? <span>Vendor: {request.vendor.name}</span> : null}
           {request.city ? <span>City: {capitalize(request.city)}</span> : null}
-          {request.event ? <span>Event: {request.event.name}</span> : null}
+          {request.event ? (
+            <span>
+              Event:{" "}
+              <Link
+                className="font-medium text-primary underline-offset-2 hover:underline"
+                params={{ id: request.event.id }}
+                to="/events/$id"
+              >
+                {request.event.name}
+              </Link>
+            </span>
+          ) : null}
         </div>
         {request.user ? (
           <div className="mt-1 flex items-center gap-2">

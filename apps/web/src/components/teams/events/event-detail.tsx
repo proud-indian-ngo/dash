@@ -577,6 +577,39 @@ function EventTabs({
   );
 }
 
+function EventPostEventPanel({
+  canAccessPostEventContent,
+  message,
+  showUpcomingExpenses,
+  ...eventTabsProps
+}: EventTabsProps & {
+  canAccessPostEventContent: boolean;
+  message: string;
+  showUpcomingExpenses: boolean;
+}) {
+  if (canAccessPostEventContent) {
+    return <EventTabs {...eventTabsProps} />;
+  }
+
+  if (showUpcomingExpenses) {
+    return (
+      <div className="flex flex-col gap-6">
+        <p className="py-8 text-center text-muted-foreground text-sm">
+          {message}
+        </p>
+        <div className="flex flex-col gap-3">
+          <h2 className="font-medium text-sm">Expenses</h2>
+          <EventExpenses eventId={eventTabsProps.event.id} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <p className="py-12 text-center text-muted-foreground text-sm">{message}</p>
+  );
+}
+
 /**
  * Queries for the event detail page. Pending queries use `enabled` flags to
  * control Zero subscriptions: approvers/leads get all pending, regular members
@@ -908,6 +941,10 @@ export function EventDetail({
     eventReimbursements,
     eventVendorPayments
   );
+  const showUpcomingExpenses =
+    !canAccessPostEventContent &&
+    canManage &&
+    (eventReimbursements.length > 0 || eventVendorPayments.length > 0);
 
   const { feedbackDeadlinePassed, presentCount, recurrence } =
     deriveEventMetrics(event);
@@ -1052,30 +1089,27 @@ export function EventDetail({
               </p>
             ) : null}
 
-            {canAccessPostEventContent ? (
-              <EventTabs
-                approvedPhotos={approvedPhotos}
-                approvedUpdates={approvedUpdates}
-                canApproveUpdates={canApproveUpdates}
-                canManage={canManage}
-                canManageFeedback={canManageFeedback}
-                canManagePhotos={canManagePhotos}
-                event={event}
-                feedback={feedback}
-                feedbackDeadlinePassed={feedbackDeadlinePassed}
-                immichAlbumUrl={immichAlbumUrl}
-                isMember={!!isMember}
-                isPastEvent={isPastEvent}
-                memberCount={event.members.length}
-                occDate={occDate}
-                pendingPhotos={pendingPhotos}
-                pendingUpdates={pendingUpdates}
-              />
-            ) : (
-              <p className="py-12 text-center text-muted-foreground text-sm">
-                {getPostEventContentMessage(isPastEvent, event.startTime)}
-              </p>
-            )}
+            <EventPostEventPanel
+              approvedPhotos={approvedPhotos}
+              approvedUpdates={approvedUpdates}
+              canAccessPostEventContent={canAccessPostEventContent}
+              canApproveUpdates={canApproveUpdates}
+              canManage={canManage}
+              canManageFeedback={canManageFeedback}
+              canManagePhotos={canManagePhotos}
+              event={event}
+              feedback={feedback}
+              feedbackDeadlinePassed={feedbackDeadlinePassed}
+              immichAlbumUrl={immichAlbumUrl}
+              isMember={!!isMember}
+              isPastEvent={isPastEvent}
+              memberCount={event.members.length}
+              message={getPostEventContentMessage(isPastEvent, event.startTime)}
+              occDate={occDate}
+              pendingPhotos={pendingPhotos}
+              pendingUpdates={pendingUpdates}
+              showUpcomingExpenses={showUpcomingExpenses}
+            />
           </div>
 
           {/* Sidebar */}

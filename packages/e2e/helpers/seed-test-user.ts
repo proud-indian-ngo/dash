@@ -11,6 +11,11 @@ import {
 } from "@pi-dash/db/schema/reimbursement";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
+import {
+  vendor,
+  vendorPayment,
+  vendorPaymentLineItem,
+} from "@pi-dash/db/schema/vendor";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { addDays, addHours, subDays } from "date-fns";
@@ -185,12 +190,24 @@ async function ensureWhatsAppGroup(): Promise<void> {
 }
 
 const SEED_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
+const SEED_UPCOMING_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000002";
+const SEED_VENDOR_ID = "e2e00000-0000-0000-0000-000000000003";
+const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
 
-async function ensureReimbursement(userId: string): Promise<void> {
+async function ensureReimbursement(
+  userId: string,
+  eventId?: string
+): Promise<void> {
   const existing = await db.query.reimbursement.findFirst({
     where: (table, ops) => ops.eq(table.id, SEED_REIMBURSEMENT_ID),
   });
   if (existing) {
+    if (eventId && existing.eventId !== eventId) {
+      await db
+        .update(reimbursement)
+        .set({ eventId })
+        .where(eq(reimbursement.id, SEED_REIMBURSEMENT_ID));
+    }
     return;
   }
 
@@ -204,6 +221,7 @@ async function ensureReimbursement(userId: string): Promise<void> {
   await db.insert(reimbursement).values({
     city: "bangalore",
     createdAt: now,
+    eventId,
     expenseDate: "2026-01-15",
     id: SEED_REIMBURSEMENT_ID,
     status: "pending",
@@ -238,6 +256,116 @@ async function ensureReimbursement(userId: string): Promise<void> {
   ]);
 
   log("Created seed reimbursement with 2 line items");
+}
+
+async function ensureUpcomingEventReimbursement(
+  userId: string,
+  eventId: string
+): Promise<void> {
+  const existing = await db.query.reimbursement.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_UPCOMING_REIMBURSEMENT_ID),
+  });
+  if (existing) {
+    return;
+  }
+
+  const category = await db.query.expenseCategory.findFirst();
+  if (!category) {
+    log("Skipping upcoming event reimbursement seed — no categories found");
+    return;
+  }
+
+  const now = new Date();
+  await db.insert(reimbursement).values({
+    city: "bangalore",
+    createdAt: now,
+    eventId,
+    expenseDate: "2026-01-15",
+    id: SEED_UPCOMING_REIMBURSEMENT_ID,
+    status: "pending",
+    title: "E2E Upcoming Event Reimbursement",
+    updatedAt: now,
+    userId,
+  });
+
+  await db.insert(reimbursementLineItem).values({
+    amount: "275.00",
+    categoryId: category.id,
+    createdAt: now,
+    description: "Upcoming event supplies",
+    generateVoucher: true,
+    id: uuidv7(),
+    reimbursementId: SEED_UPCOMING_REIMBURSEMENT_ID,
+    sortOrder: 0,
+    updatedAt: now,
+  });
+
+  log("Created upcoming event reimbursement");
+}
+
+async function ensureEventVendorPayment(
+  userId: string,
+  eventId: string
+): Promise<void> {
+  const existingVendor = await db.query.vendor.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_VENDOR_ID),
+  });
+  const now = new Date();
+
+  const vendorId = existingVendor?.id ?? SEED_VENDOR_ID;
+  if (!existingVendor) {
+    await db.insert(vendor).values({
+      bankAccountIfscCode: "TEST0000002",
+      bankAccountName: "E2E Vendor Account",
+      bankAccountNumber: "9876543210",
+      contactPhone: "+919999999999",
+      createdAt: now,
+      createdBy: userId,
+      id: SEED_VENDOR_ID,
+      name: "E2E Event Vendor",
+      status: "approved",
+      updatedAt: now,
+    });
+  }
+
+  const existingPayment = await db.query.vendorPayment.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_VENDOR_PAYMENT_ID),
+  });
+  if (existingPayment) {
+    return;
+  }
+
+  const category = await db.query.expenseCategory.findFirst();
+  if (!category) {
+    log("Skipping event vendor payment seed — no categories found");
+    return;
+  }
+
+  await db.insert(vendorPayment).values({
+    city: "bangalore",
+    createdAt: now,
+    eventId,
+    id: SEED_VENDOR_PAYMENT_ID,
+    status: "pending",
+    submittedAt: now,
+    title: "E2E Event Vendor Payment",
+    updatedAt: now,
+    userId,
+    vendorId,
+  });
+
+  await db.insert(vendorPaymentLineItem).values({
+    amount: "625.00",
+    categoryId: category.id,
+    createdAt: now,
+    description: "Event vendor supplies",
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: now,
+    vendorPaymentId: SEED_VENDOR_PAYMENT_ID,
+  });
+
+  log("Created event vendor payment");
 }
 
 const SEED_TEAM_NAME = "E2E Updates Team";
@@ -465,12 +593,23 @@ async function seed(): Promise<void> {
     })
   );
 
-  await ensureReimbursement(superAdminUserId);
   const teamId = await ensureEventWithPendingUpdate(
     superAdminUserId,
     volunteerUserId
   );
   await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
+  const pastEvent = await db.query.teamEvent.findFirst({
+    where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
+  });
+  const upcomingEvent = await db.query.teamEvent.findFirst({
+    where: (table, ops) => ops.eq(table.name, "E2E Upcoming Public Bangalore"),
+  });
+  if (!(pastEvent && upcomingEvent)) {
+    throw new Error("E2E event expense fixtures require seeded events");
+  }
+  await ensureReimbursement(superAdminUserId, pastEvent.id);
+  await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
+  await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }
 
 seed().catch((error: unknown) => {

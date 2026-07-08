@@ -2,6 +2,7 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -10,16 +11,29 @@ function sumLineItems(lineItems: readonly { amount: number }[]): number {
 }
 
 interface ExpenseRowProps {
+  href: "/reimbursements/$id" | "/vendor-payments/$id";
+  id: string;
   status: string | null;
   submitter: string | null | undefined;
   title: string;
   total: number;
 }
 
-function ExpenseRow({ title, submitter, total, status }: ExpenseRowProps) {
+function ExpenseRow({
+  href,
+  id,
+  title,
+  submitter,
+  total,
+  status,
+}: ExpenseRowProps) {
   const { label, variant } = getStatusBadge(status);
   return (
-    <div className="flex items-center justify-between gap-4 py-2">
+    <Link
+      className="flex items-center justify-between gap-4 py-2 outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+      params={{ id }}
+      to={href}
+    >
       <div className="min-w-0">
         <p className="truncate font-medium text-sm">{title}</p>
         {submitter ? (
@@ -32,7 +46,7 @@ function ExpenseRow({ title, submitter, total, status }: ExpenseRowProps) {
           {label}
         </Badge>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -103,6 +117,8 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
           <div className="divide-y">
             {reimbList.map((r) => (
               <ExpenseRow
+                href="/reimbursements/$id"
+                id={r.id}
                 key={r.id}
                 status={r.status}
                 submitter={r.user?.name}
@@ -120,6 +136,8 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
           <div className="divide-y">
             {vpList.map((vp) => (
               <ExpenseRow
+                href="/vendor-payments/$id"
+                id={vp.id}
                 key={vp.id}
                 status={vp.status}
                 submitter={vp.vendor?.name ?? vp.user?.name}

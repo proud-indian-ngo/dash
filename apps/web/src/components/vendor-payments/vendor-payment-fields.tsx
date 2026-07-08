@@ -2,6 +2,14 @@ import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@pi-dash/design-system/components/ui/combobox";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -109,39 +117,42 @@ function EventSelectField({
   eventOptions: SelectOption[];
   field: FormFieldApi<string | undefined>;
 }) {
-  const handleOpenChange = useEventCallback((open: boolean) => {
-    if (!open) {
-      field.handleBlur();
-    }
-  });
+  const items = ["", ...eventOptions.map((o) => o.value)];
+  const optionMap = new Map(eventOptions.map((o) => [o.value, o.label]));
+  const itemToStringLabel = useEventCallback((value: string) =>
+    value === "" ? "No event" : (optionMap.get(value) ?? String(value))
+  );
   const handleValueChange = useEventCallback((value: string | null) =>
     field.handleChange(value === "" || value === null ? undefined : value)
   );
 
   return (
-    <Select
-      onOpenChange={handleOpenChange}
+    <Combobox
+      items={items}
+      itemToStringLabel={itemToStringLabel}
       onValueChange={handleValueChange}
       value={field.state.value ?? ""}
     >
-      <SelectTrigger className="w-full" id={field.name}>
-        <span
-          className="flex flex-1 items-center text-left"
-          data-slot="select-value"
-        >
-          {eventOptions.find((o) => o.value === field.state.value)?.label ??
-            "No event"}
-        </span>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="">No event</SelectItem>
-        {eventOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      <ComboboxInput
+        className="w-full"
+        id={field.name}
+        onBlur={field.handleBlur}
+        placeholder="No event"
+        showClear={!!field.state.value}
+      />
+      <ComboboxContent>
+        <ComboboxList>
+          {(itemValue) => (
+            <ComboboxItem key={itemValue} value={itemValue}>
+              {itemValue === ""
+                ? "No event"
+                : (optionMap.get(itemValue) ?? itemValue)}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+        <ComboboxEmpty>No matching events.</ComboboxEmpty>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 
