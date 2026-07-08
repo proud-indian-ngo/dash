@@ -83,13 +83,10 @@ export async function ensureImmichAlbum(
 export async function uploadAssetToImmich(
   config: ImmichConfig,
   file: Blob,
-  filename: string,
-  deviceAssetId: string
+  filename: string
 ): Promise<string> {
   const formData = new FormData();
   formData.append("assetData", file, filename);
-  formData.append("deviceAssetId", deviceAssetId);
-  formData.append("deviceId", "pi-dash");
   const nowIso = new Date().toISOString();
   formData.append("fileCreatedAt", nowIso);
   formData.append("fileModifiedAt", nowIso);

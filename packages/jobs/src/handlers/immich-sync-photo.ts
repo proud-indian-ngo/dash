@@ -153,8 +153,6 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
   const filename = r2Key.split("/").pop() ?? r2Key;
   const formData = new FormData();
   formData.append("assetData", blob, filename);
-  formData.append("deviceAssetId", `pi-dash-${r2Key}`);
-  formData.append("deviceId", "pi-dash");
   const nowIso = new Date().toISOString();
   formData.append("fileCreatedAt", nowIso);
   formData.append("fileModifiedAt", nowIso);
