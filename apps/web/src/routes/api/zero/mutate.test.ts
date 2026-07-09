@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@pi-dash/env/server", () => ({
+  env: { R2_KEY_PREFIX: "test-prefix" },
+}));
 vi.mock("@pi-dash/jobs/r2-object", () => ({
   moveR2Object: mocks.moveR2Object,
 }));
