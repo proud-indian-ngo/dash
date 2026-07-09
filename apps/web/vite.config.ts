@@ -78,7 +78,6 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
         checks: {
           pluginTimings: false,
         },
-        external: ["bun", "bun:sqlite"],
       },
     },
     environments: {
