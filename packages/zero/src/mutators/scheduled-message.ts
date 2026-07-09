@@ -56,7 +56,6 @@ async function claimScheduledMessageAttachments(
     attachments.map(async (attachment) => ({
       ...attachment,
       r2Key: await claimUploadedR2ObjectKey(attachment.r2Key, {
-        allowDurablePrefix: true,
         asyncTasks,
         durablePrefix: messageId,
         existingObjectKeys,

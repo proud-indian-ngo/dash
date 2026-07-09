@@ -12,7 +12,7 @@ import type React from "react";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   getPhotoThumbnailUrl,
-  getR2VideoUrl,
+  getR2PhotoUrl,
   isVideoPhoto,
 } from "./photo-utils";
 
@@ -41,7 +41,7 @@ export function PhotoCard({
   const isVideo = isVideoPhoto(photo);
   const r2VideoPreviewUrl =
     isVideo && !photo.immichAssetId && photo.r2Key
-      ? `${getR2VideoUrl(photo.r2Key)}#t=0.1`
+      ? `${getR2PhotoUrl(photo)}#t=0.1`
       : null;
 
   let preview: React.ReactNode;

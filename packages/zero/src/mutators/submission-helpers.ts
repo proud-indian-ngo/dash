@@ -16,7 +16,6 @@ type R2Subfolder =
   | "scheduled-messages";
 
 interface R2ObjectClaimOptions {
-  allowDurablePrefix?: boolean;
   asyncTasks?: Context["asyncTasks"];
   durablePrefix: string;
   existingObjectKeys?: ReadonlySet<string>;
@@ -134,18 +133,20 @@ export async function claimUploadedR2ObjectKey(
     return key;
   }
 
-  const durableMarker = `/${options.subfolder}/${options.durablePrefix}/`;
-  if (options.allowDurablePrefix && key.includes(durableMarker)) {
-    return key;
-  }
-
+  const serverTempPrefix = serverPrefix
+    ? `${serverPrefix}${options.subfolder}/tmp/${options.userId}/`
+    : null;
   const tempMarker = `/${options.subfolder}/tmp/${options.userId}/`;
   const tempMarkerIndex = key.indexOf(tempMarker);
-  if (tempMarkerIndex < 0) {
+  if (
+    serverTempPrefix ? !key.startsWith(serverTempPrefix) : tempMarkerIndex < 0
+  ) {
     throw new Error("Invalid attachment object key");
   }
 
-  const storagePrefix = key.slice(0, tempMarkerIndex);
+  const storagePrefix = serverPrefix
+    ? serverPrefix.slice(0, -1)
+    : key.slice(0, tempMarkerIndex);
   const claimedKey = `${storagePrefix}/${options.subfolder}/${options.durablePrefix}/${filenameFromKey(key)}`;
   if (options.txLocation === "server") {
     enqueueMoveR2Object(options, key, claimedKey);

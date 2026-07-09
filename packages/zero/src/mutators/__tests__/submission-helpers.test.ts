@@ -312,6 +312,19 @@ describe("claimUploadedR2ObjectKey", () => {
     ).rejects.toThrow("Invalid attachment object key");
   });
 
+  it("rejects server keys that only contain the temp marker later in the path", async () => {
+    await expect(
+      claimUploadedR2ObjectKey(
+        "app/other/attachments/tmp/user-1/uploaded-file.pdf",
+        {
+          ...baseOptions,
+          asyncTasks: [],
+          txLocation: "server",
+        }
+      )
+    ).rejects.toThrow("Invalid attachment object key");
+  });
+
   it("enqueues server temp move to durable key when task runs", async () => {
     const asyncTasks: AsyncTask[] = [];
 
@@ -362,12 +375,11 @@ describe("claimUploadedR2ObjectKey", () => {
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
-  it("does not move durable scheduled message keys when durable prefix is allowed", async () => {
+  it("rejects durable scheduled message keys unless they already exist", async () => {
     const asyncTasks: AsyncTask[] = [];
 
     await expect(
       claimUploadedR2ObjectKey("app/scheduled-messages/message-id/media.png", {
-        allowDurablePrefix: true,
         asyncTasks,
         durablePrefix: "message-id",
         mimeType: "image/png",
@@ -375,7 +387,7 @@ describe("claimUploadedR2ObjectKey", () => {
         txLocation: "server",
         userId: "user-1",
       })
-    ).resolves.toBe("app/scheduled-messages/message-id/media.png");
+    ).rejects.toThrow("Invalid attachment object key");
 
     expect(asyncTasks).toEqual([]);
     expect(jobMocks.enqueue).not.toHaveBeenCalled();

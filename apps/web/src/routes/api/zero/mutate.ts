@@ -10,7 +10,10 @@ import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { shouldDrainMutationAsyncTasks } from "@/lib/zero-mutate-tasks";
+import {
+  runMutationAsyncTasksInOrder,
+  shouldDrainMutationAsyncTasks,
+} from "@/lib/zero-mutate-tasks";
 
 const dbProvider = zeroDrizzle(schema, db);
 
@@ -64,18 +67,18 @@ export const Route = createFileRoute("/api/zero/mutate")({
           userID: userId,
         });
 
-        // Fire-and-forget: enqueue jobs after commit without blocking the response.
-        // pg-boss handles persistence and retries from here.
-        for (const [i, task] of asyncTasks.entries()) {
+        // Fire-and-forget after commit without blocking the response.
+        // Tasks run in order because later enqueues can depend on earlier R2 moves.
+        if (asyncTasks.length > 0) {
           withFireAndForgetLog(
             {
-              ...task.meta,
               handler: "mutate",
-              taskIndex: i,
+              mutators: asyncTasks.map((task) => task.meta.mutator),
+              taskCount: asyncTasks.length,
               userId,
               ...(traceId ? { traceId } : {}),
             },
-            () => task.fn()
+            () => runMutationAsyncTasksInOrder(asyncTasks)
           );
         }
 

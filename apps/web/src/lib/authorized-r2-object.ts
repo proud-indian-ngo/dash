@@ -149,7 +149,8 @@ function assertObjectKey(
     return notFound();
   }
   const key = record.objectKey;
-  if (!key.includes(`/${subfolder}/`) || key.includes(`/${subfolder}/tmp/`)) {
+  const prefix = `${env.R2_KEY_PREFIX}/${subfolder}/`;
+  if (!key.startsWith(prefix) || key.startsWith(`${prefix}tmp/`)) {
     return notFound();
   }
   return {
@@ -193,7 +194,7 @@ async function assertCanAccessEventPhoto(
     return notFound();
   }
   const key = photo.r2Key;
-  if (!key.includes(`/photos/${photo.eventId}/`)) {
+  if (!key.startsWith(`${env.R2_KEY_PREFIX}/photos/${photo.eventId}/`)) {
     return notFound();
   }
 
@@ -252,10 +253,8 @@ async function assertCanAccessScheduledMessageAttachment(
   if (!attachment) {
     return notFound();
   }
-  if (
-    !attachment.r2Key.includes(`/scheduled-messages/${input.id}/`) ||
-    attachment.r2Key.includes("/scheduled-messages/tmp/")
-  ) {
+  const expectedPrefix = `${env.R2_KEY_PREFIX}/scheduled-messages/${input.id}/`;
+  if (!attachment.r2Key.startsWith(expectedPrefix)) {
     return notFound();
   }
 

@@ -306,6 +306,10 @@ export const vendorPaymentMutators = {
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "vendorPayment.delete:approvalScreenshot",
+        vendorPaymentId: args.id,
+      });
 
       await deleteAllRelations({
         deleteAttachment: (data) =>
@@ -340,6 +344,10 @@ export const vendorPaymentMutators = {
       assertPending(entity, "vendor payment", "rejected", canEditAnyStatus);
 
       const now = Date.now();
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "vendorPayment.resetToPending",
+        vendorPaymentId: args.id,
+      });
 
       await tx.mutate.vendorPayment.update({
         id: args.id,

@@ -86,17 +86,12 @@ const scheduledMessageUploadSchema = z.object({
 });
 
 export function buildScheduledMessageUploadKey(input: {
-  entityId: string;
   fileName: string;
   uploadId?: string;
   userId: string;
 }): string {
-  const ownerSegment =
-    input.entityId === "scheduled-message-draft"
-      ? `tmp/${input.userId}`
-      : input.entityId;
   const uploadId = input.uploadId ?? uuidv7();
-  return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/${ownerSegment}/${uploadId}-${sanitizeFileName(input.fileName)}`;
+  return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
 }
 
 export interface ScheduledMessageUploadDeps {
@@ -117,7 +112,6 @@ export async function createScheduledMessageUpload(
   await deps.assertCanUploadScheduledMessageObject(session);
   const s3 = await deps.getS3();
   const key = buildScheduledMessageUploadKey({
-    entityId: data.entityId,
     fileName: data.fileName,
     userId: session.user.id,
   });

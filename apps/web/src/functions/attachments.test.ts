@@ -47,7 +47,6 @@ describe("buildScheduledMessageUploadKey", () => {
   it("stores draft uploads under the current user's temp folder", () => {
     expect(
       buildScheduledMessageUploadKey({
-        entityId: "scheduled-message-draft",
         fileName: "Campaign Media.png",
         uploadId: "upload-id",
         userId: "user-1",
@@ -55,15 +54,27 @@ describe("buildScheduledMessageUploadKey", () => {
     ).toBe("app/scheduled-messages/tmp/user-1/upload-id-Campaign-Media.png");
   });
 
-  it("stores message uploads under the scheduled message id", () => {
+  it("stores message uploads under temp even when entity id looks durable", async () => {
     expect(
-      buildScheduledMessageUploadKey({
-        entityId: "message-id",
-        fileName: "media.png",
-        uploadId: "upload-id",
-        userId: "user-1",
-      })
-    ).toBe("app/scheduled-messages/message-id/upload-id-media.png");
+      await createScheduledMessageUpload(
+        {
+          entityId: "unsafe/scheduled-messages/message-id",
+          fileName: "media.png",
+          fileSize: 100,
+          mimeType: "image/png",
+        },
+        session,
+        {
+          assertCanUploadScheduledMessageObject: async () => undefined,
+          getS3: () => ({
+            presign: (key: string) => `signed:${key}`,
+          }),
+        }
+      )
+    ).toMatchObject({
+      key: expect.stringMatching(DRAFT_KEY_RE),
+      presignedUrl: expect.stringMatching(SIGNED_DRAFT_KEY_RE),
+    });
   });
 });
 

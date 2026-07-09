@@ -245,6 +245,10 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "reimbursement.delete:approvalScreenshot",
+        reimbursementId: args.id,
+      });
 
       await deleteAllRelations({
         deleteAttachment: (data) =>
@@ -333,6 +337,10 @@ export const reimbursementMutators = {
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
 
       const now = Date.now();
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "reimbursement.resetToPending",
+        reimbursementId: args.id,
+      });
 
       await tx.mutate.reimbursement.update({
         id: args.id,

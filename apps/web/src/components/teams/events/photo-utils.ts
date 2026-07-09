@@ -9,7 +9,6 @@ type PhotoWithUploader = EventPhoto & {
 };
 
 const TRAILING_SLASH = /\/$/;
-const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
 
 export const immichBase = env.VITE_IMMICH_URL?.replace(TRAILING_SLASH, "");
 
@@ -20,19 +19,13 @@ export function isVideoPhoto(photo: EventPhoto): boolean {
   return !!photo.mimeType?.startsWith("video/");
 }
 
-export function getR2ThumbnailUrl(r2Key: string): string {
-  const directUrl = `${cdnBase}/${r2Key}`;
-  if (
-    typeof window !== "undefined" &&
-    window.location.hostname === "localhost"
-  ) {
-    return directUrl;
-  }
-  return `/cdn-cgi/image/width=320,height=320,fit=cover,format=auto,quality=80/${directUrl}`;
-}
-
-export function getR2VideoUrl(r2Key: string): string {
-  return `${cdnBase}/${r2Key}`;
+export function getR2PhotoUrl(photo: EventPhoto): string {
+  const params = new URLSearchParams({
+    filename: photo.caption ?? "event-photo",
+    id: photo.id,
+    kind: "eventPhoto",
+  });
+  return `/api/attachments/download?${params.toString()}`;
 }
 
 /**
@@ -47,7 +40,7 @@ export function getPhotoThumbnailUrl(photo: EventPhoto): string | null {
     if (isVideoPhoto(photo)) {
       return null;
     }
-    return getR2ThumbnailUrl(photo.r2Key);
+    return getR2PhotoUrl(photo);
   }
   return EMPTY_PIXEL;
 }
@@ -57,7 +50,7 @@ export function getPhotoLightboxUrl(photo: EventPhoto): string {
     return `/api/immich/original/${photo.immichAssetId}`;
   }
   if (photo.r2Key) {
-    return `${cdnBase}/${photo.r2Key}`;
+    return getR2PhotoUrl(photo);
   }
   return EMPTY_PIXEL;
 }
