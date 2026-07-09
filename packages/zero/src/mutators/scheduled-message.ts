@@ -36,23 +36,6 @@ export async function runAsyncTasksInOrderWithRetry(
   }
 }
 
-export async function runScheduledAttachmentMoveTasks(
-  tasks: readonly AsyncTask[],
-  recipients: readonly { id: string }[],
-  markFailed: (recipientRowId: string, error: unknown) => Promise<void>
-) {
-  try {
-    await runAsyncTasksInOrderWithRetry(tasks);
-  } catch (error) {
-    await Promise.all(
-      recipients.map(async (recipient) => {
-        await markFailed(recipient.id, error);
-      })
-    );
-    throw error;
-  }
-}
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -225,12 +208,7 @@ export const scheduledMessageMutators = {
           ctx.asyncTasks?.push({
             blocking: true,
             fn: async () => {
-              await runScheduledAttachmentMoveTasks(
-                attachmentMoveTasks,
-                recipientRows,
-                (recipientRowId, error) =>
-                  markRecipientFailed(ctx, recipientRowId, error)
-              );
+              await runAsyncTasksInOrderWithRetry(attachmentMoveTasks);
             },
             meta: {
               mutator: "scheduledMessage.create:moveAttachments",
@@ -534,12 +512,7 @@ export const scheduledMessageMutators = {
           ctx.asyncTasks?.push({
             blocking: true,
             fn: async () => {
-              await runScheduledAttachmentMoveTasks(
-                attachmentMoveTasks,
-                recipientRows,
-                (recipientRowId, error) =>
-                  markRecipientFailed(ctx, recipientRowId, error)
-              );
+              await runAsyncTasksInOrderWithRetry(attachmentMoveTasks);
             },
             meta: {
               mutator: "scheduledMessage.update:moveAttachments",

@@ -77,4 +77,37 @@ describe("handleMoveR2Object", () => {
     expect(r2Mocks.write).not.toHaveBeenCalled();
     expect(r2Mocks.delete).not.toHaveBeenCalled();
   });
+
+  it("rejects and leaves source untouched when copy fails", async () => {
+    r2Mocks.write.mockRejectedValueOnce(new Error("copy failed"));
+
+    await expect(
+      handleMoveR2Object(
+        job({
+          sourceKey: "app/attachments/tmp/user-1/file.pdf",
+          targetKey: "app/attachments/reimbursements/request-1/file.pdf",
+        })
+      )
+    ).rejects.toThrow("copy failed");
+
+    expect(r2Mocks.delete).not.toHaveBeenCalled();
+  });
+
+  it("rejects when source delete fails after copy", async () => {
+    r2Mocks.delete.mockRejectedValueOnce(new Error("delete failed"));
+
+    await expect(
+      handleMoveR2Object(
+        job({
+          sourceKey: "app/attachments/tmp/user-1/file.pdf",
+          targetKey: "app/attachments/reimbursements/request-1/file.pdf",
+        })
+      )
+    ).rejects.toThrow("delete failed");
+
+    expect(r2Mocks.write).toHaveBeenCalledTimes(1);
+    expect(r2Mocks.delete).toHaveBeenCalledWith(
+      "app/attachments/tmp/user-1/file.pdf"
+    );
+  });
 });

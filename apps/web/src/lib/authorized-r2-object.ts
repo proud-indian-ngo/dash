@@ -75,6 +75,7 @@ interface AttachmentRecord {
 
 interface EventPhotoRecord {
   eventId: string;
+  eventIsPublic: boolean;
   eventTeamId: string;
   filename: null | string;
   r2Key: null | string;
@@ -118,6 +119,7 @@ export interface AuthorizedR2ObjectDeps {
   ) => Promise<AttachmentRecord | null>;
   isEventMember: (eventId: string, userId: string) => Promise<boolean>;
   isTeamLead: (teamId: string, userId: string) => Promise<boolean>;
+  isTeamMember: (teamId: string, userId: string) => Promise<boolean>;
   resolvePermissions: (role: string) => Promise<string[]>;
 }
 
@@ -200,6 +202,7 @@ async function assertCanAccessEventPhoto(
 
   const permissions = await deps.resolvePermissions(roleFor(session));
   const isManager =
+    permissions.includes("events.view_all") ||
     permissions.includes("events.manage_photos") ||
     (await deps.isTeamLead(photo.eventTeamId, session.user.id));
 
@@ -214,7 +217,9 @@ async function assertCanAccessEventPhoto(
     photo.status === "pending" && photo.uploadedBy === session.user.id;
   const isApprovedMember =
     photo.status === "approved" &&
-    (await deps.isEventMember(photo.eventId, session.user.id));
+    (photo.eventIsPublic ||
+      (await deps.isEventMember(photo.eventId, session.user.id)) ||
+      (await deps.isTeamMember(photo.eventTeamId, session.user.id)));
 
   if (!(isOwnPending || isApprovedMember)) {
     forbidden();
@@ -430,6 +435,7 @@ const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {
     }
     return {
       eventId: photo.eventId,
+      eventIsPublic: !!event.isPublic,
       eventTeamId: event.teamId,
       filename: photo.caption,
       r2Key: photo.r2Key,
@@ -544,6 +550,12 @@ const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {
         eq(teamMember.userId, userId),
         eq(teamMember.role, "lead")
       ),
+    });
+    return !!member;
+  },
+  isTeamMember: async (teamId, userId) => {
+    const member = await db.query.teamMember.findFirst({
+      where: and(eq(teamMember.teamId, teamId), eq(teamMember.userId, userId)),
     });
     return !!member;
   },

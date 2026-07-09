@@ -20,7 +20,7 @@ import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
   drainBlockingMutationAsyncTasks,
-  runMutationAsyncTasksInOrder,
+  runMutationAsyncTasksSettled,
   shouldDrainMutationAsyncTasks,
 } from "@/lib/zero-mutate-tasks";
 
@@ -118,7 +118,7 @@ export const Route = createFileRoute("/api/zero/mutate")({
               userId,
               ...(traceId ? { traceId } : {}),
             },
-            () => runMutationAsyncTasksInOrder(asyncTasks)
+            () => runMutationAsyncTasksSettled(asyncTasks)
           );
         }
 

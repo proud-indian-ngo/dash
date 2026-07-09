@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import type { AsyncTask } from "../../context";
-import {
-  runAsyncTasksInOrderWithRetry,
-  runScheduledAttachmentMoveTasks,
-} from "../scheduled-message";
+import { runAsyncTasksInOrderWithRetry } from "../scheduled-message";
 
 const recipientSchema = z.object({
   id: z.string(),
@@ -241,27 +238,19 @@ describe("scheduled message attachment move tasks", () => {
     expect(task.fn).toHaveBeenCalledTimes(2);
   });
 
-  it("marks recipients failed when attachment moves exhaust retries", async () => {
+  it("propagates move failures after exhausting retries", async () => {
     vi.useFakeTimers();
     const error = new Error("move failed");
     const task: AsyncTask = {
       fn: vi.fn().mockRejectedValue(error),
       meta: { mutator: "test.move" },
     };
-    const markRecipientFailed = vi.fn(async () => undefined);
 
-    const result = runScheduledAttachmentMoveTasks(
-      [task],
-      [{ id: "recipient-1" }, { id: "recipient-2" }],
-      markRecipientFailed
-    );
+    const result = runAsyncTasksInOrderWithRetry([task]);
     const assertion = expect(result).rejects.toBe(error);
 
     await vi.advanceTimersByTimeAsync(750);
     await assertion;
     expect(task.fn).toHaveBeenCalledTimes(3);
-    expect(markRecipientFailed).toHaveBeenCalledTimes(2);
-    expect(markRecipientFailed).toHaveBeenCalledWith("recipient-1", error);
-    expect(markRecipientFailed).toHaveBeenCalledWith("recipient-2", error);
   });
 });

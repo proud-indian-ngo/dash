@@ -36,6 +36,7 @@ function createDeps(
     findVendorPaymentTransactionAttachment: async () => null,
     isEventMember: async () => false,
     isTeamLead: async () => false,
+    isTeamMember: async () => false,
     resolvePermissions: async () => [],
     ...overrides,
   };
@@ -266,6 +267,7 @@ describe("authorized R2 object resolver", () => {
     const deps = createDeps({
       findEventPhoto: async () => ({
         eventId: "event-id",
+        eventIsPublic: false,
         eventTeamId: "team-id",
         filename: "Pending photo",
         r2Key: "app/photos/event-id/photo.jpg",
@@ -287,6 +289,7 @@ describe("authorized R2 object resolver", () => {
     const deps = createDeps({
       findEventPhoto: async () => ({
         eventId: "event-id",
+        eventIsPublic: false,
         eventTeamId: "team-id",
         filename: null,
         r2Key: "app/photos/event-id/photo.jpg",
@@ -310,6 +313,7 @@ describe("authorized R2 object resolver", () => {
     const deps = createDeps({
       findEventPhoto: async () => ({
         eventId: "event-id",
+        eventIsPublic: false,
         eventTeamId: "team-id",
         filename: null,
         r2Key: "app/photos/event-id/photo.jpg",
@@ -327,6 +331,98 @@ describe("authorized R2 object resolver", () => {
         deps
       )
     ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
+  });
+
+  it("allows approved public event photos for event viewers", async () => {
+    const deps = createDeps({
+      findEventPhoto: async () => ({
+        eventId: "event-id",
+        eventIsPublic: true,
+        eventTeamId: "team-id",
+        filename: null,
+        r2Key: "app/photos/event-id/photo.jpg",
+        status: "approved",
+        uploadedBy: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        otherSession,
+        { id: "photo-id", kind: "eventPhoto" },
+        deps
+      )
+    ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
+  });
+
+  it("allows approved event photos for team members", async () => {
+    const deps = createDeps({
+      findEventPhoto: async () => ({
+        eventId: "event-id",
+        eventIsPublic: false,
+        eventTeamId: "team-id",
+        filename: null,
+        r2Key: "app/photos/event-id/photo.jpg",
+        status: "approved",
+        uploadedBy: "owner",
+      }),
+      isTeamMember: async (teamId, userId) =>
+        teamId === "team-id" && userId === "other",
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        otherSession,
+        { id: "photo-id", kind: "eventPhoto" },
+        deps
+      )
+    ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
+  });
+
+  it("allows events.view_all users to resolve approved event photos", async () => {
+    const deps = createDeps({
+      findEventPhoto: async () => ({
+        eventId: "event-id",
+        eventIsPublic: false,
+        eventTeamId: "team-id",
+        filename: null,
+        r2Key: "app/photos/event-id/photo.jpg",
+        status: "approved",
+        uploadedBy: "owner",
+      }),
+      resolvePermissions: async (role) =>
+        role === "manager" ? ["events.view_all"] : [],
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        managerSession,
+        { id: "photo-id", kind: "eventPhoto" },
+        deps
+      )
+    ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
+  });
+
+  it("rejects approved private event photos for unrelated users", async () => {
+    const deps = createDeps({
+      findEventPhoto: async () => ({
+        eventId: "event-id",
+        eventIsPublic: false,
+        eventTeamId: "team-id",
+        filename: null,
+        r2Key: "app/photos/event-id/photo.jpg",
+        status: "approved",
+        uploadedBy: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        otherSession,
+        { id: "photo-id", kind: "eventPhoto" },
+        deps
+      )
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("allows scheduled message creator to resolve attachment by message and key", async () => {

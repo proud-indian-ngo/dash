@@ -171,4 +171,40 @@ describe("zero mutate route async task draining", () => {
     expect(calls).toEqual(["move"]);
     expect(mocks.withFireAndForgetLog).not.toHaveBeenCalled();
   });
+
+  it("runs later background tasks when an earlier background task fails", async () => {
+    const calls: string[] = [];
+
+    mocks.mutatorFn.mockImplementation(
+      ({ ctx }: { ctx: { asyncTasks: AsyncTask[] } }) => {
+        ctx.asyncTasks.push({
+          fn: async () => {
+            calls.push("first");
+            await Promise.resolve();
+            throw new Error("first failed");
+          },
+          meta: { mutator: "first" },
+        });
+        ctx.asyncTasks.push({
+          fn: async () => {
+            await Promise.resolve();
+            calls.push("second");
+          },
+          meta: { mutator: "second" },
+        });
+      }
+    );
+
+    const response = await postHandler()({
+      request: new Request("http://localhost/api/zero/mutate"),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.withFireAndForgetLog).toHaveBeenCalledTimes(1);
+    const runBackgroundTasks = mocks.withFireAndForgetLog.mock.calls[0]?.[1];
+    await expect(runBackgroundTasks?.()).rejects.toThrow(
+      "One or more mutation async tasks failed"
+    );
+    expect(calls).toEqual(["first", "second"]);
+  });
 });

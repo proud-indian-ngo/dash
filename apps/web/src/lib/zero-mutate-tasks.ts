@@ -47,3 +47,16 @@ export async function runMutationAsyncTasksInOrder(
     await task.fn();
   }
 }
+
+export async function runMutationAsyncTasksSettled(
+  asyncTasks: readonly AsyncTask[]
+): Promise<void> {
+  const results = await Promise.allSettled(asyncTasks.map((task) => task.fn()));
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      "One or more mutation async tasks failed"
+    );
+  }
+}

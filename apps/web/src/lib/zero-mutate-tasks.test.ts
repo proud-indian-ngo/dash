@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   drainBlockingMutationAsyncTasks,
   runMutationAsyncTasksInOrder,
+  runMutationAsyncTasksSettled,
   shouldDrainMutationAsyncTasks,
   splitMutationAsyncTasks,
 } from "./zero-mutate-tasks";
@@ -187,5 +188,33 @@ describe("runMutationAsyncTasksInOrder", () => {
     ).rejects.toThrow("move failed");
 
     expect(calls).toEqual(["move"]);
+  });
+});
+
+describe("runMutationAsyncTasksSettled", () => {
+  it("runs later background tasks even if an earlier one fails", async () => {
+    const calls: string[] = [];
+
+    await expect(
+      runMutationAsyncTasksSettled([
+        {
+          fn: async () => {
+            calls.push("first");
+            await Promise.resolve();
+            throw new Error("first failed");
+          },
+          meta: { mutator: "first" },
+        },
+        {
+          fn: async () => {
+            await Promise.resolve();
+            calls.push("second");
+          },
+          meta: { mutator: "second" },
+        },
+      ])
+    ).rejects.toThrow("One or more mutation async tasks failed");
+
+    expect(calls).toEqual(["first", "second"]);
   });
 });

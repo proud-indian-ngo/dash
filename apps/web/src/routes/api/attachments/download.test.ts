@@ -221,6 +221,40 @@ describe("handleAttachmentDownloadRequest", () => {
     expect(response.headers.get("cache-control")).toBe("private, max-age=60");
   });
 
+  it("forwards range requests and preserves partial content headers", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response("partial-body", {
+          headers: {
+            "accept-ranges": "bytes",
+            "content-length": "12",
+            "content-range": "bytes 0-11/100",
+            "content-type": "video/mp4",
+          },
+          status: 206,
+        })
+    );
+
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        "https://example.test/api/attachments/download?disposition=inline&filename=clip.mp4&id=photo-id&kind=eventPhoto",
+        { headers: { Range: "bytes=0-11" } }
+      ),
+      createHandlerDeps({ fetch })
+    );
+
+    expect(response.status).toBe(206);
+    expect(fetch).toHaveBeenCalledWith("https://r2.example.test/download", {
+      headers: { Range: "bytes=0-11" },
+    });
+    expect(response.headers.get("accept-ranges")).toBe("bytes");
+    expect(response.headers.get("content-length")).toBe("12");
+    expect(response.headers.get("content-range")).toBe("bytes 0-11/100");
+    expect(response.headers.get("content-disposition")).toBe(
+      'inline; filename="clip.mp4"'
+    );
+  });
+
   it("returns 404 when the upstream object fetch fails", async () => {
     const response = await handleAttachmentDownloadRequest(
       request(),

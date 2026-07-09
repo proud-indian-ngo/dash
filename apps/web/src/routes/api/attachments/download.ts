@@ -35,6 +35,12 @@ const INLINE_CONTENT_TYPES = new Set([
   "video/quicktime",
 ]);
 
+const PARTIAL_CONTENT_HEADERS = [
+  "accept-ranges",
+  "content-length",
+  "content-range",
+] as const;
+
 function normalizeContentType(value: string): string {
   return value.split(";")[0]?.trim().toLowerCase() ?? "";
 }
@@ -57,6 +63,40 @@ function getCacheControl(kind: PersistedR2ObjectKind): string {
   return kind === "eventPhoto"
     ? "private, max-age=60"
     : "private, max-age=0, no-store";
+}
+
+function getUpstreamFetchInit(request: Request): RequestInit | undefined {
+  const range = request.headers.get("range");
+  return range ? { headers: { Range: range } } : undefined;
+}
+
+function buildDownloadHeaders({
+  contentDisposition,
+  contentType,
+  fileName,
+  kind,
+  upstreamHeaders,
+}: {
+  contentDisposition: "attachment" | "inline";
+  contentType: string;
+  fileName: string;
+  kind: PersistedR2ObjectKind;
+  upstreamHeaders: Headers;
+}): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Cache-Control": getCacheControl(kind),
+    "Content-Disposition": `${contentDisposition}; filename="${fileName}"`,
+    "Content-Type": contentType,
+    Vary: "Cookie",
+    "X-Content-Type-Options": "nosniff",
+  };
+  for (const header of PARTIAL_CONTENT_HEADERS) {
+    const value = upstreamHeaders.get(header);
+    if (value) {
+      headers[header] = value;
+    }
+  }
+  return headers;
 }
 
 export const parseDownloadTarget = (
@@ -157,7 +197,10 @@ export async function handleAttachmentDownloadRequest(
       method: "GET",
     });
 
-    const upstream = await deps.fetch(downloadUrl);
+    const upstream = await deps.fetch(
+      downloadUrl,
+      getUpstreamFetchInit(request)
+    );
     if (!upstream.ok) {
       return Response.json({ error: "Asset not found" }, { status: 404 });
     }
@@ -168,14 +211,14 @@ export async function handleAttachmentDownloadRequest(
       requestedInline && canRenderInline(contentType) ? "inline" : "attachment";
 
     return new Response(upstream.body, {
-      headers: {
-        "Cache-Control": getCacheControl(target.kind),
-        "Content-Disposition": `${contentDisposition}; filename="${fileName}"`,
-        "Content-Type": contentType,
-        Vary: "Cookie",
-        "X-Content-Type-Options": "nosniff",
-      },
-      status: 200,
+      headers: buildDownloadHeaders({
+        contentDisposition,
+        contentType,
+        fileName,
+        kind: target.kind,
+        upstreamHeaders: upstream.headers,
+      }),
+      status: upstream.status,
     });
   } catch (error) {
     const log = createRequestLogger({
