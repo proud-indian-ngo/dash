@@ -17,7 +17,9 @@ import {
   assertEntityExists,
   assertPending,
   buildHistoryInsert,
+  claimUploadedR2ObjectKey,
   deleteAllRelations,
+  enqueueDeleteR2Object,
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
@@ -81,9 +83,17 @@ export const reimbursementMutators = {
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
 
       const now = Date.now();
+      const approvalScreenshotKey = args.approvalScreenshotKey
+        ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
+            durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
+            subfolder: "approval-screenshots",
+            txLocation: tx.location,
+            userId,
+          })
+        : undefined;
 
       await tx.mutate.reimbursement.update({
-        approvalScreenshotKey: args.approvalScreenshotKey,
+        approvalScreenshotKey,
         id: args.id,
         rejectionReason: null,
         reviewedAt: now,
@@ -101,7 +111,6 @@ export const reimbursementMutators = {
         const { title, userId: ownerId } = entity;
         const { id } = args;
         const { note } = args;
-        const { approvalScreenshotKey } = args;
         const approverUserId = userId;
 
         const lineItems = await tx.run(
@@ -187,6 +196,12 @@ export const reimbursementMutators = {
         insertLineItem: withVoucherFields(args.lineItems, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
+      },
+      {
+        durablePrefix: `reimbursements/${args.id}`,
+        subfolder: "attachments",
+        txLocation: tx.location,
+        userId,
       }
     );
 
@@ -232,6 +247,11 @@ export const reimbursementMutators = {
           tx.mutate.reimbursementAttachment.delete(data),
         deleteHistory: (data) => tx.mutate.reimbursementHistory.delete(data),
         deleteLineItem: (data) => tx.mutate.reimbursementLineItem.delete(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            mutator: "reimbursement.delete",
+            reimbursementId: args.id,
+          }),
         queryAttachments: () =>
           tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
         queryHistory: () =>
@@ -425,10 +445,21 @@ export const reimbursementMutators = {
         insertLineItem: withVoucherFields(args.lineItems, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            mutator: "reimbursement.update",
+            reimbursementId: args.id,
+          }),
         queryAttachments: () =>
           tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
         queryLineItems: () =>
           tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
+      },
+      {
+        durablePrefix: `reimbursements/${args.id}`,
+        subfolder: "attachments",
+        txLocation: tx.location,
+        userId,
       }
     );
   }),

@@ -1,11 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@pi-dash/env/web", () => ({
-  env: {
-    VITE_CDN_URL: "http://localhost",
-    VITE_ZERO_URL: "http://localhost",
-  },
-}));
+import { describe, expect, it } from "vitest";
 
 import {
   getAttachmentDownloadHref,
@@ -106,20 +99,6 @@ describe("getAttachmentPreviewHref", () => {
         type: "file",
       })
     ).toBe("#");
-  });
-
-  it("allows direct preview only when caller marks the object as temporary", () => {
-    expect(
-      getAttachmentPreviewHref(
-        {
-          filename: "receipt.pdf",
-          objectKey: "prefix/attachments/tmp/user/receipt.pdf",
-          type: "file",
-        },
-        undefined,
-        { allowDirectObjectPreview: true }
-      )
-    ).toBe("http://localhost/prefix/attachments/tmp/user/receipt.pdf");
   });
 
   it("uses the authorized download route for persisted preview targets", () => {

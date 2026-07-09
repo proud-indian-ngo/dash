@@ -140,11 +140,17 @@ function filenameFromKey(key: string): string {
   return key.split("/").pop() || "attachment";
 }
 
-function assertObjectKey(record: AttachmentRecord): ResolvedR2Object {
+function assertObjectKey(
+  record: AttachmentRecord,
+  subfolder: R2Subfolder
+): ResolvedR2Object {
   if (!record.objectKey) {
     return notFound();
   }
   const key = record.objectKey;
+  if (!key.includes(`/${subfolder}/`) || key.includes(`/${subfolder}/tmp/`)) {
+    return notFound();
+  }
   return {
     filename: record.filename ?? filenameFromKey(key),
     key,
@@ -154,7 +160,8 @@ function assertObjectKey(record: AttachmentRecord): ResolvedR2Object {
 async function assertCanAccessRequestObject(
   session: SessionLike,
   record: AttachmentRecord | null,
-  deps: AuthorizedR2ObjectDeps
+  deps: AuthorizedR2ObjectDeps,
+  subfolder: R2Subfolder
 ): Promise<ResolvedR2Object> {
   if (!record) {
     return notFound();
@@ -166,7 +173,7 @@ async function assertCanAccessRequestObject(
   ) {
     forbidden();
   }
-  return assertObjectKey(record);
+  return assertObjectKey(record, subfolder);
 }
 
 async function assertCanAccessEventPhoto(
@@ -181,6 +188,9 @@ async function assertCanAccessEventPhoto(
     return notFound();
   }
   const key = photo.r2Key;
+  if (!key.includes(`/photos/${photo.eventId}/`)) {
+    return notFound();
+  }
 
   const permissions = await deps.resolvePermissions(roleFor(session));
   const isManager =
@@ -237,6 +247,12 @@ async function assertCanAccessScheduledMessageAttachment(
   if (!attachment) {
     return notFound();
   }
+  if (
+    !attachment.r2Key.includes(`/scheduled-messages/${input.id}/`) ||
+    attachment.r2Key.includes("/scheduled-messages/tmp/")
+  ) {
+    return notFound();
+  }
 
   return {
     filename: attachment.fileName || filenameFromKey(attachment.r2Key),
@@ -265,13 +281,15 @@ export async function assertCanDownloadR2Object(
       return assertCanAccessRequestObject(
         session,
         await deps.findAdvancePaymentAttachment(input.id),
-        deps
+        deps,
+        "attachments"
       );
     case "advancePaymentApprovalScreenshot":
       return assertCanAccessRequestObject(
         session,
         await deps.findAdvancePaymentApprovalScreenshot(input.id),
-        deps
+        deps,
+        "approval-screenshots"
       );
     case "eventPhoto":
       return assertCanAccessEventPhoto(
@@ -283,13 +301,15 @@ export async function assertCanDownloadR2Object(
       return assertCanAccessRequestObject(
         session,
         await deps.findReimbursementAttachment(input.id),
-        deps
+        deps,
+        "attachments"
       );
     case "reimbursementApprovalScreenshot":
       return assertCanAccessRequestObject(
         session,
         await deps.findReimbursementApprovalScreenshot(input.id),
-        deps
+        deps,
+        "approval-screenshots"
       );
     case "scheduledMessageAttachment":
       return assertCanAccessScheduledMessageAttachment(session, input, deps);
@@ -297,13 +317,15 @@ export async function assertCanDownloadR2Object(
       return assertCanAccessRequestObject(
         session,
         await deps.findVendorPaymentAttachment(input.id),
-        deps
+        deps,
+        "attachments"
       );
     case "vendorPaymentTransactionAttachment":
       return assertCanAccessRequestObject(
         session,
         await deps.findVendorPaymentTransactionAttachment(input.id),
-        deps
+        deps,
+        "attachments"
       );
     default: {
       const _exhaustive: never = input;

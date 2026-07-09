@@ -52,12 +52,13 @@ export function ApproveDialog({
   const [screenshotKey, setScreenshotKey] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const committedScreenshotKeyRef = useRef<string | null>(null);
 
   const cleanup = useEventCallback(() => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
-    if (screenshotKey) {
+    if (screenshotKey && committedScreenshotKeyRef.current !== screenshotKey) {
       deleteUploadedAsset({
         data: { key: screenshotKey, subfolder: "approval-screenshots" },
       }).catch((error) => {
@@ -69,6 +70,7 @@ export function ApproveDialog({
         });
       });
     }
+    committedScreenshotKeyRef.current = null;
     setMessage("");
     setScreenshotKey(null);
     setPreviewUrl(null);
@@ -163,14 +165,18 @@ export function ApproveDialog({
     setPreviewUrl(null);
   });
   const stableOnOpenChange0 = useEventCallback((isOpen: boolean) => {
+    if (isOpen) {
+      committedScreenshotKeyRef.current = null;
+    }
     if (!isOpen) {
       cleanup();
     }
     onOpenChange(isOpen);
   });
-  const stableOnClick2 = useEventCallback(() =>
-    onConfirm(message, screenshotKey ?? undefined)
-  );
+  const stableOnClick2 = useEventCallback(() => {
+    committedScreenshotKeyRef.current = screenshotKey;
+    onConfirm(message, screenshotKey ?? undefined);
+  });
   const stableOnMessageChange1 = useEventCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) =>
       setMessage(event.target.value)

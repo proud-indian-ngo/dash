@@ -1,5 +1,6 @@
 import { uuidv7 } from "uuidv7";
 import type z from "zod";
+import type { Context } from "../context";
 import type { Vendor } from "../schema";
 import type {
   mutatorAttachmentSchema,
@@ -8,6 +9,44 @@ import type {
 
 type AttachmentInput = z.infer<typeof mutatorAttachmentSchema>;
 type LineItemInput = z.infer<typeof mutatorLineItemSchema>;
+
+type R2Subfolder =
+  | "approval-screenshots"
+  | "attachments"
+  | "scheduled-messages";
+
+interface R2ObjectClaimOptions {
+  allowDurablePrefix?: boolean;
+  durablePrefix: string;
+  existingObjectKeys?: ReadonlySet<string>;
+  mimeType?: null | string;
+  subfolder: R2Subfolder;
+  txLocation: string;
+  userId: string;
+}
+
+interface AttachmentClaimOptions
+  extends Omit<R2ObjectClaimOptions, "mimeType"> {
+  existingObjectKeys?: ReadonlySet<string>;
+}
+
+export function enqueueDeleteR2Object(
+  ctx: Pick<Context, "asyncTasks" | "traceId">,
+  txLocation: string,
+  r2Key: null | string | undefined,
+  meta: { mutator: string; [key: string]: unknown }
+) {
+  if (txLocation !== "server" || !r2Key) {
+    return;
+  }
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue("delete-r2-object", { r2Key }, { traceId: ctx.traceId });
+    },
+    meta,
+  });
+}
 
 /**
  * Asserts the vendor is usable for a payment: either approved,
@@ -41,6 +80,78 @@ export function buildAttachmentInsert(att: AttachmentInput, now: number) {
     type: att.type,
     url: att.type === "url" ? att.url : null,
   };
+}
+
+const filenameFromKey = (key: string): string => key.split("/").pop() ?? "file";
+
+async function moveR2Object(
+  sourceKey: string,
+  targetKey: string,
+  mimeType?: null | string
+) {
+  if (sourceKey === targetKey) {
+    return;
+  }
+  const { getR2Client } = await import("@pi-dash/jobs/handlers/r2");
+  const s3 = getR2Client();
+  const options = mimeType ? { type: mimeType } : undefined;
+  await s3.write(targetKey, s3.file(sourceKey, options), options);
+  await s3.delete(sourceKey);
+}
+
+export async function claimUploadedR2ObjectKey(
+  key: string,
+  options: R2ObjectClaimOptions
+): Promise<string> {
+  const serverPrefix =
+    options.txLocation === "server"
+      ? await import("@pi-dash/env/server").then(
+          ({ env }) => `${env.R2_KEY_PREFIX}/`
+        )
+      : null;
+  if (serverPrefix && !key.startsWith(serverPrefix)) {
+    throw new Error("Invalid attachment object key");
+  }
+
+  if (options.existingObjectKeys?.has(key)) {
+    return key;
+  }
+
+  const durableMarker = `/${options.subfolder}/${options.durablePrefix}/`;
+  if (options.allowDurablePrefix && key.includes(durableMarker)) {
+    return key;
+  }
+
+  const tempMarker = `/${options.subfolder}/tmp/${options.userId}/`;
+  const tempMarkerIndex = key.indexOf(tempMarker);
+  if (tempMarkerIndex < 0) {
+    throw new Error("Invalid attachment object key");
+  }
+
+  const storagePrefix = key.slice(0, tempMarkerIndex);
+  const claimedKey = `${storagePrefix}/${options.subfolder}/${options.durablePrefix}/${filenameFromKey(key)}`;
+  if (options.txLocation === "server") {
+    await moveR2Object(key, claimedKey, options.mimeType);
+  }
+  return claimedKey;
+}
+
+export async function buildClaimedAttachmentInsert(
+  att: AttachmentInput,
+  now: number,
+  claimOptions?: AttachmentClaimOptions
+) {
+  if (att.type !== "file") {
+    return buildAttachmentInsert(att, now);
+  }
+  if (!claimOptions) {
+    throw new Error("Attachment claim options are required");
+  }
+  const objectKey = await claimUploadedR2ObjectKey(att.objectKey, {
+    ...claimOptions,
+    mimeType: att.mimeType,
+  });
+  return buildAttachmentInsert({ ...att, objectKey }, now);
 }
 
 /**
@@ -155,7 +266,10 @@ interface RelationInsertOps<TFK extends Record<string, string>> {
 interface RelationDeleteOps {
   deleteAttachment: (data: { id: string }) => Promise<unknown>;
   deleteLineItem: (data: { id: string }) => Promise<unknown>;
-  queryAttachments: () => Promise<readonly { id: string }[]>;
+  onDeleteAttachmentObjectKey?: (key: string) => void;
+  queryAttachments: () => Promise<
+    readonly { id: string; objectKey?: null | string }[]
+  >;
   queryLineItems: () => Promise<readonly { id: string }[]>;
 }
 
@@ -171,7 +285,8 @@ export async function insertRelations<TFK extends Record<string, string>>(
   userId: string,
   action: HistoryAction,
   now: number,
-  ops: RelationInsertOps<TFK>
+  ops: RelationInsertOps<TFK>,
+  claimOptions?: AttachmentClaimOptions
 ) {
   await Promise.all(
     lineItems.map(async (item) => {
@@ -180,7 +295,10 @@ export async function insertRelations<TFK extends Record<string, string>>(
   );
   await Promise.all(
     attachments.map(async (att) => {
-      await ops.insertAttachment({ ...buildAttachmentInsert(att, now), ...fk });
+      await ops.insertAttachment({
+        ...(await buildClaimedAttachmentInsert(att, now, claimOptions)),
+        ...fk,
+      });
     })
   );
   await ops.insertHistory({
@@ -195,7 +313,8 @@ export async function replaceRelations<TFK extends Record<string, string>>(
   attachments: readonly AttachmentInput[],
   userId: string,
   now: number,
-  ops: RelationInsertOps<TFK> & RelationDeleteOps
+  ops: RelationInsertOps<TFK> & RelationDeleteOps,
+  claimOptions?: AttachmentClaimOptions
 ) {
   const existingItems = await ops.queryLineItems();
   await Promise.all(
@@ -204,8 +323,21 @@ export async function replaceRelations<TFK extends Record<string, string>>(
     })
   );
   const existingAtts = await ops.queryAttachments();
+  const existingObjectKeys = new Set(
+    existingAtts
+      .map((att) => att.objectKey)
+      .filter((key): key is string => Boolean(key))
+  );
+  const retainedObjectKeys = new Set(
+    attachments
+      .filter((attachment) => attachment.type === "file")
+      .map((attachment) => attachment.objectKey)
+  );
   await Promise.all(
     existingAtts.map(async (att) => {
+      if (att.objectKey && !retainedObjectKeys.has(att.objectKey)) {
+        ops.onDeleteAttachmentObjectKey?.(att.objectKey);
+      }
       await ops.deleteAttachment({ id: att.id });
     })
   );
@@ -216,7 +348,13 @@ export async function replaceRelations<TFK extends Record<string, string>>(
     userId,
     "updated",
     now,
-    ops
+    ops,
+    claimOptions
+      ? {
+          ...claimOptions,
+          existingObjectKeys,
+        }
+      : undefined
   );
 }
 
@@ -230,6 +368,9 @@ export async function deleteAllRelations(ops: RelationDeleteAllOps) {
   const attachments = await ops.queryAttachments();
   await Promise.all(
     attachments.map(async (att) => {
+      if (att.objectKey) {
+        ops.onDeleteAttachmentObjectKey?.(att.objectKey);
+      }
       await ops.deleteAttachment({ id: att.id });
     })
   );

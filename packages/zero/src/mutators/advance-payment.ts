@@ -14,7 +14,9 @@ import {
   assertEntityExists,
   assertPending,
   buildHistoryInsert,
+  claimUploadedR2ObjectKey,
   deleteAllRelations,
+  enqueueDeleteR2Object,
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
@@ -57,9 +59,17 @@ export const advancePaymentMutators = {
       assertPending(entity, "advance payment", "approved", canEditAnyStatus);
 
       const now = Date.now();
+      const approvalScreenshotKey = args.approvalScreenshotKey
+        ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
+            durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
+            subfolder: "approval-screenshots",
+            txLocation: tx.location,
+            userId,
+          })
+        : undefined;
 
       await tx.mutate.advancePayment.update({
-        approvalScreenshotKey: args.approvalScreenshotKey,
+        approvalScreenshotKey,
         id: args.id,
         rejectionReason: null,
         reviewedAt: now,
@@ -77,7 +87,6 @@ export const advancePaymentMutators = {
         const { title, userId: ownerId } = entity;
         const { id } = args;
         const { note } = args;
-        const { approvalScreenshotKey } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -135,6 +144,12 @@ export const advancePaymentMutators = {
           tx.mutate.advancePaymentAttachment.insert(data),
         insertHistory: (data) => tx.mutate.advancePaymentHistory.insert(data),
         insertLineItem: (data) => tx.mutate.advancePaymentLineItem.insert(data),
+      },
+      {
+        durablePrefix: `advance-payments/${args.id}`,
+        subfolder: "attachments",
+        txLocation: tx.location,
+        userId,
       }
     );
 
@@ -182,6 +197,11 @@ export const advancePaymentMutators = {
           tx.mutate.advancePaymentAttachment.delete(data),
         deleteHistory: (data) => tx.mutate.advancePaymentHistory.delete(data),
         deleteLineItem: (data) => tx.mutate.advancePaymentLineItem.delete(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            advancePaymentId: args.id,
+            mutator: "advancePayment.delete",
+          }),
         queryAttachments: () =>
           tx.run(
             zql.advancePaymentAttachment.where("advancePaymentId", args.id)
@@ -325,12 +345,23 @@ export const advancePaymentMutators = {
           tx.mutate.advancePaymentAttachment.insert(data),
         insertHistory: (data) => tx.mutate.advancePaymentHistory.insert(data),
         insertLineItem: (data) => tx.mutate.advancePaymentLineItem.insert(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            advancePaymentId: args.id,
+            mutator: "advancePayment.update",
+          }),
         queryAttachments: () =>
           tx.run(
             zql.advancePaymentAttachment.where("advancePaymentId", args.id)
           ),
         queryLineItems: () =>
           tx.run(zql.advancePaymentLineItem.where("advancePaymentId", args.id)),
+      },
+      {
+        durablePrefix: `advance-payments/${args.id}`,
+        subfolder: "attachments",
+        txLocation: tx.location,
+        userId,
       }
     );
   }),

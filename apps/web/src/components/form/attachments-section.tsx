@@ -32,6 +32,8 @@ import {
 } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
 import {
+  type AttachmentDownloadTarget,
+  getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
@@ -44,6 +46,9 @@ import {
 
 interface AttachmentsSectionProps {
   entityId: string;
+  getFileDownloadTarget?: (
+    attachment: FileAttachment
+  ) => AttachmentDownloadTarget | undefined;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
 }
@@ -116,20 +121,17 @@ const showUploadResultToasts = (
 
 function AttachmentRow({
   attachment,
-  allowDirectObjectPreview,
+  downloadTarget,
   deleting,
   onRemove,
 }: {
-  allowDirectObjectPreview: boolean;
   attachment: Attachment;
   deleting: boolean;
+  downloadTarget?: AttachmentDownloadTarget;
   onRemove: (attachment: Attachment) => Promise<void>;
 }) {
   const handleRemove = useEventCallback(async () => {
     await onRemove(attachment);
-  });
-  const previewHref = getAttachmentPreviewHref(attachment, undefined, {
-    allowDirectObjectPreview,
   });
   let previewAction: ReactNode = null;
 
@@ -147,19 +149,20 @@ function AttachmentRow({
         </span>
       </a>
     );
-  } else if (previewHref === "#") {
-    previewAction = null;
-  } else {
+  } else if (downloadTarget) {
     previewAction = (
       <a
         className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-        href={previewHref}
+        download
+        href={getAttachmentDownloadHref(attachment, downloadTarget)}
         rel="noopener noreferrer"
         target="_blank"
       >
-        Preview
+        Download
       </a>
     );
+  } else {
+    previewAction = null;
   }
 
   return (
@@ -190,6 +193,7 @@ function AttachmentRow({
 
 export function AttachmentsSection({
   entityId,
+  getFileDownloadTarget,
   onChange,
   value,
 }: AttachmentsSectionProps) {
@@ -463,16 +467,17 @@ export function AttachmentsSection({
       {value.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           {value.map((attachment) => {
-            const allowDirectObjectPreview =
-              attachment.type === "file"
-                ? temporaryObjectKeys.has(attachment.objectKey)
-                : false;
+            const downloadTarget =
+              attachment.type === "file" &&
+              !temporaryObjectKeys.has(attachment.objectKey)
+                ? getFileDownloadTarget?.(attachment)
+                : undefined;
 
             return (
               <AttachmentRow
-                allowDirectObjectPreview={allowDirectObjectPreview}
                 attachment={attachment}
                 deleting={deletingIds.has(attachment.id)}
+                downloadTarget={downloadTarget}
                 key={attachment.id}
                 onRemove={removeAttachment}
               />

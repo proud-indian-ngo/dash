@@ -7,6 +7,7 @@ import {
   buildAttachmentInsert,
   buildHistoryInsert,
   buildLineItemInsert,
+  claimUploadedR2ObjectKey,
 } from "../submission-helpers";
 
 describe("assertEntityExists", () => {
@@ -253,5 +254,43 @@ describe("buildHistoryInsert", () => {
     const now = 1_700_000_000_000;
     const result = buildHistoryInsert("actor-1", "created", now);
     expect(result.note).toBeNull();
+  });
+});
+
+describe("claimUploadedR2ObjectKey", () => {
+  const baseOptions = {
+    durablePrefix: "reimbursements/request-1",
+    subfolder: "attachments" as const,
+    txLocation: "client",
+    userId: "user-1",
+  };
+
+  it("claims current user temp uploads under durable prefix", async () => {
+    await expect(
+      claimUploadedR2ObjectKey(
+        "app/attachments/tmp/user-1/uploaded-file.pdf",
+        baseOptions
+      )
+    ).resolves.toBe(
+      "app/attachments/reimbursements/request-1/uploaded-file.pdf"
+    );
+  });
+
+  it("allows existing persisted object keys during relation replacement", async () => {
+    await expect(
+      claimUploadedR2ObjectKey("app/attachments/existing/file.pdf", {
+        ...baseOptions,
+        existingObjectKeys: new Set(["app/attachments/existing/file.pdf"]),
+      })
+    ).resolves.toBe("app/attachments/existing/file.pdf");
+  });
+
+  it("rejects keys outside current user's temp prefix", async () => {
+    await expect(
+      claimUploadedR2ObjectKey(
+        "app/attachments/tmp/other-user/uploaded-file.pdf",
+        baseOptions
+      )
+    ).rejects.toThrow("Invalid attachment object key");
   });
 });

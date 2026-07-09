@@ -15,7 +15,7 @@ import {
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
 import { DateField } from "@/components/form/date-field";
@@ -222,6 +222,17 @@ export function StandardReimbursementFields({
   requestType,
 }: StandardReimbursementFieldsProps) {
   const { openSettings } = useApp();
+  const attachmentDownloadKind =
+    requestType === "reimbursement"
+      ? ("reimbursementAttachment" as const)
+      : ("advancePaymentAttachment" as const);
+  const getFileDownloadTarget = useCallback(
+    (attachment: { id: string }) => ({
+      id: attachment.id,
+      kind: attachmentDownloadKind,
+    }),
+    [attachmentDownloadKind]
+  );
   const resolvedForm = useResolvedForm(
     undefined,
     "StandardReimbursementFields"
@@ -313,6 +324,7 @@ export function StandardReimbursementFields({
         {(field: FormFieldApi<unknown[]>) => (
           <AttachmentsSection
             entityId={entityId}
+            getFileDownloadTarget={getFileDownloadTarget}
             onChange={field.handleChange}
             value={field.state.value as Attachment[]}
           />

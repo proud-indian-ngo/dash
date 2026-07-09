@@ -67,6 +67,13 @@ interface TransactionFormDialogProps {
   vendorPaymentId: string;
 }
 
+const getVendorPaymentTransactionAttachmentTarget = (attachment: {
+  id: string;
+}) => ({
+  id: attachment.id,
+  kind: "vendorPaymentTransactionAttachment" as const,
+});
+
 function TransactionFormContent({
   canApprove,
   initialValues,
@@ -195,6 +202,7 @@ function TransactionFormContent({
         {(field) => (
           <AttachmentsSection
             entityId={entityId}
+            getFileDownloadTarget={getVendorPaymentTransactionAttachmentTarget}
             onChange={field.handleChange}
             value={field.state.value ?? []}
           />

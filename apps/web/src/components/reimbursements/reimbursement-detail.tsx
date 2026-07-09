@@ -350,37 +350,21 @@ export function ReimbursementDetail({
                         </span>
                       </a>
                     ) : (
-                      <>
-                        <a
-                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                          href={getAttachmentPreviewHref(att, {
-                            id: att.id,
-                            kind: attachmentDownloadKind,
-                          })}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Preview
-                          <span className="sr-only">
-                            {getAttachmentLabel(att)} (opens in new tab)
-                          </span>
-                        </a>
-                        <a
-                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                          download
-                          href={getAttachmentDownloadHref(att, {
-                            id: att.id,
-                            kind: attachmentDownloadKind,
-                          })}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Download
-                          <span className="sr-only">
-                            {getAttachmentLabel(att)} (opens in new tab)
-                          </span>
-                        </a>
-                      </>
+                      <a
+                        className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                        download
+                        href={getAttachmentDownloadHref(att, {
+                          id: att.id,
+                          kind: attachmentDownloadKind,
+                        })}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        Download
+                        <span className="sr-only">
+                          {getAttachmentLabel(att)} (opens in new tab)
+                        </span>
+                      </a>
                     )}
                   </div>
                 </div>

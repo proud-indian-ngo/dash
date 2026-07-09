@@ -32,6 +32,8 @@ const exportCsvSchema = z.object({
 
 export interface ExportAttachment {
   filename: string | null;
+  id: string;
+  kind: "advancePaymentAttachment" | "reimbursementAttachment";
   mimeType: string | null;
   objectKey: string | null;
   type: "file" | "url";
@@ -52,14 +54,19 @@ export interface ExportRow {
   type: string;
 }
 
-function groupAttachments<T extends ExportAttachment & { parentId: string }>(
-  attachments: T[]
+function groupAttachments<
+  T extends Omit<ExportAttachment, "kind"> & { parentId: string },
+>(
+  attachments: T[],
+  kind: ExportAttachment["kind"]
 ): Map<string, ExportAttachment[]> {
   const map = new Map<string, ExportAttachment[]>();
   for (const a of attachments) {
     const list = map.get(a.parentId) ?? [];
     list.push({
       filename: a.filename,
+      id: a.id,
+      kind,
       mimeType: a.mimeType,
       objectKey: a.objectKey,
       type: a.type,
@@ -80,6 +87,7 @@ type AttachmentTable =
 
 interface QueryConfig {
   attachmentJoinCol: AnyPgColumn;
+  attachmentKind: ExportAttachment["kind"];
   attachmentTable: AttachmentTable;
   hasExpenseDate: boolean;
   lineItemAmountCol: AnyPgColumn;
@@ -158,6 +166,7 @@ async function queryExportRows(
       ? await db
           .select({
             filename: attachmentTable.filename,
+            id: attachmentTable.id,
             mimeType: attachmentTable.mimeType,
             objectKey: attachmentTable.objectKey,
             parentId: config.attachmentJoinCol,
@@ -168,7 +177,10 @@ async function queryExportRows(
           .where(inArray(config.attachmentJoinCol, ids))
       : [];
 
-  const attachmentsByRecord = groupAttachments(rawAttachments);
+  const attachmentsByRecord = groupAttachments(
+    rawAttachments,
+    config.attachmentKind
+  );
 
   return results.map((r) => ({
     attachments: attachmentsByRecord.get(r.id) ?? [],
@@ -187,6 +199,7 @@ async function queryExportRows(
 
 const reimbursementConfig: QueryConfig = {
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
+  attachmentKind: "reimbursementAttachment",
   attachmentTable: reimbursementAttachment,
   hasExpenseDate: true,
   lineItemAmountCol: reimbursementLineItem.amount,
@@ -198,6 +211,7 @@ const reimbursementConfig: QueryConfig = {
 
 const advancePaymentConfig: QueryConfig = {
   attachmentJoinCol: advancePaymentAttachment.advancePaymentId,
+  attachmentKind: "advancePaymentAttachment",
   attachmentTable: advancePaymentAttachment,
   hasExpenseDate: false,
   lineItemAmountCol: advancePaymentLineItem.amount,

@@ -68,31 +68,18 @@ function InvoiceAttachmentList({
                 View link
               </a>
             ) : (
-              <>
-                <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                  href={getAttachmentPreviewHref(att, {
-                    id: att.id,
-                    kind: "vendorPaymentAttachment",
-                  })}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Preview
-                </a>
-                <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                  download
-                  href={getAttachmentDownloadHref(att, {
-                    id: att.id,
-                    kind: "vendorPaymentAttachment",
-                  })}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Download
-                </a>
-              </>
+              <a
+                className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                download
+                href={getAttachmentDownloadHref(att, {
+                  id: att.id,
+                  kind: "vendorPaymentAttachment",
+                })}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Download
+              </a>
             )}
           </div>
         </div>

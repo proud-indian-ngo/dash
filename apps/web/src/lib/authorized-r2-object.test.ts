@@ -130,7 +130,7 @@ describe("authorized R2 object resolver", () => {
         eventId: "event-id",
         eventTeamId: "team-id",
         filename: "Pending photo",
-        r2Key: "app/photos/event/photo.jpg",
+        r2Key: "app/photos/event-id/photo.jpg",
         status: "pending",
         uploadedBy: "owner",
       }),
@@ -142,7 +142,7 @@ describe("authorized R2 object resolver", () => {
         { id: "photo-id", kind: "eventPhoto" },
         deps
       )
-    ).resolves.toMatchObject({ key: "app/photos/event/photo.jpg" });
+    ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
   });
 
   it("allows team lead to resolve managed event photo", async () => {
@@ -151,7 +151,7 @@ describe("authorized R2 object resolver", () => {
         eventId: "event-id",
         eventTeamId: "team-id",
         filename: null,
-        r2Key: "app/photos/event/photo.jpg",
+        r2Key: "app/photos/event-id/photo.jpg",
         status: "pending",
         uploadedBy: "owner",
       }),
@@ -165,7 +165,7 @@ describe("authorized R2 object resolver", () => {
         { id: "photo-id", kind: "eventPhoto" },
         deps
       )
-    ).resolves.toMatchObject({ key: "app/photos/event/photo.jpg" });
+    ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
   });
 
   it("allows events.manage_photos user to resolve managed event photo", async () => {
@@ -174,7 +174,7 @@ describe("authorized R2 object resolver", () => {
         eventId: "event-id",
         eventTeamId: "team-id",
         filename: null,
-        r2Key: "app/photos/event/photo.jpg",
+        r2Key: "app/photos/event-id/photo.jpg",
         status: "pending",
         uploadedBy: "owner",
       }),
@@ -188,7 +188,7 @@ describe("authorized R2 object resolver", () => {
         { id: "photo-id", kind: "eventPhoto" },
         deps
       )
-    ).resolves.toMatchObject({ key: "app/photos/event/photo.jpg" });
+    ).resolves.toMatchObject({ key: "app/photos/event-id/photo.jpg" });
   });
 
   it("allows scheduled message creator to resolve attachment by message and key", async () => {
@@ -198,7 +198,7 @@ describe("authorized R2 object resolver", () => {
           {
             fileName: "media.png",
             mimeType: "image/png",
-            r2Key: "app/scheduled-messages/message/media.png",
+            r2Key: "app/scheduled-messages/message-id/media.png",
           },
         ],
         createdBy: "owner",
@@ -210,14 +210,14 @@ describe("authorized R2 object resolver", () => {
         ownerSession,
         {
           id: "message-id",
-          key: "app/scheduled-messages/message/media.png",
+          key: "app/scheduled-messages/message-id/media.png",
           kind: "scheduledMessageAttachment",
         },
         deps
       )
     ).resolves.toEqual({
       filename: "media.png",
-      key: "app/scheduled-messages/message/media.png",
+      key: "app/scheduled-messages/message-id/media.png",
     });
   });
 
@@ -228,7 +228,7 @@ describe("authorized R2 object resolver", () => {
           {
             fileName: "media.png",
             mimeType: "image/png",
-            r2Key: "app/scheduled-messages/message/media.png",
+            r2Key: "app/scheduled-messages/message-id/media.png",
           },
         ],
         createdBy: "owner",
@@ -240,7 +240,7 @@ describe("authorized R2 object resolver", () => {
         otherSession,
         {
           id: "message-id",
-          key: "app/scheduled-messages/message/media.png",
+          key: "app/scheduled-messages/message-id/media.png",
           kind: "scheduledMessageAttachment",
         },
         deps
@@ -255,7 +255,7 @@ describe("authorized R2 object resolver", () => {
           {
             fileName: "media.png",
             mimeType: "image/png",
-            r2Key: "app/scheduled-messages/message/media.png",
+            r2Key: "app/scheduled-messages/message-id/media.png",
           },
         ],
         createdBy: "owner",
@@ -269,13 +269,13 @@ describe("authorized R2 object resolver", () => {
         managerSession,
         {
           id: "message-id",
-          key: "app/scheduled-messages/message/media.png",
+          key: "app/scheduled-messages/message-id/media.png",
           kind: "scheduledMessageAttachment",
         },
         deps
       )
     ).resolves.toMatchObject({
-      key: "app/scheduled-messages/message/media.png",
+      key: "app/scheduled-messages/message-id/media.png",
     });
   });
 

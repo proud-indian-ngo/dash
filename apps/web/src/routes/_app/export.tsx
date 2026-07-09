@@ -26,7 +26,10 @@ import {
   type VendorPaymentExportRow,
   vendorPaymentStatusValues,
 } from "@/functions/export-vendor-payments-csv";
-import { getAttachmentPreviewHref } from "@/lib/attachment-links";
+import {
+  getAttachmentDownloadHref,
+  getAttachmentPreviewHref,
+} from "@/lib/attachment-links";
 import { downloadCsv } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
@@ -119,7 +122,13 @@ function formatAttachments(attachments: ExportAttachment[]): string {
     return "";
   }
   return attachments
-    .map((a) => getAttachmentPreviewHref(a))
+    .map((a) => {
+      const href =
+        a.type === "file"
+          ? getAttachmentDownloadHref(a, { id: a.id, kind: a.kind })
+          : getAttachmentPreviewHref(a);
+      return href.startsWith("/") ? `${window.location.origin}${href}` : href;
+    })
     .filter((href) => href !== "#")
     .join(" | ");
 }

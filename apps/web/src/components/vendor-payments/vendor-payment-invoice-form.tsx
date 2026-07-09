@@ -40,6 +40,11 @@ interface InvoiceFormDialogProps {
   vendorPaymentId: string;
 }
 
+const getVendorPaymentAttachmentTarget = (attachment: { id: string }) => ({
+  id: attachment.id,
+  kind: "vendorPaymentAttachment" as const,
+});
+
 function InvoiceFormContent({
   initialValues,
   mode,
@@ -107,6 +112,7 @@ function InvoiceFormContent({
         {(field) => (
           <AttachmentsSection
             entityId={entityId}
+            getFileDownloadTarget={getVendorPaymentAttachmentTarget}
             onChange={field.handleChange}
             value={(field.state.value ?? []) as Attachment[]}
           />

@@ -1,5 +1,3 @@
-import { env } from "@pi-dash/env/web";
-
 export interface AttachmentLike {
   filename?: null | string;
   mimeType?: null | string;
@@ -22,12 +20,6 @@ export type AttachmentDownloadTarget =
     }
   | { id: string; key: string; kind: "scheduledMessageAttachment" };
 
-const TRAILING_SLASH = /\/$/;
-const getAssetCdnBase = () => env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
-
-const getDirectAttachmentUrl = (objectKey: string): string =>
-  `${getAssetCdnBase()}/${objectKey}`;
-
 export const getAttachmentLabel = (attachment: AttachmentLike): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "Attachment";
@@ -38,8 +30,7 @@ export const getAttachmentLabel = (attachment: AttachmentLike): string => {
 
 export const getAttachmentPreviewHref = (
   attachment: AttachmentLike,
-  target?: AttachmentDownloadTarget,
-  options: { allowDirectObjectPreview?: boolean } = {}
+  target?: AttachmentDownloadTarget
 ): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "#";
@@ -53,11 +44,7 @@ export const getAttachmentPreviewHref = (
     return "#";
   }
 
-  if (!options.allowDirectObjectPreview) {
-    return "#";
-  }
-
-  return getDirectAttachmentUrl(attachment.objectKey);
+  return "#";
 };
 
 export const getAttachmentDownloadHref = (

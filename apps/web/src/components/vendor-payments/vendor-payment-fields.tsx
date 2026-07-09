@@ -46,6 +46,11 @@ interface VendorPaymentFieldsProps {
   vendorOptions: { label: string; value: string }[];
 }
 
+const getVendorPaymentAttachmentTarget = (attachment: { id: string }) => ({
+  id: attachment.id,
+  kind: "vendorPaymentAttachment" as const,
+});
+
 function VendorSelectField({
   field,
   onVendorDialogOpenChange,
@@ -216,6 +221,7 @@ export function VendorPaymentFields({
         {(field) => (
           <AttachmentsSection
             entityId={entityId}
+            getFileDownloadTarget={getVendorPaymentAttachmentTarget}
             onChange={field.handleChange}
             value={field.state.value ?? []}
           />

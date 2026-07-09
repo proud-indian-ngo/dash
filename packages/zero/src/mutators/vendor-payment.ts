@@ -18,9 +18,11 @@ import {
   assertEntityExists,
   assertPending,
   assertVendorUsable,
-  buildAttachmentInsert,
+  buildClaimedAttachmentInsert,
   buildHistoryInsert,
+  claimUploadedR2ObjectKey,
   deleteAllRelations,
+  enqueueDeleteR2Object,
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
@@ -52,9 +54,17 @@ export const vendorPaymentMutators = {
       assertPending(entity, "vendor payment", "approved", canEditAnyStatus);
 
       const now = Date.now();
+      const approvalScreenshotKey = args.approvalScreenshotKey
+        ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
+            durablePrefix: `vendor-payments/${args.id}/approval-screenshots`,
+            subfolder: "approval-screenshots",
+            txLocation: tx.location,
+            userId,
+          })
+        : undefined;
 
       await tx.mutate.vendorPayment.update({
-        approvalScreenshotKey: args.approvalScreenshotKey,
+        approvalScreenshotKey,
         id: args.id,
         rejectionReason: null,
         reviewedAt: now,
@@ -85,7 +95,6 @@ export const vendorPaymentMutators = {
         const { title, userId: ownerId } = entity;
         const { id } = args;
         const { note } = args;
-        const { approvalScreenshotKey } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -248,6 +257,12 @@ export const vendorPaymentMutators = {
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+      },
+      {
+        durablePrefix: `vendor-payments/${args.id}/quotation`,
+        subfolder: "attachments",
+        txLocation: tx.location,
+        userId,
       }
     );
 
@@ -293,6 +308,11 @@ export const vendorPaymentMutators = {
           tx.mutate.vendorPaymentAttachment.delete(data),
         deleteHistory: (data) => tx.mutate.vendorPaymentHistory.delete(data),
         deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            mutator: "vendorPayment.delete",
+            vendorPaymentId: args.id,
+          }),
         queryAttachments: () =>
           tx.run(zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)),
         queryHistory: () =>
@@ -571,8 +591,19 @@ export const vendorPaymentMutators = {
           .where("vendorPaymentId", args.id)
           .where("purpose", "invoice")
       );
+      const retainedInvoiceObjectKeys = new Set(
+        args.attachments
+          .filter((attachment) => attachment.type === "file")
+          .map((attachment) => attachment.objectKey)
+      );
       await Promise.all(
         existingInvoiceAtts.map(async (att) => {
+          if (att.objectKey && !retainedInvoiceObjectKeys.has(att.objectKey)) {
+            enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
+              mutator: "vendorPayment.submitInvoice",
+              vendorPaymentId: args.id,
+            });
+          }
           await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
         })
       );
@@ -580,7 +611,17 @@ export const vendorPaymentMutators = {
       await Promise.all(
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentAttachment.insert({
-            ...buildAttachmentInsert(att, now),
+            ...(await buildClaimedAttachmentInsert(att, now, {
+              durablePrefix: `vendor-payments/${args.id}/invoice`,
+              existingObjectKeys: new Set(
+                existingInvoiceAtts
+                  .map((existing) => existing.objectKey)
+                  .filter((key): key is string => Boolean(key))
+              ),
+              subfolder: "attachments",
+              txLocation: tx.location,
+              userId,
+            })),
             purpose: "invoice",
             vendorPaymentId: args.id,
           });
@@ -682,6 +723,11 @@ export const vendorPaymentMutators = {
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            mutator: "vendorPayment.update",
+            vendorPaymentId: args.id,
+          }),
         queryAttachments: () =>
           tx.run(
             zql.vendorPaymentAttachment
@@ -690,6 +736,12 @@ export const vendorPaymentMutators = {
           ),
         queryLineItems: () =>
           tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
+      },
+      {
+        durablePrefix: `vendor-payments/${args.id}/quotation`,
+        subfolder: "attachments",
+        txLocation: tx.location,
+        userId,
       }
     );
 
@@ -750,15 +802,36 @@ export const vendorPaymentMutators = {
           .where("vendorPaymentId", args.id)
           .where("purpose", "invoice")
       );
+      const retainedInvoiceObjectKeys = new Set(
+        args.attachments
+          .filter((attachment) => attachment.type === "file")
+          .map((attachment) => attachment.objectKey)
+      );
       await Promise.all(
         existingAtts.map(async (att) => {
+          if (att.objectKey && !retainedInvoiceObjectKeys.has(att.objectKey)) {
+            enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
+              mutator: "vendorPayment.updateInvoice",
+              vendorPaymentId: args.id,
+            });
+          }
           await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
         })
       );
       await Promise.all(
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentAttachment.insert({
-            ...buildAttachmentInsert(att, now),
+            ...(await buildClaimedAttachmentInsert(att, now, {
+              durablePrefix: `vendor-payments/${args.id}/invoice`,
+              existingObjectKeys: new Set(
+                existingAtts
+                  .map((existing) => existing.objectKey)
+                  .filter((key): key is string => Boolean(key))
+              ),
+              subfolder: "attachments",
+              txLocation: tx.location,
+              userId,
+            })),
             purpose: "invoice",
             vendorPaymentId: args.id,
           });
