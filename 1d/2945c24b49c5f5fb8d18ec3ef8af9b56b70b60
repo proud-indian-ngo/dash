@@ -1,0 +1,63 @@
+apps/web/src/lib/export-attachments.test.ts
+  s_adf55c018923eb::t_55ee27f1ec9705 1-45
+apps/web/src/lib/authorized-r2-object.ts
+  s_adf55c018923eb::t_250eacfd17f2da 70,165-166,172-175,292-293,313-314,524-526,528-530
+  s_adf55c018923eb::t_bc512d01921403 176-180
+apps/web/src/routes/api/attachments/download.test.ts
+  s_adf55c018923eb::t_bb964125fc8f5b 12-17,33-52,56-62,97-120,123-132,135-164
+  s_adf55c018923eb::t_857b1305e8f318 121-122,133-134
+  s_adf55c018923eb::t_37521bcbe0b080 53-55
+  s_adf55c018923eb::t_effa335ce456b9 7-9
+  s_adf55c018923eb::t_ae8e1f0e4febeb 165
+apps/web/src/functions/attachments.test.ts
+  s_adf55c018923eb::t_ad732d77affb42 39-41
+  s_adf55c018923eb::t_1c2eb86c755271 90
+  s_adf55c018923eb::t_8c26e269774684 6-9
+  s_adf55c018923eb::t_a5dd59facfcf60 1-5,10-27,32-38,42-83,86-89,91-101,104-110
+  s_adf55c018923eb::t_5c8d23dd235d06 28-31,84-85,102-103
+apps/web/src/routes/_app/export.tsx
+  s_adf55c018923eb::t_ef559786d63ec3 27,125
+  s_adf55c018923eb::t_1dccc2e4379fa3 18
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_84a8919e3a3062 104
+  s_adf55c018923eb::t_7b04e1bd1bc3c3 88-103,105-131,283
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_0de38ec52df296 1-18,28-29,32-35,319-375,377-389,391-440,442-453,455-456
+  s_adf55c018923eb::t_8a344f6d8949a7 376,390,441,454
+apps/web/src/routes/api/attachments/download.ts
+  s_adf55c018923eb::t_97052dc3fc4eba 51
+  s_adf55c018923eb::t_f2aa4d30bc8792 61-64,112-113
+  s_adf55c018923eb::t_eafd8f9eb3e3e8 52-55,57-58,65-66
+  s_adf55c018923eb::t_f1365987fe1529 56,59,67-111,114-156,160
+  s_adf55c018923eb::t_ed0e1df7b78306 60
+apps/web/src/functions/export-csv.ts
+  s_adf55c018923eb::t_2911e1cae69ecc 57,180
+apps/web/src/lib/export-attachments.ts
+  s_adf55c018923eb::t_2210b9fdddc143 1-24
+apps/web/src/functions/export-csv.test.ts
+  s_adf55c018923eb::t_885665c012c974 1-68
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_da1c9f3bbad776 7-9,256
+  s_adf55c018923eb::t_800c66e97cf356 88-209,228-244,444-490,492-494,496-498,500-501
+  s_adf55c018923eb::t_847fa98f279154 245
+  s_adf55c018923eb::t_2ab84fb8195c47 491
+  s_adf55c018923eb::t_7255ea16d9cb9e 495
+  s_adf55c018923eb::t_fa18f527c4e62b 499
+  s_adf55c018923eb::t_031841966b0852 502
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1d2945c24b49c5f5fb8d18ec3ef8af9b56b70b60",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
