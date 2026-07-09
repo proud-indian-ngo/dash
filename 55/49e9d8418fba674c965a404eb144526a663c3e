@@ -1,0 +1,129 @@
+packages/zero/src/mutators/scheduled-message.ts
+  s_adf55c018923eb::t_caa2c653fd13dd 5,95,110,176-177,468
+  s_adf55c018923eb::t_e323abbfe053bd 42,56-72,230-232,286,418,539-541,595
+  s_adf55c018923eb::t_e2829494e84c3e 96-97,111,178-179,246,396,469-470,555
+  s_adf55c018923eb::t_fcd62699b422d5 6
+packages/zero/src/mutators/vendor-payment.ts
+  s_adf55c018923eb::t_14cbd3237f69b4 61,279,649,774,867
+  s_adf55c018923eb::t_b853366c6d1552 62,280,650,775,868
+  s_adf55c018923eb::t_762ead87716a26 4
+  s_adf55c018923eb::t_e9d35bdc60f6f9 115,144,205,295,411,437,499,675
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_fa053d5913d824 16,30
+apps/web/src/components/form/approve-dialog.tsx
+  s_adf55c018923eb::t_38cb404e3f60d2 5-8
+apps/web/src/components/scheduled-messages/media-upload.tsx
+  s_adf55c018923eb::t_4de04186f829bd 12,17
+apps/web/src/components/settings/settings-dialog.tsx
+  s_adf55c018923eb::t_45f834a6b1b0b7 38
+  s_adf55c018923eb::t_920c1df790eee0 102-142,183,255-264
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_def418f3249c08 134
+  s_adf55c018923eb::t_31391e4c35c42a 25,93-96,103-105
+  s_adf55c018923eb::t_66445cad6c97af 4
+  s_adf55c018923eb::t_e35be066856e71 26,39,49,130-132
+  s_adf55c018923eb::t_1386a816328410 106
+  s_adf55c018923eb::t_f841520ed7b557 126,129
+apps/web/src/components/zero-init.tsx
+  s_adf55c018923eb::t_32d88bdfb9df7d 35,79-85
+  s_ee868d0249ce21::t_68332c7b073ef4 86
+apps/web/src/functions/export-vendor-payments-csv.ts
+  s_adf55c018923eb::t_b280d4e4f400fb 10
+packages/zero/src/mutators/team.ts
+  s_adf55c018923eb::t_e9d35bdc60f6f9 54,69,116,159,216,233,286,334
+  s_adf55c018923eb::t_762ead87716a26 3
+packages/zero/src/mutators/vendor-payment-transaction.ts
+  s_adf55c018923eb::t_e9d35bdc60f6f9 191,216,338,360,484
+  s_adf55c018923eb::t_762ead87716a26 3
+  s_adf55c018923eb::t_18cd3e723d284c 298,592
+  s_adf55c018923eb::t_b853366c6d1552 299,593
+apps/web/vite.config.ts
+  s_adf55c018923eb::t_ef575dab886996 7,32-67,120
+apps/web/src/routes/_app/export.tsx
+  s_adf55c018923eb::t_96bd9a43eb0737 13
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_c36b207d02d5da 285,291,294,305,314,323,349,371,412,426
+  s_adf55c018923eb::t_07c0192637a47b 286,295,302,306,311,315,320,324,334,340,372,380,386,397,413,421,429,439
+  s_adf55c018923eb::t_8d6f8fdadb939c 279,373-376,378-379,381-382,391
+  s_adf55c018923eb::t_313b289e5139eb 451
+  s_adf55c018923eb::t_bbbf33689081d0 330,345,377,392,418,434
+packages/zero/src/context.ts
+  s_adf55c018923eb::t_22b79635c810f8 1-5,40
+  s_adf55c018923eb::t_0af80a71e7f6b6 20-25,38
+  s_adf55c018923eb::t_c2d058d66a5510 6-12,34,41,47-51
+  s_adf55c018923eb::t_955da43f801867 26-30,35-37,52
+  s_adf55c018923eb::t_1948160d50ece2 53
+apps/web/src/routes/api/zero/mutate.test.ts
+  s_adf55c018923eb::t_fa340c767f5616 10,22-24
+packages/zero/src/mutators/vendor.ts
+  s_adf55c018923eb::t_e9d35bdc60f6f9 33,146
+  s_adf55c018923eb::t_762ead87716a26 3
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_9e600083b88735 5-6
+packages/zero/src/mutators/event-interest.ts
+  s_adf55c018923eb::t_762ead87716a26 4
+  s_adf55c018923eb::t_e9d35bdc60f6f9 69,90,221,291
+packages/shared/src/constants.ts
+  s_adf55c018923eb::t_b0f49919353198 60-70
+  s_adf55c018923eb::t_bd49e2d9630dbc 3,6-31
+  s_adf55c018923eb::t_762b74f0d10487 32
+apps/web/src/components/settings/sections/profile-section.tsx
+  s_adf55c018923eb::t_59581dff6211c7 6
+packages/db/src/schema/vendor.ts
+  s_adf55c018923eb::t_79b3352297619f 1-4,32
+packages/zero/src/mutators/event-photo.ts
+  s_adf55c018923eb::t_08cff9e165c1e9 79-81,91,181-183,193,339-341,351
+  s_adf55c018923eb::t_e9d35bdc60f6f9 57,159,253,268,325,456
+  s_adf55c018923eb::t_b853366c6d1552 425
+  s_adf55c018923eb::t_d36f199dee372d 424
+  s_adf55c018923eb::t_762ead87716a26 3
+packages/zero/src/mutators/advance-payment.ts
+  s_adf55c018923eb::t_762ead87716a26 4
+  s_adf55c018923eb::t_e9d35bdc60f6f9 107,182,276
+  s_adf55c018923eb::t_d2a2d5820758aa 66,166,390
+  s_adf55c018923eb::t_b853366c6d1552 67,167,391
+apps/web/src/routes/api/zero/mutate.ts
+  s_adf55c018923eb::t_afa5414dcc6941 2,18,29-45,73,75-77,80-83
+  s_adf55c018923eb::t_8a2f548033e9c5 8
+  s_adf55c018923eb::t_02ed007174d1a6 3-7,74,79
+  s_adf55c018923eb::t_e99be8f972ffb5 78
+packages/zero/src/mutators/reimbursement.ts
+  s_adf55c018923eb::t_762ead87716a26 7
+  s_adf55c018923eb::t_b853366c6d1552 91,219,489
+  s_adf55c018923eb::t_e9d35bdc60f6f9 141,234,320,376
+  s_adf55c018923eb::t_ec13b0ba006a32 90,218,488
+packages/zero/src/mutators/event-immich-album.ts
+  s_adf55c018923eb::t_762ead87716a26 3
+  s_adf55c018923eb::t_e9d35bdc60f6f9 62,77,92
+packages/zero/src/mutators/event-update.ts
+  s_adf55c018923eb::t_e9d35bdc60f6f9 56,95,197,227,328
+  s_adf55c018923eb::t_762ead87716a26 3
+packages/zero/src/mutators/team-event.ts
+  s_adf55c018923eb::t_dbd3b7cf4911d1 9
+  s_adf55c018923eb::t_cafd3d8f220fb8 45
+  s_adf55c018923eb::t_e9d35bdc60f6f9 204,232,314,339,411,435,510,609,769,790,864,885,1133,1156,1243,1272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5549e9d8418fba674c965a404eb144526a663c3e",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_ee868d0249ce21": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4653-c456-7120-aff5-4a2460382e8f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
