@@ -1,6 +1,7 @@
 import { uuidv7 } from "uuidv7";
 import type z from "zod";
 import type { Context } from "../context";
+import { requireEnqueue } from "../context";
 import type { Vendor } from "../schema";
 import type {
   mutatorAttachmentSchema,
@@ -21,6 +22,8 @@ interface R2ObjectClaimOptions {
   durablePrefix: string;
   existingObjectKeys?: ReadonlySet<string>;
   mimeType?: null | string;
+  moveR2Object?: Context["moveR2Object"];
+  r2KeyPrefix?: Context["r2KeyPrefix"];
   subfolder: R2Subfolder;
   traceId?: string;
   txLocation: string;
@@ -33,7 +36,7 @@ interface AttachmentClaimOptions
 }
 
 export function enqueueDeleteR2Object(
-  ctx: Pick<Context, "asyncTasks" | "traceId">,
+  ctx: Pick<Context, "asyncTasks" | "enqueue" | "traceId">,
   txLocation: string,
   r2Key: null | string | undefined,
   meta: { mutator: string; [key: string]: unknown }
@@ -43,7 +46,7 @@ export function enqueueDeleteR2Object(
   }
   ctx.asyncTasks?.push({
     fn: async () => {
-      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      const enqueue = requireEnqueue(ctx);
       await enqueue("delete-r2-object", { r2Key }, { traceId: ctx.traceId });
     },
     meta,
@@ -87,13 +90,20 @@ export function buildAttachmentInsert(att: AttachmentInput, now: number) {
 const filenameFromKey = (key: string): string => key.split("/").pop() ?? "file";
 
 function pushMoveR2ObjectTask(
-  options: Pick<R2ObjectClaimOptions, "asyncTasks" | "mimeType" | "traceId">,
+  options: Pick<
+    R2ObjectClaimOptions,
+    "asyncTasks" | "mimeType" | "moveR2Object" | "traceId"
+  >,
   sourceKey: string,
   targetKey: string
 ) {
   if (!options.asyncTasks) {
     throw new Error("Async task queue is required");
   }
+  if (!options.moveR2Object) {
+    throw new Error("R2 object move handler is required");
+  }
+  const { moveR2Object } = options;
   options.asyncTasks.push({
     blocking: true,
     fn: async () => {
@@ -102,7 +112,6 @@ function pushMoveR2ObjectTask(
         sourceKey,
         targetKey,
       };
-      const { moveR2Object } = await import("@pi-dash/jobs/r2-object");
       await moveR2Object(payload);
     },
     meta: {
@@ -114,16 +123,15 @@ function pushMoveR2ObjectTask(
   });
 }
 
-export async function claimUploadedR2ObjectKey(
+export function claimUploadedR2ObjectKey(
   key: string,
   options: R2ObjectClaimOptions
-): Promise<string> {
+): string {
+  if (options.txLocation === "server" && !options.r2KeyPrefix) {
+    throw new Error("R2 key prefix is required");
+  }
   const serverPrefix =
-    options.txLocation === "server"
-      ? await import("@pi-dash/env/server").then(
-          ({ env }) => `${env.R2_KEY_PREFIX}/`
-        )
-      : null;
+    options.txLocation === "server" ? `${options.r2KeyPrefix}/` : null;
   if (serverPrefix && !key.startsWith(serverPrefix)) {
     throw new Error("Invalid attachment object key");
   }

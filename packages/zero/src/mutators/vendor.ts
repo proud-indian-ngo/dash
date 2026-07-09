@@ -1,6 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import { assertHasPermission, can } from "../permissions";
 import { zql } from "../schema";
 import { GST_REGEX, IFSC_REGEX, PAN_REGEX } from "../vendor-patterns";
@@ -30,7 +30,7 @@ export const vendorMutators = {
         const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vendor-approved",
               {
@@ -143,7 +143,7 @@ export const vendorMutators = {
         const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vendor-unapproved",
               {

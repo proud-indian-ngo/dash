@@ -1,6 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -53,7 +53,7 @@ export const eventUpdateMutators = {
         if (existing.createdBy !== ctx.userId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-event-update-approved",
                 {
@@ -92,7 +92,7 @@ export const eventUpdateMutators = {
           )) as { whatsappGroupId: string | null } | undefined;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-event-update-posted",
                 {
@@ -194,7 +194,7 @@ export const eventUpdateMutators = {
             )) as { whatsappGroupId: string | null } | undefined;
             ctx.asyncTasks?.push({
               fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                const enqueue = requireEnqueue(ctx);
                 await enqueue(
                   "notify-event-update-posted",
                   {
@@ -224,7 +224,7 @@ export const eventUpdateMutators = {
           const authorName = author?.name ?? "Someone";
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-event-update-pending",
                 {
@@ -325,7 +325,7 @@ export const eventUpdateMutators = {
       if (tx.location === "server" && existing.createdBy !== ctx.userId) {
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-update-rejected",
               {

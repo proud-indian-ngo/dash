@@ -1,6 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import {
   assertHasPermission,
   assertHasPermissionOrTeamLead,
@@ -51,7 +51,7 @@ export const teamMutators = {
         const { userId } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "whatsapp-add-member-team",
               { teamId, userId },
@@ -66,7 +66,7 @@ export const teamMutators = {
         if (teamName) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-added-to-team",
                 {
@@ -113,7 +113,7 @@ export const teamMutators = {
         const creatorUserId = ctx.userId;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "whatsapp-create-group",
               {
@@ -156,7 +156,7 @@ export const teamMutators = {
         const deletedAt = Date.now();
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-team-deleted",
               {
@@ -213,7 +213,7 @@ export const teamMutators = {
         const { teamId } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "whatsapp-remove-member-team",
               {
@@ -230,7 +230,7 @@ export const teamMutators = {
           const removedAt = Date.now();
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-removed-from-team",
                 {
@@ -283,7 +283,7 @@ export const teamMutators = {
         const teamName = team?.name;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-team-role-changed",
               {
@@ -331,7 +331,7 @@ export const teamMutators = {
         const memberIds = members.map((m) => m.userId);
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-team-updated",
               {

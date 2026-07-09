@@ -4,7 +4,7 @@ import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
-import { defineConfig, type UserConfig } from "vite";
+import { defineConfig, type Plugin, type UserConfig } from "vite";
 import "@pi-dash/env";
 
 const RE_REACT = /node_modules[\\/](react|react-dom|scheduler)\//;
@@ -29,6 +29,42 @@ const RE_ZOD = /node_modules[\\/]zod\//;
 const RE_RECHARTS =
   /node_modules[\\/](recharts|react-redux|@reduxjs[\\/]toolkit|redux|redux-thunk|reselect|immer|use-sync-external-store|victory-vendor|decimal\.js-light|eventemitter3)\//;
 const RE_VENDOR = /node_modules/;
+const BUN_CLIENT_STUB_ID = "\0pi-dash-bun-client-stub";
+
+function stubBunForClient(): Plugin {
+  return {
+    enforce: "pre",
+    load(id) {
+      if (id !== BUN_CLIENT_STUB_ID) {
+        return;
+      }
+
+      return `
+const createServerOnlyStub = (name) =>
+  new Proxy(function () {}, {
+    apply() {
+      throw new Error(\`Bun export "\${name}" is server-only.\`);
+    },
+    construct() {
+      throw new Error(\`Bun export "\${name}" is server-only.\`);
+    },
+    get() {
+      throw new Error(\`Bun export "\${name}" is server-only.\`);
+    },
+  });
+
+export const S3Client = createServerOnlyStub("S3Client");
+export const SQL = createServerOnlyStub("SQL");
+`;
+    },
+    name: "pi-dash-stub-bun-client",
+    resolveId(source) {
+      if (source === "bun" && this.environment?.name === "client") {
+        return BUN_CLIENT_STUB_ID;
+      }
+    },
+  };
+}
 
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
@@ -81,6 +117,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       include: ["use-sync-external-store/shim/with-selector"],
     },
     plugins: [
+      stubBunForClient(),
       ...devtools(),
       ...tailwindcss(),
       ...tanstackStart(),

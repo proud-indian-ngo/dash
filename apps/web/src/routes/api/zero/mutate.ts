@@ -1,4 +1,11 @@
 import { db } from "@pi-dash/db";
+import { scheduledMessageRecipient } from "@pi-dash/db/schema/scheduled-message";
+import { env } from "@pi-dash/env/server";
+import {
+  enqueue,
+  PHOTO_NOTIFICATION_DELAY_SECONDS,
+} from "@pi-dash/jobs/enqueue";
+import { moveR2Object } from "@pi-dash/jobs/r2-object";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { parseTraceparent } from "@pi-dash/observability/trace-context";
 import type { AsyncTask } from "@pi-dash/zero/context";
@@ -8,6 +15,7 @@ import { mustGetMutator } from "@rocicorp/zero";
 import { handleMutateRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
+import { eq } from "drizzle-orm";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -17,6 +25,23 @@ import {
 } from "@/lib/zero-mutate-tasks";
 
 const dbProvider = zeroDrizzle(schema, db);
+
+async function markScheduledMessageRecipientFailed({
+  error,
+  recipientRowId,
+}: {
+  error: string;
+  recipientRowId: string;
+}) {
+  await db
+    .update(scheduledMessageRecipient)
+    .set({
+      error,
+      status: "failed",
+      updatedAt: new Date(),
+    })
+    .where(eq(scheduledMessageRecipient.id, recipientRowId));
+}
 
 // Register the database provider for type safety
 declare module "@rocicorp/zero" {
@@ -45,7 +70,17 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const { permissions, role, userId } =
           await buildSessionContext(session);
         const asyncTasks: AsyncTask[] = [];
-        const baseCtx = { permissions, role, traceId, userId };
+        const baseCtx = {
+          enqueue,
+          markScheduledMessageRecipientFailed,
+          moveR2Object,
+          permissions,
+          photoNotificationDelaySeconds: PHOTO_NOTIFICATION_DELAY_SECONDS,
+          r2KeyPrefix: env.R2_KEY_PREFIX,
+          role,
+          traceId,
+          userId,
+        };
 
         const result = await handleMutateRequest({
           dbProvider,

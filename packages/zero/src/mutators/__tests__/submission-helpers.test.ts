@@ -8,12 +8,6 @@ const r2ObjectMocks = vi.hoisted(() => ({
   moveR2Object: vi.fn(),
 }));
 
-vi.mock("@pi-dash/env/server", () => ({
-  env: { R2_KEY_PREFIX: "app" },
-}));
-vi.mock("@pi-dash/jobs/enqueue", () => jobMocks);
-vi.mock("@pi-dash/jobs/r2-object", () => r2ObjectMocks);
-
 import {
   assertCanDelete,
   assertCanModify,
@@ -282,78 +276,77 @@ describe("buildHistoryInsert", () => {
 describe("claimUploadedR2ObjectKey", () => {
   const baseOptions = {
     durablePrefix: "reimbursements/request-1",
+    moveR2Object: r2ObjectMocks.moveR2Object,
     subfolder: "attachments" as const,
     txLocation: "client",
     userId: "user-1",
   };
 
-  it("claims current user temp uploads under durable prefix", async () => {
-    await expect(
+  it("claims current user temp uploads under durable prefix", () => {
+    expect(
       claimUploadedR2ObjectKey(
         "app/attachments/tmp/user-1/uploaded-file.pdf",
         baseOptions
       )
-    ).resolves.toBe(
-      "app/attachments/reimbursements/request-1/uploaded-file.pdf"
-    );
+    ).toBe("app/attachments/reimbursements/request-1/uploaded-file.pdf");
   });
 
-  it("claims event photo temp uploads under the event prefix", async () => {
-    await expect(
+  it("claims event photo temp uploads under the event prefix", () => {
+    expect(
       claimUploadedR2ObjectKey("app/photos/tmp/user-1/photo.jpg", {
         durablePrefix: "event-id",
         subfolder: "photos",
         txLocation: "client",
         userId: "user-1",
       })
-    ).resolves.toBe("app/photos/event-id/photo.jpg");
+    ).toBe("app/photos/event-id/photo.jpg");
   });
 
-  it("allows existing persisted object keys during relation replacement", async () => {
-    await expect(
+  it("allows existing persisted object keys during relation replacement", () => {
+    expect(
       claimUploadedR2ObjectKey("app/attachments/existing/file.pdf", {
         ...baseOptions,
         existingObjectKeys: new Set(["app/attachments/existing/file.pdf"]),
       })
-    ).resolves.toBe("app/attachments/existing/file.pdf");
+    ).toBe("app/attachments/existing/file.pdf");
   });
 
-  it("rejects keys outside current user's temp prefix", async () => {
-    await expect(
+  it("rejects keys outside current user's temp prefix", () => {
+    expect(() =>
       claimUploadedR2ObjectKey(
         "app/attachments/tmp/other-user/uploaded-file.pdf",
         baseOptions
       )
-    ).rejects.toThrow("Invalid attachment object key");
+    ).toThrow("Invalid attachment object key");
   });
 
-  it("rejects server keys that only contain the temp marker later in the path", async () => {
-    await expect(
+  it("rejects server keys that only contain the temp marker later in the path", () => {
+    expect(() =>
       claimUploadedR2ObjectKey(
         "app/other/attachments/tmp/user-1/uploaded-file.pdf",
         {
           ...baseOptions,
           asyncTasks: [],
+          r2KeyPrefix: "app",
           txLocation: "server",
         }
       )
-    ).rejects.toThrow("Invalid attachment object key");
+    ).toThrow("Invalid attachment object key");
   });
 
   it("moves server temp upload to durable key when task runs", async () => {
     const asyncTasks: AsyncTask[] = [];
 
-    await expect(
+    expect(
       claimUploadedR2ObjectKey("app/attachments/tmp/user-1/uploaded-file.pdf", {
         ...baseOptions,
         asyncTasks,
         mimeType: "application/pdf",
+        r2KeyPrefix: "app",
         traceId: "trace-id",
         txLocation: "server",
       })
-    ).resolves.toBe(
-      "app/attachments/reimbursements/request-1/uploaded-file.pdf"
-    );
+    ).toBe("app/attachments/reimbursements/request-1/uploaded-file.pdf");
 
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
     expect(asyncTasks).toHaveLength(1);
@@ -375,19 +368,33 @@ describe("claimUploadedR2ObjectKey", () => {
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
+  it("requires a move handler for server temp uploads", () => {
+    expect(() =>
+      claimUploadedR2ObjectKey("app/attachments/tmp/user-1/uploaded-file.pdf", {
+        ...baseOptions,
+        asyncTasks: [],
+        moveR2Object: undefined,
+        r2KeyPrefix: "app",
+        txLocation: "server",
+      })
+    ).toThrow("R2 object move handler is required");
+  });
+
   it("marks scheduled message temp moves as blocking", async () => {
     const asyncTasks: AsyncTask[] = [];
 
-    await expect(
+    expect(
       claimUploadedR2ObjectKey("app/scheduled-messages/tmp/user-1/media.png", {
         asyncTasks,
         durablePrefix: "message-id",
         mimeType: "image/png",
+        moveR2Object: r2ObjectMocks.moveR2Object,
+        r2KeyPrefix: "app",
         subfolder: "scheduled-messages",
         txLocation: "server",
         userId: "user-1",
       })
-    ).resolves.toBe("app/scheduled-messages/message-id/media.png");
+    ).toBe("app/scheduled-messages/message-id/media.png");
 
     expect(asyncTasks).toHaveLength(1);
     expect(asyncTasks[0]?.blocking).toBe(true);
@@ -402,32 +409,34 @@ describe("claimUploadedR2ObjectKey", () => {
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
-  it("does not move existing persisted keys during server replacement", async () => {
-    await expect(
+  it("does not move existing persisted keys during server replacement", () => {
+    expect(
       claimUploadedR2ObjectKey("app/attachments/existing/file.pdf", {
         ...baseOptions,
         asyncTasks: [],
         existingObjectKeys: new Set(["app/attachments/existing/file.pdf"]),
+        r2KeyPrefix: "app",
         txLocation: "server",
       })
-    ).resolves.toBe("app/attachments/existing/file.pdf");
+    ).toBe("app/attachments/existing/file.pdf");
 
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
-  it("rejects durable scheduled message keys unless they already exist", async () => {
+  it("rejects durable scheduled message keys unless they already exist", () => {
     const asyncTasks: AsyncTask[] = [];
 
-    await expect(
+    expect(() =>
       claimUploadedR2ObjectKey("app/scheduled-messages/message-id/media.png", {
         asyncTasks,
         durablePrefix: "message-id",
         mimeType: "image/png",
+        r2KeyPrefix: "app",
         subfolder: "scheduled-messages",
         txLocation: "server",
         userId: "user-1",
       })
-    ).rejects.toThrow("Invalid attachment object key");
+    ).toThrow("Invalid attachment object key");
 
     expect(asyncTasks).toEqual([]);
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
@@ -439,7 +448,7 @@ describe("enqueueDeleteR2Object", () => {
     const asyncTasks: AsyncTask[] = [];
 
     enqueueDeleteR2Object(
-      { asyncTasks, traceId: "trace-id" },
+      { asyncTasks, enqueue: jobMocks.enqueue, traceId: "trace-id" },
       "server",
       "app/attachments/request/receipt.pdf",
       { mutator: "test.delete", requestId: "request-1" }

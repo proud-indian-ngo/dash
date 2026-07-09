@@ -2,6 +2,8 @@ import { env } from "@pi-dash/env/server";
 import { logErrorAndRethrow } from "@pi-dash/observability";
 import {
   ALLOWED_IMAGE_TYPES,
+  ALLOWED_MIME_TYPES,
+  MAX_AVATAR_FILE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
@@ -17,34 +19,6 @@ import {
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
-
-export const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/svg+xml",
-  "image/heic",
-  "image/heif",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-  "text/csv",
-  "video/mp4",
-  "video/quicktime",
-] as const;
-
-export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
-
-export function toAllowedMimeType(value: string): AllowedMimeType {
-  if (!ALLOWED_MIME_TYPES.includes(value as AllowedMimeType)) {
-    throw new Error(`Unsupported file type: ${value}`);
-  }
-  return value as AllowedMimeType;
-}
 
 const R2_SUBFOLDERS = {
   approvalScreenshots: "approval-screenshots",
@@ -67,8 +41,6 @@ const EVENT_MEDIA_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",
 ] as const;
-
-export const MAX_AVATAR_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const sanitizeFileName = (fileName: string): string =>
   fileName

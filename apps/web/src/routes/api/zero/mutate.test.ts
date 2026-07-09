@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     buildSessionContext: vi.fn(),
     checkRateLimit: vi.fn(),
     handleMutateRequest: vi.fn(),
+    moveR2Object: vi.fn(),
     mutatorFn: vi.fn(),
     parseTraceparent: vi.fn(),
     rateLimitResponse: vi.fn(),
@@ -18,6 +19,9 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@pi-dash/jobs/r2-object", () => ({
+  moveR2Object: mocks.moveR2Object,
+}));
 vi.mock("@pi-dash/observability", () => ({
   withFireAndForgetLog: mocks.withFireAndForgetLog,
 }));

@@ -1,6 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -59,7 +59,7 @@ export const eventImmichAlbumMutators = {
             const { r2Key } = photo;
             ctx.asyncTasks?.push({
               fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                const enqueue = requireEnqueue(ctx);
                 await enqueue(
                   "delete-r2-object",
                   { r2Key },
@@ -74,7 +74,7 @@ export const eventImmichAlbumMutators = {
             const { immichAssetId } = photo;
             ctx.asyncTasks?.push({
               fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                const enqueue = requireEnqueue(ctx);
                 await enqueue(
                   "immich-delete-asset",
                   { immichAssetId },
@@ -89,7 +89,7 @@ export const eventImmichAlbumMutators = {
         const { immichAlbumId } = album;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "immich-delete-album",
               { immichAlbumId },

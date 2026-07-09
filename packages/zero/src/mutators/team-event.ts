@@ -6,7 +6,7 @@ import {
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
-import "../context";
+import { type Context, requireEnqueue } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -42,6 +42,7 @@ interface MutatorCtx {
   asyncTasks?: {
     push: BivariantTaskPush["bivarianceHack"];
   };
+  enqueue?: Context["enqueue"];
   traceId?: string;
   userId: string;
 }
@@ -200,7 +201,7 @@ async function pushCreateServerTasks(
     const creatorUserId = ctx.userId;
     ctx.asyncTasks?.push({
       fn: async () => {
-        const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        const enqueue = requireEnqueue(ctx);
         await enqueue(
           "whatsapp-create-group",
           {
@@ -228,7 +229,7 @@ async function pushCreateServerTasks(
     const teamMemberIds = members.map((m) => m.userId);
     ctx.asyncTasks?.push({
       fn: async () => {
-        const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        const enqueue = requireEnqueue(ctx);
         await enqueue(
           "notify-event-created",
           {
@@ -310,7 +311,7 @@ export const teamEventMutators = {
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "whatsapp-add-member",
                 {
@@ -335,7 +336,7 @@ export const teamEventMutators = {
         const { location } = event;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-added-to-event",
               {
@@ -407,7 +408,7 @@ export const teamEventMutators = {
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "whatsapp-add-members",
                 {
@@ -431,7 +432,7 @@ export const teamEventMutators = {
         const { location } = event;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-users-added-to-event",
               {
@@ -506,7 +507,7 @@ export const teamEventMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-cancelled",
               {
@@ -605,7 +606,7 @@ export const teamEventMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-cancelled",
               {
@@ -765,7 +766,7 @@ export const teamEventMutators = {
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "whatsapp-add-member",
                 {
@@ -786,7 +787,7 @@ export const teamEventMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-added-to-event",
               {
@@ -860,7 +861,7 @@ export const teamEventMutators = {
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "whatsapp-remove-member",
                 {
@@ -881,7 +882,7 @@ export const teamEventMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-volunteer-left",
               {
@@ -1129,7 +1130,7 @@ export const teamEventMutators = {
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "whatsapp-remove-member",
                 {
@@ -1152,7 +1153,7 @@ export const teamEventMutators = {
         const { teamId } = event;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-removed-from-event",
               {
@@ -1239,7 +1240,7 @@ export const teamEventMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-updated",
               {
@@ -1268,7 +1269,7 @@ export const teamEventMutators = {
         ) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-event-feedback-open",
                 {

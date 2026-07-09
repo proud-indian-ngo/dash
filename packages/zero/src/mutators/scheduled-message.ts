@@ -2,8 +2,8 @@ import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
-import type { AsyncTask } from "../context";
-import "../context";
+import type { AsyncTask, Context } from "../context";
+import { requireEnqueue } from "../context";
 import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -39,7 +39,7 @@ export async function runAsyncTasksInOrderWithRetry(
 export async function runScheduledAttachmentMoveTasks(
   tasks: readonly AsyncTask[],
   recipients: readonly { id: string }[],
-  markFailed = markRecipientFailed
+  markFailed: (recipientRowId: string, error: unknown) => Promise<void>
 ) {
   try {
     await runAsyncTasksInOrderWithRetry(tasks);
@@ -53,20 +53,23 @@ export async function runScheduledAttachmentMoveTasks(
   }
 }
 
-async function markRecipientFailed(recipientRowId: string, error: unknown) {
-  const { db } = await import("@pi-dash/db");
-  const { scheduledMessageRecipient } = await import(
-    "@pi-dash/db/schema/scheduled-message"
-  );
-  const { eq } = await import("drizzle-orm");
-  await db
-    .update(scheduledMessageRecipient)
-    .set({
-      error: error instanceof Error ? error.message : String(error),
-      status: "failed",
-      updatedAt: new Date(),
-    })
-    .where(eq(scheduledMessageRecipient.id, recipientRowId));
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function markRecipientFailed(
+  ctx: Context,
+  recipientRowId: string,
+  error: unknown
+) {
+  if (!ctx.markScheduledMessageRecipientFailed) {
+    throw new Error("Scheduled message failure handler is required");
+  }
+
+  await ctx.markScheduledMessageRecipientFailed({
+    error: getErrorMessage(error),
+    recipientRowId,
+  });
 }
 
 const recipientSchema = z.object({
@@ -89,7 +92,9 @@ async function claimScheduledMessageAttachments(
   txLocation: string,
   asyncTasks?: AsyncTask[],
   traceId?: string,
-  existingObjectKeys?: ReadonlySet<string>
+  existingObjectKeys?: ReadonlySet<string>,
+  moveR2Object?: Context["moveR2Object"],
+  r2KeyPrefix?: Context["r2KeyPrefix"]
 ): Promise<ScheduledMessageAttachment[] | undefined> {
   if (!attachments) {
     return;
@@ -102,6 +107,8 @@ async function claimScheduledMessageAttachments(
         durablePrefix: messageId,
         existingObjectKeys,
         mimeType: attachment.mimeType,
+        moveR2Object,
+        r2KeyPrefix,
         subfolder: "scheduled-messages",
         traceId,
         txLocation,
@@ -166,7 +173,10 @@ export const scheduledMessageMutators = {
         ctx.userId,
         tx.location,
         attachmentMoveTasks,
-        ctx.traceId
+        ctx.traceId,
+        undefined,
+        ctx.moveR2Object,
+        ctx.r2KeyPrefix
       );
       if (
         tx.location === "server" &&
@@ -217,7 +227,9 @@ export const scheduledMessageMutators = {
             fn: async () => {
               await runScheduledAttachmentMoveTasks(
                 attachmentMoveTasks,
-                recipientRows
+                recipientRows,
+                (recipientRowId, error) =>
+                  markRecipientFailed(ctx, recipientRowId, error)
               );
             },
             meta: {
@@ -231,7 +243,7 @@ export const scheduledMessageMutators = {
           ctx.asyncTasks?.push({
             fn: async () => {
               try {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                const enqueue = requireEnqueue(ctx);
 
                 let targetAddress: string;
                 if (row.type === "group") {
@@ -271,7 +283,7 @@ export const scheduledMessageMutators = {
                   }
                 );
               } catch (error) {
-                await markRecipientFailed(row.id, error);
+                await markRecipientFailed(ctx, row.id, error);
               }
             },
             meta: {
@@ -381,7 +393,7 @@ export const scheduledMessageMutators = {
         ctx.asyncTasks?.push({
           fn: async () => {
             try {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
 
               // 1-minute delay to prevent accidental double-sends
               const startAfter = new Date(Date.now() + 60_000).toISOString();
@@ -403,7 +415,7 @@ export const scheduledMessageMutators = {
                 }
               );
             } catch (caughtError) {
-              await markRecipientFailed(recipientId, caughtError);
+              await markRecipientFailed(ctx, recipientId, caughtError);
             }
           },
           meta: {
@@ -453,7 +465,9 @@ export const scheduledMessageMutators = {
         tx.location,
         attachmentMoveTasks,
         ctx.traceId,
-        existingObjectKeys
+        existingObjectKeys,
+        ctx.moveR2Object,
+        ctx.r2KeyPrefix
       );
       if (
         tx.location === "server" &&
@@ -522,7 +536,9 @@ export const scheduledMessageMutators = {
             fn: async () => {
               await runScheduledAttachmentMoveTasks(
                 attachmentMoveTasks,
-                recipientRows
+                recipientRows,
+                (recipientRowId, error) =>
+                  markRecipientFailed(ctx, recipientRowId, error)
               );
             },
             meta: {
@@ -536,7 +552,7 @@ export const scheduledMessageMutators = {
           ctx.asyncTasks?.push({
             fn: async () => {
               try {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                const enqueue = requireEnqueue(ctx);
 
                 let targetAddress: string;
                 if (row.type === "group") {
@@ -576,7 +592,7 @@ export const scheduledMessageMutators = {
                   }
                 );
               } catch (error) {
-                await markRecipientFailed(row.id, error);
+                await markRecipientFailed(ctx, row.id, error);
               }
             },
             meta: {

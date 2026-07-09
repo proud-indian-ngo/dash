@@ -1,7 +1,7 @@
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -66,7 +66,7 @@ export const eventInterestMutators = {
         if (whatsappGroupId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "whatsapp-add-member",
                 {
@@ -87,7 +87,7 @@ export const eventInterestMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-interest-approved",
               {
@@ -218,7 +218,7 @@ export const eventInterestMutators = {
         const volunteerName = volunteer?.name;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-interest-received",
               {
@@ -288,7 +288,7 @@ export const eventInterestMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-event-interest-rejected",
               {

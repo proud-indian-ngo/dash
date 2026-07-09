@@ -7,21 +7,13 @@ import {
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { logErrorAndRethrow } from "@pi-dash/observability";
+import { vendorPaymentStatusValues } from "@pi-dash/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
-export const vendorPaymentStatusValues = [
-  "pending",
-  "approved",
-  "rejected",
-  "partially_paid",
-  "paid",
-  "invoice_pending",
-  "completed",
-] as const;
 const statusEnum = z.enum(vendorPaymentStatusValues);
 
 const exportSchema = z.object({

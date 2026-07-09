@@ -10,6 +10,7 @@ import {
 } from "@pi-dash/design-system/components/ui/select";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import { vendorPaymentStatusValues } from "@pi-dash/shared/constants";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
@@ -20,7 +21,6 @@ import {
   exportVendorPaymentsCsv,
   type TransactionExportRow,
   type VendorPaymentExportRow,
-  vendorPaymentStatusValues,
 } from "@/functions/export-vendor-payments-csv";
 import { downloadCsv } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";

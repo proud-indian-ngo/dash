@@ -3,6 +3,7 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import { MAX_AVATAR_FILE_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
 import { useRef, useState } from "react";
@@ -17,7 +18,6 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   deleteProfilePicture,
   getProfilePictureUploadUrl,
-  MAX_AVATAR_FILE_SIZE_BYTES,
 } from "@/functions/attachments";
 import { authClient } from "@/lib/auth-client";
 import { type ProfileFormValues, profileSchema } from "./profile-schema";

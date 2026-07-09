@@ -1,7 +1,7 @@
 import { cityValues } from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -58,6 +58,8 @@ export const vendorPaymentMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `vendor-payments/${args.id}/approval-screenshots`,
+            moveR2Object: ctx.moveR2Object,
+            r2KeyPrefix: ctx.r2KeyPrefix,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,
@@ -110,7 +112,7 @@ export const vendorPaymentMutators = {
         const { note } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vendor-payment-approved",
               {
@@ -139,7 +141,7 @@ export const vendorPaymentMutators = {
           const vpTitle = title;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-vendor-auto-approved",
                 {
@@ -200,7 +202,7 @@ export const vendorPaymentMutators = {
         const submitterId = entity.userId as string;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vp-invoice-approved",
               {
@@ -274,6 +276,8 @@ export const vendorPaymentMutators = {
       {
         asyncTasks: ctx.asyncTasks,
         durablePrefix: `vendor-payments/${args.id}/quotation`,
+        moveR2Object: ctx.moveR2Object,
+        r2KeyPrefix: ctx.r2KeyPrefix,
         subfolder: "attachments",
         traceId: ctx.traceId,
         txLocation: tx.location,
@@ -288,7 +292,7 @@ export const vendorPaymentMutators = {
       const submitterName = submitter?.name;
       ctx.asyncTasks?.push({
         fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          const enqueue = requireEnqueue(ctx);
           await enqueue(
             "notify-vendor-payment-submitted",
             {
@@ -404,7 +408,7 @@ export const vendorPaymentMutators = {
         const { reason } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vendor-payment-rejected",
               {
@@ -430,7 +434,7 @@ export const vendorPaymentMutators = {
           const cascadeCount = pendingTransactions.length;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "notify-vpt-cascade-rejected",
                 {
@@ -492,7 +496,7 @@ export const vendorPaymentMutators = {
         const ts = now;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vp-invoice-rejected",
               {
@@ -642,6 +646,8 @@ export const vendorPaymentMutators = {
                   .map((existing) => existing.objectKey)
                   .filter((key): key is string => Boolean(key))
               ),
+              moveR2Object: ctx.moveR2Object,
+              r2KeyPrefix: ctx.r2KeyPrefix,
               subfolder: "attachments",
               traceId: ctx.traceId,
               txLocation: tx.location,
@@ -666,7 +672,7 @@ export const vendorPaymentMutators = {
         const submitterName = submitter?.name;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-vp-invoice-submitted",
               {
@@ -765,6 +771,8 @@ export const vendorPaymentMutators = {
       {
         asyncTasks: ctx.asyncTasks,
         durablePrefix: `vendor-payments/${args.id}/quotation`,
+        moveR2Object: ctx.moveR2Object,
+        r2KeyPrefix: ctx.r2KeyPrefix,
         subfolder: "attachments",
         traceId: ctx.traceId,
         txLocation: tx.location,
@@ -856,6 +864,8 @@ export const vendorPaymentMutators = {
                   .map((existing) => existing.objectKey)
                   .filter((key): key is string => Boolean(key))
               ),
+              moveR2Object: ctx.moveR2Object,
+              r2KeyPrefix: ctx.r2KeyPrefix,
               subfolder: "attachments",
               traceId: ctx.traceId,
               txLocation: tx.location,

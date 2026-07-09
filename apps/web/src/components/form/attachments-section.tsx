@@ -13,6 +13,7 @@ import {
   useFileUpload,
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { toAllowedMimeType } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import {
@@ -26,10 +27,7 @@ import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { AddUrlRow } from "@/components/form/add-url-row";
-import {
-  getPresignedUploadUrl,
-  toAllowedMimeType,
-} from "@/functions/attachments";
+import { getPresignedUploadUrl } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
 import {
   type AttachmentDownloadTarget,

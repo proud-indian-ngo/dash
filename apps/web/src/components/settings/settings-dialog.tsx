@@ -35,6 +35,7 @@ import {
   SidebarProvider,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { lazy, Suspense } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import {
   Dialog,
@@ -43,14 +44,6 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { type Section, useApp } from "@/context/app-context";
-import { AccountSection } from "./sections/account-section";
-import { AdminActionsSection } from "./sections/admin-actions-section";
-import { BankingSection } from "./sections/banking-section";
-import { ExpenseCategoriesSection } from "./sections/expense-categories-section";
-import { GeneralSection } from "./sections/general-section";
-import { NotificationsSection } from "./sections/notifications-section";
-import { ProfileSection } from "./sections/profile-section";
-import { WhatsAppGroupsSection } from "./sections/whatsapp-groups-section";
 
 interface NavItem {
   icon: typeof Settings01Icon;
@@ -106,15 +99,47 @@ const NAV_ITEMS_BASE: NavItem[] = [
   },
 ];
 
-const SECTION_CONTENT: Record<Section, React.ReactNode> = {
-  account: <AccountSection />,
-  "admin-actions": <AdminActionsSection />,
-  banking: <BankingSection />,
-  "expense-categories": <ExpenseCategoriesSection />,
-  general: <GeneralSection />,
-  notifications: <NotificationsSection />,
-  profile: <ProfileSection />,
-  "whatsapp-groups": <WhatsAppGroupsSection />,
+const SECTION_COMPONENTS = {
+  account: lazy(() =>
+    import("./sections/account-section").then((module) => ({
+      default: module.AccountSection,
+    }))
+  ),
+  "admin-actions": lazy(() =>
+    import("./sections/admin-actions-section").then((module) => ({
+      default: module.AdminActionsSection,
+    }))
+  ),
+  banking: lazy(() =>
+    import("./sections/banking-section").then((module) => ({
+      default: module.BankingSection,
+    }))
+  ),
+  "expense-categories": lazy(() =>
+    import("./sections/expense-categories-section").then((module) => ({
+      default: module.ExpenseCategoriesSection,
+    }))
+  ),
+  general: lazy(() =>
+    import("./sections/general-section").then((module) => ({
+      default: module.GeneralSection,
+    }))
+  ),
+  notifications: lazy(() =>
+    import("./sections/notifications-section").then((module) => ({
+      default: module.NotificationsSection,
+    }))
+  ),
+  profile: lazy(() =>
+    import("./sections/profile-section").then((module) => ({
+      default: module.ProfileSection,
+    }))
+  ),
+  "whatsapp-groups": lazy(() =>
+    import("./sections/whatsapp-groups-section").then((module) => ({
+      default: module.WhatsAppGroupsSection,
+    }))
+  ),
 };
 
 function SettingsNavButton({
@@ -155,6 +180,7 @@ export function SettingsDialog() {
 
   const activeLabel =
     navItems.find((item) => item.id === settingsSection)?.label ?? "";
+  const ActiveSection = SECTION_COMPONENTS[settingsSection];
   const stableOnValueChange0 = useEventCallback((v: string | null) =>
     setSettingsSection(v as Section)
   );
@@ -226,12 +252,16 @@ export function SettingsDialog() {
             </header>
             <div className="flex flex-1 flex-col overflow-y-auto">
               <AppErrorBoundary level="section">
-                <div
-                  className="fade-in-0 animate-in duration-100 ease-(--ease-out-expo)"
-                  key={settingsSection}
-                >
-                  {SECTION_CONTENT[settingsSection]}
-                </div>
+                {settingsOpen ? (
+                  <Suspense fallback={null}>
+                    <div
+                      className="fade-in-0 animate-in duration-100 ease-(--ease-out-expo)"
+                      key={settingsSection}
+                    >
+                      <ActiveSection />
+                    </div>
+                  </Suspense>
+                ) : null}
               </AppErrorBoundary>
             </div>
           </main>

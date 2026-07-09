@@ -4,7 +4,7 @@ import {
 } from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -87,6 +87,8 @@ export const reimbursementMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
+            moveR2Object: ctx.moveR2Object,
+            r2KeyPrefix: ctx.r2KeyPrefix,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,
@@ -136,7 +138,7 @@ export const reimbursementMutators = {
 
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-reimbursement-approved",
               {
@@ -213,6 +215,8 @@ export const reimbursementMutators = {
       {
         asyncTasks: ctx.asyncTasks,
         durablePrefix: `reimbursements/${args.id}`,
+        moveR2Object: ctx.moveR2Object,
+        r2KeyPrefix: ctx.r2KeyPrefix,
         subfolder: "attachments",
         traceId: ctx.traceId,
         txLocation: tx.location,
@@ -227,7 +231,7 @@ export const reimbursementMutators = {
       const submitterName = submitter?.name;
       ctx.asyncTasks?.push({
         fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          const enqueue = requireEnqueue(ctx);
           await enqueue(
             "notify-reimbursement-submitted",
             {
@@ -313,7 +317,7 @@ export const reimbursementMutators = {
         const approverUserId = userId;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "generate-cash-voucher",
               {
@@ -369,7 +373,7 @@ export const reimbursementMutators = {
         const { reason } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-reimbursement-rejected",
               {
@@ -481,6 +485,8 @@ export const reimbursementMutators = {
       {
         asyncTasks: ctx.asyncTasks,
         durablePrefix: `reimbursements/${args.id}`,
+        moveR2Object: ctx.moveR2Object,
+        r2KeyPrefix: ctx.r2KeyPrefix,
         subfolder: "attachments",
         traceId: ctx.traceId,
         txLocation: tx.location,

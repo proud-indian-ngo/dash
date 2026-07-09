@@ -32,7 +32,7 @@ interface ZeroInitProps {
 
 export function ZeroInit({ children }: ZeroInitProps) {
   const router = useRouter();
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const role = session?.user.role ?? "unoriented_volunteer";
   const userID = session?.user.id;
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -75,6 +75,14 @@ export function ZeroInit({ children }: ZeroInitProps) {
     },
     [router]
   );
+
+  if (isPending) {
+    return null;
+  }
+
+  if (!userID) {
+    return <>{children}</>;
+  }
 
   return (
     <ZeroProvider

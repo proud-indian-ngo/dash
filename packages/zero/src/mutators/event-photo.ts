@@ -1,6 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -54,7 +54,7 @@ export const eventPhotoMutators = {
           const { r2Key } = photo;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "immich-sync-photo",
                 {
@@ -76,8 +76,9 @@ export const eventPhotoMutators = {
         if (photo.uploadedBy !== ctx.userId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
-                await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
+              const photoNotificationDelaySeconds =
+                ctx.photoNotificationDelaySeconds ?? 120;
               await enqueue(
                 "notify-photo-approved",
                 {
@@ -87,7 +88,7 @@ export const eventPhotoMutators = {
                   uploaderId: photo.uploadedBy,
                 },
                 {
-                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  startAfter: `${photoNotificationDelaySeconds} seconds`,
                   traceId: ctx.traceId,
                 }
               );
@@ -155,7 +156,7 @@ export const eventPhotoMutators = {
               const eventName = event.name;
               ctx.asyncTasks?.push({
                 fn: async () => {
-                  const { enqueue } = await import("@pi-dash/jobs/enqueue");
+                  const enqueue = requireEnqueue(ctx);
                   await enqueue(
                     "immich-sync-photo",
                     {
@@ -177,8 +178,9 @@ export const eventPhotoMutators = {
             if (photo.uploadedBy !== ctx.userId) {
               ctx.asyncTasks?.push({
                 fn: async () => {
-                  const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
-                    await import("@pi-dash/jobs/enqueue");
+                  const enqueue = requireEnqueue(ctx);
+                  const photoNotificationDelaySeconds =
+                    ctx.photoNotificationDelaySeconds ?? 120;
                   await enqueue(
                     "notify-photo-approved",
                     {
@@ -188,7 +190,7 @@ export const eventPhotoMutators = {
                       uploaderId: photo.uploadedBy,
                     },
                     {
-                      startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                      startAfter: `${photoNotificationDelaySeconds} seconds`,
                       traceId: ctx.traceId,
                     }
                   );
@@ -248,7 +250,7 @@ export const eventPhotoMutators = {
           const { r2Key } = photo;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "delete-r2-object",
                 { r2Key },
@@ -263,7 +265,7 @@ export const eventPhotoMutators = {
           const { immichAssetId } = photo;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "immich-delete-asset",
                 { immichAssetId },
@@ -320,7 +322,7 @@ export const eventPhotoMutators = {
           const { r2Key } = photo;
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
               await enqueue(
                 "delete-r2-object",
                 { r2Key },
@@ -334,8 +336,9 @@ export const eventPhotoMutators = {
         if (photo.uploadedBy !== ctx.userId) {
           ctx.asyncTasks?.push({
             fn: async () => {
-              const { enqueue, PHOTO_NOTIFICATION_DELAY_SECONDS } =
-                await import("@pi-dash/jobs/enqueue");
+              const enqueue = requireEnqueue(ctx);
+              const photoNotificationDelaySeconds =
+                ctx.photoNotificationDelaySeconds ?? 120;
               await enqueue(
                 "notify-photo-rejected",
                 {
@@ -345,7 +348,7 @@ export const eventPhotoMutators = {
                   uploaderId: photo.uploadedBy,
                 },
                 {
-                  startAfter: `${PHOTO_NOTIFICATION_DELAY_SECONDS} seconds`,
+                  startAfter: `${photoNotificationDelaySeconds} seconds`,
                   traceId: ctx.traceId,
                 }
               );
@@ -418,6 +421,8 @@ export const eventPhotoMutators = {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: args.eventId,
             mimeType: args.mimeType,
+            moveR2Object: ctx.moveR2Object,
+            r2KeyPrefix: ctx.r2KeyPrefix,
             subfolder: "photos",
             traceId: ctx.traceId,
             txLocation: tx.location,
@@ -448,7 +453,7 @@ export const eventPhotoMutators = {
       ) {
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "immich-sync-photo",
               {

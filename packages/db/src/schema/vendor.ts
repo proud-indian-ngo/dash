@@ -1,3 +1,7 @@
+import {
+  type VendorPaymentStatus as SharedVendorPaymentStatus,
+  vendorPaymentStatusValues,
+} from "@pi-dash/shared/constants";
 import { relations, sql } from "drizzle-orm";
 import {
   check,
@@ -25,17 +29,7 @@ export type VendorStatus = (typeof vendorStatusValues)[number];
 
 export const vendorStatusEnum = pgEnum("vendor_status", vendorStatusValues);
 
-const vendorPaymentStatusValues = [
-  "pending",
-  "approved",
-  "rejected",
-  "partially_paid",
-  "paid",
-  "invoice_pending",
-  "completed",
-] as const;
-
-export type VendorPaymentStatus = (typeof vendorPaymentStatusValues)[number];
+export type VendorPaymentStatus = SharedVendorPaymentStatus;
 
 export const vendorPaymentStatusEnum = pgEnum(
   "vendor_payment_status",

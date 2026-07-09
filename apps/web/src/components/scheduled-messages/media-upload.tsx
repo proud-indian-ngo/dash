@@ -9,14 +9,12 @@ import {
   useFileUpload,
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import type { AllowedMimeType } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  type AllowedMimeType,
-  getScheduledMessageUploadUrl,
-} from "@/functions/attachments";
+import { getScheduledMessageUploadUrl } from "@/functions/attachments";
 
 const MAX_MEDIA_FILES = 5;
 const MAX_MEDIA_FILE_SIZE = 20 * 1024 * 1024; // 20 MB

@@ -1,7 +1,7 @@
 import { cityValues } from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import { requireEnqueue } from "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -63,6 +63,8 @@ export const advancePaymentMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
+            moveR2Object: ctx.moveR2Object,
+            r2KeyPrefix: ctx.r2KeyPrefix,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,
@@ -102,7 +104,7 @@ export const advancePaymentMutators = {
         const { note } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-advance-payment-approved",
               {
@@ -161,6 +163,8 @@ export const advancePaymentMutators = {
       {
         asyncTasks: ctx.asyncTasks,
         durablePrefix: `advance-payments/${args.id}`,
+        moveR2Object: ctx.moveR2Object,
+        r2KeyPrefix: ctx.r2KeyPrefix,
         subfolder: "attachments",
         traceId: ctx.traceId,
         txLocation: tx.location,
@@ -175,7 +179,7 @@ export const advancePaymentMutators = {
       const submitterName = submitter?.name ?? "Someone";
       ctx.asyncTasks?.push({
         fn: async () => {
-          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          const enqueue = requireEnqueue(ctx);
           await enqueue(
             "notify-advance-payment-submitted",
             {
@@ -269,7 +273,7 @@ export const advancePaymentMutators = {
         const { reason } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            const enqueue = requireEnqueue(ctx);
             await enqueue(
               "notify-advance-payment-rejected",
               {
@@ -383,6 +387,8 @@ export const advancePaymentMutators = {
       {
         asyncTasks: ctx.asyncTasks,
         durablePrefix: `advance-payments/${args.id}`,
+        moveR2Object: ctx.moveR2Object,
+        r2KeyPrefix: ctx.r2KeyPrefix,
         subfolder: "attachments",
         traceId: ctx.traceId,
         txLocation: tx.location,
