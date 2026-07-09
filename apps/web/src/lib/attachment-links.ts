@@ -8,6 +8,20 @@ export interface AttachmentLike {
   url?: null | string;
 }
 
+export type AttachmentDownloadTarget =
+  | {
+      id: string;
+      kind:
+        | "advancePaymentAttachment"
+        | "advancePaymentApprovalScreenshot"
+        | "eventPhoto"
+        | "reimbursementAttachment"
+        | "reimbursementApprovalScreenshot"
+        | "vendorPaymentAttachment"
+        | "vendorPaymentTransactionAttachment";
+    }
+  | { id: string; key: string; kind: "scheduledMessageAttachment" };
+
 const TRAILING_SLASH = /\/$/;
 const getAssetCdnBase = () => env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
 
@@ -41,20 +55,26 @@ export const getAttachmentPreviewHref = (
 };
 
 export const getAttachmentDownloadHref = (
-  attachment: AttachmentLike
+  attachment: AttachmentLike,
+  target?: AttachmentDownloadTarget
 ): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "#";
   }
 
-  if (!attachment.objectKey) {
+  if (!target) {
     return "#";
   }
 
   const params = new URLSearchParams({
     filename: attachment.filename ?? "attachment",
-    key: attachment.objectKey,
+    id: target.id,
+    kind: target.kind,
   });
+
+  if (target.kind === "scheduledMessageAttachment") {
+    params.set("key", target.key);
+  }
 
   return `/api/attachments/download?${params.toString()}`;
 };

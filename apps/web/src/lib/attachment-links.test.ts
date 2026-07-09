@@ -7,7 +7,10 @@ vi.mock("@pi-dash/env/web", () => ({
   },
 }));
 
-import { getAttachmentLabel } from "./attachment-links";
+import {
+  getAttachmentDownloadHref,
+  getAttachmentLabel,
+} from "./attachment-links";
 
 describe("getAttachmentLabel", () => {
   it("returns url for url attachment", () => {
@@ -44,5 +47,51 @@ describe("getAttachmentLabel", () => {
     expect(
       getAttachmentLabel({ filename: null, objectKey: null, type: "file" })
     ).toBe("Attachment");
+  });
+});
+
+describe("getAttachmentDownloadHref", () => {
+  it("builds structured download url for persisted attachments", () => {
+    expect(
+      getAttachmentDownloadHref(
+        {
+          filename: "receipt.pdf",
+          objectKey: "prefix/attachments/request/receipt.pdf",
+          type: "file",
+        },
+        { id: "attachment-id", kind: "reimbursementAttachment" }
+      )
+    ).toBe(
+      "/api/attachments/download?filename=receipt.pdf&id=attachment-id&kind=reimbursementAttachment"
+    );
+  });
+
+  it("does not build raw-key download url without a persisted target", () => {
+    expect(
+      getAttachmentDownloadHref({
+        filename: "receipt.pdf",
+        objectKey: "prefix/attachments/request/receipt.pdf",
+        type: "file",
+      })
+    ).toBe("#");
+  });
+
+  it("includes scheduled message key only with scheduled message target", () => {
+    expect(
+      getAttachmentDownloadHref(
+        {
+          filename: "media.png",
+          objectKey: "prefix/scheduled-messages/user/media.png",
+          type: "file",
+        },
+        {
+          id: "message-id",
+          key: "prefix/scheduled-messages/user/media.png",
+          kind: "scheduledMessageAttachment",
+        }
+      )
+    ).toBe(
+      "/api/attachments/download?filename=media.png&id=message-id&kind=scheduledMessageAttachment&key=prefix%2Fscheduled-messages%2Fuser%2Fmedia.png"
+    );
   });
 });

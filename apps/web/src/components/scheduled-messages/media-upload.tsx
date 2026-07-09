@@ -15,7 +15,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   type AllowedMimeType,
-  getPresignedUploadUrl,
+  getScheduledMessageUploadUrl,
 } from "@/functions/attachments";
 
 const MAX_MEDIA_FILES = 5;
@@ -27,7 +27,9 @@ const MEDIA_ACCEPT = "*";
 async function uploadSingleFile(
   file: File,
   entityId: string,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
+  getUploadUrl: ReturnType<
+    typeof useServerFn<typeof getScheduledMessageUploadUrl>
+  >
 ): Promise<MediaAttachment> {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
@@ -35,7 +37,6 @@ async function uploadSingleFile(
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type as AllowedMimeType,
-      subfolder: "scheduled-messages",
     },
   });
 
@@ -97,7 +98,7 @@ function MediaAttachmentRow({
 }
 
 export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
-  const getUploadUrl = useServerFn(getPresignedUploadUrl);
+  const getUploadUrl = useServerFn(getScheduledMessageUploadUrl);
   const [isUploading, setIsUploading] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;

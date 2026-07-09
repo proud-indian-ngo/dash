@@ -5,7 +5,7 @@ import { env } from "@pi-dash/env/web";
 import type { AllowedImageMimeType } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { toast } from "sonner";
-import { getPresignedUploadUrl } from "@/functions/attachments";
+import { getEditorImageUploadUrl } from "@/functions/attachments";
 
 const TRAILING_SLASH = /\/$/;
 function getCdnUrl(key: string): string {
@@ -20,13 +20,12 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
   const onImageUpload = useEventCallback(
     async (file: File): Promise<{ url: string } | undefined> => {
       try {
-        const { key, presignedUrl } = await getPresignedUploadUrl({
+        const { key, presignedUrl } = await getEditorImageUploadUrl({
           data: {
-            entityId,
+            eventId: entityId,
             fileName: file.name,
             fileSize: file.size,
             mimeType: file.type as AllowedImageMimeType,
-            subfolder: "updates",
           },
         });
 

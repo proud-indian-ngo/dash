@@ -1,9 +1,20 @@
 import { env } from "@pi-dash/env/server";
 import { logErrorAndRethrow } from "@pi-dash/observability";
-import { MAX_VIDEO_SIZE_BYTES } from "@pi-dash/shared/constants";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import {
+  assertCanDeleteR2Object,
+  assertCanUploadEventScopedObject,
+  assertCanUploadScheduledMessageObject,
+  persistedR2ObjectKindValues,
+  R2ObjectAccessError,
+} from "@/lib/authorized-r2-object";
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
@@ -52,6 +63,12 @@ const ALLOWED_IMAGE_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+const EVENT_MEDIA_MIME_TYPES = [
+  ...ALLOWED_IMAGE_TYPES,
+  "video/mp4",
+  "video/quicktime",
+] as const;
+
 export const MAX_AVATAR_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const sanitizeFileName = (fileName: string): string =>
@@ -61,6 +78,68 @@ const sanitizeFileName = (fileName: string): string =>
     .replaceAll(/[\\/]/g, "-")
     .replaceAll(/"/g, "")
     .replaceAll(/\s+/g, "-");
+
+const nonScheduledPersistedR2ObjectKindValues =
+  persistedR2ObjectKindValues.filter(
+    (kind) => kind !== "scheduledMessageAttachment"
+  ) as [
+    Exclude<
+      (typeof persistedR2ObjectKindValues)[number],
+      "scheduledMessageAttachment"
+    >,
+    ...Exclude<
+      (typeof persistedR2ObjectKindValues)[number],
+      "scheduledMessageAttachment"
+    >[],
+  ];
+
+const persistedR2ObjectInputSchema = z.union([
+  z.object({
+    id: z.string().min(1),
+    kind: z.enum(nonScheduledPersistedR2ObjectKindValues),
+  }),
+  z.object({
+    id: z.string().min(1),
+    key: z.string().min(1),
+    kind: z.literal("scheduledMessageAttachment"),
+  }),
+]);
+
+const scheduledMessageUploadSchema = z.object({
+  entityId: z.string().min(1),
+  fileName: z.string().min(1),
+  fileSize: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE_BYTES),
+  mimeType: z.string().min(1),
+});
+
+const eventPhotoUploadSchema = z
+  .object({
+    eventId: z.string().min(1),
+    fileName: z.string().min(1),
+    fileSize: z.number().int().positive(),
+    mimeType: z.enum(EVENT_MEDIA_MIME_TYPES),
+  })
+  .superRefine((data, ctx) => {
+    const maxBytes = data.mimeType.startsWith("video/")
+      ? MAX_VIDEO_SIZE_BYTES
+      : MAX_IMAGE_SIZE_BYTES;
+    if (data.fileSize > maxBytes) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: data.mimeType.startsWith("video/")
+          ? `Video exceeds ${MAX_VIDEO_SIZE_BYTES / 1024 / 1024} MB limit`
+          : `File exceeds ${MAX_IMAGE_SIZE_BYTES / 1024 / 1024} MB limit`,
+        path: ["fileSize"],
+      });
+    }
+  });
+
+const editorImageUploadSchema = z.object({
+  eventId: z.string().min(1),
+  fileName: z.string().min(1),
+  fileSize: z.number().int().positive().max(MAX_IMAGE_SIZE_BYTES),
+  mimeType: z.enum(ALLOWED_IMAGE_TYPES),
+});
 
 export const getPresignedUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -104,9 +183,12 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
       })
   )
   .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
     try {
       const s3 = await getS3();
-      const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/tmp/${context.session.user.id}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
       // NOTE: Bun's S3.presign() does not support content-length conditions.
       // fileSize is validated by Zod above but cannot be enforced at the storage layer.
       // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
@@ -134,6 +216,134 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
     }
   });
 
+export const getEventPhotoUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(eventPhotoUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      await assertCanUploadEventScopedObject(
+        context.session,
+        data.eventId,
+        "events.manage_photos"
+      );
+      const s3 = await getS3();
+      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.photos}/${data.eventId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const presignedUrl = s3.presign(key, {
+        expiresIn: 300,
+        method: "PUT",
+        type: data.mimeType,
+      });
+      return { key, presignedUrl };
+    } catch (error) {
+      if (error instanceof R2ObjectAccessError) {
+        throw new Error(
+          error.status === 403 ? "Forbidden" : "Event not found",
+          { cause: error }
+        );
+      }
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getEventPhotoUploadUrl" },
+        {
+          eventId: data.eventId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getEventPhotoUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getScheduledMessageUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(scheduledMessageUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      await assertCanUploadScheduledMessageObject(context.session);
+      const s3 = await getS3();
+      const ownerSegment =
+        data.entityId === "scheduled-message-draft"
+          ? `tmp/${context.session.user.id}`
+          : data.entityId;
+      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/${ownerSegment}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const presignedUrl = s3.presign(key, {
+        expiresIn: 300,
+        method: "PUT",
+        type: data.mimeType,
+      });
+      return { key, presignedUrl };
+    } catch (error) {
+      if (error instanceof R2ObjectAccessError) {
+        throw new Error(error.status === 403 ? "Forbidden" : "Not found", {
+          cause: error,
+        });
+      }
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getScheduledMessageUploadUrl" },
+        {
+          entityId: data.entityId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getScheduledMessageUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getEditorImageUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(editorImageUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      await assertCanUploadEventScopedObject(
+        context.session,
+        data.eventId,
+        "event_updates.create"
+      );
+      const s3 = await getS3();
+      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.updates}/${data.eventId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const presignedUrl = s3.presign(key, {
+        expiresIn: 300,
+        method: "PUT",
+        type: data.mimeType,
+      });
+      return { key, presignedUrl };
+    } catch (error) {
+      if (error instanceof R2ObjectAccessError) {
+        throw new Error(
+          error.status === 403 ? "Forbidden" : "Event not found",
+          { cause: error }
+        );
+      }
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getEditorImageUploadUrl" },
+        {
+          eventId: data.eventId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getEditorImageUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
 export const deleteUploadedAsset = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
@@ -149,22 +359,32 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data, context }) => {
-    const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
-    if (!data.key.startsWith(expectedPrefix)) {
-      throw new Error("Forbidden");
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
     try {
+      const resolved = await assertCanDeleteR2Object(context.session, {
+        key: data.key,
+        kind: "temporaryUpload",
+        subfolder: data.subfolder,
+      });
       const s3 = await getS3();
-      await s3.delete(data.key);
+      await s3.delete(resolved.key);
       return { success: true };
     } catch (error) {
+      if (error instanceof R2ObjectAccessError) {
+        throw new Error(
+          error.status === 403 ? "Forbidden" : "Asset not found",
+          { cause: error }
+        );
+      }
       logErrorAndRethrow(
         { method: "POST", path: "/fn/deleteUploadedAsset" },
         {
           handler: "deleteUploadedAsset",
           key: data.key,
           subfolder: data.subfolder,
-          userId: context.session?.user.id,
+          userId: context.session.user.id,
         },
         error
       );
@@ -240,39 +460,38 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
     }
   });
 
-export const deleteUploadedAssets = createServerFn({ method: "POST" })
+export const deletePersistedR2Objects = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
-      keys: z.array(z.string().startsWith(`${env.R2_KEY_PREFIX}/`)),
-      subfolder: z.enum([
-        R2_SUBFOLDERS.attachments,
-        R2_SUBFOLDERS.approvalScreenshots,
-        R2_SUBFOLDERS.photos,
-        R2_SUBFOLDERS.scheduledMessages,
-        R2_SUBFOLDERS.updates,
-      ]),
+      objects: z.array(persistedR2ObjectInputSchema).min(1),
     })
   )
   .handler(async ({ data, context }) => {
-    const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
-    for (const key of data.keys) {
-      if (!key.startsWith(expectedPrefix)) {
-        throw new Error("Forbidden");
-      }
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
+    const { session } = context;
     try {
+      const resolved = await Promise.all(
+        data.objects.map((object) => assertCanDeleteR2Object(session, object))
+      );
       const s3 = await getS3();
-      await Promise.all(data.keys.map((key) => s3.delete(key)));
+      await Promise.all(resolved.map(({ key }) => s3.delete(key)));
       return { success: true };
     } catch (error) {
+      if (error instanceof R2ObjectAccessError) {
+        throw new Error(
+          error.status === 403 ? "Forbidden" : "Asset not found",
+          { cause: error }
+        );
+      }
       logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteUploadedAssets" },
+        { method: "POST", path: "/fn/deletePersistedR2Objects" },
         {
-          handler: "deleteUploadedAssets",
-          keyCount: data.keys.length,
-          subfolder: data.subfolder,
-          userId: context.session?.user.id,
+          handler: "deletePersistedR2Objects",
+          objectCount: data.objects.length,
+          userId: context.session.user.id,
         },
         error
       );

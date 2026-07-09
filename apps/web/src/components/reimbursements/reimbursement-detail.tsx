@@ -36,6 +36,7 @@ import {
   isReimbursement,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
+  type RequestType,
 } from "@/lib/reimbursement-types";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -44,6 +45,16 @@ interface ReimbursementDetailProps {
   canUpdateAnyStatus?: boolean;
   request: RequestDetailData;
 }
+
+const ATTACHMENT_DOWNLOAD_KIND_BY_REQUEST_TYPE = {
+  advance_payment: "advancePaymentAttachment",
+  reimbursement: "reimbursementAttachment",
+} as const satisfies Record<RequestType, string>;
+
+const APPROVAL_SCREENSHOT_DOWNLOAD_KIND_BY_REQUEST_TYPE = {
+  advance_payment: "advancePaymentApprovalScreenshot",
+  reimbursement: "reimbursementApprovalScreenshot",
+} as const satisfies Record<RequestType, string>;
 
 export function ReimbursementDetail({
   canApprove,
@@ -58,6 +69,10 @@ export function ReimbursementDetail({
   );
 
   const typeLabel = REQUEST_TYPE_LABELS[request.type];
+  const attachmentDownloadKind =
+    ATTACHMENT_DOWNLOAD_KIND_BY_REQUEST_TYPE[request.type];
+  const approvalScreenshotDownloadKind =
+    APPROVAL_SCREENSHOT_DOWNLOAD_KIND_BY_REQUEST_TYPE[request.type];
 
   const mutatorMap = {
     advance_payment: { name: "advancePayment", ns: mutators.advancePayment },
@@ -279,13 +294,16 @@ export function ReimbursementDetail({
               <a
                 className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                 download
-                href={getAttachmentDownloadHref({
-                  filename: "payment-proof",
-                  mimeType: "image/jpeg",
-                  objectKey: request.approvalScreenshotKey,
-                  type: "file",
-                  url: null,
-                })}
+                href={getAttachmentDownloadHref(
+                  {
+                    filename: "payment-proof",
+                    mimeType: "image/jpeg",
+                    objectKey: request.approvalScreenshotKey,
+                    type: "file",
+                    url: null,
+                  },
+                  { id: request.id, kind: approvalScreenshotDownloadKind }
+                )}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -346,7 +364,10 @@ export function ReimbursementDetail({
                         <a
                           className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                           download
-                          href={getAttachmentDownloadHref(att)}
+                          href={getAttachmentDownloadHref(att, {
+                            id: att.id,
+                            kind: attachmentDownloadKind,
+                          })}
                           rel="noopener noreferrer"
                           target="_blank"
                         >

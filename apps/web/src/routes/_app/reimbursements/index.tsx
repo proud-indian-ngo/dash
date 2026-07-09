@@ -14,7 +14,7 @@ import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
-import { deleteUploadedAssets } from "@/functions/attachments";
+import { deletePersistedR2Objects } from "@/functions/attachments";
 import { cityOptions } from "@/lib/form-schemas";
 import {
   normalizeToRequestRows,
@@ -106,14 +106,21 @@ function ReimbursementsRouteComponent() {
     const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
     try {
       const item = await fetchRequestItem(zero, row);
-      const r2Keys =
+      const attachmentKind =
+        row.type === "reimbursement"
+          ? ("reimbursementAttachment" as const)
+          : ("advancePaymentAttachment" as const);
+      const r2Objects =
         item?.attachments
           ?.filter((a) => a.type === "file" && a.objectKey)
-          .map((a) => a.objectKey as string) ?? [];
+          .map((a) => ({
+            id: a.id,
+            kind: attachmentKind,
+          })) ?? [];
 
-      if (r2Keys.length > 0) {
-        await deleteUploadedAssets({
-          data: { keys: r2Keys, subfolder: "attachments" },
+      if (r2Objects.length > 0) {
+        await deletePersistedR2Objects({
+          data: { objects: r2Objects },
         });
       }
 

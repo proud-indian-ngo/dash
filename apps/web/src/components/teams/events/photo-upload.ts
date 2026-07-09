@@ -4,10 +4,7 @@ import {
 } from "@pi-dash/shared/constants";
 import type { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  type getPresignedUploadUrl,
-  toAllowedMimeType,
-} from "@/functions/attachments";
+import type { getEventPhotoUploadUrl } from "@/functions/attachments";
 
 const IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -54,16 +51,15 @@ export function validateFiles(files: FileList): File[] {
 
 export async function uploadFileToR2(
   file: File,
-  entityId: string,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
+  eventId: string,
+  getUploadUrl: ReturnType<typeof useServerFn<typeof getEventPhotoUploadUrl>>
 ): Promise<string> {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
-      entityId,
+      eventId,
       fileName: file.name,
       fileSize: file.size,
-      mimeType: toAllowedMimeType(file.type),
-      subfolder: "photos",
+      mimeType: file.type as (typeof MEDIA_MIME_TYPES)[number],
     },
   });
 

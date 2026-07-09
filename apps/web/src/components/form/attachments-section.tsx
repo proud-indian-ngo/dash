@@ -26,7 +26,6 @@ import {
 } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
 import {
-  getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
@@ -138,25 +137,14 @@ function AttachmentRow({
             </span>
           </a>
         ) : (
-          <>
-            <a
-              className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-              href={getAttachmentPreviewHref(attachment)}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Preview
-            </a>
-            <a
-              className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-              download
-              href={getAttachmentDownloadHref(attachment)}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Download
-            </a>
-          </>
+          <a
+            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+            href={getAttachmentPreviewHref(attachment)}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Preview
+          </a>
         )}
         <Button
           aria-label="Remove attachment"
