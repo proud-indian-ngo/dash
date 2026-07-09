@@ -1,0 +1,66 @@
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_c2914e76f9b786 301-311
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_bfa04f1f053e0b 21
+apps/web/src/functions/attachments.test.ts
+  s_adf55c018923eb::t_ceffc2b47e3e4e 23,32,83-101
+  s_adf55c018923eb::t_def349ab21c63e 102-103
+packages/zero/src/mutators/__tests__/event-photo.test.ts
+  s_adf55c018923eb::t_74bad08c8478ce 46,69,79,99,108
+packages/zero/src/mutators/event-photo.ts
+  s_adf55c018923eb::t_03cbe170366ae9 11,416-428,437,447
+packages/zero/src/mutators/advance-payment.ts
+  s_adf55c018923eb::t_5cdfaa06df0796 66,74-83
+  s_adf55c018923eb::t_d157532445c873 84
+packages/zero/src/mutators/__tests__/scheduled-message.test.ts
+  s_adf55c018923eb::t_25da8c15a33c11 229-232,251,255-256,263-265
+  s_adf55c018923eb::t_bd86802ed1717f 237,240,258,261
+  s_adf55c018923eb::t_d97d3269de24f1 1,4-9,50-57,224-228,233-236,238-239,241-250,252-254,257,259-260,262,266-267
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_4d294ecd28fd1f 16
+apps/web/src/routes/api/attachments/download.ts
+  s_adf55c018923eb::t_5081f8e7b7c183 46-61,128-129,132,136-137,172,176
+  s_adf55c018923eb::t_cc7ac0e74ff4a1 27-45,130-131,167-168
+  s_adf55c018923eb::t_aead866054514b 133
+packages/zero/src/mutators/scheduled-message.ts
+  s_adf55c018923eb::t_4dd66bb1b5693c 41-42,49
+  s_adf55c018923eb::t_f54010ad52969e 14-21,23-40,43-48,50-55,163,169,172-178,215-229,448,454,458-464,519-532
+  s_adf55c018923eb::t_039a6688168425 22
+  s_ea36bf917e6eca::t_1e7971461b2cf7 533
+packages/zero/src/mutators/reimbursement.ts
+  s_adf55c018923eb::t_94101add1956a9 90,98-107
+  s_adf55c018923eb::t_2af287729736f6 108
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_29aad02d9604d2 97-105,249-252
+apps/web/src/routes/api/attachments/download.test.ts
+  s_adf55c018923eb::t_94cb1a6323fb07 152,156,161-166,175-216,221-222
+  s_adf55c018923eb::t_ba95b4a9dcc5c1 217-220
+  s_adf55c018923eb::t_91d9cab1b82e13 223
+packages/zero/src/mutators/vendor-payment.ts
+  s_adf55c018923eb::t_e3e5eb85a1fd62 61,69-78
+  s_adf55c018923eb::t_b5bf2649629fac 79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0c46dd22a4f00999c10ae45f8873959e40caec77",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_ea36bf917e6eca": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4591-aa71-7e60-9cd8-c875979af937",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
