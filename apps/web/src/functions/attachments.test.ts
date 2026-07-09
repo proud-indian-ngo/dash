@@ -107,6 +107,7 @@ function createDeps(
 ): ScheduledMessageUploadDeps {
   return {
     assertCanUploadScheduledMessageObject: async () => undefined,
+    getR2KeyPrefix: () => "app",
     getS3: () => ({
       presign: (key: string) => `signed:${key}`,
     }),
@@ -119,6 +120,7 @@ describe("buildScheduledMessageUploadKey", () => {
     expect(
       buildScheduledMessageUploadKey({
         fileName: "Campaign Media.png",
+        r2KeyPrefix: "app",
         uploadId: "upload-id",
         userId: "user-1",
       })
@@ -137,6 +139,7 @@ describe("buildScheduledMessageUploadKey", () => {
         session,
         {
           assertCanUploadScheduledMessageObject: async () => undefined,
+          getR2KeyPrefix: () => "app",
           getS3: () => ({
             presign: (key: string) => `signed:${key}`,
           }),
@@ -154,6 +157,7 @@ describe("buildEventPhotoUploadKey", () => {
     expect(
       buildEventPhotoUploadKey({
         fileName: "Team Photo.jpg",
+        r2KeyPrefix: "app",
         uploadId: "upload-id",
         userId: "user-1",
       })
@@ -164,6 +168,7 @@ describe("buildEventPhotoUploadKey", () => {
     expect(
       buildEventPhotoUploadKey({
         fileName: "photo.jpg",
+        r2KeyPrefix: "app",
         userId: "user-1",
       })
     ).toEqual(expect.stringMatching(EVENT_PHOTO_KEY_RE));

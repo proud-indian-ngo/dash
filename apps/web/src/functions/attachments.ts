@@ -59,29 +59,33 @@ const scheduledMessageUploadSchema = z.object({
 
 export function buildScheduledMessageUploadKey(input: {
   fileName: string;
+  r2KeyPrefix: string;
   uploadId?: string;
   userId: string;
 }): string {
   const uploadId = input.uploadId ?? uuidv7();
-  return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
+  return `${input.r2KeyPrefix}/${R2_SUBFOLDERS.scheduledMessages}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
 }
 
 export function buildEventPhotoUploadKey(input: {
   fileName: string;
+  r2KeyPrefix: string;
   uploadId?: string;
   userId: string;
 }): string {
   const uploadId = input.uploadId ?? uuidv7();
-  return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.photos}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
+  return `${input.r2KeyPrefix}/${R2_SUBFOLDERS.photos}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
 }
 
 export interface ScheduledMessageUploadDeps {
   assertCanUploadScheduledMessageObject: typeof assertCanUploadScheduledMessageObject;
+  getR2KeyPrefix: () => string;
   getS3: () => Pick<ReturnType<typeof getS3>, "presign">;
 }
 
 const defaultScheduledMessageUploadDeps: ScheduledMessageUploadDeps = {
   assertCanUploadScheduledMessageObject,
+  getR2KeyPrefix: () => env.R2_KEY_PREFIX,
   getS3,
 };
 
@@ -94,6 +98,7 @@ export async function createScheduledMessageUpload(
   const s3 = await deps.getS3();
   const key = buildScheduledMessageUploadKey({
     fileName: data.fileName,
+    r2KeyPrefix: deps.getR2KeyPrefix(),
     userId: session.user.id,
   });
   const presignedUrl = s3.presign(key, {
@@ -220,6 +225,7 @@ export const getEventPhotoUploadUrl = createServerFn({ method: "POST" })
       const s3 = await getS3();
       const key = buildEventPhotoUploadKey({
         fileName: data.fileName,
+        r2KeyPrefix: env.R2_KEY_PREFIX,
         userId: context.session.user.id,
       });
       const presignedUrl = s3.presign(key, {
@@ -327,7 +333,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
-      key: z.string().startsWith(`${env.R2_KEY_PREFIX}/`),
+      key: z.string().min(1),
       subfolder: z.enum([
         R2_SUBFOLDERS.attachments,
         R2_SUBFOLDERS.approvalScreenshots,

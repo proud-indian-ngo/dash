@@ -8,9 +8,11 @@ import * as schema from "./schema";
 // Cache on globalThis to survive Vite SSR HMR (same pattern as pg-boss in packages/jobs)
 const DB_KEY = "__drizzle_db__";
 
+type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
+
 function createDb() {
   const existing = (globalThis as Record<string, unknown>)[DB_KEY] as
-    | ReturnType<typeof drizzle<typeof schema>>
+    | DrizzleDb
     | undefined;
   if (existing) {
     return existing;
@@ -27,4 +29,15 @@ function createDb() {
   return instance;
 }
 
-export const db = createDb();
+function createBrowserDbProxy(): DrizzleDb {
+  return new Proxy({} as DrizzleDb, {
+    get() {
+      throw new Error("db is server-only and cannot be used in the browser");
+    },
+  });
+}
+
+const isBrowser =
+  typeof (globalThis as { window?: unknown }).window !== "undefined";
+
+export const db = isBrowser ? createBrowserDbProxy() : createDb();
