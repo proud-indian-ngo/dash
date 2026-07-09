@@ -5,12 +5,18 @@
 
 ## Cloudflare R2 (Attachments)
 
-1. Client requests presigned URL via `getPresignedUploadUrl` server fn.
+1. Client requests presigned URL via the scoped server fn for that upload surface.
 2. Client uploads directly to R2 via presigned PUT.
 3. Object key stored in DB (attachment record).
 4. Download proxied through `/api/attachments/download`.
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+Upload signers:
+- `getPresignedUploadUrl`: temporary `attachments` and `approval-screenshots` uploads.
+- `getEventPhotoUploadUrl`: event photo uploads after event access checks.
+- `getEditorImageUploadUrl`: event update image uploads after event access checks.
+- `getScheduledMessageUploadUrl`: scheduled message media uploads after `messages.schedule` checks.
+
+R2 subfolders: `attachments`, `approval-screenshots`, `avatars`, `photos`, `scheduled-messages`, `updates`.
 
 ## Immich (Event Photos)
 
@@ -70,5 +76,5 @@ Photo sync is **ordered** for crash safety:
 ## Asset Proxying
 
 R2 objects never exposed directly to clients:
-- Downloads: `/api/attachments/download?id=<attachmentId>` — validates permission, streams from R2.
+- Downloads: `/api/attachments/download?id=<id>&kind=<kind>` — validates permission, streams from R2. Scheduled message downloads also require `key=<r2Key>`.
 - Immich thumbnails: `/api/immich/thumbnail.$id` + `/api/immich/original.$id` — proxies through the server with API key injected. Client never sees `IMMICH_API_KEY`.

@@ -24,7 +24,7 @@ const isPersistedR2ObjectKind = (
 ): value is PersistedR2ObjectKind =>
   persistedR2ObjectKindValues.includes(value as PersistedR2ObjectKind);
 
-const parseDownloadTarget = (
+export const parseDownloadTarget = (
   requestUrl: URL
 ): PersistedR2ObjectInput | Response => {
   const id = requestUrl.searchParams.get("id")?.trim();

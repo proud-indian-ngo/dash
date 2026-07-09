@@ -27,8 +27,6 @@ import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
-  getDirectAttachmentUrl,
-  getImageThumbnailUrl,
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -73,6 +71,18 @@ export function ReimbursementDetail({
     ATTACHMENT_DOWNLOAD_KIND_BY_REQUEST_TYPE[request.type];
   const approvalScreenshotDownloadKind =
     APPROVAL_SCREENSHOT_DOWNLOAD_KIND_BY_REQUEST_TYPE[request.type];
+  const paymentProofHref = request.approvalScreenshotKey
+    ? getAttachmentDownloadHref(
+        {
+          filename: "payment-proof",
+          mimeType: "image/jpeg",
+          objectKey: request.approvalScreenshotKey,
+          type: "file",
+          url: null,
+        },
+        { id: request.id, kind: approvalScreenshotDownloadKind }
+      )
+    : null;
 
   const mutatorMap = {
     advance_payment: { name: "advancePayment", ns: mutators.advancePayment },
@@ -274,12 +284,12 @@ export function ReimbursementDetail({
         ) : null}
 
         {/* Payment proof */}
-        {request.status === "approved" && request.approvalScreenshotKey ? (
+        {request.status === "approved" && paymentProofHref ? (
           <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-out-expo">
             <h2 className="font-medium text-sm">Payment proof</h2>
             <div className="flex flex-col items-start gap-1.5">
               <a
-                href={getDirectAttachmentUrl(request.approvalScreenshotKey)}
+                href={paymentProofHref}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -287,23 +297,14 @@ export function ReimbursementDetail({
                   alt="Payment proof"
                   className="h-24 w-24 rounded-md border object-cover"
                   height={96}
-                  src={getImageThumbnailUrl(request.approvalScreenshotKey, 192)}
+                  src={paymentProofHref}
                   width={96}
                 />
               </a>
               <a
                 className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                 download
-                href={getAttachmentDownloadHref(
-                  {
-                    filename: "payment-proof",
-                    mimeType: "image/jpeg",
-                    objectKey: request.approvalScreenshotKey,
-                    type: "file",
-                    url: null,
-                  },
-                  { id: request.id, kind: approvalScreenshotDownloadKind }
-                )}
+                href={paymentProofHref}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -352,7 +353,10 @@ export function ReimbursementDetail({
                       <>
                         <a
                           className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                          href={getAttachmentPreviewHref(att)}
+                          href={getAttachmentPreviewHref(att, {
+                            id: att.id,
+                            kind: attachmentDownloadKind,
+                          })}
                           rel="noopener noreferrer"
                           target="_blank"
                         >

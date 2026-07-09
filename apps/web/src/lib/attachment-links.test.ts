@@ -10,6 +10,7 @@ vi.mock("@pi-dash/env/web", () => ({
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
+  getAttachmentPreviewHref,
 } from "./attachment-links";
 
 describe("getAttachmentLabel", () => {
@@ -92,6 +93,47 @@ describe("getAttachmentDownloadHref", () => {
       )
     ).toBe(
       "/api/attachments/download?filename=media.png&id=message-id&kind=scheduledMessageAttachment&key=prefix%2Fscheduled-messages%2Fuser%2Fmedia.png"
+    );
+  });
+});
+
+describe("getAttachmentPreviewHref", () => {
+  it("does not build raw object-key previews by default", () => {
+    expect(
+      getAttachmentPreviewHref({
+        filename: "receipt.pdf",
+        objectKey: "prefix/attachments/tmp/user/receipt.pdf",
+        type: "file",
+      })
+    ).toBe("#");
+  });
+
+  it("allows direct preview only when caller marks the object as temporary", () => {
+    expect(
+      getAttachmentPreviewHref(
+        {
+          filename: "receipt.pdf",
+          objectKey: "prefix/attachments/tmp/user/receipt.pdf",
+          type: "file",
+        },
+        undefined,
+        { allowDirectObjectPreview: true }
+      )
+    ).toBe("http://localhost/prefix/attachments/tmp/user/receipt.pdf");
+  });
+
+  it("uses the authorized download route for persisted preview targets", () => {
+    expect(
+      getAttachmentPreviewHref(
+        {
+          filename: "receipt.pdf",
+          objectKey: "prefix/attachments/request/receipt.pdf",
+          type: "file",
+        },
+        { id: "attachment-id", kind: "reimbursementAttachment" }
+      )
+    ).toBe(
+      "/api/attachments/download?filename=receipt.pdf&id=attachment-id&kind=reimbursementAttachment"
     );
   });
 });

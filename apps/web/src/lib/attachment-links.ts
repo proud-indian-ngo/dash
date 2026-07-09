@@ -25,12 +25,8 @@ export type AttachmentDownloadTarget =
 const TRAILING_SLASH = /\/$/;
 const getAssetCdnBase = () => env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
 
-export const getDirectAttachmentUrl = (objectKey: string): string =>
+const getDirectAttachmentUrl = (objectKey: string): string =>
   `${getAssetCdnBase()}/${objectKey}`;
-
-/** Cloudflare-resized thumbnail for inline `<img>` embeds (e.g. payment proof). */
-export const getImageThumbnailUrl = (objectKey: string, size: number): string =>
-  `${getAssetCdnBase()}/cdn-cgi/image/width=${size},height=${size},fit=cover,format=auto,quality=80/${objectKey}`;
 
 export const getAttachmentLabel = (attachment: AttachmentLike): string => {
   if (attachment.type === "url") {
@@ -41,13 +37,23 @@ export const getAttachmentLabel = (attachment: AttachmentLike): string => {
 };
 
 export const getAttachmentPreviewHref = (
-  attachment: AttachmentLike
+  attachment: AttachmentLike,
+  target?: AttachmentDownloadTarget,
+  options: { allowDirectObjectPreview?: boolean } = {}
 ): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "#";
   }
 
+  if (target) {
+    return getAttachmentDownloadHref(attachment, target);
+  }
+
   if (!attachment.objectKey) {
+    return "#";
+  }
+
+  if (!options.allowDirectObjectPreview) {
     return "#";
   }
 

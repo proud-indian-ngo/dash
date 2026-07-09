@@ -5,10 +5,13 @@ vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: async () => [],
 }));
 
+import { env } from "@pi-dash/env/server";
 import {
   type AuthorizedR2ObjectDeps,
-  assertCanDeleteR2Object,
+  assertCanDeleteTemporaryUpload,
   assertCanDownloadR2Object,
+  assertCanUploadEventScopedObject,
+  assertCanUploadScheduledMessageObject,
   R2ObjectAccessError,
 } from "./authorized-r2-object";
 
@@ -98,20 +101,27 @@ describe("authorized R2 object resolver", () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
-  it("rejects raw-key delete for persisted object paths", async () => {
-    const deps = createDeps();
+  it("rejects raw-key delete for persisted object paths", () => {
+    expect(() =>
+      assertCanDeleteTemporaryUpload(ownerSession, {
+        key: "app/attachments/reimbursement/receipt.pdf",
+        subfolder: "attachments",
+      })
+    ).toThrow(R2ObjectAccessError);
+  });
 
-    await expect(
-      assertCanDeleteR2Object(
-        ownerSession,
-        {
-          key: "app/attachments/reimbursement/receipt.pdf",
-          kind: "temporaryUpload",
-          subfolder: "attachments",
-        },
-        deps
-      )
-    ).rejects.toBeInstanceOf(R2ObjectAccessError);
+  it("allows raw-key delete for current user's temporary upload", () => {
+    const key = `${env.R2_KEY_PREFIX}/attachments/tmp/owner/receipt.pdf`;
+
+    expect(
+      assertCanDeleteTemporaryUpload(ownerSession, {
+        key,
+        subfolder: "attachments",
+      })
+    ).toEqual({
+      filename: "receipt.pdf",
+      key,
+    });
   });
 
   it("allows uploader to resolve own pending event photo", async () => {
@@ -179,5 +189,170 @@ describe("authorized R2 object resolver", () => {
         deps
       )
     ).resolves.toMatchObject({ key: "app/photos/event/photo.jpg" });
+  });
+
+  it("allows scheduled message creator to resolve attachment by message and key", async () => {
+    const deps = createDeps({
+      findScheduledMessage: async () => ({
+        attachments: [
+          {
+            fileName: "media.png",
+            mimeType: "image/png",
+            r2Key: "app/scheduled-messages/message/media.png",
+          },
+        ],
+        createdBy: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        {
+          id: "message-id",
+          key: "app/scheduled-messages/message/media.png",
+          kind: "scheduledMessageAttachment",
+        },
+        deps
+      )
+    ).resolves.toEqual({
+      filename: "media.png",
+      key: "app/scheduled-messages/message/media.png",
+    });
+  });
+
+  it("rejects scheduled message attachment for unrelated user", async () => {
+    const deps = createDeps({
+      findScheduledMessage: async () => ({
+        attachments: [
+          {
+            fileName: "media.png",
+            mimeType: "image/png",
+            r2Key: "app/scheduled-messages/message/media.png",
+          },
+        ],
+        createdBy: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        otherSession,
+        {
+          id: "message-id",
+          key: "app/scheduled-messages/message/media.png",
+          kind: "scheduledMessageAttachment",
+        },
+        deps
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows messages.schedule user to resolve scheduled message attachment", async () => {
+    const deps = createDeps({
+      findScheduledMessage: async () => ({
+        attachments: [
+          {
+            fileName: "media.png",
+            mimeType: "image/png",
+            r2Key: "app/scheduled-messages/message/media.png",
+          },
+        ],
+        createdBy: "owner",
+      }),
+      resolvePermissions: async (role) =>
+        role === "manager" ? ["messages.schedule"] : [],
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        managerSession,
+        {
+          id: "message-id",
+          key: "app/scheduled-messages/message/media.png",
+          kind: "scheduledMessageAttachment",
+        },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/scheduled-messages/message/media.png",
+    });
+  });
+
+  it("allows owner to resolve vendor payment transaction attachment", async () => {
+    const deps = createDeps({
+      findVendorPaymentTransactionAttachment: async () => ({
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/vendor-payment-transaction/receipt.pdf",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        { id: "attachment-id", kind: "vendorPaymentTransactionAttachment" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/attachments/vendor-payment-transaction/receipt.pdf",
+    });
+  });
+
+  it("allows event member to upload event-scoped object for past event", async () => {
+    const deps = createDeps({
+      findEvent: async () => ({
+        startTime: new Date("2026-01-01T00:00:00.000Z"),
+        teamId: "team-id",
+      }),
+      isEventMember: async (eventId, userId) =>
+        eventId === "event-id" && userId === "owner",
+    });
+
+    await expect(
+      assertCanUploadEventScopedObject(
+        ownerSession,
+        "event-id",
+        "events.manage_photos",
+        deps,
+        new Date("2026-01-02T00:00:00.000Z")
+      )
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects event-scoped upload before the event starts", async () => {
+    const deps = createDeps({
+      findEvent: async () => ({
+        startTime: new Date("2026-01-03T00:00:00.000Z"),
+        teamId: "team-id",
+      }),
+      isEventMember: async () => true,
+    });
+
+    await expect(
+      assertCanUploadEventScopedObject(
+        ownerSession,
+        "event-id",
+        "events.manage_photos",
+        deps,
+        new Date("2026-01-02T00:00:00.000Z")
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("requires messages.schedule to upload scheduled message media", async () => {
+    await expect(
+      assertCanUploadScheduledMessageObject(ownerSession, createDeps())
+    ).rejects.toMatchObject({ status: 403 });
+
+    await expect(
+      assertCanUploadScheduledMessageObject(
+        managerSession,
+        createDeps({
+          resolvePermissions: async (role) =>
+            role === "manager" ? ["messages.schedule"] : [],
+        })
+      )
+    ).resolves.toBeUndefined();
   });
 });

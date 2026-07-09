@@ -51,10 +51,6 @@ export type PersistedR2ObjectInput =
     }
   | { id: string; key: string; kind: "scheduledMessageAttachment" };
 
-export type DeleteR2ObjectInput =
-  | PersistedR2ObjectInput
-  | { key: string; kind: "temporaryUpload"; subfolder: R2Subfolder };
-
 export interface ResolvedR2Object {
   filename: string;
   key: string;
@@ -248,9 +244,9 @@ async function assertCanAccessScheduledMessageAttachment(
   };
 }
 
-function assertCanDeleteTemporaryUpload(
+export function assertCanDeleteTemporaryUpload(
   session: SessionLike,
-  input: Extract<DeleteR2ObjectInput, { kind: "temporaryUpload" }>
+  input: { key: string; subfolder: R2Subfolder }
 ): ResolvedR2Object {
   const expectedPrefix = `${env.R2_KEY_PREFIX}/${input.subfolder}/tmp/${session.user.id}/`;
   if (!input.key.startsWith(expectedPrefix)) {
@@ -314,19 +310,6 @@ export async function assertCanDownloadR2Object(
       return _exhaustive;
     }
   }
-}
-
-export async function assertCanDeleteR2Object(
-  session: SessionLike,
-  input: DeleteR2ObjectInput,
-  deps = defaultAuthorizedR2ObjectDeps
-): Promise<{ key: string }> {
-  if (input.kind === "temporaryUpload") {
-    return assertCanDeleteTemporaryUpload(session, input);
-  }
-
-  const resolved = await assertCanDownloadR2Object(session, input, deps);
-  return { key: resolved.key };
 }
 
 export async function assertCanUploadEventScopedObject(

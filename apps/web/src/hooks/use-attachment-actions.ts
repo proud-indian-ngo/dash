@@ -5,16 +5,17 @@ import { toast } from "sonner";
 import { deleteUploadedAsset } from "@/functions/attachments";
 import type { Attachment } from "@/lib/form-schemas";
 
-const isTemporaryAttachmentKey = (objectKey: string): boolean =>
-  objectKey.includes("/attachments/tmp/");
-
 interface UseAttachmentActionsParams {
   onChange: (attachments: Attachment[]) => void;
+  onTemporaryObjectDeleted?: (objectKey: string) => void;
+  temporaryObjectKeys?: ReadonlySet<string>;
   value: Attachment[];
 }
 
 export const useAttachmentActions = ({
   onChange,
+  onTemporaryObjectDeleted,
+  temporaryObjectKeys,
   value,
 }: UseAttachmentActionsParams) => {
   const deleteAsset = useServerFn(deleteUploadedAsset);
@@ -27,11 +28,12 @@ export const useAttachmentActions = ({
     try {
       if (
         attachment.type === "file" &&
-        isTemporaryAttachmentKey(attachment.objectKey)
+        temporaryObjectKeys?.has(attachment.objectKey)
       ) {
         await deleteAsset({
           data: { key: attachment.objectKey, subfolder: "attachments" },
         });
+        onTemporaryObjectDeleted?.(attachment.objectKey);
       }
 
       onChange(value.filter((item) => item.id !== attachmentId));

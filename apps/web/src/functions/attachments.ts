@@ -9,10 +9,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import {
-  assertCanDeleteR2Object,
+  assertCanDeleteTemporaryUpload,
   assertCanUploadEventScopedObject,
   assertCanUploadScheduledMessageObject,
-  persistedR2ObjectKindValues,
   R2ObjectAccessError,
 } from "@/lib/authorized-r2-object";
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
@@ -79,32 +78,6 @@ const sanitizeFileName = (fileName: string): string =>
     .replaceAll(/"/g, "")
     .replaceAll(/\s+/g, "-");
 
-const nonScheduledPersistedR2ObjectKindValues =
-  persistedR2ObjectKindValues.filter(
-    (kind) => kind !== "scheduledMessageAttachment"
-  ) as [
-    Exclude<
-      (typeof persistedR2ObjectKindValues)[number],
-      "scheduledMessageAttachment"
-    >,
-    ...Exclude<
-      (typeof persistedR2ObjectKindValues)[number],
-      "scheduledMessageAttachment"
-    >[],
-  ];
-
-const persistedR2ObjectInputSchema = z.union([
-  z.object({
-    id: z.string().min(1),
-    kind: z.enum(nonScheduledPersistedR2ObjectKindValues),
-  }),
-  z.object({
-    id: z.string().min(1),
-    key: z.string().min(1),
-    kind: z.literal("scheduledMessageAttachment"),
-  }),
-]);
-
 const scheduledMessageUploadSchema = z.object({
   entityId: z.string().min(1),
   fileName: z.string().min(1),
@@ -152,15 +125,11 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
         mimeType: z.string().min(1),
         subfolder: z.enum([
           R2_SUBFOLDERS.attachments,
-          R2_SUBFOLDERS.photos,
-          R2_SUBFOLDERS.scheduledMessages,
-          R2_SUBFOLDERS.updates,
           R2_SUBFOLDERS.approvalScreenshots,
         ]),
       })
       .refine(
         (data) =>
-          data.subfolder === R2_SUBFOLDERS.scheduledMessages ||
           (ALLOWED_MIME_TYPES as readonly string[]).includes(data.mimeType),
         {
           message: "File type not allowed for this subfolder",
@@ -363,9 +332,8 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     try {
-      const resolved = await assertCanDeleteR2Object(context.session, {
+      const resolved = assertCanDeleteTemporaryUpload(context.session, {
         key: data.key,
-        kind: "temporaryUpload",
         subfolder: data.subfolder,
       });
       const s3 = await getS3();
@@ -453,44 +421,6 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
         {
           handler: "deleteProfilePicture",
           key: data.key,
-          userId: context.session.user.id,
-        },
-        error
-      );
-    }
-  });
-
-export const deletePersistedR2Objects = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .validator(
-    z.object({
-      objects: z.array(persistedR2ObjectInputSchema).min(1),
-    })
-  )
-  .handler(async ({ data, context }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    const { session } = context;
-    try {
-      const resolved = await Promise.all(
-        data.objects.map((object) => assertCanDeleteR2Object(session, object))
-      );
-      const s3 = await getS3();
-      await Promise.all(resolved.map(({ key }) => s3.delete(key)));
-      return { success: true };
-    } catch (error) {
-      if (error instanceof R2ObjectAccessError) {
-        throw new Error(
-          error.status === 403 ? "Forbidden" : "Asset not found",
-          { cause: error }
-        );
-      }
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deletePersistedR2Objects" },
-        {
-          handler: "deletePersistedR2Objects",
-          objectCount: data.objects.length,
           userId: context.session.user.id,
         },
         error

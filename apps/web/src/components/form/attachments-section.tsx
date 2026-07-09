@@ -15,7 +15,13 @@ import {
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -42,14 +48,17 @@ interface AttachmentsSectionProps {
   value: Attachment[];
 }
 
-const isFileAttachment = (attachment: Attachment): boolean =>
-  attachment.type === "file";
+type FileAttachment = Extract<Attachment, { type: "file" }>;
+
+const isFileAttachment = (
+  attachment: Attachment
+): attachment is FileAttachment => attachment.type === "file";
 
 const uploadSingleFile = async (
   file: File,
   entityId: string,
   getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
-): Promise<Attachment> => {
+): Promise<FileAttachment> => {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
       entityId,
@@ -107,9 +116,11 @@ const showUploadResultToasts = (
 
 function AttachmentRow({
   attachment,
+  allowDirectObjectPreview,
   deleting,
   onRemove,
 }: {
+  allowDirectObjectPreview: boolean;
   attachment: Attachment;
   deleting: boolean;
   onRemove: (attachment: Attachment) => Promise<void>;
@@ -117,6 +128,39 @@ function AttachmentRow({
   const handleRemove = useEventCallback(async () => {
     await onRemove(attachment);
   });
+  const previewHref = getAttachmentPreviewHref(attachment, undefined, {
+    allowDirectObjectPreview,
+  });
+  let previewAction: ReactNode = null;
+
+  if (attachment.type === "url") {
+    previewAction = (
+      <a
+        className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+        href={getAttachmentPreviewHref(attachment)}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        View link
+        <span className="sr-only">
+          {getAttachmentLabel(attachment)} (opens in new tab)
+        </span>
+      </a>
+    );
+  } else if (previewHref === "#") {
+    previewAction = null;
+  } else {
+    previewAction = (
+      <a
+        className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+        href={previewHref}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        Preview
+      </a>
+    );
+  }
 
   return (
     <div className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)">
@@ -124,28 +168,7 @@ function AttachmentRow({
         {getAttachmentLabel(attachment)}
       </span>
       <div className="flex shrink-0 items-center gap-2">
-        {attachment.type === "url" ? (
-          <a
-            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-            href={getAttachmentPreviewHref(attachment)}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            View link
-            <span className="sr-only">
-              {getAttachmentLabel(attachment)} (opens in new tab)
-            </span>
-          </a>
-        ) : (
-          <a
-            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-            href={getAttachmentPreviewHref(attachment)}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Preview
-          </a>
-        )}
+        {previewAction}
         <Button
           aria-label="Remove attachment"
           disabled={deleting}
@@ -172,6 +195,9 @@ export function AttachmentsSection({
 }: AttachmentsSectionProps) {
   const getUploadUrl = useServerFn(getPresignedUploadUrl);
   const [isUploading, setIsUploading] = useState(false);
+  const [temporaryObjectKeys, setTemporaryObjectKeys] = useState<
+    ReadonlySet<string>
+  >(new Set());
   const [uploadProgress, setUploadProgress] = useState({
     current: 0,
     total: 0,
@@ -179,6 +205,14 @@ export function AttachmentsSection({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { deletingIds, removeAttachment } = useAttachmentActions({
     onChange,
+    onTemporaryObjectDeleted: (objectKey) => {
+      setTemporaryObjectKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(objectKey);
+        return next;
+      });
+    },
+    temporaryObjectKeys,
     value,
   });
 
@@ -226,7 +260,7 @@ export function AttachmentsSection({
       setIsUploading(true);
       const filesToUpload = files.slice(0, remainingFileSlots);
       setUploadProgress({ current: 0, total: filesToUpload.length });
-      const uploadedAttachments: Attachment[] = [];
+      const uploadedAttachments: FileAttachment[] = [];
       let failedCount = 0;
 
       await Promise.all(
@@ -257,6 +291,13 @@ export function AttachmentsSection({
 
       const uploadedCount = uploadedAttachments.length;
       if (uploadedCount > 0) {
+        setTemporaryObjectKeys((prev) => {
+          const next = new Set(prev);
+          for (const attachment of uploadedAttachments) {
+            next.add(attachment.objectKey);
+          }
+          return next;
+        });
         onChange([...valueRef.current, ...uploadedAttachments]);
       }
 
@@ -421,14 +462,22 @@ export function AttachmentsSection({
 
       {value.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          {value.map((attachment) => (
-            <AttachmentRow
-              attachment={attachment}
-              deleting={deletingIds.has(attachment.id)}
-              key={attachment.id}
-              onRemove={removeAttachment}
-            />
-          ))}
+          {value.map((attachment) => {
+            const allowDirectObjectPreview =
+              attachment.type === "file"
+                ? temporaryObjectKeys.has(attachment.objectKey)
+                : false;
+
+            return (
+              <AttachmentRow
+                allowDirectObjectPreview={allowDirectObjectPreview}
+                attachment={attachment}
+                deleting={deletingIds.has(attachment.id)}
+                key={attachment.id}
+                onRemove={removeAttachment}
+              />
+            );
+          })}
         </div>
       ) : null}
 
