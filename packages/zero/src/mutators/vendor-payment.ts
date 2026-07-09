@@ -58,12 +58,24 @@ export const vendorPaymentMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `vendor-payments/${args.id}/approval-screenshots`,
+            moveBeforeDependentTasks: true,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })
         : undefined;
+
+      if (
+        approvalScreenshotKey &&
+        entity.approvalScreenshotKey &&
+        entity.approvalScreenshotKey !== approvalScreenshotKey
+      ) {
+        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+          mutator: "vendorPayment.approve:replaceApprovalScreenshot",
+          vendorPaymentId: args.id,
+        });
+      }
 
       await tx.mutate.vendorPayment.update({
         approvalScreenshotKey,

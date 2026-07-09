@@ -20,6 +20,7 @@ vi.mock("@/middleware/auth", () => ({ authMiddleware: {} }));
 vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
 
 import {
+  buildEventPhotoUploadKey,
   buildScheduledMessageUploadKey,
   createScheduledMessageUpload,
   type ScheduledMessageUploadDeps,
@@ -28,6 +29,7 @@ import {
 const DRAFT_KEY_RE = /^app\/scheduled-messages\/tmp\/user-1\/.+-media\.png$/;
 const SIGNED_DRAFT_KEY_RE =
   /^signed:app\/scheduled-messages\/tmp\/user-1\/.+-media\.png$/;
+const EVENT_PHOTO_KEY_RE = /^app\/photos\/tmp\/user-1\/.+-photo\.jpg$/;
 
 const session = { user: { id: "user-1", role: "manager" } };
 
@@ -75,6 +77,27 @@ describe("buildScheduledMessageUploadKey", () => {
       key: expect.stringMatching(DRAFT_KEY_RE),
       presignedUrl: expect.stringMatching(SIGNED_DRAFT_KEY_RE),
     });
+  });
+});
+
+describe("buildEventPhotoUploadKey", () => {
+  it("stores event photo uploads under the current user's temp folder", () => {
+    expect(
+      buildEventPhotoUploadKey({
+        fileName: "Team Photo.jpg",
+        uploadId: "upload-id",
+        userId: "user-1",
+      })
+    ).toBe("app/photos/tmp/user-1/upload-id-Team-Photo.jpg");
+  });
+
+  it("does not include the durable event path in the draft upload key", () => {
+    expect(
+      buildEventPhotoUploadKey({
+        fileName: "photo.jpg",
+        userId: "user-1",
+      })
+    ).toEqual(expect.stringMatching(EVENT_PHOTO_KEY_RE));
   });
 });
 

@@ -43,7 +43,7 @@ describe("eventPhoto mutator schemas", () => {
         id: "photo-1",
         mimeType: "image/jpeg",
         now: 1_700_000_000_000,
-        r2Key: "photos/event/photo.jpg",
+        r2Key: "app/photos/tmp/user-1/photo.jpg",
       });
       expect(result.success).toBe(true);
     });
@@ -66,7 +66,7 @@ describe("eventPhoto mutator schemas", () => {
         id: "photo-1",
         immichAssetId: "asset-uuid-123",
         now: 1_700_000_000_000,
-        r2Key: "photos/event/photo.jpg",
+        r2Key: "app/photos/tmp/user-1/photo.jpg",
       });
       expect(result.success).toBe(true);
     });
@@ -76,7 +76,7 @@ describe("eventPhoto mutator schemas", () => {
         eventId: "evt-1",
         id: "photo-1",
         now: 1_700_000_000_000,
-        r2Key: "photos/event/photo.jpg",
+        r2Key: "app/photos/tmp/user-1/photo.jpg",
       });
       expect(result.success).toBe(true);
     });
@@ -96,7 +96,7 @@ describe("eventPhoto mutator schemas", () => {
       const result = uploadSchema.safeParse({
         id: "photo-1",
         now: 1_700_000_000_000,
-        r2Key: "photos/event/photo.jpg",
+        r2Key: "app/photos/tmp/user-1/photo.jpg",
       });
       expect(result.success).toBe(false);
     });
@@ -105,7 +105,7 @@ describe("eventPhoto mutator schemas", () => {
       const result = uploadSchema.safeParse({
         eventId: "evt-1",
         id: "photo-1",
-        r2Key: "photos/event/photo.jpg",
+        r2Key: "app/photos/tmp/user-1/photo.jpg",
       });
       expect(result.success).toBe(false);
     });

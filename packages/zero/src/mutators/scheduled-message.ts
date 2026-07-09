@@ -11,6 +11,48 @@ import {
   enqueueDeleteR2Object,
 } from "./submission-helpers";
 
+export async function runAsyncTasksInOrderWithRetry(
+  tasks: readonly AsyncTask[],
+  attempts = 3
+) {
+  for (const task of tasks) {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: attachment moves must stay ordered, but each move gets isolated retries.
+        await task.fn();
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        }
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
+  }
+}
+
+export async function runScheduledAttachmentMoveTasks(
+  tasks: readonly AsyncTask[],
+  recipients: readonly { id: string }[],
+  markFailed = markRecipientFailed
+) {
+  try {
+    await runAsyncTasksInOrderWithRetry(tasks);
+  } catch (error) {
+    await Promise.all(
+      recipients.map(async (recipient) => {
+        await markFailed(recipient.id, error);
+      })
+    );
+    throw error;
+  }
+}
+
 async function markRecipientFailed(recipientRowId: string, error: unknown) {
   const { db } = await import("@pi-dash/db");
   const { scheduledMessageRecipient } = await import(
@@ -118,14 +160,22 @@ export const scheduledMessageMutators = {
       assertHasPermission(ctx, "messages.schedule");
 
       const now = Date.now();
+      const attachmentMoveTasks: AsyncTask[] = [];
       const attachments = await claimScheduledMessageAttachments(
         args.attachments,
         args.id,
         ctx.userId,
         tx.location,
-        ctx.asyncTasks,
+        attachmentMoveTasks,
         ctx.traceId
       );
+      if (
+        tx.location === "server" &&
+        attachmentMoveTasks.length > 0 &&
+        !ctx.asyncTasks
+      ) {
+        throw new Error("Async task queue is required");
+      }
       await tx.mutate.scheduledMessage.insert({
         attachments,
         createdAt: now,
@@ -161,6 +211,21 @@ export const scheduledMessageMutators = {
         const scheduledMessageId = args.id;
         const { message } = args;
         const { scheduledAt } = args;
+
+        if (attachmentMoveTasks.length > 0) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              await runScheduledAttachmentMoveTasks(
+                attachmentMoveTasks,
+                recipientRows
+              );
+            },
+            meta: {
+              mutator: "scheduledMessage.create:moveAttachments",
+              scheduledMessageId,
+            },
+          });
+        }
 
         for (const row of recipientRows) {
           ctx.asyncTasks?.push({
@@ -380,15 +445,23 @@ export const scheduledMessageMutators = {
       const existingObjectKeys = new Set(
         (existing.attachments ?? []).map((attachment) => attachment.r2Key)
       );
+      const attachmentMoveTasks: AsyncTask[] = [];
       const attachments = await claimScheduledMessageAttachments(
         args.attachments,
         args.id,
         ctx.userId,
         tx.location,
-        ctx.asyncTasks,
+        attachmentMoveTasks,
         ctx.traceId,
         existingObjectKeys
       );
+      if (
+        tx.location === "server" &&
+        attachmentMoveTasks.length > 0 &&
+        !ctx.asyncTasks
+      ) {
+        throw new Error("Async task queue is required");
+      }
       const retainedObjectKeys = new Set(
         (attachments ?? []).map((attachment) => attachment.r2Key)
       );
@@ -442,6 +515,21 @@ export const scheduledMessageMutators = {
         const scheduledMessageId = args.id;
         const { message } = args;
         const { scheduledAt } = args;
+
+        if (attachmentMoveTasks.length > 0) {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              await runScheduledAttachmentMoveTasks(
+                attachmentMoveTasks,
+                recipientRows
+              );
+            },
+            meta: {
+              mutator: "scheduledMessage.update:moveAttachments",
+              scheduledMessageId,
+            },
+          });
+        }
 
         for (const row of recipientRows) {
           ctx.asyncTasks?.push({

@@ -149,21 +149,76 @@ describe("handleAttachmentDownloadRequest", () => {
       'attachment; filename="receipt.pdf"'
     );
     expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     await expect(response.text()).resolves.toBe("file-body");
   });
 
-  it("allows inline disposition for preview requests", async () => {
+  it("allows inline disposition for safe media preview requests", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
         "https://example.test/api/attachments/download?disposition=inline&filename=receipt.pdf&id=attachment-id&kind=reimbursementAttachment"
       ),
-      createHandlerDeps()
+      createHandlerDeps({
+        fetch: async () =>
+          new Response("file-body", {
+            headers: { "content-type": "image/png" },
+          }),
+      })
     );
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-disposition")).toBe(
       'inline; filename="receipt.pdf"'
     );
+  });
+
+  it("forces attachment disposition for unsafe inline content types", async () => {
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        "https://example.test/api/attachments/download?disposition=inline&filename=receipt.svg&id=attachment-id&kind=reimbursementAttachment"
+      ),
+      createHandlerDeps({
+        fetch: async () =>
+          new Response("<svg></svg>", {
+            headers: { "content-type": "image/svg+xml" },
+          }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="receipt.svg"'
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("uses a higher private-media rate limit for event photos", async () => {
+    const checkRateLimit = vi.fn(() => ({
+      allowed: true,
+      limit: 300,
+      remaining: 299,
+      resetAt: Date.now() + 60_000,
+    }));
+
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        "https://example.test/api/attachments/download?disposition=inline&filename=photo.jpg&id=photo-id&kind=eventPhoto"
+      ),
+      createHandlerDeps({
+        checkRateLimit,
+        fetch: async () =>
+          new Response("file-body", {
+            headers: { "content-type": "image/jpeg" },
+          }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "download:eventPhoto:user-1",
+      300
+    );
+    expect(response.headers.get("cache-control")).toBe("private, max-age=60");
   });
 
   it("returns 404 when the upstream object fetch fails", async () => {

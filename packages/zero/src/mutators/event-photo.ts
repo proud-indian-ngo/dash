@@ -8,6 +8,7 @@ import {
 } from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import { claimUploadedR2ObjectKey } from "./submission-helpers";
 
 export const eventPhotoMutators = {
   approve: defineMutator(
@@ -412,6 +413,19 @@ export const eventPhotoMutators = {
       }
 
       const status = isAdminOrLead ? "approved" : "pending";
+      const r2Key = args.r2Key
+        ? await claimUploadedR2ObjectKey(args.r2Key, {
+            asyncTasks: ctx.asyncTasks,
+            durablePrefix: args.eventId,
+            mimeType: args.mimeType,
+            moveBeforeDependentTasks:
+              status === "approved" && !args.immichAssetId,
+            subfolder: "photos",
+            traceId: ctx.traceId,
+            txLocation: tx.location,
+            userId: ctx.userId,
+          })
+        : undefined;
 
       await tx.mutate.eventPhoto.insert({
         caption: args.caption,
@@ -420,7 +434,7 @@ export const eventPhotoMutators = {
         id: args.id,
         immichAssetId: args.immichAssetId,
         mimeType: args.mimeType,
-        r2Key: args.r2Key,
+        r2Key,
         reviewedAt: isAdminOrLead ? args.now : null,
         reviewedBy: isAdminOrLead ? ctx.userId : null,
         status,
@@ -430,11 +444,10 @@ export const eventPhotoMutators = {
       // Enqueue Immich sync for R2-backed photos that are auto-approved
       if (
         status === "approved" &&
-        args.r2Key &&
+        r2Key &&
         !args.immichAssetId &&
         tx.location === "server"
       ) {
-        const { r2Key } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");

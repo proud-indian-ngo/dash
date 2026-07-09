@@ -63,12 +63,24 @@ export const advancePaymentMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
+            moveBeforeDependentTasks: true,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })
         : undefined;
+
+      if (
+        approvalScreenshotKey &&
+        entity.approvalScreenshotKey &&
+        entity.approvalScreenshotKey !== approvalScreenshotKey
+      ) {
+        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+          advancePaymentId: args.id,
+          mutator: "advancePayment.approve:replaceApprovalScreenshot",
+        });
+      }
 
       await tx.mutate.advancePayment.update({
         approvalScreenshotKey,

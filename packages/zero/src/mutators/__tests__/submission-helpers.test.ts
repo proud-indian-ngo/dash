@@ -298,6 +298,17 @@ describe("claimUploadedR2ObjectKey", () => {
     );
   });
 
+  it("claims event photo temp uploads under the event prefix", async () => {
+    await expect(
+      claimUploadedR2ObjectKey("app/photos/tmp/user-1/photo.jpg", {
+        durablePrefix: "event-id",
+        subfolder: "photos",
+        txLocation: "client",
+        userId: "user-1",
+      })
+    ).resolves.toBe("app/photos/event-id/photo.jpg");
+  });
+
   it("allows existing persisted object keys during relation replacement", async () => {
     await expect(
       claimUploadedR2ObjectKey("app/attachments/existing/file.pdf", {

@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
+
+import type { AsyncTask } from "../../context";
+import {
+  runAsyncTasksInOrderWithRetry,
+  runScheduledAttachmentMoveTasks,
+} from "../scheduled-message";
 
 const recipientSchema = z.object({
   id: z.string(),
@@ -39,6 +45,14 @@ const deleteSchema = z.object({
 
 const retryRecipientSchema = z.object({
   recipientId: z.string(),
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("scheduledMessage mutator schemas", () => {
@@ -205,5 +219,49 @@ describe("scheduledMessage mutator schemas", () => {
       const result = retryRecipientSchema.safeParse({});
       expect(result.success).toBe(false);
     });
+  });
+});
+
+describe("scheduled message attachment move tasks", () => {
+  it("retries a failed move task before continuing", async () => {
+    vi.useFakeTimers();
+    const task: AsyncTask = {
+      fn: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("temporary"))
+        .mockResolvedValueOnce(undefined),
+      meta: { mutator: "test.move" },
+    };
+
+    const result = runAsyncTasksInOrderWithRetry([task], 2);
+    const assertion = expect(result).resolves.toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(250);
+    await assertion;
+    expect(task.fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks recipients failed when attachment moves exhaust retries", async () => {
+    vi.useFakeTimers();
+    const error = new Error("move failed");
+    const task: AsyncTask = {
+      fn: vi.fn().mockRejectedValue(error),
+      meta: { mutator: "test.move" },
+    };
+    const markRecipientFailed = vi.fn(async () => undefined);
+
+    const result = runScheduledAttachmentMoveTasks(
+      [task],
+      [{ id: "recipient-1" }, { id: "recipient-2" }],
+      markRecipientFailed
+    );
+    const assertion = expect(result).rejects.toBe(error);
+
+    await vi.advanceTimersByTimeAsync(750);
+    await assertion;
+    expect(task.fn).toHaveBeenCalledTimes(3);
+    expect(markRecipientFailed).toHaveBeenCalledTimes(2);
+    expect(markRecipientFailed).toHaveBeenCalledWith("recipient-1", error);
+    expect(markRecipientFailed).toHaveBeenCalledWith("recipient-2", error);
   });
 });

@@ -94,6 +94,15 @@ export function buildScheduledMessageUploadKey(input: {
   return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
 }
 
+export function buildEventPhotoUploadKey(input: {
+  fileName: string;
+  uploadId?: string;
+  userId: string;
+}): string {
+  const uploadId = input.uploadId ?? uuidv7();
+  return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.photos}/tmp/${input.userId}/${uploadId}-${sanitizeFileName(input.fileName)}`;
+}
+
 export interface ScheduledMessageUploadDeps {
   assertCanUploadScheduledMessageObject: typeof assertCanUploadScheduledMessageObject;
   getS3: () => Pick<ReturnType<typeof getS3>, "presign">;
@@ -237,7 +246,10 @@ export const getEventPhotoUploadUrl = createServerFn({ method: "POST" })
         "events.manage_photos"
       );
       const s3 = await getS3();
-      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.photos}/${data.eventId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const key = buildEventPhotoUploadKey({
+        fileName: data.fileName,
+        userId: context.session.user.id,
+      });
       const presignedUrl = s3.presign(key, {
         expiresIn: 300,
         method: "PUT",

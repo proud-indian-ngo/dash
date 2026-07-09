@@ -87,12 +87,24 @@ export const reimbursementMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
+            moveBeforeDependentTasks: true,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })
         : undefined;
+
+      if (
+        approvalScreenshotKey &&
+        entity.approvalScreenshotKey &&
+        entity.approvalScreenshotKey !== approvalScreenshotKey
+      ) {
+        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+          mutator: "reimbursement.approve:replaceApprovalScreenshot",
+          reimbursementId: args.id,
+        });
+      }
 
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey,

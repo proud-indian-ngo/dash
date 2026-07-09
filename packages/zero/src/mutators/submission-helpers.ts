@@ -13,6 +13,7 @@ type LineItemInput = z.infer<typeof mutatorLineItemSchema>;
 type R2Subfolder =
   | "approval-screenshots"
   | "attachments"
+  | "photos"
   | "scheduled-messages";
 
 interface R2ObjectClaimOptions {

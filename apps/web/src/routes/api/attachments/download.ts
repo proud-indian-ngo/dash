@@ -24,6 +24,41 @@ const isPersistedR2ObjectKind = (
 ): value is PersistedR2ObjectKind =>
   persistedR2ObjectKindValues.includes(value as PersistedR2ObjectKind);
 
+const INLINE_CONTENT_TYPES = new Set([
+  "image/gif",
+  "image/heic",
+  "image/heif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+]);
+
+function normalizeContentType(value: string): string {
+  return value.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
+function canRenderInline(contentType: string): boolean {
+  return INLINE_CONTENT_TYPES.has(normalizeContentType(contentType));
+}
+
+function getDownloadRateLimit(
+  kind: PersistedR2ObjectKind,
+  userId: string
+): { key: string; limit: number } {
+  if (kind === "eventPhoto") {
+    return { key: `download:eventPhoto:${userId}`, limit: 300 };
+  }
+  return { key: `download:${userId}`, limit: 30 };
+}
+
+function getCacheControl(kind: PersistedR2ObjectKind): string {
+  return kind === "eventPhoto"
+    ? "private, max-age=60"
+    : "private, max-age=0, no-store";
+}
+
 export const parseDownloadTarget = (
   requestUrl: URL
 ): PersistedR2ObjectInput | Response => {
@@ -84,23 +119,22 @@ export async function handleAttachmentDownloadRequest(
     return result.error;
   }
 
-  const rl = deps.checkRateLimit(`download:${result.session.user.id}`, 30);
-  if (!rl.allowed) {
-    return deps.rateLimitResponse(rl);
-  }
-
   const requestUrl = new URL(request.url);
   const target = parseDownloadTarget(requestUrl);
   if (target instanceof Response) {
     return target;
   }
 
+  const rateLimit = getDownloadRateLimit(target.kind, result.session.user.id);
+  const rl = deps.checkRateLimit(rateLimit.key, rateLimit.limit);
+  if (!rl.allowed) {
+    return deps.rateLimitResponse(rl);
+  }
+
   const rawFileName =
     requestUrl.searchParams.get("filename")?.trim() || undefined;
-  const contentDisposition =
-    requestUrl.searchParams.get("disposition") === "inline"
-      ? "inline"
-      : "attachment";
+  const requestedInline =
+    requestUrl.searchParams.get("disposition") === "inline";
   let resolved: ResolvedR2Object;
   try {
     resolved = await deps.assertCanDownloadR2Object(result.session, target);
@@ -130,13 +164,16 @@ export async function handleAttachmentDownloadRequest(
 
     const contentType =
       upstream.headers.get("content-type") ?? "application/octet-stream";
+    const contentDisposition =
+      requestedInline && canRenderInline(contentType) ? "inline" : "attachment";
 
     return new Response(upstream.body, {
       headers: {
-        "Cache-Control": "private, max-age=0, no-store",
+        "Cache-Control": getCacheControl(target.kind),
         "Content-Disposition": `${contentDisposition}; filename="${fileName}"`,
         "Content-Type": contentType,
         Vary: "Cookie",
+        "X-Content-Type-Options": "nosniff",
       },
       status: 200,
     });
