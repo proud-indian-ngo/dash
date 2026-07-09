@@ -1,0 +1,34 @@
+packages/e2e/package.json
+  s_adf55c018923eb::t_16088e790b2e66 7
+README.md
+  s_adf55c018923eb::t_028bd7d8c25e2e 279
+project-structure.md
+  s_adf55c018923eb::t_028bd7d8c25e2e 13,278
+packages/e2e/process-cleanup.sh
+  s_adf55c018923eb::t_028bd7d8c25e2e 33-42
+  s_adf55c018923eb::t_3bc97a58f1c6b2 1-32
+packages/e2e/run-e2e.sh
+  s_adf55c018923eb::t_c9b428da58fcc0 113-115
+  s_adf55c018923eb::t_3bc97a58f1c6b2 11-12,88-89,101-103,110
+  s_adf55c018923eb::t_028bd7d8c25e2e 104-106,118
+  s_adf55c018923eb::t_b47106d33fc61e 108
+packages/e2e/process-cleanup.test.sh
+  s_adf55c018923eb::t_16088e790b2e66 1-7,10-21,23-25,27,29,31-32,34-38,40-43,55-78,81-90,118
+  s_adf55c018923eb::t_028bd7d8c25e2e 8-9,22,26,28,30,33,39,44-54,79-80,91-117,119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3d6580695947f5fd238e745791b99c118b7b033e",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
