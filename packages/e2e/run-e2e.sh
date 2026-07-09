@@ -8,6 +8,8 @@ cd "$REPO_ROOT"
 # Load shared port computation utility
 # shellcheck source=../../scripts/worktree-ports.sh
 source "$REPO_ROOT/scripts/worktree-ports.sh"
+# shellcheck source=process-cleanup.sh
+source "$REPO_ROOT/packages/e2e/process-cleanup.sh"
 
 # Load root .env (needed for auth secrets, DB password, etc.)
 if [ -f .env ]; then
@@ -83,6 +85,8 @@ volumes:
 YAML
 
 cleanup() {
+  local cleanup_failed=0
+
   echo "Tearing down test environment..."
   # Kill vite dev server if running
   if [ -n "${VITE_PID:-}" ]; then
@@ -94,43 +98,28 @@ cleanup() {
     kill "$ZERO_PID" 2>/dev/null || true
     wait "$ZERO_PID" 2>/dev/null || true
   fi
-  stop_port_processes "$TEST_WEB_PORT" || true
-  stop_port_processes "$TEST_ZERO_PORT" || true
-  stop_port_processes "$TEST_ZERO_CS_PORT" || true
-  docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
+  stop_port_processes "$TEST_WEB_PORT" || cleanup_failed=1
+  stop_port_processes "$TEST_ZERO_PORT" || cleanup_failed=1
+  stop_port_processes "$TEST_ZERO_CS_PORT" || cleanup_failed=1
+  if ! docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans; then
+    echo "ERROR: failed to remove E2E containers and volumes"
+    cleanup_failed=1
+  fi
   rm -f "$E2E_COMPOSE_FILE"
+
+  return "$cleanup_failed"
 }
 
-stop_port_processes() {
-  local port="$1"
-  local pids
-
-  pids="$(lsof -ti :"$port" 2>/dev/null || true)"
-  if [ -z "$pids" ]; then
-    return
-  fi
-
-  echo "Stopping processes on port $port: $pids"
-  kill $pids 2>/dev/null || true
-  sleep 1
-
-  pids="$(lsof -ti :"$port" 2>/dev/null || true)"
-  if [ -n "$pids" ]; then
-    echo "ERROR: processes still hold port $port: $pids"
-    return 1
-  fi
-}
+# Install teardown before the initial reset so early failures remove generated state.
+trap cleanup_on_exit EXIT
 
 # Ensure a clean slate: remove any leftover container and volume from a previous run
 echo "Cleaning up any previous test environment..."
-docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
+docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans
 
 # Start test DB
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
-
-# Ensure teardown on exit (set immediately after DB starts so early failures still clean up)
-trap cleanup EXIT
 
 # Wait for healthy (timeout after 30s)
 echo "Waiting for test database to be ready..."

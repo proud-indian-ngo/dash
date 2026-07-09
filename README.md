@@ -276,7 +276,7 @@ Copy `.env.sample` to `.env`. Required variables:
 
 | Script | Description |
 |---|---|
-| `bun run test:unit` | Run unit tests across all packages (Vitest) |
+| `bun run test:unit` | Run unit tests across all packages (Vitest and E2E shell checks) |
 
 ### E2E Testing
 

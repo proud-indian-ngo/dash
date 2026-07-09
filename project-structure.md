@@ -10,7 +10,7 @@ All paths are relative to project root.
 | `bun run check` | Linter (ultracite/Biome) |
 | `bun run fix` | Auto-fix linter issues (ultracite/Biome) |
 | `bun run check:unused` | Find unused exports (knip) |
-| `bun run test:unit` | Run unit tests (Vitest) |
+| `bun run test:unit` | Run unit tests (Vitest and E2E shell checks) |
 | `bun run db:generate` | Generate Drizzle types |
 | `bun run db:push` | Push schema changes to database |
 | `bun run db:migrate` | Run pending migrations |
@@ -275,7 +275,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 ## Unit Testing
 
-- **Framework**: Vitest with configs in `apps/web/vitest.config.ts` and `packages/zero/vitest.config.ts`.
+- **Framework**: Vitest with configs in `apps/web/vitest.config.ts` and `packages/zero/vitest.config.ts`, plus shell regression checks in `packages/e2e/`.
 - **Running**: `bun run test:unit` — runs unit tests across all packages via Turborepo.
 - **What to test**: Business logic, validation schemas, utility functions, stat computations. Not UI components.
 - **Location**: Co-locate test files next to source (e.g., `foo.test.ts` beside `foo.ts`).

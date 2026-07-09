@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "bash run-e2e.sh",
+    "test:unit": "bash process-cleanup.test.sh",
     "test:ui": "bash run-e2e.sh --ui",
     "seed": "SKIP_VALIDATION=true bun run helpers/seed-test-user.ts"
   },
