@@ -1,0 +1,57 @@
+apps/web/src/lib/attachment-links.ts
+  s_adf55c018923eb::t_87242db43de63e 28
+  s_adf55c018923eb::t_14a897ecdb587e 40-42,48-51,56,58
+  s_adf55c018923eb::t_da0c1cfde00d6b 57
+  s_adf55c018923eb::t_2b5ad2c53d5ca2 59
+apps/web/src/components/scheduled-messages/scheduled-message-detail-sheet.tsx
+  s_adf55c018923eb::t_ec0cbe3cdd303d 26,183-195
+apps/web/src/lib/attachment-links.test.ts
+  s_adf55c018923eb::t_af5d8342654923 13,99-136,138
+  s_adf55c018923eb::t_d19c5427be270d 137
+  s_adf55c018923eb::t_ff465c5070df7b 139
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_7f1df1f0f04261 8,13-19,79
+apps/web/src/routes/api/attachments/download.ts
+  s_adf55c018923eb::t_530dd3773c7c3e 27
+apps/web/src/components/vendor-payments/vendor-payment-invoice-section.tsx
+  s_adf55c018923eb::t_e9d7b5ba4d5971 74-77
+apps/web/src/hooks/use-attachment-actions.ts
+  s_adf55c018923eb::t_0d93983757fec4 10-11,17-18,31,36
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_3e99df814db0a0 12,335
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_adf55c018923eb::t_44cbe439a045e1 74-85,287,292,300,307,356-359
+apps/web/src/routes/api/attachments/download.test.ts
+  s_adf55c018923eb::t_19768a4f0dcc4a 1-6,8-58
+  s_adf55c018923eb::t_2d171f963a507b 7
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_adf55c018923eb::t_13887d1d11661d 201-204
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_eac4a2919af0a4 8,114-115,118,123
+  s_adf55c018923eb::t_0b11a426055d7c 11,13-14,104-111,113,116-117,119-122,124,193-357
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_f1b6b6e3a0b601 51-52,61,263
+  s_adf55c018923eb::t_680a007105410b 134
+  s_adf55c018923eb::t_5342d9d49f29de 53-55,135-163,171
+  s_adf55c018923eb::t_2ab2f928d895cf 18-24
+  s_adf55c018923eb::t_d6a5679ad39784 119,123,131-133,198-200,208-215,294-300
+  s_adf55c018923eb::t_c3b6b441b275ea 465-480
+apps/web/src/lib/authorized-r2-object.ts
+  s_adf55c018923eb::t_f681f2ee2ca5d4 247,249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d449fe8e44235ae328a058423ce15df24b712bfb",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
