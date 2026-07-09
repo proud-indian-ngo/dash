@@ -291,6 +291,22 @@ describe("claimUploadedR2ObjectKey", () => {
     ).toBe("app/attachments/reimbursements/request-1/uploaded-file.pdf");
   });
 
+  it("preserves upload ids when claiming duplicate filenames", () => {
+    expect(
+      claimUploadedR2ObjectKey(
+        "app/attachments/tmp/user-1/upload-1-receipt.pdf",
+        baseOptions
+      )
+    ).toBe("app/attachments/reimbursements/request-1/upload-1-receipt.pdf");
+
+    expect(
+      claimUploadedR2ObjectKey(
+        "app/attachments/tmp/user-1/upload-2-receipt.pdf",
+        baseOptions
+      )
+    ).toBe("app/attachments/reimbursements/request-1/upload-2-receipt.pdf");
+  });
+
   it("claims event photo temp uploads under the event prefix", () => {
     expect(
       claimUploadedR2ObjectKey("app/photos/tmp/user-1/photo.jpg", {
@@ -407,6 +423,32 @@ describe("claimUploadedR2ObjectKey", () => {
       targetKey: "app/scheduled-messages/message-id/media.png",
     });
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("preserves scheduled media upload ids when claiming duplicate filenames", () => {
+    expect(
+      claimUploadedR2ObjectKey(
+        "app/scheduled-messages/tmp/user-1/upload-1-media.png",
+        {
+          durablePrefix: "message-id",
+          subfolder: "scheduled-messages",
+          txLocation: "client",
+          userId: "user-1",
+        }
+      )
+    ).toBe("app/scheduled-messages/message-id/upload-1-media.png");
+
+    expect(
+      claimUploadedR2ObjectKey(
+        "app/scheduled-messages/tmp/user-1/upload-2-media.png",
+        {
+          durablePrefix: "message-id",
+          subfolder: "scheduled-messages",
+          txLocation: "client",
+          userId: "user-1",
+        }
+      )
+    ).toBe("app/scheduled-messages/message-id/upload-2-media.png");
   });
 
   it("does not move existing persisted keys during server replacement", () => {
