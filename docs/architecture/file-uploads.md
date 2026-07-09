@@ -7,7 +7,7 @@
 
 1. Client requests presigned URL via the scoped server fn for that upload surface.
 2. Client uploads directly to R2 via presigned PUT.
-3. Object key stored in DB (attachment record).
+3. Zero mutator validates object-key ownership and stores the durable DB key.
 4. Download proxied through `/api/attachments/download`.
 
 Upload signers:
@@ -17,6 +17,8 @@ Upload signers:
 - `getScheduledMessageUploadUrl`: scheduled message media uploads after `messages.schedule` checks.
 
 R2 subfolders: `attachments`, `approval-screenshots`, `avatars`, `photos`, `scheduled-messages`, `updates`.
+
+Request, vendor-payment, and scheduled-message attachment uploads use temp keys first. Server mutators compute the durable parent-scoped key during the DB mutation, then queue the R2 copy/delete as a post-commit async task. R2 deletes for removed persisted attachments are also queued post-commit, so failed mutations do not delete still-referenced objects.
 
 ## Immich (Event Photos)
 

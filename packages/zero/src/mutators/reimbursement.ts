@@ -85,8 +85,10 @@ export const reimbursementMutators = {
       const now = Date.now();
       const approvalScreenshotKey = args.approvalScreenshotKey
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
+            asyncTasks: ctx.asyncTasks,
             durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
             subfolder: "approval-screenshots",
+            traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })
@@ -198,8 +200,10 @@ export const reimbursementMutators = {
         ),
       },
       {
+        asyncTasks: ctx.asyncTasks,
         durablePrefix: `reimbursements/${args.id}`,
         subfolder: "attachments",
+        traceId: ctx.traceId,
         txLocation: tx.location,
         userId,
       }
@@ -456,8 +460,10 @@ export const reimbursementMutators = {
           tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
       },
       {
+        asyncTasks: ctx.asyncTasks,
         durablePrefix: `reimbursements/${args.id}`,
         subfolder: "attachments",
+        traceId: ctx.traceId,
         txLocation: tx.location,
         userId,
       }

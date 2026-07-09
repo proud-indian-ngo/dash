@@ -388,12 +388,16 @@ Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. 
 
 ### File Upload Flow
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+R2 subfolders: `approval-screenshots`, `attachments`, `avatars`, `photos`, `scheduled-messages`, `updates`.
 
-1. Client calls `getPresignedUploadUrl` server function → gets signed S3 PUT URL
-2. Client uploads directly to R2 via presigned URL
-3. Object key stored in attachment record
-4. Download via `routes/api/attachments/download.ts` endpoint
+1. Client calls a scoped upload server function:
+   - `getPresignedUploadUrl` for request attachments and approval screenshots. These upload to `attachments/tmp/{userId}/` or `approval-screenshots/tmp/{userId}/`.
+   - `getEventPhotoUploadUrl` for event photos. Permission-gated by event membership/team lead/photo management and uploads to `photos/{eventId}/`.
+   - `getEditorImageUploadUrl` for event update editor images. Permission-gated by event update access and uploads to `updates/{eventId}/`.
+   - `getScheduledMessageUploadUrl` for scheduled message media. Requires `messages.schedule`; drafts upload to `scheduled-messages/tmp/{userId}/`, persisted messages use `scheduled-messages/{messageId}/`.
+2. Client uploads directly to R2 via the presigned S3 PUT URL.
+3. Zero mutators validate temp object ownership. Request/vendor/scheduled-message attachment mutators claim temp keys into durable parent-scoped prefixes and queue R2 copy/delete as post-commit async tasks.
+4. Persisted private request/vendor/scheduled-message files download through `routes/api/attachments/download.ts` using `kind`, `id`, and scheduled-message `key` query params. The route resolves DB ownership/permissions before proxying R2 bytes; clients do not receive raw persisted object URLs.
 
 Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (ownership-scoped to `avatars/{userId}/`).
 
@@ -401,7 +405,7 @@ Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (owners
 
 1. Zero mutator performs data change (e.g., approve reimbursement)
 2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
-3. `routes/api/zero/mutate.ts` awaits async tasks after mutation completes
+3. `routes/api/zero/mutate.ts` runs async tasks fire-and-forget after successful mutation commit
 4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via nodemailer
 5. Client-side inbox synced in real-time via Zero
 

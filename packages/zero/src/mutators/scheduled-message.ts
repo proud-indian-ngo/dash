@@ -2,6 +2,7 @@ import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import type { AsyncTask } from "../context";
 import "../context";
 import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
@@ -44,6 +45,8 @@ async function claimScheduledMessageAttachments(
   messageId: string,
   userId: string,
   txLocation: string,
+  asyncTasks?: AsyncTask[],
+  traceId?: string,
   existingObjectKeys?: ReadonlySet<string>
 ): Promise<ScheduledMessageAttachment[] | undefined> {
   if (!attachments) {
@@ -54,10 +57,12 @@ async function claimScheduledMessageAttachments(
       ...attachment,
       r2Key: await claimUploadedR2ObjectKey(attachment.r2Key, {
         allowDurablePrefix: true,
+        asyncTasks,
         durablePrefix: messageId,
         existingObjectKeys,
         mimeType: attachment.mimeType,
         subfolder: "scheduled-messages",
+        traceId,
         txLocation,
         userId,
       }),
@@ -117,7 +122,9 @@ export const scheduledMessageMutators = {
         args.attachments,
         args.id,
         ctx.userId,
-        tx.location
+        tx.location,
+        ctx.asyncTasks,
+        ctx.traceId
       );
       await tx.mutate.scheduledMessage.insert({
         attachments,
@@ -378,6 +385,8 @@ export const scheduledMessageMutators = {
         args.id,
         ctx.userId,
         tx.location,
+        ctx.asyncTasks,
+        ctx.traceId,
         existingObjectKeys
       );
       const retainedObjectKeys = new Set(

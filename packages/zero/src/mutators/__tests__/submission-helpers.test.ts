@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AsyncTask } from "../../context";
 
+const jobMocks = vi.hoisted(() => ({
+  enqueue: vi.fn(),
+}));
 const r2Mocks = vi.hoisted(() => ({
   delete: vi.fn(),
   file: vi.fn((key: string, options?: { type: string }) => ({
@@ -15,6 +19,7 @@ vi.mock("@pi-dash/env/server", () => ({
 vi.mock("@pi-dash/jobs/handlers/r2", () => ({
   getR2Client: () => r2Mocks,
 }));
+vi.mock("@pi-dash/jobs/enqueue", () => jobMocks);
 
 import {
   assertCanDelete,
@@ -26,6 +31,7 @@ import {
   buildLineItemInsert,
   claimUploadedR2ObjectKey,
   deleteAllRelations,
+  enqueueDeleteR2Object,
   replaceRelations,
 } from "../submission-helpers";
 
@@ -317,16 +323,32 @@ describe("claimUploadedR2ObjectKey", () => {
     ).rejects.toThrow("Invalid attachment object key");
   });
 
-  it("moves server temp key to durable key and deletes source", async () => {
+  it("enqueues server temp move to durable key and deletes source when task runs", async () => {
+    const asyncTasks: AsyncTask[] = [];
+
     await expect(
       claimUploadedR2ObjectKey("app/attachments/tmp/user-1/uploaded-file.pdf", {
         ...baseOptions,
+        asyncTasks,
         mimeType: "application/pdf",
+        traceId: "trace-id",
         txLocation: "server",
       })
     ).resolves.toBe(
       "app/attachments/reimbursements/request-1/uploaded-file.pdf"
     );
+
+    expect(r2Mocks.write).not.toHaveBeenCalled();
+    expect(r2Mocks.delete).not.toHaveBeenCalled();
+    expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.meta).toEqual({
+      mutator: "claim-r2-object",
+      sourceKey: "app/attachments/tmp/user-1/uploaded-file.pdf",
+      targetKey: "app/attachments/reimbursements/request-1/uploaded-file.pdf",
+      traceId: "trace-id",
+    });
+
+    await asyncTasks[0]?.fn();
 
     expect(r2Mocks.file).toHaveBeenCalledWith(
       "app/attachments/tmp/user-1/uploaded-file.pdf",
@@ -349,6 +371,7 @@ describe("claimUploadedR2ObjectKey", () => {
     await expect(
       claimUploadedR2ObjectKey("app/attachments/existing/file.pdf", {
         ...baseOptions,
+        asyncTasks: [],
         existingObjectKeys: new Set(["app/attachments/existing/file.pdf"]),
         txLocation: "server",
       })
@@ -356,6 +379,66 @@ describe("claimUploadedR2ObjectKey", () => {
 
     expect(r2Mocks.write).not.toHaveBeenCalled();
     expect(r2Mocks.delete).not.toHaveBeenCalled();
+  });
+
+  it("does not move durable scheduled message keys when durable prefix is allowed", async () => {
+    const asyncTasks: AsyncTask[] = [];
+
+    await expect(
+      claimUploadedR2ObjectKey("app/scheduled-messages/message-id/media.png", {
+        allowDurablePrefix: true,
+        asyncTasks,
+        durablePrefix: "message-id",
+        mimeType: "image/png",
+        subfolder: "scheduled-messages",
+        txLocation: "server",
+        userId: "user-1",
+      })
+    ).resolves.toBe("app/scheduled-messages/message-id/media.png");
+
+    expect(asyncTasks).toEqual([]);
+    expect(r2Mocks.write).not.toHaveBeenCalled();
+    expect(r2Mocks.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("enqueueDeleteR2Object", () => {
+  it("enqueues delete-r2-object only for server tx location", async () => {
+    const asyncTasks: AsyncTask[] = [];
+
+    enqueueDeleteR2Object(
+      { asyncTasks, traceId: "trace-id" },
+      "server",
+      "app/attachments/request/receipt.pdf",
+      { mutator: "test.delete", requestId: "request-1" }
+    );
+
+    expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.meta).toEqual({
+      mutator: "test.delete",
+      requestId: "request-1",
+    });
+
+    await asyncTasks[0]?.fn();
+    expect(jobMocks.enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { r2Key: "app/attachments/request/receipt.pdf" },
+      { traceId: "trace-id" }
+    );
+  });
+
+  it("does not enqueue delete-r2-object for client tx location", () => {
+    const asyncTasks: AsyncTask[] = [];
+
+    enqueueDeleteR2Object(
+      { asyncTasks, traceId: "trace-id" },
+      "client",
+      "app/attachments/request/receipt.pdf",
+      { mutator: "test.delete" }
+    );
+
+    expect(asyncTasks).toEqual([]);
+    expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 });
 

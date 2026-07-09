@@ -10,6 +10,7 @@ import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { shouldDrainMutationAsyncTasks } from "@/lib/zero-mutate-tasks";
 
 const dbProvider = zeroDrizzle(schema, db);
 
@@ -40,15 +41,25 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const { permissions, role, userId } =
           await buildSessionContext(session);
         const asyncTasks: AsyncTask[] = [];
-        const ctx = { asyncTasks, permissions, role, traceId, userId };
+        const baseCtx = { permissions, role, traceId, userId };
 
         const result = await handleMutateRequest({
           dbProvider,
-          handler: async (transact) =>
-            await transact(async (tx, name, args) => {
+          handler: async (transact) => {
+            const mutationAsyncTasks: AsyncTask[] = [];
+            const mutationResult = await transact(async (tx, name, args) => {
               const mutator = mustGetMutator(mutators, name);
+              const ctx = {
+                ...baseCtx,
+                asyncTasks: mutationAsyncTasks,
+              };
               return await mutator.fn({ args, ctx, tx });
-            }),
+            });
+            if (shouldDrainMutationAsyncTasks(mutationResult)) {
+              asyncTasks.push(...mutationAsyncTasks);
+            }
+            return mutationResult;
+          },
           request,
           userID: userId,
         });

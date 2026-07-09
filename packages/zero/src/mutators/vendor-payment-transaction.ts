@@ -293,8 +293,10 @@ export const vendorPaymentTransactionMutators = {
       args.attachments.map(async (att) => {
         await tx.mutate.vendorPaymentTransactionAttachment.insert({
           ...(await buildClaimedAttachmentInsert(att, now, {
+            asyncTasks: ctx.asyncTasks,
             durablePrefix: `vendor-payment-transactions/${args.id}`,
             subfolder: "attachments",
+            traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })),
@@ -578,6 +580,7 @@ export const vendorPaymentTransactionMutators = {
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentTransactionAttachment.insert({
             ...(await buildClaimedAttachmentInsert(att, now, {
+              asyncTasks: ctx.asyncTasks,
               durablePrefix: `vendor-payment-transactions/${args.id}`,
               existingObjectKeys: new Set(
                 existingAtts
@@ -585,6 +588,7 @@ export const vendorPaymentTransactionMutators = {
                   .filter((key): key is string => Boolean(key))
               ),
               subfolder: "attachments",
+              traceId: ctx.traceId,
               txLocation: tx.location,
               userId,
             })),

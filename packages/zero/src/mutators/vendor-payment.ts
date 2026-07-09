@@ -56,8 +56,10 @@ export const vendorPaymentMutators = {
       const now = Date.now();
       const approvalScreenshotKey = args.approvalScreenshotKey
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
+            asyncTasks: ctx.asyncTasks,
             durablePrefix: `vendor-payments/${args.id}/approval-screenshots`,
             subfolder: "approval-screenshots",
+            traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })
@@ -259,8 +261,10 @@ export const vendorPaymentMutators = {
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
       },
       {
+        asyncTasks: ctx.asyncTasks,
         durablePrefix: `vendor-payments/${args.id}/quotation`,
         subfolder: "attachments",
+        traceId: ctx.traceId,
         txLocation: tx.location,
         userId,
       }
@@ -612,6 +616,7 @@ export const vendorPaymentMutators = {
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentAttachment.insert({
             ...(await buildClaimedAttachmentInsert(att, now, {
+              asyncTasks: ctx.asyncTasks,
               durablePrefix: `vendor-payments/${args.id}/invoice`,
               existingObjectKeys: new Set(
                 existingInvoiceAtts
@@ -619,6 +624,7 @@ export const vendorPaymentMutators = {
                   .filter((key): key is string => Boolean(key))
               ),
               subfolder: "attachments",
+              traceId: ctx.traceId,
               txLocation: tx.location,
               userId,
             })),
@@ -738,8 +744,10 @@ export const vendorPaymentMutators = {
           tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
       },
       {
+        asyncTasks: ctx.asyncTasks,
         durablePrefix: `vendor-payments/${args.id}/quotation`,
         subfolder: "attachments",
+        traceId: ctx.traceId,
         txLocation: tx.location,
         userId,
       }
@@ -822,6 +830,7 @@ export const vendorPaymentMutators = {
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentAttachment.insert({
             ...(await buildClaimedAttachmentInsert(att, now, {
+              asyncTasks: ctx.asyncTasks,
               durablePrefix: `vendor-payments/${args.id}/invoice`,
               existingObjectKeys: new Set(
                 existingAtts
@@ -829,6 +838,7 @@ export const vendorPaymentMutators = {
                   .filter((key): key is string => Boolean(key))
               ),
               subfolder: "attachments",
+              traceId: ctx.traceId,
               txLocation: tx.location,
               userId,
             })),

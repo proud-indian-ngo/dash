@@ -61,8 +61,10 @@ export const advancePaymentMutators = {
       const now = Date.now();
       const approvalScreenshotKey = args.approvalScreenshotKey
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
+            asyncTasks: ctx.asyncTasks,
             durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
             subfolder: "approval-screenshots",
+            traceId: ctx.traceId,
             txLocation: tx.location,
             userId,
           })
@@ -146,8 +148,10 @@ export const advancePaymentMutators = {
         insertLineItem: (data) => tx.mutate.advancePaymentLineItem.insert(data),
       },
       {
+        asyncTasks: ctx.asyncTasks,
         durablePrefix: `advance-payments/${args.id}`,
         subfolder: "attachments",
+        traceId: ctx.traceId,
         txLocation: tx.location,
         userId,
       }
@@ -358,8 +362,10 @@ export const advancePaymentMutators = {
           tx.run(zql.advancePaymentLineItem.where("advancePaymentId", args.id)),
       },
       {
+        asyncTasks: ctx.asyncTasks,
         durablePrefix: `advance-payments/${args.id}`,
         subfolder: "attachments",
+        traceId: ctx.traceId,
         txLocation: tx.location,
         userId,
       }

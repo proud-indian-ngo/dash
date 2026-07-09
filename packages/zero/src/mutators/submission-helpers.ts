@@ -17,10 +17,12 @@ type R2Subfolder =
 
 interface R2ObjectClaimOptions {
   allowDurablePrefix?: boolean;
+  asyncTasks?: Context["asyncTasks"];
   durablePrefix: string;
   existingObjectKeys?: ReadonlySet<string>;
   mimeType?: null | string;
   subfolder: R2Subfolder;
+  traceId?: string;
   txLocation: string;
   userId: string;
 }
@@ -99,6 +101,27 @@ async function moveR2Object(
   await s3.delete(sourceKey);
 }
 
+function enqueueMoveR2Object(
+  options: Pick<R2ObjectClaimOptions, "asyncTasks" | "mimeType" | "traceId">,
+  sourceKey: string,
+  targetKey: string
+) {
+  if (!options.asyncTasks) {
+    throw new Error("Async task queue is required");
+  }
+  options.asyncTasks.push({
+    fn: async () => {
+      await moveR2Object(sourceKey, targetKey, options.mimeType);
+    },
+    meta: {
+      mutator: "claim-r2-object",
+      sourceKey,
+      targetKey,
+      ...(options.traceId ? { traceId: options.traceId } : {}),
+    },
+  });
+}
+
 export async function claimUploadedR2ObjectKey(
   key: string,
   options: R2ObjectClaimOptions
@@ -131,7 +154,7 @@ export async function claimUploadedR2ObjectKey(
   const storagePrefix = key.slice(0, tempMarkerIndex);
   const claimedKey = `${storagePrefix}/${options.subfolder}/${options.durablePrefix}/${filenameFromKey(key)}`;
   if (options.txLocation === "server") {
-    await moveR2Object(key, claimedKey, options.mimeType);
+    enqueueMoveR2Object(options, key, claimedKey);
   }
   return claimedKey;
 }
