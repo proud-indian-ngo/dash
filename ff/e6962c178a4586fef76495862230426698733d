@@ -1,0 +1,86 @@
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_5a0b092152b9ea 152,164-165
+  s_adf55c018923eb::t_6fd5c75ca9c304 35-36,49-51,124,130,156-157,161,196,470-474,480
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_447aab0c528724 10,259-273,277-295
+  s_adf55c018923eb::t_d214fa27b7f493 274-276
+  s_adf55c018923eb::t_a9598f2de5b63f 296
+apps/web/src/components/form/approve-dialog.tsx
+  s_adf55c018923eb::t_dbee0db098cb2c 61
+  s_adf55c018923eb::t_b956f423f16179 55,73,168-170,176-179
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_0a28313546e91c 133,145,154,168,177,191,201,213,220,231,243,258,272,278
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_adf55c018923eb::t_c131c58d8c6c53 353-367
+apps/web/src/lib/attachment-links.test.ts
+  s_adf55c018923eb::t_9b81f6817d9dff 1
+packages/zero/package.json
+  s_adf55c018923eb::t_9d03b9757679c6 22
+packages/zero/src/mutators/vendor-payment.ts
+  s_adf55c018923eb::t_4af7630923e4bb 594-598,602-606,805-809,813-817
+  s_adf55c018923eb::t_7920dbf357347b 601,812
+  s_adf55c018923eb::t_cf28018f5b2fb1 21,23,57-64,67,260-265,614-624,739-744,824-834
+  s_adf55c018923eb::t_cae5e6bfd4c268 25,311-315,726-730
+apps/web/src/components/vendor-payments/vendor-payment-invoice-form.tsx
+  s_adf55c018923eb::t_6b40952d95bba1 43-47,115
+packages/zero/src/mutators/vendor-payment-transaction.ts
+  s_adf55c018923eb::t_54d4752220679a 19,410-413,559-563,566-571
+  s_adf55c018923eb::t_383ee7857fb0ad 17,295-300,580-590
+apps/web/src/components/vendor-payments/vendor-payment-transaction-form.tsx
+  s_adf55c018923eb::t_2f7d4e4a92da26 70-76,205
+packages/zero/src/mutators/reimbursement.ts
+  s_adf55c018923eb::t_a31262faa343a0 22,250-254,448-452
+  s_adf55c018923eb::t_116a0032755b74 20,86-93,96,199-204,457-462
+apps/web/src/routes/_app/export.tsx
+  s_adf55c018923eb::t_e3a8af6014f86a 29-32,125-131
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_adf55c018923eb::t_9f2350ea008eec 198-209
+apps/web/src/components/vendor-payments/vendor-payment-fields.tsx
+  s_adf55c018923eb::t_83a4874e381bef 49-53,224
+apps/web/src/components/vendor-payments/vendor-payment-invoice-section.tsx
+  s_adf55c018923eb::t_bb9d3b598f8f6b 71-82
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_38356ed4a3425f 17-27,30-32
+  s_adf55c018923eb::t_e550b839f749c6 139
+  s_adf55c018923eb::t_bbcb4421a62ed8 3,33-50,269,330-334,338-340,371-373
+  s_adf55c018923eb::t_cd9c8607627e67 13-16,28-29
+  s_adf55c018923eb::t_0a8a659df56bb2 85-138,140-156
+  s_adf55c018923eb::t_284d291fce4f37 270-272,288-289,298-301,316-317,326-329,335,351-357
+apps/web/src/lib/attachment-links.ts
+  s_adf55c018923eb::t_e0167b312d7bce 33,47
+apps/web/src/components/reimbursements/standard-reimbursement-fields.tsx
+  s_adf55c018923eb::t_f6cc14caa34224 225-226
+  s_adf55c018923eb::t_978f65801341cb 18,229-235,327
+  s_adf55c018923eb::t_a6e1f56208b7d9 227-228
+packages/zero/src/mutators/advance-payment.ts
+  s_adf55c018923eb::t_62ed2117f9ddfa 19,200-204,348-352
+  s_adf55c018923eb::t_9c4edd5b34b595 17,62-69,72,147-152,359-364
+apps/web/src/functions/export-csv.ts
+  s_adf55c018923eb::t_b95b41414788f1 202,214
+  s_adf55c018923eb::t_bd9c8113ab34bb 35-36,68,90,169
+  s_adf55c018923eb::t_ab6ae6aaa25203 57-61,69,180-183
+apps/web/src/lib/authorized-r2-object.ts
+  s_adf55c018923eb::t_8d044a709e16af 143-146,151-153,163-164,176,191-193,250-255,284-285,291-292,304-305,311-312,320-321,327-328
+packages/zero/src/mutators/scheduled-message.ts
+  s_adf55c018923eb::t_9eea6926ba15f4 40-49,51,53-66,116-121,123,188,403,467
+  s_adf55c018923eb::t_27be7def1213be 50,52
+  s_adf55c018923eb::t_9000c9b52edb29 8-11,235-241,373-393
+bun.lock
+  s_adf55c018923eb::t_11750bf9ea984c 345
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ffe6962c178a4586fef76495862230426698733d",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
