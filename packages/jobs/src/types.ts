@@ -496,6 +496,12 @@ export interface DeleteR2ObjectPayload {
   r2Key: string;
 }
 
+export interface MoveR2ObjectPayload {
+  mimeType?: null | string;
+  sourceKey: string;
+  targetKey: string;
+}
+
 export interface CleanupR2OrphansPayload {
   dryRun?: boolean;
 }
@@ -513,6 +519,7 @@ export interface JobPayloads {
   "immich-delete-album": ImmichDeleteAlbumPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;
   "immich-sync-photo": ImmichSyncPhotoPayload;
+  "move-r2-object": MoveR2ObjectPayload;
   "notify-added-to-event": NotifyAddedToEventPayload;
   "notify-added-to-team": NotifyAddedToTeamPayload;
   "notify-advance-payment-approved": NotifyAdvancePaymentApprovedPayload;

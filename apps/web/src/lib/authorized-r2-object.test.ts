@@ -85,7 +85,7 @@ describe("authorized R2 object resolver", () => {
     });
   });
 
-  it("allows requests.export user to resolve reimbursement attachment", async () => {
+  it("does not allow requests.export to resolve reimbursement attachment", async () => {
     const deps = createDeps({
       findReimbursementAttachment: async () => ({
         filename: "receipt.pdf",
@@ -102,9 +102,7 @@ describe("authorized R2 object resolver", () => {
         { id: "attachment-id", kind: "reimbursementAttachment" },
         deps
       )
-    ).resolves.toMatchObject({
-      key: "app/attachments/reimbursement/receipt.pdf",
-    });
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("allows owner to resolve advance payment attachment", async () => {
@@ -127,7 +125,7 @@ describe("authorized R2 object resolver", () => {
     });
   });
 
-  it("allows requests.export user to resolve advance payment attachment", async () => {
+  it("does not allow requests.export to resolve advance payment attachment", async () => {
     const deps = createDeps({
       findAdvancePaymentAttachment: async () => ({
         filename: "receipt.pdf",
@@ -144,9 +142,7 @@ describe("authorized R2 object resolver", () => {
         { id: "attachment-id", kind: "advancePaymentAttachment" },
         deps
       )
-    ).resolves.toMatchObject({
-      key: "app/attachments/advance-payment/receipt.pdf",
-    });
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("rejects unrelated user for advance payment attachment", async () => {

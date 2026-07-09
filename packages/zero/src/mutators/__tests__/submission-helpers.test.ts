@@ -4,20 +4,9 @@ import type { AsyncTask } from "../../context";
 const jobMocks = vi.hoisted(() => ({
   enqueue: vi.fn(),
 }));
-const r2Mocks = vi.hoisted(() => ({
-  delete: vi.fn(),
-  file: vi.fn((key: string, options?: { type: string }) => ({
-    key,
-    options,
-  })),
-  write: vi.fn(),
-}));
 
 vi.mock("@pi-dash/env/server", () => ({
   env: { R2_KEY_PREFIX: "app" },
-}));
-vi.mock("@pi-dash/jobs/handlers/r2", () => ({
-  getR2Client: () => r2Mocks,
 }));
 vi.mock("@pi-dash/jobs/enqueue", () => jobMocks);
 
@@ -323,7 +312,7 @@ describe("claimUploadedR2ObjectKey", () => {
     ).rejects.toThrow("Invalid attachment object key");
   });
 
-  it("enqueues server temp move to durable key and deletes source when task runs", async () => {
+  it("enqueues server temp move to durable key when task runs", async () => {
     const asyncTasks: AsyncTask[] = [];
 
     await expect(
@@ -338,8 +327,7 @@ describe("claimUploadedR2ObjectKey", () => {
       "app/attachments/reimbursements/request-1/uploaded-file.pdf"
     );
 
-    expect(r2Mocks.write).not.toHaveBeenCalled();
-    expect(r2Mocks.delete).not.toHaveBeenCalled();
+    expect(jobMocks.enqueue).not.toHaveBeenCalled();
     expect(asyncTasks).toHaveLength(1);
     expect(asyncTasks[0]?.meta).toEqual({
       mutator: "claim-r2-object",
@@ -350,20 +338,14 @@ describe("claimUploadedR2ObjectKey", () => {
 
     await asyncTasks[0]?.fn();
 
-    expect(r2Mocks.file).toHaveBeenCalledWith(
-      "app/attachments/tmp/user-1/uploaded-file.pdf",
-      { type: "application/pdf" }
-    );
-    expect(r2Mocks.write).toHaveBeenCalledWith(
-      "app/attachments/reimbursements/request-1/uploaded-file.pdf",
+    expect(jobMocks.enqueue).toHaveBeenCalledWith(
+      "move-r2-object",
       {
-        key: "app/attachments/tmp/user-1/uploaded-file.pdf",
-        options: { type: "application/pdf" },
+        mimeType: "application/pdf",
+        sourceKey: "app/attachments/tmp/user-1/uploaded-file.pdf",
+        targetKey: "app/attachments/reimbursements/request-1/uploaded-file.pdf",
       },
-      { type: "application/pdf" }
-    );
-    expect(r2Mocks.delete).toHaveBeenCalledWith(
-      "app/attachments/tmp/user-1/uploaded-file.pdf"
+      { traceId: "trace-id" }
     );
   });
 
@@ -377,8 +359,7 @@ describe("claimUploadedR2ObjectKey", () => {
       })
     ).resolves.toBe("app/attachments/existing/file.pdf");
 
-    expect(r2Mocks.write).not.toHaveBeenCalled();
-    expect(r2Mocks.delete).not.toHaveBeenCalled();
+    expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
   it("does not move durable scheduled message keys when durable prefix is allowed", async () => {
@@ -397,8 +378,7 @@ describe("claimUploadedR2ObjectKey", () => {
     ).resolves.toBe("app/scheduled-messages/message-id/media.png");
 
     expect(asyncTasks).toEqual([]);
-    expect(r2Mocks.write).not.toHaveBeenCalled();
-    expect(r2Mocks.delete).not.toHaveBeenCalled();
+    expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 });
 

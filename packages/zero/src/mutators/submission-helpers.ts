@@ -86,21 +86,6 @@ export function buildAttachmentInsert(att: AttachmentInput, now: number) {
 
 const filenameFromKey = (key: string): string => key.split("/").pop() ?? "file";
 
-async function moveR2Object(
-  sourceKey: string,
-  targetKey: string,
-  mimeType?: null | string
-) {
-  if (sourceKey === targetKey) {
-    return;
-  }
-  const { getR2Client } = await import("@pi-dash/jobs/handlers/r2");
-  const s3 = getR2Client();
-  const options = mimeType ? { type: mimeType } : undefined;
-  await s3.write(targetKey, s3.file(sourceKey, options), options);
-  await s3.delete(sourceKey);
-}
-
 function enqueueMoveR2Object(
   options: Pick<R2ObjectClaimOptions, "asyncTasks" | "mimeType" | "traceId">,
   sourceKey: string,
@@ -111,7 +96,16 @@ function enqueueMoveR2Object(
   }
   options.asyncTasks.push({
     fn: async () => {
-      await moveR2Object(sourceKey, targetKey, options.mimeType);
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue(
+        "move-r2-object",
+        {
+          ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+          sourceKey,
+          targetKey,
+        },
+        { traceId: options.traceId }
+      );
     },
     meta: {
       mutator: "claim-r2-object",

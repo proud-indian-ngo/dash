@@ -159,6 +159,7 @@ function AttachmentRow({
         target="_blank"
       >
         Download
+        <span className="sr-only"> {getAttachmentLabel(attachment)}</span>
       </a>
     );
   } else {

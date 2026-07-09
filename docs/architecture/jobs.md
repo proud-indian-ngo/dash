@@ -3,7 +3,7 @@
 > **Load when**: pg-boss, `enqueue`, job handler, job schedule, cron, retry, DLQ, `singletonKey`, `createNotifyHandler`, `notify-*`, 42 handlers.
 > **Related**: `notifications.md`, `observability.md`, `data-layer.md`
 
-pg-boss–backed job queue. All async side-effects (notifications, integrations, cleanup). 42 handlers in `src/handlers/`.
+pg-boss-backed job queue. All async side-effects (notifications, integrations, cleanup). Handlers live in `src/handlers/`.
 
 | Concept | Location | Notes |
 |---|---|---|
@@ -22,7 +22,7 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 - `whatsapp-*` — group management
 - `sync-*` — WhatsApp status
 - `generate-*` — cash voucher PDF
-- `delete-*` / `cleanup-*` — R2, stale data, old notifications
+- `delete-*` / `move-*` / `cleanup-*` — R2, stale data, old notifications
 
 ## Idempotency Rule
 

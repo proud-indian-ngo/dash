@@ -11,6 +11,7 @@ import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
+import { handleMoveR2Object } from "./move-r2-object";
 import {
   handleNotifyAdvancePaymentApproved,
   handleNotifyAdvancePaymentRejected,
@@ -475,6 +476,7 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   await boss.work("immich-delete-album", NOTIFY_POLL, handleImmichDeleteAlbum);
   await boss.work("immich-delete-asset", NOTIFY_POLL, handleImmichDeleteAsset);
   await boss.work("delete-r2-object", NOTIFY_POLL, handleDeleteR2Object);
+  await boss.work("move-r2-object", NOTIFY_POLL, handleMoveR2Object);
   await boss.work(
     "generate-cash-voucher",
     NOTIFY_POLL,

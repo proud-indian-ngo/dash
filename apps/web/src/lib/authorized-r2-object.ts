@@ -162,8 +162,7 @@ async function assertCanAccessRequestObject(
   session: SessionLike,
   record: AttachmentRecord | null,
   deps: AuthorizedR2ObjectDeps,
-  subfolder: R2Subfolder,
-  extraPermissionIds: readonly string[] = []
+  subfolder: R2Subfolder
 ): Promise<ResolvedR2Object> {
   if (!record) {
     return notFound();
@@ -175,8 +174,7 @@ async function assertCanAccessRequestObject(
   ]);
   const hasObjectAccess =
     ownerUserIds.has(session.user.id) ||
-    permissions.includes("requests.view_all") ||
-    extraPermissionIds.some((permission) => permissions.includes(permission));
+    permissions.includes("requests.view_all");
   if (!hasObjectAccess) {
     forbidden();
   }
@@ -289,8 +287,7 @@ export async function assertCanDownloadR2Object(
         session,
         await deps.findAdvancePaymentAttachment(input.id),
         deps,
-        "attachments",
-        ["requests.export"]
+        "attachments"
       );
     case "advancePaymentApprovalScreenshot":
       return assertCanAccessRequestObject(
@@ -310,8 +307,7 @@ export async function assertCanDownloadR2Object(
         session,
         await deps.findReimbursementAttachment(input.id),
         deps,
-        "attachments",
-        ["requests.export"]
+        "attachments"
       );
     case "reimbursementApprovalScreenshot":
       return assertCanAccessRequestObject(
