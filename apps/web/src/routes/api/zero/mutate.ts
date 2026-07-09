@@ -11,9 +11,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
+  drainBlockingMutationAsyncTasks,
   runMutationAsyncTasksInOrder,
   shouldDrainMutationAsyncTasks,
-  splitMutationAsyncTasks,
 } from "@/lib/zero-mutate-tasks";
 
 const dbProvider = zeroDrizzle(schema, db);
@@ -51,16 +51,21 @@ export const Route = createFileRoute("/api/zero/mutate")({
           dbProvider,
           handler: async (transact) => {
             const mutationAsyncTasks: AsyncTask[] = [];
+            const mutationBackgroundTasks: AsyncTask[] = [];
             const mutationResult = await transact(async (tx, name, args) => {
               const mutator = mustGetMutator(mutators, name);
               const ctx = {
                 ...baseCtx,
                 asyncTasks: mutationAsyncTasks,
               };
-              return await mutator.fn({ args, ctx, tx });
+              await mutator.fn({ args, ctx, tx });
+
+              mutationBackgroundTasks.push(
+                ...(await drainBlockingMutationAsyncTasks(mutationAsyncTasks))
+              );
             });
             if (shouldDrainMutationAsyncTasks(mutationResult)) {
-              asyncTasks.push(...mutationAsyncTasks);
+              asyncTasks.push(...mutationBackgroundTasks);
             }
             return mutationResult;
           },
@@ -68,27 +73,18 @@ export const Route = createFileRoute("/api/zero/mutate")({
           userID: userId,
         });
 
+        // Fire-and-forget after commit without blocking the response.
         if (asyncTasks.length > 0) {
-          const { backgroundTasks, blockingTasks } =
-            splitMutationAsyncTasks(asyncTasks);
-
-          if (blockingTasks.length > 0) {
-            await runMutationAsyncTasksInOrder(blockingTasks);
-          }
-
-          // Fire-and-forget after commit without blocking the response.
-          if (backgroundTasks.length > 0) {
-            withFireAndForgetLog(
-              {
-                handler: "mutate",
-                mutators: backgroundTasks.map((task) => task.meta.mutator),
-                taskCount: backgroundTasks.length,
-                userId,
-                ...(traceId ? { traceId } : {}),
-              },
-              () => runMutationAsyncTasksInOrder(backgroundTasks)
-            );
-          }
+          withFireAndForgetLog(
+            {
+              handler: "mutate",
+              mutators: asyncTasks.map((task) => task.meta.mutator),
+              taskCount: asyncTasks.length,
+              userId,
+              ...(traceId ? { traceId } : {}),
+            },
+            () => runMutationAsyncTasksInOrder(asyncTasks)
+          );
         }
 
         return Response.json(result);

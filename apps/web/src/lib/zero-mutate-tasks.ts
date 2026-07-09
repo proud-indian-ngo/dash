@@ -10,24 +10,31 @@ export function shouldDrainMutationAsyncTasks(
   return !("error" in mutationResult.result);
 }
 
+export async function drainBlockingMutationAsyncTasks(
+  asyncTasks: readonly AsyncTask[]
+): Promise<AsyncTask[]> {
+  const { backgroundTasks, blockingTasks } =
+    splitMutationAsyncTasks(asyncTasks);
+  if (blockingTasks.length > 0) {
+    await runMutationAsyncTasksInOrder(blockingTasks);
+  }
+  return backgroundTasks;
+}
+
 export function splitMutationAsyncTasks(asyncTasks: readonly AsyncTask[]): {
   backgroundTasks: AsyncTask[];
   blockingTasks: AsyncTask[];
 } {
-  let lastBlockingIndex = -1;
-  for (let index = asyncTasks.length - 1; index >= 0; index -= 1) {
-    if (asyncTasks[index]?.blocking) {
-      lastBlockingIndex = index;
-      break;
+  const backgroundTasks: AsyncTask[] = [];
+  const blockingTasks: AsyncTask[] = [];
+
+  for (const task of asyncTasks) {
+    if (task.blocking) {
+      blockingTasks.push(task);
+    } else {
+      backgroundTasks.push(task);
     }
   }
-
-  if (lastBlockingIndex < 0) {
-    return { backgroundTasks: [...asyncTasks], blockingTasks: [] };
-  }
-
-  const blockingTasks = asyncTasks.slice(0, lastBlockingIndex + 1);
-  const backgroundTasks = asyncTasks.slice(lastBlockingIndex + 1);
 
   return { backgroundTasks, blockingTasks };
 }

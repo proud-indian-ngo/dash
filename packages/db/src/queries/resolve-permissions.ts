@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "..";
+import { filterResolvedPermissionsForRole } from "../permissions";
 import { rolePermission } from "../schema/permission";
 
 interface CacheEntry {
@@ -27,7 +28,10 @@ export async function resolvePermissions(roleId: string): Promise<string[]> {
     .from(rolePermission)
     .where(eq(rolePermission.roleId, roleId));
 
-  const permissions = rows.map((r) => r.permissionId);
+  const permissions = filterResolvedPermissionsForRole(
+    roleId,
+    rows.map((r) => r.permissionId)
+  );
   cache.set(roleId, { expiresAt: Date.now() + CACHE_TTL_MS, permissions });
   return permissions;
 }

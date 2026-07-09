@@ -1,5 +1,10 @@
 import { db } from "@pi-dash/db";
-import { ADMIN_TIER_ROLES, PERMISSION_IDS } from "@pi-dash/db/permissions";
+import {
+  ADMIN_TIER_ROLES,
+  CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS,
+  filterResolvedPermissionsForRole,
+  PERMISSION_IDS,
+} from "@pi-dash/db/permissions";
 import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
@@ -19,6 +24,17 @@ async function ensureRolePermission(
   session: { user: { id: string; role?: string | null } } | null
 ) {
   await assertServerPermission(session, "settings.roles");
+}
+
+function assertAssignablePermissionIds(permissionIds: readonly string[]) {
+  for (const pid of permissionIds) {
+    if (!PERMISSION_IDS.has(pid)) {
+      throw new Error(`Unknown permission: ${pid}`);
+    }
+    if (!CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS.has(pid)) {
+      throw new Error(`Permission cannot be assigned to roles: ${pid}`);
+    }
+  }
 }
 
 // ── List all roles ──
@@ -112,7 +128,10 @@ export const getRoleById = createServerFn({ method: "GET" })
 
       return {
         ...found,
-        permissionIds: perms.map((p) => p.permissionId),
+        permissionIds: filterResolvedPermissionsForRole(
+          found.id,
+          perms.map((p) => p.permissionId)
+        ),
       };
     } catch (error) {
       logErrorAndRethrow(
@@ -150,6 +169,9 @@ export const getAllPermissions = createServerFn({ method: "GET" })
         { id: string; name: string; description: string | null }[]
       > = {};
       for (const p of perms) {
+        if (!CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS.has(p.id)) {
+          continue;
+        }
         const group = grouped[p.category] ?? [];
         grouped[p.category] = group;
         group.push({
@@ -189,12 +211,7 @@ export const createRole = createServerFn({ method: "POST" })
     await ensureRolePermission(context.session);
 
     try {
-      // Validate permission IDs
-      for (const pid of data.permissionIds) {
-        if (!PERMISSION_IDS.has(pid)) {
-          throw new Error(`Unknown permission: ${pid}`);
-        }
-      }
+      assertAssignablePermissionIds(data.permissionIds);
 
       // Check ID uniqueness
       const [existing] = await db
@@ -257,12 +274,7 @@ export const updateRole = createServerFn({ method: "POST" })
     await ensureRolePermission(context.session);
 
     try {
-      // Validate permission IDs
-      for (const pid of data.permissionIds) {
-        if (!PERMISSION_IDS.has(pid)) {
-          throw new Error(`Unknown permission: ${pid}`);
-        }
-      }
+      assertAssignablePermissionIds(data.permissionIds);
 
       // Check role exists
       const [found] = await db

@@ -366,6 +366,29 @@ export type PermissionId = (typeof PERMISSIONS)[number]["id"];
 
 export const PERMISSION_IDS = new Set<string>(PERMISSIONS.map((p) => p.id));
 
+const CUSTOM_ROLE_EXCLUDED_PERMISSION_IDS = new Set<PermissionId>([
+  "requests.export",
+]);
+
+export const CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS = new Set<string>(
+  PERMISSIONS.map((p) => p.id).filter(
+    (id) => !CUSTOM_ROLE_EXCLUDED_PERMISSION_IDS.has(id)
+  )
+);
+
+export function filterResolvedPermissionsForRole(
+  roleId: string,
+  permissionIds: readonly string[]
+): string[] {
+  if (roleId === "super_admin") {
+    return [...permissionIds];
+  }
+
+  return permissionIds.filter((id) =>
+    CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS.has(id)
+  );
+}
+
 /** Baseline permissions granted to the oriented volunteer role */
 export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "requests.create",
@@ -396,6 +419,7 @@ export const ADMIN_TIER_ROLES = new Set([
 const adminExcluded = new Set<PermissionId>([
   "requests.approve",
   "requests.edit_all_statuses",
+  "requests.export",
   "vendors.approve",
   "users.create",
   "users.edit",
@@ -412,6 +436,7 @@ const adminExcluded = new Set<PermissionId>([
 
 const financeAdminExcluded = new Set<PermissionId>([
   "requests.edit_all_statuses",
+  "requests.export",
   "users.create",
   "users.edit",
   "users.delete",

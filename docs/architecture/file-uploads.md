@@ -18,7 +18,7 @@ Upload signers:
 
 R2 subfolders: `attachments`, `approval-screenshots`, `avatars`, `photos`, `scheduled-messages`, `updates`.
 
-Request, vendor-payment, event-photo, and scheduled-message attachment uploads use temp keys first. Scheduled-message upload URLs always target `scheduled-messages/tmp/{userId}/`; event-photo upload URLs target `photos/tmp/{userId}/`. The client never chooses a durable parent path. Server mutators compute the durable parent-scoped key during the DB mutation. Attachment claims run a blocking post-commit task that moves the temp object to its durable key before the mutation response returns. Scheduled-message send jobs run only after those moves succeed, so immediate sends cannot reference a durable key before the object exists. R2 deletes for removed persisted attachments are queued post-commit via `delete-r2-object`, so failed mutations do not delete still-referenced objects.
+Request, vendor-payment, event-photo, and scheduled-message attachment uploads use temp keys first. Scheduled-message upload URLs always target `scheduled-messages/tmp/{userId}/`; event-photo upload URLs target `photos/tmp/{userId}/`. The client never chooses a durable parent path. Server mutators compute the durable parent-scoped key during the DB mutation. Attachment claims run a blocking transaction-bound task that moves the temp object to its durable key before the mutation commits and before the response returns. Scheduled-message send jobs run only after those moves succeed, so immediate sends cannot reference a durable key before the object exists. R2 deletes for removed persisted attachments are queued post-commit via `delete-r2-object`, so failed mutations do not delete still-referenced objects.
 
 ## Immich (Event Photos)
 
@@ -77,6 +77,8 @@ Photo sync is **ordered** for crash safety:
 
 ## Asset Proxying
 
-R2 objects never exposed directly to clients:
+Persisted attachments and photo assets are proxied through authorized server routes:
 - Downloads: `/api/attachments/download?id=<id>&kind=<kind>` — validates permission, streams from R2. Scheduled message downloads also require `key=<r2Key>`.
 - Immich thumbnails: `/api/immich/thumbnail.$id` + `/api/immich/original.$id` — proxies through the server with API key injected. Client never sees `IMMICH_API_KEY`.
+
+Event update editor images are uploaded only after event access checks, then stored in editor content as keyed CDN URLs.

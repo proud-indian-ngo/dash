@@ -1,3 +1,10 @@
+import {
+  ADMIN_PERMISSIONS,
+  CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS,
+  FINANCE_ADMIN_PERMISSIONS,
+  filterResolvedPermissionsForRole,
+  PERMISSIONS,
+} from "@pi-dash/db/permissions";
 import { describe, expect, it } from "vitest";
 import type { Context } from "./context";
 import {
@@ -31,6 +38,31 @@ describe("assertIsLoggedIn", () => {
     });
     assertIsLoggedIn(ctx);
     expect(ctx.userId).toBe("u1");
+  });
+});
+
+describe("system role permission matrix", () => {
+  it("keeps export permission available only to super admin's all-permission role", () => {
+    const allPermissionIds = PERMISSIONS.map((permission) => permission.id);
+
+    expect(allPermissionIds).toContain("requests.export");
+    expect(ADMIN_PERMISSIONS).not.toContain("requests.export");
+    expect(FINANCE_ADMIN_PERMISSIONS).not.toContain("requests.export");
+  });
+
+  it("prevents custom and stale role rows from granting export access", () => {
+    expect(CUSTOM_ROLE_ASSIGNABLE_PERMISSION_IDS.has("requests.export")).toBe(
+      false
+    );
+    expect(
+      filterResolvedPermissionsForRole("custom_manager", [
+        "requests.view_all",
+        "requests.export",
+      ])
+    ).toEqual(["requests.view_all"]);
+    expect(
+      filterResolvedPermissionsForRole("super_admin", ["requests.export"])
+    ).toEqual(["requests.export"]);
   });
 });
 

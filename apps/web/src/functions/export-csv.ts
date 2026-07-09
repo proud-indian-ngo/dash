@@ -35,7 +35,6 @@ export interface ExportAttachment {
   id: string;
   kind: "advancePaymentAttachment" | "reimbursementAttachment";
   mimeType: string | null;
-  objectKey: string | null;
   type: "file" | "url";
   url: string | null;
 }
@@ -68,7 +67,6 @@ export function groupExportAttachments<
       id: a.id,
       kind,
       mimeType: a.mimeType,
-      objectKey: a.objectKey,
       type: a.type,
       url: a.url,
     });
@@ -168,7 +166,6 @@ async function queryExportRows(
             filename: attachmentTable.filename,
             id: attachmentTable.id,
             mimeType: attachmentTable.mimeType,
-            objectKey: attachmentTable.objectKey,
             parentId: config.attachmentJoinCol,
             type: attachmentTable.type,
             url: attachmentTable.url,
