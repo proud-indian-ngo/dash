@@ -1,0 +1,22 @@
+packages/e2e/tests/reimbursements/bank-account-selection.spec.ts
+  s_adf55c018923eb::t_21ad6f67aeb988 135-138
+packages/e2e/run-e2e.sh
+  s_adf55c018923eb::t_d36b509e7cb328 97-99,120
+  s_adf55c018923eb::t_9c4b918dab88fe 100,104-119,121-123,126,162-163,179-180,217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f25f5d82e0a5a996533d38b7992d28e431146144",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
