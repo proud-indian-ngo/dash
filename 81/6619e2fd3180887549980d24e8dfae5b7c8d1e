@@ -1,0 +1,159 @@
+apps/web/src/functions/role-admin.ts
+  s_adf55c018923eb::t_d8ac78db7ee5ad 2-6,157-159,204-206,275-277
+packages/e2e/tests/authorization/route-guards.spec.ts
+  s_adf55c018923eb::t_06665d3d42c322 53-56,73-87
+apps/web/src/lib/r2-object-access.test.ts
+  s_adf55c018923eb::t_c2ac17540fabe1 5,54-55,71-83
+  s_adf55c018923eb::t_9c3c2fa0d28136 56-70
+  s_adf55c018923eb::t_170e5ea17539e8 38-53,84
+  s_adf55c018923eb::t_b30d1cb0d58c52 100-118
+  s_adf55c018923eb::t_bd5d68c3669d85 85-99
+  s_adf55c018923eb::t_682eb7b28b7974 119-137
+  s_adf55c018923eb::t_c1e6da25ea764b 138-156
+  s_adf55c018923eb::t_32d1f1d7c6be35 10-12
+  s_adf55c018923eb::t_0701c9fd43872a 157-175
+  s_adf55c018923eb::t_a9d959ed23fd12 1-4,6-9,13-37,176
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_32d1f1d7c6be35 12
+  s_adf55c018923eb::t_24ca876bd678be 1-11,13-37
+apps/web/src/components/scheduled-messages/scheduled-message-detail-sheet.tsx
+  s_adf55c018923eb::t_7a6042d5003e3a 26,183-195
+apps/web/src/functions/export-csv.ts
+  s_adf55c018923eb::t_f7dd567c2e2d0b 19,34,50-54,61-62,161,171-174
+  s_adf55c018923eb::t_32d1f1d7c6be35 82,193,205
+apps/web/src/routes/api/media/event-photo.$id.ts
+  s_adf55c018923eb::t_61cecb738b0a7d 1
+  s_adf55c018923eb::t_96d8b7b75d9570 21
+  s_adf55c018923eb::t_8b9eb621ff32b8 2-6,8-9,11-20,22-106
+  s_adf55c018923eb::t_32d1f1d7c6be35 7,10
+packages/e2e/tests/authorization/r2-object-access.spec.ts
+  s_adf55c018923eb::t_32d1f1d7c6be35 3-4,11-14,23-26,34-37,45-48,58-61
+  s_adf55c018923eb::t_06665d3d42c322 1-2,5-10,15,21-22,27-33,38-44,49-57,62-72
+  s_adf55c018923eb::t_59bede8ccc8003 16-20
+packages/db/src/sync-permissions.ts
+  s_adf55c018923eb::t_b3d25de163f988 1,7,52-60
+  s_244160aac0e74b::t_d46427fad49326 61
+apps/web/src/lib/attachment-links.ts
+  s_adf55c018923eb::t_a6789d80189cd7 1,20-33,35-36,42,46,50-51,57,61
+  s_adf55c018923eb::t_a209c72fad8232 19
+packages/e2e/helpers/seed-test-user.ts
+  s_adf55c018923eb::t_32d1f1d7c6be35 203
+  s_adf55c018923eb::t_06665d3d42c322 16,204-205,344-370,881
+packages/notifications/src/send/submission.test.ts
+  s_adf55c018923eb::t_c9423767de61a2 1-3,11-26,29-40,43-63
+  s_adf55c018923eb::t_32d1f1d7c6be35 28
+  s_adf55c018923eb::t_c3ac523cc057fd 4-6,27,41-42
+  s_adf55c018923eb::t_61cecb738b0a7d 7-10
+packages/notifications/src/send/submission.ts
+  s_adf55c018923eb::t_32d1f1d7c6be35 68
+apps/web/src/components/vendor-payments/vendor-payment-fields.tsx
+  s_adf55c018923eb::t_53755d0bb1c9b2 219
+packages/jobs/src/handlers/send-scheduled-whatsapp.ts
+  s_adf55c018923eb::t_b8bafe20fe0191 17-18,151-152
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_53755d0bb1c9b2 16-19,46-49,150-151,193,465-466
+  s_adf55c018923eb::t_8bc505681a5709 120,125,155,164,199-201,287-293,462-464,467-468
+  s_adf55c018923eb::t_53042eed9425d7 171
+apps/web/src/components/vendor-payments/vendor-payment-transaction-form.tsx
+  s_adf55c018923eb::t_53755d0bb1c9b2 198
+apps/web/src/components/teams/events/photo-utils.ts
+  s_adf55c018923eb::t_7a6042d5003e3a 21-22,37,47
+apps/web/src/routes/api/media/-event-photo.$id.test.ts
+  s_adf55c018923eb::t_61cecb738b0a7d 1-90
+packages/shared/src/asset-ref.ts
+  s_adf55c018923eb::t_55401edb35f60d 14-18,21-22
+  s_adf55c018923eb::t_a15456350160ad 1-13,19-20,23-32
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_adf55c018923eb::t_1811d2f341e21b 104-107,291,296-299,307-310,317-320,369-372,384-387
+  s_adf55c018923eb::t_61aed4e4d16d26 46-67,99-103
+packages/jobs/src/handlers/scheduled-whatsapp-media.test.ts
+  s_adf55c018923eb::t_773e350efd5201 1-31
+apps/web/src/components/reimbursements/standard-reimbursement-fields.tsx
+  s_adf55c018923eb::t_53755d0bb1c9b2 316-320
+apps/web/src/lib/r2-object-access.ts
+  s_adf55c018923eb::t_6eee033cb04f5f 118
+  s_adf55c018923eb::t_32d1f1d7c6be35 93
+  s_adf55c018923eb::t_5e14757c233069 22-32,34,126
+  s_adf55c018923eb::t_20db677ec40185 59-92,94-114,123,125,127,129-132
+  s_adf55c018923eb::t_0a85652cb47586 1-14,38-46,115-116,119,133-135
+  s_adf55c018923eb::t_12e745ed43f34e 15-21,33,35-37,117,124
+  s_adf55c018923eb::t_85985b9e098044 128
+  s_adf55c018923eb::t_3f6bedb0149c03 47-58,120-122
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_adf55c018923eb::t_7a6042d5003e3a 201-204,213-216
+packages/db/src/permissions.ts
+  s_adf55c018923eb::t_32d1f1d7c6be35 443,448
+  s_adf55c018923eb::t_dd9da2875061bf 369-381,447,449
+apps/web/src/components/vendor-payments/vendor-payment-invoice-form.tsx
+  s_adf55c018923eb::t_53755d0bb1c9b2 110
+apps/web/src/components/teams/events/photo-card.tsx
+  s_adf55c018923eb::t_96d8b7b75d9570 15,44
+apps/web/src/routes/api/attachments/-download.test.ts
+  s_adf55c018923eb::t_61cecb738b0a7d 1-12,15-161,173-193
+  s_adf55c018923eb::t_32d1f1d7c6be35 13-14,162-172
+apps/web/src/routeTree.gen.ts
+  s_adf55c018923eb::t_d43dab70d4aea1 54,269-273,345,387,438,488,530,580,600,899-905,1115
+DEPLOYMENT.md
+  s_adf55c018923eb::t_d675350ab40f4a 58-62
+apps/web/src/routes/api/attachments/download.ts
+  s_adf55c018923eb::t_a15456350160ad 1-4,16-35,62
+  s_adf55c018923eb::t_8f79c1b06ed291 71-80,82-95,101,106
+  s_adf55c018923eb::t_e8b85f9c3eb9cf 117,119,128-129,131-136,142-146,164,166-181
+  s_adf55c018923eb::t_75911db808c649 137-141,147-163,165
+  s_adf55c018923eb::t_49630c47701664 8-9,11,36-46,48-61,63,97-100,102-104,182-183,185-188
+  s_adf55c018923eb::t_ae14aa6464181e 12,105,107-116,118,120-127
+  s_adf55c018923eb::t_32d1f1d7c6be35 10
+  s_adf55c018923eb::t_96d8b7b75d9570 47
+apps/web/src/lib/export-permission-policy.test.ts
+  s_adf55c018923eb::t_93e7f33df641a1 1-23
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_d675350ab40f4a 11-13,17-22,80-83
+project-structure.md
+  s_adf55c018923eb::t_d675350ab40f4a 106,112
+apps/web/src/lib/attachment-links.test.ts
+  s_adf55c018923eb::t_a269afd62c4b5b 1-6,45-85
+  s_adf55c018923eb::t_a3eb19e64db96e 86
+packages/jobs/src/handlers/scheduled-whatsapp-media.ts
+  s_adf55c018923eb::t_b8bafe20fe0191 1-28
+docs/architecture/authorization.md
+  s_adf55c018923eb::t_d675350ab40f4a 18-22,46-47
+apps/web/src/lib/export-attachments.ts
+  s_adf55c018923eb::t_a209c72fad8232 1-30
+apps/web/src/routes/_app/export.tsx
+  s_adf55c018923eb::t_f7dd567c2e2d0b 27,113,125,262
+  s_adf55c018923eb::t_32d1f1d7c6be35 18
+apps/web/src/lib/authorized-r2-object.ts
+  s_adf55c018923eb::t_e0c1f5b5a83f7b 23,25-43,45-50,248
+  s_adf55c018923eb::t_1c42a955587f2b 225
+  s_adf55c018923eb::t_3cf8d09211b025 1-22,24,44,51-69,226,247,249-278
+  s_adf55c018923eb::t_97921e496fe9f1 243-246
+  s_adf55c018923eb::t_a0314379b6c6d8 70-224,227-242
+apps/web/src/lib/export-attachments.test.ts
+  s_adf55c018923eb::t_6567c910039ed2 1-50
+apps/web/src/components/vendor-payments/vendor-payment-invoice-section.tsx
+  s_adf55c018923eb::t_7a6042d5003e3a 74-77,86-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "816619e2fd3180887549980d24e8dfae5b7c8d1e",
+  "prompts": {},
+  "sessions": {
+    "s_244160aac0e74b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f14f8-9a9a-7c11-ae99-96554b6ee62b",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
