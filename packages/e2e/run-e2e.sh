@@ -94,17 +94,36 @@ cleanup() {
     kill "$ZERO_PID" 2>/dev/null || true
     wait "$ZERO_PID" 2>/dev/null || true
   fi
-  docker compose -f "$E2E_COMPOSE_FILE" stop postgres-test 2>/dev/null || true
-  docker compose -f "$E2E_COMPOSE_FILE" rm -f postgres-test 2>/dev/null || true
-  docker volume rm "$TEST_VOLUME" 2>/dev/null || true
+  stop_port_processes "$TEST_WEB_PORT" || true
+  stop_port_processes "$TEST_ZERO_PORT" || true
+  stop_port_processes "$TEST_ZERO_CS_PORT" || true
+  docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
   rm -f "$E2E_COMPOSE_FILE"
+}
+
+stop_port_processes() {
+  local port="$1"
+  local pids
+
+  pids="$(lsof -ti :"$port" 2>/dev/null || true)"
+  if [ -z "$pids" ]; then
+    return
+  fi
+
+  echo "Stopping processes on port $port: $pids"
+  kill $pids 2>/dev/null || true
+  sleep 1
+
+  pids="$(lsof -ti :"$port" 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    echo "ERROR: processes still hold port $port: $pids"
+    return 1
+  fi
 }
 
 # Ensure a clean slate: remove any leftover container and volume from a previous run
 echo "Cleaning up any previous test environment..."
-docker compose -f "$E2E_COMPOSE_FILE" stop postgres-test 2>/dev/null || true
-docker compose -f "$E2E_COMPOSE_FILE" rm -f postgres-test 2>/dev/null || true
-docker volume rm "$TEST_VOLUME" 2>/dev/null || true
+docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
 
 # Start test DB
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
@@ -140,6 +159,8 @@ export ZERO_REPLICA_FILE="$REPLICA_FILE"
 export VITE_ZERO_URL="http://localhost:$TEST_ZERO_PORT"
 export ZERO_MUTATE_URL="http://localhost:$TEST_WEB_PORT/api/zero/mutate"
 export ZERO_QUERY_URL="http://localhost:$TEST_WEB_PORT/api/zero/query"
+export ZERO_MUTATE_FORWARD_COOKIES=true
+export ZERO_QUERY_FORWARD_COOKIES=true
 export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
@@ -155,9 +176,8 @@ unset WHATSAPP_AUTH_PASS
 rm -f "${REPLICA_FILE}"*
 
 # Kill any lingering processes on our ports
-lsof -ti :"$TEST_ZERO_PORT" | xargs kill 2>/dev/null || true
-lsof -ti :"$TEST_ZERO_CS_PORT" | xargs kill 2>/dev/null || true
-sleep 1
+stop_port_processes "$TEST_ZERO_PORT"
+stop_port_processes "$TEST_ZERO_CS_PORT"
 
 # Start zero-cache against test DB on a separate port
 echo "Starting zero-cache on port $TEST_ZERO_PORT (change-streamer on $TEST_ZERO_CS_PORT)..."
@@ -194,8 +214,7 @@ echo "zero-cache ready."
 
 # Start vite dev server and pre-warm it (cold SSR compilation is slow)
 echo "Starting vite dev server on port $TEST_WEB_PORT..."
-lsof -ti :"$TEST_WEB_PORT" | xargs kill 2>/dev/null || true
-sleep 1
+stop_port_processes "$TEST_WEB_PORT"
 (cd apps/web && bunx --bun vite dev --port "$TEST_WEB_PORT") > "$VITE_LOG" 2>&1 &
 VITE_PID=$!
 

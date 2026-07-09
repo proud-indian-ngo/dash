@@ -132,6 +132,10 @@ test.describe("Bank account selection with duplicate names", () => {
   });
 
   test.afterEach(async ({ page }) => {
+    if (!duplicateLast4) {
+      return;
+    }
+
     // Cleanup: delete the duplicate account if it exists
     try {
       // Dismiss any open dialogs first
