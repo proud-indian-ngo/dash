@@ -10,6 +10,28 @@ export function shouldDrainMutationAsyncTasks(
   return !("error" in mutationResult.result);
 }
 
+export function splitMutationAsyncTasks(asyncTasks: readonly AsyncTask[]): {
+  backgroundTasks: AsyncTask[];
+  blockingTasks: AsyncTask[];
+} {
+  let lastBlockingIndex = -1;
+  for (let index = asyncTasks.length - 1; index >= 0; index -= 1) {
+    if (asyncTasks[index]?.blocking) {
+      lastBlockingIndex = index;
+      break;
+    }
+  }
+
+  if (lastBlockingIndex < 0) {
+    return { backgroundTasks: [...asyncTasks], blockingTasks: [] };
+  }
+
+  const blockingTasks = asyncTasks.slice(0, lastBlockingIndex + 1);
+  const backgroundTasks = asyncTasks.slice(lastBlockingIndex + 1);
+
+  return { backgroundTasks, blockingTasks };
+}
+
 export async function runMutationAsyncTasksInOrder(
   asyncTasks: readonly AsyncTask[]
 ): Promise<void> {

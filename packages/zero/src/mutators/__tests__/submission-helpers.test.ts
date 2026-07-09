@@ -340,7 +340,7 @@ describe("claimUploadedR2ObjectKey", () => {
     ).rejects.toThrow("Invalid attachment object key");
   });
 
-  it("enqueues server temp move to durable key when task runs", async () => {
+  it("moves server temp upload to durable key when task runs", async () => {
     const asyncTasks: AsyncTask[] = [];
 
     await expect(
@@ -357,6 +357,7 @@ describe("claimUploadedR2ObjectKey", () => {
 
     expect(jobMocks.enqueue).not.toHaveBeenCalled();
     expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.blocking).toBe(true);
     expect(asyncTasks[0]?.meta).toEqual({
       mutator: "claim-r2-object",
       sourceKey: "app/attachments/tmp/user-1/uploaded-file.pdf",
@@ -366,18 +367,15 @@ describe("claimUploadedR2ObjectKey", () => {
 
     await asyncTasks[0]?.fn();
 
-    expect(jobMocks.enqueue).toHaveBeenCalledWith(
-      "move-r2-object",
-      {
-        mimeType: "application/pdf",
-        sourceKey: "app/attachments/tmp/user-1/uploaded-file.pdf",
-        targetKey: "app/attachments/reimbursements/request-1/uploaded-file.pdf",
-      },
-      { traceId: "trace-id" }
-    );
+    expect(r2ObjectMocks.moveR2Object).toHaveBeenCalledWith({
+      mimeType: "application/pdf",
+      sourceKey: "app/attachments/tmp/user-1/uploaded-file.pdf",
+      targetKey: "app/attachments/reimbursements/request-1/uploaded-file.pdf",
+    });
+    expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
-  it("awaits server temp move when later tasks depend on the durable key", async () => {
+  it("marks scheduled message temp moves as blocking", async () => {
     const asyncTasks: AsyncTask[] = [];
 
     await expect(
@@ -385,7 +383,6 @@ describe("claimUploadedR2ObjectKey", () => {
         asyncTasks,
         durablePrefix: "message-id",
         mimeType: "image/png",
-        moveBeforeDependentTasks: true,
         subfolder: "scheduled-messages",
         txLocation: "server",
         userId: "user-1",
@@ -393,6 +390,7 @@ describe("claimUploadedR2ObjectKey", () => {
     ).resolves.toBe("app/scheduled-messages/message-id/media.png");
 
     expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.blocking).toBe(true);
 
     await asyncTasks[0]?.fn();
 

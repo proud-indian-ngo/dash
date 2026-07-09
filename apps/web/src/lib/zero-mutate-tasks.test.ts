@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   runMutationAsyncTasksInOrder,
   shouldDrainMutationAsyncTasks,
+  splitMutationAsyncTasks,
 } from "./zero-mutate-tasks";
 
 describe("shouldDrainMutationAsyncTasks", () => {
@@ -24,6 +25,60 @@ describe("shouldDrainMutationAsyncTasks", () => {
         result: { error: "alreadyProcessed" },
       })
     ).toBe(false);
+  });
+});
+
+describe("splitMutationAsyncTasks", () => {
+  it("separates blocking tasks from background tasks", () => {
+    const moveTask = {
+      blocking: true,
+      fn: async () => undefined,
+      meta: { mutator: "move" },
+    };
+    const notifyTask = {
+      fn: async () => undefined,
+      meta: { mutator: "notify" },
+    };
+
+    expect(splitMutationAsyncTasks([moveTask, notifyTask])).toEqual({
+      backgroundTasks: [notifyTask],
+      blockingTasks: [moveTask],
+    });
+  });
+
+  it("awaits ordered tasks through the last blocking task", () => {
+    const cleanupTask = {
+      fn: async () => undefined,
+      meta: { mutator: "cleanup" },
+    };
+    const moveTask = {
+      blocking: true,
+      fn: async () => undefined,
+      meta: { mutator: "move" },
+    };
+    const notifyTask = {
+      fn: async () => undefined,
+      meta: { mutator: "notify" },
+    };
+
+    expect(
+      splitMutationAsyncTasks([cleanupTask, moveTask, notifyTask])
+    ).toEqual({
+      backgroundTasks: [notifyTask],
+      blockingTasks: [cleanupTask, moveTask],
+    });
+  });
+
+  it("leaves all tasks in the background when none are blocking", () => {
+    const notifyTask = {
+      fn: async () => undefined,
+      meta: { mutator: "notify" },
+    };
+
+    expect(splitMutationAsyncTasks([notifyTask])).toEqual({
+      backgroundTasks: [notifyTask],
+      blockingTasks: [],
+    });
   });
 });
 

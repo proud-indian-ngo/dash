@@ -63,7 +63,6 @@ export const advancePaymentMutators = {
         ? await claimUploadedR2ObjectKey(args.approvalScreenshotKey, {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
-            moveBeforeDependentTasks: true,
             subfolder: "approval-screenshots",
             traceId: ctx.traceId,
             txLocation: tx.location,

@@ -102,7 +102,6 @@ async function claimScheduledMessageAttachments(
         durablePrefix: messageId,
         existingObjectKeys,
         mimeType: attachment.mimeType,
-        moveBeforeDependentTasks: true,
         subfolder: "scheduled-messages",
         traceId,
         txLocation,
@@ -214,6 +213,7 @@ export const scheduledMessageMutators = {
 
         if (attachmentMoveTasks.length > 0) {
           ctx.asyncTasks?.push({
+            blocking: true,
             fn: async () => {
               await runScheduledAttachmentMoveTasks(
                 attachmentMoveTasks,
@@ -518,6 +518,7 @@ export const scheduledMessageMutators = {
 
         if (attachmentMoveTasks.length > 0) {
           ctx.asyncTasks?.push({
+            blocking: true,
             fn: async () => {
               await runScheduledAttachmentMoveTasks(
                 attachmentMoveTasks,

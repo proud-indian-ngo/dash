@@ -18,7 +18,7 @@ Upload signers:
 
 R2 subfolders: `attachments`, `approval-screenshots`, `avatars`, `photos`, `scheduled-messages`, `updates`.
 
-Request, vendor-payment, event-photo, and scheduled-message attachment uploads use temp keys first. Scheduled-message upload URLs always target `scheduled-messages/tmp/{userId}/`; event-photo upload URLs target `photos/tmp/{userId}/`. The client never chooses a durable parent path. Server mutators compute the durable parent-scoped key during the DB mutation. Ordinary attachment claims queue a post-commit `move-r2-object` job; scheduled-message claims perform the R2 move in the ordered post-commit task before enqueueing send jobs, so immediate sends cannot reference a durable key before the object exists. R2 deletes for removed persisted attachments are queued post-commit via `delete-r2-object`, so failed mutations do not delete still-referenced objects.
+Request, vendor-payment, event-photo, and scheduled-message attachment uploads use temp keys first. Scheduled-message upload URLs always target `scheduled-messages/tmp/{userId}/`; event-photo upload URLs target `photos/tmp/{userId}/`. The client never chooses a durable parent path. Server mutators compute the durable parent-scoped key during the DB mutation. Attachment claims run a blocking post-commit task that moves the temp object to its durable key before the mutation response returns. Scheduled-message send jobs run only after those moves succeed, so immediate sends cannot reference a durable key before the object exists. R2 deletes for removed persisted attachments are queued post-commit via `delete-r2-object`, so failed mutations do not delete still-referenced objects.
 
 ## Immich (Event Photos)
 

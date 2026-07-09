@@ -418,8 +418,6 @@ export const eventPhotoMutators = {
             asyncTasks: ctx.asyncTasks,
             durablePrefix: args.eventId,
             mimeType: args.mimeType,
-            moveBeforeDependentTasks:
-              status === "approved" && !args.immichAssetId,
             subfolder: "photos",
             traceId: ctx.traceId,
             txLocation: tx.location,

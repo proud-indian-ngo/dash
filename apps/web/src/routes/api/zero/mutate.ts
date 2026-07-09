@@ -13,6 +13,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
   runMutationAsyncTasksInOrder,
   shouldDrainMutationAsyncTasks,
+  splitMutationAsyncTasks,
 } from "@/lib/zero-mutate-tasks";
 
 const dbProvider = zeroDrizzle(schema, db);
@@ -67,19 +68,27 @@ export const Route = createFileRoute("/api/zero/mutate")({
           userID: userId,
         });
 
-        // Fire-and-forget after commit without blocking the response.
-        // Tasks run in order because later enqueues can depend on earlier R2 moves.
         if (asyncTasks.length > 0) {
-          withFireAndForgetLog(
-            {
-              handler: "mutate",
-              mutators: asyncTasks.map((task) => task.meta.mutator),
-              taskCount: asyncTasks.length,
-              userId,
-              ...(traceId ? { traceId } : {}),
-            },
-            () => runMutationAsyncTasksInOrder(asyncTasks)
-          );
+          const { backgroundTasks, blockingTasks } =
+            splitMutationAsyncTasks(asyncTasks);
+
+          if (blockingTasks.length > 0) {
+            await runMutationAsyncTasksInOrder(blockingTasks);
+          }
+
+          // Fire-and-forget after commit without blocking the response.
+          if (backgroundTasks.length > 0) {
+            withFireAndForgetLog(
+              {
+                handler: "mutate",
+                mutators: backgroundTasks.map((task) => task.meta.mutator),
+                taskCount: backgroundTasks.length,
+                userId,
+                ...(traceId ? { traceId } : {}),
+              },
+              () => runMutationAsyncTasksInOrder(backgroundTasks)
+            );
+          }
         }
 
         return Response.json(result);

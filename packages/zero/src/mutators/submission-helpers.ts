@@ -21,7 +21,6 @@ interface R2ObjectClaimOptions {
   durablePrefix: string;
   existingObjectKeys?: ReadonlySet<string>;
   mimeType?: null | string;
-  moveBeforeDependentTasks?: boolean;
   subfolder: R2Subfolder;
   traceId?: string;
   txLocation: string;
@@ -88,10 +87,7 @@ export function buildAttachmentInsert(att: AttachmentInput, now: number) {
 const filenameFromKey = (key: string): string => key.split("/").pop() ?? "file";
 
 function pushMoveR2ObjectTask(
-  options: Pick<
-    R2ObjectClaimOptions,
-    "asyncTasks" | "mimeType" | "moveBeforeDependentTasks" | "traceId"
-  >,
+  options: Pick<R2ObjectClaimOptions, "asyncTasks" | "mimeType" | "traceId">,
   sourceKey: string,
   targetKey: string
 ) {
@@ -99,19 +95,15 @@ function pushMoveR2ObjectTask(
     throw new Error("Async task queue is required");
   }
   options.asyncTasks.push({
+    blocking: true,
     fn: async () => {
       const payload = {
         ...(options.mimeType ? { mimeType: options.mimeType } : {}),
         sourceKey,
         targetKey,
       };
-      if (options.moveBeforeDependentTasks) {
-        const { moveR2Object } = await import("@pi-dash/jobs/r2-object");
-        await moveR2Object(payload);
-        return;
-      }
-      const { enqueue } = await import("@pi-dash/jobs/enqueue");
-      await enqueue("move-r2-object", payload, { traceId: options.traceId });
+      const { moveR2Object } = await import("@pi-dash/jobs/r2-object");
+      await moveR2Object(payload);
     },
     meta: {
       mutator: "claim-r2-object",
