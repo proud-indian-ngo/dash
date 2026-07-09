@@ -13,6 +13,7 @@ import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
   reimbursement,
+  reimbursementAttachment,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { team, teamMember } from "@pi-dash/db/schema/team";
@@ -199,6 +200,9 @@ const SEED_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
 const SEED_UPCOMING_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000002";
 const SEED_VENDOR_ID = "e2e00000-0000-0000-0000-000000000003";
 const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
+const SEED_REIMBURSEMENT_ATTACHMENT_ID = "e2e00000-0000-0000-0000-000000000005";
+const SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID =
+  "e2e00000-0000-0000-0000-000000000006";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
 const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
@@ -335,6 +339,33 @@ async function ensureUpcomingEventReimbursement(
   });
 
   log("Created upcoming event reimbursement");
+}
+
+async function ensureR2AuthorizationFixtures(): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(reimbursementAttachment)
+    .values([
+      {
+        createdAt: now,
+        filename: "private-receipt.pdf",
+        id: SEED_REIMBURSEMENT_ATTACHMENT_ID,
+        mimeType: "application/pdf",
+        objectKey: "legacy/e2e/private-receipt.pdf",
+        reimbursementId: SEED_REIMBURSEMENT_ID,
+        type: "file",
+      },
+      {
+        createdAt: now,
+        filename: "temporary-receipt.pdf",
+        id: SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID,
+        mimeType: "application/pdf",
+        objectKey: "app/attachments/tmp/e2e/temporary-receipt.pdf",
+        reimbursementId: SEED_REIMBURSEMENT_ID,
+        type: "file",
+      },
+    ])
+    .onConflictDoNothing();
 }
 
 async function ensureEventVendorPayment(
@@ -847,6 +878,7 @@ async function seed(): Promise<void> {
     throw new Error("E2E event expense fixtures require seeded events");
   }
   await ensureReimbursement(superAdminUserId, pastEvent.id);
+  await ensureR2AuthorizationFixtures();
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }

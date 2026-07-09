@@ -44,7 +44,6 @@ interface StatusChangeOptions {
 
 interface ApprovedOptions extends StatusChangeOptions {
   note?: string;
-  screenshotUrl?: string;
 }
 
 interface RejectedOptions extends StatusChangeOptions {
@@ -66,13 +65,7 @@ export function createSubmissionNotifier({
   statusTopic,
 }: SubmissionNotifierConfig): SubmissionNotifier {
   return {
-    async notifyApproved({
-      entityId,
-      title,
-      submitterId,
-      note,
-      screenshotUrl,
-    }) {
+    async notifyApproved({ entityId, title, submitterId, note }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved!`;
@@ -81,7 +74,6 @@ export function createSubmissionNotifier({
         ctaLabel: `View ${entityLabel.toLowerCase()}`,
         ctaUrl: fullUrl,
         heading: `${entityLabel} approved!`,
-        imageUrl: screenshotUrl,
         lineItems,
         note: note ?? undefined,
         paragraphs: [baseMessage],
@@ -91,7 +83,6 @@ export function createSubmissionNotifier({
         clickAction: `/${routePrefix}/${entityId}`,
         emailHtml,
         idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
-        imageUrl: screenshotUrl,
         title: `✅ ${entityLabel} approved!`,
         to: submitterId,
         topic: statusTopic,

@@ -71,7 +71,10 @@ function InvoiceAttachmentList({
               <>
                 <a
                   className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                  href={getAttachmentPreviewHref(att)}
+                  href={getAttachmentPreviewHref(att, {
+                    id: att.id,
+                    kind: "vendorPaymentAttachment",
+                  })}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
@@ -80,7 +83,10 @@ function InvoiceAttachmentList({
                 <a
                   className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                   download
-                  href={getAttachmentDownloadHref(att)}
+                  href={getAttachmentDownloadHref(att, {
+                    id: att.id,
+                    kind: "vendorPaymentAttachment",
+                  })}
                   rel="noopener noreferrer"
                   target="_blank"
                 >

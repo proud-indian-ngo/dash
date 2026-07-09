@@ -85,14 +85,12 @@ export const vendorPaymentMutators = {
         const { title, userId: ownerId } = entity;
         const { id } = args;
         const { note } = args;
-        const { approvalScreenshotKey } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-vendor-payment-approved",
               {
-                approvalScreenshotKey,
                 note,
                 submitterId: ownerId,
                 title,

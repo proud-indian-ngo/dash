@@ -77,7 +77,6 @@ export const advancePaymentMutators = {
         const { title, userId: ownerId } = entity;
         const { id } = args;
         const { note } = args;
-        const { approvalScreenshotKey } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -85,7 +84,6 @@ export const advancePaymentMutators = {
               "notify-advance-payment-approved",
               {
                 advancePaymentId: id,
-                approvalScreenshotKey,
                 note,
                 submitterId: ownerId,
                 title,

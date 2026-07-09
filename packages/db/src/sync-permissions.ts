@@ -1,9 +1,10 @@
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   ADMIN_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSIONS,
+  SYSTEM_ONLY_PERMISSION_IDS,
   UNORIENTED_VOLUNTEER_PERMISSIONS,
   VOLUNTEER_BASELINE_PERMISSIONS,
 } from "./permissions";
@@ -47,6 +48,16 @@ export async function syncPermissions(): Promise<void> {
     .delete(rolePermission)
     .where(notInArray(rolePermission.permissionId, currentIds));
   await db.delete(permission).where(notInArray(permission.id, currentIds));
+
+  // Reserved permissions may only belong to the super-admin system role.
+  await db
+    .delete(rolePermission)
+    .where(
+      and(
+        inArray(rolePermission.permissionId, SYSTEM_ONLY_PERMISSION_IDS),
+        ne(rolePermission.roleId, "super_admin")
+      )
+    );
 
   // Ensure system roles exist
   await Promise.all(

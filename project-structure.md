@@ -103,12 +103,13 @@ All paths are relative to project root.
 | `routes/api/log/ingest.ts` | Client-side log ingestion |
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
+| `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
 | `routes/api/jobs/stats.ts` | Queue size stats API |
 | `routes/api/jobs/$id.ts` | Job detail API |
 | `routes/api/jobs/$id/cancel.ts` | Cancel job API |
 | `routes/api/jobs/$id/retry.ts` | Retry failed job API |
-| `routes/api/attachments/download.ts` | Attachment download |
+| `routes/api/attachments/download.ts` | Authorized attachment download proxy |
 
 All route paths above are prefixed with `apps/web/src/`.
 

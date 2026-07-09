@@ -50,6 +50,10 @@ test.describe("Route guards — admin redirects", () => {
   test("admin redirected from /settings/roles to /", async ({ page }) => {
     await expectRedirectToDashboard(page, "/settings/roles");
   });
+
+  test("admin redirected from /export to /", async ({ page }) => {
+    await expectRedirectToDashboard(page, "/export");
+  });
 });
 
 test.describe("Route guards — finance_admin redirects", () => {
@@ -65,6 +69,21 @@ test.describe("Route guards — finance_admin redirects", () => {
     page,
   }) => {
     await expectRedirectToDashboard(page, "/settings/roles");
+  });
+
+  test("finance_admin redirected from /export to /", async ({ page }) => {
+    await expectRedirectToDashboard(page, "/export");
+  });
+});
+
+test.describe("Route guards — super-admin access", () => {
+  test("super_admin can access /export", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin only");
+    await page.goto("/export");
+    await expect(page).toHaveURL(/\/export$/);
+    await expect(
+      page.getByRole("heading", { name: "Export Data" })
+    ).toBeVisible();
   });
 });
 

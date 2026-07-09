@@ -1,4 +1,4 @@
-import { env } from "@pi-dash/env/web";
+import type { AttachmentDownloadRef } from "@pi-dash/shared/asset-ref";
 
 export interface AttachmentLike {
   filename?: null | string;
@@ -8,16 +8,6 @@ export interface AttachmentLike {
   url?: null | string;
 }
 
-const TRAILING_SLASH = /\/$/;
-const getAssetCdnBase = () => env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
-
-export const getDirectAttachmentUrl = (objectKey: string): string =>
-  `${getAssetCdnBase()}/${objectKey}`;
-
-/** Cloudflare-resized thumbnail for inline `<img>` embeds (e.g. payment proof). */
-export const getImageThumbnailUrl = (objectKey: string, size: number): string =>
-  `${getAssetCdnBase()}/cdn-cgi/image/width=${size},height=${size},fit=cover,format=auto,quality=80/${objectKey}`;
-
 export const getAttachmentLabel = (attachment: AttachmentLike): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "Attachment";
@@ -26,35 +16,47 @@ export const getAttachmentLabel = (attachment: AttachmentLike): string => {
   return attachment.filename ?? attachment.objectKey ?? "Attachment";
 };
 
+export const getProtectedAttachmentHref = (
+  ref: AttachmentDownloadRef,
+  disposition?: "inline"
+): string => {
+  const params = new URLSearchParams({ id: ref.id });
+  if (ref.kind === "scheduledMessageAttachment") {
+    params.set("key", ref.key);
+  }
+  params.set("kind", ref.kind);
+  if (disposition) {
+    params.set("disposition", disposition);
+  }
+  return `/api/attachments/download?${params.toString()}`;
+};
+
 export const getAttachmentPreviewHref = (
-  attachment: AttachmentLike
+  attachment: AttachmentLike,
+  ref?: AttachmentDownloadRef
 ): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "#";
   }
 
-  if (!attachment.objectKey) {
+  if (!(attachment.objectKey && ref)) {
     return "#";
   }
 
-  return getDirectAttachmentUrl(attachment.objectKey);
+  return getProtectedAttachmentHref(ref, "inline");
 };
 
 export const getAttachmentDownloadHref = (
-  attachment: AttachmentLike
+  attachment: AttachmentLike,
+  ref?: AttachmentDownloadRef
 ): string => {
   if (attachment.type === "url") {
     return attachment.url ?? "#";
   }
 
-  if (!attachment.objectKey) {
+  if (!(attachment.objectKey && ref)) {
     return "#";
   }
 
-  const params = new URLSearchParams({
-    filename: attachment.filename ?? "attachment",
-    key: attachment.objectKey,
-  });
-
-  return `/api/attachments/download?${params.toString()}`;
+  return getProtectedAttachmentHref(ref);
 };

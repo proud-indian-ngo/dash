@@ -313,6 +313,11 @@ export function StandardReimbursementFields({
         {(field: FormFieldApi<unknown[]>) => (
           <AttachmentsSection
             entityId={entityId}
+            fileDownloadKind={
+              requestType === "reimbursement"
+                ? "reimbursementAttachment"
+                : "advancePaymentAttachment"
+            }
             onChange={field.handleChange}
             value={field.state.value as Attachment[]}
           />

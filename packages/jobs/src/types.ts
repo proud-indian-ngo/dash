@@ -55,7 +55,6 @@ export interface NotifyReimbursementSubmittedPayload {
   title: string;
 }
 export interface NotifyReimbursementApprovedPayload {
-  approvalScreenshotKey?: string;
   note?: string;
   reimbursementId: string;
   submitterId: string;
@@ -94,7 +93,6 @@ export interface NotifyAdvancePaymentSubmittedPayload {
 }
 export interface NotifyAdvancePaymentApprovedPayload {
   advancePaymentId: string;
-  approvalScreenshotKey?: string;
   note?: string;
   submitterId: string;
   title: string;
@@ -113,7 +111,6 @@ export interface NotifyVendorPaymentSubmittedPayload {
   vendorPaymentId: string;
 }
 export interface NotifyVendorPaymentApprovedPayload {
-  approvalScreenshotKey?: string;
   note?: string;
   submitterId: string;
   title: string;

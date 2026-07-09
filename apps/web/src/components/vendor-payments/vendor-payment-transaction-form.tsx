@@ -195,6 +195,7 @@ function TransactionFormContent({
         {(field) => (
           <AttachmentsSection
             entityId={entityId}
+            fileDownloadKind="vendorPaymentTransactionAttachment"
             onChange={field.handleChange}
             value={field.state.value ?? []}
           />
