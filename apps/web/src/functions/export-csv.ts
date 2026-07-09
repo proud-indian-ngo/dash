@@ -54,7 +54,7 @@ export interface ExportRow {
   type: string;
 }
 
-function groupAttachments<
+export function groupExportAttachments<
   T extends Omit<ExportAttachment, "kind"> & { parentId: string },
 >(
   attachments: T[],
@@ -177,7 +177,7 @@ async function queryExportRows(
           .where(inArray(config.attachmentJoinCol, ids))
       : [];
 
-  const attachmentsByRecord = groupAttachments(
+  const attachmentsByRecord = groupExportAttachments(
     rawAttachments,
     config.attachmentKind
   );

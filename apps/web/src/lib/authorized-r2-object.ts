@@ -67,6 +67,7 @@ export class R2ObjectAccessError extends Error {
 }
 
 interface AttachmentRecord {
+  additionalOwnerUserIds?: readonly string[];
   filename: null | string;
   objectKey: null | string;
   ownerUserId: string;
@@ -161,16 +162,22 @@ async function assertCanAccessRequestObject(
   session: SessionLike,
   record: AttachmentRecord | null,
   deps: AuthorizedR2ObjectDeps,
-  subfolder: R2Subfolder
+  subfolder: R2Subfolder,
+  extraPermissionIds: readonly string[] = []
 ): Promise<ResolvedR2Object> {
   if (!record) {
     return notFound();
   }
   const permissions = await deps.resolvePermissions(roleFor(session));
-  if (
-    record.ownerUserId !== session.user.id &&
-    !permissions.includes("requests.view_all")
-  ) {
+  const ownerUserIds = new Set([
+    record.ownerUserId,
+    ...(record.additionalOwnerUserIds ?? []),
+  ]);
+  const hasObjectAccess =
+    ownerUserIds.has(session.user.id) ||
+    permissions.includes("requests.view_all") ||
+    extraPermissionIds.some((permission) => permissions.includes(permission));
+  if (!hasObjectAccess) {
     forbidden();
   }
   return assertObjectKey(record, subfolder);
@@ -282,7 +289,8 @@ export async function assertCanDownloadR2Object(
         session,
         await deps.findAdvancePaymentAttachment(input.id),
         deps,
-        "attachments"
+        "attachments",
+        ["requests.export"]
       );
     case "advancePaymentApprovalScreenshot":
       return assertCanAccessRequestObject(
@@ -302,7 +310,8 @@ export async function assertCanDownloadR2Object(
         session,
         await deps.findReimbursementAttachment(input.id),
         deps,
-        "attachments"
+        "attachments",
+        ["requests.export"]
       );
     case "reimbursementApprovalScreenshot":
       return assertCanAccessRequestObject(
@@ -512,7 +521,13 @@ const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {
     if (!parent) {
       return null;
     }
+    const vendorPaymentParent = await db.query.vendorPayment.findFirst({
+      where: eq(vendorPayment.id, parent.vendorPaymentId),
+    });
     return {
+      additionalOwnerUserIds: vendorPaymentParent
+        ? [vendorPaymentParent.userId]
+        : [],
       filename: attachment.filename,
       objectKey: attachment.objectKey,
       ownerUserId: parent.userId,

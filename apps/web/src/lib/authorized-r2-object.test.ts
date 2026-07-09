@@ -4,8 +4,10 @@ vi.mock("@pi-dash/db", () => ({ db: {} }));
 vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: async () => [],
 }));
+vi.mock("@pi-dash/env/server", () => ({
+  env: { R2_KEY_PREFIX: "app" },
+}));
 
-import { env } from "@pi-dash/env/server";
 import {
   type AuthorizedR2ObjectDeps,
   assertCanDeleteTemporaryUpload,
@@ -83,6 +85,128 @@ describe("authorized R2 object resolver", () => {
     });
   });
 
+  it("allows requests.export user to resolve reimbursement attachment", async () => {
+    const deps = createDeps({
+      findReimbursementAttachment: async () => ({
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/reimbursement/receipt.pdf",
+        ownerUserId: "owner",
+      }),
+      resolvePermissions: async (role) =>
+        role === "manager" ? ["requests.export"] : [],
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        managerSession,
+        { id: "attachment-id", kind: "reimbursementAttachment" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/attachments/reimbursement/receipt.pdf",
+    });
+  });
+
+  it("allows owner to resolve advance payment attachment", async () => {
+    const deps = createDeps({
+      findAdvancePaymentAttachment: async () => ({
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/advance-payment/receipt.pdf",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        { id: "attachment-id", kind: "advancePaymentAttachment" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/attachments/advance-payment/receipt.pdf",
+    });
+  });
+
+  it("allows requests.export user to resolve advance payment attachment", async () => {
+    const deps = createDeps({
+      findAdvancePaymentAttachment: async () => ({
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/advance-payment/receipt.pdf",
+        ownerUserId: "owner",
+      }),
+      resolvePermissions: async (role) =>
+        role === "manager" ? ["requests.export"] : [],
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        managerSession,
+        { id: "attachment-id", kind: "advancePaymentAttachment" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/attachments/advance-payment/receipt.pdf",
+    });
+  });
+
+  it("rejects unrelated user for advance payment attachment", async () => {
+    const deps = createDeps({
+      findAdvancePaymentAttachment: async () => ({
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/advance-payment/receipt.pdf",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        otherSession,
+        { id: "attachment-id", kind: "advancePaymentAttachment" },
+        deps
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows owner to resolve advance payment approval screenshot", async () => {
+    const deps = createDeps({
+      findAdvancePaymentApprovalScreenshot: async () => ({
+        filename: "payment-proof",
+        objectKey: "app/approval-screenshots/advance-payment/proof.png",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        { id: "advance-payment-id", kind: "advancePaymentApprovalScreenshot" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/approval-screenshots/advance-payment/proof.png",
+    });
+  });
+
+  it("does not allow requests.export to resolve approval screenshots", async () => {
+    const deps = createDeps({
+      findAdvancePaymentApprovalScreenshot: async () => ({
+        filename: "payment-proof",
+        objectKey: "app/approval-screenshots/advance-payment/proof.png",
+        ownerUserId: "owner",
+      }),
+      resolvePermissions: async (role) =>
+        role === "manager" ? ["requests.export"] : [],
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        managerSession,
+        { id: "advance-payment-id", kind: "advancePaymentApprovalScreenshot" },
+        deps
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
   it("rejects unrelated user for reimbursement attachment", async () => {
     const deps = createDeps({
       findReimbursementAttachment: async () => ({
@@ -101,6 +225,24 @@ describe("authorized R2 object resolver", () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
+  it("rejects persisted attachment rows that still point at temp keys", async () => {
+    const deps = createDeps({
+      findReimbursementAttachment: async () => ({
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/tmp/owner/receipt.pdf",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        { id: "attachment-id", kind: "reimbursementAttachment" },
+        deps
+      )
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it("rejects raw-key delete for persisted object paths", () => {
     expect(() =>
       assertCanDeleteTemporaryUpload(ownerSession, {
@@ -111,7 +253,7 @@ describe("authorized R2 object resolver", () => {
   });
 
   it("allows raw-key delete for current user's temporary upload", () => {
-    const key = `${env.R2_KEY_PREFIX}/attachments/tmp/owner/receipt.pdf`;
+    const key = "app/attachments/tmp/owner/receipt.pdf";
 
     expect(
       assertCanDeleteTemporaryUpload(ownerSession, {
@@ -285,6 +427,65 @@ describe("authorized R2 object resolver", () => {
         filename: "receipt.pdf",
         objectKey: "app/attachments/vendor-payment-transaction/receipt.pdf",
         ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        { id: "attachment-id", kind: "vendorPaymentTransactionAttachment" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/attachments/vendor-payment-transaction/receipt.pdf",
+    });
+  });
+
+  it("allows owner to resolve vendor payment attachment", async () => {
+    const deps = createDeps({
+      findVendorPaymentAttachment: async () => ({
+        filename: "quotation.pdf",
+        objectKey: "app/attachments/vendor-payment/quotation.pdf",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        ownerSession,
+        { id: "attachment-id", kind: "vendorPaymentAttachment" },
+        deps
+      )
+    ).resolves.toMatchObject({
+      key: "app/attachments/vendor-payment/quotation.pdf",
+    });
+  });
+
+  it("rejects unrelated user for vendor payment attachment", async () => {
+    const deps = createDeps({
+      findVendorPaymentAttachment: async () => ({
+        filename: "quotation.pdf",
+        objectKey: "app/attachments/vendor-payment/quotation.pdf",
+        ownerUserId: "owner",
+      }),
+    });
+
+    await expect(
+      assertCanDownloadR2Object(
+        otherSession,
+        { id: "attachment-id", kind: "vendorPaymentAttachment" },
+        deps
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows parent vendor payment owner to resolve transaction attachment", async () => {
+    const deps = createDeps({
+      findVendorPaymentTransactionAttachment: async () => ({
+        additionalOwnerUserIds: ["owner"],
+        filename: "receipt.pdf",
+        objectKey: "app/attachments/vendor-payment-transaction/receipt.pdf",
+        ownerUserId: "manager",
       }),
     });
 

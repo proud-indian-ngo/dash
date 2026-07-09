@@ -1,4 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const r2Mocks = vi.hoisted(() => ({
+  delete: vi.fn(),
+  file: vi.fn((key: string, options?: { type: string }) => ({
+    key,
+    options,
+  })),
+  write: vi.fn(),
+}));
+
+vi.mock("@pi-dash/env/server", () => ({
+  env: { R2_KEY_PREFIX: "app" },
+}));
+vi.mock("@pi-dash/jobs/handlers/r2", () => ({
+  getR2Client: () => r2Mocks,
+}));
+
 import {
   assertCanDelete,
   assertCanModify,
@@ -8,7 +25,13 @@ import {
   buildHistoryInsert,
   buildLineItemInsert,
   claimUploadedR2ObjectKey,
+  deleteAllRelations,
+  replaceRelations,
 } from "../submission-helpers";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("assertEntityExists", () => {
   it("passes when entity is defined", () => {
@@ -292,5 +315,143 @@ describe("claimUploadedR2ObjectKey", () => {
         baseOptions
       )
     ).rejects.toThrow("Invalid attachment object key");
+  });
+
+  it("moves server temp key to durable key and deletes source", async () => {
+    await expect(
+      claimUploadedR2ObjectKey("app/attachments/tmp/user-1/uploaded-file.pdf", {
+        ...baseOptions,
+        mimeType: "application/pdf",
+        txLocation: "server",
+      })
+    ).resolves.toBe(
+      "app/attachments/reimbursements/request-1/uploaded-file.pdf"
+    );
+
+    expect(r2Mocks.file).toHaveBeenCalledWith(
+      "app/attachments/tmp/user-1/uploaded-file.pdf",
+      { type: "application/pdf" }
+    );
+    expect(r2Mocks.write).toHaveBeenCalledWith(
+      "app/attachments/reimbursements/request-1/uploaded-file.pdf",
+      {
+        key: "app/attachments/tmp/user-1/uploaded-file.pdf",
+        options: { type: "application/pdf" },
+      },
+      { type: "application/pdf" }
+    );
+    expect(r2Mocks.delete).toHaveBeenCalledWith(
+      "app/attachments/tmp/user-1/uploaded-file.pdf"
+    );
+  });
+
+  it("does not move existing persisted keys during server replacement", async () => {
+    await expect(
+      claimUploadedR2ObjectKey("app/attachments/existing/file.pdf", {
+        ...baseOptions,
+        existingObjectKeys: new Set(["app/attachments/existing/file.pdf"]),
+        txLocation: "server",
+      })
+    ).resolves.toBe("app/attachments/existing/file.pdf");
+
+    expect(r2Mocks.write).not.toHaveBeenCalled();
+    expect(r2Mocks.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("relation attachment cleanup callbacks", () => {
+  it("invokes onDeleteAttachmentObjectKey when replaceRelations drops an attachment", async () => {
+    const deletedObjectKeys: string[] = [];
+    const deletedAttachmentIds: string[] = [];
+
+    await replaceRelations(
+      { reimbursementId: "request-1" },
+      [],
+      [],
+      "user-1",
+      1_700_000_000_000,
+      {
+        deleteAttachment: async ({ id }) => {
+          deletedAttachmentIds.push(id);
+          await Promise.resolve();
+        },
+        deleteLineItem: async () => undefined,
+        insertAttachment: async () => undefined,
+        insertHistory: async () => undefined,
+        insertLineItem: async () => undefined,
+        onDeleteAttachmentObjectKey: (key) => deletedObjectKeys.push(key),
+        queryAttachments: async () => [
+          { id: "att-1", objectKey: "app/attachments/request/receipt.pdf" },
+        ],
+        queryLineItems: async () => [],
+      }
+    );
+
+    expect(deletedObjectKeys).toEqual(["app/attachments/request/receipt.pdf"]);
+    expect(deletedAttachmentIds).toEqual(["att-1"]);
+  });
+
+  it("keeps retained attachment object keys during replaceRelations", async () => {
+    const deletedObjectKeys: string[] = [];
+
+    await replaceRelations(
+      { reimbursementId: "request-1" },
+      [],
+      [
+        {
+          filename: "receipt.pdf",
+          id: "att-1",
+          mimeType: "application/pdf",
+          objectKey: "app/attachments/request/receipt.pdf",
+          type: "file",
+        },
+      ],
+      "user-1",
+      1_700_000_000_000,
+      {
+        deleteAttachment: async () => undefined,
+        deleteLineItem: async () => undefined,
+        insertAttachment: async () => undefined,
+        insertHistory: async () => undefined,
+        insertLineItem: async () => undefined,
+        onDeleteAttachmentObjectKey: (key) => deletedObjectKeys.push(key),
+        queryAttachments: async () => [
+          { id: "att-1", objectKey: "app/attachments/request/receipt.pdf" },
+        ],
+        queryLineItems: async () => [],
+      },
+      {
+        durablePrefix: "reimbursements/request-1",
+        subfolder: "attachments",
+        txLocation: "client",
+        userId: "user-1",
+      }
+    );
+
+    expect(deletedObjectKeys).toEqual([]);
+  });
+
+  it("invokes onDeleteAttachmentObjectKey for deleteAllRelations attachments", async () => {
+    const deletedObjectKeys: string[] = [];
+    const deletedAttachmentIds: string[] = [];
+
+    await deleteAllRelations({
+      deleteAttachment: async ({ id }) => {
+        deletedAttachmentIds.push(id);
+        await Promise.resolve();
+      },
+      deleteHistory: async () => undefined,
+      deleteLineItem: async () => undefined,
+      onDeleteAttachmentObjectKey: (key) => deletedObjectKeys.push(key),
+      queryAttachments: async () => [
+        { id: "att-1", objectKey: "app/attachments/request/receipt.pdf" },
+        { id: "att-2", objectKey: null },
+      ],
+      queryHistory: async () => [],
+      queryLineItems: async () => [],
+    });
+
+    expect(deletedObjectKeys).toEqual(["app/attachments/request/receipt.pdf"]);
+    expect(deletedAttachmentIds).toEqual(["att-1", "att-2"]);
   });
 });

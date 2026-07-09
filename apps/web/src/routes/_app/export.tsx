@@ -15,23 +15,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
-import {
-  type ExportAttachment,
-  type ExportRow,
-  exportCsvData,
-} from "@/functions/export-csv";
+import { type ExportRow, exportCsvData } from "@/functions/export-csv";
 import {
   exportVendorPaymentsCsv,
   type TransactionExportRow,
   type VendorPaymentExportRow,
   vendorPaymentStatusValues,
 } from "@/functions/export-vendor-payments-csv";
-import {
-  getAttachmentDownloadHref,
-  getAttachmentPreviewHref,
-} from "@/lib/attachment-links";
 import { downloadCsv } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
+import { formatExportAttachments } from "@/lib/export-attachments";
 import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/export")({
@@ -117,22 +110,6 @@ const TX_CSV_HEADERS = [
   "Recorded By",
 ];
 
-function formatAttachments(attachments: ExportAttachment[]): string {
-  if (attachments.length === 0) {
-    return "";
-  }
-  return attachments
-    .map((a) => {
-      const href =
-        a.type === "file"
-          ? getAttachmentDownloadHref(a, { id: a.id, kind: a.kind })
-          : getAttachmentPreviewHref(a);
-      return href.startsWith("/") ? `${window.location.origin}${href}` : href;
-    })
-    .filter((href) => href !== "#")
-    .join(" | ");
-}
-
 function requestRowToArray(row: ExportRow): string[] {
   return [
     row.type,
@@ -145,7 +122,7 @@ function requestRowToArray(row: ExportRow): string[] {
     row.expenseDate,
     row.submittedAt,
     row.createdAt,
-    formatAttachments(row.attachments),
+    formatExportAttachments(row.attachments, window.location.origin),
   ];
 }
 

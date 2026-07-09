@@ -85,6 +85,50 @@ const scheduledMessageUploadSchema = z.object({
   mimeType: z.string().min(1),
 });
 
+export function buildScheduledMessageUploadKey(input: {
+  entityId: string;
+  fileName: string;
+  uploadId?: string;
+  userId: string;
+}): string {
+  const ownerSegment =
+    input.entityId === "scheduled-message-draft"
+      ? `tmp/${input.userId}`
+      : input.entityId;
+  const uploadId = input.uploadId ?? uuidv7();
+  return `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/${ownerSegment}/${uploadId}-${sanitizeFileName(input.fileName)}`;
+}
+
+export interface ScheduledMessageUploadDeps {
+  assertCanUploadScheduledMessageObject: typeof assertCanUploadScheduledMessageObject;
+  getS3: () => Pick<ReturnType<typeof getS3>, "presign">;
+}
+
+const defaultScheduledMessageUploadDeps: ScheduledMessageUploadDeps = {
+  assertCanUploadScheduledMessageObject,
+  getS3,
+};
+
+export async function createScheduledMessageUpload(
+  data: z.infer<typeof scheduledMessageUploadSchema>,
+  session: { user: { id: string; role?: null | string } },
+  deps = defaultScheduledMessageUploadDeps
+) {
+  await deps.assertCanUploadScheduledMessageObject(session);
+  const s3 = await deps.getS3();
+  const key = buildScheduledMessageUploadKey({
+    entityId: data.entityId,
+    fileName: data.fileName,
+    userId: session.user.id,
+  });
+  const presignedUrl = s3.presign(key, {
+    expiresIn: 300,
+    method: "PUT",
+    type: data.mimeType,
+  });
+  return { key, presignedUrl };
+}
+
 const eventPhotoUploadSchema = z
   .object({
     eventId: z.string().min(1),
@@ -236,19 +280,7 @@ export const getScheduledMessageUploadUrl = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     try {
-      await assertCanUploadScheduledMessageObject(context.session);
-      const s3 = await getS3();
-      const ownerSegment =
-        data.entityId === "scheduled-message-draft"
-          ? `tmp/${context.session.user.id}`
-          : data.entityId;
-      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.scheduledMessages}/${ownerSegment}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
-      const presignedUrl = s3.presign(key, {
-        expiresIn: 300,
-        method: "PUT",
-        type: data.mimeType,
-      });
-      return { key, presignedUrl };
+      return await createScheduledMessageUpload(data, context.session);
     } catch (error) {
       if (error instanceof R2ObjectAccessError) {
         throw new Error(error.status === 403 ? "Forbidden" : "Not found", {

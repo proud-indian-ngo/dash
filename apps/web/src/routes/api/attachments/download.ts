@@ -48,84 +48,116 @@ export const parseDownloadTarget = (
   return { id, kind };
 };
 
+export interface AttachmentDownloadHandlerDeps {
+  assertCanDownloadR2Object: (
+    session: Parameters<typeof assertCanDownloadR2Object>[0],
+    input: PersistedR2ObjectInput
+  ) => Promise<ResolvedR2Object>;
+  checkRateLimit: typeof checkRateLimit;
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  getS3: () => Pick<ReturnType<typeof getS3>, "presign">;
+  rateLimitResponse: typeof rateLimitResponse;
+  requireSession: (request: Request) => Promise<
+    | {
+        error?: never;
+        session: Parameters<typeof assertCanDownloadR2Object>[0];
+      }
+    | { error: Response; session?: never }
+  >;
+}
+
+const defaultHandlerDeps: AttachmentDownloadHandlerDeps = {
+  assertCanDownloadR2Object,
+  checkRateLimit,
+  fetch,
+  getS3,
+  rateLimitResponse,
+  requireSession,
+};
+
+export async function handleAttachmentDownloadRequest(
+  request: Request,
+  deps = defaultHandlerDeps
+): Promise<Response> {
+  const result = await deps.requireSession(request);
+  if (result.error) {
+    return result.error;
+  }
+
+  const rl = deps.checkRateLimit(`download:${result.session.user.id}`, 30);
+  if (!rl.allowed) {
+    return deps.rateLimitResponse(rl);
+  }
+
+  const requestUrl = new URL(request.url);
+  const target = parseDownloadTarget(requestUrl);
+  if (target instanceof Response) {
+    return target;
+  }
+
+  const rawFileName =
+    requestUrl.searchParams.get("filename")?.trim() || undefined;
+  let resolved: ResolvedR2Object;
+  try {
+    resolved = await deps.assertCanDownloadR2Object(result.session, target);
+  } catch (error) {
+    if (error instanceof R2ObjectAccessError) {
+      return Response.json(
+        { error: error.status === 403 ? "Forbidden" : "Asset not found" },
+        { status: error.status }
+      );
+    }
+    throw error;
+  }
+  const fileName =
+    sanitizeFileName(rawFileName ?? resolved.filename) || "attachment";
+
+  try {
+    const s3 = await deps.getS3();
+    const downloadUrl = s3.presign(resolved.key, {
+      expiresIn: 120,
+      method: "GET",
+    });
+
+    const upstream = await deps.fetch(downloadUrl);
+    if (!upstream.ok) {
+      return Response.json({ error: "Asset not found" }, { status: 404 });
+    }
+
+    const contentType =
+      upstream.headers.get("content-type") ?? "application/octet-stream";
+
+    return new Response(upstream.body, {
+      headers: {
+        "Cache-Control": "private, max-age=0, no-store",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Type": contentType,
+        Vary: "Cookie",
+      },
+      status: 200,
+    });
+  } catch (error) {
+    const log = createRequestLogger({
+      method: "GET",
+      path: "/api/attachments/download",
+    });
+    log.set({
+      fileName,
+      key: resolved.key,
+      kind: target.kind,
+      objectId: target.id,
+      userId: result.session.user.id,
+    });
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
+    return Response.json({ error: "Download failed" }, { status: 500 });
+  }
+}
+
 export const Route = createFileRoute("/api/attachments/download")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const result = await requireSession(request);
-        if (result.error) {
-          return result.error;
-        }
-
-        const rl = checkRateLimit(`download:${result.session.user.id}`, 30);
-        if (!rl.allowed) {
-          return rateLimitResponse(rl);
-        }
-
-        const requestUrl = new URL(request.url);
-        const target = parseDownloadTarget(requestUrl);
-        if (target instanceof Response) {
-          return target;
-        }
-
-        const rawFileName =
-          requestUrl.searchParams.get("filename")?.trim() || undefined;
-        let resolved: ResolvedR2Object;
-        try {
-          resolved = await assertCanDownloadR2Object(result.session, target);
-        } catch (error) {
-          if (error instanceof R2ObjectAccessError) {
-            return Response.json(
-              { error: error.status === 403 ? "Forbidden" : "Asset not found" },
-              { status: error.status }
-            );
-          }
-          throw error;
-        }
-        const fileName =
-          sanitizeFileName(rawFileName ?? resolved.filename) || "attachment";
-
-        try {
-          const s3 = await getS3();
-          const downloadUrl = s3.presign(resolved.key, {
-            expiresIn: 120,
-            method: "GET",
-          });
-
-          const upstream = await fetch(downloadUrl);
-          if (!upstream.ok) {
-            return Response.json({ error: "Asset not found" }, { status: 404 });
-          }
-
-          const contentType =
-            upstream.headers.get("content-type") ?? "application/octet-stream";
-
-          return new Response(upstream.body, {
-            headers: {
-              "Cache-Control": "private, max-age=0, no-store",
-              "Content-Disposition": `attachment; filename="${fileName}"`,
-              "Content-Type": contentType,
-              Vary: "Cookie",
-            },
-            status: 200,
-          });
-        } catch (error) {
-          const log = createRequestLogger({
-            method: "GET",
-            path: "/api/attachments/download",
-          });
-          log.set({
-            fileName,
-            key: resolved.key,
-            kind: target.kind,
-            objectId: target.id,
-            userId: result.session.user.id,
-          });
-          log.error(error instanceof Error ? error : String(error));
-          log.emit();
-          return Response.json({ error: "Download failed" }, { status: 500 });
-        }
-      },
+      GET: async ({ request }) => handleAttachmentDownloadRequest(request),
     },
   },
 });
