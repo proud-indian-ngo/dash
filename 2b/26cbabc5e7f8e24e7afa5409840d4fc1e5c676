@@ -1,0 +1,46 @@
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 88,105,128,145
+packages/jobs/src/enqueue.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 19
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 315,330,341-342,344-346,348,362,381
+packages/jobs/src/types.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 499-504,522
+packages/jobs/src/handlers/move-r2-object.ts
+  s_adf55c018923eb::t_318be3938a50a3 16
+  s_adf55c018923eb::t_9e7681fe05d3c8 1-15,17-40
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_c8a70232766c6f 162
+packages/jobs/src/handlers/index.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 14,479
+docs/architecture/jobs.md
+  s_adf55c018923eb::t_9e7681fe05d3c8 6,25
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 99-108
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_9e7681fe05d3c8 21
+project-structure.md
+  s_adf55c018923eb::t_9e7681fe05d3c8 399
+apps/web/src/lib/authorized-r2-object.ts
+  s_adf55c018923eb::t_9e7681fe05d3c8 165,177,290,310
+packages/jobs/src/handlers/move-r2-object.test.ts
+  s_adf55c018923eb::t_318be3938a50a3 22,33-35
+  s_adf55c018923eb::t_9e7681fe05d3c8 1-17,31-32,36-80
+  s_adf55c018923eb::t_c72feef749a1eb 18-21,23-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2b26cbabc5e7f8e24e7afa5409840d4fc1e5c676",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
