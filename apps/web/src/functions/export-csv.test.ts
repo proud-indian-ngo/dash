@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@/lib/api-auth", () => ({ assertServerPermission: vi.fn() }));
 vi.mock("@tanstack/react-start", () => ({
   createServerFn: () => ({
     middleware: () => ({
