@@ -20,13 +20,13 @@ const basePhoto = {
 describe("event photo urls", () => {
   it("routes R2 thumbnails through the authorized attachment endpoint", () => {
     expect(getPhotoThumbnailUrl(basePhoto)).toBe(
-      "/api/attachments/download?filename=Team+photo&id=photo-id&kind=eventPhoto"
+      "/api/attachments/download?disposition=inline&filename=Team+photo&id=photo-id&kind=eventPhoto"
     );
   });
 
   it("routes R2 originals through the authorized attachment endpoint", () => {
     expect(getPhotoLightboxUrl(basePhoto)).toBe(
-      "/api/attachments/download?filename=Team+photo&id=photo-id&kind=eventPhoto"
+      "/api/attachments/download?disposition=inline&filename=Team+photo&id=photo-id&kind=eventPhoto"
     );
   });
 });

@@ -152,6 +152,20 @@ describe("handleAttachmentDownloadRequest", () => {
     await expect(response.text()).resolves.toBe("file-body");
   });
 
+  it("allows inline disposition for preview requests", async () => {
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        "https://example.test/api/attachments/download?disposition=inline&filename=receipt.pdf&id=attachment-id&kind=reimbursementAttachment"
+      ),
+      createHandlerDeps()
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(
+      'inline; filename="receipt.pdf"'
+    );
+  });
+
   it("returns 404 when the upstream object fetch fails", async () => {
     const response = await handleAttachmentDownloadRequest(
       request(),

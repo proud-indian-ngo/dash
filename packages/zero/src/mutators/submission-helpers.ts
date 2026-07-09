@@ -20,6 +20,7 @@ interface R2ObjectClaimOptions {
   durablePrefix: string;
   existingObjectKeys?: ReadonlySet<string>;
   mimeType?: null | string;
+  moveBeforeDependentTasks?: boolean;
   subfolder: R2Subfolder;
   traceId?: string;
   txLocation: string;
@@ -85,8 +86,11 @@ export function buildAttachmentInsert(att: AttachmentInput, now: number) {
 
 const filenameFromKey = (key: string): string => key.split("/").pop() ?? "file";
 
-function enqueueMoveR2Object(
-  options: Pick<R2ObjectClaimOptions, "asyncTasks" | "mimeType" | "traceId">,
+function pushMoveR2ObjectTask(
+  options: Pick<
+    R2ObjectClaimOptions,
+    "asyncTasks" | "mimeType" | "moveBeforeDependentTasks" | "traceId"
+  >,
   sourceKey: string,
   targetKey: string
 ) {
@@ -95,16 +99,18 @@ function enqueueMoveR2Object(
   }
   options.asyncTasks.push({
     fn: async () => {
+      const payload = {
+        ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+        sourceKey,
+        targetKey,
+      };
+      if (options.moveBeforeDependentTasks) {
+        const { moveR2Object } = await import("@pi-dash/jobs/r2-object");
+        await moveR2Object(payload);
+        return;
+      }
       const { enqueue } = await import("@pi-dash/jobs/enqueue");
-      await enqueue(
-        "move-r2-object",
-        {
-          ...(options.mimeType ? { mimeType: options.mimeType } : {}),
-          sourceKey,
-          targetKey,
-        },
-        { traceId: options.traceId }
-      );
+      await enqueue("move-r2-object", payload, { traceId: options.traceId });
     },
     meta: {
       mutator: "claim-r2-object",
@@ -149,7 +155,7 @@ export async function claimUploadedR2ObjectKey(
     : key.slice(0, tempMarkerIndex);
   const claimedKey = `${storagePrefix}/${options.subfolder}/${options.durablePrefix}/${filenameFromKey(key)}`;
   if (options.txLocation === "server") {
-    enqueueMoveR2Object(options, key, claimedKey);
+    pushMoveR2ObjectTask(options, key, claimedKey);
   }
   return claimedKey;
 }

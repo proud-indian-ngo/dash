@@ -97,6 +97,10 @@ export async function handleAttachmentDownloadRequest(
 
   const rawFileName =
     requestUrl.searchParams.get("filename")?.trim() || undefined;
+  const contentDisposition =
+    requestUrl.searchParams.get("disposition") === "inline"
+      ? "inline"
+      : "attachment";
   let resolved: ResolvedR2Object;
   try {
     resolved = await deps.assertCanDownloadR2Object(result.session, target);
@@ -130,7 +134,7 @@ export async function handleAttachmentDownloadRequest(
     return new Response(upstream.body, {
       headers: {
         "Cache-Control": "private, max-age=0, no-store",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `${contentDisposition}; filename="${fileName}"`,
         "Content-Type": contentType,
         Vary: "Cookie",
       },

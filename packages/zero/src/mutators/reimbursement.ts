@@ -337,10 +337,6 @@ export const reimbursementMutators = {
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
 
       const now = Date.now();
-      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        mutator: "reimbursement.resetToPending",
-        reimbursementId: args.id,
-      });
 
       await tx.mutate.reimbursement.update({
         id: args.id,
@@ -399,6 +395,10 @@ export const reimbursementMutators = {
       }
 
       const now = Date.now();
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "reimbursement.resetToPending",
+        reimbursementId: args.id,
+      });
 
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey: null,

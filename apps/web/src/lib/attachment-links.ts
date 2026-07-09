@@ -37,7 +37,7 @@ export const getAttachmentPreviewHref = (
   }
 
   if (target) {
-    return getAttachmentDownloadHref(attachment, target);
+    return buildAttachmentDownloadHref(attachment, target, "inline");
   }
 
   if (!attachment.objectKey) {
@@ -59,11 +59,23 @@ export const getAttachmentDownloadHref = (
     return "#";
   }
 
+  return buildAttachmentDownloadHref(attachment, target, "attachment");
+};
+
+const buildAttachmentDownloadHref = (
+  attachment: AttachmentLike,
+  target: AttachmentDownloadTarget,
+  disposition: "attachment" | "inline"
+): string => {
   const params = new URLSearchParams({
     filename: attachment.filename ?? "attachment",
     id: target.id,
     kind: target.kind,
   });
+
+  if (disposition === "inline") {
+    params.set("disposition", "inline");
+  }
 
   if (target.kind === "scheduledMessageAttachment") {
     params.set("key", target.key);

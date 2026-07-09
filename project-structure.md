@@ -396,7 +396,7 @@ R2 subfolders: `approval-screenshots`, `attachments`, `avatars`, `photos`, `sche
    - `getEditorImageUploadUrl` for event update editor images. Permission-gated by event update access and uploads to `updates/{eventId}/`.
    - `getScheduledMessageUploadUrl` for scheduled message media. Requires `messages.schedule`; uploads to `scheduled-messages/tmp/{userId}/` before mutators claim files into `scheduled-messages/{messageId}/`.
 2. Client uploads directly to R2 via the presigned S3 PUT URL.
-3. Zero mutators validate temp object ownership. Request/vendor/scheduled-message attachment mutators claim temp keys into durable parent-scoped prefixes and queue `move-r2-object` / `delete-r2-object` jobs as post-commit async tasks.
+3. Zero mutators validate temp object ownership. Request/vendor/scheduled-message attachment mutators claim temp keys into durable parent-scoped prefixes. Ordinary claims queue `move-r2-object` / `delete-r2-object` jobs as post-commit async tasks; scheduled-message media moves run inside the ordered post-commit task before send jobs are enqueued.
 4. Persisted private request/vendor/scheduled-message files download through `routes/api/attachments/download.ts` using `kind`, `id`, and scheduled-message `key` query params. The route resolves DB ownership/permissions before proxying R2 bytes; clients do not receive raw persisted object URLs.
 
 Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (ownership-scoped to `avatars/{userId}/`).

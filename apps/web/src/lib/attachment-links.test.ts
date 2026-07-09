@@ -112,7 +112,7 @@ describe("getAttachmentPreviewHref", () => {
         { id: "attachment-id", kind: "reimbursementAttachment" }
       )
     ).toBe(
-      "/api/attachments/download?filename=receipt.pdf&id=attachment-id&kind=reimbursementAttachment"
+      "/api/attachments/download?filename=receipt.pdf&id=attachment-id&kind=reimbursementAttachment&disposition=inline"
     );
   });
 });

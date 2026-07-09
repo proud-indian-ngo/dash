@@ -4,11 +4,15 @@ import type { AsyncTask } from "../../context";
 const jobMocks = vi.hoisted(() => ({
   enqueue: vi.fn(),
 }));
+const r2ObjectMocks = vi.hoisted(() => ({
+  moveR2Object: vi.fn(),
+}));
 
 vi.mock("@pi-dash/env/server", () => ({
   env: { R2_KEY_PREFIX: "app" },
 }));
 vi.mock("@pi-dash/jobs/enqueue", () => jobMocks);
+vi.mock("@pi-dash/jobs/r2-object", () => r2ObjectMocks);
 
 import {
   assertCanDelete,
@@ -360,6 +364,33 @@ describe("claimUploadedR2ObjectKey", () => {
       },
       { traceId: "trace-id" }
     );
+  });
+
+  it("awaits server temp move when later tasks depend on the durable key", async () => {
+    const asyncTasks: AsyncTask[] = [];
+
+    await expect(
+      claimUploadedR2ObjectKey("app/scheduled-messages/tmp/user-1/media.png", {
+        asyncTasks,
+        durablePrefix: "message-id",
+        mimeType: "image/png",
+        moveBeforeDependentTasks: true,
+        subfolder: "scheduled-messages",
+        txLocation: "server",
+        userId: "user-1",
+      })
+    ).resolves.toBe("app/scheduled-messages/message-id/media.png");
+
+    expect(asyncTasks).toHaveLength(1);
+
+    await asyncTasks[0]?.fn();
+
+    expect(r2ObjectMocks.moveR2Object).toHaveBeenCalledWith({
+      mimeType: "image/png",
+      sourceKey: "app/scheduled-messages/tmp/user-1/media.png",
+      targetKey: "app/scheduled-messages/message-id/media.png",
+    });
+    expect(jobMocks.enqueue).not.toHaveBeenCalled();
   });
 
   it("does not move existing persisted keys during server replacement", async () => {

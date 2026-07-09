@@ -54,6 +54,74 @@ const APPROVAL_SCREENSHOT_DOWNLOAD_KIND_BY_REQUEST_TYPE = {
   reimbursement: "reimbursementApprovalScreenshot",
 } as const satisfies Record<RequestType, string>;
 
+type ApprovalScreenshotDownloadKind =
+  (typeof APPROVAL_SCREENSHOT_DOWNLOAD_KIND_BY_REQUEST_TYPE)[RequestType];
+
+function getPaymentProofLinks(
+  request: RequestDetailData,
+  kind: ApprovalScreenshotDownloadKind
+) {
+  if (!request.approvalScreenshotKey) {
+    return { downloadHref: null, previewHref: null };
+  }
+
+  const attachment = {
+    filename: "payment-proof",
+    mimeType: "image/jpeg",
+    objectKey: request.approvalScreenshotKey,
+    type: "file" as const,
+    url: null,
+  };
+  const target = { id: request.id, kind };
+
+  return {
+    downloadHref: getAttachmentDownloadHref(attachment, target),
+    previewHref: getAttachmentPreviewHref(attachment, target),
+  };
+}
+
+function PaymentProof({
+  downloadHref,
+  previewHref,
+  status,
+}: {
+  downloadHref: null | string;
+  previewHref: null | string;
+  status: null | string;
+}) {
+  if (status !== "approved" || !downloadHref) {
+    return null;
+  }
+
+  const resolvedPreviewHref = previewHref ?? downloadHref;
+
+  return (
+    <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-out-expo">
+      <h2 className="font-medium text-sm">Payment proof</h2>
+      <div className="flex flex-col items-start gap-1.5">
+        <a href={resolvedPreviewHref} rel="noopener noreferrer" target="_blank">
+          <img
+            alt="Payment proof"
+            className="h-24 w-24 rounded-md border object-cover"
+            height={96}
+            src={resolvedPreviewHref}
+            width={96}
+          />
+        </a>
+        <a
+          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+          download
+          href={downloadHref}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export function ReimbursementDetail({
   canApprove,
   canUpdateAnyStatus = false,
@@ -71,18 +139,10 @@ export function ReimbursementDetail({
     ATTACHMENT_DOWNLOAD_KIND_BY_REQUEST_TYPE[request.type];
   const approvalScreenshotDownloadKind =
     APPROVAL_SCREENSHOT_DOWNLOAD_KIND_BY_REQUEST_TYPE[request.type];
-  const paymentProofHref = request.approvalScreenshotKey
-    ? getAttachmentDownloadHref(
-        {
-          filename: "payment-proof",
-          mimeType: "image/jpeg",
-          objectKey: request.approvalScreenshotKey,
-          type: "file",
-          url: null,
-        },
-        { id: request.id, kind: approvalScreenshotDownloadKind }
-      )
-    : null;
+  const {
+    downloadHref: paymentProofHref,
+    previewHref: paymentProofPreviewHref,
+  } = getPaymentProofLinks(request, approvalScreenshotDownloadKind);
 
   const mutatorMap = {
     advance_payment: { name: "advancePayment", ns: mutators.advancePayment },
@@ -283,36 +343,11 @@ export function ReimbursementDetail({
           </div>
         ) : null}
 
-        {/* Payment proof */}
-        {request.status === "approved" && paymentProofHref ? (
-          <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-out-expo">
-            <h2 className="font-medium text-sm">Payment proof</h2>
-            <div className="flex flex-col items-start gap-1.5">
-              <a
-                href={paymentProofHref}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <img
-                  alt="Payment proof"
-                  className="h-24 w-24 rounded-md border object-cover"
-                  height={96}
-                  src={paymentProofHref}
-                  width={96}
-                />
-              </a>
-              <a
-                className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                download
-                href={paymentProofHref}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Download
-              </a>
-            </div>
-          </div>
-        ) : null}
+        <PaymentProof
+          downloadHref={paymentProofHref}
+          previewHref={paymentProofPreviewHref}
+          status={request.status}
+        />
 
         {/* Line items */}
         <LineItemsTable

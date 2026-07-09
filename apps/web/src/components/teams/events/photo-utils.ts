@@ -21,6 +21,7 @@ export function isVideoPhoto(photo: EventPhoto): boolean {
 
 export function getR2PhotoUrl(photo: EventPhoto): string {
   const params = new URLSearchParams({
+    disposition: "inline",
     filename: photo.caption ?? "event-photo",
     id: photo.id,
     kind: "eventPhoto",

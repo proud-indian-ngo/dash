@@ -60,6 +60,7 @@ async function claimScheduledMessageAttachments(
         durablePrefix: messageId,
         existingObjectKeys,
         mimeType: attachment.mimeType,
+        moveBeforeDependentTasks: true,
         subfolder: "scheduled-messages",
         traceId,
         txLocation,
