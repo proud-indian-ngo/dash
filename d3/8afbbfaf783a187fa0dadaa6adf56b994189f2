@@ -1,0 +1,91 @@
+apps/web/src/components/scheduled-messages/media-upload.tsx
+  s_adf55c018923eb::t_b4578e31b55d62 18,101
+  s_adf55c018923eb::t_dc29555f7e4991 30-32
+apps/web/src/components/vendor-payments/vendor-payment-invoice-section.tsx
+  s_adf55c018923eb::t_91f6567dc84d66 83-86
+apps/web/src/hooks/use-attachment-actions.ts
+  s_adf55c018923eb::t_e10bac1e390e31 8-10,28-31
+apps/web/src/routes/_app/reimbursements/index.tsx
+  s_adf55c018923eb::t_a20fc17be236a6 109-110,118
+  s_adf55c018923eb::t_ba3cbbbd0a82b1 111-112
+  s_adf55c018923eb::t_615838c8ee6370 113
+  s_adf55c018923eb::t_7853b92c4da09a 116-117
+  s_adf55c018923eb::t_bb63d4adef355a 119
+  s_afc4d39c1fbb35::t_da1d369a8b8385 17,121-123
+apps/web/src/components/editor/plate-editor.tsx
+  s_adf55c018923eb::t_db6d79347d3a78 8,25
+  s_adf55c018923eb::t_a1baa40a286b06 23
+apps/web/src/lib/attachment-links.test.ts
+  s_adf55c018923eb::t_180df47fabb87f 52-96
+  s_adf55c018923eb::t_3633a207269aa0 10-13
+  s_adf55c018923eb::t_653ee8e1226804 97
+apps/web/src/lib/authorized-r2-object.ts
+  s_adf55c018923eb::t_901feee145178a 116,118,127,129,219-222,238-240,312-315
+  s_adf55c018923eb::t_f442c343efb02e 8-11,48-51,131,135
+  s_adf55c018923eb::t_5751cbf66340aa 149,151,153-154,164,181-182,184-187,196-197,212-213,227,242,341
+  s_adf55c018923eb::t_0ac359315ca18d 1-7,12-47,52-115,117,119-126,128,130,132-134,136-148,150,152,155-163,165-180,183,188-195,198-211,214-218,223-226,228-237,241,243-311,316-340,342-536
+apps/web/src/routes/api/attachments/download.ts
+  s_adf55c018923eb::t_bd56888e5a3e10 31
+  s_adf55c018923eb::t_6ca883db9fd52b 4-7,11,22-30,32-50,66-68,71-72,74-83,85-86,90,117-122
+  s_adf55c018923eb::t_6dae4299f9e7aa 8-10,73
+  s_adf55c018923eb::t_bd5345a9b7caf0 123
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_cd8b33fbf988f9 12
+  s_adf55c018923eb::t_2ff068fcc680c4 82-106,143
+  s_adf55c018923eb::t_4c40b9cebff932 66-71,107-142
+  s_adf55c018923eb::t_18ca115feec1b5 477
+  s_adf55c018923eb::t_2dab95930783b2 11,15-17
+  s_adf55c018923eb::t_9ac4e29de7fb63 3-7,13-14
+  s_adf55c018923eb::t_20286e11b9a595 474
+  s_adf55c018923eb::t_543ecf5bcb62ea 243-244,285-287,328-329,377-378,485-486
+  s_adf55c018923eb::t_43575409b32037 186-188,219-242,245-284,288-327,330-346,362-363,370,375-376,379-380,387,471-472,478,483-484,487-488,494
+  s_adf55c018923eb::t_d3cc5b9cf7b931 367-369
+  s_adf55c018923eb::t_7ae27a3357d889 476
+  s_adf55c018923eb::t_bfba7aa03fe73e 492-493
+  s_adf55c018923eb::t_1f14616fef50ba 191,366,372,463,467,480,490
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_24c2f03b009475 8,10-183
+  s_adf55c018923eb::t_79dd0a86a49188 9
+  s_adf55c018923eb::t_9f63f6ad5399d9 1-7
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_adf55c018923eb::t_473512a9d8c067 39,49-58,73,75
+  s_adf55c018923eb::t_411732ad261387 72,74,367-370
+  s_adf55c018923eb::t_325418d4cb4351 297-306
+apps/web/src/components/teams/events/photo-upload.ts
+  s_adf55c018923eb::t_470600872b2476 62
+  s_adf55c018923eb::t_2cecabd08438f6 54-55,59
+  s_adf55c018923eb::t_e5988883f2d473 7
+apps/web/src/lib/attachment-links.ts
+  s_adf55c018923eb::t_322bd36d65f005 11-24,58-59,65,71-72,75-77
+  s_adf55c018923eb::t_966ccb8187921a 78
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_a9332c53b459bf 140-147
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_adf55c018923eb::t_d9b3e589a5dafa 210-213
+apps/web/src/components/teams/events/event-photos.tsx
+  s_adf55c018923eb::t_6f2053f6afcee9 25,96,242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d38afbbfaf783a187fa0dadaa6adf56b994189f2",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_afc4d39c1fbb35": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a7-5c6d-7b50-ad67-cbca93228c91",
+        "model": "unknown"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
