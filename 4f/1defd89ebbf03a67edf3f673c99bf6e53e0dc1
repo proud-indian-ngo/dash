@@ -1,0 +1,127 @@
+scripts/migrate-r2-media-urls.ts
+  s_adf55c018923eb::t_427031a56ffa13 87-89,110,115-116,137,142-143
+  s_adf55c018923eb::t_cf8d0f94575eda 78-86,96-105,107-109,111-114,123-132,134-136,138-141
+  s_adf55c018923eb::t_1a8420693ddfef 1-77,90-95,106,117-122,133,144-174
+apps/web/src/components/teams/events/event-updates.tsx
+  s_adf55c018923eb::t_8e8e8f98a61f72 54,64,165,182,203,223,247,258,358,367-371,381,387,426,445,453,581,590-594
+packages/e2e/tests/authorization/r2-object-access.spec.ts
+  s_adf55c018923eb::t_60c7a0e09fb3eb 6-8,13-15,78-147,149
+  s_fa4677cb6b4d16::t_e4dae070d02133 148
+apps/web/src/components/settings/sections/profile-section.tsx
+  s_adf55c018923eb::t_df08df3463d4fd 6-11,52,56,63-64,82,132-136
+apps/web/src/lib/private-media-access.test.ts
+  s_adf55c018923eb::t_d5892809fe8b51 84
+  s_adf55c018923eb::t_1bbc853da675f3 1-18,32-83,85-89,103-107,188-260
+  s_adf55c018923eb::t_111ea7f5bc53fa 19-31,90-102,108-187
+apps/web/src/lib/private-media-access.ts
+  s_adf55c018923eb::t_5184e23c943804 33
+  s_adf55c018923eb::t_b3ed48e936c104 1-16,30-32,34-84,86-98,137-150,153-155,169-191
+  s_adf55c018923eb::t_23123c352d8d90 17-29,85,99-136,151-152,156-168
+apps/web/src/lib/avatar.ts
+  s_adf55c018923eb::t_c8fb7c430e0e5c 25,27-38
+  s_adf55c018923eb::t_d5892809fe8b51 1-6
+apps/web/src/routes/_app/events/$id.tsx
+  s_adf55c018923eb::t_2560f845a34956 49-55,115-118,169
+apps/web/src/components/teams/events/event-detail.tsx
+  s_adf55c018923eb::t_d5892809fe8b51 216
+  s_adf55c018923eb::t_ff0b95f8ffc59a 465,485,546,776,1102
+README.md
+  s_adf55c018923eb::t_bf8ace71940b82 48,258
+apps/web/src/components/editor/plate-renderer.tsx
+  s_adf55c018923eb::t_d5892809fe8b51 16-20
+  s_adf55c018923eb::t_8e8e8f98a61f72 4-9,12-15,21-28
+packages/jobs/src/lib/r2-media-references.ts
+  s_adf55c018923eb::t_9d39c09a931845 1-42,44-49,51-88
+  s_adf55c018923eb::t_d5892809fe8b51 43,50
+packages/shared/src/constants.ts
+  s_adf55c018923eb::t_87193048acfe4b 3
+packages/shared/src/media-url.ts
+  s_adf55c018923eb::t_bd4cd863cd2241 42,62-65,84-87
+  s_adf55c018923eb::t_b3ed48e936c104 1-3,5-39,41,43-61,66-83,88-162
+  s_adf55c018923eb::t_d5892809fe8b51 4,40
+package.json
+  s_adf55c018923eb::t_1a8420693ddfef 86
+apps/web/src/routes/api/media/avatar.$userId.ts
+  s_adf55c018923eb::t_405e4f7b9c2b49 1-12,16-44,46-63,68-104
+  s_adf55c018923eb::t_26cfe7b2219312 13-15
+  s_adf55c018923eb::t_d5892809fe8b51 45,64-67
+packages/e2e/helpers/seed-test-user.ts
+  s_adf55c018923eb::t_2764607f61aea9 569
+  s_adf55c018923eb::t_188656985dde07 271-274,277,500
+  s_adf55c018923eb::t_408419db6d0cda 276,278-286,496-499,501-503,635
+  s_fa4677cb6b4d16::t_4586e9b262687c 275,504
+apps/web/src/lib/media-upload.ts
+  s_adf55c018923eb::t_87193048acfe4b 1-23
+apps/web/src/routes/api/media/-avatar.$userId.test.ts
+  s_adf55c018923eb::t_6518a6d817fabf 1-106
+apps/web/src/lib/private-media-db.ts
+  s_adf55c018923eb::t_5184e23c943804 54-55
+  s_adf55c018923eb::t_55f6fa00db5cd2 4-7,30-31,33-37,41,44-50,52-53,56-71
+  s_adf55c018923eb::t_405e4f7b9c2b49 1-3,8-29,32,38-40,42-43,51,72-104
+packages/db/src/r2-media-migration.ts
+  s_adf55c018923eb::t_75d7ae7ae98620 1-106,108,112-134,136-143,150,154-195
+  s_adf55c018923eb::t_34380aa61c2c30 107,109-111,135,144-149,151-153
+packages/jobs/src/handlers/cleanup-r2-orphans.ts
+  s_adf55c018923eb::t_1e9e1ffc105a06 2-3,10,14-17,108-124,126-156
+apps/web/src/components/teams/events/event-feedback.tsx
+  s_adf55c018923eb::t_4768decba29811 145,327,333,348,376,391-397,402
+apps/web/src/routes/api/media/-event-update.test.ts
+  s_adf55c018923eb::t_6518a6d817fabf 1-100
+apps/web/src/lib/media-upload.test.ts
+  s_adf55c018923eb::t_8de479acd4b433 1-56
+packages/jobs/src/lib/r2-media-references.test.ts
+  s_adf55c018923eb::t_4d27404994a6b6 1-79
+packages/e2e/tests/events/private-editor-media.spec.ts
+  s_adf55c018923eb::t_60c7a0e09fb3eb 1-30,34,36,38-40
+  s_adf55c018923eb::t_2764607f61aea9 31-33,35,37
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_3f088406d62633 175,188-192,208-240,246
+  s_adf55c018923eb::t_e15fc18cb4b266 4-7,12-17
+  s_adf55c018923eb::t_49216c4121e350 241-245
+  s_adf55c018923eb::t_3243bf98e60db5 247-248
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_609bc4ad3fab77 105
+  s_adf55c018923eb::t_bf8ace71940b82 18-42,104
+apps/web/src/components/editor/plate-editor.tsx
+  s_adf55c018923eb::t_f4e615656739e0 7,10,14-18,22,24,43,56-61
+packages/shared/src/media-url.test.ts
+  s_adf55c018923eb::t_1bbc853da675f3 1-126
+apps/web/src/routeTree.gen.ts
+  s_adf55c018923eb::t_4a1b7e1f0f7252 41,56,206-210,281-285,343,358,387,402,440,455,492,507,536,551,588,603,618,625,834-840,939-945,1149,1156
+apps/web/src/components/shared/user-avatar.tsx
+  s_adf55c018923eb::t_c8fb7c430e0e5c 23
+apps/web/src/routes/api/media/event-update.ts
+  s_adf55c018923eb::t_405e4f7b9c2b49 1-103
+packages/db/package.json
+  s_adf55c018923eb::t_f6b78c87f1699c 23-24
+packages/db/src/r2-media-migration.test.ts
+  s_adf55c018923eb::t_d55f8e35897291 18,20-22,24,30-32,34,38,41,46-52
+  s_adf55c018923eb::t_f6b78c87f1699c 1-17,19,23,25-29,33,35-37,39-40,42-45,53-163
+apps/web/src/lib/avatar.test.ts
+  s_adf55c018923eb::t_274c868d02b871 1-2,45-51,53-55
+  s_adf55c018923eb::t_d5892809fe8b51 6-7,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4f1defd89ebbf03a67edf3f673c99bf6e53e0dc1",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_fa4677cb6b4d16": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4838-6cb1-7852-b748-4c91e7ae02fd",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
