@@ -1,0 +1,62 @@
+apps/web/src/lib/r2-upload-claim.ts
+  s_adf55c018923eb::t_67d0b8f1712122 8,10,57-62,86-90
+  s_adf55c018923eb::t_83b941fdb8c049 49
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_67d0b8f1712122 60-63,68-76,82,155-160
+  s_adf55c018923eb::t_83b941fdb8c049 57
+packages/zero/src/mutators/reimbursement.ts
+  s_adf55c018923eb::t_6576ac29cdcd90 28-37,112-116,268-272,282-286,423-427,489-493
+  s_adf55c018923eb::t_5a662d59ec1213 105
+packages/shared/src/constants.ts
+  s_adf55c018923eb::t_67d0b8f1712122 5,34-35
+  s_adf55c018923eb::t_3f43faadef6189 36
+apps/web/src/lib/media-upload.test.ts
+  s_adf55c018923eb::t_ee6b707363ba81 6,81-86,99-100
+packages/zero/src/mutators/vendor-payment.ts
+  s_adf55c018923eb::t_38375161ded97a 32-41,83-87,329-333,343-347,568-572,647-651,773-777,865-869
+  s_adf55c018923eb::t_5a662d59ec1213 76
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_ee6b707363ba81 384-389,392-395,406-447
+  s_adf55c018923eb::t_b6d99341410257 355-377
+packages/zero/src/mutators/event-photo.ts
+  s_adf55c018923eb::t_5a662d59ec1213 14,252-253,316-317
+apps/web/src/components/scheduled-messages/media-upload.tsx
+  s_adf55c018923eb::t_67d0b8f1712122 13,24,26,35,40,46,54
+apps/web/src/components/vendor-payments/vendor-payment-invoice-form.tsx
+  s_adf55c018923eb::t_144383006aa90a 5
+packages/zero/src/mutators/__tests__/upload-claim-mutators.test.ts
+  s_adf55c018923eb::t_ac7a9581aea41c 87-91,194-196
+  s_adf55c018923eb::t_b6d99341410257 1-86,92-170,198
+  s_adf55c018923eb::t_8cbcb926004789 171-193,197
+apps/web/src/lib/media-upload.ts
+  s_adf55c018923eb::t_67d0b8f1712122 11,13,56-64
+packages/zero/src/mutators/advance-payment.ts
+  s_adf55c018923eb::t_6576ac29cdcd90 25-34,88-92,218-222,232-236,325-329,389-393
+  s_adf55c018923eb::t_5a662d59ec1213 81
+project-structure.md
+  s_adf55c018923eb::t_5a662d59ec1213 410
+packages/zero/src/mutators/scheduled-message.ts
+  s_adf55c018923eb::t_b376bc2c1cc35a 235-239,390-394
+packages/zero/src/mutators/vendor-payment-transaction.ts
+  s_adf55c018923eb::t_b376bc2c1cc35a 23-27,419-423,584-588
+apps/web/src/lib/r2-upload-claim.test.ts
+  s_adf55c018923eb::t_ac7a9581aea41c 165-171,173-183,186-189,201-204
+  s_adf55c018923eb::t_ee6b707363ba81 127-141,207
+  s_adf55c018923eb::t_b6d99341410257 3,5-6,142-164,172,184-185,190-200,205-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "df05a9c6a6321547193ffa86aa168abdd16b1152",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
