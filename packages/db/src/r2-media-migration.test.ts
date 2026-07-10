@@ -80,6 +80,10 @@ const fixture = () =>
     ],
     user: [
       {
+        id: "u0",
+        value: "",
+      },
+      {
         id: "u1",
         value: `${CDN}/app/avatars/u1/avatar.jpg`,
       },
@@ -122,10 +126,10 @@ describe("runR2MediaUrlMigration", () => {
       legacyCdnUrl: CDN,
     });
 
-    expect(report.totals).toEqual({ changed: 2, malformed: 1, skipped: 1 });
+    expect(report.totals).toEqual({ changed: 2, malformed: 1, skipped: 2 });
     expect(report.tables.eventUpdate.changedUrls).toBe(1);
     expect(repository.appliedBatches).toHaveLength(0);
-    expect(repository.rows.user[0]?.value).toBe(
+    expect(repository.rows.user[1]?.value).toBe(
       `${CDN}/app/avatars/u1/avatar.jpg`
     );
   });
@@ -140,7 +144,7 @@ describe("runR2MediaUrlMigration", () => {
 
     expect(first.totals.changed).toBe(2);
     expect(repository.appliedBatches).toHaveLength(2);
-    expect(repository.rows.user[0]?.value).toBe(
+    expect(repository.rows.user[1]?.value).toBe(
       "/api/media/avatar/u1?key=app%2Favatars%2Fu1%2Favatar.jpg"
     );
     expect(repository.rows.eventUpdate[0]?.value).toContain(
@@ -157,7 +161,41 @@ describe("runR2MediaUrlMigration", () => {
       legacyCdnUrl: CDN,
     });
 
-    expect(second.totals).toEqual({ changed: 0, malformed: 1, skipped: 3 });
+    expect(second.totals).toEqual({ changed: 0, malformed: 1, skipped: 4 });
     expect(repository.appliedBatches).toHaveLength(0);
+  });
+
+  it("canonicalizes raw keys while leaving a wrong-event CDN URL unchanged", async () => {
+    const repository = new FakeRepository({
+      eventFeedback: [],
+      eventUpdate: [
+        {
+          eventId: "event-1",
+          id: "e1",
+          value: plate(
+            "app/updates/event-1/raw.jpg",
+            `${CDN}/app/updates/event-2/wrong.jpg`
+          ),
+        },
+      ],
+      user: [{ id: "u1", value: "app/avatars/u1/raw.jpg" }],
+    });
+
+    const report = await runR2MediaUrlMigration(repository, {
+      apply: true,
+      batchSize: 1,
+      legacyCdnUrl: CDN,
+    });
+
+    expect(report.totals).toEqual({ changed: 2, malformed: 0, skipped: 0 });
+    expect(repository.rows.user[0]?.value).toBe(
+      "/api/media/avatar/u1?key=app%2Favatars%2Fu1%2Fraw.jpg"
+    );
+    expect(repository.rows.eventUpdate[0]?.value).toContain(
+      "/api/media/event-update?eventId=event-1&key=app%2Fupdates%2Fevent-1%2Fraw.jpg"
+    );
+    expect(repository.rows.eventUpdate[0]?.value).toContain(
+      `${CDN}/app/updates/event-2/wrong.jpg`
+    );
   });
 });

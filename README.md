@@ -255,7 +255,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | `bun run db:generate` | Generate types from migrations |
 | `bun run db:migrate` | Run pending migrations |
 | `bun run db:studio` | Open Drizzle Studio UI |
-| `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run the legacy CDN to private media URL backfill; add `--apply` to write |
+| `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run the legacy CDN/raw-key to private media URL backfill; add `--apply` to write and `--batch-size=<1-1000>` to tune batches |
 
 ### WhatsApp (optional)
 

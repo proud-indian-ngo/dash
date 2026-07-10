@@ -10,7 +10,7 @@ import {
 import { user } from "@pi-dash/db/schema/auth";
 import { eventFeedback } from "@pi-dash/db/schema/event-feedback";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
-import { and, asc, eq, gt, isNotNull } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, ne } from "drizzle-orm";
 
 const readUsers = async (
   afterId: null | string,
@@ -20,15 +20,15 @@ const readUsers = async (
     .select({ id: user.id, value: user.image })
     .from(user)
     .where(
-      afterId
-        ? and(isNotNull(user.image), gt(user.id, afterId))
-        : isNotNull(user.image)
+      and(
+        isNotNull(user.image),
+        ne(user.image, ""),
+        afterId ? gt(user.id, afterId) : undefined
+      )
     )
     .orderBy(asc(user.id))
     .limit(limit);
-  return rows.flatMap((row) =>
-    row.value ? [{ id: row.id, value: row.value }] : []
-  );
+  return rows.map((row) => ({ id: row.id, value: row.value ?? "" }));
 };
 
 const readEventUpdates = async (

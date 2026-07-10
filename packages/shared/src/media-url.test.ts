@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAvatarMediaUrl,
   buildEventUpdateMediaUrl,
+  getPlateImageUrls,
   parseAvatarMediaKey,
   parseEventUpdateMediaKey,
   transformPlateImageUrls,
@@ -42,6 +43,39 @@ describe("private media URLs", () => {
         "https://cdn.example.test/assets-other/app/avatars/user-1/a.jpg",
         { legacyCdnUrl: LEGACY_CDN_URL, userId: "user-1" }
       )
+    ).toBeNull();
+    expect(
+      parseAvatarMediaKey(
+        "https://cdn.example.test/assets/app/avatars/user-2/a.jpg",
+        { legacyCdnUrl: LEGACY_CDN_URL, userId: "user-1" }
+      )
+    ).toBeNull();
+    expect(
+      parseAvatarMediaKey(
+        "https://cdn.example.test/assets/app/attachments/user-1/a.jpg",
+        { legacyCdnUrl: LEGACY_CDN_URL, userId: "user-1" }
+      )
+    ).toBeNull();
+  });
+
+  it("parses only raw keys in the expected media scope", () => {
+    expect(
+      parseAvatarMediaKey("app/avatars/user-1/a.jpg", {
+        legacyCdnUrl: LEGACY_CDN_URL,
+        userId: "user-1",
+      })
+    ).toBe("app/avatars/user-1/a.jpg");
+    expect(
+      parseEventUpdateMediaKey("app/updates/event-1/a.jpg", {
+        eventId: "event-1",
+        legacyCdnUrl: LEGACY_CDN_URL,
+      })
+    ).toBe("app/updates/event-1/a.jpg");
+    expect(
+      parseEventUpdateMediaKey("app/updates/event-2/a.jpg", {
+        eventId: "event-1",
+        legacyCdnUrl: LEGACY_CDN_URL,
+      })
     ).toBeNull();
   });
 
@@ -119,6 +153,29 @@ describe("transformPlateImageUrls", () => {
     expect(transformPlateImageUrls("{broken", (url) => url)).toEqual({
       changedCount: 0,
       content: "{broken",
+      imageCount: 0,
+      malformed: true,
+    });
+  });
+
+  it("rejects content deeper than the traversal limit without returning references", () => {
+    let nested: unknown = {
+      children: [{ text: "" }],
+      type: "img",
+      url: "app/updates/event-1/deep.jpg",
+    };
+    for (let depth = 0; depth < 150; depth += 1) {
+      nested = [nested];
+    }
+    const content = JSON.stringify([nested]);
+
+    expect(getPlateImageUrls(content)).toEqual({
+      malformed: true,
+      urls: [],
+    });
+    expect(transformPlateImageUrls(content, () => "changed")).toEqual({
+      changedCount: 0,
+      content,
       imageCount: 0,
       malformed: true,
     });

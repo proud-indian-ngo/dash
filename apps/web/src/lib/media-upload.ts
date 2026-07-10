@@ -1,3 +1,4 @@
+import { isAssetId } from "@pi-dash/shared/asset-ref";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_AVATAR_IMAGE_SIZE_BYTES,
@@ -18,6 +19,6 @@ export const avatarUploadSchema = z.object({
 
 export const eventEditorUploadSchema = z.object({
   ...imageUploadFields,
-  eventId: z.string().min(1),
+  eventId: z.string().refine(isAssetId, "Invalid event ID"),
   fileSize: imageUploadFields.fileSize.max(MAX_IMAGE_SIZE_BYTES),
 });

@@ -10,6 +10,7 @@ const image = {
   fileSize: 1024,
   mimeType: "image/jpeg",
 };
+const EVENT_ID = "e2e00000-0000-0000-0000-000000000101";
 
 describe("avatarUploadSchema", () => {
   it("accepts a supported avatar within the avatar limit", () => {
@@ -33,24 +34,31 @@ describe("avatarUploadSchema", () => {
 describe("eventEditorUploadSchema", () => {
   it("accepts a shared-limit image for an event", () => {
     expect(
-      eventEditorUploadSchema.parse({ ...image, eventId: "event-1" })
-    ).toEqual({ ...image, eventId: "event-1" });
+      eventEditorUploadSchema.parse({ ...image, eventId: EVENT_ID })
+    ).toEqual({ ...image, eventId: EVENT_ID });
   });
 
   it("rejects unsupported MIME types and images over the shared limit", () => {
     expect(
       eventEditorUploadSchema.safeParse({
         ...image,
-        eventId: "event-1",
+        eventId: EVENT_ID,
         mimeType: "application/pdf",
       }).success
     ).toBe(false);
     expect(
       eventEditorUploadSchema.safeParse({
         ...image,
-        eventId: "event-1",
+        eventId: EVENT_ID,
         fileSize: MAX_IMAGE_SIZE_BYTES + 1,
       }).success
+    ).toBe(false);
+  });
+
+  it("rejects a malformed event ID before database authorization", () => {
+    expect(
+      eventEditorUploadSchema.safeParse({ ...image, eventId: "not-an-id" })
+        .success
     ).toBe(false);
   });
 });

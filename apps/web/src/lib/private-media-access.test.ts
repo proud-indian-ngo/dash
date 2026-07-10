@@ -107,6 +107,47 @@ describe("resolveEventUpdateMedia", () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
+  it("ignores over-deep content without breaking valid media reads", async () => {
+    let nested: unknown = {
+      children: [{ text: "" }],
+      type: "img",
+      url: `https://cdn.example.test/${KEY}`,
+    };
+    for (let depth = 0; depth < 150; depth += 1) {
+      nested = [nested];
+    }
+
+    await expect(
+      resolveEventUpdateMedia(
+        { user: { id: "member", role: "volunteer" } },
+        { eventId: EVENT_ID, key: KEY },
+        deps({
+          getEventMediaRecords: async () => [
+            {
+              content: JSON.stringify([nested]),
+              createdBy: "member",
+              kind: "eventUpdate",
+              status: "pending",
+            },
+            {
+              content: JSON.stringify([
+                {
+                  children: [{ text: "" }],
+                  type: "img",
+                  url: `https://cdn.example.test/${KEY}`,
+                },
+              ]),
+              createdBy: "author",
+              kind: "eventUpdate",
+              status: "approved",
+            },
+          ],
+          isTeamMember: async () => true,
+        })
+      )
+    ).resolves.toEqual({ key: KEY });
+  });
+
   it("allows a pending update author but hides it from another event member", async () => {
     const pendingDeps = deps({
       getEventMediaRecords: async () => [

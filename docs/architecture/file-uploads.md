@@ -34,12 +34,14 @@ dry-run mode first, review changed/skipped/malformed counts, then apply it:
 ```bash
 bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
 bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply --batch-size=250
 ```
 
 The migration rewrites `user.image`, `event_update.content`, and
-`event_feedback.content` in transactional batches. Unrelated external URLs are
-left unchanged. The orphan-cleanup job recognizes raw keys, legacy CDN URLs,
-and canonical app URLs.
+`event_feedback.content` in transactional batches of 100 rows by default;
+`--batch-size` accepts 1 through 1000. Raw keys and legacy CDN URLs are
+canonicalized, while unrelated external URLs are left unchanged. The
+orphan-cleanup job recognizes raw keys, legacy CDN URLs, and canonical app URLs.
 
 ## Immich (Event Photos)
 
