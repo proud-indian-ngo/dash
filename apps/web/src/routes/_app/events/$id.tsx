@@ -46,6 +46,13 @@ function deriveSeriesParent(
   }
 }
 
+function hasUpdateImageUploadAccess(
+  hasPermission: ReturnType<typeof useApp>["hasPermission"],
+  isLead: boolean
+): boolean {
+  return isLead || hasPermission("event_updates.create");
+}
+
 export const Route = createFileRoute("/_app/events/$id")({
   component: EventDetailRouteComponent,
   head: () => ({
@@ -105,6 +112,10 @@ function EventDetailRouteComponent() {
   const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
   const canManagePhotos = hasPermission("events.manage_photos") || isLead;
   const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
+  const canUploadUpdateImages = hasUpdateImageUploadAccess(
+    hasPermission,
+    isLead
+  );
   const canManageInterest = hasPermission("events.manage_interest") || isLead;
 
   const [myInterests] = useQuery(
@@ -155,6 +166,7 @@ function EventDetailRouteComponent() {
         canManageInterest={canManageInterest}
         canManagePhotos={canManagePhotos}
         canManageVolunteers={canManage}
+        canUploadUpdateImages={canUploadUpdateImages}
         event={displayEvent}
         interests={
           interests as readonly (EventInterest & {

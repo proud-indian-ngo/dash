@@ -45,7 +45,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
 | Anonymous feedback | Collect anonymous feedback from event participants after events complete, with configurable deadlines and admin visibility |
-| File attachments | Upload files to Cloudflare R2; attach URLs to requests |
+| File attachments | Upload files to Cloudflare R2; authorize reads against persisted request, avatar, event, or message records |
 | Bank accounts | Users manage bank accounts for request payouts |
 | Expense categories | Admin-managed categories for request line items |
 | Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences |
@@ -255,6 +255,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | `bun run db:generate` | Generate types from migrations |
 | `bun run db:migrate` | Run pending migrations |
 | `bun run db:studio` | Open Drizzle Studio UI |
+| `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run the legacy CDN to private media URL backfill; add `--apply` to write |
 
 ### WhatsApp (optional)
 

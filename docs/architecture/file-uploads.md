@@ -15,10 +15,31 @@
 R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
 
 During the private-storage rollout, the bucket remains publicly reachable only
-for asset families that have not migrated yet. Request attachments, approval
-screenshots, scheduled-message attachments, and event photos must use the
-authenticated read boundary even when their durable key predates the current
-`R2_KEY_PREFIX`. Keys containing a `tmp/` path segment are never readable.
+for asset families that have not migrated yet. All migrated reads use an exact
+persisted database reference; a raw object key is never authorization. Keys
+containing a `tmp/` path segment are never readable.
+
+Avatar and Plate editor uploads have dedicated signers:
+
+- Avatar replacement is owner-only, accepts the shared image MIME list with a
+  5 MB limit, and stores `/api/media/avatar/<userId>?key=<key>` in `user.image`.
+- Editor image uploads require `event_updates.create` or lead membership in the
+  event's team, accept the shared image MIME list with a 20 MB limit, and store
+  `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
+- The generic attachment signer does not accept the `updates` subfolder.
+
+Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
+dry-run mode first, review changed/skipped/malformed counts, then apply it:
+
+```bash
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply
+```
+
+The migration rewrites `user.image`, `event_update.content`, and
+`event_feedback.content` in transactional batches. Unrelated external URLs are
+left unchanged. The orphan-cleanup job recognizes raw keys, legacy CDN URLs,
+and canonical app URLs.
 
 ## Immich (Event Photos)
 
@@ -80,5 +101,7 @@ Photo sync is **ordered** for crash safety:
 Protected R2 objects are never exposed directly to clients:
 - Downloads: `/api/attachments/download?id=<rowId>&kind=<assetKind>` — resolves the exact database row, validates owner or `requests.view_all` access, and streams from R2. Scheduled-message references also include the exact persisted key because their attachments are stored in JSON.
 - Event media: `/api/media/event-photo/<photoId>` — validates event visibility, membership, uploader, lead, or event-management access, then redirects to a two-minute signed GET URL.
+- Avatars: `/api/media/avatar/<userId>?key=<key>` — requires a session, matches the key against that user's current `user.image`, then redirects to a two-minute signed GET URL. Any authenticated user may view a matched avatar.
+- Event editor media: `/api/media/event-update?eventId=<id>&key=<key>` — requires normal event visibility, an exact image reference, and access to the owning content row. Approved updates follow event visibility; pending updates remain author/approver/lead-only; feedback remains submitter/feedback-manager/lead-only. Authorized reads redirect to a two-minute signed GET URL.
 - Scheduled WhatsApp delivery signs persisted attachment keys for 15 minutes when the job executes. Notification payloads do not include protected approval screenshots.
 - Immich thumbnails: `/api/immich/thumbnail.$id` + `/api/immich/original.$id` — proxies through the server with API key injected. Client never sees `IMMICH_API_KEY`.

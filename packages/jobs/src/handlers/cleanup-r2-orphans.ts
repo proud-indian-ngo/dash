@@ -1,14 +1,20 @@
 import { db } from "@pi-dash/db";
+import { user } from "@pi-dash/db/schema/auth";
+import { eventFeedback } from "@pi-dash/db/schema/event-feedback";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { scheduledMessage } from "@pi-dash/db/schema/scheduled-message";
 import { env } from "@pi-dash/env/server";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { notifyR2CleanupResults } from "@pi-dash/notifications/send/reminders";
 import { S3Client } from "bun";
-import { isNotNull, sql } from "drizzle-orm";
+import { isNotNull, or, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { CleanupR2OrphansPayload } from "../enqueue";
+import {
+  collectAvatarReferenceKey,
+  collectPlateReferenceKeys,
+} from "../lib/r2-media-references";
 
 const GRACE_PERIOD_HOURS = 24;
 const DELETE_CONCURRENCY = 10;
@@ -73,8 +79,6 @@ async function collectAllDbKeys(): Promise<Set<string>> {
       SELECT approval_screenshot_key FROM vendor_payment WHERE approval_screenshot_key LIKE ${keyPrefix}
       UNION ALL
       SELECT r2_key FROM event_photo WHERE r2_key LIKE ${keyPrefix}
-      UNION ALL
-      SELECT image FROM "user" WHERE image LIKE ${keyPrefix}
     ) AS all_keys
   `);
 
@@ -101,23 +105,55 @@ async function collectAllDbKeys(): Promise<Set<string>> {
     }
   }
 
-  // CDN-embedded: event_update.content may contain R2 keys as CDN URLs
-  const prefix = env.R2_KEY_PREFIX;
-  const updateRows = await db
-    .select({ content: eventUpdate.content })
-    .from(eventUpdate)
-    .where(sql`${eventUpdate.content} LIKE ${`%${prefix}/%`}`);
+  const userRows = await db
+    .select({ id: user.id, image: user.image })
+    .from(user)
+    .where(isNotNull(user.image));
+  for (const row of userRows) {
+    if (!row.image) {
+      continue;
+    }
+    const key = collectAvatarReferenceKey(row.id, row.image, {
+      keyPrefix: env.R2_KEY_PREFIX,
+      legacyCdnUrl: env.VITE_CDN_URL,
+    });
+    if (key) {
+      keys.add(key);
+    }
+  }
 
-  const keyPattern = new RegExp(
-    `${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[^"\\s]+`,
-    "g"
-  );
-  for (const row of updateRows) {
-    const matches = row.content.match(keyPattern);
-    if (matches) {
-      for (const m of matches) {
-        keys.add(m);
-      }
+  const prefix = env.R2_KEY_PREFIX;
+  const rawPattern = `%${prefix}/%`;
+  const canonicalPattern = "%/api/media/event-update%";
+  const [updateRows, feedbackRows] = await Promise.all([
+    db
+      .select({ content: eventUpdate.content, eventId: eventUpdate.eventId })
+      .from(eventUpdate)
+      .where(
+        or(
+          sql`${eventUpdate.content} LIKE ${rawPattern}`,
+          sql`${eventUpdate.content} LIKE ${canonicalPattern}`
+        )
+      ),
+    db
+      .select({
+        content: eventFeedback.content,
+        eventId: eventFeedback.eventId,
+      })
+      .from(eventFeedback)
+      .where(
+        or(
+          sql`${eventFeedback.content} LIKE ${rawPattern}`,
+          sql`${eventFeedback.content} LIKE ${canonicalPattern}`
+        )
+      ),
+  ]);
+  for (const row of [...updateRows, ...feedbackRows]) {
+    for (const key of collectPlateReferenceKeys(row.content, row.eventId, {
+      keyPrefix: prefix,
+      legacyCdnUrl: env.VITE_CDN_URL,
+    })) {
+      keys.add(key);
     }
   }
 

@@ -1,5 +1,9 @@
+import { env } from "@pi-dash/env/web";
+import { buildAvatarMediaUrl } from "@pi-dash/shared/media-url";
 import { describe, expect, it } from "vitest";
 import { buildAvatarUrl, resolveAvatarSrc } from "./avatar";
+
+const TRAILING_SLASH = /\/$/;
 
 describe("buildAvatarUrl", () => {
   it("builds URL with email", () => {
@@ -38,6 +42,17 @@ describe("resolveAvatarSrc", () => {
       image: "https://cdn.example.com/avatar.jpg",
     });
     expect(src).toBe("https://cdn.example.com/avatar.jpg");
+  });
+
+  it("converts a legacy CDN avatar into an authenticated media URL", () => {
+    const key = "app/avatars/user-1/avatar.jpg";
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+      id: "user-1",
+      image: `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`,
+    });
+
+    expect(src).toBe(buildAvatarMediaUrl("user-1", key));
   });
 
   it("falls back to buildAvatarUrl when image is null", () => {

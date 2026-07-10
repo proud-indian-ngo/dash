@@ -1,10 +1,20 @@
 import { env } from "@pi-dash/env/server";
 import { logErrorAndRethrow } from "@pi-dash/observability";
 import { MAX_VIDEO_SIZE_BYTES } from "@pi-dash/shared/constants";
+import {
+  buildAvatarMediaUrl,
+  buildEventUpdateMediaUrl,
+} from "@pi-dash/shared/media-url";
 import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
+import {
+  avatarUploadSchema,
+  eventEditorUploadSchema,
+} from "@/lib/media-upload";
+import { authorizeEventEditorUpload } from "@/lib/private-media-access";
+import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -45,15 +55,6 @@ const R2_SUBFOLDERS = {
   updates: "updates",
 } as const;
 
-const ALLOWED_IMAGE_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
-
-export const MAX_AVATAR_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-
 const sanitizeFileName = (fileName: string): string =>
   fileName
     .trim()
@@ -75,7 +76,6 @@ export const getPresignedUploadUrl = createServerFn({ method: "POST" })
           R2_SUBFOLDERS.attachments,
           R2_SUBFOLDERS.photos,
           R2_SUBFOLDERS.scheduledMessages,
-          R2_SUBFOLDERS.updates,
           R2_SUBFOLDERS.approvalScreenshots,
         ]),
       })
@@ -144,7 +144,6 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.approvalScreenshots,
         R2_SUBFOLDERS.photos,
         R2_SUBFOLDERS.scheduledMessages,
-        R2_SUBFOLDERS.updates,
       ]),
     })
   )
@@ -173,13 +172,7 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
 
 export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(
-    z.object({
-      fileName: z.string().min(1),
-      fileSize: z.number().int().positive().max(MAX_AVATAR_FILE_SIZE_BYTES),
-      mimeType: z.enum(ALLOWED_IMAGE_MIME_TYPES),
-    })
-  )
+  .validator(avatarUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
       throw new Error("Unauthorized");
@@ -192,7 +185,11 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
         method: "PUT",
         type: data.mimeType,
       });
-      return { key, presignedUrl };
+      return {
+        key,
+        presignedUrl,
+        url: buildAvatarMediaUrl(context.session.user.id, key),
+      };
     } catch (error) {
       logErrorAndRethrow(
         { method: "POST", path: "/fn/getProfilePictureUploadUrl" },
@@ -200,6 +197,47 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
           fileName: data.fileName,
           fileSize: data.fileSize,
           handler: "getProfilePictureUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(eventEditorUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    await authorizeEventEditorUpload(
+      context.session,
+      data.eventId,
+      defaultPrivateMediaAccessDeps
+    );
+    try {
+      const s3 = await getS3();
+      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.updates}/${data.eventId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      const presignedUrl = s3.presign(key, {
+        expiresIn: 300,
+        method: "PUT",
+        type: data.mimeType,
+      });
+      return {
+        key,
+        presignedUrl,
+        url: buildEventUpdateMediaUrl(data.eventId, key),
+      };
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getEventEditorUploadUrl" },
+        {
+          eventId: data.eventId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getEventEditorUploadUrl",
           mimeType: data.mimeType,
           userId: context.session.user.id,
         },
@@ -250,7 +288,6 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
         R2_SUBFOLDERS.approvalScreenshots,
         R2_SUBFOLDERS.photos,
         R2_SUBFOLDERS.scheduledMessages,
-        R2_SUBFOLDERS.updates,
       ]),
     })
   )

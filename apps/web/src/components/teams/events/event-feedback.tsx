@@ -142,7 +142,7 @@ function EventFeedbackAdmin({
                 </div>
               </div>
               <Suspense fallback={<RendererSkeleton />}>
-                <PlateRenderer content={item.content} />
+                <PlateRenderer content={item.content} eventId={eventId} />
               </Suspense>
             </div>
           );
@@ -324,13 +324,13 @@ function EventFeedbackParticipant({
         </p>
       );
     }
-    return <FeedbackCard feedback={myFeedback} />;
+    return <FeedbackCard eventId={eventId} feedback={myFeedback} />;
   }
   // Has existing feedback — view or edit
   if (myFeedback && !editing) {
     return (
       <div className="flex flex-col gap-4">
-        <FeedbackCard feedback={myFeedback} />
+        <FeedbackCard eventId={eventId} feedback={myFeedback} />
         <div>
           <Button onClick={stableOnClick0} size="sm" variant="outline">
             Edit
@@ -345,6 +345,7 @@ function EventFeedbackParticipant({
     return (
       <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
+          allowImageUpload={false}
           content={myFeedback.content}
           entityId={eventId}
           key={`edit-${myFeedback.id}`}
@@ -372,6 +373,7 @@ function EventFeedbackParticipant({
       </div>
       <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
+          allowImageUpload={false}
           entityId={eventId}
           key="create"
           onSave={handleSubmit}
@@ -386,12 +388,18 @@ function EventFeedbackParticipant({
 // Shared read-only feedback card
 // ---------------------------------------------------------------------------
 
-function FeedbackCard({ feedback }: { feedback: MyFeedback }) {
+function FeedbackCard({
+  eventId,
+  feedback,
+}: {
+  eventId: string;
+  feedback: MyFeedback;
+}) {
   const isEdited = feedback.updatedAt !== feedback.createdAt;
   return (
     <div className="rounded-lg border p-4">
       <Suspense fallback={<RendererSkeleton />}>
-        <PlateRenderer content={feedback.content} />
+        <PlateRenderer content={feedback.content} eventId={eventId} />
       </Suspense>
       <span className="mt-2 block text-muted-foreground text-xs">
         Submitted{" "}

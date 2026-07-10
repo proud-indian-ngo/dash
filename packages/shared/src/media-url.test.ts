@@ -1,0 +1,126 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildAvatarMediaUrl,
+  buildEventUpdateMediaUrl,
+  parseAvatarMediaKey,
+  parseEventUpdateMediaKey,
+  transformPlateImageUrls,
+} from "./media-url";
+
+const LEGACY_CDN_URL = "https://cdn.example.test/assets";
+
+describe("private media URLs", () => {
+  it("builds and parses canonical avatar URLs", () => {
+    const url = buildAvatarMediaUrl("user/one", "app/avatars/user/one/a.jpg");
+
+    expect(url).toBe(
+      "/api/media/avatar/user%2Fone?key=app%2Favatars%2Fuser%2Fone%2Fa.jpg"
+    );
+    expect(
+      parseAvatarMediaKey(url, {
+        legacyCdnUrl: LEGACY_CDN_URL,
+        userId: "user/one",
+      })
+    ).toBe("app/avatars/user/one/a.jpg");
+  });
+
+  it("parses only exact legacy CDN origins and paths", () => {
+    expect(
+      parseAvatarMediaKey(
+        "https://cdn.example.test/assets/app/avatars/user-1/a.jpg",
+        { legacyCdnUrl: LEGACY_CDN_URL, userId: "user-1" }
+      )
+    ).toBe("app/avatars/user-1/a.jpg");
+    expect(
+      parseAvatarMediaKey(
+        "https://cdn.example.test.evil/assets/app/avatars/user-1/a.jpg",
+        { legacyCdnUrl: LEGACY_CDN_URL, userId: "user-1" }
+      )
+    ).toBeNull();
+    expect(
+      parseAvatarMediaKey(
+        "https://cdn.example.test/assets-other/app/avatars/user-1/a.jpg",
+        { legacyCdnUrl: LEGACY_CDN_URL, userId: "user-1" }
+      )
+    ).toBeNull();
+  });
+
+  it("binds canonical media URLs to their event", () => {
+    const url = buildEventUpdateMediaUrl(
+      "event-1",
+      "app/updates/event-1/photo.jpg"
+    );
+
+    expect(
+      parseEventUpdateMediaKey(url, {
+        eventId: "event-1",
+        legacyCdnUrl: LEGACY_CDN_URL,
+      })
+    ).toBe("app/updates/event-1/photo.jpg");
+    expect(
+      parseEventUpdateMediaKey(url, {
+        eventId: "event-2",
+        legacyCdnUrl: LEGACY_CDN_URL,
+      })
+    ).toBeNull();
+  });
+});
+
+describe("transformPlateImageUrls", () => {
+  it("rewrites nested image nodes and preserves external and canonical URLs", () => {
+    const canonical = buildEventUpdateMediaUrl(
+      "event-1",
+      "app/updates/event-1/already.jpg"
+    );
+    const content = JSON.stringify([
+      {
+        children: [
+          {
+            children: [{ text: "" }],
+            type: "img",
+            url: "https://cdn.example.test/assets/app/updates/event-1/old.jpg",
+          },
+          {
+            children: [{ text: "" }],
+            type: "img",
+            url: canonical,
+          },
+          {
+            children: [{ text: "" }],
+            type: "img",
+            url: "https://images.example.org/external.jpg",
+          },
+        ],
+        type: "p",
+      },
+    ]);
+
+    const result = transformPlateImageUrls(content, (url) => {
+      const key = parseEventUpdateMediaKey(url, {
+        eventId: "event-1",
+        legacyCdnUrl: LEGACY_CDN_URL,
+      });
+      return key ? buildEventUpdateMediaUrl("event-1", key) : url;
+    });
+
+    expect(result).toMatchObject({
+      changedCount: 1,
+      imageCount: 3,
+      malformed: false,
+    });
+    expect(result.content).toContain(
+      buildEventUpdateMediaUrl("event-1", "app/updates/event-1/old.jpg")
+    );
+    expect(result.content).toContain(canonical);
+    expect(result.content).toContain("https://images.example.org/external.jpg");
+  });
+
+  it("reports malformed Plate JSON without changing it", () => {
+    expect(transformPlateImageUrls("{broken", (url) => url)).toEqual({
+      changedCount: 0,
+      content: "{broken",
+      imageCount: 0,
+      malformed: true,
+    });
+  });
+});

@@ -268,6 +268,22 @@ const ZERO_AUTH_LEAD_ADMIN_EVENT_MEMBER_ID =
   "e2e00000-0000-0000-0000-000000000503";
 const ZERO_AUTH_LEAD_VOLUNTEER_EVENT_MEMBER_ID =
   "e2e00000-0000-0000-0000-000000000504";
+const R2_KEY_PREFIX = process.env.R2_KEY_PREFIX ?? "attachments";
+const LEGACY_CDN_URL = process.env.VITE_CDN_URL ?? "https://cdn.example.test";
+const TRAILING_SLASH = /\/$/;
+const ZERO_AUTH_EVENT_MEDIA_KEY = `${R2_KEY_PREFIX}/updates/${ZERO_AUTH_PROTECTED_EVENT_ID}/e2e-editor-image.jpg`;
+
+const legacyMediaUrl = (key: string): string =>
+  `${LEGACY_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
+
+const plateImageContent = (url: string): string =>
+  JSON.stringify([
+    {
+      children: [{ text: "" }],
+      type: "img",
+      url,
+    },
+  ]);
 
 async function ensureReimbursement(
   userId: string,
@@ -478,6 +494,15 @@ async function ensureZeroQueryAuthorizationFixtures(
   const pastStart = subDays(now, 2);
 
   await db
+    .update(user)
+    .set({
+      image: legacyMediaUrl(
+        `${R2_KEY_PREFIX}/avatars/${volunteerUserId}/e2e-avatar.jpg`
+      ),
+    })
+    .where(eq(user.id, volunteerUserId));
+
+  await db
     .insert(team)
     .values([
       {
@@ -541,7 +566,7 @@ async function ensureZeroQueryAuthorizationFixtures(
           "Protected event for direct Zero query authorization tests",
         feedbackEnabled: true,
         id: ZERO_AUTH_PROTECTED_EVENT_ID,
-        isPublic: true,
+        isPublic: false,
         name: "E2E Zero Query Protected Event",
         startTime: pastStart,
         teamId: ZERO_AUTH_PROTECTED_TEAM_ID,
@@ -607,7 +632,7 @@ async function ensureZeroQueryAuthorizationFixtures(
   await db
     .insert(eventUpdate)
     .values({
-      content: "Protected pending update fixture",
+      content: plateImageContent(legacyMediaUrl(ZERO_AUTH_EVENT_MEDIA_KEY)),
       createdAt: now,
       createdBy: volunteerUserId,
       eventId: ZERO_AUTH_PROTECTED_EVENT_ID,

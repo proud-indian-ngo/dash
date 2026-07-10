@@ -38,6 +38,7 @@ import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
+import { Route as ApiMediaEventUpdateRouteImport } from './routes/api/media/event-update'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
@@ -52,6 +53,7 @@ import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
+import { Route as ApiMediaAvatarUserIdRouteImport } from './routes/api/media/avatar.$userId'
 import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
 import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
@@ -201,6 +203,11 @@ const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   path: '/api/whatsapp/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaEventUpdateRoute = ApiMediaEventUpdateRouteImport.update({
+  id: '/api/media/event-update',
+  path: '/api/media/event-update',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLogIngestRoute = ApiLogIngestRouteImport.update({
   id: '/api/log/ingest',
   path: '/api/log/ingest',
@@ -271,6 +278,11 @@ const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   path: '/api/media/event-photo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaAvatarUserIdRoute = ApiMediaAvatarUserIdRouteImport.update({
+  id: '/api/media/avatar/$userId',
+  path: '/api/media/avatar/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJobsIdRetryRoute = ApiJobsIdRetryRouteImport.update({
   id: '/retry',
   path: '/retry',
@@ -328,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -342,6 +355,7 @@ export interface FileRoutesByFullPath {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
@@ -370,6 +384,7 @@ export interface FileRoutesByTo {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -384,6 +399,7 @@ export interface FileRoutesByTo {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
 }
@@ -421,6 +437,7 @@ export interface FileRoutesById {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -435,6 +452,7 @@ export interface FileRoutesById {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
@@ -471,6 +489,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/media/event-update'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -485,6 +504,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
     | '/settings/roles/'
   fileRoutesByTo: FileRoutesByTo
@@ -513,6 +533,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/media/event-update'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -527,6 +548,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
     | '/settings/roles'
   id:
@@ -563,6 +585,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/media/event-update'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -577,6 +600,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
     | '/_app/settings/roles/'
   fileRoutesById: FileRoutesById
@@ -591,12 +615,14 @@ export interface RootRouteChildren {
   ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
   ApiJobsStatsRoute: typeof ApiJobsStatsRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
+  ApiMediaEventUpdateRoute: typeof ApiMediaEventUpdateRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
   ApiJobsIndexRoute: typeof ApiJobsIndexRoute
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
+  ApiMediaAvatarUserIdRoute: typeof ApiMediaAvatarUserIdRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
 }
 
@@ -805,6 +831,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/media/event-update': {
+      id: '/api/media/event-update'
+      path: '/api/media/event-update'
+      fullPath: '/api/media/event-update'
+      preLoaderRoute: typeof ApiMediaEventUpdateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/log/ingest': {
       id: '/api/log/ingest'
       path: '/api/log/ingest'
@@ -901,6 +934,13 @@ declare module '@tanstack/react-router' {
       path: '/api/media/event-photo/$id'
       fullPath: '/api/media/event-photo/$id'
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media/avatar/$userId': {
+      id: '/api/media/avatar/$userId'
+      path: '/api/media/avatar/$userId'
+      fullPath: '/api/media/avatar/$userId'
+      preLoaderRoute: typeof ApiMediaAvatarUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jobs/$id/retry': {
@@ -1106,12 +1146,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsIdRoute: ApiJobsIdRouteWithChildren,
   ApiJobsStatsRoute: ApiJobsStatsRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
+  ApiMediaEventUpdateRoute: ApiMediaEventUpdateRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
   ApiJobsIndexRoute: ApiJobsIndexRoute,
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,
+  ApiMediaAvatarUserIdRoute: ApiMediaAvatarUserIdRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
 }
 export const routeTree = rootRouteImport
