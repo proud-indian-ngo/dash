@@ -17,7 +17,10 @@ import {
   assertEntityExists,
   assertPending,
   buildHistoryInsert,
+  claimUploadedR2ObjectKey,
+  createR2ClaimOptions,
   deleteAllRelations,
+  enqueueDeleteR2Object,
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
@@ -81,9 +84,28 @@ export const reimbursementMutators = {
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
 
       const now = Date.now();
+      const approvalScreenshotKey = args.approvalScreenshotKey
+        ? claimUploadedR2ObjectKey(
+            args.approvalScreenshotKey,
+            createR2ClaimOptions(ctx, tx.location, {
+              durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
+              subfolder: "approval-screenshots",
+            })
+          )
+        : undefined;
+
+      if (
+        entity.approvalScreenshotKey &&
+        entity.approvalScreenshotKey !== approvalScreenshotKey
+      ) {
+        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+          mutator: "reimbursement.approve:replaceApprovalScreenshot",
+          reimbursementId: args.id,
+        });
+      }
 
       await tx.mutate.reimbursement.update({
-        approvalScreenshotKey: args.approvalScreenshotKey,
+        approvalScreenshotKey,
         id: args.id,
         rejectionReason: null,
         reviewedAt: now,
@@ -153,6 +175,7 @@ export const reimbursementMutators = {
   ),
   create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
+    assertHasPermission(ctx, "requests.create");
     const { userId } = ctx;
     const now = Date.now();
 
@@ -185,7 +208,11 @@ export const reimbursementMutators = {
         insertLineItem: withVoucherFields(args.lineItems, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
-      }
+      },
+      createR2ClaimOptions(ctx, tx.location, {
+        durablePrefix: `reimbursements/${args.id}`,
+        subfolder: "attachments",
+      })
     );
 
     if (tx.location === "server") {
@@ -224,12 +251,21 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "reimbursement.delete:approvalScreenshot",
+        reimbursementId: args.id,
+      });
 
       await deleteAllRelations({
         deleteAttachment: (data) =>
           tx.mutate.reimbursementAttachment.delete(data),
         deleteHistory: (data) => tx.mutate.reimbursementHistory.delete(data),
         deleteLineItem: (data) => tx.mutate.reimbursementLineItem.delete(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            mutator: "reimbursement.delete",
+            reimbursementId: args.id,
+          }),
         queryAttachments: () =>
           tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
         queryHistory: () =>
@@ -307,7 +343,6 @@ export const reimbursementMutators = {
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
 
       const now = Date.now();
-
       await tx.mutate.reimbursement.update({
         id: args.id,
         rejectionReason: args.reason,
@@ -365,6 +400,10 @@ export const reimbursementMutators = {
       }
 
       const now = Date.now();
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        mutator: "reimbursement.resetToPending",
+        reimbursementId: args.id,
+      });
 
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey: null,
@@ -423,11 +462,20 @@ export const reimbursementMutators = {
         insertLineItem: withVoucherFields(args.lineItems, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            mutator: "reimbursement.update",
+            reimbursementId: args.id,
+          }),
         queryAttachments: () =>
           tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
         queryLineItems: () =>
           tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
-      }
+      },
+      createR2ClaimOptions(ctx, tx.location, {
+        durablePrefix: `reimbursements/${args.id}`,
+        subfolder: "attachments",
+      })
     );
   }),
 };

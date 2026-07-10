@@ -5,14 +5,25 @@
 
 ## Cloudflare R2 (Attachments)
 
-1. Client requests presigned URL via `getPresignedUploadUrl` server fn.
+1. Client requests a surface-specific presigned URL. Protected signers create
+   keys under `<prefix>/<surface>/tmp/<userId>/`; callers cannot choose a
+   parent ID or storage subfolder.
 2. Client uploads directly to R2 via presigned PUT.
-3. Object key stored in DB (attachment record).
-4. Browser receives a typed asset reference, never a caller-provided object key.
-5. Download is authorized against the exact persisted row and streamed through
+3. The owning Zero mutator validates the current user's exact temp prefix and
+   computes a deterministic parent-scoped durable key.
+4. Before the database transaction commits, the server validates stored R2
+   MIME/size metadata and idempotently copies the temp object to the durable
+   key. Copy failure rolls back the database transaction and retains the temp
+   source for retry.
+5. After commit, the server enqueues temp-source deletion. Replaced or deleted
+   durable objects are also enqueued only after their database change commits.
+6. Browser reads use typed asset references, never a caller-provided object
+   key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
+`scheduled-messages`. Avatar and editor uploads remain dedicated durable
+signers under `avatars` and `updates`.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact
@@ -26,7 +37,17 @@ Avatar and Plate editor uploads have dedicated signers:
 - Editor image uploads require `event_updates.create` or lead membership in the
   event's team, accept the shared image MIME list with a 20 MB limit, and store
   `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
-- The generic attachment signer does not accept the `updates` subfolder.
+- No generic protected signer or generic persisted-object delete endpoint is
+  exposed to the browser.
+
+Configure R2 lifecycle rules that expire these prefixes after 24 hours:
+`<R2_KEY_PREFIX>/attachments/tmp/`,
+`<R2_KEY_PREFIX>/approval-screenshots/tmp/`,
+`<R2_KEY_PREFIX>/photos/tmp/`, and
+`<R2_KEY_PREFIX>/scheduled-messages/tmp/`. The repository does not manage the
+bucket, so the rules must be applied in Cloudflare before deploying
+transactional claims. They are a fallback for abandoned uploads; successful
+claims enqueue source deletion immediately after commit.
 
 Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
 dry-run mode first, review changed/skipped/malformed counts, then apply it:

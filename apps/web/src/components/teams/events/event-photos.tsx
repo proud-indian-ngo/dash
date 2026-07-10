@@ -22,7 +22,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { getPresignedUploadUrl } from "@/functions/attachments";
+import { getEventPhotoUploadUrl } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
@@ -93,7 +93,7 @@ async function uploadSinglePhoto({
   callImmichUpload: ReturnType<typeof useServerFn<typeof uploadPhotoToImmich>>;
   eventId: string;
   file: File;
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>;
+  getUploadUrl: ReturnType<typeof useServerFn<typeof getEventPhotoUploadUrl>>;
   occDate?: string;
   useImmichDirect: boolean;
   zero: ReturnType<typeof useZero>;
@@ -239,7 +239,7 @@ export function EventPhotos({
   immichAlbumUrl,
 }: EventPhotosProps) {
   const zero = useZero();
-  const getUploadUrl = useServerFn(getPresignedUploadUrl);
+  const getUploadUrl = useServerFn(getEventPhotoUploadUrl);
   const callImmichUpload = useServerFn(uploadPhotoToImmich);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

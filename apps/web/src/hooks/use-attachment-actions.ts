@@ -1,8 +1,9 @@
+import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
-import { deleteUploadedAsset } from "@/functions/attachments";
+import { deleteTemporaryUpload } from "@/functions/attachments";
 import type { Attachment } from "@/lib/form-schemas";
 
 interface UseAttachmentActionsParams {
@@ -14,7 +15,7 @@ export const useAttachmentActions = ({
   onChange,
   value,
 }: UseAttachmentActionsParams) => {
-  const deleteAsset = useServerFn(deleteUploadedAsset);
+  const deleteAsset = useServerFn(deleteTemporaryUpload);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const removeAttachment = async (attachment: Attachment) => {
@@ -22,9 +23,12 @@ export const useAttachmentActions = ({
     setDeletingIds((prev) => new Set(prev).add(attachmentId));
 
     try {
-      if (attachment.type === "file") {
+      if (
+        attachment.type === "file" &&
+        isTemporaryR2Key(attachment.objectKey)
+      ) {
         await deleteAsset({
-          data: { key: attachment.objectKey, subfolder: "attachments" },
+          data: { key: attachment.objectKey },
         });
       }
 

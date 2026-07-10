@@ -53,12 +53,26 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | Bucket name |
 | `R2_KEY_PREFIX` | Key prefix for uploads |
-| `VITE_CDN_URL` | Public CDN URL for serving uploaded files |
+| `VITE_CDN_URL` | Legacy public CDN URL used only during private-media migration |
 
-Protected request attachments and event photos do not use `VITE_CDN_URL`.
-Keep the bucket/CDN public during the staged migration while avatar and editor
-assets still depend on it. Disable public bucket access only after those
-remaining asset families move behind authenticated delivery.
+Protected uploads use current-user temp keys and are claimed to durable keys by
+their owning database mutation. In Cloudflare R2, configure 24-hour expiry rules
+for `<R2_KEY_PREFIX>/{attachments,approval-screenshots,photos,scheduled-messages}/tmp/`
+before deploying this flow.
+
+Private-storage cutover order:
+
+1. Deploy authenticated reads and transactional claims.
+2. Run the media URL backfill in dry-run mode, review malformed/skipped rows,
+   then apply it.
+3. Verify request attachments, approval proofs, scheduled media, event photos,
+   avatars, and event editor media through authenticated application routes.
+4. Disable the R2 public development URL and public CDN route.
+5. Remove `VITE_CDN_URL` from runtime configuration and then remove its schema
+   entries in a follow-up deployment.
+
+Do not remove `VITE_CDN_URL` before the backfill and public-access cutover;
+legacy rows still use it for canonicalization during migration.
 
 ### Voucher Organization
 
@@ -230,7 +244,9 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] `COOKIE_DOMAIN` set if using cross-subdomain cookies
 - [ ] SMTP configured for email verification and password reset
 - [ ] R2 bucket created and credentials set
-- [ ] `VITE_CDN_URL` points to your R2 public access or CDN
+- [ ] R2 lifecycle expires protected `tmp` objects after 24 hours
+- [ ] `VITE_CDN_URL` points to the legacy CDN until private cutover is complete
+- [ ] After media backfill verification, R2 public access is disabled
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 

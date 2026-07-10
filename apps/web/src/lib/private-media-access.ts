@@ -9,6 +9,12 @@ interface SessionLike {
   user: { id: string; role?: null | string };
 }
 
+export type ProtectedUploadScope =
+  | { kind: "approvalScreenshot" }
+  | { eventId: string; kind: "eventPhoto" }
+  | { kind: "request" }
+  | { kind: "scheduledMessage" };
+
 export interface PrivateMediaEvent {
   isPublic: boolean;
   teamId: string;
@@ -186,6 +192,54 @@ export async function authorizeEventEditorUpload(
     (await deps.isTeamLead(event.teamId, session.user.id))
   ) {
     return event;
+  }
+  throw new PrivateMediaAccessError(403, "Forbidden");
+}
+
+const REQUEST_UPLOAD_PERMISSIONS = new Set([
+  "requests.create",
+  "requests.edit_own",
+  "requests.edit_all",
+  "requests.edit_all_statuses",
+  "requests.record_payment",
+]);
+
+export async function authorizeProtectedUpload(
+  session: SessionLike,
+  scope: ProtectedUploadScope,
+  deps: PrivateMediaAccessDeps
+): Promise<void> {
+  const permissions = await deps.resolvePermissions(roleFor(session));
+  if (
+    scope.kind === "request" &&
+    permissions.some((permission) => REQUEST_UPLOAD_PERMISSIONS.has(permission))
+  ) {
+    return;
+  }
+  if (
+    scope.kind === "approvalScreenshot" &&
+    permissions.includes("requests.approve")
+  ) {
+    return;
+  }
+  if (
+    scope.kind === "scheduledMessage" &&
+    permissions.includes("messages.schedule")
+  ) {
+    return;
+  }
+  if (scope.kind === "eventPhoto") {
+    const event = await deps.findEvent(scope.eventId);
+    if (!event) {
+      throw new PrivateMediaAccessError(404, "Event not found");
+    }
+    if (
+      permissions.includes("events.manage_photos") ||
+      (await deps.isTeamLead(event.teamId, session.user.id)) ||
+      (await deps.isEventMember(scope.eventId, session.user.id))
+    ) {
+      return;
+    }
   }
   throw new PrivateMediaAccessError(403, "Forbidden");
 }

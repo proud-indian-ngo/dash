@@ -389,12 +389,17 @@ Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. 
 
 ### File Upload Flow
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
+`scheduled-messages`. Dedicated avatar/editor signers use `avatars` and
+`updates`.
 
-1. Client calls `getPresignedUploadUrl` server function → gets signed S3 PUT URL
-2. Client uploads directly to R2 via presigned URL
-3. Object key stored in attachment record
-4. Download via `routes/api/attachments/download.ts` endpoint
+1. Client calls a surface-specific signer and receives a signed PUT URL for a
+   current-user temp key
+2. Client uploads directly to R2
+3. The owning Zero mutator validates and copies the temp object to a
+   parent-scoped durable key before committing the database row
+4. Temp-source and replaced-object deletion are queued after commit
+5. Downloads use authenticated typed-reference routes
 
 Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (ownership-scoped to `avatars/{userId}/`).
 

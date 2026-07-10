@@ -1,9 +1,19 @@
 import {
+  MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_AVATAR_IMAGE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
 import { describe, expect, it } from "vitest";
-import { avatarUploadSchema, eventEditorUploadSchema } from "./media-upload";
+import {
+  approvalScreenshotUploadSchema,
+  avatarUploadSchema,
+  eventEditorUploadSchema,
+  eventPhotoUploadSchema,
+  requestUploadSchema,
+  scheduledMessageUploadSchema,
+} from "./media-upload";
 
 const image = {
   fileName: "photo.jpg",
@@ -59,6 +69,78 @@ describe("eventEditorUploadSchema", () => {
     expect(
       eventEditorUploadSchema.safeParse({ ...image, eventId: "not-an-id" })
         .success
+    ).toBe(false);
+  });
+});
+
+describe("protected temporary upload schemas", () => {
+  it("accepts request and scheduled-message files within shared limits", () => {
+    expect(requestUploadSchema.safeParse(image).success).toBe(true);
+    expect(scheduledMessageUploadSchema.safeParse(image).success).toBe(true);
+  });
+
+  it("rejects unsupported request files and oversized scheduled videos", () => {
+    expect(
+      requestUploadSchema.safeParse({
+        ...image,
+        mimeType: "application/octet-stream",
+      }).success
+    ).toBe(false);
+    expect(
+      scheduledMessageUploadSchema.safeParse({
+        ...image,
+        fileSize: MAX_VIDEO_SIZE_BYTES + 1,
+        mimeType: "video/mp4",
+      }).success
+    ).toBe(false);
+    expect(
+      requestUploadSchema.safeParse({
+        ...image,
+        fileSize: MAX_ATTACHMENT_FILE_SIZE_BYTES + 1,
+      }).success
+    ).toBe(false);
+  });
+
+  it("limits approval screenshots to safe images and 10 MB", () => {
+    expect(approvalScreenshotUploadSchema.safeParse(image).success).toBe(true);
+    expect(
+      approvalScreenshotUploadSchema.safeParse({
+        ...image,
+        fileSize: MAX_APPROVAL_SCREENSHOT_SIZE_BYTES + 1,
+      }).success
+    ).toBe(false);
+    expect(
+      approvalScreenshotUploadSchema.safeParse({
+        ...image,
+        mimeType: "image/gif",
+      }).success
+    ).toBe(false);
+  });
+
+  it("validates event photo scope and image/video limits", () => {
+    expect(
+      eventPhotoUploadSchema.safeParse({ ...image, eventId: EVENT_ID }).success
+    ).toBe(true);
+    expect(
+      eventPhotoUploadSchema.safeParse({
+        ...image,
+        eventId: EVENT_ID,
+        fileSize: MAX_VIDEO_SIZE_BYTES,
+        mimeType: "video/quicktime",
+      }).success
+    ).toBe(true);
+    expect(
+      eventPhotoUploadSchema.safeParse({
+        ...image,
+        eventId: EVENT_ID,
+        fileSize: MAX_IMAGE_SIZE_BYTES + 1,
+      }).success
+    ).toBe(false);
+    expect(
+      eventPhotoUploadSchema.safeParse({
+        ...image,
+        eventId: "not-an-id",
+      }).success
     ).toBe(false);
   });
 });

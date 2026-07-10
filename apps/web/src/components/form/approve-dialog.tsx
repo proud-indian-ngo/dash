@@ -2,6 +2,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { ALLOWED_APPROVAL_SCREENSHOT_TYPES } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -16,17 +17,9 @@ import {
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
 import {
-  type AllowedMimeType,
-  deleteUploadedAsset,
-  getPresignedUploadUrl,
-  toAllowedMimeType,
+  deleteTemporaryUpload,
+  getApprovalScreenshotUploadUrl,
 } from "@/functions/attachments";
-
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const satisfies readonly AllowedMimeType[];
 
 const MAX_SCREENSHOT_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -58,8 +51,8 @@ export function ApproveDialog({
       URL.revokeObjectURL(previewUrl);
     }
     if (screenshotKey) {
-      deleteUploadedAsset({
-        data: { key: screenshotKey, subfolder: "approval-screenshots" },
+      deleteTemporaryUpload({
+        data: { key: screenshotKey },
       }).catch((error) => {
         log.error({
           action: "cleanup",
@@ -85,17 +78,14 @@ export function ApproveDialog({
         return;
       }
 
-      if (
-        !ALLOWED_IMAGE_TYPES.includes(
-          file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
-        )
-      ) {
+      const mimeType =
+        file.type as (typeof ALLOWED_APPROVAL_SCREENSHOT_TYPES)[number];
+      if (!ALLOWED_APPROVAL_SCREENSHOT_TYPES.includes(mimeType)) {
         toast.error(
           "Invalid file type. Please upload a JPEG, PNG, or WebP image."
         );
         return;
       }
-      const mimeType = toAllowedMimeType(file.type);
       if (file.size > MAX_SCREENSHOT_SIZE) {
         toast.error("File too large. Maximum size is 10 MB.");
         return;
@@ -103,13 +93,11 @@ export function ApproveDialog({
 
       setUploading(true);
       try {
-        const { presignedUrl, key } = await getPresignedUploadUrl({
+        const { presignedUrl, key } = await getApprovalScreenshotUploadUrl({
           data: {
-            entityId,
             fileName: file.name,
             fileSize: file.size,
             mimeType,
-            subfolder: "approval-screenshots",
           },
         });
 
@@ -148,8 +136,8 @@ export function ApproveDialog({
       URL.revokeObjectURL(previewUrl);
     }
     if (screenshotKey) {
-      deleteUploadedAsset({
-        data: { key: screenshotKey, subfolder: "approval-screenshots" },
+      deleteTemporaryUpload({
+        data: { key: screenshotKey },
       }).catch((error) => {
         log.error({
           action: "removeScreenshot",

@@ -22,7 +22,7 @@ import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimburseme
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
-import { deleteUploadedAsset } from "@/functions/attachments";
+import { deleteTemporaryUpload } from "@/functions/attachments";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -122,8 +122,8 @@ export function ReimbursementDetail({
         successMsg: `${typeLabel} approved`,
       });
       if (res.type === "error" && screenshotKey) {
-        deleteUploadedAsset({
-          data: { key: screenshotKey, subfolder: "approval-screenshots" },
+        deleteTemporaryUpload({
+          data: { key: screenshotKey },
         }).catch((error) => {
           log.error({
             action: "cleanupScreenshot",

@@ -14,7 +14,6 @@ import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
-import { deleteUploadedAssets } from "@/functions/attachments";
 import { cityOptions } from "@/lib/form-schemas";
 import {
   normalizeToRequestRows,
@@ -43,13 +42,6 @@ export const Route = createFileRoute("/_app/reimbursements/")({
     context.zero?.preload(queries.advancePayment.all());
   },
 });
-
-function fetchRequestItem(zero: ReturnType<typeof useZero>, row: RequestRow) {
-  if (row.type === "reimbursement") {
-    return zero.run(queries.reimbursement.byId({ id: row.id }));
-  }
-  return zero.run(queries.advancePayment.byId({ id: row.id }));
-}
 
 function getMutatorNs(type: RequestRow["type"]) {
   if (type === "reimbursement") {
@@ -105,18 +97,6 @@ function ReimbursementsRouteComponent() {
   const handleDelete = useEventCallback(async (row: RequestRow) => {
     const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
     try {
-      const item = await fetchRequestItem(zero, row);
-      const r2Keys =
-        item?.attachments
-          ?.filter((a) => a.type === "file" && a.objectKey)
-          .map((a) => a.objectKey as string) ?? [];
-
-      if (r2Keys.length > 0) {
-        await deleteUploadedAssets({
-          data: { keys: r2Keys, subfolder: "attachments" },
-        });
-      }
-
       const mutatorNs = getMutatorNs(row.type);
       await zero.mutate(mutatorNs.delete({ id: row.id }));
       toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);

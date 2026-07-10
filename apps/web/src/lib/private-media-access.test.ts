@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   authorizeEventEditorUpload,
+  authorizeProtectedUpload,
   type PrivateMediaAccessDeps,
   PrivateMediaAccessError,
   resolveAvatarMedia,
@@ -256,6 +257,78 @@ describe("authorizeEventEditorUpload", () => {
         { user: { id: "member", role: "volunteer" } },
         EVENT_ID,
         deps({ isEventMember: async () => true })
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe("authorizeProtectedUpload", () => {
+  it("allows request writers and rejects unrelated roles", async () => {
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "author", role: "volunteer" } },
+        { kind: "request" },
+        deps({ resolvePermissions: async () => ["requests.edit_own"] })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "other", role: "volunteer" } },
+        { kind: "request" },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("requires approval and scheduled-message permissions", async () => {
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "approver", role: "admin" } },
+        { kind: "approvalScreenshot" },
+        deps({ resolvePermissions: async () => ["requests.approve"] })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "scheduler", role: "admin" } },
+        { kind: "scheduledMessage" },
+        deps({ resolvePermissions: async () => ["messages.schedule"] })
+      )
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows event photo managers, team leads, and event members", async () => {
+    const scope = { eventId: EVENT_ID, kind: "eventPhoto" } as const;
+
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "manager", role: "admin" } },
+        scope,
+        deps({ resolvePermissions: async () => ["events.manage_photos"] })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "lead", role: "volunteer" } },
+        scope,
+        deps({ isTeamLead: async () => true })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "member", role: "volunteer" } },
+        scope,
+        deps({ isEventMember: async () => true })
+      )
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects event photo uploads without event access", async () => {
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "other", role: "volunteer" } },
+        { eventId: EVENT_ID, kind: "eventPhoto" },
+        deps()
       )
     ).rejects.toMatchObject({ status: 403 });
   });

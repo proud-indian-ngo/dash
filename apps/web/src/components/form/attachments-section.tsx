@@ -17,6 +17,7 @@ import type {
   AttachmentDownloadRef,
   AttachmentRowDownloadKind,
 } from "@pi-dash/shared/asset-ref";
+import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -25,7 +26,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { AddUrlRow } from "@/components/form/add-url-row";
 import {
-  getPresignedUploadUrl,
+  getRequestUploadUrl,
   toAllowedMimeType,
 } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
@@ -37,7 +38,6 @@ import {
 import {
   ATTACHMENT_ACCEPT,
   type Attachment,
-  MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILES,
 } from "@/lib/form-schemas";
 
@@ -53,16 +53,13 @@ const isFileAttachment = (attachment: Attachment): boolean =>
 
 const uploadSingleFile = async (
   file: File,
-  entityId: string,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
+  getUploadUrl: ReturnType<typeof useServerFn<typeof getRequestUploadUrl>>
 ): Promise<Attachment> => {
   const { presignedUrl, key } = await getUploadUrl({
     data: {
-      entityId,
       fileName: file.name,
       fileSize: file.size,
       mimeType: toAllowedMimeType(file.type),
-      subfolder: "attachments",
     },
   });
 
@@ -186,12 +183,11 @@ function AttachmentRow({
 }
 
 export function AttachmentsSection({
-  entityId,
   fileDownloadKind,
   onChange,
   value,
 }: AttachmentsSectionProps) {
-  const getUploadUrl = useServerFn(getPresignedUploadUrl);
+  const getUploadUrl = useServerFn(getRequestUploadUrl);
   const [isUploading, setIsUploading] = useState(false);
   const [unpersistedIds, setUnpersistedIds] = useState<Set<string>>(
     () => new Set()
@@ -262,7 +258,6 @@ export function AttachmentsSection({
           try {
             const uploadedAttachment = await uploadSingleFile(
               file,
-              entityId,
               getUploadUrl
             );
             uploadedAttachments.push(uploadedAttachment);
@@ -296,7 +291,7 @@ export function AttachmentsSection({
 
       setIsUploading(false);
     },
-    [entityId, getUploadUrl, onChange, remainingFileSlots]
+    [getUploadUrl, onChange, remainingFileSlots]
   );
 
   const uploadFilesRef = useRef(uploadFiles);
