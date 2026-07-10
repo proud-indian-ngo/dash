@@ -1,0 +1,21 @@
+packages/e2e/tests/reimbursements/export.spec.ts
+  s_83a9f175670059::t_4af5e6c05b1a20 110-128
+apps/web/src/functions/export-csv.ts
+  s_83a9f175670059::t_4af5e6c05b1a20 84,107,111-121,124,150-152,199,231,237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "ac707a4a5b69b3ea0e946dea093e697388f55184",
+  "prompts": {},
+  "sessions": {
+    "s_83a9f175670059": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4c6b-88ab-7973-9988-ba02690cdcaa",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
