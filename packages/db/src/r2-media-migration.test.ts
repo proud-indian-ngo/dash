@@ -63,6 +63,11 @@ const fixture = () =>
     eventFeedback: [
       {
         eventId: "event-2",
+        id: "f0",
+        value: plate(`${CDN}/app/updates/event-2/feedback.jpg`),
+      },
+      {
+        eventId: "event-2",
         id: "f1",
         value: "{malformed",
       },
@@ -126,8 +131,9 @@ describe("runR2MediaUrlMigration", () => {
       legacyCdnUrl: CDN,
     });
 
-    expect(report.totals).toEqual({ changed: 2, malformed: 1, skipped: 2 });
+    expect(report.totals).toEqual({ changed: 3, malformed: 1, skipped: 2 });
     expect(report.tables.eventUpdate.changedUrls).toBe(1);
+    expect(report.tables.eventFeedback.changedUrls).toBe(1);
     expect(repository.appliedBatches).toHaveLength(0);
     expect(repository.rows.user[1]?.value).toBe(
       `${CDN}/app/avatars/u1/avatar.jpg`
@@ -142,8 +148,8 @@ describe("runR2MediaUrlMigration", () => {
       legacyCdnUrl: CDN,
     });
 
-    expect(first.totals.changed).toBe(2);
-    expect(repository.appliedBatches).toHaveLength(2);
+    expect(first.totals.changed).toBe(3);
+    expect(repository.appliedBatches).toHaveLength(3);
     expect(repository.rows.user[1]?.value).toBe(
       "/api/media/avatar/u1?key=app%2Favatars%2Fu1%2Favatar.jpg"
     );
@@ -153,6 +159,9 @@ describe("runR2MediaUrlMigration", () => {
     expect(repository.rows.eventUpdate[0]?.value).toContain(
       "https://images.example.org/external.jpg"
     );
+    expect(repository.rows.eventFeedback[0]?.value).toContain(
+      "/api/media/event-update?eventId=event-2&key=app%2Fupdates%2Fevent-2%2Ffeedback.jpg"
+    );
 
     repository.appliedBatches.length = 0;
     const second = await runR2MediaUrlMigration(repository, {
@@ -161,7 +170,7 @@ describe("runR2MediaUrlMigration", () => {
       legacyCdnUrl: CDN,
     });
 
-    expect(second.totals).toEqual({ changed: 0, malformed: 1, skipped: 4 });
+    expect(second.totals).toEqual({ changed: 0, malformed: 1, skipped: 5 });
     expect(repository.appliedBatches).toHaveLength(0);
   });
 
