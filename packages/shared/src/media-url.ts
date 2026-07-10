@@ -6,17 +6,6 @@ const MAX_PLATE_TRAVERSAL_NODES = 10_000;
 const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i;
 const TRAILING_SLASHES = /\/+$/;
 
-const decodePath = (path: string): string | null => {
-  try {
-    return path
-      .split("/")
-      .map((segment) => decodeURIComponent(segment))
-      .join("/");
-  } catch {
-    return null;
-  }
-};
-
 const parseUrl = (value: string): URL | null => {
   try {
     return new URL(value, APP_ORIGIN);
@@ -29,30 +18,18 @@ const parseLegacyMediaKey = (
   value: string,
   legacyCdnUrl: string
 ): string | null => {
-  let base: URL;
-  let candidate: URL;
-  try {
-    base = new URL(legacyCdnUrl);
-    candidate = new URL(value);
-  } catch {
+  const prefix = `${legacyCdnUrl.replace(TRAILING_SLASHES, "")}/`;
+  if (!value.startsWith(prefix) || value.length === prefix.length) {
     return null;
   }
-  if (base.origin !== candidate.origin) {
-    return null;
-  }
-  const basePath = base.pathname.replace(TRAILING_SLASHES, "");
-  const keyPath = candidate.pathname.slice(basePath.length);
-  if (!candidate.pathname.startsWith(`${basePath}/`) || keyPath.length <= 1) {
-    return null;
-  }
-  return decodePath(keyPath.slice(1));
+  return value.slice(prefix.length);
 };
 
 const parseRawMediaKey = (value: string): string | null => {
   if (value.startsWith("/") || URL_SCHEME.test(value)) {
     return null;
   }
-  return decodePath(value);
+  return value;
 };
 
 const isScopedMediaKey = (

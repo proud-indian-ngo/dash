@@ -35,10 +35,7 @@ const collectMalformedKeys = (
   keyPrefix: string
 ): Set<string> => {
   const keys = new Set<string>();
-  const rawPattern = new RegExp(
-    `${escapeRegExp(keyPrefix)}/[^\\s"'<>?&#]+`,
-    "g"
-  );
+  const rawPattern = new RegExp(`${escapeRegExp(keyPrefix)}/[^\\s"'<>]+`, "g");
   for (const match of content.matchAll(rawPattern)) {
     const [key] = match;
     if (key) {

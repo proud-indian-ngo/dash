@@ -64,8 +64,9 @@ access:
 2. Run `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` and review the
    changed, skipped, and malformed counts.
 3. Apply with `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url> --apply`.
-4. Run the dry-run command again and confirm it reports no remaining changes.
-5. Disable public bucket/CDN access.
+4. Repair every row listed in each table's `malformedIds`, then rerun the
+   dry-run until `totals.changed` and `totals.malformed` are both `0`.
+5. Disable public bucket/CDN access only after that clean report.
 
 ### Voucher Organization
 

@@ -76,4 +76,19 @@ describe("collectPlateReferenceKeys", () => {
       new Set([rawKey, encodedKey])
     );
   });
+
+  it("preserves opaque object-key characters in malformed content", () => {
+    const keys = [
+      "app/updates/event-1/literal%.jpg",
+      "app/updates/event-1/literal%20.jpg",
+      "app/updates/event-1/question?.jpg",
+      "app/updates/event-1/fragment#.jpg",
+      "app/updates/event-1/ampersand&.jpg",
+    ];
+    const content = `{"broken":[${keys.map((key) => `"${key}"`).join(",")}`;
+
+    expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
+      new Set(keys)
+    );
+  });
 });

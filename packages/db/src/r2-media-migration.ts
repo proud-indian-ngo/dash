@@ -42,6 +42,7 @@ interface MediaMigrationTableReport {
   changed: number;
   changedUrls: number;
   malformed: number;
+  malformedIds: string[];
   scanned: number;
   skipped: number;
 }
@@ -58,6 +59,7 @@ const emptyReport = (): MediaMigrationTableReport => ({
   changed: 0,
   changedUrls: 0,
   malformed: 0,
+  malformedIds: [],
   scanned: 0,
   skipped: 0,
 });
@@ -118,6 +120,7 @@ async function migrateTable(
       const planned = planRow(table, row, options.legacyCdnUrl);
       if (planned.malformed) {
         report.malformed += 1;
+        report.malformedIds.push(row.id);
         continue;
       }
       if (planned.after === row.value) {
