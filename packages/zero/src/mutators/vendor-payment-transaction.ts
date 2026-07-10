@@ -20,6 +20,11 @@ import {
   enqueueDeleteR2Object,
 } from "./submission-helpers";
 
+const transactionAttachmentKeyPrefixes = (id: string) => [
+  `attachments/vendor-payment-transactions/${id}/`,
+  `attachments/${id}/`,
+];
+
 const createSchema = z.object({
   amount: z
     .number()
@@ -411,8 +416,11 @@ export const vendorPaymentTransactionMutators = {
       await Promise.all(
         attachments.map(async (att) => {
           enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
-            mutator: "vendorPaymentTransaction.delete",
-            transactionId: args.id,
+            keyPrefixes: transactionAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "vendorPaymentTransaction.delete",
+              transactionId: args.id,
+            },
           });
           await tx.mutate.vendorPaymentTransactionAttachment.delete({
             id: att.id,
@@ -573,8 +581,11 @@ export const vendorPaymentTransactionMutators = {
         existingAtts.map(async (att) => {
           if (att.objectKey && !retainedObjectKeys.has(att.objectKey)) {
             enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
-              mutator: "vendorPaymentTransaction.update",
-              transactionId: args.id,
+              keyPrefixes: transactionAttachmentKeyPrefixes(args.id),
+              meta: {
+                mutator: "vendorPaymentTransaction.update",
+                transactionId: args.id,
+              },
             });
           }
           await tx.mutate.vendorPaymentTransactionAttachment.delete({

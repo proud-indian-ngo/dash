@@ -11,6 +11,7 @@ import { zql } from "../schema";
 import {
   claimUploadedR2ObjectKey,
   createR2ClaimOptions,
+  enqueueDeleteR2Object,
 } from "./submission-helpers";
 
 export const eventPhotoMutators = {
@@ -248,16 +249,8 @@ export const eventPhotoMutators = {
 
       if (tx.location === "server") {
         if (photo.r2Key) {
-          const { r2Key } = photo;
-          ctx.asyncTasks?.push({
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "delete-r2-object",
-                { r2Key },
-                { traceId: ctx.traceId }
-              );
-            },
+          enqueueDeleteR2Object(ctx, tx.location, photo.r2Key, {
+            keyPrefixes: [`photos/${photo.eventId}/`],
             meta: { mutator: "deleteEventPhoto", photoId: args.id },
           });
         }
@@ -320,16 +313,8 @@ export const eventPhotoMutators = {
 
       if (tx.location === "server") {
         if (photo.r2Key) {
-          const { r2Key } = photo;
-          ctx.asyncTasks?.push({
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "delete-r2-object",
-                { r2Key },
-                { traceId: ctx.traceId }
-              );
-            },
+          enqueueDeleteR2Object(ctx, tx.location, photo.r2Key, {
+            keyPrefixes: [`photos/${photo.eventId}/`],
             meta: { mutator: "rejectEventPhoto", photoId: args.id },
           });
         }

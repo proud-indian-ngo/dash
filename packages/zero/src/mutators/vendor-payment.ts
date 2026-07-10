@@ -29,6 +29,16 @@ import {
 } from "./submission-helpers";
 import { recalculateParentStatus } from "./vendor-payment-transaction";
 
+const vendorPaymentAttachmentKeyPrefixes = (id: string) => [
+  `attachments/vendor-payments/${id}/`,
+  `attachments/${id}/`,
+];
+
+const vendorPaymentApprovalKeyPrefixes = (id: string) => [
+  `approval-screenshots/vendor-payments/${id}/approval-screenshots/`,
+  `approval-screenshots/${id}/`,
+];
+
 const createSchema = z.object({
   attachments: z.array(attachmentSchema),
   city: z.enum(cityValues).optional(),
@@ -63,15 +73,18 @@ export const vendorPaymentMutators = {
               subfolder: "approval-screenshots",
             })
           )
-        : undefined;
+        : (entity.approvalScreenshotKey ?? undefined);
 
       if (
         entity.approvalScreenshotKey &&
         entity.approvalScreenshotKey !== approvalScreenshotKey
       ) {
         enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-          mutator: "vendorPayment.approve:replaceApprovalScreenshot",
-          vendorPaymentId: args.id,
+          keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
+          meta: {
+            mutator: "vendorPayment.approve:replaceApprovalScreenshot",
+            vendorPaymentId: args.id,
+          },
         });
       }
 
@@ -313,8 +326,11 @@ export const vendorPaymentMutators = {
       assertEntityExists(entity, "Vendor payment");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        mutator: "vendorPayment.delete:approvalScreenshot",
-        vendorPaymentId: args.id,
+        keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
+        meta: {
+          mutator: "vendorPayment.delete:approvalScreenshot",
+          vendorPaymentId: args.id,
+        },
       });
 
       await deleteAllRelations({
@@ -324,8 +340,11 @@ export const vendorPaymentMutators = {
         deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            mutator: "vendorPayment.delete",
-            vendorPaymentId: args.id,
+            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "vendorPayment.delete",
+              vendorPaymentId: args.id,
+            },
           }),
         queryAttachments: () =>
           tx.run(zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)),
@@ -546,8 +565,11 @@ export const vendorPaymentMutators = {
 
       const now = Date.now();
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        mutator: "vendorPayment.resetToPending",
-        vendorPaymentId: args.id,
+        keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
+        meta: {
+          mutator: "vendorPayment.resetToPending",
+          vendorPaymentId: args.id,
+        },
       });
 
       await tx.mutate.vendorPayment.update({
@@ -622,8 +644,11 @@ export const vendorPaymentMutators = {
         existingInvoiceAtts.map(async (att) => {
           if (att.objectKey && !retainedInvoiceObjectKeys.has(att.objectKey)) {
             enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
-              mutator: "vendorPayment.submitInvoice",
-              vendorPaymentId: args.id,
+              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+              meta: {
+                mutator: "vendorPayment.submitInvoice",
+                vendorPaymentId: args.id,
+              },
             });
           }
           await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
@@ -745,8 +770,11 @@ export const vendorPaymentMutators = {
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            mutator: "vendorPayment.update",
-            vendorPaymentId: args.id,
+            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "vendorPayment.update",
+              vendorPaymentId: args.id,
+            },
           }),
         queryAttachments: () =>
           tx.run(
@@ -834,8 +862,11 @@ export const vendorPaymentMutators = {
         existingAtts.map(async (att) => {
           if (att.objectKey && !retainedObjectKeys.has(att.objectKey)) {
             enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
-              mutator: "vendorPayment.updateInvoice",
-              vendorPaymentId: args.id,
+              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+              meta: {
+                mutator: "vendorPayment.updateInvoice",
+                vendorPaymentId: args.id,
+              },
             });
           }
           await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });

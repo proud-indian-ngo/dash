@@ -352,16 +352,47 @@ describe("claimUploadedR2ObjectKey", () => {
       )
     ).toThrow("Invalid attachment object key");
   });
+
+  it.each([
+    "app/attachments/tmp/other-user/upload-id-receipt.pdf",
+    "app/photos/tmp/user-1/upload-id-receipt.pdf",
+    "other/attachments/tmp/user-1/upload-id-receipt.pdf",
+  ])("rejects an unowned server key before queueing work: %s", (key) => {
+    const beforeCommitTasks: AsyncTask[] = [];
+    const asyncTasks: AsyncTask[] = [];
+
+    expect(() =>
+      claimUploadedR2ObjectKey(key, {
+        ...clientClaimOptions,
+        asyncTasks,
+        beforeCommitTasks,
+        copyR2Object,
+        enqueue,
+        r2KeyPrefix: "app",
+        txLocation: "server",
+      })
+    ).toThrow("Invalid attachment object key");
+    expect(beforeCommitTasks).toEqual([]);
+    expect(asyncTasks).toEqual([]);
+  });
 });
 
 describe("enqueueDeleteR2Object", () => {
   it("queues persisted deletion only for a server mutation", async () => {
     const asyncTasks: AsyncTask[] = [];
     enqueueDeleteR2Object(
-      { asyncTasks, enqueue, traceId: "trace-id" },
+      {
+        asyncTasks,
+        enqueue,
+        r2KeyPrefix: "app",
+        traceId: "trace-id",
+      },
       "server",
       "app/attachments/reimbursements/request-1/receipt.pdf",
-      { mutator: "reimbursement.delete", requestId: "request-1" }
+      {
+        keyPrefixes: ["attachments/reimbursements/request-1/"],
+        meta: { mutator: "reimbursement.delete", requestId: "request-1" },
+      }
     );
 
     expect(asyncTasks).toHaveLength(1);
@@ -371,6 +402,48 @@ describe("enqueueDeleteR2Object", () => {
       { r2Key: "app/attachments/reimbursements/request-1/receipt.pdf" },
       { traceId: "trace-id" }
     );
+  });
+
+  it("accepts a parent-bound legacy key", async () => {
+    const asyncTasks: AsyncTask[] = [];
+    enqueueDeleteR2Object(
+      { asyncTasks, enqueue, r2KeyPrefix: "app" },
+      "server",
+      "app/attachments/request-1/receipt.pdf",
+      {
+        keyPrefixes: [
+          "attachments/reimbursements/request-1/",
+          "attachments/request-1/",
+        ],
+        meta: { mutator: "reimbursement.delete" },
+      }
+    );
+
+    expect(asyncTasks).toHaveLength(1);
+    await asyncTasks[0]?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { r2Key: "app/attachments/request-1/receipt.pdf" },
+      { traceId: undefined }
+    );
+  });
+
+  it("does not enqueue a key outside the owning parent", () => {
+    const asyncTasks: AsyncTask[] = [];
+    enqueueDeleteR2Object(
+      { asyncTasks, enqueue, r2KeyPrefix: "app" },
+      "server",
+      "app/attachments/reimbursements/other-request/receipt.pdf",
+      {
+        keyPrefixes: [
+          "attachments/reimbursements/request-1/",
+          "attachments/request-1/",
+        ],
+        meta: { mutator: "reimbursement.delete" },
+      }
+    );
+
+    expect(asyncTasks).toEqual([]);
   });
 });
 

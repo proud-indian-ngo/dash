@@ -25,6 +25,16 @@ import {
   replaceRelations,
 } from "./submission-helpers";
 
+const reimbursementAttachmentKeyPrefixes = (id: string) => [
+  `attachments/reimbursements/${id}/`,
+  `attachments/${id}/`,
+];
+
+const reimbursementApprovalKeyPrefixes = (id: string) => [
+  `approval-screenshots/reimbursements/${id}/approval-screenshots/`,
+  `approval-screenshots/${id}/`,
+];
+
 export const createSchema = z.object({
   attachments: z.array(attachmentSchema),
   bankAccountIfscCode: z.string().optional(),
@@ -92,15 +102,18 @@ export const reimbursementMutators = {
               subfolder: "approval-screenshots",
             })
           )
-        : undefined;
+        : (entity.approvalScreenshotKey ?? undefined);
 
       if (
         entity.approvalScreenshotKey &&
         entity.approvalScreenshotKey !== approvalScreenshotKey
       ) {
         enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-          mutator: "reimbursement.approve:replaceApprovalScreenshot",
-          reimbursementId: args.id,
+          keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
+          meta: {
+            mutator: "reimbursement.approve:replaceApprovalScreenshot",
+            reimbursementId: args.id,
+          },
         });
       }
 
@@ -252,8 +265,11 @@ export const reimbursementMutators = {
       assertEntityExists(entity, "Reimbursement");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        mutator: "reimbursement.delete:approvalScreenshot",
-        reimbursementId: args.id,
+        keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
+        meta: {
+          mutator: "reimbursement.delete:approvalScreenshot",
+          reimbursementId: args.id,
+        },
       });
 
       await deleteAllRelations({
@@ -263,8 +279,11 @@ export const reimbursementMutators = {
         deleteLineItem: (data) => tx.mutate.reimbursementLineItem.delete(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            mutator: "reimbursement.delete",
-            reimbursementId: args.id,
+            keyPrefixes: reimbursementAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "reimbursement.delete",
+              reimbursementId: args.id,
+            },
           }),
         queryAttachments: () =>
           tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
@@ -401,8 +420,11 @@ export const reimbursementMutators = {
 
       const now = Date.now();
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        mutator: "reimbursement.resetToPending",
-        reimbursementId: args.id,
+        keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
+        meta: {
+          mutator: "reimbursement.resetToPending",
+          reimbursementId: args.id,
+        },
       });
 
       await tx.mutate.reimbursement.update({
@@ -464,8 +486,11 @@ export const reimbursementMutators = {
         ),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            mutator: "reimbursement.update",
-            reimbursementId: args.id,
+            keyPrefixes: reimbursementAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "reimbursement.update",
+              reimbursementId: args.id,
+            },
           }),
         queryAttachments: () =>
           tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),

@@ -8,7 +8,9 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_AVATAR_IMAGE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
+  MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
 import z from "zod";
 
@@ -51,7 +53,15 @@ const protectedUploadSchema = z
   });
 
 export const requestUploadSchema = protectedUploadSchema;
-export const scheduledMessageUploadSchema = protectedUploadSchema;
+export const scheduledMessageUploadSchema = z.object({
+  fileName: z.string().trim().min(1),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES),
+  mimeType: z.string().trim().regex(MIME_TYPE_PATTERN),
+});
 
 export const approvalScreenshotUploadSchema = z.object({
   fileName: z.string().trim().min(1),

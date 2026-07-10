@@ -1,6 +1,9 @@
 import {
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -119,6 +122,87 @@ describe("copyR2Object", () => {
     await expect(copyR2Object(input, deps)).rejects.toThrow(
       "Upload content type mismatch"
     );
+    expect(s3.write).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid scheduled-message MIME type outside request uploads", async () => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
+
+    await copyR2Object(
+      {
+        mimeType: "audio/mpeg",
+        sourceKey: "app/scheduled-messages/tmp/user-1/voice-note.mp3",
+        targetKey: "app/scheduled-messages/message-1/voice-note.mp3",
+      },
+      deps
+    );
+
+    expect(s3.write).toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      maxSize: MAX_ATTACHMENT_FILE_SIZE_BYTES,
+      mimeType: "application/pdf",
+      sourceKey: "app/attachments/tmp/user-1/document.pdf",
+    },
+    {
+      maxSize: MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
+      mimeType: "image/png",
+      sourceKey: "app/approval-screenshots/tmp/user-1/proof.png",
+    },
+    {
+      maxSize: MAX_VIDEO_SIZE_BYTES,
+      mimeType: "video/mp4",
+      sourceKey: "app/photos/tmp/user-1/clip.mp4",
+    },
+    {
+      maxSize: MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
+      mimeType: "application/zip",
+      sourceKey: "app/scheduled-messages/tmp/user-1/archive.zip",
+    },
+  ])("enforces stored size for $sourceKey", async ({
+    maxSize,
+    mimeType,
+    sourceKey,
+  }) => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: maxSize, type: mimeType });
+
+    await copyR2Object(
+      { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
+      deps
+    );
+    expect(s3.write).toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: maxSize + 1, type: mimeType });
+    await expect(
+      copyR2Object(
+        { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
+        deps
+      )
+    ).rejects.toThrow("exceeds");
+    expect(s3.write).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["app/attachments/tmp/user-1/audio.mp3", "audio/mpeg"],
+    ["app/approval-screenshots/tmp/user-1/animation.gif", "image/gif"],
+    ["app/photos/tmp/user-1/document.pdf", "application/pdf"],
+    ["app/scheduled-messages/tmp/user-1/file", "not-a-mime"],
+  ])("rejects unsupported stored MIME metadata for %s", async (sourceKey, mimeType) => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 1024, type: mimeType });
+
+    await expect(
+      copyR2Object(
+        { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
+        deps
+      )
+    ).rejects.toThrow("Unsupported upload type");
     expect(s3.write).not.toHaveBeenCalled();
   });
 });

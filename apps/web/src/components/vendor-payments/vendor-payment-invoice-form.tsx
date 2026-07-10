@@ -2,8 +2,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useRef, useState } from "react";
-import { uuidv7 } from "uuidv7";
+import { useState } from "react";
 import z from "zod";
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { DateField } from "@/components/form/date-field";
@@ -52,8 +51,6 @@ function InvoiceFormContent({
   vendorPaymentId: string;
 }) {
   const zero = useZero();
-  const entityIdRef = useRef(uuidv7());
-  const entityId = entityIdRef.current;
 
   const form = useForm({
     defaultValues: {
@@ -106,7 +103,6 @@ function InvoiceFormContent({
       <form.Field name="attachments">
         {(field) => (
           <AttachmentsSection
-            entityId={entityId}
             fileDownloadKind="vendorPaymentAttachment"
             onChange={field.handleChange}
             value={(field.state.value ?? []) as Attachment[]}

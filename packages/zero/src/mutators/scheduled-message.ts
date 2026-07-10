@@ -232,8 +232,11 @@ export const scheduledMessageMutators = {
 
       for (const attachment of existing.attachments ?? []) {
         enqueueDeleteR2Object(ctx, tx.location, attachment.r2Key, {
-          mutator: "scheduledMessage.delete",
-          scheduledMessageId: args.id,
+          keyPrefixes: [`scheduled-messages/${args.id}/`],
+          meta: {
+            mutator: "scheduledMessage.delete",
+            scheduledMessageId: args.id,
+          },
         });
       }
 
@@ -384,8 +387,11 @@ export const scheduledMessageMutators = {
       for (const attachment of existing.attachments ?? []) {
         if (!retainedObjectKeys.has(attachment.r2Key)) {
           enqueueDeleteR2Object(ctx, tx.location, attachment.r2Key, {
-            mutator: "scheduledMessage.update",
-            scheduledMessageId: args.id,
+            keyPrefixes: [`scheduled-messages/${args.id}/`],
+            meta: {
+              mutator: "scheduledMessage.update",
+              scheduledMessageId: args.id,
+            },
           });
         }
       }

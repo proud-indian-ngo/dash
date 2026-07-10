@@ -42,7 +42,6 @@ import {
 } from "@/lib/form-schemas";
 
 interface AttachmentsSectionProps {
-  entityId: string;
   fileDownloadKind?: AttachmentRowDownloadKind;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];

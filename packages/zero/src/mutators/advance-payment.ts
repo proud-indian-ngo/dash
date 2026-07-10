@@ -22,6 +22,16 @@ import {
   replaceRelations,
 } from "./submission-helpers";
 
+const advancePaymentAttachmentKeyPrefixes = (id: string) => [
+  `attachments/advance-payments/${id}/`,
+  `attachments/${id}/`,
+];
+
+const advancePaymentApprovalKeyPrefixes = (id: string) => [
+  `approval-screenshots/advance-payments/${id}/approval-screenshots/`,
+  `approval-screenshots/${id}/`,
+];
+
 export const createSchema = z.object({
   attachments: z.array(attachmentSchema),
   bankAccountIfscCode: z.string().optional(),
@@ -68,15 +78,18 @@ export const advancePaymentMutators = {
               subfolder: "approval-screenshots",
             })
           )
-        : undefined;
+        : (entity.approvalScreenshotKey ?? undefined);
 
       if (
         entity.approvalScreenshotKey &&
         entity.approvalScreenshotKey !== approvalScreenshotKey
       ) {
         enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-          advancePaymentId: args.id,
-          mutator: "advancePayment.approve:replaceApprovalScreenshot",
+          keyPrefixes: advancePaymentApprovalKeyPrefixes(args.id),
+          meta: {
+            advancePaymentId: args.id,
+            mutator: "advancePayment.approve:replaceApprovalScreenshot",
+          },
         });
       }
 
@@ -202,8 +215,11 @@ export const advancePaymentMutators = {
       assertEntityExists(entity, "Advance payment");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        advancePaymentId: args.id,
-        mutator: "advancePayment.delete:approvalScreenshot",
+        keyPrefixes: advancePaymentApprovalKeyPrefixes(args.id),
+        meta: {
+          advancePaymentId: args.id,
+          mutator: "advancePayment.delete:approvalScreenshot",
+        },
       });
 
       await deleteAllRelations({
@@ -213,8 +229,11 @@ export const advancePaymentMutators = {
         deleteLineItem: (data) => tx.mutate.advancePaymentLineItem.delete(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            advancePaymentId: args.id,
-            mutator: "advancePayment.delete",
+            keyPrefixes: advancePaymentAttachmentKeyPrefixes(args.id),
+            meta: {
+              advancePaymentId: args.id,
+              mutator: "advancePayment.delete",
+            },
           }),
         queryAttachments: () =>
           tx.run(
@@ -303,8 +322,11 @@ export const advancePaymentMutators = {
 
       const now = Date.now();
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        advancePaymentId: args.id,
-        mutator: "advancePayment.resetToPending",
+        keyPrefixes: advancePaymentApprovalKeyPrefixes(args.id),
+        meta: {
+          advancePaymentId: args.id,
+          mutator: "advancePayment.resetToPending",
+        },
       });
 
       await tx.mutate.advancePayment.update({
@@ -364,8 +386,11 @@ export const advancePaymentMutators = {
         insertLineItem: (data) => tx.mutate.advancePaymentLineItem.insert(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            advancePaymentId: args.id,
-            mutator: "advancePayment.update",
+            keyPrefixes: advancePaymentAttachmentKeyPrefixes(args.id),
+            meta: {
+              advancePaymentId: args.id,
+              mutator: "advancePayment.update",
+            },
           }),
         queryAttachments: () =>
           tx.run(

@@ -54,12 +54,24 @@ export function createR2ClaimOptions(
 }
 
 export function enqueueDeleteR2Object(
-  ctx: Pick<Context, "asyncTasks" | "enqueue" | "traceId">,
+  ctx: Pick<Context, "asyncTasks" | "enqueue" | "r2KeyPrefix" | "traceId">,
   txLocation: string,
   r2Key: null | string | undefined,
-  meta: { mutator: string; [key: string]: unknown }
+  options: {
+    keyPrefixes: readonly string[];
+    meta: { mutator: string; [key: string]: unknown };
+  }
 ): void {
   if (txLocation !== "server" || !r2Key) {
+    return;
+  }
+  if (!ctx.r2KeyPrefix) {
+    throw new Error("R2 key prefix is required");
+  }
+  const ownsKey = options.keyPrefixes.some((keyPrefix) =>
+    r2Key.startsWith(`${ctx.r2KeyPrefix}/${keyPrefix}`)
+  );
+  if (!ownsKey) {
     return;
   }
   ctx.asyncTasks?.push({
@@ -67,7 +79,7 @@ export function enqueueDeleteR2Object(
       const enqueue = requireEnqueue(ctx);
       await enqueue("delete-r2-object", { r2Key }, { traceId: ctx.traceId });
     },
-    meta,
+    meta: options.meta,
   });
 }
 
@@ -140,9 +152,12 @@ function pushClaimR2ObjectTasks(
     },
   });
   enqueueDeleteR2Object(options, options.txLocation, sourceKey, {
-    mutator: "cleanup-claimed-r2-source",
-    sourceKey,
-    targetKey,
+    keyPrefixes: [`${options.subfolder}/tmp/${options.userId}/`],
+    meta: {
+      mutator: "cleanup-claimed-r2-source",
+      sourceKey,
+      targetKey,
+    },
   });
 }
 

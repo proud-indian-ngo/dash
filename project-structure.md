@@ -407,7 +407,7 @@ Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (owners
 
 1. Zero mutator performs data change (e.g., approve reimbursement)
 2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
-3. `routes/api/zero/mutate.ts` awaits async tasks after mutation completes
+3. `routes/api/zero/mutate.ts` awaits `beforeCommitTasks` inside the transaction, then starts `asyncTasks` as logged fire-and-forget work after commit
 4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via nodemailer
 5. Client-side inbox synced in real-time via Zero
 

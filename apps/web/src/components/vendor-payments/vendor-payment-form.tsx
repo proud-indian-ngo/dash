@@ -138,7 +138,6 @@ export function VendorPaymentForm({
             return (
               <VendorPaymentFields
                 categoryList={categoryList}
-                entityId={entityId}
                 eventOptions={filteredOptions}
                 isEdit={isEdit}
                 onCancel={onCancel}

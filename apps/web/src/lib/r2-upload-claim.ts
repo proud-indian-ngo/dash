@@ -5,7 +5,9 @@ import {
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
+  MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
 import { getS3 } from "./s3";
 
@@ -44,15 +46,18 @@ function uploadPolicy(sourceKey: string, mimeType: string) {
         : MAX_IMAGE_SIZE_BYTES,
     };
   }
-  if (
-    sourceKey.includes("/attachments/tmp/") ||
-    sourceKey.includes("/scheduled-messages/tmp/")
-  ) {
+  if (sourceKey.includes("/attachments/tmp/")) {
     return {
       allowed: ALLOWED_MIME_TYPES as readonly string[],
       maxSize: mimeType.startsWith("video/")
         ? MAX_VIDEO_SIZE_BYTES
         : MAX_ATTACHMENT_FILE_SIZE_BYTES,
+    };
+  }
+  if (sourceKey.includes("/scheduled-messages/tmp/")) {
+    return {
+      allowed: null,
+      maxSize: MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
     };
   }
   throw new Error("Invalid temporary upload key");
@@ -78,7 +83,11 @@ export async function copyR2Object(
     throw new Error("Upload content type mismatch");
   }
   const policy = uploadPolicy(input.sourceKey, storedMimeType);
-  if (!policy.allowed.includes(storedMimeType)) {
+  if (
+    policy.allowed
+      ? !policy.allowed.includes(storedMimeType)
+      : !MIME_TYPE_PATTERN.test(storedMimeType)
+  ) {
     throw new Error(`Unsupported upload type: ${storedMimeType}`);
   }
   if (source.size > policy.maxSize) {

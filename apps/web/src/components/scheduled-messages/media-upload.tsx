@@ -10,7 +10,7 @@ import {
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
-import type { AllowedMimeType } from "@pi-dash/shared/constants";
+import { MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useRef, useState } from "react";
@@ -21,9 +21,9 @@ import {
 } from "@/functions/attachments";
 
 const MAX_MEDIA_FILES = 5;
-const MAX_MEDIA_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+const MAX_MEDIA_FILE_SIZE = MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES;
 // useFileUpload accept="*" skips client-side type validation (HEIC compat).
-// Server-side presigned URL validates against ALLOWED_MIME_TYPES.
+// The signer validates the MIME shape and enforces the scheduled-file limit.
 const MEDIA_ACCEPT = "*";
 
 async function uploadSingleFile(
@@ -32,17 +32,18 @@ async function uploadSingleFile(
     typeof useServerFn<typeof getScheduledMessageUploadUrl>
   >
 ): Promise<MediaAttachment> {
+  const mimeType = file.type || "application/octet-stream";
   const { presignedUrl, key } = await getUploadUrl({
     data: {
       fileName: file.name,
       fileSize: file.size,
-      mimeType: file.type as AllowedMimeType,
+      mimeType,
     },
   });
 
   const response = await fetch(presignedUrl, {
     body: file,
-    headers: { "Content-Type": file.type || "application/octet-stream" },
+    headers: { "Content-Type": mimeType },
     method: "PUT",
   });
 
@@ -50,7 +51,7 @@ async function uploadSingleFile(
     throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
   }
 
-  return { fileName: file.name, mimeType: file.type, r2Key: key };
+  return { fileName: file.name, mimeType, r2Key: key };
 }
 
 export interface MediaAttachment {
