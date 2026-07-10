@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     key,
     list: vi.fn(),
     select: vi.fn(),
+    validContent: content,
   };
 });
 
@@ -59,6 +60,7 @@ const query = (rows: unknown[]) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.content = mocks.validContent;
   mocks.fromCall = 0;
   mocks.execute.mockResolvedValue([]);
   mocks.list.mockResolvedValue({
@@ -79,6 +81,17 @@ beforeEach(() => {
 
 describe("handleCleanupR2Orphans", () => {
   it("retains a live key referenced by escaped canonical Plate JSON", async () => {
+    const result = await handleCleanupR2Orphans([
+      { data: { dryRun: false } },
+    ] as never);
+
+    expect(result).toMatchObject({ orphanCount: 0, r2ObjectCount: 1 });
+    expect(mocks.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it("retains all update objects when content cannot be traversed", async () => {
+    mocks.content = String.raw`{"broken":"app\u002Fupdates\u002Fevent-1\u002Fhidden.jpg"`;
+
     const result = await handleCleanupR2Orphans([
       { data: { dryRun: false } },
     ] as never);

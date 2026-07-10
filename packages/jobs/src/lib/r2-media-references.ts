@@ -59,14 +59,22 @@ const collectMalformedKeys = (
   return keys;
 };
 
-export function collectPlateReferenceKeys(
+export interface PlateReferences {
+  keys: Set<string>;
+  malformed: boolean;
+}
+
+export function collectPlateReferences(
   content: string,
   _eventId: string,
   options: MediaReferenceOptions
-): Set<string> {
+): PlateReferences {
   const parsed = getPlateImageUrls(content);
   if (parsed.malformed) {
-    return collectMalformedKeys(content, options.keyPrefix);
+    return {
+      keys: collectMalformedKeys(content, options.keyPrefix),
+      malformed: true,
+    };
   }
   const keys = new Set<string>();
   for (const url of parsed.urls) {
@@ -79,5 +87,5 @@ export function collectPlateReferenceKeys(
       keys.add(key);
     }
   }
-  return keys;
+  return { keys, malformed: false };
 }

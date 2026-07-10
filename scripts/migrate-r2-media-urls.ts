@@ -10,6 +10,7 @@ import {
 import { user } from "@pi-dash/db/schema/auth";
 import { eventFeedback } from "@pi-dash/db/schema/event-feedback";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
+import { env } from "@pi-dash/env/server";
 import { and, asc, eq, gt, isNotNull, ne } from "drizzle-orm";
 
 const readUsers = async (
@@ -169,6 +170,9 @@ const repository: MediaMigrationRepository = {
   },
 };
 
-const options = parseMediaMigrationArgs(process.argv.slice(2));
+const options = parseMediaMigrationArgs(
+  process.argv.slice(2),
+  env.R2_KEY_PREFIX
+);
 const report = await runR2MediaUrlMigration(repository, options);
 console.log(JSON.stringify(report, null, 2));

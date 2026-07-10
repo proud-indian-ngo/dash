@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectAvatarReferenceKey,
-  collectPlateReferenceKeys,
+  collectPlateReferences,
 } from "./r2-media-references";
 
 const options = {
@@ -51,7 +51,7 @@ describe("collectAvatarReferenceKey", () => {
   });
 });
 
-describe("collectPlateReferenceKeys", () => {
+describe("collectPlateReferences", () => {
   it("collects legacy and canonical image keys from valid Plate content", () => {
     const oldKey = "app/updates/event-1/old.jpg";
     const newKey = "app/updates/event-1/new.jpg";
@@ -73,9 +73,10 @@ describe("collectPlateReferenceKeys", () => {
       },
     ]);
 
-    expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
-      new Set([oldKey, newKey])
-    );
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set([oldKey, newKey]),
+      malformed: false,
+    });
   });
 
   it("conservatively retains a valid reference scoped to another event", () => {
@@ -88,9 +89,10 @@ describe("collectPlateReferenceKeys", () => {
       },
     ]);
 
-    expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
-      new Set([key])
-    );
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set([key]),
+      malformed: false,
+    });
   });
 
   it("conservatively extracts raw and encoded keys from malformed content", () => {
@@ -98,9 +100,10 @@ describe("collectPlateReferenceKeys", () => {
     const encodedKey = "app/updates/event-1/encoded.jpg";
     const content = `{"broken":"${rawKey}","url":"/api/media/event-update?eventId=event-1&key=${encodeURIComponent(encodedKey)}"`;
 
-    expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
-      new Set([rawKey, encodedKey])
-    );
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set([rawKey, encodedKey]),
+      malformed: true,
+    });
   });
 
   it("preserves opaque object-key characters in malformed content", () => {
@@ -113,8 +116,9 @@ describe("collectPlateReferenceKeys", () => {
     ];
     const content = `{"broken":[${keys.map((key) => `"${key}"`).join(",")}`;
 
-    expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
-      new Set(keys)
-    );
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set(keys),
+      malformed: true,
+    });
   });
 });

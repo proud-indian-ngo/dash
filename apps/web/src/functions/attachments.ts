@@ -221,18 +221,10 @@ interface EventEditorUploadDeps {
   keyPrefix: string;
 }
 
-const defaultEventEditorUploadDeps: EventEditorUploadDeps = {
-  authorize: (session, eventId) =>
-    authorizeEventEditorUpload(session, eventId, defaultPrivateMediaAccessDeps),
-  createId: uuidv7,
-  getS3,
-  keyPrefix: env.R2_KEY_PREFIX,
-};
-
 export async function createEventEditorUpload(
   data: EventEditorUploadData,
   session: EventEditorUploadSession,
-  deps = defaultEventEditorUploadDeps
+  deps: EventEditorUploadDeps
 ) {
   await deps.authorize(session, data.eventId);
   const s3 = await deps.getS3();
@@ -257,7 +249,17 @@ export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     try {
-      return await createEventEditorUpload(data, context.session);
+      return await createEventEditorUpload(data, context.session, {
+        authorize: (session, eventId) =>
+          authorizeEventEditorUpload(
+            session,
+            eventId,
+            defaultPrivateMediaAccessDeps
+          ),
+        createId: uuidv7,
+        getS3,
+        keyPrefix: env.R2_KEY_PREFIX,
+      });
     } catch (error) {
       logErrorAndRethrow(
         { method: "POST", path: "/fn/getEventEditorUploadUrl" },

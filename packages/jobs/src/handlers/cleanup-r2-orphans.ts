@@ -13,7 +13,7 @@ import type { Job } from "pg-boss";
 import type { CleanupR2OrphansPayload } from "../enqueue";
 import {
   collectAvatarReferenceKey,
-  collectPlateReferenceKeys,
+  collectPlateReferences,
 } from "../lib/r2-media-references";
 
 const GRACE_PERIOD_HOURS = 24;
@@ -58,8 +58,12 @@ async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
   return keys;
 }
 
-async function collectAllDbKeys(): Promise<Set<string>> {
+async function collectAllDbKeys(): Promise<{
+  keys: Set<string>;
+  retainAllEventUpdates: boolean;
+}> {
   const keys = new Set<string>();
+  let retainAllEventUpdates = false;
 
   const keyPrefix = `${env.R2_KEY_PREFIX}/%`;
   const rows = await db.execute<{ key: string }>(sql`
@@ -135,15 +139,17 @@ async function collectAllDbKeys(): Promise<Set<string>> {
       .from(eventFeedback),
   ]);
   for (const row of [...updateRows, ...feedbackRows]) {
-    for (const key of collectPlateReferenceKeys(row.content, row.eventId, {
+    const references = collectPlateReferences(row.content, row.eventId, {
       keyPrefix: prefix,
       legacyCdnUrl: env.VITE_CDN_URL,
-    })) {
+    });
+    retainAllEventUpdates ||= references.malformed;
+    for (const key of references.keys) {
       keys.add(key);
     }
   }
 
-  return keys;
+  return { keys, retainAllEventUpdates };
 }
 
 async function deleteOrphans(
@@ -195,14 +201,26 @@ export async function handleCleanupR2Orphans(
     Date.now() - GRACE_PERIOD_HOURS * 60 * 60 * 1000
   );
 
-  const [r2Objects, dbKeys] = await Promise.all([
+  const [r2Objects, dbReferences] = await Promise.all([
     listAllR2Objects(graceCutoff),
     collectAllDbKeys(),
   ]);
+  const { keys: dbKeys, retainAllEventUpdates } = dbReferences;
 
-  log.set({ dbKeyCount: dbKeys.size, r2ObjectCount: r2Objects.size });
+  log.set({
+    dbKeyCount: dbKeys.size,
+    r2ObjectCount: r2Objects.size,
+    retainAllEventUpdates,
+  });
 
-  const orphans = Array.from(r2Objects).filter((key) => !dbKeys.has(key));
+  const eventUpdatePrefix = `${env.R2_KEY_PREFIX}/updates/`;
+  const orphans = Array.from(r2Objects).filter(
+    (key) =>
+      !(
+        dbKeys.has(key) ||
+        (retainAllEventUpdates && key.startsWith(eventUpdatePrefix))
+      )
+  );
   log.set({ orphanCount: orphans.length });
 
   if (orphans.length === 0) {
