@@ -1,0 +1,60 @@
+apps/web/src/routes/api/media/event-photo.$id.ts
+  s_adf55c018923eb::t_ce5d1c82cbde74 2,47-48
+  s_adf55c018923eb::t_4dc9a4642c4c71 49
+apps/web/src/routes/api/attachments/-download.test.ts
+  s_adf55c018923eb::t_569235c75d22da 55,57-64,206-209,211-224
+  s_adf55c018923eb::t_bf98147ac3ce2f 21-22,50,53,72,84,102,120,143,160,189,210
+  s_adf55c018923eb::t_defc6d027d0ffe 56
+  s_adf55c018923eb::t_78b7d21283a638 54
+  s_adf55c018923eb::t_cfcc556f8abecb 225
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_adf55c018923eb::t_21c5d22d065381 1,3-28,52-58,69-240
+packages/shared/src/asset-ref.ts
+  s_adf55c018923eb::t_ce5d1c82cbde74 14-18,38-47
+apps/web/src/routes/api/media/-event-photo.$id.test.ts
+  s_adf55c018923eb::t_bf98147ac3ce2f 17-18,45-46,55-56,86-87
+  s_adf55c018923eb::t_569235c75d22da 68-82
+project-structure.md
+  s_adf55c018923eb::t_ce5d1c82cbde74 271
+apps/web/src/routes/api/attachments/download.ts
+  s_adf55c018923eb::t_defc6d027d0ffe 101-115,162-164,172-177
+  s_adf55c018923eb::t_ce5d1c82cbde74 3,26-28,161,165-166
+packages/jobs/src/handlers/scheduled-whatsapp-media.ts
+  s_adf55c018923eb::t_ce5d1c82cbde74 1,21-33
+packages/e2e/helpers/seed-test-user.ts
+  s_adf55c018923eb::t_defc6d027d0ffe 124
+  s_adf55c018923eb::t_21c5d22d065381 14,91-123,125-126,883
+packages/shared/src/asset-ref.test.ts
+  s_adf55c018923eb::t_569235c75d22da 1-15
+apps/web/src/lib/export-attachments.test.ts
+  s_adf55c018923eb::t_569235c75d22da 2-5,53-61
+  s_adf55c018923eb::t_609335f39f4f2d 62
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_ce5d1c82cbde74 18,46
+apps/web/src/functions/export-csv.ts
+  s_adf55c018923eb::t_ce5d1c82cbde74 19-22,54-57,64-66,172
+packages/jobs/src/handlers/scheduled-whatsapp-media.test.ts
+  s_adf55c018923eb::t_569235c75d22da 31-48
+apps/web/src/lib/r2-object-access.ts
+  s_adf55c018923eb::t_ce5d1c82cbde74 120
+  s_adf55c018923eb::t_defc6d027d0ffe 1-2
+apps/web/src/lib/export-attachments.ts
+  s_adf55c018923eb::t_ce5d1c82cbde74 1,7,13-16
+  s_adf55c018923eb::t_64b223ab20322f 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "87898068f0f7d9ca78bd234a29e7d359f0aae382",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
