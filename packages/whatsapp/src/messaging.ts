@@ -260,8 +260,7 @@ export async function sendWhatsAppFile(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(`WhatsApp file error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp file error ${response.status}`);
     log.error(error);
     log.emit();
     throw error;

@@ -100,4 +100,23 @@ describe("sendWhatsAppMedia", () => {
     ).rejects.not.toThrow(signedUrl);
     expect(loggedText()).not.toContain(signedUrl);
   });
+
+  it("does not expose signed document URLs from gateway errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response("document"))
+        .mockResolvedValueOnce(new Response(signedUrl, { status: 500 }))
+    );
+
+    await expect(
+      sendWhatsAppMedia("919999999999", {
+        fileName: "agenda.pdf",
+        mimeType: "application/pdf",
+        url: signedUrl,
+      })
+    ).rejects.not.toThrow(signedUrl);
+    expect(loggedText()).not.toContain(signedUrl);
+  });
 });
