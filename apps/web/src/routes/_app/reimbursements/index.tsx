@@ -14,6 +14,7 @@ import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
+import { useApp } from "@/context/app-context";
 import { cityOptions } from "@/lib/form-schemas";
 import {
   normalizeToRequestRows,
@@ -53,6 +54,7 @@ function getMutatorNs(type: RequestRow["type"]) {
 function ReimbursementsRouteComponent() {
   const navigate = useNavigate();
   const zero = useZero();
+  const { hasPermission } = useApp();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -142,14 +144,16 @@ function ReimbursementsRouteComponent() {
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
           toolbarActions={
-            <Button onClick={stableOnClick2} size="sm" type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add reimbursement
-            </Button>
+            hasPermission("requests.create") ? (
+              <Button onClick={stableOnClick2} size="sm" type="button">
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={PlusSignIcon}
+                  strokeWidth={2}
+                />
+                Add reimbursement
+              </Button>
+            ) : null
           }
           toolbarFilters={
             <>
