@@ -80,17 +80,65 @@ describe("handleEventPhotoRequest", () => {
     expect(resolveAuthorizedR2Object).not.toHaveBeenCalled();
   });
 
+  it("returns 429 when one photo exceeds its per-photo limit", async () => {
+    const checkRateLimit = vi
+      .fn()
+      .mockReturnValueOnce({
+        allowed: true,
+        limit: 3000,
+        remaining: 2999,
+        resetAt: Date.now() + 60_000,
+      })
+      .mockReturnValueOnce({
+        allowed: false,
+        limit: 30,
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+      });
+    const resolveAuthorizedR2Object = vi.fn();
+
+    const response = await handleEventPhotoRequest(
+      new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
+      PHOTO_ID,
+      handlerDeps({
+        checkRateLimit,
+        requireSession: async () => ({ session: { user: { id: "member" } } }),
+        resolveAuthorizedR2Object,
+      })
+    );
+
+    expect(response.status).toBe(429);
+    expect(resolveAuthorizedR2Object).not.toHaveBeenCalled();
+  });
+
   it("redirects authorized viewers to a two-minute signed URL", async () => {
+    const checkRateLimit = vi.fn(() => ({
+      allowed: true,
+      limit: 3000,
+      remaining: 2999,
+      resetAt: Date.now() + 60_000,
+    }));
     const presign = vi.fn(() => "https://r2.example.test/signed-event-photo");
     const response = await handleEventPhotoRequest(
       new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
       PHOTO_ID,
       handlerDeps({
+        checkRateLimit,
         getS3: () => ({ presign }),
         requireSession: async () => ({ session: { user: { id: "member" } } }),
       })
     );
 
+    expect(checkRateLimit).toHaveBeenNthCalledWith(
+      1,
+      "event-media:member",
+      3000
+    );
+    expect(checkRateLimit).toHaveBeenNthCalledWith(
+      2,
+      `event-media:member:${PHOTO_ID}`,
+      30
+    );
     expect(presign).toHaveBeenCalledWith("legacy/events/photo.jpg", {
       expiresIn: 120,
       method: "GET",
