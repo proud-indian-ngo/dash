@@ -168,8 +168,7 @@ export async function sendWhatsAppImage(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(`WhatsApp image error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp image error ${response.status}`);
     log.error(error);
     log.emit();
     throw error;
@@ -211,8 +210,7 @@ export async function sendWhatsAppVideo(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(`WhatsApp video error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp video error ${response.status}`);
     log.error(error);
     log.emit();
     throw error;
