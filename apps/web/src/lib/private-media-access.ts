@@ -248,7 +248,8 @@ export async function authorizeProtectedUpload(
     }
     if (
       ownerId === session.user.id ||
-      permissions.includes("requests.approve")
+      permissions.includes("requests.approve") ||
+      permissions.includes("requests.edit_all")
     ) {
       return;
     }

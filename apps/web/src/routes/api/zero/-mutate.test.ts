@@ -142,6 +142,56 @@ describe("Zero mutate task boundaries", () => {
     expect(calls).toEqual(["lock", "validated", "commit"]);
   });
 
+  it("serializes new R2 target claims with an exclusive transaction lock", async () => {
+    const query = vi.fn(() => Promise.resolve([]));
+    mocks.mutatorFn.mockImplementation(
+      ({
+        ctx,
+      }: {
+        ctx: {
+          beforeCommitTasks: AsyncTask[];
+          lockR2ObjectForClaim: (r2Key: string) => Promise<void>;
+        };
+      }) => {
+        ctx.beforeCommitTasks.push({
+          fn: () =>
+            ctx.lockR2ObjectForClaim(
+              "app/attachments/request/upload-id-file.pdf"
+            ),
+          meta: { mutator: "claim-r2-object" },
+        });
+      }
+    );
+    mocks.handleMutateRequest.mockImplementation(
+      async ({
+        handler,
+      }: {
+        handler: (transact: unknown) => Promise<unknown>;
+      }) =>
+        handler(
+          async (
+            callback: (tx: unknown, name: string, args: unknown) => unknown
+          ) => {
+            await callback(
+              { dbTransaction: { query }, location: "server" },
+              "test.mutator",
+              {}
+            );
+            return { result: {} };
+          }
+        )
+    );
+
+    await postHandler()({
+      request: new Request("http://localhost/api/zero/mutate"),
+    });
+
+    expect(query).toHaveBeenCalledWith(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      ["app/attachments/request/upload-id-file.pdf"]
+    );
+  });
+
   it("runs upload copies before the transaction commits", async () => {
     const calls: string[] = [];
     mocks.mutatorFn.mockImplementation(

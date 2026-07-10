@@ -72,8 +72,9 @@ Private-storage cutover order:
 7. Verify request attachments, approval proofs, scheduled media, event photos,
    avatars, and event editor media through authenticated application routes.
 8. Disable the R2 public development URL and public CDN route.
-9. Remove `VITE_CDN_URL` from runtime configuration, then remove its schema
-   entries in a follow-up deployment.
+9. In a follow-up, deploy code that removes `VITE_CDN_URL` usage and its schema
+   requirement while the variable is still configured. Remove the runtime
+   variable only after that deployment succeeds.
 
 Do not remove `VITE_CDN_URL` before the backfill and public-access cutover;
 legacy rows still use it for canonicalization during migration.

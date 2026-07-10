@@ -79,6 +79,12 @@ export const Route = createFileRoute("/api/zero/mutate")({
                           [r2Key]
                         );
                       },
+                      lockR2ObjectForClaim: async (r2Key: string) => {
+                        await tx.dbTransaction.query(
+                          "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                          [r2Key]
+                        );
+                      },
                       rollbackTasks,
                     };
                     await mutator.fn({ args, ctx, tx });

@@ -70,15 +70,20 @@ export const advancePaymentMutators = {
       assertPending(entity, "advance payment", "approved", canEditAnyStatus);
 
       const now = Date.now();
-      const approvalScreenshotKey = args.approvalScreenshotKey
+      const requestedApprovalScreenshotKey =
+        args.approvalScreenshotKey ?? entity.approvalScreenshotKey ?? undefined;
+      const approvalScreenshotKey = requestedApprovalScreenshotKey
         ? claimUploadedR2ObjectKey(
-            args.approvalScreenshotKey,
+            requestedApprovalScreenshotKey,
             createR2ClaimOptions(ctx, tx.location, {
               durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
+              existingObjectKeys: entity.approvalScreenshotKey
+                ? new Set([entity.approvalScreenshotKey])
+                : undefined,
               subfolder: "approval-screenshots",
             })
           )
-        : (entity.approvalScreenshotKey ?? undefined);
+        : undefined;
 
       if (
         entity.approvalScreenshotKey &&

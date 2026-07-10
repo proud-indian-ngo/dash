@@ -284,11 +284,26 @@ describe("claimUploadedR2ObjectKey", () => {
     ).toBe("app/attachments/reimbursements/request-1/upload-id-receipt.pdf");
   });
 
+  it("keeps the signer upload ID when filenames repeat", () => {
+    const first = claimUploadedR2ObjectKey(
+      "app/attachments/tmp/user-1/upload-a-receipt.pdf",
+      clientClaimOptions
+    );
+    const second = claimUploadedR2ObjectKey(
+      "app/attachments/tmp/user-1/upload-b-receipt.pdf",
+      clientClaimOptions
+    );
+
+    expect(first).not.toBe(second);
+    expect(first.endsWith("/upload-a-receipt.pdf")).toBe(true);
+    expect(second.endsWith("/upload-b-receipt.pdf")).toBe(true);
+  });
+
   it("queues copy before commit and source deletion after commit", async () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const asyncTasks: AsyncTask[] = [];
     const rollbackTasks: AsyncTask[] = [];
-    const lockR2Object = vi.fn();
+    const lockR2ObjectForClaim = vi.fn();
     const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
     const targetKey =
       "app/attachments/reimbursements/request-1/upload-id-receipt.pdf";
@@ -300,7 +315,7 @@ describe("claimUploadedR2ObjectKey", () => {
         beforeCommitTasks,
         copyR2Object,
         enqueue,
-        lockR2Object,
+        lockR2ObjectForClaim,
         mimeType: "application/pdf",
         r2KeyPrefix: "app",
         rollbackTasks,
@@ -312,7 +327,7 @@ describe("claimUploadedR2ObjectKey", () => {
     expect(beforeCommitTasks).toHaveLength(1);
     expect(asyncTasks).toHaveLength(1);
     await beforeCommitTasks[0]?.fn();
-    expect(lockR2Object).toHaveBeenCalledWith(targetKey);
+    expect(lockR2ObjectForClaim).toHaveBeenCalledWith(targetKey);
     expect(copyR2Object).toHaveBeenCalledWith({
       mimeType: "application/pdf",
       sourceKey,

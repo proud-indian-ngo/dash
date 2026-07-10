@@ -1,4 +1,5 @@
 import {
+  ALLOWED_EVENT_MEDIA_TYPES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
@@ -11,16 +12,9 @@ import type { getEventPhotoUploadUrl } from "@/functions/attachments";
 import type { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-const IMAGE_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
-
 const VIDEO_MIME_TYPES = ["video/mp4", "video/quicktime"] as const;
 
-const MEDIA_MIME_TYPES = [...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES] as const;
+const MEDIA_MIME_TYPES = ALLOWED_EVENT_MEDIA_TYPES;
 
 export const MEDIA_ACCEPT = MEDIA_MIME_TYPES.join(",");
 

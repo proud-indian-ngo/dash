@@ -29,8 +29,8 @@ Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
 signers under `avatars` and `updates`.
 
 Vendor-payment invoice signing accepts the payment ID only to authorize the
-payment owner or a user with `requests.approve`; the generated key remains
-under the current user's `attachments/tmp/` prefix.
+payment owner or a user with `requests.approve` or `requests.edit_all`; the
+generated key remains under the current user's `attachments/tmp/` prefix.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact

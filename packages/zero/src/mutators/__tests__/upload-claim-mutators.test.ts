@@ -10,6 +10,7 @@ import { vendorPaymentTransactionMutators } from "../vendor-payment-transaction"
 const copyR2Object = vi.fn();
 const enqueue = vi.fn();
 const lockR2Object = vi.fn();
+const lockR2ObjectForClaim = vi.fn();
 
 const serverContext = (permissions: string[] = []): Context => ({
   asyncTasks: [],
@@ -17,6 +18,7 @@ const serverContext = (permissions: string[] = []): Context => ({
   copyR2Object,
   enqueue: enqueue as Context["enqueue"],
   lockR2Object,
+  lockR2ObjectForClaim,
   permissions,
   r2KeyPrefix: "app",
   role: "volunteer",
@@ -340,6 +342,77 @@ describe("server mutator upload claims", () => {
         "reimbursement.approve:replaceApprovalScreenshot"
       )
     ).toBeUndefined();
+    expect(ctx.beforeCommitTasks).toHaveLength(1);
+    await ctx.beforeCommitTasks?.[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(approvalScreenshotKey);
+    expect(copyR2Object).toHaveBeenCalledWith({
+      sourceKey: approvalScreenshotKey,
+      targetKey: approvalScreenshotKey,
+    });
+  });
+
+  it("revalidates a retained advance-payment approval screenshot", async () => {
+    const approvalScreenshotKey =
+      "app/approval-screenshots/advance-payments/advance-1/approval-screenshots/proof.png";
+    const ctx = serverContext(["requests.approve"]);
+    const tx = {
+      location: "server",
+      mutate: {
+        advancePayment: { update: vi.fn() },
+        advancePaymentHistory: { insert: vi.fn() },
+      },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          approvalScreenshotKey,
+          status: "pending",
+          title: "Supplies",
+          userId: "owner-1",
+        })
+        .mockResolvedValueOnce([]),
+    };
+
+    await advancePaymentMutators.approve.fn({
+      args: { id: "advance-1" },
+      ctx,
+      tx,
+    } as never);
+
+    await ctx.beforeCommitTasks?.[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(approvalScreenshotKey);
+  });
+
+  it("revalidates a retained vendor-payment approval screenshot", async () => {
+    const approvalScreenshotKey =
+      "app/approval-screenshots/vendor-payments/vendor-payment-1/approval-screenshots/proof.png";
+    const ctx = serverContext(["requests.approve"]);
+    const tx = {
+      location: "server",
+      mutate: {
+        vendor: { update: vi.fn() },
+        vendorPayment: { update: vi.fn() },
+        vendorPaymentHistory: { insert: vi.fn() },
+      },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          approvalScreenshotKey,
+          status: "pending",
+          title: "Venue",
+          userId: "owner-1",
+          vendorId: "vendor-1",
+        })
+        .mockResolvedValueOnce({ id: "vendor-1", status: "approved" }),
+    };
+
+    await vendorPaymentMutators.approve.fn({
+      args: { id: "vendor-payment-1" },
+      ctx,
+      tx,
+    } as never);
+
+    await ctx.beforeCommitTasks?.[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(approvalScreenshotKey);
   });
 
   it("claims scheduled-message attachments before persisting them", async () => {
@@ -483,7 +556,7 @@ describe("server mutator upload claims", () => {
     );
     await Promise.all((ctx.beforeCommitTasks ?? []).map((task) => task.fn()));
     expect(lockR2Object).toHaveBeenCalledWith(retainedKey);
-    expect(lockR2Object).toHaveBeenCalledWith(replacementTarget);
+    expect(lockR2ObjectForClaim).toHaveBeenCalledWith(replacementTarget);
 
     await taskByMutator(ctx.asyncTasks ?? [], "scheduledMessage.update")?.fn();
     expect(enqueue).toHaveBeenCalledWith(

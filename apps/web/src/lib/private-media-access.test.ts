@@ -408,6 +408,16 @@ describe("authorizeProtectedUpload", () => {
         })
       )
     ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "editor", role: "admin" } },
+        scope,
+        deps({
+          findVendorPaymentOwner: async () => "owner",
+          resolvePermissions: async () => ["requests.edit_all"],
+        })
+      )
+    ).resolves.toBeUndefined();
   });
 
   it("rejects unrelated and missing vendor-payment invoice scopes", async () => {

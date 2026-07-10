@@ -25,6 +25,7 @@ interface R2ObjectClaimOptions {
   enqueue?: Context["enqueue"];
   existingObjectKeys?: ReadonlySet<string>;
   lockR2Object?: Context["lockR2Object"];
+  lockR2ObjectForClaim?: Context["lockR2ObjectForClaim"];
   mimeType?: null | string;
   r2KeyPrefix?: string;
   rollbackTasks?: Context["rollbackTasks"];
@@ -49,6 +50,7 @@ export function createR2ClaimOptions(
     copyR2Object: ctx.copyR2Object,
     enqueue: ctx.enqueue,
     lockR2Object: ctx.lockR2Object,
+    lockR2ObjectForClaim: ctx.lockR2ObjectForClaim,
     r2KeyPrefix: ctx.r2KeyPrefix,
     rollbackTasks: ctx.rollbackTasks,
     traceId: ctx.traceId,
@@ -149,16 +151,16 @@ function pushClaimR2ObjectTasks(
   if (!options.enqueue) {
     throw new Error("Job enqueue handler is required");
   }
-  if (!options.lockR2Object) {
-    throw new Error("R2 object lock handler is required");
+  if (!options.lockR2ObjectForClaim) {
+    throw new Error("R2 claim lock handler is required");
   }
   if (!options.rollbackTasks) {
     throw new Error("Rollback task queue is required");
   }
-  const { copyR2Object, lockR2Object, rollbackTasks } = options;
+  const { copyR2Object, lockR2ObjectForClaim, rollbackTasks } = options;
   options.beforeCommitTasks.push({
     fn: async () => {
-      await lockR2Object(targetKey);
+      await lockR2ObjectForClaim(targetKey);
       enqueueDeleteR2Object(
         { ...options, asyncTasks: rollbackTasks },
         options.txLocation,
