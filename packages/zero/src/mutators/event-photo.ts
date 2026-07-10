@@ -306,6 +306,7 @@ export const eventPhotoMutators = {
 
       await tx.mutate.eventPhoto.update({
         id: args.id,
+        r2Key: null,
         reviewedAt: args.now,
         reviewedBy: ctx.userId,
         status: "rejected",

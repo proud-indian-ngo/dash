@@ -323,10 +323,11 @@ describe("claimUploadedR2ObjectKey", () => {
     );
   });
 
-  it("accepts an existing durable key without queueing work", () => {
+  it("locks and revalidates an existing durable key before commit", async () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const asyncTasks: AsyncTask[] = [];
     const key = "app/attachments/reimbursements/request-1/receipt.pdf";
+    const lockR2Object = vi.fn();
 
     expect(
       claimUploadedR2ObjectKey(key, {
@@ -336,12 +337,23 @@ describe("claimUploadedR2ObjectKey", () => {
         copyR2Object,
         enqueue,
         existingObjectKeys: new Set([key]),
+        lockR2Object,
         r2KeyPrefix: "app",
         txLocation: "server",
       })
     ).toBe(key);
-    expect(beforeCommitTasks).toEqual([]);
+    expect(beforeCommitTasks).toHaveLength(1);
     expect(asyncTasks).toEqual([]);
+
+    await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(key);
+    expect(copyR2Object).toHaveBeenCalledWith({
+      sourceKey: key,
+      targetKey: key,
+    });
+    expect(lockR2Object.mock.invocationCallOrder[0]).toBeLessThan(
+      copyR2Object.mock.invocationCallOrder[0] ?? 0
+    );
   });
 
   it("rejects another user's temp key", () => {

@@ -69,6 +69,12 @@ export const Route = createFileRoute("/api/zero/mutate")({
                 ...baseContext,
                 asyncTasks: mutationAsyncTasks,
                 beforeCommitTasks,
+                lockR2Object: async (r2Key: string) => {
+                  await tx.dbTransaction.query(
+                    "SELECT pg_advisory_xact_lock_shared(hashtextextended($1, 0))",
+                    [r2Key]
+                  );
+                },
               };
               await mutator.fn({ args, ctx, tx });
               await runMutationTasksInOrder(beforeCommitTasks);

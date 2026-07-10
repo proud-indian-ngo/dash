@@ -86,6 +86,62 @@ beforeEach(() => {
 });
 
 describe("Zero mutate task boundaries", () => {
+  it("locks retained R2 keys on the mutation database transaction", async () => {
+    const calls: string[] = [];
+    const query = vi.fn(() => {
+      calls.push("lock");
+      return Promise.resolve([]);
+    });
+    mocks.mutatorFn.mockImplementation(
+      ({
+        ctx,
+      }: {
+        ctx: {
+          beforeCommitTasks: AsyncTask[];
+          lockR2Object: (r2Key: string) => Promise<void>;
+        };
+      }) => {
+        ctx.beforeCommitTasks.push({
+          fn: async () => {
+            await ctx.lockR2Object("app/attachments/request/file.pdf");
+            calls.push("validated");
+          },
+          meta: { mutator: "retain-r2-object" },
+        });
+      }
+    );
+    mocks.handleMutateRequest.mockImplementation(
+      async ({
+        handler,
+      }: {
+        handler: (transact: unknown) => Promise<unknown>;
+      }) =>
+        handler(
+          async (
+            callback: (tx: unknown, name: string, args: unknown) => unknown
+          ) => {
+            await callback(
+              { dbTransaction: { query }, location: "server" },
+              "test.mutator",
+              {}
+            );
+            calls.push("commit");
+            return { result: {} };
+          }
+        )
+    );
+
+    await postHandler()({
+      request: new Request("http://localhost/api/zero/mutate"),
+    });
+
+    expect(query).toHaveBeenCalledWith(
+      "SELECT pg_advisory_xact_lock_shared(hashtextextended($1, 0))",
+      ["app/attachments/request/file.pdf"]
+    );
+    expect(calls).toEqual(["lock", "validated", "commit"]);
+  });
+
   it("runs upload copies before the transaction commits", async () => {
     const calls: string[] = [];
     mocks.mutatorFn.mockImplementation(

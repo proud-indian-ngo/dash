@@ -20,7 +20,6 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { toast } from "sonner";
-import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { getEventPhotoUploadUrl } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
@@ -30,7 +29,7 @@ import { PhotoCard } from "./photo-card";
 import {
   MEDIA_ACCEPT,
   showUploadResultToasts,
-  uploadFileToR2,
+  uploadSinglePhoto,
   validateFiles,
 } from "./photo-upload";
 import { immichBase, toPhotoSlide } from "./photo-utils";
@@ -79,60 +78,6 @@ function buildSlides(
     );
   }
   return result;
-}
-
-async function uploadSinglePhoto({
-  callImmichUpload,
-  eventId,
-  file,
-  getUploadUrl,
-  occDate,
-  useImmichDirect,
-  zero,
-}: {
-  callImmichUpload: ReturnType<typeof useServerFn<typeof uploadPhotoToImmich>>;
-  eventId: string;
-  file: File;
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getEventPhotoUploadUrl>>;
-  occDate?: string;
-  useImmichDirect: boolean;
-  zero: ReturnType<typeof useZero>;
-}) {
-  const now = Date.now();
-
-  if (useImmichDirect) {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("eventId", eventId);
-    if (occDate) {
-      formData.append("occDate", occDate);
-    }
-    const result = await callImmichUpload({ data: formData });
-    if ("error" in result) {
-      throw new Error(result.error);
-    }
-    await zero.mutate(
-      mutators.eventPhoto.upload({
-        eventId,
-        id: uuidv7(),
-        immichAssetId: result.immichAssetId,
-        mimeType: file.type,
-        now,
-      })
-    ).server;
-    return;
-  }
-
-  const key = await uploadFileToR2(file, eventId, getUploadUrl);
-  await zero.mutate(
-    mutators.eventPhoto.upload({
-      eventId,
-      id: uuidv7(),
-      mimeType: file.type,
-      now,
-      r2Key: key,
-    })
-  ).server;
 }
 
 function PendingPhotoCard({

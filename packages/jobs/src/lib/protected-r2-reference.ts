@@ -1,10 +1,13 @@
 import { db } from "@pi-dash/db";
 import { sql } from "drizzle-orm";
 
+type ReferenceQueryExecutor = Pick<typeof db, "execute">;
+
 export async function isProtectedR2ObjectReferenced(
-  r2Key: string
+  r2Key: string,
+  executor: ReferenceQueryExecutor = db
 ): Promise<boolean> {
-  const rows = await db.execute<{ referenced: boolean }>(sql`
+  const rows = await executor.execute<{ referenced: boolean }>(sql`
     SELECT EXISTS (
       SELECT 1 FROM reimbursement_attachment WHERE object_key = ${r2Key}
       UNION ALL
@@ -28,4 +31,17 @@ export async function isProtectedR2ObjectReferenced(
   `);
 
   return rows[0]?.referenced ?? false;
+}
+
+export function withProtectedR2ObjectReferenceLock<T>(
+  r2Key: string,
+  operation: (referenced: boolean) => Promise<T>
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${r2Key}, 0))`
+    );
+    const referenced = await isProtectedR2ObjectReferenced(r2Key, tx);
+    return operation(referenced);
+  });
 }

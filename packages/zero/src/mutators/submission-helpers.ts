@@ -24,6 +24,7 @@ interface R2ObjectClaimOptions {
   durablePrefix: string;
   enqueue?: Context["enqueue"];
   existingObjectKeys?: ReadonlySet<string>;
+  lockR2Object?: Context["lockR2Object"];
   mimeType?: null | string;
   r2KeyPrefix?: string;
   subfolder: R2Subfolder;
@@ -46,6 +47,7 @@ export function createR2ClaimOptions(
     beforeCommitTasks: ctx.beforeCommitTasks,
     copyR2Object: ctx.copyR2Object,
     enqueue: ctx.enqueue,
+    lockR2Object: ctx.lockR2Object,
     r2KeyPrefix: ctx.r2KeyPrefix,
     traceId: ctx.traceId,
     txLocation,
@@ -171,6 +173,33 @@ function pushClaimR2ObjectTasks(
   });
 }
 
+function pushRetainedR2ObjectTask(
+  options: R2ObjectClaimOptions,
+  r2Key: string
+): void {
+  if (!options.beforeCommitTasks) {
+    throw new Error("Before-commit task queue is required");
+  }
+  if (!options.copyR2Object) {
+    throw new Error("R2 object copy handler is required");
+  }
+  if (!options.lockR2Object) {
+    throw new Error("R2 object lock handler is required");
+  }
+  const { copyR2Object, lockR2Object } = options;
+  options.beforeCommitTasks.push({
+    fn: async () => {
+      await lockR2Object(r2Key);
+      await copyR2Object({ sourceKey: r2Key, targetKey: r2Key });
+    },
+    meta: {
+      mutator: "retain-r2-object",
+      r2Key,
+      ...(options.traceId ? { traceId: options.traceId } : {}),
+    },
+  });
+}
+
 export function claimUploadedR2ObjectKey(
   key: string,
   options: R2ObjectClaimOptions
@@ -184,6 +213,9 @@ export function claimUploadedR2ObjectKey(
     throw new Error("Invalid attachment object key");
   }
   if (options.existingObjectKeys?.has(key)) {
+    if (options.txLocation === "server") {
+      pushRetainedR2ObjectTask(options, key);
+    }
     return key;
   }
 
