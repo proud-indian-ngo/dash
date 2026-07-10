@@ -145,7 +145,7 @@ export async function sendWhatsAppImage(
     method: "POST",
     path: "sendWhatsAppImage",
   });
-  log.set({ imageUrl, phone });
+  log.set({ phone });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -168,8 +168,7 @@ export async function sendWhatsAppImage(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(`WhatsApp image error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp image error ${response.status}`);
     log.error(error);
     log.emit();
     throw error;
@@ -188,7 +187,7 @@ export async function sendWhatsAppVideo(
     method: "POST",
     path: "sendWhatsAppVideo",
   });
-  log.set({ phone, videoUrl });
+  log.set({ phone });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -211,8 +210,7 @@ export async function sendWhatsAppVideo(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(`WhatsApp video error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp video error ${response.status}`);
     log.error(error);
     log.emit();
     throw error;
@@ -225,10 +223,11 @@ export async function sendWhatsAppVideo(
 export async function sendWhatsAppFile(
   phone: string,
   fileUrl: string,
+  fileName: string,
   caption?: string
 ): Promise<void> {
   const log = createRequestLogger({ method: "POST", path: "sendWhatsAppFile" });
-  log.set({ fileUrl, phone });
+  log.set({ fileName, phone });
 
   const apiUrl = getWhatsAppApiUrl();
   if (!apiUrl) {
@@ -239,16 +238,13 @@ export async function sendWhatsAppFile(
 
   const fileResponse = await fetch(fileUrl);
   if (!fileResponse.ok) {
-    const error = new Error(
-      `Failed to download file ${fileResponse.status}: ${fileUrl}`
-    );
+    const error = new Error(`Failed to download file ${fileResponse.status}`);
     log.error(error);
     log.emit();
     throw error;
   }
 
   const blob = await fileResponse.blob();
-  const fileName = fileUrl.split("/").pop() ?? "file";
 
   const formData = new FormData();
   formData.append("phone", phone);
@@ -264,8 +260,7 @@ export async function sendWhatsAppFile(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(`WhatsApp file error ${response.status}: ${text}`);
+    const error = new Error(`WhatsApp file error ${response.status}`);
     log.error(error);
     log.emit();
     throw error;
@@ -293,6 +288,6 @@ export async function sendWhatsAppMedia(
   } else if (attachment.mimeType.startsWith("video/")) {
     await sendWhatsAppVideo(phone, attachment.url, caption);
   } else {
-    await sendWhatsAppFile(phone, attachment.url, caption);
+    await sendWhatsAppFile(phone, attachment.url, attachment.fileName, caption);
   }
 }

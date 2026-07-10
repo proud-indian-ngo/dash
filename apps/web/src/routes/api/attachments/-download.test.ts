@@ -63,6 +63,31 @@ describe("parseAttachmentDownloadRef", () => {
     expect(response).toBeInstanceOf(Response);
     expect((response as Response).status).toBe(400);
   });
+
+  it("parses a scheduled-message attachment with its exact key", () => {
+    expect(
+      parseAttachmentDownloadRef(
+        new URL(
+          `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=scheduledMessageAttachment&key=app%2Fscheduled-messages%2Fagenda.pdf`
+        )
+      )
+    ).toEqual({
+      id: ATTACHMENT_ID,
+      key: "app/scheduled-messages/agenda.pdf",
+      kind: "scheduledMessageAttachment",
+    });
+  });
+
+  it("rejects a scheduled-message attachment without a key", () => {
+    const response = parseAttachmentDownloadRef(
+      new URL(
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=scheduledMessageAttachment`
+      )
+    );
+
+    expect(response).toBeInstanceOf(Response);
+    expect((response as Response).status).toBe(400);
+  });
 });
 
 describe("handleAttachmentDownloadRequest", () => {
@@ -112,6 +137,32 @@ describe("handleAttachmentDownloadRequest", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Asset not found",
     });
+  });
+
+  it("forwards a scheduled-message key to authorization", async () => {
+    const resolveAuthorizedR2Object = vi.fn(async () => ({
+      filename: "agenda.pdf",
+      key: "app/scheduled-messages/agenda.pdf",
+    }));
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=scheduledMessageAttachment&key=app%2Fscheduled-messages%2Fagenda.pdf`
+      ),
+      handlerDeps({
+        requireSession: async () => ({ session: { user: { id: "owner" } } }),
+        resolveAuthorizedR2Object,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveAuthorizedR2Object).toHaveBeenCalledWith(
+      { user: { id: "owner" } },
+      {
+        id: ATTACHMENT_ID,
+        key: "app/scheduled-messages/agenda.pdf",
+        kind: "scheduledMessageAttachment",
+      }
+    );
   });
 
   it("streams an authorized object using its persisted filename", async () => {

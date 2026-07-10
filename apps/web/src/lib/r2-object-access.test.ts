@@ -98,6 +98,36 @@ describe("authorizeR2Object", () => {
     ).resolves.toMatchObject({ key: "legacy/messages/agenda.pdf" });
   });
 
+  it("rejects an unrelated scheduled-message viewer", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "other", role: "volunteer" } },
+        {
+          access: "scheduledMessage",
+          createdBy: "owner",
+          filename: "agenda.pdf",
+          key: "legacy/messages/agenda.pdf",
+        },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows a scheduled-message manager to read another creator's attachment", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "manager", role: "manager" } },
+        {
+          access: "scheduledMessage",
+          createdBy: "owner",
+          filename: "agenda.pdf",
+          key: "legacy/messages/agenda.pdf",
+        },
+        deps({ resolvePermissions: async () => ["messages.schedule"] })
+      )
+    ).resolves.toMatchObject({ key: "legacy/messages/agenda.pdf" });
+  });
+
   it("allows an authenticated user to read an approved public event photo", async () => {
     await expect(
       authorizeR2Object(
@@ -151,6 +181,82 @@ describe("authorizeR2Object", () => {
           uploadedBy: "owner",
         },
         deps({ isEventMember: async () => true })
+      )
+    ).resolves.toMatchObject({ key: "app/photos/photo.jpg" });
+  });
+
+  it("rejects an unrelated viewer of an approved private event photo", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "other", role: "volunteer" } },
+        {
+          access: "eventPhoto",
+          eventId: "event-1",
+          eventIsPublic: false,
+          filename: "photo.jpg",
+          key: "app/photos/photo.jpg",
+          status: "approved",
+          teamId: "team-1",
+          uploadedBy: "owner",
+        },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows a photo manager to read a private event photo in any status", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "manager", role: "manager" } },
+        {
+          access: "eventPhoto",
+          eventId: "event-1",
+          eventIsPublic: false,
+          filename: "photo.jpg",
+          key: "app/photos/photo.jpg",
+          status: "rejected",
+          teamId: "team-1",
+          uploadedBy: "owner",
+        },
+        deps({ resolvePermissions: async () => ["events.manage_photos"] })
+      )
+    ).resolves.toMatchObject({ key: "app/photos/photo.jpg" });
+  });
+
+  it("allows a team lead to read a private event photo in any status", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "lead", role: "volunteer" } },
+        {
+          access: "eventPhoto",
+          eventId: "event-1",
+          eventIsPublic: false,
+          filename: "photo.jpg",
+          key: "app/photos/photo.jpg",
+          status: "pending",
+          teamId: "team-1",
+          uploadedBy: "owner",
+        },
+        deps({ isTeamLead: async () => true })
+      )
+    ).resolves.toMatchObject({ key: "app/photos/photo.jpg" });
+  });
+
+  it("allows a team member to read an approved private event photo", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "team-member", role: "volunteer" } },
+        {
+          access: "eventPhoto",
+          eventId: "event-1",
+          eventIsPublic: false,
+          filename: "photo.jpg",
+          key: "app/photos/photo.jpg",
+          status: "approved",
+          teamId: "team-1",
+          uploadedBy: "owner",
+        },
+        deps({ isTeamMember: async () => true })
       )
     ).resolves.toMatchObject({ key: "app/photos/photo.jpg" });
   });
