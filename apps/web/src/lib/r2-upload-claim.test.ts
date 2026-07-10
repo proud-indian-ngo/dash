@@ -11,20 +11,41 @@ vi.mock("./s3", () => ({ getS3: vi.fn() }));
 
 import { copyR2Object } from "./r2-upload-claim";
 
+const writer = {
+  end: vi.fn(),
+  write: vi.fn(),
+};
+let streamedSize = 1024;
+
+const sourceStream = () => {
+  let remaining = streamedSize;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (remaining === 0) {
+        controller.close();
+        return;
+      }
+      const chunkSize = Math.min(remaining, 1024 * 1024);
+      remaining -= chunkSize;
+      controller.enqueue(new Uint8Array(chunkSize));
+    },
+  });
+};
+
 const s3 = {
   exists: vi.fn(),
-  file: vi.fn((key: string, options?: { type: string }) => ({
-    key,
-    options,
-  })),
+  file: vi.fn((key: string) =>
+    key.includes("/tmp/") && !key.endsWith("-durable")
+      ? { stream: sourceStream }
+      : { writer: () => writer }
+  ),
   stat: vi.fn(),
-  write: vi.fn(),
 };
 const deps = {
   getS3: () =>
     s3 as unknown as Pick<
       ReturnType<typeof import("./s3")["getS3"]>,
-      "exists" | "file" | "stat" | "write"
+      "exists" | "file" | "stat"
     >,
 };
 
@@ -36,6 +57,7 @@ const input = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  streamedSize = 1024;
   s3.exists.mockResolvedValue(false);
   s3.stat.mockResolvedValue({ size: 1024, type: "application/pdf" });
 });
@@ -48,11 +70,8 @@ describe("copyR2Object", () => {
 
     expect(s3.exists).toHaveBeenNthCalledWith(1, input.targetKey);
     expect(s3.exists).toHaveBeenNthCalledWith(2, input.sourceKey);
-    expect(s3.write).toHaveBeenCalledWith(
-      input.targetKey,
-      { key: input.sourceKey, options: { type: input.mimeType } },
-      { type: input.mimeType }
-    );
+    expect(writer.write).toHaveBeenCalled();
+    expect(writer.end).toHaveBeenCalledWith();
   });
 
   it("treats an existing durable target as an idempotent success", async () => {
@@ -62,7 +81,7 @@ describe("copyR2Object", () => {
 
     expect(s3.exists).toHaveBeenCalledTimes(1);
     expect(s3.file).not.toHaveBeenCalled();
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
   });
 
   it("rejects a missing source when the durable target does not exist", async () => {
@@ -71,7 +90,7 @@ describe("copyR2Object", () => {
     await expect(copyR2Object(input, deps)).rejects.toThrow(
       "Temporary upload not found"
     );
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
   });
 
   it("rejects an oversized approval screenshot from stored metadata", async () => {
@@ -92,7 +111,7 @@ describe("copyR2Object", () => {
         deps
       )
     ).rejects.toThrow("exceeds");
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
   });
 
   it("rejects an unsupported event-photo MIME type", async () => {
@@ -112,7 +131,7 @@ describe("copyR2Object", () => {
         deps
       )
     ).rejects.toThrow("Unsupported upload type");
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
   });
 
   it("rejects stored content types that differ from mutation input", async () => {
@@ -122,7 +141,23 @@ describe("copyR2Object", () => {
     await expect(copyR2Object(input, deps)).rejects.toThrow(
       "Upload content type mismatch"
     );
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty stored object", async () => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 0, type: "application/pdf" });
+
+    await expect(copyR2Object(input, deps)).rejects.toThrow("empty");
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the streamed object is larger than the validated metadata", async () => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 1, type: "application/pdf" });
+    streamedSize = 2;
+
+    await expect(copyR2Object(input, deps)).rejects.toThrow("changed");
   });
 
   it("accepts a valid scheduled-message MIME type outside request uploads", async () => {
@@ -138,7 +173,7 @@ describe("copyR2Object", () => {
       deps
     );
 
-    expect(s3.write).toHaveBeenCalled();
+    expect(writer.write).toHaveBeenCalled();
   });
 
   it.each([
@@ -169,12 +204,13 @@ describe("copyR2Object", () => {
   }) => {
     s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     s3.stat.mockResolvedValue({ size: maxSize, type: mimeType });
+    streamedSize = maxSize;
 
     await copyR2Object(
       { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
       deps
     );
-    expect(s3.write).toHaveBeenCalled();
+    expect(writer.write).toHaveBeenCalled();
 
     vi.clearAllMocks();
     s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
@@ -185,7 +221,7 @@ describe("copyR2Object", () => {
         deps
       )
     ).rejects.toThrow("exceeds");
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -203,6 +239,6 @@ describe("copyR2Object", () => {
         deps
       )
     ).rejects.toThrow("Unsupported upload type");
-    expect(s3.write).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
   });
 });

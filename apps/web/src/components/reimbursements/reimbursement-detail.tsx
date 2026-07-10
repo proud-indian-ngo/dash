@@ -119,9 +119,7 @@ export function ReimbursementDetail({
         mutation: `${mutatorName}.approve`,
         successMsg: `${typeLabel} approved`,
       });
-      if (res.type !== "error") {
-        setApproveOpen(false);
-      }
+      return res.type !== "error";
     }
   );
 

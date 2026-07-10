@@ -27,7 +27,7 @@ interface ApproveDialogProps {
   entityId: string;
   entityLabel: string;
   hideScreenshot?: boolean;
-  onConfirm: (message: string, screenshotKey?: string) => void;
+  onConfirm: (message: string, screenshotKey?: string) => Promise<boolean>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
@@ -41,6 +41,7 @@ export function ApproveDialog({
   open,
 }: ApproveDialogProps) {
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [screenshotKey, setScreenshotKey] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export function ApproveDialog({
     setMessage("");
     setScreenshotKey(null);
     setPreviewUrl(null);
+    setSubmitting(false);
     setUploading(false);
   });
 
@@ -151,18 +153,47 @@ export function ApproveDialog({
     setPreviewUrl(null);
   });
   const stableOnOpenChange0 = useEventCallback((isOpen: boolean) => {
+    if (!isOpen && submitting) {
+      return;
+    }
     if (!isOpen) {
       cleanup();
     }
     onOpenChange(isOpen);
   });
-  const stableOnClick2 = useEventCallback(() =>
-    onConfirm(message, screenshotKey ?? undefined)
+  const stableOnClick2 = useEventCallback(
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setSubmitting(true);
+      try {
+        const confirmed = await onConfirm(message, screenshotKey ?? undefined);
+        if (confirmed) {
+          cleanup();
+          onOpenChange(false);
+        }
+      } catch (error) {
+        log.error({
+          action: "confirm",
+          component: "ApproveDialog",
+          entityId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error(`Couldn't approve ${entityLabel} — try again`);
+      } finally {
+        setSubmitting(false);
+      }
+    }
   );
   const stableOnMessageChange1 = useEventCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) =>
       setMessage(event.target.value)
   );
+  let actionLabel = "Approve";
+  if (uploading) {
+    actionLabel = "Uploading…";
+  } else if (submitting) {
+    actionLabel = "Approving…";
+  }
 
   return (
     <AlertDialog onOpenChange={stableOnOpenChange0} open={open}>
@@ -221,9 +252,14 @@ export function ApproveDialog({
           </div>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={cleanup}>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={uploading} onClick={stableOnClick2}>
-            {uploading ? "Uploading…" : "Approve"}
+          <AlertDialogCancel disabled={submitting} onClick={cleanup}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={uploading || submitting}
+            onClick={stableOnClick2}
+          >
+            {actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

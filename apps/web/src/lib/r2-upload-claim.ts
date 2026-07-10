@@ -11,10 +11,9 @@ import {
 } from "@pi-dash/shared/constants";
 import { getS3 } from "./s3";
 
-type R2CopyClient = Pick<
-  ReturnType<typeof getS3>,
-  "exists" | "file" | "stat" | "write"
->;
+type R2CopyClient = Pick<ReturnType<typeof getS3>, "exists" | "file" | "stat">;
+type R2CopyFile = ReturnType<R2CopyClient["file"]>;
+type R2CopyWriter = ReturnType<R2CopyFile["writer"]>;
 
 interface CopyR2ObjectDeps {
   getS3: () => Promise<R2CopyClient> | R2CopyClient;
@@ -63,6 +62,54 @@ function uploadPolicy(sourceKey: string, mimeType: string) {
   throw new Error("Invalid temporary upload key");
 }
 
+async function writeNextChunk(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  writer: R2CopyWriter,
+  streamedSize: number,
+  expectedSize: number,
+  maxSize: number
+): Promise<number> {
+  const { done, value } = await reader.read();
+  if (done) {
+    return streamedSize;
+  }
+  const nextSize = streamedSize + value.byteLength;
+  if (nextSize > expectedSize || nextSize > maxSize) {
+    throw new Error("Upload changed during claim");
+  }
+  await writer.write(value);
+  return writeNextChunk(reader, writer, nextSize, expectedSize, maxSize);
+}
+
+async function copyValidatedStream(
+  sourceFile: R2CopyFile,
+  writer: R2CopyWriter,
+  expectedSize: number,
+  maxSize: number
+): Promise<void> {
+  const reader = sourceFile.stream().getReader();
+  try {
+    const streamedSize = await writeNextChunk(
+      reader,
+      writer,
+      0,
+      expectedSize,
+      maxSize
+    );
+    if (streamedSize !== expectedSize) {
+      throw new Error("Upload changed during claim");
+    }
+    await writer.end();
+  } catch (error) {
+    await writer.end(
+      error instanceof Error ? error : new Error("Upload copy failed")
+    );
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function copyR2Object(
   input: CopyR2ObjectInput,
   deps = defaultDeps
@@ -90,9 +137,14 @@ export async function copyR2Object(
   ) {
     throw new Error(`Unsupported upload type: ${storedMimeType}`);
   }
+  if (source.size <= 0) {
+    throw new Error("Upload is empty");
+  }
   if (source.size > policy.maxSize) {
     throw new Error(`Upload exceeds ${policy.maxSize} byte limit`);
   }
   const options = { type: storedMimeType };
-  await s3.write(input.targetKey, s3.file(input.sourceKey, options), options);
+  const sourceFile = s3.file(input.sourceKey, options);
+  const writer = s3.file(input.targetKey, options).writer(options);
+  await copyValidatedStream(sourceFile, writer, source.size, policy.maxSize);
 }

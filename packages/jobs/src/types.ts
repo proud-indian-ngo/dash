@@ -490,6 +490,7 @@ export interface ImmichDeleteAlbumPayload {
 }
 
 export interface DeleteR2ObjectPayload {
+  deleteIfUnreferenced?: boolean;
   r2Key: string;
 }
 

@@ -318,7 +318,7 @@ describe("claimUploadedR2ObjectKey", () => {
     await asyncTasks[0]?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { r2Key: sourceKey },
+      { deleteIfUnreferenced: false, r2Key: sourceKey },
       { traceId: "trace-id" }
     );
   });
@@ -399,8 +399,11 @@ describe("enqueueDeleteR2Object", () => {
     await asyncTasks[0]?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { r2Key: "app/attachments/reimbursements/request-1/receipt.pdf" },
-      { traceId: "trace-id" }
+      {
+        deleteIfUnreferenced: true,
+        r2Key: "app/attachments/reimbursements/request-1/receipt.pdf",
+      },
+      { startAfter: "30 seconds", traceId: "trace-id" }
     );
   });
 
@@ -423,8 +426,11 @@ describe("enqueueDeleteR2Object", () => {
     await asyncTasks[0]?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { r2Key: "app/attachments/request-1/receipt.pdf" },
-      { traceId: undefined }
+      {
+        deleteIfUnreferenced: true,
+        r2Key: "app/attachments/request-1/receipt.pdf",
+      },
+      { startAfter: "30 seconds", traceId: undefined }
     );
   });
 

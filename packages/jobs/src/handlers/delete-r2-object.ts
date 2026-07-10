@@ -1,9 +1,23 @@
 import { createRequestLogger } from "evlog";
 import type { DeleteR2ObjectPayload } from "../enqueue";
+import { isProtectedR2ObjectReferenced } from "../lib/protected-r2-reference";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
 
-async function deleteR2Object(data: DeleteR2ObjectPayload) {
+interface DeleteR2ObjectDeps {
+  deleteObject: (r2Key: string) => Promise<unknown>;
+  isReferenced: (r2Key: string) => Promise<boolean>;
+}
+
+const defaultDeps: DeleteR2ObjectDeps = {
+  deleteObject: (r2Key) => getR2Client().delete(r2Key),
+  isReferenced: isProtectedR2ObjectReferenced,
+};
+
+export async function deleteR2Object(
+  data: DeleteR2ObjectPayload,
+  deps = defaultDeps
+) {
   const log = createRequestLogger({
     method: "JOB",
     path: "delete-r2-object",
@@ -16,8 +30,13 @@ async function deleteR2Object(data: DeleteR2ObjectPayload) {
     return;
   }
 
-  const s3 = getR2Client();
-  await s3.delete(data.r2Key);
+  if (data.deleteIfUnreferenced && (await deps.isReferenced(data.r2Key))) {
+    log.set({ event: "r2_object_still_referenced" });
+    log.emit();
+    return;
+  }
+
+  await deps.deleteObject(data.r2Key);
 
   log.set({ event: "r2_object_deleted" });
   log.emit();

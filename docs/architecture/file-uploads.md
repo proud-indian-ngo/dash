@@ -12,11 +12,13 @@
 3. The owning Zero mutator validates the current user's exact temp prefix and
    computes a deterministic parent-scoped durable key.
 4. Before the database transaction commits, the server validates stored R2
-   MIME/size metadata and idempotently copies the temp object to the durable
-   key. Copy failure rolls back the database transaction and retains the temp
-   source for retry.
+   MIME/size metadata, streams the exact source bytes through a bounded writer,
+   and idempotently copies the temp object to the durable key. A zero-length,
+   changed, or oversized stream fails the copy, rolls back the database
+   transaction, and retains the temp source for retry.
 5. After commit, the server enqueues temp-source deletion. Replaced or deleted
-   durable objects are also enqueued only after their database change commits.
+   durable objects are delayed for 30 seconds; the job rechecks every protected
+   database reference and deletes only when the key is still unreferenced.
 6. Browser reads use typed asset references, never a caller-provided object
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.

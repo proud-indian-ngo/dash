@@ -122,7 +122,7 @@ describe("server mutator upload claims", () => {
     )?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { r2Key: sourceKey },
+      { deleteIfUnreferenced: false, r2Key: sourceKey },
       { traceId: undefined }
     );
   });

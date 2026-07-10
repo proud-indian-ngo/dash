@@ -60,6 +60,7 @@ export function enqueueDeleteR2Object(
   options: {
     keyPrefixes: readonly string[];
     meta: { mutator: string; [key: string]: unknown };
+    temporary?: boolean;
   }
 ): void {
   if (txLocation !== "server" || !r2Key) {
@@ -77,7 +78,15 @@ export function enqueueDeleteR2Object(
   ctx.asyncTasks?.push({
     fn: async () => {
       const enqueue = requireEnqueue(ctx);
-      await enqueue("delete-r2-object", { r2Key }, { traceId: ctx.traceId });
+      const deleteIfUnreferenced = !options.temporary;
+      await enqueue(
+        "delete-r2-object",
+        { deleteIfUnreferenced, r2Key },
+        {
+          ...(deleteIfUnreferenced ? { startAfter: "30 seconds" } : {}),
+          traceId: ctx.traceId,
+        }
+      );
     },
     meta: options.meta,
   });
@@ -158,6 +167,7 @@ function pushClaimR2ObjectTasks(
       sourceKey,
       targetKey,
     },
+    temporary: true,
   });
 }
 

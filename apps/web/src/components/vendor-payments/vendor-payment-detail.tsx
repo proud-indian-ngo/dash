@@ -322,9 +322,7 @@ export function VendorPaymentDetail({
       mutation: "vendorPayment.approve",
       successMsg: "Vendor payment approved",
     });
-    if (res.type !== "error") {
-      setApproveOpen(false);
-    }
+    return res.type !== "error";
   });
 
   const handleReject = useEventCallback(async (reason: string) => {
