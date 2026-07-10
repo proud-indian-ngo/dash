@@ -1,0 +1,57 @@
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_f4fde070b8b7c7 21,108-138,141
+  s_adf55c018923eb::t_cb5c8553cb8926 139-140
+  s_adf55c018923eb::t_ae80bbac1e363a 142-143
+apps/web/src/lib/media-upload.test.ts
+  s_adf55c018923eb::t_eef5804e687c19 17,112-123
+  s_adf55c018923eb::t_73ec932f0d1cd3 124-126
+apps/web/src/components/form/attachment-upload.test.ts
+  s_adf55c018923eb::t_c896948b861fab 2-24,26-40
+  s_adf55c018923eb::t_bed84904c1001c 1,25
+apps/web/src/lib/private-media-access.test.ts
+  s_adf55c018923eb::t_13b70bfe4abaa0 20,387-433
+apps/web/src/lib/private-media-db.ts
+  s_adf55c018923eb::t_bed84904c1001c 9
+  s_adf55c018923eb::t_f4fde070b8b7c7 31-36
+  s_adf55c018923eb::t_f971aa96ec538a 37
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_e870dfcc700131 30-33
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_13b70bfe4abaa0 359-385
+apps/web/src/lib/private-media-access.ts
+  s_adf55c018923eb::t_f4fde070b8b7c7 17-18,41,244-254
+  s_adf55c018923eb::t_f1a48b2bb55c05 255
+apps/web/src/components/form/approve-dialog.tsx
+  s_adf55c018923eb::t_f4fde070b8b7c7 5-8
+  s_adf55c018923eb::t_3d365109e153e3 92
+project-structure.md
+  s_adf55c018923eb::t_e870dfcc700131 162
+apps/web/src/components/form/attachment-upload.ts
+  s_adf55c018923eb::t_0dcac6ecda6329 1-65
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_f4fde070b8b7c7 218-219
+  s_adf55c018923eb::t_efb42d837c1f91 220
+apps/web/src/components/vendor-payments/vendor-payment-invoice-form.tsx
+  s_adf55c018923eb::t_0dcac6ecda6329 109
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_3d365109e153e3 236
+  s_adf55c018923eb::t_0dcac6ecda6329 30,44,50,160,162-165,234-235,237-239,271-277
+apps/web/src/lib/media-upload.ts
+  s_adf55c018923eb::t_f4fde070b8b7c7 56-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "bbf37143bffbf9a52a4b821d3642eaefa24992b2",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
