@@ -1,18 +1,18 @@
 import { db } from "@pi-dash/db";
-import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   eventFeedback,
   eventFeedbackSubmission,
 } from "@pi-dash/db/schema/event-feedback";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
-import { teamMember } from "@pi-dash/db/schema/team";
-import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { env } from "@pi-dash/env/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { defaultR2ObjectAccessDeps } from "./authorized-r2-object";
 import type { PrivateMediaAccessDeps } from "./private-media-access";
 
 export const defaultPrivateMediaAccessDeps: PrivateMediaAccessDeps = {
+  ...defaultR2ObjectAccessDeps,
   findEvent: async (eventId) => {
     const event = await db.query.teamEvent.findFirst({
       columns: { isPublic: true, teamId: true },
@@ -70,35 +70,6 @@ export const defaultPrivateMediaAccessDeps: PrivateMediaAccessDeps = {
       })),
     ];
   },
-  isEventMember: async (eventId, userId) => {
-    const member = await db.query.teamEventMember.findFirst({
-      columns: { id: true },
-      where: and(
-        eq(teamEventMember.eventId, eventId),
-        eq(teamEventMember.userId, userId)
-      ),
-    });
-    return !!member;
-  },
-  isTeamLead: async (teamId, userId) => {
-    const member = await db.query.teamMember.findFirst({
-      columns: { id: true },
-      where: and(
-        eq(teamMember.teamId, teamId),
-        eq(teamMember.userId, userId),
-        eq(teamMember.role, "lead")
-      ),
-    });
-    return !!member;
-  },
-  isTeamMember: async (teamId, userId) => {
-    const member = await db.query.teamMember.findFirst({
-      columns: { id: true },
-      where: and(eq(teamMember.teamId, teamId), eq(teamMember.userId, userId)),
-    });
-    return !!member;
-  },
   keyPrefix: env.R2_KEY_PREFIX,
   legacyCdnUrl: env.VITE_CDN_URL,
-  resolvePermissions,
 };

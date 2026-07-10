@@ -7,7 +7,7 @@ import { env } from "@pi-dash/env/server";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { notifyR2CleanupResults } from "@pi-dash/notifications/send/reminders";
 import { S3Client } from "bun";
-import { isNotNull, or, sql } from "drizzle-orm";
+import { isNotNull, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { CleanupR2OrphansPayload } from "../enqueue";
@@ -123,30 +123,16 @@ async function collectAllDbKeys(): Promise<Set<string>> {
   }
 
   const prefix = env.R2_KEY_PREFIX;
-  const rawPattern = `%${prefix}/%`;
-  const canonicalPattern = "%/api/media/event-update%";
   const [updateRows, feedbackRows] = await Promise.all([
     db
       .select({ content: eventUpdate.content, eventId: eventUpdate.eventId })
-      .from(eventUpdate)
-      .where(
-        or(
-          sql`${eventUpdate.content} LIKE ${rawPattern}`,
-          sql`${eventUpdate.content} LIKE ${canonicalPattern}`
-        )
-      ),
+      .from(eventUpdate),
     db
       .select({
         content: eventFeedback.content,
         eventId: eventFeedback.eventId,
       })
-      .from(eventFeedback)
-      .where(
-        or(
-          sql`${eventFeedback.content} LIKE ${rawPattern}`,
-          sql`${eventFeedback.content} LIKE ${canonicalPattern}`
-        )
-      ),
+      .from(eventFeedback),
   ]);
   for (const row of [...updateRows, ...feedbackRows]) {
     for (const key of collectPlateReferenceKeys(row.content, row.eventId, {

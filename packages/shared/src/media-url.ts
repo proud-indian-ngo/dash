@@ -32,6 +32,38 @@ const parseRawMediaKey = (value: string): string | null => {
   return value;
 };
 
+export function parseAvatarMediaReferenceKey(
+  value: string,
+  options: { legacyCdnUrl: string }
+): string | null {
+  const parsed = parseUrl(value);
+  if (
+    parsed?.origin === APP_ORIGIN &&
+    parsed.pathname.startsWith(AVATAR_MEDIA_PATH)
+  ) {
+    return parsed.searchParams.get("key");
+  }
+  return (
+    parseLegacyMediaKey(value, options.legacyCdnUrl) ?? parseRawMediaKey(value)
+  );
+}
+
+export function parseEventUpdateMediaReferenceKey(
+  value: string,
+  options: { legacyCdnUrl: string }
+): string | null {
+  const parsed = parseUrl(value);
+  if (
+    parsed?.origin === APP_ORIGIN &&
+    parsed.pathname === EVENT_UPDATE_MEDIA_PATH
+  ) {
+    return parsed.searchParams.get("key");
+  }
+  return (
+    parseLegacyMediaKey(value, options.legacyCdnUrl) ?? parseRawMediaKey(value)
+  );
+}
+
 const isScopedMediaKey = (
   key: string,
   folder: "avatars" | "updates",
@@ -56,7 +88,6 @@ export function parseAvatarMediaKey(
   options: { legacyCdnUrl: string; userId: string }
 ): string | null {
   const parsed = parseUrl(value);
-  let key: string | null = null;
   if (
     parsed?.origin === APP_ORIGIN &&
     parsed.pathname.startsWith(AVATAR_MEDIA_PATH)
@@ -68,12 +99,11 @@ export function parseAvatarMediaKey(
     } catch {
       return null;
     }
-    key = userId === options.userId ? parsed.searchParams.get("key") : null;
-  } else {
-    key =
-      parseLegacyMediaKey(value, options.legacyCdnUrl) ??
-      parseRawMediaKey(value);
+    if (userId !== options.userId) {
+      return null;
+    }
   }
+  const key = parseAvatarMediaReferenceKey(value, options);
   return key && isScopedMediaKey(key, "avatars", options.userId) ? key : null;
 }
 
@@ -82,20 +112,14 @@ export function parseEventUpdateMediaKey(
   options: { eventId: string; legacyCdnUrl: string }
 ): string | null {
   const parsed = parseUrl(value);
-  let key: string | null = null;
   if (
     parsed?.origin === APP_ORIGIN &&
-    parsed.pathname === EVENT_UPDATE_MEDIA_PATH
+    parsed.pathname === EVENT_UPDATE_MEDIA_PATH &&
+    parsed.searchParams.get("eventId") !== options.eventId
   ) {
-    key =
-      parsed.searchParams.get("eventId") === options.eventId
-        ? parsed.searchParams.get("key")
-        : null;
-  } else {
-    key =
-      parseLegacyMediaKey(value, options.legacyCdnUrl) ??
-      parseRawMediaKey(value);
+    return null;
   }
+  const key = parseEventUpdateMediaReferenceKey(value, options);
   return key && isScopedMediaKey(key, "updates", options.eventId) ? key : null;
 }
 

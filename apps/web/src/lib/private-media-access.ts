@@ -4,6 +4,7 @@ import {
   parseAvatarMediaKey,
   parseEventUpdateMediaKey,
 } from "@pi-dash/shared/media-url";
+import type { R2ObjectAccessDeps } from "./r2-object-access";
 
 interface SessionLike {
   user: { id: string; role?: null | string };
@@ -27,16 +28,12 @@ export type PrivateEventMediaRecord =
       submitterIds: readonly string[];
     };
 
-export interface PrivateMediaAccessDeps {
+export interface PrivateMediaAccessDeps extends R2ObjectAccessDeps {
   findEvent: (eventId: string) => Promise<PrivateMediaEvent | null>;
   findUserImage: (userId: string) => Promise<null | string>;
   getEventMediaRecords: (eventId: string) => Promise<PrivateEventMediaRecord[]>;
-  isEventMember: (eventId: string, userId: string) => Promise<boolean>;
-  isTeamLead: (teamId: string, userId: string) => Promise<boolean>;
-  isTeamMember: (teamId: string, userId: string) => Promise<boolean>;
   keyPrefix: string;
   legacyCdnUrl: string;
-  resolvePermissions: (role: string) => Promise<string[]>;
 }
 
 export class PrivateMediaAccessError extends Error {
@@ -117,7 +114,8 @@ const canReadEventMediaRecord = (
   record: PrivateEventMediaRecord,
   session: SessionLike,
   permissions: readonly string[],
-  isTeamLead: boolean
+  isTeamLead: boolean,
+  canViewNormally: boolean
 ): boolean => {
   if (record.kind === "eventFeedback") {
     return (
@@ -127,7 +125,7 @@ const canReadEventMediaRecord = (
     );
   }
   if (record.status === "approved") {
-    return true;
+    return canViewNormally;
   }
   if (record.status === "pending" && record.createdBy === session.user.id) {
     return true;
@@ -149,9 +147,13 @@ export async function resolveEventUpdateMedia(
     return notFound();
   }
   const permissions = await deps.resolvePermissions(roleFor(session));
-  if (!(await canViewEvent(session, event, ref.eventId, permissions, deps))) {
-    throw new PrivateMediaAccessError(403, "Forbidden");
-  }
+  const canViewNormally = await canViewEvent(
+    session,
+    event,
+    ref.eventId,
+    permissions,
+    deps
+  );
 
   const records = await deps.getEventMediaRecords(ref.eventId);
   const matchingRecords = records.filter((record) =>
@@ -163,9 +165,18 @@ export async function resolveEventUpdateMedia(
   const isLead = await deps.isTeamLead(event.teamId, session.user.id);
   if (
     !matchingRecords.some((record) =>
-      canReadEventMediaRecord(record, session, permissions, isLead)
+      canReadEventMediaRecord(
+        record,
+        session,
+        permissions,
+        isLead,
+        canViewNormally
+      )
     )
   ) {
+    if (!canViewNormally) {
+      throw new PrivateMediaAccessError(403, "Forbidden");
+    }
     return notFound();
   }
   return { key: ref.key };

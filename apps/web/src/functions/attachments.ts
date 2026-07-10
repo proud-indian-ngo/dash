@@ -205,6 +205,50 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
     }
   });
 
+type EventEditorUploadData = z.infer<typeof eventEditorUploadSchema>;
+type EventEditorUploadSession = Parameters<
+  typeof authorizeEventEditorUpload
+>[0];
+type EventEditorS3 = Pick<Awaited<ReturnType<typeof getS3>>, "presign">;
+
+interface EventEditorUploadDeps {
+  authorize: (
+    session: EventEditorUploadSession,
+    eventId: string
+  ) => Promise<unknown>;
+  createId: () => string;
+  getS3: () => EventEditorS3 | Promise<EventEditorS3>;
+  keyPrefix: string;
+}
+
+const defaultEventEditorUploadDeps: EventEditorUploadDeps = {
+  authorize: (session, eventId) =>
+    authorizeEventEditorUpload(session, eventId, defaultPrivateMediaAccessDeps),
+  createId: uuidv7,
+  getS3,
+  keyPrefix: env.R2_KEY_PREFIX,
+};
+
+export async function createEventEditorUpload(
+  data: EventEditorUploadData,
+  session: EventEditorUploadSession,
+  deps = defaultEventEditorUploadDeps
+) {
+  await deps.authorize(session, data.eventId);
+  const s3 = await deps.getS3();
+  const key = `${deps.keyPrefix}/${R2_SUBFOLDERS.updates}/${data.eventId}/${deps.createId()}-${sanitizeFileName(data.fileName)}`;
+  const presignedUrl = s3.presign(key, {
+    expiresIn: 300,
+    method: "PUT",
+    type: data.mimeType,
+  });
+  return {
+    key,
+    presignedUrl,
+    url: buildEventUpdateMediaUrl(data.eventId, key),
+  };
+}
+
 export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(eventEditorUploadSchema)
@@ -212,24 +256,8 @@ export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    await authorizeEventEditorUpload(
-      context.session,
-      data.eventId,
-      defaultPrivateMediaAccessDeps
-    );
     try {
-      const s3 = await getS3();
-      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.updates}/${data.eventId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
-      const presignedUrl = s3.presign(key, {
-        expiresIn: 300,
-        method: "PUT",
-        type: data.mimeType,
-      });
-      return {
-        key,
-        presignedUrl,
-        url: buildEventUpdateMediaUrl(data.eventId, key),
-      };
+      return await createEventEditorUpload(data, context.session);
     } catch (error) {
       logErrorAndRethrow(
         { method: "POST", path: "/fn/getEventEditorUploadUrl" },

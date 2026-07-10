@@ -1,7 +1,7 @@
 import {
   getPlateImageUrls,
-  parseAvatarMediaKey,
-  parseEventUpdateMediaKey,
+  parseAvatarMediaReferenceKey,
+  parseEventUpdateMediaReferenceKey,
 } from "@pi-dash/shared/media-url";
 
 interface MediaReferenceOptions {
@@ -23,9 +23,8 @@ export function collectAvatarReferenceKey(
   if (image.startsWith(`${options.keyPrefix}/avatars/${userId}/`)) {
     return image;
   }
-  const key = parseAvatarMediaKey(image, {
+  const key = parseAvatarMediaReferenceKey(image, {
     legacyCdnUrl: options.legacyCdnUrl,
-    userId,
   });
   return key && isR2Key(key, options.keyPrefix) ? key : null;
 }
@@ -62,7 +61,7 @@ const collectMalformedKeys = (
 
 export function collectPlateReferenceKeys(
   content: string,
-  eventId: string,
+  _eventId: string,
   options: MediaReferenceOptions
 ): Set<string> {
   const parsed = getPlateImageUrls(content);
@@ -73,8 +72,7 @@ export function collectPlateReferenceKeys(
   for (const url of parsed.urls) {
     const key = url.startsWith(`${options.keyPrefix}/`)
       ? url
-      : parseEventUpdateMediaKey(url, {
-          eventId,
+      : parseEventUpdateMediaReferenceKey(url, {
           legacyCdnUrl: options.legacyCdnUrl,
         });
     if (key && isR2Key(key, options.keyPrefix)) {

@@ -182,13 +182,21 @@ describe("runR2MediaUrlMigration", () => {
         {
           eventId: "event-1",
           id: "e1",
-          value: plate(
-            "app/updates/event-1/raw.jpg",
-            `${CDN}/app/updates/event-2/wrong.jpg`
-          ),
+          value: plate("app/updates/event-1/raw.jpg"),
+        },
+        {
+          eventId: "event-1",
+          id: "e2",
+          value: plate(`${CDN}/app/updates/event-2/wrong.jpg`),
         },
       ],
-      user: [{ id: "u1", value: "app/avatars/u1/raw.jpg" }],
+      user: [
+        { id: "u1", value: "app/avatars/u1/raw.jpg" },
+        {
+          id: "u2",
+          value: `${CDN}/app/avatars/u3/wrong-user.jpg`,
+        },
+      ],
     });
 
     const report = await runR2MediaUrlMigration(repository, {
@@ -197,15 +205,17 @@ describe("runR2MediaUrlMigration", () => {
       legacyCdnUrl: CDN,
     });
 
-    expect(report.totals).toEqual({ changed: 2, malformed: 0, skipped: 0 });
+    expect(report.totals).toEqual({ changed: 2, malformed: 2, skipped: 0 });
+    expect(report.tables.eventUpdate.malformedIds).toEqual(["e2"]);
+    expect(report.tables.user.malformedIds).toEqual(["u2"]);
     expect(repository.rows.user[0]?.value).toBe(
       "/api/media/avatar/u1?key=app%2Favatars%2Fu1%2Fraw.jpg"
     );
     expect(repository.rows.eventUpdate[0]?.value).toContain(
       "/api/media/event-update?eventId=event-1&key=app%2Fupdates%2Fevent-1%2Fraw.jpg"
     );
-    expect(repository.rows.eventUpdate[0]?.value).toContain(
-      `${CDN}/app/updates/event-2/wrong.jpg`
+    expect(repository.rows.eventUpdate[1]?.value).toBe(
+      plate(`${CDN}/app/updates/event-2/wrong.jpg`)
     );
   });
 

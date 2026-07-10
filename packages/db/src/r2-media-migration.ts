@@ -2,7 +2,9 @@ import {
   buildAvatarMediaUrl,
   buildEventUpdateMediaUrl,
   parseAvatarMediaKey,
+  parseAvatarMediaReferenceKey,
   parseEventUpdateMediaKey,
+  parseEventUpdateMediaReferenceKey,
   transformPlateImageUrls,
 } from "@pi-dash/shared/media-url";
 
@@ -70,6 +72,9 @@ function planRow(
   legacyCdnUrl: string
 ): { after: string; changedUrls: number; malformed: boolean } {
   if (table === "user") {
+    const referenceKey = parseAvatarMediaReferenceKey(row.value, {
+      legacyCdnUrl,
+    });
     const key = parseAvatarMediaKey(row.value, {
       legacyCdnUrl,
       userId: row.id,
@@ -78,24 +83,31 @@ function planRow(
     return {
       after,
       changedUrls: after === row.value ? 0 : 1,
-      malformed: false,
+      malformed: Boolean(referenceKey?.includes("/avatars/") && !key),
     };
   }
 
   if (!row.eventId) {
     return { after: row.value, changedUrls: 0, malformed: true };
   }
+  let hasUnscopedReference = false;
   const transformed = transformPlateImageUrls(row.value, (url) => {
+    const referenceKey = parseEventUpdateMediaReferenceKey(url, {
+      legacyCdnUrl,
+    });
     const key = parseEventUpdateMediaKey(url, {
       eventId: row.eventId as string,
       legacyCdnUrl,
     });
+    if (referenceKey?.includes("/updates/") && !key) {
+      hasUnscopedReference = true;
+    }
     return key ? buildEventUpdateMediaUrl(row.eventId as string, key) : url;
   });
   return {
     after: transformed.content,
     changedUrls: transformed.changedCount,
-    malformed: transformed.malformed,
+    malformed: transformed.malformed || hasUnscopedReference,
   };
 }
 

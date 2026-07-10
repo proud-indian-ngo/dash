@@ -38,6 +38,17 @@ describe("collectAvatarReferenceKey", () => {
       )
     ).toBeNull();
   });
+
+  it("conservatively retains a current-prefix avatar scoped to another user", () => {
+    const key = "app/avatars/user-2/wrong-user.jpg";
+    expect(
+      collectAvatarReferenceKey(
+        "user-1",
+        `https://cdn.example.test/${key}`,
+        options
+      )
+    ).toBe(key);
+  });
 });
 
 describe("collectPlateReferenceKeys", () => {
@@ -64,6 +75,21 @@ describe("collectPlateReferenceKeys", () => {
 
     expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
       new Set([oldKey, newKey])
+    );
+  });
+
+  it("conservatively retains a valid reference scoped to another event", () => {
+    const key = "app/updates/event-2/wrong-event.jpg";
+    const content = JSON.stringify([
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: `https://cdn.example.test/${key}`,
+      },
+    ]);
+
+    expect(collectPlateReferenceKeys(content, "event-1", options)).toEqual(
+      new Set([key])
     );
   });
 

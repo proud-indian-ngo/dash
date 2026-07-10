@@ -401,7 +401,7 @@ R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
 
 Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` and
 are scoped to `avatars/{userId}/`. Event editor uploads use
-`getEventUpdateImageUploadUrl` and require update permission or team-lead
+`getEventEditorUploadUrl` and require update permission or team-lead
 access. Run `r2:migrate-media-urls` in dry-run mode, repair all reported
 malformed rows, apply the backfill, and confirm a zero-change/zero-malformed
 dry-run before disabling public R2/CDN access.
