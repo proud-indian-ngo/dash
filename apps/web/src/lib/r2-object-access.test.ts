@@ -98,6 +98,21 @@ describe("authorizeR2Object", () => {
     ).resolves.toMatchObject({ key: "legacy/messages/agenda.pdf" });
   });
 
+  it("rejects an unrelated scheduled-message viewer", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "other", role: "volunteer" } },
+        {
+          access: "scheduledMessage",
+          createdBy: "owner",
+          filename: "agenda.pdf",
+          key: "legacy/messages/agenda.pdf",
+        },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
   it("allows an authenticated user to read an approved public event photo", async () => {
     await expect(
       authorizeR2Object(
@@ -153,6 +168,25 @@ describe("authorizeR2Object", () => {
         deps({ isEventMember: async () => true })
       )
     ).resolves.toMatchObject({ key: "app/photos/photo.jpg" });
+  });
+
+  it("rejects an unrelated viewer of an approved private event photo", async () => {
+    await expect(
+      authorizeR2Object(
+        { user: { id: "other", role: "volunteer" } },
+        {
+          access: "eventPhoto",
+          eventId: "event-1",
+          eventIsPublic: false,
+          filename: "photo.jpg",
+          key: "app/photos/photo.jpg",
+          status: "approved",
+          teamId: "team-1",
+          uploadedBy: "owner",
+        },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("allows an events.view_all user to read an event photo in any status", async () => {
