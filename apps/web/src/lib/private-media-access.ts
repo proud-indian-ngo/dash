@@ -14,7 +14,8 @@ export type ProtectedUploadScope =
   | { kind: "approvalScreenshot" }
   | { eventId: string; kind: "eventPhoto" }
   | { kind: "request" }
-  | { kind: "scheduledMessage" };
+  | { kind: "scheduledMessage" }
+  | { kind: "vendorPaymentInvoice"; vendorPaymentId: string };
 
 export interface PrivateMediaEvent {
   isPublic: boolean;
@@ -37,6 +38,7 @@ export type PrivateEventMediaRecord =
 export interface PrivateMediaAccessDeps extends R2ObjectAccessDeps {
   findEvent: (eventId: string) => Promise<PrivateMediaEvent | null>;
   findUserImage: (userId: string) => Promise<null | string>;
+  findVendorPaymentOwner: (vendorPaymentId: string) => Promise<null | string>;
   getEventMediaRecords: (eventId: string) => Promise<PrivateEventMediaRecord[]>;
   keyPrefix: string;
   legacyCdnUrl: string;
@@ -238,6 +240,18 @@ export async function authorizeProtectedUpload(
     permissions.includes("messages.schedule")
   ) {
     return;
+  }
+  if (scope.kind === "vendorPaymentInvoice") {
+    const ownerId = await deps.findVendorPaymentOwner(scope.vendorPaymentId);
+    if (!ownerId) {
+      throw new PrivateMediaAccessError(404, "Vendor payment not found");
+    }
+    if (
+      ownerId === session.user.id ||
+      permissions.includes("requests.approve")
+    ) {
+      return;
+    }
   }
   if (scope.kind === "eventPhoto") {
     const event = await deps.findEvent(scope.eventId);

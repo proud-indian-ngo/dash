@@ -18,6 +18,7 @@ import {
   eventPhotoUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
+  vendorPaymentInvoiceUploadSchema,
 } from "@/lib/media-upload";
 import {
   authorizeEventEditorUpload,
@@ -98,6 +99,42 @@ export const getRequestUploadUrl = createServerFn({ method: "POST" })
           handler: "getRequestUploadUrl",
           mimeType: data.mimeType,
           userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getVendorPaymentInvoiceUploadUrl = createServerFn({
+  method: "POST",
+})
+  .middleware([authMiddleware])
+  .validator(vendorPaymentInvoiceUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: {
+          kind: "vendorPaymentInvoice",
+          vendorPaymentId: data.vendorPaymentId,
+        },
+        subfolder: "attachments",
+        user: context.session.user,
+      });
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getVendorPaymentInvoiceUploadUrl" },
+        {
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getVendorPaymentInvoiceUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+          vendorPaymentId: data.vendorPaymentId,
         },
         error
       );

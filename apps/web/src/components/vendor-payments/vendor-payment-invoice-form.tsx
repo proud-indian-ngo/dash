@@ -106,6 +106,7 @@ function InvoiceFormContent({
             fileDownloadKind="vendorPaymentAttachment"
             onChange={field.handleChange}
             value={(field.state.value ?? []) as Attachment[]}
+            vendorPaymentInvoiceId={vendorPaymentId}
           />
         )}
       </form.Field>

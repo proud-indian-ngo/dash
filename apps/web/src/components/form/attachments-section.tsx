@@ -27,6 +27,7 @@ import z from "zod";
 import { AddUrlRow } from "@/components/form/add-url-row";
 import {
   getRequestUploadUrl,
+  getVendorPaymentInvoiceUploadUrl,
   toAllowedMimeType,
 } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
@@ -40,46 +41,17 @@ import {
   type Attachment,
   MAX_ATTACHMENT_FILES,
 } from "@/lib/form-schemas";
+import { uploadSingleAttachment } from "./attachment-upload";
 
 interface AttachmentsSectionProps {
   fileDownloadKind?: AttachmentRowDownloadKind;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
+  vendorPaymentInvoiceId?: string;
 }
 
 const isFileAttachment = (attachment: Attachment): boolean =>
   attachment.type === "file";
-
-const uploadSingleFile = async (
-  file: File,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getRequestUploadUrl>>
-): Promise<Attachment> => {
-  const { presignedUrl, key } = await getUploadUrl({
-    data: {
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: toAllowedMimeType(file.type),
-    },
-  });
-
-  const response = await fetch(presignedUrl, {
-    body: file,
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    method: "PUT",
-  });
-
-  if (!response.ok) {
-    throw new Error("Upload request failed");
-  }
-
-  return {
-    filename: file.name,
-    id: uuidv7(),
-    mimeType: file.type,
-    objectKey: key,
-    type: "file",
-  };
-};
 
 const showUploadResultToasts = (
   uploadedCount: number,
@@ -185,8 +157,12 @@ export function AttachmentsSection({
   fileDownloadKind,
   onChange,
   value,
+  vendorPaymentInvoiceId,
 }: AttachmentsSectionProps) {
-  const getUploadUrl = useServerFn(getRequestUploadUrl);
+  const requestUploadUrl = useServerFn(getRequestUploadUrl);
+  const vendorPaymentInvoiceUploadUrl = useServerFn(
+    getVendorPaymentInvoiceUploadUrl
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [unpersistedIds, setUnpersistedIds] = useState<Set<string>>(
     () => new Set()
@@ -255,10 +231,12 @@ export function AttachmentsSection({
             current: prev.current + 1,
           }));
           try {
-            const uploadedAttachment = await uploadSingleFile(
-              file,
-              getUploadUrl
-            );
+            const uploadedAttachment = await uploadSingleAttachment(file, {
+              getRequestUploadUrl: requestUploadUrl,
+              getVendorPaymentInvoiceUploadUrl: vendorPaymentInvoiceUploadUrl,
+              toAllowedMimeType,
+              vendorPaymentInvoiceId,
+            });
             uploadedAttachments.push(uploadedAttachment);
           } catch (error) {
             failedCount += 1;
@@ -290,7 +268,13 @@ export function AttachmentsSection({
 
       setIsUploading(false);
     },
-    [getUploadUrl, onChange, remainingFileSlots]
+    [
+      onChange,
+      remainingFileSlots,
+      requestUploadUrl,
+      vendorPaymentInvoiceId,
+      vendorPaymentInvoiceUploadUrl,
+    ]
   );
 
   const uploadFilesRef = useRef(uploadFiles);

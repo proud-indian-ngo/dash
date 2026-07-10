@@ -356,6 +356,33 @@ describe("claimUploadedR2ObjectKey", () => {
     );
   });
 
+  it("retains a trusted legacy key that predates the configured prefix", async () => {
+    const beforeCommitTasks: AsyncTask[] = [];
+    const key = "legacy/attachments/request-1/receipt.pdf";
+    const lockR2Object = vi.fn();
+
+    expect(
+      claimUploadedR2ObjectKey(key, {
+        ...clientClaimOptions,
+        asyncTasks: [],
+        beforeCommitTasks,
+        copyR2Object,
+        enqueue,
+        existingObjectKeys: new Set([key]),
+        lockR2Object,
+        r2KeyPrefix: "app",
+        txLocation: "server",
+      })
+    ).toBe(key);
+
+    await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(key);
+    expect(copyR2Object).toHaveBeenCalledWith({
+      sourceKey: key,
+      targetKey: key,
+    });
+  });
+
   it("rejects another user's temp key", () => {
     expect(() =>
       claimUploadedR2ObjectKey(

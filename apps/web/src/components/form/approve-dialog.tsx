@@ -2,7 +2,10 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { ALLOWED_APPROVAL_SCREENSHOT_TYPES } from "@pi-dash/shared/constants";
+import {
+  ALLOWED_APPROVAL_SCREENSHOT_TYPES,
+  MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -20,8 +23,6 @@ import {
   deleteTemporaryUpload,
   getApprovalScreenshotUploadUrl,
 } from "@/functions/attachments";
-
-const MAX_SCREENSHOT_SIZE = 10 * 1024 * 1024; // 10 MB
 
 interface ApproveDialogProps {
   entityId: string;
@@ -88,7 +89,7 @@ export function ApproveDialog({
         );
         return;
       }
-      if (file.size > MAX_SCREENSHOT_SIZE) {
+      if (file.size > MAX_APPROVAL_SCREENSHOT_SIZE_BYTES) {
         toast.error("File too large. Maximum size is 10 MB.");
         return;
       }

@@ -14,6 +14,7 @@ import {
   eventPhotoUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
+  vendorPaymentInvoiceUploadSchema,
 } from "./media-upload";
 
 const image = {
@@ -104,6 +105,21 @@ describe("protected temporary upload schemas", () => {
       requestUploadSchema.safeParse({
         ...image,
         fileSize: MAX_ATTACHMENT_FILE_SIZE_BYTES + 1,
+      }).success
+    ).toBe(false);
+  });
+
+  it("requires a valid vendor-payment scope for invoice uploads", () => {
+    expect(
+      vendorPaymentInvoiceUploadSchema.safeParse({
+        ...image,
+        vendorPaymentId: EVENT_ID,
+      }).success
+    ).toBe(true);
+    expect(
+      vendorPaymentInvoiceUploadSchema.safeParse({
+        ...image,
+        vendorPaymentId: "not-an-id",
       }).success
     ).toBe(false);
   });

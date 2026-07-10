@@ -159,7 +159,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/get-session.ts` | Authenticated user session |
 | `functions/get-permissions.ts` | Resolve permissions for current user's role |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
-| `functions/attachments.ts` | Generic attachment signing plus dedicated avatar and event editor-media upload/delete functions |
+| `functions/attachments.ts` | Surface-specific temp attachment signing (including owner/approver invoice scope) plus dedicated avatar and event editor-media upload/delete functions |
 | `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |

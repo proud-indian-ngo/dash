@@ -209,14 +209,14 @@ export function claimUploadedR2ObjectKey(
   }
   const serverPrefix =
     options.txLocation === "server" ? `${options.r2KeyPrefix}/` : null;
-  if (serverPrefix && !key.startsWith(serverPrefix)) {
-    throw new Error("Invalid attachment object key");
-  }
   if (options.existingObjectKeys?.has(key)) {
     if (options.txLocation === "server") {
       pushRetainedR2ObjectTask(options, key);
     }
     return key;
+  }
+  if (serverPrefix && !key.startsWith(serverPrefix)) {
+    throw new Error("Invalid attachment object key");
   }
 
   const serverTempPrefix = serverPrefix
