@@ -2,7 +2,9 @@ import {
   buildAvatarMediaUrl,
   buildEventUpdateMediaUrl,
   parseAvatarMediaKey,
+  parseAvatarMediaReferenceKey,
   parseEventUpdateMediaKey,
+  parseEventUpdateMediaReferenceKey,
   transformPlateImageUrls,
 } from "@pi-dash/shared/media-url";
 
@@ -35,6 +37,7 @@ export interface MediaMigrationRepository {
 export interface MediaMigrationOptions {
   apply: boolean;
   batchSize: number;
+  keyPrefix: string;
   legacyCdnUrl: string;
 }
 
@@ -42,6 +45,7 @@ interface MediaMigrationTableReport {
   changed: number;
   changedUrls: number;
   malformed: number;
+  malformedIds: string[];
   scanned: number;
   skipped: number;
 }
@@ -58,42 +62,99 @@ const emptyReport = (): MediaMigrationTableReport => ({
   changed: 0,
   changedUrls: 0,
   malformed: 0,
+  malformedIds: [],
   scanned: 0,
   skipped: 0,
 });
 
+const parseConfiguredRawKey = (
+  value: string,
+  expectedPrefix: string
+): string | null =>
+  value.startsWith(expectedPrefix) && value.length > expectedPrefix.length
+    ? value
+    : null;
+
+const parseAnyMediaReferenceKey = (
+  value: string,
+  legacyCdnUrl: string
+): string | null =>
+  parseAvatarMediaReferenceKey(value, { legacyCdnUrl }) ??
+  parseEventUpdateMediaReferenceKey(value, { legacyCdnUrl });
+
 function planRow(
   table: MediaMigrationTable,
   row: MediaMigrationRow,
-  legacyCdnUrl: string
+  options: Pick<MediaMigrationOptions, "keyPrefix" | "legacyCdnUrl">
 ): { after: string; changedUrls: number; malformed: boolean } {
+  const { keyPrefix, legacyCdnUrl } = options;
   if (table === "user") {
-    const key = parseAvatarMediaKey(row.value, {
-      legacyCdnUrl,
-      userId: row.id,
-    });
-    const after = key ? buildAvatarMediaUrl(row.id, key) : row.value;
+    const expectedPrefix = `${keyPrefix}/avatars/${row.id}/`;
+    const rawKey = parseConfiguredRawKey(row.value, expectedPrefix);
+    const managedRawKey = parseConfiguredRawKey(row.value, `${keyPrefix}/`);
+    const referenceKey =
+      managedRawKey ?? parseAnyMediaReferenceKey(row.value, legacyCdnUrl);
+    const key =
+      rawKey ??
+      parseAvatarMediaKey(row.value, {
+        legacyCdnUrl,
+        userId: row.id,
+      });
+    const scopedKey = key?.startsWith(`${keyPrefix}/avatars/${row.id}/`)
+      ? key
+      : null;
+    const after = scopedKey
+      ? buildAvatarMediaUrl(row.id, scopedKey)
+      : row.value;
     return {
       after,
       changedUrls: after === row.value ? 0 : 1,
-      malformed: false,
+      malformed: Boolean(
+        referenceKey &&
+          !scopedKey &&
+          (referenceKey.startsWith(`${keyPrefix}/`) ||
+            referenceKey.includes("/avatars/"))
+      ),
     };
   }
 
   if (!row.eventId) {
     return { after: row.value, changedUrls: 0, malformed: true };
   }
+  let hasUnscopedReference = false;
   const transformed = transformPlateImageUrls(row.value, (url) => {
-    const key = parseEventUpdateMediaKey(url, {
-      eventId: row.eventId as string,
-      legacyCdnUrl,
-    });
-    return key ? buildEventUpdateMediaUrl(row.eventId as string, key) : url;
+    const expectedPrefix = `${keyPrefix}/updates/${row.eventId as string}/`;
+    const rawKey = parseConfiguredRawKey(url, expectedPrefix);
+    const managedRawKey = parseConfiguredRawKey(url, `${keyPrefix}/`);
+    const referenceKey =
+      managedRawKey ?? parseAnyMediaReferenceKey(url, legacyCdnUrl);
+    const key =
+      rawKey ??
+      parseEventUpdateMediaKey(url, {
+        eventId: row.eventId as string,
+        legacyCdnUrl,
+      });
+    const scopedKey = key?.startsWith(
+      `${keyPrefix}/updates/${row.eventId as string}/`
+    )
+      ? key
+      : null;
+    if (
+      referenceKey &&
+      !scopedKey &&
+      (referenceKey.startsWith(`${keyPrefix}/`) ||
+        referenceKey.includes("/updates/"))
+    ) {
+      hasUnscopedReference = true;
+    }
+    return scopedKey
+      ? buildEventUpdateMediaUrl(row.eventId as string, scopedKey)
+      : url;
   });
   return {
     after: transformed.content,
     changedUrls: transformed.changedCount,
-    malformed: transformed.malformed,
+    malformed: transformed.malformed || hasUnscopedReference,
   };
 }
 
@@ -115,9 +176,10 @@ async function migrateTable(
     const changes: MediaMigrationChange[] = [];
     for (const row of rows) {
       report.scanned += 1;
-      const planned = planRow(table, row, options.legacyCdnUrl);
+      const planned = planRow(table, row, options);
       if (planned.malformed) {
         report.malformed += 1;
+        report.malformedIds.push(row.id);
         continue;
       }
       if (planned.after === row.value) {
@@ -166,7 +228,10 @@ export async function runR2MediaUrlMigration(
   };
 }
 
-export function parseMediaMigrationArgs(args: string[]): MediaMigrationOptions {
+export function parseMediaMigrationArgs(
+  args: string[],
+  keyPrefix: string
+): MediaMigrationOptions {
   let apply = false;
   let batchSize = 100;
   let legacyCdnUrl: string | undefined;
@@ -184,6 +249,9 @@ export function parseMediaMigrationArgs(args: string[]): MediaMigrationOptions {
   if (!legacyCdnUrl) {
     throw new Error("--legacy-cdn-url is required");
   }
+  if (!keyPrefix) {
+    throw new Error("R2 key prefix is required");
+  }
   const url = new URL(legacyCdnUrl);
   if (!(url.protocol === "https:" || url.protocol === "http:")) {
     throw new Error("--legacy-cdn-url must be an HTTP(S) URL");
@@ -191,5 +259,5 @@ export function parseMediaMigrationArgs(args: string[]): MediaMigrationOptions {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 1000) {
     throw new Error("--batch-size must be an integer from 1 to 1000");
   }
-  return { apply, batchSize, legacyCdnUrl };
+  return { apply, batchSize, keyPrefix, legacyCdnUrl };
 }

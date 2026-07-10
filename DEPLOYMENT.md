@@ -53,22 +53,26 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | Bucket name |
 | `R2_KEY_PREFIX` | Key prefix for uploads |
-| `VITE_CDN_URL` | Legacy public CDN URL used only during private-media migration |
+| `VITE_CDN_URL` | Historical public CDN URL used to recognize legacy R2 media references |
 
 Protected uploads use current-user temp keys and are claimed to durable keys by
-their owning database mutation. In Cloudflare R2, configure 24-hour expiry rules
-for `<R2_KEY_PREFIX>/{attachments,approval-screenshots,photos,scheduled-messages}/tmp/`
-before deploying this flow.
+their owning database mutation. Before deployment, configure 24-hour Cloudflare
+R2 expiry rules for
+`<R2_KEY_PREFIX>/{attachments,approval-screenshots,photos,scheduled-messages}/tmp/`.
 
 Private-storage cutover order:
 
-1. Deploy authenticated reads and transactional claims.
-2. Run the media URL backfill in dry-run mode, review malformed/skipped rows,
-   then apply it.
-3. Verify request attachments, approval proofs, scheduled media, event photos,
+1. Configure the protected temp-key lifecycle rules.
+2. Deploy authenticated reads and transactional claims.
+3. Run `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` and review the
+   changed, skipped, and malformed counts.
+4. Repair every row listed in each table's `malformedIds`.
+5. Apply with `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url> --apply`.
+6. Rerun the dry-run until `totals.changed` and `totals.malformed` are both `0`.
+7. Verify request attachments, approval proofs, scheduled media, event photos,
    avatars, and event editor media through authenticated application routes.
-4. Disable the R2 public development URL and public CDN route.
-5. Remove `VITE_CDN_URL` from runtime configuration and then remove its schema
+8. Disable the R2 public development URL and public CDN route.
+9. Remove `VITE_CDN_URL` from runtime configuration, then remove its schema
    entries in a follow-up deployment.
 
 Do not remove `VITE_CDN_URL` before the backfill and public-access cutover;
@@ -245,8 +249,9 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] SMTP configured for email verification and password reset
 - [ ] R2 bucket created and credentials set
 - [ ] R2 lifecycle expires protected `tmp` objects after 24 hours
-- [ ] `VITE_CDN_URL` points to the legacy CDN until private cutover is complete
-- [ ] After media backfill verification, R2 public access is disabled
+- [ ] `VITE_CDN_URL` matches the historical CDN origin until cutover is complete
+- [ ] Private media backfill has zero changed/malformed rows
+- [ ] R2 public bucket/CDN access is disabled after authenticated-read verification
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 

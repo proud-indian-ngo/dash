@@ -99,7 +99,7 @@ describe("resolveAuthorizedR2Object", () => {
         kind: "advancePaymentApprovalScreenshot",
       })
     ).resolves.toEqual({
-      filename: "payment-proof",
+      filename: "advance-proof.png",
       key: "legacy/advance-proof.png",
     });
   });
@@ -160,7 +160,7 @@ describe("resolveAuthorizedR2Object", () => {
         kind: "reimbursementApprovalScreenshot",
       })
     ).resolves.toEqual({
-      filename: "payment-proof",
+      filename: "reimbursement-proof.png",
       key: "legacy/reimbursement-proof.png",
     });
   });

@@ -64,7 +64,10 @@ The migration rewrites `user.image`, `event_update.content`, and
 `event_feedback.content` in transactional batches of 100 rows by default;
 `--batch-size` accepts 1 through 1000. Raw keys and legacy CDN URLs are
 canonicalized, while unrelated external URLs are left unchanged. The
-orphan-cleanup job recognizes raw keys, legacy CDN URLs, and canonical app URLs.
+report includes `malformedIds` per table so invalid Plate rows can be repaired.
+Do not disable public bucket access until a final dry-run reports both zero
+changes and zero malformed rows. The orphan-cleanup job recognizes raw keys,
+legacy CDN URLs, and canonical app URLs.
 
 ## Immich (Event Photos)
 

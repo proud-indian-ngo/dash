@@ -214,7 +214,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | Variable | Description |
 |---|---|
 | `VITE_ZERO_URL` | Zero cache server URL (e.g. `http://localhost:4848`) |
-| `VITE_CDN_URL` | CDN base URL for serving uploaded images |
+| `VITE_CDN_URL` | Historical CDN base URL used to recognize legacy media references; current R2 media reads use authenticated routes |
 
 ### Immich (optional photo management)
 

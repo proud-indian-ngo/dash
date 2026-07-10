@@ -14,6 +14,7 @@ All paths are relative to project root.
 | `bun run db:generate` | Generate Drizzle types |
 | `bun run db:push` | Push schema changes to database |
 | `bun run db:migrate` | Run pending migrations |
+| `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run legacy avatar/editor media backfill; add `--apply` only after reviewing the report |
 | `bun run zero:generate` | Regenerate Zero schema |
 | `bun run zero:analyze` | Analyze configured Zero named queries against a Zero cache |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
@@ -104,6 +105,8 @@ All paths are relative to project root.
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
 | `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
+| `routes/api/media/avatar.$userId.ts` | Authorized avatar signed redirect matched to the current persisted image |
+| `routes/api/media/event-update.ts` | Authorized event editor-media signed redirect matched to persisted Plate content |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
 | `routes/api/jobs/stats.ts` | Queue size stats API |
 | `routes/api/jobs/$id.ts` | Job detail API |
@@ -156,7 +159,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/get-session.ts` | Authenticated user session |
 | `functions/get-permissions.ts` | Resolve permissions for current user's role |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
-| `functions/attachments.ts` | R2 presigned upload URL, delete asset, avatar upload/delete |
+| `functions/attachments.ts` | Generic attachment signing plus dedicated avatar and event editor-media upload/delete functions |
 | `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
@@ -268,7 +271,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
 - **Preferences**: Per-topic, per-channel (inbox + email + WhatsApp) toggles stored in `notification_topic_preference` table. Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. All preferences checked at send-time from DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
-- **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) serves public avatar and editor media. Protected attachments and event photos use authenticated application routes.
+- **Legacy CDN**: `VITE_CDN_URL` identifies historical media references during migration. Current attachments, event photos, avatars, and editor media use authenticated application routes.
 - **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`.
 - **Retention**: `cleanup-notifications` pg-boss cron (daily 2 AM IST) deletes archived >90 days, read >180 days.
 - DO: Add new notification types in `packages/notifications/src/send/`.
@@ -393,15 +396,25 @@ Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
 `scheduled-messages`. Dedicated avatar/editor signers use `avatars` and
 `updates`.
 
-1. Client calls a surface-specific signer and receives a signed PUT URL for a
-   current-user temp key
-2. Client uploads directly to R2
-3. The owning Zero mutator validates and copies the temp object to a
-   parent-scoped durable key before committing the database row
-4. Temp-source and replaced-object deletion are queued after commit
-5. Downloads use authenticated typed-reference routes
+1. Client calls a surface-specific signer. Protected attachment, approval,
+   photo, and scheduled-message uploads receive a current-user temp key.
+2. Client uploads directly to R2 through the signed PUT URL.
+3. The owning Zero mutator validates and copies a protected temp object to a
+   parent-scoped durable key before committing the database row.
+4. The durable row stores an exact object key or canonical authenticated media
+   URL; a raw key is never authorization.
+5. Temp-source and replaced-object deletion are queued after commit.
+6. Reads use `routes/api/attachments/download.ts`,
+   `routes/api/media/event-photo.$id.ts`,
+   `routes/api/media/avatar.$userId.ts`, or
+   `routes/api/media/event-update.ts`.
 
-Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (ownership-scoped to `avatars/{userId}/`).
+Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` and
+are scoped to `avatars/{userId}/`. Event editor uploads use
+`getEventEditorUploadUrl` and require update permission or team-lead
+access. Run `r2:migrate-media-urls` in dry-run mode, repair all reported
+malformed rows, apply the backfill, and confirm a zero-change/zero-malformed
+dry-run before disabling public R2/CDN access.
 
 ### Notification Flow
 

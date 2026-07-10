@@ -9,6 +9,7 @@ import {
 } from "./r2-media-migration";
 
 const CDN = "https://cdn.example.test";
+const KEY_PREFIX = "app";
 
 class FakeRepository implements MediaMigrationRepository {
   readonly appliedBatches: Array<{
@@ -101,24 +102,31 @@ const fixture = () =>
 
 describe("parseMediaMigrationArgs", () => {
   it("defaults to dry-run and requires the legacy CDN URL", () => {
-    expect(parseMediaMigrationArgs([`--legacy-cdn-url=${CDN}`])).toEqual({
+    expect(
+      parseMediaMigrationArgs([`--legacy-cdn-url=${CDN}`], KEY_PREFIX)
+    ).toEqual({
       apply: false,
       batchSize: 100,
+      keyPrefix: KEY_PREFIX,
       legacyCdnUrl: CDN,
     });
-    expect(() => parseMediaMigrationArgs([])).toThrow(
+    expect(() => parseMediaMigrationArgs([], KEY_PREFIX)).toThrow(
       "--legacy-cdn-url is required"
     );
   });
 
   it("accepts explicit apply and batch size", () => {
     expect(
-      parseMediaMigrationArgs([
-        `--legacy-cdn-url=${CDN}/`,
-        "--apply",
-        "--batch-size=25",
-      ])
-    ).toEqual({ apply: true, batchSize: 25, legacyCdnUrl: `${CDN}/` });
+      parseMediaMigrationArgs(
+        [`--legacy-cdn-url=${CDN}/`, "--apply", "--batch-size=25"],
+        KEY_PREFIX
+      )
+    ).toEqual({
+      apply: true,
+      batchSize: 25,
+      keyPrefix: KEY_PREFIX,
+      legacyCdnUrl: `${CDN}/`,
+    });
   });
 });
 
@@ -128,12 +136,14 @@ describe("runR2MediaUrlMigration", () => {
     const report = await runR2MediaUrlMigration(repository, {
       apply: false,
       batchSize: 1,
+      keyPrefix: KEY_PREFIX,
       legacyCdnUrl: CDN,
     });
 
     expect(report.totals).toEqual({ changed: 3, malformed: 1, skipped: 2 });
     expect(report.tables.eventUpdate.changedUrls).toBe(1);
     expect(report.tables.eventFeedback.changedUrls).toBe(1);
+    expect(report.tables.eventFeedback.malformedIds).toEqual(["f1"]);
     expect(repository.appliedBatches).toHaveLength(0);
     expect(repository.rows.user[1]?.value).toBe(
       `${CDN}/app/avatars/u1/avatar.jpg`
@@ -145,6 +155,7 @@ describe("runR2MediaUrlMigration", () => {
     const first = await runR2MediaUrlMigration(repository, {
       apply: true,
       batchSize: 1,
+      keyPrefix: KEY_PREFIX,
       legacyCdnUrl: CDN,
     });
 
@@ -167,6 +178,7 @@ describe("runR2MediaUrlMigration", () => {
     const second = await runR2MediaUrlMigration(repository, {
       apply: true,
       batchSize: 1,
+      keyPrefix: KEY_PREFIX,
       legacyCdnUrl: CDN,
     });
 
@@ -181,30 +193,180 @@ describe("runR2MediaUrlMigration", () => {
         {
           eventId: "event-1",
           id: "e1",
-          value: plate(
-            "app/updates/event-1/raw.jpg",
-            `${CDN}/app/updates/event-2/wrong.jpg`
-          ),
+          value: plate("app/updates/event-1/raw.jpg"),
+        },
+        {
+          eventId: "event-1",
+          id: "e2",
+          value: plate(`${CDN}/app/updates/event-2/wrong.jpg`),
         },
       ],
-      user: [{ id: "u1", value: "app/avatars/u1/raw.jpg" }],
+      user: [
+        { id: "u1", value: "app/avatars/u1/raw.jpg" },
+        {
+          id: "u2",
+          value: `${CDN}/app/avatars/u3/wrong-user.jpg`,
+        },
+      ],
     });
 
     const report = await runR2MediaUrlMigration(repository, {
       apply: true,
       batchSize: 1,
+      keyPrefix: KEY_PREFIX,
       legacyCdnUrl: CDN,
     });
 
-    expect(report.totals).toEqual({ changed: 2, malformed: 0, skipped: 0 });
+    expect(report.totals).toEqual({ changed: 2, malformed: 2, skipped: 0 });
+    expect(report.tables.eventUpdate.malformedIds).toEqual(["e2"]);
+    expect(report.tables.user.malformedIds).toEqual(["u2"]);
     expect(repository.rows.user[0]?.value).toBe(
       "/api/media/avatar/u1?key=app%2Favatars%2Fu1%2Fraw.jpg"
     );
     expect(repository.rows.eventUpdate[0]?.value).toContain(
       "/api/media/event-update?eventId=event-1&key=app%2Fupdates%2Fevent-1%2Fraw.jpg"
     );
+    expect(repository.rows.eventUpdate[1]?.value).toBe(
+      plate(`${CDN}/app/updates/event-2/wrong.jpg`)
+    );
+  });
+
+  it("preserves opaque object-key characters while canonicalizing", async () => {
+    const repository = new FakeRepository({
+      eventFeedback: [],
+      eventUpdate: [
+        {
+          eventId: "event-1",
+          id: "e1",
+          value: plate(
+            `${CDN}/app/updates/event-1/literal%20.jpg`,
+            `${CDN}/app/updates/event-1/question?.jpg`,
+            `${CDN}/app/updates/event-1/fragment#.jpg`
+          ),
+        },
+      ],
+      user: [{ id: "u1", value: "app/avatars/u1/literal%.jpg" }],
+    });
+
+    const report = await runR2MediaUrlMigration(repository, {
+      apply: true,
+      batchSize: 10,
+      keyPrefix: KEY_PREFIX,
+      legacyCdnUrl: CDN,
+    });
+
+    expect(report.totals).toEqual({ changed: 2, malformed: 0, skipped: 0 });
+    expect(repository.rows.user[0]?.value).toBe(
+      "/api/media/avatar/u1?key=app%2Favatars%2Fu1%2Fliteral%25.jpg"
+    );
     expect(repository.rows.eventUpdate[0]?.value).toContain(
-      `${CDN}/app/updates/event-2/wrong.jpg`
+      "key=app%2Fupdates%2Fevent-1%2Fliteral%2520.jpg"
+    );
+    expect(repository.rows.eventUpdate[0]?.value).toContain(
+      "key=app%2Fupdates%2Fevent-1%2Fquestion%3F.jpg"
+    );
+    expect(repository.rows.eventUpdate[0]?.value).toContain(
+      "key=app%2Fupdates%2Fevent-1%2Ffragment%23.jpg"
+    );
+  });
+
+  it("reports foreign-prefix media references as malformed", async () => {
+    const repository = new FakeRepository({
+      eventFeedback: [],
+      eventUpdate: [
+        {
+          eventId: "event-1",
+          id: "e1",
+          value: plate("other/app/updates/event-1/private.jpg"),
+        },
+      ],
+      user: [{ id: "u1", value: "other/app/avatars/u1/private.jpg" }],
+    });
+
+    const report = await runR2MediaUrlMigration(repository, {
+      apply: true,
+      batchSize: 10,
+      keyPrefix: KEY_PREFIX,
+      legacyCdnUrl: CDN,
+    });
+
+    expect(report.totals).toEqual({ changed: 0, malformed: 2, skipped: 0 });
+    expect(report.tables.eventUpdate.malformedIds).toEqual(["e1"]);
+    expect(report.tables.user.malformedIds).toEqual(["u1"]);
+    expect(repository.appliedBatches).toHaveLength(0);
+  });
+
+  it("reports managed references in the wrong asset family as malformed", async () => {
+    const avatarRoute = `/api/media/avatar/u2?key=${encodeURIComponent("app/avatars/u2/avatar.jpg")}`;
+    const updateRoute = `/api/media/event-update?eventId=event-2&key=${encodeURIComponent("app/updates/event-2/update.jpg")}`;
+    const repository = new FakeRepository({
+      eventFeedback: [],
+      eventUpdate: [
+        {
+          eventId: "event-1",
+          id: "e1",
+          value: plate(`${CDN}/app/attachments/editor.jpg`),
+        },
+        {
+          eventId: "event-1",
+          id: "e2",
+          value: plate(avatarRoute),
+        },
+      ],
+      user: [
+        { id: "u1", value: `${CDN}/app/photos/avatar.jpg` },
+        { id: "u2", value: updateRoute },
+      ],
+    });
+
+    const report = await runR2MediaUrlMigration(repository, {
+      apply: true,
+      batchSize: 10,
+      keyPrefix: KEY_PREFIX,
+      legacyCdnUrl: CDN,
+    });
+
+    expect(report.totals).toEqual({ changed: 0, malformed: 4, skipped: 0 });
+    expect(report.tables.eventUpdate.malformedIds).toEqual(["e1", "e2"]);
+    expect(report.tables.user.malformedIds).toEqual(["u1", "u2"]);
+    expect(repository.appliedBatches).toHaveLength(0);
+  });
+
+  it.each([
+    "/app",
+    "tenant:app",
+  ])("migrates raw keys for the configured %s prefix", async (keyPrefix) => {
+    const avatarKey = `${keyPrefix}/avatars/u1/private.jpg`;
+    const updateKey = `${keyPrefix}/updates/event-1/private.jpg`;
+    const repository = new FakeRepository({
+      eventFeedback: [],
+      eventUpdate: [
+        {
+          eventId: "event-1",
+          id: "e1",
+          value: plate(updateKey),
+        },
+      ],
+      user: [{ id: "u1", value: avatarKey }],
+    });
+
+    const report = await runR2MediaUrlMigration(repository, {
+      apply: true,
+      batchSize: 10,
+      keyPrefix,
+      legacyCdnUrl: CDN,
+    });
+
+    expect(report.totals).toEqual({
+      changed: 2,
+      malformed: 0,
+      skipped: 0,
+    });
+    expect(repository.rows.user[0]?.value).toBe(
+      `/api/media/avatar/u1?key=${encodeURIComponent(avatarKey)}`
+    );
+    expect(repository.rows.eventUpdate[0]?.value).toContain(
+      `key=${encodeURIComponent(updateKey)}`
     );
   });
 });

@@ -184,6 +184,32 @@ describe("resolveEventUpdateMedia", () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
+  it("allows a global update approver without private-event membership", async () => {
+    await expect(
+      resolveEventUpdateMedia(
+        { user: { id: "approver", role: "approver" } },
+        { eventId: EVENT_ID, key: KEY },
+        deps({
+          getEventMediaRecords: async () => [
+            {
+              content: JSON.stringify([
+                {
+                  children: [{ text: "" }],
+                  type: "img",
+                  url: `https://cdn.example.test/${KEY}`,
+                },
+              ]),
+              createdBy: "author",
+              kind: "eventUpdate",
+              status: "pending",
+            },
+          ],
+          resolvePermissions: async () => ["event_updates.approve"],
+        })
+      )
+    ).resolves.toEqual({ key: KEY });
+  });
+
   it("allows feedback media only to its submitter or a feedback manager", async () => {
     const feedbackDeps = deps({
       getEventMediaRecords: async () => [
@@ -223,6 +249,31 @@ describe("resolveEventUpdateMedia", () => {
         deps({
           ...feedbackDeps,
           isTeamMember: async () => true,
+          resolvePermissions: async () => ["events.manage_feedback"],
+        })
+      )
+    ).resolves.toEqual({ key: KEY });
+  });
+
+  it("allows a feedback manager without private-event membership", async () => {
+    await expect(
+      resolveEventUpdateMedia(
+        { user: { id: "manager", role: "manager" } },
+        { eventId: EVENT_ID, key: KEY },
+        deps({
+          getEventMediaRecords: async () => [
+            {
+              content: JSON.stringify([
+                {
+                  children: [{ text: "" }],
+                  type: "img",
+                  url: `https://cdn.example.test/${KEY}`,
+                },
+              ]),
+              kind: "eventFeedback",
+              submitterIds: ["submitter"],
+            },
+          ],
           resolvePermissions: async () => ["events.manage_feedback"],
         })
       )

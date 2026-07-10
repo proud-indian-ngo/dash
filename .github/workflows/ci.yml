@@ -116,6 +116,11 @@ jobs:
       BETTER_AUTH_URL: http://localhost:3099
       BETTER_AUTH_SECRET: ci-test-secret-value-at-least-32-chars-long
       CORS_ORIGIN: http://localhost:3099
+      R2_ACCESS_KEY: ci-test-access-key
+      R2_ACCOUNT_ID: ci-test-account
+      R2_BUCKET_NAME: ci-test-bucket
+      R2_KEY_PREFIX: attachments
+      R2_SECRET_ACCESS_KEY: ci-test-secret-access-key
       ZERO_UPSTREAM_DB: postgres://postgres:test@localhost:5433/pi-dash-test
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
       ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate

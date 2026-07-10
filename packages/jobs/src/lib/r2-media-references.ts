@@ -1,7 +1,7 @@
 import {
   getPlateImageUrls,
-  parseAvatarMediaKey,
-  parseEventUpdateMediaKey,
+  parseAvatarMediaReferenceKey,
+  parseEventUpdateMediaReferenceKey,
 } from "@pi-dash/shared/media-url";
 
 interface MediaReferenceOptions {
@@ -23,9 +23,8 @@ export function collectAvatarReferenceKey(
   if (image.startsWith(`${options.keyPrefix}/avatars/${userId}/`)) {
     return image;
   }
-  const key = parseAvatarMediaKey(image, {
+  const key = parseAvatarMediaReferenceKey(image, {
     legacyCdnUrl: options.legacyCdnUrl,
-    userId,
   });
   return key && isR2Key(key, options.keyPrefix) ? key : null;
 }
@@ -35,10 +34,7 @@ const collectMalformedKeys = (
   keyPrefix: string
 ): Set<string> => {
   const keys = new Set<string>();
-  const rawPattern = new RegExp(
-    `${escapeRegExp(keyPrefix)}/[^\\s"'<>?&#]+`,
-    "g"
-  );
+  const rawPattern = new RegExp(`${escapeRegExp(keyPrefix)}/[^\\s"'<>]+`, "g");
   for (const match of content.matchAll(rawPattern)) {
     const [key] = match;
     if (key) {
@@ -63,26 +59,33 @@ const collectMalformedKeys = (
   return keys;
 };
 
-export function collectPlateReferenceKeys(
+export interface PlateReferences {
+  keys: Set<string>;
+  malformed: boolean;
+}
+
+export function collectPlateReferences(
   content: string,
-  eventId: string,
+  _eventId: string,
   options: MediaReferenceOptions
-): Set<string> {
+): PlateReferences {
   const parsed = getPlateImageUrls(content);
   if (parsed.malformed) {
-    return collectMalformedKeys(content, options.keyPrefix);
+    return {
+      keys: collectMalformedKeys(content, options.keyPrefix),
+      malformed: true,
+    };
   }
   const keys = new Set<string>();
   for (const url of parsed.urls) {
     const key = url.startsWith(`${options.keyPrefix}/`)
       ? url
-      : parseEventUpdateMediaKey(url, {
-          eventId,
+      : parseEventUpdateMediaReferenceKey(url, {
           legacyCdnUrl: options.legacyCdnUrl,
         });
     if (key && isR2Key(key, options.keyPrefix)) {
       keys.add(key);
     }
   }
-  return keys;
+  return { keys, malformed: false };
 }

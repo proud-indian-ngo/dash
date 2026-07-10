@@ -47,12 +47,19 @@ export async function handleEventPhotoRequest(
   if (!isAssetId(photoId)) {
     return Response.json({ error: "Invalid id" }, { status: 400 });
   }
-  const rateLimit = deps.checkRateLimit(
+  const userRateLimit = deps.checkRateLimit(
     `event-media:${result.session.user.id}`,
-    300
+    3000
   );
-  if (!rateLimit.allowed) {
-    return deps.rateLimitResponse(rateLimit);
+  if (!userRateLimit.allowed) {
+    return deps.rateLimitResponse(userRateLimit);
+  }
+  const photoRateLimit = deps.checkRateLimit(
+    `event-media:${result.session.user.id}:${photoId}`,
+    30
+  );
+  if (!photoRateLimit.allowed) {
+    return deps.rateLimitResponse(photoRateLimit);
   }
 
   let resolved: Awaited<ReturnType<typeof resolveAuthorizedR2Object>>;
