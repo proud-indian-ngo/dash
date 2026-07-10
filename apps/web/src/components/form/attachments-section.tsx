@@ -14,8 +14,8 @@ import {
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type {
-  AttachmentDownloadKind,
   AttachmentDownloadRef,
+  AttachmentRowDownloadKind,
 } from "@pi-dash/shared/asset-ref";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
@@ -43,10 +43,7 @@ import {
 
 interface AttachmentsSectionProps {
   entityId: string;
-  fileDownloadKind?: Exclude<
-    AttachmentDownloadKind,
-    "scheduledMessageAttachment"
-  >;
+  fileDownloadKind?: AttachmentRowDownloadKind;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
 }

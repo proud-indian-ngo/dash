@@ -16,7 +16,10 @@ import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
-import type { ExportAttachmentLink } from "@/lib/export-attachments";
+import {
+  type ExportAttachmentLink,
+  groupExportAttachments,
+} from "@/lib/export-attachments";
 import { authMiddleware } from "@/middleware/auth";
 
 const statusValues = ["pending", "approved", "rejected"] as const;
@@ -45,28 +48,6 @@ export interface ExportRow {
   title: string;
   total: string;
   type: string;
-}
-
-function groupAttachments<
-  T extends Omit<ExportAttachment, "kind"> & { parentId: string },
->(
-  attachments: T[],
-  kind: ExportAttachment["kind"]
-): Map<string, ExportAttachment[]> {
-  const map = new Map<string, ExportAttachment[]>();
-  for (const a of attachments) {
-    const list = map.get(a.parentId) ?? [];
-    list.push({
-      filename: a.filename,
-      id: a.id,
-      kind,
-      mimeType: a.mimeType,
-      type: a.type,
-      url: a.url,
-    });
-    map.set(a.parentId, list);
-  }
-  return map;
 }
 
 type MainTable = typeof reimbursement | typeof advancePayment;
@@ -160,6 +141,7 @@ async function queryExportRows(
             filename: attachmentTable.filename,
             id: attachmentTable.id,
             mimeType: attachmentTable.mimeType,
+            objectKey: attachmentTable.objectKey,
             parentId: config.attachmentJoinCol,
             type: attachmentTable.type,
             url: attachmentTable.url,
@@ -168,7 +150,7 @@ async function queryExportRows(
           .where(inArray(config.attachmentJoinCol, ids))
       : [];
 
-  const attachmentsByRecord = groupAttachments(
+  const attachmentsByRecord = groupExportAttachments(
     rawAttachments,
     config.attachmentKind
   );

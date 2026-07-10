@@ -1,5 +1,6 @@
 import {
   type AttachmentDownloadRef,
+  isAssetId,
   isAttachmentDownloadKind,
 } from "@pi-dash/shared/asset-ref";
 import { createFileRoute } from "@tanstack/react-router";
@@ -21,6 +22,9 @@ export const parseAttachmentDownloadRef = (
 
   if (!id) {
     return Response.json({ error: "Missing id" }, { status: 400 });
+  }
+  if (!isAssetId(id)) {
+    return Response.json({ error: "Invalid id" }, { status: 400 });
   }
   if (!isAttachmentDownloadKind(kind)) {
     return Response.json({ error: "Invalid kind" }, { status: 400 });
@@ -69,6 +73,7 @@ const sanitizeFileName = (input: string): string =>
     .replaceAll(/"/g, "");
 
 const INLINE_MEDIA_TYPES = new Set([
+  "application/pdf",
   "image/gif",
   "image/heic",
   "image/heif",
@@ -78,6 +83,15 @@ const INLINE_MEDIA_TYPES = new Set([
   "video/mp4",
   "video/quicktime",
 ]);
+
+const NON_PRINTABLE_ASCII = /[^\x20-\x7e]/gu;
+const RFC5987_SPECIAL_CHARS = /['()*]/g;
+
+const encodeRfc5987 = (value: string): string =>
+  encodeURIComponent(value).replace(
+    RFC5987_SPECIAL_CHARS,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  );
 
 const getContentDisposition = (
   requestUrl: URL,
@@ -91,7 +105,27 @@ const getContentDisposition = (
     INLINE_MEDIA_TYPES.has(mediaType)
       ? "inline"
       : "attachment";
-  return `${disposition}; filename="${fileName}"`;
+  const asciiFileName = fileName.replace(NON_PRINTABLE_ASCII, "_");
+  const fallback = asciiFileName || "attachment";
+  if (fallback === fileName) {
+    return `${disposition}; filename="${fallback}"`;
+  }
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeRfc5987(fileName)}`;
+};
+
+const getPrivateProxyHeaders = (upstream: Response): Headers => {
+  const headers = new Headers({
+    "Cache-Control": "private, max-age=0, no-store",
+    Vary: "Cookie",
+    "X-Content-Type-Options": "nosniff",
+  });
+  for (const name of ["accept-ranges", "content-length", "content-range"]) {
+    const value = upstream.headers.get(name);
+    if (value) {
+      headers.set(name, value);
+    }
+  }
+  return headers;
 };
 
 export async function handleAttachmentDownloadRequest(
@@ -139,28 +173,23 @@ export async function handleAttachmentDownloadRequest(
       downloadUrl,
       range ? { headers: { Range: range } } : undefined
     );
+    if (upstream.status === 416) {
+      return new Response(null, {
+        headers: getPrivateProxyHeaders(upstream),
+        status: 416,
+      });
+    }
     if (!upstream.ok) {
       return Response.json({ error: "Asset not found" }, { status: 404 });
     }
     const contentType =
       upstream.headers.get("content-type") ?? "application/octet-stream";
-    const responseHeaders = new Headers({
-      "Cache-Control": "private, max-age=0, no-store",
-      "Content-Disposition": getContentDisposition(
-        requestUrl,
-        contentType,
-        fileName
-      ),
-      "Content-Type": contentType,
-      Vary: "Cookie",
-      "X-Content-Type-Options": "nosniff",
-    });
-    for (const name of ["accept-ranges", "content-length", "content-range"]) {
-      const value = upstream.headers.get(name);
-      if (value) {
-        responseHeaders.set(name, value);
-      }
-    }
+    const responseHeaders = getPrivateProxyHeaders(upstream);
+    responseHeaders.set(
+      "Content-Disposition",
+      getContentDisposition(requestUrl, contentType, fileName)
+    );
+    responseHeaders.set("Content-Type", contentType);
     return new Response(upstream.body, {
       headers: responseHeaders,
       status: upstream.status,

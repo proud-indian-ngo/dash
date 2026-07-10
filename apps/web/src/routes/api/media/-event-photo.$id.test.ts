@@ -14,6 +14,8 @@ import {
   handleEventPhotoRequest,
 } from "./event-photo.$id";
 
+const PHOTO_ID = "e2e00000-0000-0000-0000-000000000303";
+
 const handlerDeps = (
   overrides: Partial<EventPhotoHandlerDeps> = {}
 ): EventPhotoHandlerDeps => ({
@@ -40,8 +42,8 @@ const handlerDeps = (
 describe("handleEventPhotoRequest", () => {
   it("returns 401 before resolving the photo", async () => {
     const response = await handleEventPhotoRequest(
-      new Request("https://example.test/api/media/event-photo/photo-1"),
-      "photo-1",
+      new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
+      PHOTO_ID,
       handlerDeps()
     );
 
@@ -50,8 +52,8 @@ describe("handleEventPhotoRequest", () => {
 
   it("returns the resolver authorization error", async () => {
     const response = await handleEventPhotoRequest(
-      new Request("https://example.test/api/media/event-photo/photo-1"),
-      "photo-1",
+      new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
+      PHOTO_ID,
       handlerDeps({
         requireSession: async () => ({ session: { user: { id: "other" } } }),
         resolveAuthorizedR2Object: () =>
@@ -63,11 +65,26 @@ describe("handleEventPhotoRequest", () => {
     await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
 
+  it("rejects malformed database IDs before resolving the photo", async () => {
+    const resolveAuthorizedR2Object = vi.fn();
+    const response = await handleEventPhotoRequest(
+      new Request("https://example.test/api/media/event-photo/not-a-uuid"),
+      "not-a-uuid",
+      handlerDeps({
+        requireSession: async () => ({ session: { user: { id: "member" } } }),
+        resolveAuthorizedR2Object,
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(resolveAuthorizedR2Object).not.toHaveBeenCalled();
+  });
+
   it("redirects authorized viewers to a two-minute signed URL", async () => {
     const presign = vi.fn(() => "https://r2.example.test/signed-event-photo");
     const response = await handleEventPhotoRequest(
-      new Request("https://example.test/api/media/event-photo/photo-1"),
-      "photo-1",
+      new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
+      PHOTO_ID,
       handlerDeps({
         getS3: () => ({ presign }),
         requireSession: async () => ({ session: { user: { id: "member" } } }),

@@ -1,4 +1,5 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack dynamic route parameters use $ in filenames.
+import { isAssetId } from "@pi-dash/shared/asset-ref";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { requireSession } from "@/lib/api-auth";
@@ -42,6 +43,9 @@ export async function handleEventPhotoRequest(
   const result = await deps.requireSession(request);
   if ("error" in result) {
     return result.error;
+  }
+  if (!isAssetId(photoId)) {
+    return Response.json({ error: "Invalid id" }, { status: 400 });
   }
   const rateLimit = deps.checkRateLimit(
     `event-media:${result.session.user.id}`,

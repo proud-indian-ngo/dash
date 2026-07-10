@@ -18,6 +18,8 @@ import {
   parseAttachmentDownloadRef,
 } from "./download";
 
+const ATTACHMENT_ID = "e2e00000-0000-0000-0000-000000000005";
+
 const handlerDeps = (
   overrides: Partial<AttachmentDownloadHandlerDeps> = {}
 ): AttachmentDownloadHandlerDeps => ({
@@ -45,10 +47,21 @@ describe("parseAttachmentDownloadRef", () => {
     expect(
       parseAttachmentDownloadRef(
         new URL(
-          "https://example.test/api/attachments/download?id=attachment-1&kind=reimbursementAttachment&key=app/attachments/secret.pdf"
+          `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment&key=app/attachments/secret.pdf`
         )
       )
-    ).toEqual({ id: "attachment-1", kind: "reimbursementAttachment" });
+    ).toEqual({ id: ATTACHMENT_ID, kind: "reimbursementAttachment" });
+  });
+
+  it("rejects malformed database IDs", () => {
+    const response = parseAttachmentDownloadRef(
+      new URL(
+        "https://example.test/api/attachments/download?id=not-a-uuid&kind=reimbursementAttachment"
+      )
+    );
+
+    expect(response).toBeInstanceOf(Response);
+    expect((response as Response).status).toBe(400);
   });
 });
 
@@ -56,7 +69,7 @@ describe("handleAttachmentDownloadRequest", () => {
   it("returns 401 before resolving an asset reference", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?id=attachment-1&kind=reimbursementAttachment"
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
       ),
       handlerDeps()
     );
@@ -68,7 +81,7 @@ describe("handleAttachmentDownloadRequest", () => {
   it("returns 403 when the exact DB record is not authorized", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?id=attachment-1&kind=reimbursementAttachment"
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
       ),
       handlerDeps({
         requireSession: async () => ({
@@ -86,7 +99,7 @@ describe("handleAttachmentDownloadRequest", () => {
   it("returns 404 when the asset reference has no exact DB match", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?id=missing&kind=reimbursementAttachment"
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
       ),
       handlerDeps({
         requireSession: async () => ({ session: { user: { id: "owner" } } }),
@@ -104,7 +117,7 @@ describe("handleAttachmentDownloadRequest", () => {
   it("streams an authorized object using its persisted filename", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?id=attachment-1&kind=reimbursementAttachment"
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
       ),
       handlerDeps({
         fetch: async () =>
@@ -127,7 +140,7 @@ describe("handleAttachmentDownloadRequest", () => {
   it("allows inline rendering only for safe media types", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?disposition=inline&id=attachment-1&kind=reimbursementAttachment"
+        `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
       ),
       handlerDeps({
         fetch: async () =>
@@ -141,10 +154,54 @@ describe("handleAttachmentDownloadRequest", () => {
     );
   });
 
+  it("allows inline preview for PDF attachments", async () => {
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
+      ),
+      handlerDeps({
+        fetch: async () =>
+          new Response("pdf", {
+            headers: { "content-type": "application/pdf" },
+          }),
+        requireSession: async () => ({ session: { user: { id: "owner" } } }),
+      })
+    );
+
+    expect(response.headers.get("content-disposition")).toBe(
+      'inline; filename="receipt.pdf"'
+    );
+  });
+
+  it("encodes non-ASCII filenames for inline PDF previews", async () => {
+    const filename = "रसीद-📄.pdf";
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
+      ),
+      handlerDeps({
+        fetch: async () =>
+          new Response("pdf", {
+            headers: { "content-type": "application/pdf" },
+          }),
+        requireSession: async () => ({ session: { user: { id: "owner" } } }),
+        resolveAuthorizedR2Object: async () => ({
+          filename,
+          key: "legacy/receipt.pdf",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(
+      `inline; filename="____-_.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+  });
+
   it("forces unsafe media types to download", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?disposition=inline&id=attachment-1&kind=reimbursementAttachment"
+        `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=reimbursementAttachment`
       ),
       handlerDeps({
         fetch: async () =>
@@ -173,7 +230,7 @@ describe("handleAttachmentDownloadRequest", () => {
     );
     const response = await handleAttachmentDownloadRequest(
       new Request(
-        "https://example.test/api/attachments/download?id=attachment-1&kind=reimbursementAttachment",
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment`,
         { headers: { Range: "bytes=0-6" } }
       ),
       handlerDeps({
@@ -189,5 +246,25 @@ describe("handleAttachmentDownloadRequest", () => {
     expect(response.headers.get("accept-ranges")).toBe("bytes");
     expect(response.headers.get("content-length")).toBe("7");
     expect(response.headers.get("content-range")).toBe("bytes 0-6/20");
+  });
+
+  it("preserves unsatisfiable range responses", async () => {
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=reimbursementAttachment`,
+        { headers: { Range: "bytes=999-1000" } }
+      ),
+      handlerDeps({
+        fetch: async () =>
+          new Response(null, {
+            headers: { "content-range": "bytes */20" },
+            status: 416,
+          }),
+        requireSession: async () => ({ session: { user: { id: "owner" } } }),
+      })
+    );
+
+    expect(response.status).toBe(416);
+    expect(response.headers.get("content-range")).toBe("bytes */20");
   });
 });

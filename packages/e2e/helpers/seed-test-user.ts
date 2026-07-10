@@ -11,6 +11,7 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { role, rolePermission } from "@pi-dash/db/schema/permission";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -87,6 +88,42 @@ const TEST_USERS: TestUser[] = [
 ];
 
 const SEED_CATEGORIES = ["Travel", "Food", "Accommodation", "Supplies"];
+const RESERVED_PERMISSION_PROBE_ROLE_ID = "e2e_reserved_permission_probe";
+
+async function verifyReservedPermissionSync(): Promise<void> {
+  await db
+    .insert(role)
+    .values({
+      description: "E2E permission sync probe",
+      id: RESERVED_PERMISSION_PROBE_ROLE_ID,
+      isSystem: false,
+      name: "E2E Permission Sync Probe",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(rolePermission)
+    .values({
+      permissionId: "requests.export",
+      roleId: RESERVED_PERMISSION_PROBE_ROLE_ID,
+    })
+    .onConflictDoNothing();
+
+  try {
+    await syncPermissions();
+    const grants = await db
+      .select({ roleId: rolePermission.roleId })
+      .from(rolePermission)
+      .where(eq(rolePermission.permissionId, "requests.export"));
+    const roleIds = grants.map((grant) => grant.roleId).sort();
+    if (roleIds.length !== 1 || roleIds[0] !== "super_admin") {
+      throw new Error(
+        `Reserved permission sync left unexpected grants: ${roleIds.join(", ")}`
+      );
+    }
+  } finally {
+    await db.delete(role).where(eq(role.id, RESERVED_PERMISSION_PROBE_ROLE_ID));
+  }
+}
 
 async function ensureTestUser(testUser: TestUser): Promise<string> {
   const existing = await db.query.user.findFirst({
@@ -843,6 +880,7 @@ async function ensureFilterTestEvents(
 
 async function seed(): Promise<void> {
   await syncPermissions();
+  await verifyReservedPermissionSync();
   log("Synced roles and permissions");
 
   await ensureExpenseCategories();

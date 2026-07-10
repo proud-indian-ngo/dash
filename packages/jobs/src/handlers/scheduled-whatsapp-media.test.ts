@@ -28,4 +28,22 @@ describe("buildScheduledWhatsAppMedia", () => {
       method: "GET",
     });
   });
+
+  it("rejects temporary object keys", () => {
+    const presign = vi.fn();
+
+    expect(() =>
+      buildScheduledWhatsAppMedia(
+        [
+          {
+            fileName: "agenda.pdf",
+            mimeType: "application/pdf",
+            r2Key: "app/messages/tmp/user/agenda.pdf",
+          },
+        ],
+        { presign }
+      )
+    ).toThrow("Temporary R2 objects cannot be delivered");
+    expect(presign).not.toHaveBeenCalled();
+  });
 });

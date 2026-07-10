@@ -1,3 +1,5 @@
+import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
+
 export interface R2ObjectAccessDeps {
   isEventMember: (eventId: string, userId: string) => Promise<boolean>;
   isTeamLead: (teamId: string, userId: string) => Promise<boolean>;
@@ -53,8 +55,6 @@ export class R2ObjectAccessError extends Error {
     this.status = status;
   }
 }
-
-const TEMP_KEY_SEGMENT = /(^|\/)tmp\//;
 
 const getRole = (session: SessionLike): string =>
   session.user.role ?? "unoriented_volunteer";
@@ -117,7 +117,7 @@ export async function authorizeR2Object(
   record: R2ObjectRecord,
   deps: R2ObjectAccessDeps
 ): Promise<ResolvedR2Object> {
-  if (TEMP_KEY_SEGMENT.test(record.key)) {
+  if (isTemporaryR2Key(record.key)) {
     throw new R2ObjectAccessError(404, "Object not found");
   }
   let allowed: boolean;
