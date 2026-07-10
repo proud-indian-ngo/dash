@@ -1,0 +1,51 @@
+apps/web/src/lib/r2-upload-claim.test.ts
+  s_adf55c018923eb::t_0821cda1a8eefe 14-34,37-41,48,60,73-74,84,93,114,134,144,152,158,176,213,224,242
+  s_adf55c018923eb::t_4844268d042e07 145,147-151,153-157,159-160
+  s_adf55c018923eb::t_89887b0973aff3 207
+  s_adf55c018923eb::t_aec056579db210 146
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_adf55c018923eb::t_87f20ec9585694 122
+apps/web/src/lib/r2-upload-claim.ts
+  s_adf55c018923eb::t_2c8046289150e9 140-142,147-148
+  s_adf55c018923eb::t_89887b0973aff3 14-16,65-112,149
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_21d0364f5b034e 321,402-406,429-433
+apps/web/src/components/vendor-payments/vendor-payment-invoice-section.tsx
+  s_adf55c018923eb::t_87f20ec9585694 194
+apps/web/src/components/form/approve-dialog.tsx
+  s_adf55c018923eb::t_89887b0973aff3 169,191-196,262
+  s_adf55c018923eb::t_87f20ec9585694 30,44,69,156-158,164-168,170-185,255-261
+packages/jobs/src/handlers/delete-r2-object.test.ts
+  s_adf55c018923eb::t_b4dd64a0ba52ee 2-8
+  s_adf55c018923eb::t_4844268d042e07 1,9-57
+packages/zero/src/mutators/__tests__/upload-claim-mutators.test.ts
+  s_adf55c018923eb::t_21d0364f5b034e 125
+packages/jobs/src/handlers/delete-r2-object.ts
+  s_adf55c018923eb::t_2c8046289150e9 3,7-20,33-39
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_2c8046289150e9 63,81-89,170
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_ff127f40fc80a1 15-18,20-21
+packages/jobs/src/lib/protected-r2-reference.ts
+  s_adf55c018923eb::t_2c8046289150e9 1-31
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_adf55c018923eb::t_87f20ec9585694 325
+packages/jobs/src/types.ts
+  s_adf55c018923eb::t_2c8046289150e9 493
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "221e854504d4540f14781e09ae15831196c42b3f",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
