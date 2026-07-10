@@ -1,0 +1,84 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  logSet: vi.fn(),
+  warn: vi.fn(),
+}));
+
+vi.mock("evlog", () => ({
+  createRequestLogger: () => ({
+    emit: vi.fn(),
+    error: mocks.error,
+    set: mocks.logSet,
+    warn: mocks.warn,
+  }),
+}));
+vi.mock("./client", () => ({
+  getWhatsAppApiUrl: () => "https://whatsapp.example.test",
+  getWhatsAppHeaders: () => ({}),
+}));
+
+import { sendWhatsAppMedia } from "./messaging";
+
+const signedUrl =
+  "https://account.r2.cloudflarestorage.com/bucket/agenda.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=secret";
+
+const loggedText = (): string =>
+  JSON.stringify([...mocks.logSet.mock.calls, ...mocks.error.mock.calls]);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("sendWhatsAppMedia", () => {
+  it("uses the persisted filename without logging a signed document URL", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("document"))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await sendWhatsAppMedia("919999999999", {
+      fileName: "agenda.pdf",
+      mimeType: "application/pdf",
+      url: signedUrl,
+    });
+
+    const request = fetch.mock.calls[1]?.[1] as RequestInit;
+    const file = (request.body as FormData).get("file") as File;
+    expect(file.name).toBe("agenda.pdf");
+    expect(loggedText()).not.toContain(signedUrl);
+  });
+
+  it.each([
+    ["image/jpeg", "photo.jpg"],
+    ["video/mp4", "video.mp4"],
+  ])("does not log signed %s URLs", async (mimeType, fileName) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null)));
+
+    await sendWhatsAppMedia("919999999999", {
+      fileName,
+      mimeType,
+      url: signedUrl,
+    });
+
+    expect(loggedText()).not.toContain(signedUrl);
+  });
+
+  it("does not include a signed URL in document download errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 403 }))
+    );
+
+    await expect(
+      sendWhatsAppMedia("919999999999", {
+        fileName: "agenda.pdf",
+        mimeType: "application/pdf",
+        url: signedUrl,
+      })
+    ).rejects.not.toThrow(signedUrl);
+    expect(loggedText()).not.toContain(signedUrl);
+  });
+});
