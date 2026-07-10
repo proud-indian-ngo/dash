@@ -96,9 +96,7 @@ async function resolveAdvancePaymentApprovalScreenshot(
     where: eq(advancePayment.id, ref.id),
   });
   return parent
-    ? requestRecord(parent.approvalScreenshotKey, "payment-proof", [
-        parent.userId,
-      ])
+    ? requestRecord(parent.approvalScreenshotKey, null, [parent.userId])
     : null;
 }
 
@@ -152,9 +150,7 @@ async function resolveReimbursementApprovalScreenshot(
     where: eq(reimbursement.id, ref.id),
   });
   return parent
-    ? requestRecord(parent.approvalScreenshotKey, "payment-proof", [
-        parent.userId,
-      ])
+    ? requestRecord(parent.approvalScreenshotKey, null, [parent.userId])
     : null;
 }
 
