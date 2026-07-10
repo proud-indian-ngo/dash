@@ -15,7 +15,8 @@
    MIME/size metadata, streams the exact source bytes through a bounded writer,
    and idempotently copies the temp object to the durable key. A zero-length,
    changed, or oversized stream fails the copy, rolls back the database
-   transaction, and retains the temp source for retry.
+   transaction, and retains the temp source for retry. Attempted durable
+   targets are queued for delayed, reference-checked cleanup on rollback.
 5. After commit, the server enqueues temp-source deletion. Replaced or deleted
    durable objects are delayed for 30 seconds; the job rechecks every protected
    database reference and deletes only when the key is still unreferenced.

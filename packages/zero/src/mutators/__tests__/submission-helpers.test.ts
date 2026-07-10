@@ -287,6 +287,8 @@ describe("claimUploadedR2ObjectKey", () => {
   it("queues copy before commit and source deletion after commit", async () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const asyncTasks: AsyncTask[] = [];
+    const rollbackTasks: AsyncTask[] = [];
+    const lockR2Object = vi.fn();
     const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
     const targetKey =
       "app/attachments/reimbursements/request-1/upload-id-receipt.pdf";
@@ -298,8 +300,10 @@ describe("claimUploadedR2ObjectKey", () => {
         beforeCommitTasks,
         copyR2Object,
         enqueue,
+        lockR2Object,
         mimeType: "application/pdf",
         r2KeyPrefix: "app",
+        rollbackTasks,
         traceId: "trace-id",
         txLocation: "server",
       })
@@ -308,12 +312,22 @@ describe("claimUploadedR2ObjectKey", () => {
     expect(beforeCommitTasks).toHaveLength(1);
     expect(asyncTasks).toHaveLength(1);
     await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(targetKey);
     expect(copyR2Object).toHaveBeenCalledWith({
       mimeType: "application/pdf",
       sourceKey,
       targetKey,
     });
     expect(enqueue).not.toHaveBeenCalled();
+
+    expect(rollbackTasks).toHaveLength(1);
+    await rollbackTasks[0]?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key: targetKey },
+      { startAfter: "30 seconds", traceId: "trace-id" }
+    );
+    enqueue.mockClear();
 
     await asyncTasks[0]?.fn();
     expect(enqueue).toHaveBeenCalledWith(

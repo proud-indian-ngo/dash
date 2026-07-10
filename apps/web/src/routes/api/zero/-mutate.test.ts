@@ -247,17 +247,28 @@ describe("Zero mutate task boundaries", () => {
     expect(mocks.withFireAndForgetLog).not.toHaveBeenCalled();
   });
 
-  it("retains the temporary source when commit fails after a successful copy", async () => {
+  it("cleans a durable target but retains its temp source when commit fails", async () => {
     const calls: string[] = [];
     mocks.mutatorFn.mockImplementation(
       ({
         ctx,
       }: {
-        ctx: { asyncTasks: AsyncTask[]; beforeCommitTasks: AsyncTask[] };
+        ctx: {
+          asyncTasks: AsyncTask[];
+          beforeCommitTasks: AsyncTask[];
+          rollbackTasks: AsyncTask[];
+        };
       }) => {
         ctx.beforeCommitTasks.push({
           fn: () => {
             calls.push("copy");
+            ctx.rollbackTasks.push({
+              fn: () => {
+                calls.push("delete-target");
+                return Promise.resolve();
+              },
+              meta: { mutator: "rollback-claim" },
+            });
             return Promise.resolve();
           },
           meta: { mutator: "claim-upload" },
@@ -296,7 +307,75 @@ describe("Zero mutate task boundaries", () => {
       result: { error: "app", message: "commit failed" },
     });
     expect(calls).toEqual(["copy", "commit-failed"]);
-    expect(mocks.withFireAndForgetLog).not.toHaveBeenCalled();
+    const runRollbackTasks = mocks.withFireAndForgetLog.mock.calls[0]?.[1];
+    await runRollbackTasks?.();
+    expect(calls).toEqual(["copy", "commit-failed", "delete-target"]);
+  });
+
+  it("cleans earlier durable targets when a later pre-commit copy fails", async () => {
+    const calls: string[] = [];
+    mocks.mutatorFn.mockImplementation(
+      ({
+        ctx,
+      }: {
+        ctx: { beforeCommitTasks: AsyncTask[]; rollbackTasks: AsyncTask[] };
+      }) => {
+        ctx.beforeCommitTasks.push(
+          {
+            fn: () => {
+              calls.push("copy-first");
+              ctx.rollbackTasks.push({
+                fn: () => {
+                  calls.push("delete-first-target");
+                  return Promise.resolve();
+                },
+                meta: { mutator: "rollback-first" },
+              });
+              return Promise.resolve();
+            },
+            meta: { mutator: "claim-first" },
+          },
+          {
+            fn: () => Promise.reject(new Error("second copy failed")),
+            meta: { mutator: "claim-second" },
+          }
+        );
+      }
+    );
+    mocks.handleMutateRequest.mockImplementation(
+      async ({
+        handler,
+      }: {
+        handler: (transact: unknown) => Promise<unknown>;
+      }) =>
+        handler(
+          async (
+            callback: (tx: unknown, name: string, args: unknown) => unknown
+          ) => {
+            try {
+              await callback({ location: "server" }, "test.mutator", {});
+              return { result: {} };
+            } catch (error) {
+              return {
+                result: {
+                  error: "app",
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                },
+              };
+            }
+          }
+        )
+    );
+
+    await postHandler()({
+      request: new Request("http://localhost/api/zero/mutate"),
+    });
+
+    expect(calls).toEqual(["copy-first"]);
+    const runRollbackTasks = mocks.withFireAndForgetLog.mock.calls[0]?.[1];
+    await runRollbackTasks?.();
+    expect(calls).toEqual(["copy-first", "delete-first-target"]);
   });
 
   it("isolates post-commit queues between mutations", async () => {

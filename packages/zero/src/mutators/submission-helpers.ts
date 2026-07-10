@@ -27,6 +27,7 @@ interface R2ObjectClaimOptions {
   lockR2Object?: Context["lockR2Object"];
   mimeType?: null | string;
   r2KeyPrefix?: string;
+  rollbackTasks?: Context["rollbackTasks"];
   subfolder: R2Subfolder;
   traceId?: string;
   txLocation: string;
@@ -49,6 +50,7 @@ export function createR2ClaimOptions(
     enqueue: ctx.enqueue,
     lockR2Object: ctx.lockR2Object,
     r2KeyPrefix: ctx.r2KeyPrefix,
+    rollbackTasks: ctx.rollbackTasks,
     traceId: ctx.traceId,
     txLocation,
     userId: ctx.userId,
@@ -147,14 +149,35 @@ function pushClaimR2ObjectTasks(
   if (!options.enqueue) {
     throw new Error("Job enqueue handler is required");
   }
-  const { copyR2Object } = options;
+  if (!options.lockR2Object) {
+    throw new Error("R2 object lock handler is required");
+  }
+  if (!options.rollbackTasks) {
+    throw new Error("Rollback task queue is required");
+  }
+  const { copyR2Object, lockR2Object, rollbackTasks } = options;
   options.beforeCommitTasks.push({
-    fn: () =>
-      copyR2Object({
+    fn: async () => {
+      await lockR2Object(targetKey);
+      enqueueDeleteR2Object(
+        { ...options, asyncTasks: rollbackTasks },
+        options.txLocation,
+        targetKey,
+        {
+          keyPrefixes: [`${options.subfolder}/${options.durablePrefix}/`],
+          meta: {
+            mutator: "rollback-claimed-r2-target",
+            sourceKey,
+            targetKey,
+          },
+        }
+      );
+      await copyR2Object({
         ...(options.mimeType ? { mimeType: options.mimeType } : {}),
         sourceKey,
         targetKey,
-      }),
+      });
+    },
     meta: {
       mutator: "claim-r2-object",
       sourceKey,

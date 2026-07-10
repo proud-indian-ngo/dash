@@ -31,6 +31,7 @@ export interface Context {
   permissions: string[];
   r2KeyPrefix?: string;
   role: string;
+  rollbackTasks?: AsyncTask[];
   traceId?: string;
   userId: string;
 }

@@ -9,15 +9,18 @@ import { vendorPaymentTransactionMutators } from "../vendor-payment-transaction"
 
 const copyR2Object = vi.fn();
 const enqueue = vi.fn();
+const lockR2Object = vi.fn();
 
 const serverContext = (permissions: string[] = []): Context => ({
   asyncTasks: [],
   beforeCommitTasks: [],
   copyR2Object,
   enqueue: enqueue as Context["enqueue"],
+  lockR2Object,
   permissions,
   r2KeyPrefix: "app",
   role: "volunteer",
+  rollbackTasks: [],
   userId: "user-1",
 });
 
@@ -398,6 +401,136 @@ describe("server mutator upload claims", () => {
       "delete-r2-object",
       { deleteIfUnreferenced: false, r2Key: sourceKey },
       { traceId: undefined }
+    );
+  });
+
+  it("retains, replaces, and cleans scheduled-message attachments on update", async () => {
+    const updateMessage = vi.fn();
+    const ctx = serverContext(["messages.schedule"]);
+    const retainedKey =
+      "app/scheduled-messages/message-1/upload-id-retained.mp3";
+    const removedKey = "app/scheduled-messages/message-1/upload-id-removed.pdf";
+    const replacementSource =
+      "app/scheduled-messages/tmp/user-1/upload-id-new.pdf";
+    const replacementTarget =
+      "app/scheduled-messages/message-1/upload-id-new.pdf";
+    const tx = {
+      location: "server",
+      mutate: {
+        scheduledMessage: { update: updateMessage },
+        scheduledMessageRecipient: {
+          delete: vi.fn(),
+          insert: vi.fn(),
+        },
+      },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          attachments: [
+            {
+              fileName: "retained.mp3",
+              mimeType: "audio/mpeg",
+              r2Key: retainedKey,
+            },
+            {
+              fileName: "removed.pdf",
+              mimeType: "application/pdf",
+              r2Key: removedKey,
+            },
+          ],
+        })
+        .mockResolvedValueOnce([{ id: "recipient-old", status: "pending" }]),
+    };
+
+    await scheduledMessageMutators.update.fn({
+      args: {
+        attachments: [
+          {
+            fileName: "retained.mp3",
+            mimeType: "audio/mpeg",
+            r2Key: retainedKey,
+          },
+          {
+            fileName: "new.pdf",
+            mimeType: "application/pdf",
+            r2Key: replacementSource,
+          },
+        ],
+        id: "message-1",
+        message: "Updated",
+        recipients: [{ id: "group-1", label: "Group", type: "group" }],
+        scheduledAt: Date.now() + 60_000,
+      },
+      ctx,
+      tx,
+    } as never);
+
+    expect(updateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: [
+          {
+            fileName: "retained.mp3",
+            mimeType: "audio/mpeg",
+            r2Key: retainedKey,
+          },
+          {
+            fileName: "new.pdf",
+            mimeType: "application/pdf",
+            r2Key: replacementTarget,
+          },
+        ],
+      })
+    );
+    await Promise.all((ctx.beforeCommitTasks ?? []).map((task) => task.fn()));
+    expect(lockR2Object).toHaveBeenCalledWith(retainedKey);
+    expect(lockR2Object).toHaveBeenCalledWith(replacementTarget);
+
+    await taskByMutator(ctx.asyncTasks ?? [], "scheduledMessage.update")?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key: removedKey },
+      { startAfter: "30 seconds", traceId: undefined }
+    );
+    await taskByMutator(
+      ctx.asyncTasks ?? [],
+      "cleanup-claimed-r2-source"
+    )?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: false, r2Key: replacementSource },
+      { traceId: undefined }
+    );
+  });
+
+  it("queues durable attachment cleanup when deleting a scheduled message", async () => {
+    const deleteMessage = vi.fn();
+    const ctx = serverContext(["messages.schedule"]);
+    const r2Key = "app/scheduled-messages/message-1/upload-id-file.pdf";
+    const tx = {
+      location: "server",
+      mutate: { scheduledMessage: { delete: deleteMessage } },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          attachments: [
+            { fileName: "file.pdf", mimeType: "application/pdf", r2Key },
+          ],
+        })
+        .mockResolvedValueOnce([{ id: "recipient-1", status: "sent" }]),
+    };
+
+    await scheduledMessageMutators.delete.fn({
+      args: { id: "message-1" },
+      ctx,
+      tx,
+    } as never);
+
+    expect(deleteMessage).toHaveBeenCalledWith({ id: "message-1" });
+    await taskByMutator(ctx.asyncTasks ?? [], "scheduledMessage.delete")?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key },
+      { startAfter: "30 seconds", traceId: undefined }
     );
   });
 

@@ -58,50 +58,62 @@ export const Route = createFileRoute("/api/zero/mutate")({
           userId,
         };
 
-        const result = await handleMutateRequest({
-          dbProvider,
-          handler: async (transact) => {
-            const beforeCommitTasks: AsyncTask[] = [];
-            const mutationAsyncTasks: AsyncTask[] = [];
-            const mutationResult = await transact(async (tx, name, args) => {
-              const mutator = mustGetMutator(mutators, name);
-              const ctx = {
-                ...baseContext,
-                asyncTasks: mutationAsyncTasks,
-                beforeCommitTasks,
-                lockR2Object: async (r2Key: string) => {
-                  await tx.dbTransaction.query(
-                    "SELECT pg_advisory_xact_lock_shared(hashtextextended($1, 0))",
-                    [r2Key]
-                  );
-                },
-              };
-              await mutator.fn({ args, ctx, tx });
-              await runMutationTasksInOrder(beforeCommitTasks);
-            });
-            if (isSuccessfulMutationResult(mutationResult)) {
-              asyncTasks.push(...mutationAsyncTasks);
-            }
-            return mutationResult;
-          },
-          request,
-          userID: userId,
-        });
-
-        if (asyncTasks.length > 0) {
-          withFireAndForgetLog(
-            {
-              handler: "mutate",
-              mutators: asyncTasks.map((task) => task.meta.mutator),
-              taskCount: asyncTasks.length,
-              userId,
-              ...(traceId ? { traceId } : {}),
+        try {
+          const result = await handleMutateRequest({
+            dbProvider,
+            handler: async (transact) => {
+              const beforeCommitTasks: AsyncTask[] = [];
+              const mutationAsyncTasks: AsyncTask[] = [];
+              const rollbackTasks: AsyncTask[] = [];
+              try {
+                const mutationResult = await transact(
+                  async (tx, name, args) => {
+                    const mutator = mustGetMutator(mutators, name);
+                    const ctx = {
+                      ...baseContext,
+                      asyncTasks: mutationAsyncTasks,
+                      beforeCommitTasks,
+                      lockR2Object: async (r2Key: string) => {
+                        await tx.dbTransaction.query(
+                          "SELECT pg_advisory_xact_lock_shared(hashtextextended($1, 0))",
+                          [r2Key]
+                        );
+                      },
+                      rollbackTasks,
+                    };
+                    await mutator.fn({ args, ctx, tx });
+                    await runMutationTasksInOrder(beforeCommitTasks);
+                  }
+                );
+                if (isSuccessfulMutationResult(mutationResult)) {
+                  asyncTasks.push(...mutationAsyncTasks);
+                } else {
+                  asyncTasks.push(...rollbackTasks);
+                }
+                return mutationResult;
+              } catch (mutationError) {
+                asyncTasks.push(...rollbackTasks);
+                throw mutationError;
+              }
             },
-            () => runMutationTasksSettled(asyncTasks)
-          );
+            request,
+            userID: userId,
+          });
+          return Response.json(result);
+        } finally {
+          if (asyncTasks.length > 0) {
+            withFireAndForgetLog(
+              {
+                handler: "mutate",
+                mutators: asyncTasks.map((task) => task.meta.mutator),
+                taskCount: asyncTasks.length,
+                userId,
+                ...(traceId ? { traceId } : {}),
+              },
+              () => runMutationTasksSettled(asyncTasks)
+            );
+          }
         }
-
-        return Response.json(result);
       },
     },
   },
