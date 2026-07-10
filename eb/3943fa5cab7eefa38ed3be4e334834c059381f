@@ -1,0 +1,56 @@
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_642b5ea9613c0d 27,50,176-202,216-218
+packages/zero/src/mutators/__tests__/upload-claim-mutators.test.ts
+  s_adf55c018923eb::t_e1658c7acd570a 472-509
+  s_adf55c018923eb::t_0c40f101fe0fab 107-196
+  s_adf55c018923eb::t_aad7696dacd53f 8,90
+  s_adf55c018923eb::t_87d9170103cd65 3,7,32-89,91-106,197-302
+packages/zero/src/mutators/event-photo.ts
+  s_adf55c018923eb::t_27d13a14dec949 309
+apps/web/src/components/teams/events/photo-upload.test.ts
+  s_adf55c018923eb::t_08540d65ddc814 1-36
+apps/web/src/routes/api/zero/-mutate.test.ts
+  s_adf55c018923eb::t_aad7696dacd53f 91,93
+  s_adf55c018923eb::t_43d17ec9e70af5 89-90,92,94-138,140-144
+  s_adf55c018923eb::t_7c4336f26d577b 139
+packages/zero/src/context.ts
+  s_adf55c018923eb::t_642b5ea9613c0d 30
+packages/jobs/src/handlers/delete-r2-object.test.ts
+  s_adf55c018923eb::t_aad7696dacd53f 39,41
+  s_adf55c018923eb::t_e1658c7acd570a 4,14-16,22,26,30,32-38,40,42,48,52,60,67,70
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_e1658c7acd570a 326,330,340,345,347-356
+packages/jobs/src/lib/protected-r2-reference.test.ts
+  s_adf55c018923eb::t_17854faa45fdf3 1-41
+apps/web/src/components/teams/events/event-photos.tsx
+  s_adf55c018923eb::t_2386e0d6b40510 32
+packages/jobs/src/handlers/delete-r2-object.ts
+  s_adf55c018923eb::t_1d16b1a0360725 3,9-12,17,36-47
+packages/jobs/src/lib/protected-r2-reference.ts
+  s_adf55c018923eb::t_1d16b1a0360725 4-5,7-8,10,35,37-46
+  s_adf55c018923eb::t_aad7696dacd53f 36
+  s_adf55c018923eb::t_dd1f9bbcd6c2fc 47
+apps/web/src/components/teams/events/photo-upload.ts
+  s_adf55c018923eb::t_2386e0d6b40510 5-6,9,11-12,87-106,108-150
+  s_adf55c018923eb::t_add0261c2d2f1a 107
+  s_adf55c018923eb::t_0bd604408fd015 151-152
+apps/web/src/routes/api/zero/mutate.ts
+  s_adf55c018923eb::t_7c4336f26d577b 74
+  s_adf55c018923eb::t_642b5ea9613c0d 72-73,75-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "eb3943fa5cab7eefa38ed3be4e334834c059381f",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
