@@ -1,0 +1,154 @@
+DEPLOYMENT.md
+  s_adf55c018923eb::t_1b9620ed4f222a 59-61
+  s_adf55c018923eb::t_90d10dc80c96ba 56,58,63-75,247-249
+  s_adf55c018923eb::t_f4d8ec4661c2ed 62
+apps/web/src/routes/api/zero/mutate.ts
+  s_adf55c018923eb::t_af9f01d9ed89f2 3,53
+  s_adf55c018923eb::t_47637345d61b5e 2,14,16-20,51-52,54-59,63-66,68-80,85,89-90,94
+apps/web/src/routes/api/zero/-mutate.test.ts
+  s_adf55c018923eb::t_cc6c12981a6d7f 92-96,103-104,106,108-109,136-137,190-193,195-202,204,206-209,211,213-218,224-240,242
+  s_adf55c018923eb::t_0ba08a8f970352 98,100,105,107,138,203,205,210,212
+  s_adf55c018923eb::t_d97b480d137a34 114-118,159-163,219-223,260-264
+  s_adf55c018923eb::t_33de66141c2b79 194
+  s_adf55c018923eb::t_1e39245a222415 1-91,97,99,101-102,110-113,119-135,139-158,164-189,241,243-259,265-291
+packages/zero/src/mutators/__tests__/submission-helpers.test.ts
+  s_adf55c018923eb::t_b61cb682568ad8 284
+  s_adf55c018923eb::t_6bf84622cd2fe4 1-2,11-14,17-18,25-29,276-281,283,285-295,297-332,334-350,352-414,416-442
+  s_adf55c018923eb::t_e8d0cb47b9b026 19-24,282,296,333,351,415
+apps/web/src/lib/private-media-access.test.ts
+  s_adf55c018923eb::t_1e4911b77308e3 4
+  s_adf55c018923eb::t_adf46946da7e6b 265-334
+  s_adf55c018923eb::t_d2c9bf9ef66f5b 335-336
+packages/zero/src/mutators/event-photo.ts
+  s_adf55c018923eb::t_bd5f22637ed4b7 11-14,420-427
+  s_adf55c018923eb::t_935e330c589218 419,428,437,447
+apps/web/src/lib/media-upload.test.ts
+  s_adf55c018923eb::t_adf46946da7e6b 2-3,6,9-16,75-145
+  s_adf55c018923eb::t_34f5f93f6ea9e7 146
+apps/web/src/components/teams/events/event-photos.tsx
+  s_adf55c018923eb::t_9421461101affd 25,96,242
+apps/web/src/lib/temporary-upload.ts
+  s_adf55c018923eb::t_2c82ce2ce6d24a 2,44-65,67-82,84-92
+  s_adf55c018923eb::t_6f43e9e3100de1 1,3-43,93
+  s_adf55c018923eb::t_94792fdfd1ecf7 66,83
+apps/web/src/components/scheduled-messages/schedule-message-form-dialog.tsx
+  s_adf55c018923eb::t_8d0345ee7e9c5d 15
+apps/web/src/lib/zero-mutate-tasks.test.ts
+  s_adf55c018923eb::t_0ba08a8f970352 10,13,15,46-48
+  s_adf55c018923eb::t_1e39245a222415 1-9,11-12,14,16-45,49-50
+apps/web/src/components/form/attachments-section.tsx
+  s_adf55c018923eb::t_27bd6972e6aec9 20
+  s_adf55c018923eb::t_9421461101affd 29,56,190,294
+apps/web/src/components/teams/events/photo-upload.ts
+  s_adf55c018923eb::t_9421461101affd 54-55,62
+  s_adf55c018923eb::t_d654edcfd5783a 57-59,65
+  s_adf55c018923eb::t_1e4911b77308e3 7
+apps/web/src/components/form/approve-dialog.tsx
+  s_adf55c018923eb::t_d654edcfd5783a 5,83
+  s_adf55c018923eb::t_9421461101affd 20-21,54-55,96,139-140
+  s_adf55c018923eb::t_1e4911b77308e3 81-82
+packages/shared/src/constants.ts
+  s_adf55c018923eb::t_6f43e9e3100de1 4-5,16-43
+  s_adf55c018923eb::t_89fcc0f63de727 44
+packages/zero/src/mutators/reimbursement.ts
+  s_adf55c018923eb::t_90672fd18d43ce 21,88-90,93-94,212,215,475,478
+  s_adf55c018923eb::t_7f3ccbc9ee3d76 178
+  s_adf55c018923eb::t_16996cae2be166 91-92
+  s_adf55c018923eb::t_8da6a829f0e4fb 254-257,264-268,465-469,474,476-477
+  s_adf55c018923eb::t_544d9adb4f403e 211,213-214
+  s_adf55c018923eb::t_0f4a12eb1396b5 403-406
+  s_adf55c018923eb::t_796e02bb9c3a9b 20,23,87,95-105,108
+packages/zero/src/mutators/vendor-payment-transaction.ts
+  s_adf55c018923eb::t_16996cae2be166 300-301,592-594
+  s_adf55c018923eb::t_5dd79ab2da4cb0 17,20,413-416,562-571,574-579
+  s_adf55c018923eb::t_bd5f22637ed4b7 19,296-299,302-303,588-591,595-596
+apps/web/src/functions/attachments.ts
+  s_adf55c018923eb::t_1e4911b77308e3 66
+  s_adf55c018923eb::t_27bd6972e6aec9 4-6
+  s_adf55c018923eb::t_94792fdfd1ecf7 3,15,18-20,22-26,29-33,56-65,67-77,79-94,96-111,113-115,117-122,126,130,132,139,141,143-205,209-213,217,219,221
+apps/web/src/lib/temporary-upload.test.ts
+  s_adf55c018923eb::t_1e4911b77308e3 60,62,94,110,112
+  s_adf55c018923eb::t_adf46946da7e6b 1-4,7-42,126-127
+  s_adf55c018923eb::t_1a0fb8572dad78 5-6,43-59,61,63-93,95-109,111,113-125
+apps/web/src/lib/media-upload.ts
+  s_adf55c018923eb::t_1e4911b77308e3 58
+  s_adf55c018923eb::t_6f43e9e3100de1 3-4,6-8,11,31-57,59-80
+packages/zero/src/mutators/vendor-payment.ts
+  s_adf55c018923eb::t_0ff4820b5e64dd 21,23,26,58,66-76,79,272,274-275,315-318,325-329
+  s_adf55c018923eb::t_ff2eab976868a5 24,59-61,64-65,273,276,636-639,643-644,760,763,847-850,854-855
+  s_adf55c018923eb::t_16996cae2be166 62-63,640-642,851-853
+  s_adf55c018923eb::t_7f3ccbc9ee3d76 223
+  s_adf55c018923eb::t_31ffb4febca8e6 548-551
+  s_adf55c018923eb::t_a220964a496ee3 611-620,623-628,746-750,759,761-762,823-832,835-840
+apps/web/src/lib/r2-upload-claim.ts
+  s_adf55c018923eb::t_47637345d61b5e 10-11,16-28,61-70,86,89
+  s_adf55c018923eb::t_4d59864a4744ea 1-9,12-15,29-60,71-76,78-85,87
+  s_adf55c018923eb::t_0ba08a8f970352 88
+  s_adf55c018923eb::t_b61cb682568ad8 77
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_adf55c018923eb::t_9421461101affd 25,125-126
+apps/web/src/lib/zero-mutate-tasks.ts
+  s_adf55c018923eb::t_47637345d61b5e 1-33
+project-structure.md
+  s_adf55c018923eb::t_90d10dc80c96ba 392-402
+packages/zero/src/context.ts
+  s_adf55c018923eb::t_47637345d61b5e 18-23,27-28,31
+  s_adf55c018923eb::t_af9f01d9ed89f2 29,37-43
+  s_adf55c018923eb::t_b61cb682568ad8 1-12
+packages/zero/src/mutators/advance-payment.ts
+  s_adf55c018923eb::t_0f4a12eb1396b5 305-308
+  s_adf55c018923eb::t_796e02bb9c3a9b 17,20,63,71-81,84
+  s_adf55c018923eb::t_7f3ccbc9ee3d76 128
+  s_adf55c018923eb::t_90672fd18d43ce 18,64-66,69-70,160,163,377,380
+  s_adf55c018923eb::t_16996cae2be166 67-68
+  s_adf55c018923eb::t_544d9adb4f403e 159,161-162
+  s_adf55c018923eb::t_8da6a829f0e4fb 204-207,214-218,365-369,376,378-379
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_90d10dc80c96ba 8-10,12-21,24-26,40-42
+  s_adf55c018923eb::t_1b9620ed4f222a 43-50
+apps/web/src/components/scheduled-messages/media-upload.tsx
+  s_adf55c018923eb::t_9421461101affd 12,19-20,31-33,99-101,125,150,178,192
+  s_adf55c018923eb::t_92dc32ff56a644 74,179-191
+  s_adf55c018923eb::t_27bd6972e6aec9 13
+apps/web/src/hooks/use-attachment-actions.ts
+  s_adf55c018923eb::t_1e4911b77308e3 1
+  s_adf55c018923eb::t_9421461101affd 6,18,26-29,31
+apps/web/src/lib/r2-upload-claim.test.ts
+  s_adf55c018923eb::t_b07b36a5746f88 1-4,17,21-25,37,70-120
+  s_adf55c018923eb::t_089b41b7daecbb 6-8
+  s_adf55c018923eb::t_1e39245a222415 9-16,18-19,27-36,38-43,45-57,59-67,122-124
+  s_adf55c018923eb::t_27bd6972e6aec9 20,26
+  s_adf55c018923eb::t_0ba08a8f970352 69,121
+  s_adf55c018923eb::t_bb4fb0440bc4eb 44,58,68
+  s_adf55c018923eb::t_b61cb682568ad8 5
+apps/web/src/lib/private-media-access.ts
+  s_adf55c018923eb::t_1e4911b77308e3 215
+  s_adf55c018923eb::t_6f43e9e3100de1 12-17,198-214,216-243
+  s_adf55c018923eb::t_4c76817910f09b 244-245
+packages/zero/src/mutators/submission-helpers.ts
+  s_adf55c018923eb::t_af9f01d9ed89f2 3-4,14-34,36,56-73,108-141,144,147-185,187-203,316-319,335-336,345-348,363-364,373-382,385-387,398-399,413-415
+  s_adf55c018923eb::t_b61cb682568ad8 142-143,145-146
+  s_adf55c018923eb::t_16996cae2be166 41
+  s_adf55c018923eb::t_e8d0cb47b9b026 35
+  s_adf55c018923eb::t_b32f9c777fdae4 37-40,42-55
+  s_adf55c018923eb::t_f5821a3ea4bc3d 186
+packages/zero/src/mutators/scheduled-message.ts
+  s_adf55c018923eb::t_05251ffc4272ca 6,9-10,12-13,43-53,63-65,114-119,121,186,233-239,371-391,401,465
+  s_adf55c018923eb::t_bd5f22637ed4b7 11,54-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6315467bd6366733167beb52d21dd64427e7b16e",
+  "prompts": {},
+  "sessions": {
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
