@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@pi-dash/jobs/lib/protected-r2-reference", () => ({
+  withProtectedR2ObjectDeleteLock: vi.fn(),
+}));
 vi.mock("@/lib/private-media-db", () => ({
   defaultPrivateMediaAccessDeps: {},
 }));

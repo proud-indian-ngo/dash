@@ -16,10 +16,14 @@
    and idempotently copies the temp object to the durable key. A zero-length,
    changed, or oversized stream fails the copy, rolls back the database
    transaction, and retains the temp source for retry. Attempted durable
-   targets are queued for delayed, reference-checked cleanup on rollback.
-5. After commit, the server enqueues temp-source deletion. Replaced or deleted
-   durable objects are delayed for 30 seconds; the job rechecks every protected
-   database reference and deletes only when the key is still unreferenced.
+   targets are queued for delayed, reference-checked cleanup on rollback. The
+   transaction holds a shared advisory lock on the temp source and an exclusive
+   advisory lock on the durable target through commit.
+5. After commit, the server enqueues temp-source deletion under an exclusive
+   advisory lock on the same source key. Browser-triggered temp cleanup uses the
+   same lock. Replaced or deleted durable objects are delayed for 30 seconds;
+   the job holds an exclusive lock, rechecks every protected database reference,
+   and deletes only when the key is still unreferenced.
 6. Browser reads use typed asset references, never a caller-provided object
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.

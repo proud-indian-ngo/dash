@@ -303,6 +303,7 @@ describe("claimUploadedR2ObjectKey", () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const asyncTasks: AsyncTask[] = [];
     const rollbackTasks: AsyncTask[] = [];
+    const lockR2Object = vi.fn();
     const lockR2ObjectForClaim = vi.fn();
     const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
     const targetKey =
@@ -315,6 +316,7 @@ describe("claimUploadedR2ObjectKey", () => {
         beforeCommitTasks,
         copyR2Object,
         enqueue,
+        lockR2Object,
         lockR2ObjectForClaim,
         mimeType: "application/pdf",
         r2KeyPrefix: "app",
@@ -327,7 +329,14 @@ describe("claimUploadedR2ObjectKey", () => {
     expect(beforeCommitTasks).toHaveLength(1);
     expect(asyncTasks).toHaveLength(1);
     await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(sourceKey);
     expect(lockR2ObjectForClaim).toHaveBeenCalledWith(targetKey);
+    expect(lockR2Object.mock.invocationCallOrder[0]).toBeLessThan(
+      lockR2ObjectForClaim.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(lockR2ObjectForClaim.mock.invocationCallOrder[0]).toBeLessThan(
+      copyR2Object.mock.invocationCallOrder[0] ?? 0
+    );
     expect(copyR2Object).toHaveBeenCalledWith({
       mimeType: "application/pdf",
       sourceKey,

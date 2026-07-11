@@ -1,4 +1,5 @@
 import { env } from "@pi-dash/env/server";
+import { withProtectedR2ObjectDeleteLock } from "@pi-dash/jobs/lib/protected-r2-reference";
 import { logErrorAndRethrow } from "@pi-dash/observability";
 import {
   ALLOWED_MIME_TYPES,
@@ -246,7 +247,10 @@ export const deleteTemporaryUpload = createServerFn({ method: "POST" })
       await deleteOwnedTemporaryUpload(
         data.key,
         { keyPrefix: env.R2_KEY_PREFIX, userId: context.session.user.id },
-        (key) => s3.delete(key)
+        {
+          deleteObject: (key) => s3.delete(key),
+          withDeleteLock: withProtectedR2ObjectDeleteLock,
+        }
       );
       return { success: true };
     } catch (error) {

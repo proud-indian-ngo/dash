@@ -154,12 +154,17 @@ function pushClaimR2ObjectTasks(
   if (!options.lockR2ObjectForClaim) {
     throw new Error("R2 claim lock handler is required");
   }
+  if (!options.lockR2Object) {
+    throw new Error("R2 object lock handler is required");
+  }
   if (!options.rollbackTasks) {
     throw new Error("Rollback task queue is required");
   }
-  const { copyR2Object, lockR2ObjectForClaim, rollbackTasks } = options;
+  const { copyR2Object, lockR2Object, lockR2ObjectForClaim, rollbackTasks } =
+    options;
   options.beforeCommitTasks.push({
     fn: async () => {
+      await lockR2Object(sourceKey);
       await lockR2ObjectForClaim(targetKey);
       enqueueDeleteR2Object(
         { ...options, asyncTasks: rollbackTasks },

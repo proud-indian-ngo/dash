@@ -87,7 +87,11 @@ export async function createTemporaryUpload(
 export async function deleteOwnedTemporaryUpload(
   key: string,
   owner: { keyPrefix: string; userId: string },
-  deleteObject: (key: string) => Promise<void>
+  deps: {
+    deleteObject: (key: string) => Promise<void>;
+    withDeleteLock: <T>(key: string, operation: () => Promise<T>) => Promise<T>;
+  }
 ): Promise<void> {
-  await deleteObject(assertOwnedTemporaryUploadKey(key, owner));
+  const ownedKey = assertOwnedTemporaryUploadKey(key, owner);
+  await deps.withDeleteLock(ownedKey, () => deps.deleteObject(ownedKey));
 }

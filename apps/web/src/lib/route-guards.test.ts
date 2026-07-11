@@ -4,11 +4,11 @@ vi.mock("@/components/reimbursements/reimbursement-form", () => ({
   ReimbursementForm: () => null,
 }));
 
-import { Route } from "./new";
+import { Route as NewReimbursementRoute } from "@/routes/_app/reimbursements/new";
 
-describe("new reimbursement route", () => {
-  it("requires requests.create", () => {
-    const { beforeLoad } = Route.options;
+describe("route guards", () => {
+  it("requires requests.create for a new reimbursement", () => {
+    const { beforeLoad } = NewReimbursementRoute.options;
 
     expect(beforeLoad).toBeTypeOf("function");
     expect(() =>

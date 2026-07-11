@@ -103,24 +103,37 @@ describe("temporary upload service", () => {
   });
 
   it("deletes only an exact temp key owned by the current user", async () => {
-    const deleted: string[] = [];
+    const calls: string[] = [];
     await deleteOwnedTemporaryUpload(
       "app/scheduled-messages/tmp/user-1/upload-id-video.mp4",
       { keyPrefix: "app", userId: "user-1" },
-      (key) => {
-        deleted.push(key);
-        return Promise.resolve();
+      {
+        deleteObject: (key) => {
+          calls.push(`delete:${key}`);
+          return Promise.resolve();
+        },
+        withDeleteLock: async (key, operation) => {
+          calls.push(`lock:${key}`);
+          const result = await operation();
+          calls.push(`unlock:${key}`);
+          return result;
+        },
       }
     );
-    expect(deleted).toEqual([
-      "app/scheduled-messages/tmp/user-1/upload-id-video.mp4",
+    expect(calls).toEqual([
+      "lock:app/scheduled-messages/tmp/user-1/upload-id-video.mp4",
+      "delete:app/scheduled-messages/tmp/user-1/upload-id-video.mp4",
+      "unlock:app/scheduled-messages/tmp/user-1/upload-id-video.mp4",
     ]);
 
     await expect(
       deleteOwnedTemporaryUpload(
         "app/scheduled-messages/message-1/video.mp4",
         { keyPrefix: "app", userId: "user-1" },
-        async () => undefined
+        {
+          deleteObject: async () => undefined,
+          withDeleteLock: async (_key, operation) => operation(),
+        }
       )
     ).rejects.toThrow("Forbidden");
   });
