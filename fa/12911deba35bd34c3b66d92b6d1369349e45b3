@@ -1,0 +1,42 @@
+packages/zero/src/mutators/scheduled-message.ts
+  s_adf55c018923eb::t_3369203fec4655 45-49,240,395
+docs/architecture/file-uploads.md
+  s_adf55c018923eb::t_3369203fec4655 66-69
+packages/zero/src/mutators/__tests__/upload-claim-mutators.test.ts
+  s_adf55c018923eb::t_34e6096908881a 303-358,714-744,746-748
+  s_0ae8ad88c32d42::t_3630df2578f65d 745,749
+packages/zero/src/mutators/vendor-payment.ts
+  s_adf55c018923eb::t_db8d44457e3acb 35-47,49-51,364,695-698,824,916-919
+  s_adf55c018923eb::t_587dfb2e28a498 48
+packages/jobs/src/handlers/cleanup-r2-orphans.ts
+  s_adf55c018923eb::t_587dfb2e28a498 14
+  s_adf55c018923eb::t_3369203fec4655 171-179,187,189
+packages/jobs/src/handlers/cleanup-r2-orphans.test.ts
+  s_adf55c018923eb::t_cd40865d23e8be 130-152
+  s_adf55c018923eb::t_34e6096908881a 20,54-56,84-86,109-128
+  s_adf55c018923eb::t_38f4f6a8b0bb02 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "fa12911deba35bd34c3b66d92b6d1369349e45b3",
+  "prompts": {},
+  "sessions": {
+    "s_0ae8ad88c32d42": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4c0b-d13e-78e1-8fdc-2d1e01faed84",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_adf55c018923eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f45a4-e828-7770-8bc6-cc9d3e7b6284",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
