@@ -38,7 +38,7 @@ export async function deleteR2Object(
     return;
   }
 
-  if (data.deleteIfUnreferenced) {
+  if (data.mode === "if-unreferenced") {
     await deps.withReferenceLock(data.r2Key, async (referenced) => {
       if (referenced) {
         log.set({ event: "r2_object_still_referenced" });

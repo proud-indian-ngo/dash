@@ -23,7 +23,9 @@
    advisory lock on the same source key. Browser-triggered temp cleanup uses the
    same lock. Replaced or deleted durable objects are delayed for 30 seconds;
    the job holds an exclusive lock, rechecks every protected database reference,
-   and deletes only when the key is still unreferenced.
+   and deletes only when the key is still unreferenced. Every delete job must
+   select an explicit `temporary-source` or `if-unreferenced` mode; omission is
+   a type error.
 6. Browser reads use typed asset references, never a caller-provided object
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.

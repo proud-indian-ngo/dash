@@ -64,7 +64,11 @@ async function cleanupR2IfAllTerminal(scheduledMessageId: string) {
   await Promise.all(
     parent.attachments.map(async (att) => {
       try {
-        await enqueue("delete-r2-object", { r2Key: att.r2Key });
+        await enqueue(
+          "delete-r2-object",
+          { mode: "if-unreferenced", r2Key: att.r2Key },
+          { startAfter: "30 seconds" }
+        );
       } catch {
         log.error(`Failed to enqueue R2 cleanup for ${att.r2Key}`);
       }

@@ -53,7 +53,11 @@ async function enqueueAttachmentCleanupForMessage(
   await Promise.all(
     parent.attachments.map(async (att) => {
       try {
-        await enqueue("delete-r2-object", { r2Key: att.r2Key });
+        await enqueue(
+          "delete-r2-object",
+          { mode: "if-unreferenced", r2Key: att.r2Key },
+          { startAfter: "30 seconds" }
+        );
       } catch {
         log.set({ event: "r2_cleanup_enqueue_failed", r2Key: att.r2Key });
       }

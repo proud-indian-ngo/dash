@@ -18,7 +18,10 @@ describe("deleteR2Object", () => {
     );
 
     await deleteR2Object(
-      { deleteIfUnreferenced: true, r2Key: "app/attachments/request/file.pdf" },
+      {
+        mode: "if-unreferenced",
+        r2Key: "app/attachments/request/file.pdf",
+      },
       {
         deleteObject,
         withDeleteLock,
@@ -46,7 +49,10 @@ describe("deleteR2Object", () => {
     });
 
     await deleteR2Object(
-      { deleteIfUnreferenced: true, r2Key: "app/attachments/request/file.pdf" },
+      {
+        mode: "if-unreferenced",
+        r2Key: "app/attachments/request/file.pdf",
+      },
       {
         deleteObject,
         withDeleteLock,
@@ -77,7 +83,7 @@ describe("deleteR2Object", () => {
 
     await deleteR2Object(
       {
-        deleteIfUnreferenced: false,
+        mode: "temporary-source",
         r2Key: "app/attachments/tmp/user-1/file.pdf",
       },
       { deleteObject, withDeleteLock, withReferenceLock }

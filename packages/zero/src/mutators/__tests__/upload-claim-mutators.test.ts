@@ -242,7 +242,7 @@ describe("server mutator upload claims", () => {
     await cleanupTask?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: true, r2Key },
+      { mode: "if-unreferenced", r2Key },
       { startAfter: "30 seconds", traceId: undefined }
     );
   });
@@ -351,7 +351,7 @@ describe("server mutator upload claims", () => {
     await cleanupTask?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: true, r2Key: legacyKey },
+      { mode: "if-unreferenced", r2Key: legacyKey },
       { startAfter: "30 seconds", traceId: undefined }
     );
   });
@@ -576,7 +576,7 @@ describe("server mutator upload claims", () => {
     )?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: false, r2Key: sourceKey },
+      { mode: "temporary-source", r2Key: sourceKey },
       { traceId: undefined }
     );
   });
@@ -665,7 +665,7 @@ describe("server mutator upload claims", () => {
     await taskByMutator(ctx.asyncTasks ?? [], "scheduledMessage.update")?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: true, r2Key: removedKey },
+      { mode: "if-unreferenced", r2Key: removedKey },
       { startAfter: "30 seconds", traceId: undefined }
     );
     await taskByMutator(
@@ -674,7 +674,7 @@ describe("server mutator upload claims", () => {
     )?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: false, r2Key: replacementSource },
+      { mode: "temporary-source", r2Key: replacementSource },
       { traceId: undefined }
     );
   });
@@ -706,7 +706,7 @@ describe("server mutator upload claims", () => {
     await taskByMutator(ctx.asyncTasks ?? [], "scheduledMessage.delete")?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: true, r2Key },
+      { mode: "if-unreferenced", r2Key },
       { startAfter: "30 seconds", traceId: undefined }
     );
   });
@@ -742,7 +742,7 @@ describe("server mutator upload claims", () => {
     await cleanupTask?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: true, r2Key },
+      { mode: "if-unreferenced", r2Key },
       { startAfter: "30 seconds", traceId: undefined }
     );
   });
@@ -847,7 +847,7 @@ describe("server mutator upload claims", () => {
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
       {
-        deleteIfUnreferenced: true,
+        mode: "if-unreferenced",
         r2Key: "app/photos/event-1/photo.jpg",
       },
       { startAfter: "30 seconds", traceId: undefined }
@@ -896,7 +896,7 @@ describe("server mutator upload claims", () => {
     await cleanupTask?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
-      { deleteIfUnreferenced: true, r2Key },
+      { mode: "if-unreferenced", r2Key },
       { startAfter: "30 seconds", traceId: undefined }
     );
   });

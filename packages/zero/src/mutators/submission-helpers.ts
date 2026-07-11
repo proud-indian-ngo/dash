@@ -84,12 +84,14 @@ export function enqueueDeleteR2Object(
   ctx.asyncTasks?.push({
     fn: async () => {
       const enqueue = requireEnqueue(ctx);
-      const deleteIfUnreferenced = !options.temporary;
+      const mode = options.temporary
+        ? ("temporary-source" as const)
+        : ("if-unreferenced" as const);
       await enqueue(
         "delete-r2-object",
-        { deleteIfUnreferenced, r2Key },
+        { mode, r2Key },
         {
-          ...(deleteIfUnreferenced ? { startAfter: "30 seconds" } : {}),
+          ...(mode === "if-unreferenced" ? { startAfter: "30 seconds" } : {}),
           traceId: ctx.traceId,
         }
       );
