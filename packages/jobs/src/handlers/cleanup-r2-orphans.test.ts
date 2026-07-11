@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
     list: vi.fn(),
     select: vi.fn(),
     validContent: content,
+    withReferenceLock: vi.fn(),
   };
 });
 
@@ -50,6 +51,9 @@ vi.mock("evlog", () => ({
     warn: vi.fn(),
   }),
 }));
+vi.mock("../lib/protected-r2-reference", () => ({
+  withProtectedR2ObjectReferenceLock: mocks.withReferenceLock,
+}));
 
 import { handleCleanupR2Orphans } from "./cleanup-r2-orphans";
 
@@ -77,6 +81,9 @@ beforeEach(() => {
       );
     },
   }));
+  mocks.withReferenceLock.mockImplementation(async (_key, operation) =>
+    operation(false)
+  );
 });
 
 describe("handleCleanupR2Orphans", () => {
@@ -98,5 +105,49 @@ describe("handleCleanupR2Orphans", () => {
 
     expect(result).toMatchObject({ orphanCount: 0, r2ObjectCount: 1 });
     expect(mocks.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it("rechecks references under lock before deleting an orphan", async () => {
+    const orphanKey = "app/attachments/orphan.pdf";
+    mocks.list.mockResolvedValue({
+      contents: [{ key: orphanKey, lastModified: "2000-01-01T00:00:00Z" }],
+      isTruncated: false,
+    });
+    mocks.withReferenceLock.mockImplementation(async (_key, operation) =>
+      operation(true)
+    );
+
+    const result = await handleCleanupR2Orphans([
+      { data: { dryRun: false } },
+    ] as never);
+
+    expect(result).toMatchObject({ deleted: 0, orphanCount: 1 });
+    expect(mocks.withReferenceLock).toHaveBeenCalledWith(
+      orphanKey,
+      expect.any(Function)
+    );
+    expect(mocks.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it("deletes an orphan after the locked reference recheck", async () => {
+    const orphanKey = "app/attachments/orphan.pdf";
+    mocks.list.mockResolvedValue({
+      contents: [{ key: orphanKey, lastModified: "2000-01-01T00:00:00Z" }],
+      isTruncated: false,
+    });
+
+    const result = await handleCleanupR2Orphans([
+      { data: { dryRun: false } },
+    ] as never);
+
+    expect(result).toMatchObject({ deleted: 1, orphanCount: 1 });
+    expect(mocks.withReferenceLock).toHaveBeenCalledWith(
+      orphanKey,
+      expect.any(Function)
+    );
+    expect(mocks.deleteObject).toHaveBeenCalledWith(
+      orphanKey,
+      expect.any(Object)
+    );
   });
 });

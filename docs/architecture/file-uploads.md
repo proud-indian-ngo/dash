@@ -63,6 +63,10 @@ claims enqueue source deletion immediately after commit.
 Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
 dry-run mode first, review changed/skipped/malformed counts, then apply it:
 
+Reference-checked deletion also recognizes the two historical protected-upload
+layouts: `scheduled-messages/scheduled-message-draft/` and invoice attachments
+under `attachments/<dialogUuid>/`. New uploads never use these layouts.
+
 ```bash
 bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
 bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply

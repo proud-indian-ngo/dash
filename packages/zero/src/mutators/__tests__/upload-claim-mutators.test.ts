@@ -300,6 +300,62 @@ describe("server mutator upload claims", () => {
     );
   });
 
+  it("queues cleanup for a replaced legacy vendor-payment invoice", async () => {
+    const ctx = serverContext();
+    const legacyKey =
+      "app/attachments/018f47c2-9b0d-7abc-8def-1234567890ab/invoice.pdf";
+    const replacementSource =
+      "app/attachments/tmp/user-1/upload-id-replacement.pdf";
+    const tx = {
+      location: "server",
+      mutate: {
+        vendorPayment: { update: vi.fn() },
+        vendorPaymentAttachment: {
+          delete: vi.fn(),
+          insert: vi.fn(),
+        },
+        vendorPaymentHistory: { insert: vi.fn() },
+      },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({ status: "paid", userId: "user-1" })
+        .mockResolvedValueOnce([
+          { id: "legacy-invoice-attachment", objectKey: legacyKey },
+        ]),
+    };
+
+    await vendorPaymentMutators.updateInvoice.fn({
+      args: {
+        attachments: [
+          {
+            filename: "replacement.pdf",
+            id: "replacement-attachment",
+            mimeType: "application/pdf",
+            objectKey: replacementSource,
+            type: "file",
+          },
+        ],
+        id: "vendor-payment-1",
+        invoiceDate: 1,
+        invoiceNumber: "INV-2",
+      },
+      ctx,
+      tx,
+    } as never);
+
+    const cleanupTask = taskByMutator(
+      ctx.asyncTasks ?? [],
+      "vendorPayment.updateInvoice"
+    );
+    expect(cleanupTask).toBeDefined();
+    await cleanupTask?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key: legacyKey },
+      { startAfter: "30 seconds", traceId: undefined }
+    );
+  });
+
   it("claims a vendor-payment transaction attachment", async () => {
     const insertAttachment = vi.fn();
     const ctx = serverContext(["requests.record_payment"]);
@@ -648,6 +704,42 @@ describe("server mutator upload claims", () => {
 
     expect(deleteMessage).toHaveBeenCalledWith({ id: "message-1" });
     await taskByMutator(ctx.asyncTasks ?? [], "scheduledMessage.delete")?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key },
+      { startAfter: "30 seconds", traceId: undefined }
+    );
+  });
+
+  it("queues cleanup for a legacy scheduled-message attachment", async () => {
+    const ctx = serverContext(["messages.schedule"]);
+    const r2Key =
+      "app/scheduled-messages/scheduled-message-draft/upload-id-file.pdf";
+    const tx = {
+      location: "server",
+      mutate: { scheduledMessage: { delete: vi.fn() } },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          attachments: [
+            { fileName: "file.pdf", mimeType: "application/pdf", r2Key },
+          ],
+        })
+        .mockResolvedValueOnce([{ id: "recipient-1", status: "sent" }]),
+    };
+
+    await scheduledMessageMutators.delete.fn({
+      args: { id: "message-1" },
+      ctx,
+      tx,
+    } as never);
+
+    const cleanupTask = taskByMutator(
+      ctx.asyncTasks ?? [],
+      "scheduledMessage.delete"
+    );
+    expect(cleanupTask).toBeDefined();
+    await cleanupTask?.fn();
     expect(enqueue).toHaveBeenCalledWith(
       "delete-r2-object",
       { deleteIfUnreferenced: true, r2Key },

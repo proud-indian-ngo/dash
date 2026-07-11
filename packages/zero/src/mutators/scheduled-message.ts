@@ -42,6 +42,11 @@ const attachmentSchema = z.object({
 
 type ScheduledMessageAttachment = z.infer<typeof attachmentSchema>;
 
+const scheduledMessageAttachmentKeyPrefixes = (messageId: string) => [
+  `scheduled-messages/${messageId}/`,
+  "scheduled-messages/scheduled-message-draft/",
+];
+
 function claimScheduledMessageAttachments(
   attachments: readonly ScheduledMessageAttachment[] | undefined,
   messageId: string,
@@ -232,7 +237,7 @@ export const scheduledMessageMutators = {
 
       for (const attachment of existing.attachments ?? []) {
         enqueueDeleteR2Object(ctx, tx.location, attachment.r2Key, {
-          keyPrefixes: [`scheduled-messages/${args.id}/`],
+          keyPrefixes: scheduledMessageAttachmentKeyPrefixes(args.id),
           meta: {
             mutator: "scheduledMessage.delete",
             scheduledMessageId: args.id,
@@ -387,7 +392,7 @@ export const scheduledMessageMutators = {
       for (const attachment of existing.attachments ?? []) {
         if (!retainedObjectKeys.has(attachment.r2Key)) {
           enqueueDeleteR2Object(ctx, tx.location, attachment.r2Key, {
-            keyPrefixes: [`scheduled-messages/${args.id}/`],
+            keyPrefixes: scheduledMessageAttachmentKeyPrefixes(args.id),
             meta: {
               mutator: "scheduledMessage.update",
               scheduledMessageId: args.id,

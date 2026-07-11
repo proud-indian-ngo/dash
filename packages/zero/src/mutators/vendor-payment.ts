@@ -32,10 +32,23 @@ import {
   transactionAttachmentKeyPrefixes,
 } from "./vendor-payment-transaction";
 
-const vendorPaymentAttachmentKeyPrefixes = (id: string) => [
-  `attachments/vendor-payments/${id}/`,
-  `attachments/${id}/`,
-];
+const UUID_SEGMENT_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function legacyAttachmentKeyPrefix(key: string): string | undefined {
+  const segments = key.split("/");
+  const attachmentsIndex = segments.indexOf("attachments");
+  const legacyEntityId = segments[attachmentsIndex + 1];
+  return legacyEntityId && UUID_SEGMENT_PATTERN.test(legacyEntityId)
+    ? `attachments/${legacyEntityId}/`
+    : undefined;
+}
+
+const vendorPaymentAttachmentKeyPrefixes = (id: string, key?: string) => {
+  const prefixes = [`attachments/vendor-payments/${id}/`, `attachments/${id}/`];
+  const legacyPrefix = key ? legacyAttachmentKeyPrefix(key) : undefined;
+  return legacyPrefix ? [...prefixes, legacyPrefix] : prefixes;
+};
 
 const vendorPaymentApprovalKeyPrefixes = (id: string) => [
   `approval-screenshots/vendor-payments/${id}/approval-screenshots/`,
@@ -348,7 +361,7 @@ export const vendorPaymentMutators = {
         deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),
             meta: {
               mutator: "vendorPayment.delete",
               vendorPaymentId: args.id,
@@ -679,7 +692,10 @@ export const vendorPaymentMutators = {
         existingInvoiceAtts.map(async (att) => {
           if (att.objectKey && !retainedInvoiceObjectKeys.has(att.objectKey)) {
             enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
-              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(
+                args.id,
+                att.objectKey
+              ),
               meta: {
                 mutator: "vendorPayment.submitInvoice",
                 vendorPaymentId: args.id,
@@ -805,7 +821,7 @@ export const vendorPaymentMutators = {
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),
             meta: {
               mutator: "vendorPayment.update",
               vendorPaymentId: args.id,
@@ -897,7 +913,10 @@ export const vendorPaymentMutators = {
         existingAtts.map(async (att) => {
           if (att.objectKey && !retainedObjectKeys.has(att.objectKey)) {
             enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
-              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id),
+              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(
+                args.id,
+                att.objectKey
+              ),
               meta: {
                 mutator: "vendorPayment.updateInvoice",
                 vendorPaymentId: args.id,
