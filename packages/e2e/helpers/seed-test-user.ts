@@ -199,6 +199,7 @@ const SEED_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
 const SEED_UPCOMING_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000002";
 const SEED_VENDOR_ID = "e2e00000-0000-0000-0000-000000000003";
 const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
+const SEED_EXPORT_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000007";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
 const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
@@ -400,6 +401,53 @@ async function ensureEventVendorPayment(
   });
 
   log("Created event vendor payment");
+}
+
+async function ensureExportVendorPayment(userId: string): Promise<void> {
+  const existingPayment = await db.query.vendorPayment.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_EXPORT_VENDOR_PAYMENT_ID),
+  });
+  if (existingPayment) {
+    return;
+  }
+
+  const category = await db.query.expenseCategory.findFirst();
+  const seededVendor = await db.query.vendor.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_VENDOR_ID),
+  });
+  if (!(category && seededVendor)) {
+    throw new Error(
+      "Vendor payment export fixture requires category and vendor"
+    );
+  }
+
+  const createdAt = new Date("2026-07-01T00:00:00.000Z");
+  await db.insert(vendorPayment).values({
+    city: "bangalore",
+    createdAt,
+    id: SEED_EXPORT_VENDOR_PAYMENT_ID,
+    invoiceDate: "2026-01-20",
+    invoiceNumber: "E2E-INV-2026-001",
+    status: "completed",
+    submittedAt: createdAt,
+    title: "E2E Export Vendor Payment",
+    updatedAt: createdAt,
+    userId,
+    vendorId: seededVendor.id,
+  });
+
+  await db.insert(vendorPaymentLineItem).values({
+    amount: "875.00",
+    categoryId: category.id,
+    createdAt,
+    description: "Export date filter fixture",
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: createdAt,
+    vendorPaymentId: SEED_EXPORT_VENDOR_PAYMENT_ID,
+  });
+
+  log("Created vendor payment export fixture");
 }
 
 async function ensureZeroQueryAuthorizationFixtures(
@@ -848,6 +896,7 @@ async function seed(): Promise<void> {
   }
   await ensureReimbursement(superAdminUserId, pastEvent.id);
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
+  await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }
 
