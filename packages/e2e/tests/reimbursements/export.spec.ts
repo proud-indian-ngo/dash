@@ -201,14 +201,53 @@ test.describe("Export CSV (admin)", () => {
     await page.getByRole("checkbox", { name: "Reimbursements" }).click();
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
     await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+    await page.getByRole("combobox", { name: "Financial Year" }).click();
+    await page.getByRole("option", { name: "FY 2025-26" }).click();
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export CSV" }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(
-      /^vendor-payments_FY\d{4}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/
+      /^vendor-payments_FY2025-26_\d{4}-\d{2}-\d{2}\.csv$/
     );
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const content = Buffer.concat(chunks).toString();
+
+    expect(content).toContain("E2E Export Vendor Payment");
+    expect(content).toContain("2026-01-20");
+    expect(content).not.toContain("E2E Event Vendor Payment");
+    await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
+  });
+
+  test("downloads mixed exports as one ZIP", async ({ page }) => {
+    await page.getByRole("checkbox", { name: "Advance Payments" }).click();
+    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+    await page.getByRole("combobox", { name: "Financial Year" }).click();
+    await page.getByRole("option", { name: "FY 2025-26" }).click();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export CSV" }).click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toMatch(
+      /^financial-exports_FY2025-26_\d{4}-\d{2}-\d{2}\.zip$/
+    );
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const archive = Buffer.concat(chunks);
+    const archiveText = archive.toString("latin1");
+
+    expect(archive.subarray(0, 2).toString()).toBe("PK");
+    expect(archiveText).toContain("reimbursements_all-statuses_FY2025-26_");
+    expect(archiveText).toContain("vendor-payments_FY2025-26_");
     await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 });

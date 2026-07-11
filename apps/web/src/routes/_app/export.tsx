@@ -27,7 +27,7 @@ import {
   vendorPaymentStatusValues,
 } from "@/functions/export-vendor-payments-csv";
 import { getAttachmentPreviewHref } from "@/lib/attachment-links";
-import { downloadCsv } from "@/lib/csv-export";
+import { type CsvFile, downloadCsvFiles } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
 
@@ -248,7 +248,7 @@ async function exportRequests(
     selectedStatuses: Set<Status>;
     today: string;
   }
-): Promise<string> {
+): Promise<{ file: CsvFile; label: string }> {
   const types: ("reimbursement" | "advancePayment")[] = [];
   if (opts.includeReimbursements) {
     types.push("reimbursement");
@@ -270,12 +270,14 @@ async function exportRequests(
     opts.fyStartNum,
     opts.today
   );
-  downloadCsv(
-    filename,
-    REQUEST_CSV_HEADERS,
-    result.rows.map(requestRowToArray)
-  );
-  return `${result.rows.length} reimbursements`;
+  return {
+    file: {
+      filename,
+      headers: REQUEST_CSV_HEADERS,
+      rows: result.rows.map(requestRowToArray),
+    },
+    label: `${result.rows.length} reimbursements`,
+  };
 }
 
 async function exportVendorPayments(
@@ -286,7 +288,7 @@ async function exportVendorPayments(
     includeTransactions: boolean;
     today: string;
   }
-): Promise<string[]> {
+): Promise<{ files: CsvFile[]; labels: string[] }> {
   const statuses =
     opts.selectedVPStatuses.size === VP_STATUSES.length
       ? undefined
@@ -299,22 +301,61 @@ async function exportVendorPayments(
     },
   });
   const dateSuffix = buildFyDateSuffix(opts.fyStartNum, opts.today);
-  downloadCsv(
-    `vendor-payments_${dateSuffix}.csv`,
-    VP_CSV_HEADERS,
-    result.rows.map(vpRowToArray)
-  );
-  const parts = [`${result.rows.length} vendor payments`];
+  const files: CsvFile[] = [
+    {
+      filename: `vendor-payments_${dateSuffix}.csv`,
+      headers: VP_CSV_HEADERS,
+      rows: result.rows.map(vpRowToArray),
+    },
+  ];
+  const labels = [`${result.rows.length} vendor payments`];
 
   if (opts.includeTransactions && result.transactionRows.length > 0) {
-    downloadCsv(
-      `vendor-payment-transactions_${dateSuffix}.csv`,
-      TX_CSV_HEADERS,
-      result.transactionRows.map(txRowToArray)
-    );
-    parts.push(`${result.transactionRows.length} transactions`);
+    files.push({
+      filename: `vendor-payment-transactions_${dateSuffix}.csv`,
+      headers: TX_CSV_HEADERS,
+      rows: result.transactionRows.map(txRowToArray),
+    });
+    labels.push(`${result.transactionRows.length} transactions`);
   }
-  return parts;
+  return { files, labels };
+}
+
+function getDownloadError(
+  files: CsvFile[],
+  archiveFilename: string
+): string | null {
+  try {
+    downloadCsvFiles(files, archiveFilename);
+    return null;
+  } catch (caughtError) {
+    log.error({
+      action: "downloadCsvFiles",
+      caughtError:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      component: "ExportRoute",
+    });
+    return `Download: ${getErrorMessage(caughtError)}`;
+  }
+}
+
+function showExportResults(
+  exported: string[],
+  errors: string[],
+  didDownload: boolean,
+  hasFiles: boolean
+): void {
+  if (didDownload && exported.length > 0) {
+    toast.success(`Exported ${exported.join(", ")}!`);
+  }
+  for (const error of errors) {
+    toast.error(error);
+  }
+  if (!(hasFiles || errors.length > 0)) {
+    toast.error("No data to export");
+  }
 }
 
 async function runAllExports(opts: {
@@ -332,17 +373,19 @@ async function runAllExports(opts: {
 }): Promise<void> {
   const exported: string[] = [];
   const errors: string[] = [];
+  const files: CsvFile[] = [];
 
   if (opts.hasRequestSelection) {
     try {
-      const label = await exportRequests(opts.runRequestExport, {
+      const result = await exportRequests(opts.runRequestExport, {
         fyStartNum: opts.fyStartNum,
         includeAdvancePayments: opts.includeAdvancePayments,
         includeReimbursements: opts.includeReimbursements,
         selectedStatuses: opts.selectedStatuses,
         today: opts.today,
       });
-      exported.push(label);
+      exported.push(result.label);
+      files.push(result.file);
     } catch (caughtError) {
       log.error({
         action: "exportRequests",
@@ -358,13 +401,14 @@ async function runAllExports(opts: {
 
   if (opts.includeVendorPayments) {
     try {
-      const labels = await exportVendorPayments(opts.runVPExport, {
+      const result = await exportVendorPayments(opts.runVPExport, {
         fyStartNum: opts.fyStartNum,
         includeTransactions: opts.includeTransactions,
         selectedVPStatuses: opts.selectedVPStatuses,
         today: opts.today,
       });
-      exported.push(...labels);
+      exported.push(...result.labels);
+      files.push(...result.files);
     } catch (caughtError) {
       log.error({
         action: "exportVendorPayments",
@@ -378,15 +422,20 @@ async function runAllExports(opts: {
     }
   }
 
-  if (exported.length > 0) {
-    toast.success(`Exported ${exported.join(", ")}!`);
+  let didDownload = false;
+  if (files.length > 0) {
+    const downloadError = getDownloadError(
+      files,
+      `financial-exports_${buildFyDateSuffix(opts.fyStartNum, opts.today)}.zip`
+    );
+    if (downloadError) {
+      errors.push(downloadError);
+    } else {
+      didDownload = true;
+    }
   }
-  for (const err of errors) {
-    toast.error(err);
-  }
-  if (exported.length === 0 && errors.length === 0) {
-    toast.error("No data to export");
-  }
+
+  showExportResults(exported, errors, didDownload, files.length > 0);
 }
 
 function ExportRouteComponent() {

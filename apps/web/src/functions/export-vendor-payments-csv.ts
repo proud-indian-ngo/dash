@@ -63,16 +63,12 @@ export const exportVendorPaymentsCsv = createServerFn({ method: "POST" })
     try {
       await assertServerPermission(context.session, "requests.export");
 
-      const fyStartDate = new Date(Date.UTC(data.fyStart, 3, 1));
-      const fyEndDate = new Date(
-        Date.UTC(data.fyStart + 1, 2, 31, 23, 59, 59, 999)
-      );
       const statusFilter =
         data.statuses && data.statuses.length > 0 ? data.statuses : null;
 
       const whereClause = and(
-        gte(vendorPayment.submittedAt, fyStartDate),
-        lte(vendorPayment.submittedAt, fyEndDate),
+        gte(vendorPayment.invoiceDate, `${data.fyStart}-04-01`),
+        lte(vendorPayment.invoiceDate, `${data.fyStart + 1}-03-31`),
         statusFilter ? inArray(vendorPayment.status, statusFilter) : undefined
       );
 
