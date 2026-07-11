@@ -38,6 +38,7 @@
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
+    "fflate": "catalog:",
     "libphonenumber-js": "^1.13.8",
     "lodash": "catalog:",
     "nuqs": "^2.9.0",
