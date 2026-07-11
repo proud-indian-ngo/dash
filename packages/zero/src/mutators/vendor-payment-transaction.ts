@@ -20,7 +20,7 @@ import {
   enqueueDeleteR2Object,
 } from "./submission-helpers";
 
-const transactionAttachmentKeyPrefixes = (id: string) => [
+export const transactionAttachmentKeyPrefixes = (id: string) => [
   `attachments/vendor-payment-transactions/${id}/`,
   `attachments/${id}/`,
 ];

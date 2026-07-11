@@ -27,7 +27,10 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
-import { recalculateParentStatus } from "./vendor-payment-transaction";
+import {
+  recalculateParentStatus,
+  transactionAttachmentKeyPrefixes,
+} from "./vendor-payment-transaction";
 
 const vendorPaymentAttachmentKeyPrefixes = (id: string) => [
   `attachments/vendor-payments/${id}/`,
@@ -358,6 +361,33 @@ export const vendorPaymentMutators = {
         queryLineItems: () =>
           tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
       });
+
+      const transactions = await tx.run(
+        zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+      );
+      const transactionAttachments = await Promise.all(
+        transactions.map(async (transaction) => ({
+          attachments: await tx.run(
+            zql.vendorPaymentTransactionAttachment.where(
+              "vendorPaymentTransactionId",
+              transaction.id
+            )
+          ),
+          transactionId: transaction.id,
+        }))
+      );
+      for (const { attachments, transactionId } of transactionAttachments) {
+        for (const attachment of attachments) {
+          enqueueDeleteR2Object(ctx, tx.location, attachment.objectKey, {
+            keyPrefixes: transactionAttachmentKeyPrefixes(transactionId),
+            meta: {
+              mutator: "vendorPayment.delete:transactionAttachment",
+              transactionId,
+              vendorPaymentId: args.id,
+            },
+          });
+        }
+      }
 
       await tx.mutate.vendorPayment.delete({ id: args.id });
     }

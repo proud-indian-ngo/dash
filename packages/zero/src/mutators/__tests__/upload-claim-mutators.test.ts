@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AsyncTask, Context } from "../../context";
 import { advancePaymentMutators } from "../advance-payment";
+import { eventImmichAlbumMutators } from "../event-immich-album";
 import { eventPhotoMutators } from "../event-photo";
 import { reimbursementMutators } from "../reimbursement";
 import { scheduledMessageMutators } from "../scheduled-message";
@@ -196,6 +197,53 @@ describe("server mutator upload claims", () => {
           "app/attachments/vendor-payments/vendor-payment-1/quotation/upload-id-quote.pdf",
         purpose: "quotation",
       })
+    );
+  });
+
+  it("queues transaction attachment cleanup before deleting a vendor payment", async () => {
+    const deletePayment = vi.fn();
+    const ctx = serverContext(["requests.delete_all"]);
+    const r2Key =
+      "app/attachments/vendor-payment-transactions/transaction-1/upload-id-proof.pdf";
+    const tx = {
+      location: "server",
+      mutate: {
+        vendorPayment: { delete: deletePayment },
+        vendorPaymentAttachment: { delete: vi.fn() },
+        vendorPaymentHistory: { delete: vi.fn() },
+        vendorPaymentLineItem: { delete: vi.fn() },
+      },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          approvalScreenshotKey: null,
+          status: "paid",
+          userId: "owner-1",
+        })
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: "transaction-1" }])
+        .mockResolvedValueOnce([{ objectKey: r2Key }]),
+    };
+
+    await vendorPaymentMutators.delete.fn({
+      args: { id: "payment-1" },
+      ctx,
+      tx,
+    } as never);
+
+    expect(deletePayment).toHaveBeenCalledWith({ id: "payment-1" });
+    const cleanupTask = taskByMutator(
+      ctx.asyncTasks ?? [],
+      "vendorPayment.delete:transactionAttachment"
+    );
+    expect(cleanupTask).toBeDefined();
+    await cleanupTask?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key },
+      { startAfter: "30 seconds", traceId: undefined }
     );
   });
 
@@ -710,6 +758,53 @@ describe("server mutator upload claims", () => {
         deleteIfUnreferenced: true,
         r2Key: "app/photos/event-1/photo.jpg",
       },
+      { startAfter: "30 seconds", traceId: undefined }
+    );
+  });
+
+  it("queues reference-checked photo cleanup when deleting an Immich album", async () => {
+    const ctx = serverContext(["events.manage_photos"]);
+    const r2Key = "app/photos/event-1/upload-id-photo.jpg";
+    const tx = {
+      location: "server",
+      mutate: {
+        eventImmichAlbum: { delete: vi.fn() },
+        eventPhoto: { delete: vi.fn() },
+      },
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({
+          eventId: "event-1",
+          id: "album-1",
+          immichAlbumId: "immich-album-1",
+        })
+        .mockResolvedValueOnce({ id: "event-1", teamId: "team-1" })
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce([
+          {
+            eventId: "event-1",
+            id: "photo-1",
+            immichAssetId: null,
+            r2Key,
+          },
+        ]),
+    };
+
+    await eventImmichAlbumMutators.deleteAlbum.fn({
+      args: { eventId: "event-1" },
+      ctx,
+      tx,
+    } as never);
+
+    const cleanupTask = taskByMutator(
+      ctx.asyncTasks ?? [],
+      "eventImmichAlbum.deleteAlbum:r2"
+    );
+    expect(cleanupTask).toBeDefined();
+    await cleanupTask?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { deleteIfUnreferenced: true, r2Key },
       { startAfter: "30 seconds", traceId: undefined }
     );
   });
