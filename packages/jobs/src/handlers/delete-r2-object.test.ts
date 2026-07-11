@@ -66,6 +66,23 @@ describe("deleteR2Object", () => {
     );
   });
 
+  it("reference-checks a persisted legacy job without a mode", async () => {
+    const deleteObject = vi.fn();
+    const withDeleteLock = vi.fn();
+    const withReferenceLock = vi.fn(async (_r2Key, operation) =>
+      operation(true)
+    );
+
+    await deleteR2Object(
+      { r2Key: "app/attachments/request/file.pdf" } as never,
+      { deleteObject, withDeleteLock, withReferenceLock }
+    );
+
+    expect(withReferenceLock).toHaveBeenCalled();
+    expect(withDeleteLock).not.toHaveBeenCalled();
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
   it("holds an exclusive key lock while deleting a temporary source", async () => {
     const deleteObject = vi.fn();
     const order: string[] = [];

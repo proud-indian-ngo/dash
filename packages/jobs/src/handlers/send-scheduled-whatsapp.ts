@@ -3,7 +3,6 @@ import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
-import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import {
   sendWhatsAppGroupMessage,
   sendWhatsAppMedia,
@@ -13,71 +12,9 @@ import {
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
-import { enqueue, type SendScheduledWhatsAppPayload } from "../enqueue";
+import type { SendScheduledWhatsAppPayload } from "../enqueue";
 import { getR2Client } from "./r2";
 import { buildScheduledWhatsAppMedia } from "./scheduled-whatsapp-media";
-
-async function cleanupR2IfAllTerminal(scheduledMessageId: string) {
-  const log = createRequestLogger({
-    method: "JOB",
-    path: "r2-cleanup/scheduled-whatsapp",
-  });
-  log.set({ scheduledMessageId });
-
-  const siblings = await db
-    .select({
-      retryCount: scheduledMessageRecipient.retryCount,
-      status: scheduledMessageRecipient.status,
-    })
-    .from(scheduledMessageRecipient)
-    .where(
-      eq(scheduledMessageRecipient.scheduledMessageId, scheduledMessageId)
-    );
-
-  // Only clean up when every recipient is in a final state with no retries left
-  const allDone = siblings.every((s) => {
-    if (s.status === "sent" || s.status === "cancelled") {
-      return true;
-    }
-    if (s.status === "failed" && s.retryCount >= MAX_RECIPIENT_RETRIES) {
-      return true;
-    }
-    return false;
-  });
-
-  if (!allDone) {
-    return;
-  }
-
-  const [parent] = await db
-    .select({ attachments: scheduledMessage.attachments })
-    .from(scheduledMessage)
-    .where(eq(scheduledMessage.id, scheduledMessageId))
-    .limit(1);
-
-  if (!parent?.attachments?.length) {
-    return;
-  }
-
-  log.set({ attachmentCount: parent.attachments.length });
-
-  await Promise.all(
-    parent.attachments.map(async (att) => {
-      try {
-        await enqueue(
-          "delete-r2-object",
-          { mode: "if-unreferenced", r2Key: att.r2Key },
-          { startAfter: "30 seconds" }
-        );
-      } catch {
-        log.error(`Failed to enqueue R2 cleanup for ${att.r2Key}`);
-      }
-    })
-  );
-
-  log.set({ event: "r2_cleanup_complete" });
-  log.emit();
-}
 
 async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
   const log = createRequestLogger({
@@ -180,8 +117,6 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
 
   log.set({ event: "job_complete" });
   log.emit();
-
-  await cleanupR2IfAllTerminal(scheduledMessageId);
 }
 
 /** Dead letter handler — updates recipient status when all retries exhaust. */
@@ -214,10 +149,6 @@ export async function handleDeadLetterScheduledWhatsApp(
 
       log.set({ event: "status_set_failed" });
       log.emit();
-
-      if (scheduledMessageId) {
-        await cleanupR2IfAllTerminal(scheduledMessageId);
-      }
     })
   );
 }

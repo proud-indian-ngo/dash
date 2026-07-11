@@ -68,6 +68,8 @@ dry-run mode first, review changed/skipped/malformed counts, then apply it:
 Reference-checked deletion also recognizes the two historical protected-upload
 layouts: `scheduled-messages/scheduled-message-draft/` and invoice attachments
 under `attachments/<dialogUuid>/`. New uploads never use these layouts.
+Scheduled-message attachments remain referenced and downloadable after delivery;
+replacement or message deletion retires the reference and enqueues cleanup.
 
 ```bash
 bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
@@ -92,7 +94,7 @@ Flow:
 
 1. Member uploads photo → stored as event photo record with R2 key.
 2. Lead/admin approves → `immich-sync-photo` pg-boss job enqueued (with `singletonKey: photoId` → no dup processing).
-3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → deletes R2 object (best-effort).
+3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → enqueues delayed, reference-checked R2 cleanup.
 4. Photo deletion enqueues `immich-delete-asset` and/or `delete-r2-object` jobs as needed.
 5. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`.
 
@@ -135,7 +137,7 @@ Photo sync is **ordered** for crash safety:
 3. **Persist `immichAssetId` in DB immediately** (before album-add + R2 delete). If worker crashes after this, next retry skips re-upload.
 4. Add asset to Immich album via `PUT /api/albums/:id/assets`.
 5. Clear R2 key from DB (`r2Key = null`).
-6. Best-effort R2 delete via `delete-r2-object` job enqueue.
+6. Delayed, reference-checked R2 cleanup via `delete-r2-object` job enqueue.
 
 `singletonKey: photoId` on `immich-sync-photo` job → pg-boss dedups concurrent enqueues for the same photo.
 
