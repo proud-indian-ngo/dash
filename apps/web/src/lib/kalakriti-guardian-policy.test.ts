@@ -7,6 +7,7 @@ import {
 
 const dormantExternal: GuardianIdentityCandidate = {
   banned: true,
+  canAccessKalakriti: true,
   emailVerified: true,
   hasActiveMembership: false,
   hasEditionMembership: false,
@@ -86,6 +87,36 @@ describe("Guardian identity policy", () => {
         hasPassword: false,
       })
     ).toBe("assign_central");
+  });
+
+  it("rejects a central identity without Kalakriti access", () => {
+    expect(() =>
+      decideGuardianIdentity({
+        candidate: {
+          ...dormantExternal,
+          banned: false,
+          canAccessKalakriti: false,
+          isExternal: false,
+          role: "unoriented_volunteer",
+        },
+        confirmReuse: false,
+        hasPassword: false,
+      })
+    ).toThrow("cannot access Kalakriti");
+  });
+
+  it("rejects an external user until its identity marker is committed", () => {
+    expect(() =>
+      decideGuardianIdentity({
+        candidate: {
+          ...dormantExternal,
+          banned: false,
+          isExternal: false,
+        },
+        confirmReuse: false,
+        hasPassword: false,
+      })
+    ).toThrow("still being provisioned");
   });
 
   it("blocks only marked external identities after their final membership", () => {

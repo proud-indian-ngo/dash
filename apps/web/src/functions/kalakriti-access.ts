@@ -5,6 +5,7 @@ import {
   kalakritiEdition,
   kalakritiEditionMembership,
 } from "@pi-dash/db/schema/kalakriti";
+import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
@@ -33,9 +34,15 @@ export interface KalakritiEditionAccess {
   };
   isGlobalAdmin: boolean;
   membership: null | {
+    assignments: Array<{
+      centerId: string | null;
+      competitionCategoryId: string | null;
+      competitionId: string | null;
+      responsibility: KalakritiResponsibility;
+    }>;
     id: string;
     kind: "guardian" | "volunteer";
-    responsibilities: string[];
+    responsibilities: KalakritiResponsibility[];
   };
 }
 
@@ -98,18 +105,30 @@ async function resolveEditionAccess({
     return null;
   }
 
-  const responsibilities = membership
+  const assignments = membership
     ? await db
-        .select({ responsibility: kalakritiAssignment.responsibility })
+        .select({
+          centerId: kalakritiAssignment.centerId,
+          competitionCategoryId: kalakritiAssignment.competitionCategoryId,
+          competitionId: kalakritiAssignment.competitionId,
+          responsibility: kalakritiAssignment.responsibility,
+        })
         .from(kalakritiAssignment)
         .where(eq(kalakritiAssignment.membershipId, membership.id))
-        .then((rows) => rows.map((row) => row.responsibility))
     : [];
 
   return {
     edition,
     isGlobalAdmin,
-    membership: membership ? { ...membership, responsibilities } : null,
+    membership: membership
+      ? {
+          ...membership,
+          assignments,
+          responsibilities: assignments.map(
+            (assignment) => assignment.responsibility
+          ),
+        }
+      : null,
   };
 }
 

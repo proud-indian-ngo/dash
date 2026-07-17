@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getKalakritiEditionAccess = vi.hoisted(() => vi.fn());
+const getCurrentKalakritiEditionAccess = vi.hoisted(() => vi.fn());
 
 vi.mock("@/functions/kalakriti-access", () => ({
+  getCurrentKalakritiEditionAccess,
   getKalakritiEditionAccess,
 }));
 vi.mock("@pi-dash/design-system/components/ui/badge", () => ({
@@ -14,6 +16,7 @@ vi.mock("@pi-dash/design-system/components/ui/button", () => ({
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { Route } from "@/routes/_app/kalakriti/$year/route";
+import { Route as KalakritiIndexRoute } from "@/routes/_app/kalakriti/index";
 
 const edition = {
   ageCutoffDate: "2027-01-01",
@@ -35,8 +38,17 @@ function runBeforeLoad(year = "2027") {
   return beforeLoad({ params: { year } } as Parameters<typeof beforeLoad>[0]);
 }
 
+function runIndexBeforeLoad() {
+  const { beforeLoad } = KalakritiIndexRoute.options;
+  if (!beforeLoad) {
+    throw new Error("Kalakriti index route guard is missing");
+  }
+  return beforeLoad({} as NonNullable<Parameters<typeof beforeLoad>[0]>);
+}
+
 describe("Kalakriti Edition route guard", () => {
   beforeEach(() => {
+    getCurrentKalakritiEditionAccess.mockReset();
     getKalakritiEditionAccess.mockReset();
   });
 
@@ -61,6 +73,7 @@ describe("Kalakriti Edition route guard", () => {
       edition,
       isGlobalAdmin: false,
       membership: {
+        assignments: [],
         id: "019f0000-0000-7000-8000-000000000003",
         kind: "guardian",
         responsibilities: [],
@@ -101,5 +114,34 @@ describe("Kalakriti Edition route guard", () => {
       isNotFound: true,
     });
     expect(getKalakritiEditionAccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("Kalakriti current Edition redirect", () => {
+  beforeEach(() => {
+    getCurrentKalakritiEditionAccess.mockReset();
+  });
+
+  it("redirects to the exact current accessible year", async () => {
+    const access: KalakritiEditionAccess = {
+      edition,
+      isGlobalAdmin: true,
+      membership: null,
+    };
+    getCurrentKalakritiEditionAccess.mockResolvedValue(access);
+
+    await expect(runIndexBeforeLoad()).rejects.toMatchObject({
+      options: {
+        params: { year: "2027" },
+        replace: true,
+        to: "/kalakriti/$year",
+      },
+    });
+  });
+
+  it("renders the no-access fallback when no Edition is accessible", async () => {
+    getCurrentKalakritiEditionAccess.mockResolvedValue(null);
+
+    await expect(runIndexBeforeLoad()).resolves.toBeUndefined();
   });
 });

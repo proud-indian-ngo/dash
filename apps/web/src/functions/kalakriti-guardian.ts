@@ -1,4 +1,9 @@
-import { auth } from "@pi-dash/auth";
+import type { auth } from "@pi-dash/auth";
+import {
+  createKalakritiExternalUser,
+  deleteKalakritiExternalUser,
+  setKalakritiExternalUserBlocked,
+} from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
@@ -12,7 +17,7 @@ import {
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -92,7 +97,7 @@ async function requireGuardianAdmin(
   return context as AuthenticatedContext;
 }
 
-async function insertGuardianMembership({
+function insertGuardianMembership({
   actorUserId,
   editionId,
   email,
@@ -112,33 +117,69 @@ async function insertGuardianMembership({
   phone: string | null;
   userId: string;
 }): Promise<string> {
-  const membershipId = uuidv7();
-  const now = new Date();
-  await db.transaction(async (tx) => {
-    await tx.insert(kalakritiEditionMembership).values({
-      createdAt: now,
-      createdBy: actorUserId,
-      editionId,
-      id: membershipId,
-      kind: "guardian",
-      snapshotEmail: email,
-      snapshotName: name,
-      snapshotPhone: phone,
-      state: "active",
-      updatedAt: now,
-      userId,
-    });
-    await tx.insert(kalakritiAuditEntry).values({
+  return db.transaction((tx) =>
+    insertGuardianMembershipRecords(tx, {
       action,
       actorUserId,
-      createdAt: now,
-      domain: "guardian_access",
       editionId,
-      id: uuidv7(),
-      metadata: { email, name },
-      targetId: membershipId,
-      targetType: "edition_membership",
-    });
+      email,
+      name,
+      phone,
+      userId,
+    })
+  );
+}
+
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function insertGuardianMembershipRecords(
+  tx: DbTransaction,
+  {
+    actorUserId,
+    editionId,
+    email,
+    name,
+    phone,
+    userId,
+    action,
+  }: {
+    action:
+      | "guardian.assigned_existing"
+      | "guardian.invited"
+      | "guardian.reactivated";
+    actorUserId: string;
+    editionId: string;
+    email: string;
+    name: string;
+    phone: string | null;
+    userId: string;
+  }
+): Promise<string> {
+  const membershipId = uuidv7();
+  const now = new Date();
+  await tx.insert(kalakritiEditionMembership).values({
+    createdAt: now,
+    createdBy: actorUserId,
+    editionId,
+    id: membershipId,
+    kind: "guardian",
+    snapshotEmail: email,
+    snapshotName: name,
+    snapshotPhone: phone,
+    state: "active",
+    updatedAt: now,
+    userId,
+  });
+  await tx.insert(kalakritiAuditEntry).values({
+    action,
+    actorUserId,
+    createdAt: now,
+    domain: "guardian_access",
+    editionId,
+    id: uuidv7(),
+    metadata: { email, name },
+    targetId: membershipId,
+    targetType: "edition_membership",
   });
   return membershipId;
 }
@@ -214,36 +255,52 @@ async function handleExistingGuardianIdentity({
   }
 
   if (decision === "reactivate_external") {
-    const membershipId = await insertGuardianMembership({
-      action: "guardian.reactivated",
-      actorUserId: authed.session.user.id,
-      editionId: data.editionId,
-      email: normalizedEmail,
-      name: data.name,
-      phone: normalizedPhone,
-      userId: existing.id,
+    const membershipId = await db.transaction(async (tx) => {
+      const marker = await tx
+        .select({ userId: kalakritiExternalIdentity.userId })
+        .from(kalakritiExternalIdentity)
+        .where(eq(kalakritiExternalIdentity.userId, existing.id))
+        .for("update")
+        .then((rows) => rows[0]);
+      if (!marker) {
+        throw new Error("Kalakriti external identity not found");
+      }
+      const memberships = await tx
+        .select({
+          editionId: kalakritiEditionMembership.editionId,
+          state: kalakritiEditionMembership.state,
+        })
+        .from(kalakritiEditionMembership)
+        .where(eq(kalakritiEditionMembership.userId, existing.id));
+      if (
+        memberships.some(
+          (membership) => membership.editionId === data.editionId
+        )
+      ) {
+        throw new Error(
+          "This account already has a membership in this Edition"
+        );
+      }
+      if (memberships.some((membership) => membership.state === "active")) {
+        throw new Error(
+          "This Guardian already has access to an active Kalakriti Edition"
+        );
+      }
+      const createdMembershipId = await insertGuardianMembershipRecords(tx, {
+        action: "guardian.reactivated",
+        actorUserId: authed.session.user.id,
+        editionId: data.editionId,
+        email: normalizedEmail,
+        name: data.name,
+        phone: normalizedPhone,
+        userId: existing.id,
+      });
+      await setKalakritiExternalUserBlocked(tx, {
+        blocked: false,
+        userId: existing.id,
+      });
+      return createdMembershipId;
     });
-    try {
-      await auth.api.unbanUser({
-        body: { userId: existing.id },
-        headers: authed.headers,
-      });
-    } catch (caughtError) {
-      await db.transaction(async (tx) => {
-        await tx
-          .delete(kalakritiAuditEntry)
-          .where(
-            and(
-              eq(kalakritiAuditEntry.targetId, membershipId),
-              eq(kalakritiAuditEntry.action, "guardian.reactivated")
-            )
-          );
-        await tx
-          .delete(kalakritiEditionMembership)
-          .where(eq(kalakritiEditionMembership.id, membershipId));
-      });
-      throw caughtError;
-    }
     enqueueGuardianAccessNotification({
       editionName: edition.name,
       membershipId,
@@ -303,59 +360,28 @@ async function createExternalGuardianIdentity({
   });
   let createdUserId: string | undefined;
   try {
-    const created = await auth.api.createUser({
-      body: {
-        email: normalizedEmail,
-        name: data.name,
-        password,
-        role: "external_user",
-      },
-      headers: authed.headers,
+    const created = await createKalakritiExternalUser({
+      email: normalizedEmail,
+      name: data.name,
+      password,
+      phone: normalizedPhone,
     });
-    createdUserId = created.user.id;
-    await auth.api.adminUpdateUser({
-      body: {
-        data: {
-          emailVerified: true,
-          isActive: true,
-          phone: normalizedPhone,
-        },
-        userId: createdUserId,
-      },
-      headers: authed.headers,
-    });
+    createdUserId = created.id;
 
-    const membershipId = uuidv7();
-    const now = new Date();
-    await db.transaction(async (tx) => {
+    const membershipId = await db.transaction(async (tx) => {
       await tx.insert(kalakritiExternalIdentity).values({
-        createdAt: now,
+        createdAt: new Date(),
         createdBy: authed.session.user.id,
-        userId: createdUserId as string,
+        userId: created.id,
       });
-      await tx.insert(kalakritiEditionMembership).values({
-        createdAt: now,
-        createdBy: authed.session.user.id,
-        editionId: data.editionId,
-        id: membershipId,
-        kind: "guardian",
-        snapshotEmail: normalizedEmail,
-        snapshotName: data.name,
-        snapshotPhone: normalizedPhone,
-        state: "active",
-        updatedAt: now,
-        userId: createdUserId,
-      });
-      await tx.insert(kalakritiAuditEntry).values({
+      return insertGuardianMembershipRecords(tx, {
         action: "guardian.invited",
         actorUserId: authed.session.user.id,
-        createdAt: now,
-        domain: "guardian_access",
         editionId: data.editionId,
-        id: uuidv7(),
-        metadata: { email: normalizedEmail, name: data.name },
-        targetId: membershipId,
-        targetType: "edition_membership",
+        email: normalizedEmail,
+        name: data.name,
+        phone: normalizedPhone,
+        userId: created.id,
       });
     });
     enqueueGuardianAccessNotification({
@@ -371,10 +397,7 @@ async function createExternalGuardianIdentity({
   } catch (caughtError) {
     if (createdUserId) {
       try {
-        await auth.api.removeUser({
-          body: { userId: createdUserId },
-          headers: authed.headers,
-        });
+        await deleteKalakritiExternalUser(createdUserId);
       } catch (cleanupError) {
         requestLog.set({
           cleanupError:
@@ -454,10 +477,14 @@ export const inviteKalakritiGuardian = createServerFn({ method: "POST" })
             .then((rows) => rows[0]),
         ])
       : [undefined, undefined];
+    const existingPermissions = existing
+      ? await resolvePermissions(existing.role)
+      : [];
     const decision = decideGuardianIdentity({
       candidate: existing
         ? {
             banned: existing.banned,
+            canAccessKalakriti: existingPermissions.includes("kalakriti.view"),
             emailVerified: existing.emailVerified,
             hasActiveMembership: Boolean(activeMembership),
             hasEditionMembership: Boolean(sameEditionMembership),
@@ -516,34 +543,35 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
     if (membership.state !== "active") {
       throw new Error("Guardian membership is already archived");
     }
-    if (!membership.userId) {
-      throw new Error("Guardian membership has no login identity");
-    }
-
-    const marker = await db
-      .select({ userId: kalakritiExternalIdentity.userId })
-      .from(kalakritiExternalIdentity)
-      .where(eq(kalakritiExternalIdentity.userId, membership.userId))
-      .limit(1)
-      .then((rows) => rows[0]);
-    const otherActiveMembership = marker
-      ? await db
-          .select({ id: kalakritiEditionMembership.id })
-          .from(kalakritiEditionMembership)
-          .where(
-            and(
-              eq(kalakritiEditionMembership.userId, membership.userId),
-              eq(kalakritiEditionMembership.state, "active"),
-              ne(kalakritiEditionMembership.id, data.membershipId)
-            )
-          )
-          .limit(1)
-          .then((rows) => rows[0])
-      : undefined;
+    const membershipUserId = membership.userId;
 
     const auditEntryId = uuidv7();
     const now = new Date();
     await db.transaction(async (tx) => {
+      const marker = membershipUserId
+        ? await tx
+            .select({ userId: kalakritiExternalIdentity.userId })
+            .from(kalakritiExternalIdentity)
+            .where(eq(kalakritiExternalIdentity.userId, membershipUserId))
+            .for("update")
+            .then((rows) => rows[0])
+        : undefined;
+      const currentMembership = await tx
+        .select({
+          name: kalakritiEditionMembership.snapshotName,
+          state: kalakritiEditionMembership.state,
+          userId: kalakritiEditionMembership.userId,
+        })
+        .from(kalakritiEditionMembership)
+        .where(eq(kalakritiEditionMembership.id, data.membershipId))
+        .for("update")
+        .then((rows) => rows[0]);
+      if (
+        currentMembership?.state !== "active" ||
+        currentMembership.userId !== membershipUserId
+      ) {
+        throw new Error("Guardian membership is already archived");
+      }
       await tx
         .update(kalakritiEditionMembership)
         .set({ archivedAt: now, state: "archived", updatedAt: now })
@@ -555,38 +583,37 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
         domain: "guardian_access",
         editionId: membership.editionId,
         id: auditEntryId,
-        metadata: { name: membership.name },
+        metadata: { name: currentMembership.name },
         targetId: data.membershipId,
         targetType: "edition_membership",
       });
-    });
-
-    if (
-      shouldBlockExternalIdentity({
-        hasExternalMarker: Boolean(marker),
-        hasOtherActiveMembership: Boolean(otherActiveMembership),
-      })
-    ) {
-      try {
-        await auth.api.banUser({
-          body: {
-            banReason: "No active Kalakriti Edition membership",
-            userId: membership.userId,
-          },
-          headers: authed.headers,
-        });
-      } catch (caughtError) {
-        await db.transaction(async (tx) => {
-          await tx
-            .update(kalakritiEditionMembership)
-            .set({ archivedAt: null, state: "active", updatedAt: new Date() })
-            .where(eq(kalakritiEditionMembership.id, data.membershipId));
-          await tx
-            .delete(kalakritiAuditEntry)
-            .where(eq(kalakritiAuditEntry.id, auditEntryId));
-        });
-        throw caughtError;
+      if (!membershipUserId) {
+        return;
       }
-    }
+      const otherActiveMembership = marker
+        ? await tx
+            .select({ id: kalakritiEditionMembership.id })
+            .from(kalakritiEditionMembership)
+            .where(
+              and(
+                eq(kalakritiEditionMembership.userId, membershipUserId),
+                eq(kalakritiEditionMembership.state, "active")
+              )
+            )
+            .limit(1)
+            .then((rows) => rows[0])
+        : undefined;
+      if (
+        shouldBlockExternalIdentity({
+          hasExternalMarker: Boolean(marker),
+          hasOtherActiveMembership: Boolean(otherActiveMembership),
+        })
+      ) {
+        await setKalakritiExternalUserBlocked(tx, {
+          blocked: true,
+          userId: membershipUserId,
+        });
+      }
+    });
     return { membershipId: data.membershipId, status: "archived" as const };
   });

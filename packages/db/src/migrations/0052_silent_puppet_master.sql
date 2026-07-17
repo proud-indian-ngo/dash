@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "kalakriti_membership_active_guardian_userId_uidx" ON "kalakriti_edition_membership" USING btree ("user_id") WHERE "kalakriti_edition_membership"."kind" = 'guardian' AND "kalakriti_edition_membership"."state" = 'active' AND "kalakriti_edition_membership"."user_id" IS NOT NULL;

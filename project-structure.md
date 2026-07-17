@@ -78,8 +78,10 @@ All paths are relative to project root.
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
 | `routes/_app/kalakriti/route.tsx` | Kalakriti layout (`kalakriti.view` permission guard) |
-| `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and Edition list fallback |
-| `routes/_app/kalakriti/$year.tsx` | Edition-scoped workspace; inaccessible Editions resolve as not found |
+| `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
+| `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped layout and exact-year access guard |
+| `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace |
+| `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |

@@ -68,7 +68,12 @@ function GuardianRosterRow({
         </p>
       </div>
       {guardian.state === "active" ? (
-        <Button onClick={handleArchive} size="sm" variant="outline">
+        <Button
+          aria-label={`Archive access for ${guardian.snapshotName}`}
+          onClick={handleArchive}
+          size="sm"
+          variant="outline"
+        >
           Archive access
         </Button>
       ) : null}

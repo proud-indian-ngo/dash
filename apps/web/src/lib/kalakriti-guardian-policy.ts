@@ -6,6 +6,7 @@ export type GuardianIdentityDecision =
 
 export interface GuardianIdentityCandidate {
   banned: boolean | null;
+  canAccessKalakriti: boolean;
   emailVerified: boolean;
   hasActiveMembership: boolean;
   hasEditionMembership: boolean;
@@ -39,8 +40,16 @@ export function decideGuardianIdentity({
     throw new Error("This account already has a membership in this Edition");
   }
   if (!candidate.isExternal) {
+    if (candidate.role === "external_user") {
+      throw new Error(
+        "This Guardian account is still being provisioned; try again"
+      );
+    }
     if (candidate.banned) {
       throw new Error("This central account is suspended");
+    }
+    if (!candidate.canAccessKalakriti) {
+      throw new Error("This central account cannot access Kalakriti");
     }
     return "assign_central";
   }

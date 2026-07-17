@@ -135,8 +135,9 @@ export function GuardianInviteDialog({
         <DialogHeader>
           <DialogTitle>Invite Guardian</DialogTitle>
           <DialogDescription>
-            Create yearly Guardian access or reuse an exact verified email. The
-            account stays outside the central volunteer directory.
+            Create yearly Guardian access for a new external account, reuse a
+            dormant external account, or assign an existing verified central
+            account without changing it.
           </DialogDescription>
         </DialogHeader>
         <GuardianInviteForm

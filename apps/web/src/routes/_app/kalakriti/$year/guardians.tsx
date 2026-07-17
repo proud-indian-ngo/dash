@@ -133,6 +133,36 @@ function KalakritiGuardiansPage() {
     }
   });
 
+  let rosterContent = (
+    <div
+      aria-label="Loading Guardians"
+      className="flex min-h-32 items-center justify-center"
+      role="status"
+    >
+      <Loader />
+    </div>
+  );
+  if (rosterResult.type === "complete") {
+    rosterContent = (
+      <GuardianRoster
+        guardians={guardians.map((guardian) => ({
+          ...guardian,
+          state: guardian.state ?? "active",
+        }))}
+        onArchive={archiveAction.trigger}
+      />
+    );
+  } else if (rosterResult.type === "error") {
+    rosterContent = (
+      <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
+        <p role="alert">Guardians could not be loaded.</p>
+        <Button onClick={rosterResult.retry} type="button" variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-6">
       <Card>
@@ -147,25 +177,7 @@ function KalakritiGuardiansPage() {
           </div>
           <Button onClick={handleInviteOpen}>Invite Guardian</Button>
         </CardHeader>
-        <CardContent>
-          {rosterResult.type === "complete" ? (
-            <GuardianRoster
-              guardians={guardians.map((guardian) => ({
-                ...guardian,
-                state: guardian.state ?? "active",
-              }))}
-              onArchive={archiveAction.trigger}
-            />
-          ) : (
-            <div
-              aria-label="Loading Guardians"
-              className="flex min-h-32 items-center justify-center"
-              role="status"
-            >
-              <Loader />
-            </div>
-          )}
-        </CardContent>
+        <CardContent>{rosterContent}</CardContent>
       </Card>
 
       <GuardianInviteDialog
@@ -176,7 +188,7 @@ function KalakritiGuardiansPage() {
       />
       <ConfirmDialog
         confirmLabel="Archive access"
-        description={`Archive ${archiveAction.payload?.snapshotName ?? "this Guardian"}'s access to ${edition.name}? Their sessions will be revoked if this is their final active Edition.`}
+        description={`Archive ${archiveAction.payload?.snapshotName ?? "this Guardian"}'s access to ${edition.name}? A dedicated external account will be blocked if this is its final active Edition; central account access is unchanged.`}
         loading={archiveAction.isLoading}
         loadingLabel="Archiving..."
         onConfirm={archiveAction.confirm}
