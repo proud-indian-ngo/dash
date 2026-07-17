@@ -1,0 +1,88 @@
+packages/db/src/migrations/0051_unusual_felicia_hardy.sql
+  s_c8c0ce2f824e4f::t_bdde7278851b83 1-38
+packages/zero/src/queries/kalakriti-membership.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 7-16,23-27
+  s_c8c0ce2f824e4f::t_91a4505fb52905 1-6,17-22,28-47
+apps/web/src/routes/_app/kalakriti/index.tsx
+  s_c8c0ce2f824e4f::t_7624266f93d4ce 22
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_aa45cd17b851c3 11,13,35,37
+packages/zero/src/queries/kalakriti-center.test.ts
+  s_c8c0ce2f824e4f::t_bd79ce4cf51e53 15-30
+  s_c8c0ce2f824e4f::t_c63f5daef0ea98 31
+  s_c8c0ce2f824e4f::t_fadfb10460f9aa 32-33
+  s_c8c0ce2f824e4f::t_375b57fd5cab27 1-14,34-35
+apps/web/src/routes/_app/kalakriti/new.tsx
+  s_c8c0ce2f824e4f::t_d480947eb6bf9f 115
+apps/web/src/routes/_app/kalakriti/$year.tsx
+  s_c8c0ce2f824e4f::t_10e372be5a35a8 385
+  s_c8c0ce2f824e4f::t_4c291042b75d26 95-99
+  s_c8c0ce2f824e4f::t_9732d8f721049d 1-5,59,61,161-164
+  s_c8c0ce2f824e4f::t_91ab367353115e 394,396,398-399
+  s_c8c0ce2f824e4f::t_370e0084251a27 23,46,56,64-71,73-78,80-92,106-155,169,178-191,359-377,382,388,400-401,403-406
+  s_c8c0ce2f824e4f::t_3fd242cd0d54bd 53
+  s_c8c0ce2f824e4f::t_507a3cc37059c6 72,79,93-94,100-105,402
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 18,27-28,166-168,194-241,245-279,292,307-317,347-352,378,389-391
+  s_c8c0ce2f824e4f::t_956a901165d1f7 22
+  s_c8c0ce2f824e4f::t_2d9a34f9341e9c 6
+  s_c8c0ce2f824e4f::t_37ef0bf8dbe562 15-17
+  s_c8c0ce2f824e4f::t_90cab73416aaf2 19
+  s_c8c0ce2f824e4f::t_e4cbc00e11e3a9 21
+  s_c8c0ce2f824e4f::t_fe000c8223c891 24
+  s_c8c0ce2f824e4f::t_6ddf8357b78037 156
+  s_c8c0ce2f824e4f::t_ffa3e367f978f0 160
+  s_c8c0ce2f824e4f::t_045daf2235d643 165
+  s_c8c0ce2f824e4f::t_150ab9d79c876d 170-172,175-177
+  s_c8c0ce2f824e4f::t_ddbe5727376e1f 192-193
+  s_c8c0ce2f824e4f::t_b843154fb6388d 353-358
+  s_c8c0ce2f824e4f::t_7e8c2c261d175e 379-381
+  s_c8c0ce2f824e4f::t_ddf7252859d693 383-384
+  s_c8c0ce2f824e4f::t_0f203ad9d66bba 386-387
+  s_c8c0ce2f824e4f::t_e90beaec343c32 392-393
+  s_c8c0ce2f824e4f::t_b34a8a014bc950 407-409
+  s_c8c0ce2f824e4f::t_fae2ab5191915c 173-174,410-411
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_bdde7278851b83 361-367
+packages/db/src/migrations/meta/0051_snapshot.json
+  s_c8c0ce2f824e4f::t_bdde7278851b83 1-6575
+packages/zero/src/mutators/__tests__/kalakriti-center-membership.test.ts
+  s_c8c0ce2f824e4f::t_858f68a91f7ac0 2-3
+  s_c8c0ce2f824e4f::t_b96c811848c356 1,4-16,18-50,52-77,81-84,86-93,95-130,137-172,177-195
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 17,51,78-80,85,94,131-136
+  s_c8c0ce2f824e4f::t_e9b36377b71bf1 173-176
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 3,41-45,169-234,266
+  s_c8c0ce2f824e4f::t_77ef2cd8bc5416 283,309-333
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_90bc9dfb61437a 1,994-1105,3277-3312,3322-3329,3356-3363,4006-4007,4057-4058,4208-4218
+  s_c8c0ce2f824e4f::t_d5eb2ac9691d78 4219
+packages/zero/src/queries/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_61aa0ac5d1f3b5 1-13,15-17,27-44,53-54
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 14,18-26,45-52
+packages/zero/src/mutators/kalakriti-membership.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 14-53,111,144
+  s_c8c0ce2f824e4f::t_d39212b54be336 1-13,54-110,112-140,142-143,145-152
+  s_c8c0ce2f824e4f::t_b2941e8736af5e 141
+packages/zero/src/mutators/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 15,54-58,62,95,110-111,195,198-201,203,209,216,218-239,243,246-247,250-253,256-257,272,292-294,319-433
+  s_c8c0ce2f824e4f::t_db5e8cc75d668f 1-8,26-27,30-51,59,63-94,96-107,112-116,118-194,196-197,202,204-207,210-214,240-242,244-245,248-249,254-255,258-270,273-276,282-291,295-318,434-437
+  s_c8c0ce2f824e4f::t_7357da59cb203a 9-14,16-25,28-29,52-53,60-61,108-109,117,208,215,217,271,277-281
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_86423a8356ba2d 13,15,38,40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "61fbab79120dad98b5812bc5a5aaf265e0d40403",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.3-codex-spark"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
