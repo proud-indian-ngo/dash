@@ -1,0 +1,21 @@
+apps/web/src/components/kalakriti/center-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_da9a40965fa4c9 113
+apps/web/src/components/kalakriti/center-assignment-forms.tsx
+  s_c8c0ce2f824e4f::t_da9a40965fa4c9 90-93,144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a7910b31d7381e0089a65e4f5aa407ce177af7fe",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
