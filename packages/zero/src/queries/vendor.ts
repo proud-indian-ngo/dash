@@ -1,19 +1,27 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
-import { can } from "../permissions";
+import { can, isExternalUser } from "../permissions";
 import { zql } from "../schema";
 
 export const vendorQueries = {
-  all: defineQuery(({ ctx }) =>
-    ctx !== null && can(ctx, "vendors.view_all")
+  all: defineQuery(({ ctx }) => {
+    if (isExternalUser(ctx)) {
+      return zql.vendor.where("id", "__never_match__");
+    }
+    return ctx !== null && can(ctx, "vendors.view_all")
       ? zql.vendor.orderBy("name", "asc")
+      : zql.vendor.where("status", "approved").orderBy("name", "asc");
+  }),
+  approved: defineQuery(({ ctx }) =>
+    isExternalUser(ctx)
+      ? zql.vendor.where("id", "__never_match__")
       : zql.vendor.where("status", "approved").orderBy("name", "asc")
   ),
-  approved: defineQuery(() =>
-    zql.vendor.where("status", "approved").orderBy("name", "asc")
-  ),
-  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id } }) =>
-    zql.vendor.where("id", id).one()
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
+    (isExternalUser(ctx)
+      ? zql.vendor.where("id", "__never_match__")
+      : zql.vendor.where("id", id)
+    ).one()
   ),
   pendingByCurrentUser: defineQuery(({ ctx }) =>
     zql.vendor

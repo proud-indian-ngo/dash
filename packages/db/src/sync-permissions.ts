@@ -2,6 +2,7 @@ import { and, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   ADMIN_PERMISSIONS,
+  EXTERNAL_USER_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSIONS,
   SYSTEM_ONLY_PERMISSION_IDS,
@@ -17,8 +18,8 @@ import { permission, role, rolePermission } from "./schema/permission";
  * 1. Upserts all permissions from the PERMISSIONS constant
  * 2. Removes stale permissions (and their rolePermission rows via cascade)
  * 3. Ensures all system roles exist
- * 4. Deterministically syncs super_admin, admin, and finance_admin permissions
- * 5. Seeds volunteer baseline permissions on first run (does not override manual changes)
+ * 4. Deterministically syncs admin-tier and external-user permissions
+ * 5. Adds required volunteer baseline permissions without removing manual grants
  */
 export async function syncPermissions(): Promise<void> {
   const currentIds = PERMISSIONS.map((p) => p.id);
@@ -66,6 +67,7 @@ export async function syncPermissions(): Promise<void> {
       { id: "admin", isSystem: true, name: "Admin" },
       { id: "finance_admin", isSystem: true, name: "Finance Admin" },
       { id: "volunteer", isSystem: true, name: "Volunteer" },
+      { id: "external_user", isSystem: true, name: "External User" },
       {
         id: "unoriented_volunteer",
         isSystem: true,
@@ -90,6 +92,7 @@ export async function syncPermissions(): Promise<void> {
         ["super_admin", currentIds],
         ["admin", ADMIN_PERMISSIONS as string[]],
         ["finance_admin", FINANCE_ADMIN_PERMISSIONS as string[]],
+        ["external_user", EXTERNAL_USER_PERMISSIONS as string[]],
       ] as [string, string[]][]
     ).map(async ([roleId, permIds]) => {
       if (permIds.length > 0) {
@@ -111,27 +114,31 @@ export async function syncPermissions(): Promise<void> {
     })
   );
 
-  // Volunteer baseline — only seed if volunteer has zero permissions (first run)
+  // Seed editable volunteer roles on first run. Existing roles keep manual
+  // changes, except for the coarse access required by the Kalakriti module.
   await db.transaction(async (tx) => {
     const volunteerPerms = await tx
       .select({ permissionId: rolePermission.permissionId })
       .from(rolePermission)
       .where(eq(rolePermission.roleId, "volunteer"));
+    const requiredPermissions =
+      volunteerPerms.length === 0
+        ? VOLUNTEER_BASELINE_PERMISSIONS
+        : (["kalakriti.view"] as const);
 
-    if (
-      volunteerPerms.length === 0 &&
-      VOLUNTEER_BASELINE_PERMISSIONS.length > 0
-    ) {
-      await tx.insert(rolePermission).values(
-        VOLUNTEER_BASELINE_PERMISSIONS.map((permId) => ({
-          permissionId: permId,
-          roleId: "volunteer",
-        }))
-      );
+    if (requiredPermissions.length > 0) {
+      await tx
+        .insert(rolePermission)
+        .values(
+          requiredPermissions.map((permissionId) => ({
+            permissionId,
+            roleId: "volunteer",
+          }))
+        )
+        .onConflictDoNothing();
     }
   });
 
-  // Unoriented volunteer baseline — only seed on first run
   await db.transaction(async (tx) => {
     const unorientedPerms = await tx
       .select({ permissionId: rolePermission.permissionId })
@@ -143,8 +150,8 @@ export async function syncPermissions(): Promise<void> {
       UNORIENTED_VOLUNTEER_PERMISSIONS.length > 0
     ) {
       await tx.insert(rolePermission).values(
-        UNORIENTED_VOLUNTEER_PERMISSIONS.map((permId) => ({
-          permissionId: permId,
+        UNORIENTED_VOLUNTEER_PERMISSIONS.map((permissionId) => ({
+          permissionId,
           roleId: "unoriented_volunteer",
         }))
       );

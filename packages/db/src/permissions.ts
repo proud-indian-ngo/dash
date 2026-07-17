@@ -353,6 +353,20 @@ export const PERMISSIONS = [
     name: "System Alerts",
   },
 
+  // ── Kalakriti ──
+  {
+    category: "kalakriti",
+    description: "Access Kalakriti editions assigned to the current user",
+    id: "kalakriti.view",
+    name: "View Kalakriti",
+  },
+  {
+    category: "kalakriti",
+    description: "Create editions and administer Kalakriti configuration",
+    id: "kalakriti.admin",
+    name: "Administer Kalakriti",
+  },
+
   // ── Bank Accounts (user-scoped) ──
   {
     category: "bank_accounts",
@@ -389,6 +403,7 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "vendors.create",
   "teams.view_own",
   "events.view_own",
+  "kalakriti.view",
   "event_updates.edit_own",
   "event_updates.delete_own",
   "bank_accounts.manage_own",
@@ -399,12 +414,20 @@ export const UNORIENTED_VOLUNTEER_PERMISSIONS: readonly PermissionId[] = [
   "events.view_own",
 ];
 
+/** External users only enter Kalakriti through an active Edition membership. */
+export const EXTERNAL_USER_PERMISSIONS: readonly PermissionId[] = [
+  "kalakriti.view",
+];
+
 /** Role IDs that are immutable system roles (permissions managed in code, not editable via UI) */
 export const ADMIN_TIER_ROLES = new Set([
   "super_admin",
   "admin",
   "finance_admin",
 ]);
+
+/** Roles assigned only by their owning domain workflow, never generic user admin. */
+export const TECHNICAL_ROLE_IDS = new Set(["external_user"]);
 
 const adminExcluded = new Set<PermissionId>([
   "requests.approve",

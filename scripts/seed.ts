@@ -43,6 +43,13 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import {
+  kalakritiAssignment,
+  kalakritiAuditEntry,
+  kalakritiEdition,
+  kalakritiEditionMembership,
+  kalakritiExternalIdentity,
+} from "@pi-dash/db/schema/kalakriti";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
   reimbursement,
@@ -55,7 +62,7 @@ import {
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
 import { team, teamMember } from "@pi-dash/db/schema/team";
-import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
   vendor,
   vendorPayment,
@@ -146,13 +153,20 @@ const ID = {
   ers02: "019d52c2-7261-7dce-b0ee-e261b2c3d4e5",
   euOutreach: "019d52c2-7261-7dce-b0ee-e223abc37f66",
   euPlanning: "019d52c2-7261-7dce-b0ee-e2221e6385fa",
+  // Events
+  evKalakriti: "019d52c2-7261-7dce-b0ee-e2143101d420",
   evKitchen: "019d52c2-7261-7dce-b0ee-e216e531c68d",
   evOutreach: "019d52c2-7261-7dce-b0ee-e217bda25bc8",
   evPlanning: "019d52c2-7261-7dce-b0ee-e2182d2e359e",
   evSupply: "019d52c2-7261-7dce-b0ee-e219e08de6fd",
-  // Events
   evTeaching: "019d52c2-7261-7dce-b0ee-e2143101d41f",
   evTeachingNext: "019d52c2-7261-7dce-b0ee-e215aeea8546",
+  kalakritiAudit: "019d52c2-7261-7dce-b0ee-e206561715c4",
+  kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
+  kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
+  kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
+  kalakritiEditionAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
+  kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
   // Reimbursements
@@ -307,6 +321,13 @@ const USERS: SeedUser[] = [
     password: "Newbie123!",
     phone: "+919876543216",
     role: "unoriented_volunteer",
+  },
+  {
+    email: "guardian@pi-dash.dev",
+    name: "Dev Guardian",
+    password: "Guardian123!",
+    phone: "+919876543218",
+    role: "external_user",
   },
 ];
 
@@ -722,6 +743,124 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
     })
   );
   log(`${events.length} events ready`);
+}
+
+async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
+  log("Seeding Kalakriti edition...");
+  const adminId = getUser(userMap, "admin@pi-dash.dev");
+  const editionAdminId = getUser(userMap, "volunteer1@pi-dash.dev");
+  const guardianId = getUser(userMap, "guardian@pi-dash.dev");
+  const eventDate = new Date("2027-11-21T00:00:00+05:30");
+
+  await db
+    .insert(teamEvent)
+    .values({
+      city: "bangalore",
+      createdAt: now,
+      createdBy: adminId,
+      description: "Technical event record managed by the Kalakriti module.",
+      id: ID.evKalakriti,
+      isPublic: false,
+      managementDomain: "kalakriti",
+      name: "Kalakriti 2027",
+      startTime: eventDate,
+      teamId: ID.teamEvents,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: { managementDomain: "kalakriti" },
+      target: teamEvent.id,
+    });
+
+  await db
+    .insert(kalakritiEdition)
+    .values({
+      ageCutoffDate: "2027-06-01",
+      brandingKey: "kalakriti-2027",
+      createdAt: now,
+      createdBy: adminId,
+      eventDate: "2027-11-21",
+      id: ID.kalakritiEdition,
+      lifecycle: "draft",
+      name: "Kalakriti 2027",
+      plannedRegistrationCloseAt: new Date("2027-10-31T23:59:00+05:30"),
+      teamEventId: ID.evKalakriti,
+      updatedAt: now,
+      year: 2027,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiExternalIdentity)
+    .values({ createdAt: now, createdBy: adminId, userId: guardianId })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiEditionMembership)
+    .values([
+      {
+        createdAt: now,
+        createdBy: adminId,
+        editionId: ID.kalakritiEdition,
+        id: ID.kalakritiEditionAdminMembership,
+        kind: "volunteer",
+        snapshotEmail: "volunteer1@pi-dash.dev",
+        snapshotName: "Rahul Verma",
+        snapshotPhone: "+919876543212",
+        updatedAt: now,
+        userId: editionAdminId,
+      },
+      {
+        createdAt: now,
+        createdBy: adminId,
+        editionId: ID.kalakritiEdition,
+        id: ID.kalakritiGuardianMembership,
+        kind: "guardian",
+        snapshotEmail: "guardian@pi-dash.dev",
+        snapshotName: "Dev Guardian",
+        snapshotPhone: "+919876543218",
+        updatedAt: now,
+        userId: guardianId,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiAssignment)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiEditionAdminAssignment,
+      membershipId: ID.kalakritiEditionAdminMembership,
+      responsibility: "edition_admin",
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(teamEventMember)
+    .values({
+      addedAt: now,
+      eventId: ID.evKalakriti,
+      id: ID.kalakritiEditionAdminEventMember,
+      userId: editionAdminId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiAuditEntry)
+    .values({
+      action: "created",
+      actorUserId: adminId,
+      createdAt: now,
+      domain: "edition",
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiAudit,
+      targetId: ID.kalakritiEdition,
+      targetType: "edition",
+    })
+    .onConflictDoNothing();
+  log("Kalakriti 2027 ready");
 }
 
 async function seedEventRsvp(userMap: Map<string, string>): Promise<void> {
@@ -1884,6 +2023,7 @@ async function main(): Promise<void> {
   await seedWhatsappGroups();
   await seedTeams(userMap);
   await seedEvents(userMap);
+  await seedKalakriti(userMap);
   await seedEventRsvp(userMap);
   await seedEventExtras(userMap);
   await seedReimbursements(userMap);

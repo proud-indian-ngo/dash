@@ -351,6 +351,13 @@
       "when": 1783507141206,
       "tag": "0049_medical_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1784295703233,
+      "tag": "0050_thick_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

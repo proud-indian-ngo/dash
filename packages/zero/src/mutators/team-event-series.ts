@@ -68,6 +68,7 @@ export function buildExceptionInsert(
       overrides.inheritVolunteers ?? series.inheritVolunteers ?? false,
     isPublic: overrides.isPublic ?? series.isPublic,
     location: overrides.location ?? series.location ?? null,
+    managementDomain: series.managementDomain,
     name: overrides.name ?? series.name,
     originalDate,
     postEventNudgesEnabled:

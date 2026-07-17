@@ -1,6 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
-import { can } from "../permissions";
+import { can, isExternalUser } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.team) {
@@ -10,24 +10,33 @@ function withRelated(q: typeof zql.team) {
 }
 
 export const teamQueries = {
-  all: defineQuery(({ ctx }) =>
-    ctx !== null && can(ctx, "teams.view_all")
-      ? withRelated(zql.team).orderBy("name", "asc")
-      : withRelated(zql.team)
-          .whereExists("members", (m) => m.where("userId", ctx?.userId))
-          .orderBy("name", "asc")
-  ),
-  byCurrentUser: defineQuery(({ ctx }) =>
-    withRelated(zql.team)
+  all: defineQuery(({ ctx }) => {
+    if (isExternalUser(ctx)) {
+      return withRelated(zql.team).where("id", "__never_match__");
+    }
+    if (ctx !== null && can(ctx, "teams.view_all")) {
+      return withRelated(zql.team).orderBy("name", "asc");
+    }
+    return withRelated(zql.team)
       .whereExists("members", (m) => m.where("userId", ctx?.userId))
-      .orderBy("name", "asc")
-  ),
-  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
-    ctx !== null && can(ctx, "teams.view_all")
-      ? withRelated(zql.team).where("id", id).one()
-      : withRelated(zql.team)
-          .where("id", id)
-          .whereExists("members", (m) => m.where("userId", ctx?.userId))
-          .one()
-  ),
+      .orderBy("name", "asc");
+  }),
+  byCurrentUser: defineQuery(({ ctx }) => {
+    const query = withRelated(zql.team).orderBy("name", "asc");
+    return isExternalUser(ctx)
+      ? query.where("id", "__never_match__")
+      : query.whereExists("members", (m) => m.where("userId", ctx?.userId));
+  }),
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) => {
+    if (isExternalUser(ctx)) {
+      return withRelated(zql.team).where("id", "__never_match__").one();
+    }
+    if (ctx !== null && can(ctx, "teams.view_all")) {
+      return withRelated(zql.team).where("id", id).one();
+    }
+    return withRelated(zql.team)
+      .where("id", id)
+      .whereExists("members", (m) => m.where("userId", ctx?.userId))
+      .one();
+  }),
 };

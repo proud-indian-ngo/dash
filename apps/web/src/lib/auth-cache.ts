@@ -25,6 +25,16 @@ async function fetchAuth(): Promise<AuthResult | null> {
 }
 
 export async function getCachedAuth() {
+  // Server route loaders share module state across requests. Caching an
+  // authenticated result here would leak one user's session and permissions
+  // into another user's request.
+  if (typeof window === "undefined") {
+    const result = await getAuth();
+    return result
+      ? { permissions: result.permissions, session: result.session }
+      : { permissions: [] as string[], session: null };
+  }
+
   if (cached && Date.now() - lastFetchTime < CACHE_TTL) {
     return { permissions: cached.permissions, session: cached.session };
   }

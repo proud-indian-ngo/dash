@@ -1,8 +1,9 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { Loader } from "@/components/loader";
 import { EventDetail } from "@/components/teams/events/event-detail";
@@ -11,6 +12,81 @@ import { applyOccurrenceDate } from "@/components/teams/events/events-table-help
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
 import { isTeamLead } from "@/lib/team-utils";
+
+interface EventAccess {
+  canApproveUpdates: boolean;
+  canCancelPast: boolean;
+  canCreate: boolean;
+  canManage: boolean;
+  canManageAttendance: boolean;
+  canManageFeedback: boolean;
+  canManageInterest: boolean;
+  canManagePhotos: boolean;
+  canManageVolunteers: boolean;
+  isMember: boolean;
+  isTeamMember: boolean;
+}
+
+const protectedKalakritiEventAccess: EventAccess = {
+  canApproveUpdates: false,
+  canCancelPast: false,
+  canCreate: false,
+  canManage: false,
+  canManageAttendance: false,
+  canManageFeedback: false,
+  canManageInterest: false,
+  canManagePhotos: false,
+  canManageVolunteers: false,
+  isMember: false,
+  isTeamMember: false,
+};
+
+function protectKalakritiEventAccess(
+  access: EventAccess,
+  isManagedByKalakriti: boolean
+): EventAccess {
+  if (!isManagedByKalakriti) {
+    return access;
+  }
+  return protectedKalakritiEventAccess;
+}
+
+function selectManagerInterests<T>(
+  canManageInterest: boolean,
+  interests: readonly T[]
+): readonly T[] {
+  return canManageInterest ? interests : [];
+}
+
+function KalakritiManagedEventBanner({
+  edition,
+}: {
+  edition?: { year: number };
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border border-primary/30 bg-primary/5 p-4">
+      <div>
+        <p className="font-medium">Managed by Kalakriti</p>
+        <p className="text-muted-foreground text-sm">
+          {edition
+            ? `Edit this event from the ${edition.year} Edition workspace.`
+            : "This event is read-only outside its Kalakriti Edition."}
+        </p>
+      </div>
+      {edition ? (
+        <Button
+          nativeButton={false}
+          render={
+            <Link params={{ year: edition.year }} to="/kalakriti/$year" />
+          }
+          variant="outline"
+        >
+          Open Edition
+        </Button>
+      ) : null}
+    </div>
+  );
+}
 
 function deriveDisplayEvent(
   event: EventRow,
@@ -54,6 +130,9 @@ export const Route = createFileRoute("/_app/events/$id")({
   loader: ({ context, params }) => {
     context.zero?.preload(queries.teamEvent.byId({ id: params.id }));
     context.zero?.preload(
+      queries.kalakritiEdition.byTeamEventId({ teamEventId: params.id })
+    );
+    context.zero?.preload(
       queries.eventUpdate.approvedByEvent({ eventId: params.id })
     );
     // Pending update/photo preloads omitted — conditionally fetched based on
@@ -82,6 +161,9 @@ function EventDetailRouteComponent() {
 
   const [eventResult, eventStatus] = useQuery(queries.teamEvent.byId({ id }));
   const event = (eventResult ?? null) as EventRow | null;
+  const [kalakritiEdition] = useQuery(
+    queries.kalakritiEdition.byTeamEventId({ teamEventId: id })
+  );
 
   const [teamResult] = useQuery(
     queries.team.byId({ id: event?.teamId ?? "" }),
@@ -131,7 +213,7 @@ function EventDetailRouteComponent() {
     );
   }
 
-  const interests = canManageInterest ? managerInterests : [];
+  const interests = selectManagerInterests(canManageInterest, managerInterests);
   const myInterest = (myInterests[0] ?? null) as
     | (EventInterest & { user: User | undefined })
     | null;
@@ -142,27 +224,47 @@ function EventDetailRouteComponent() {
   const { displayEvent } = deriveDisplayEvent(event, occDate);
 
   const seriesParent = deriveSeriesParent(event, parentEvent, displayEvent);
+  const isManagedByKalakriti = event.managementDomain === "kalakriti";
+  const access = protectKalakritiEventAccess(
+    {
+      canApproveUpdates,
+      canCancelPast: hasPermission("events.cancel"),
+      canCreate,
+      canManage,
+      canManageAttendance,
+      canManageFeedback,
+      canManageInterest,
+      canManagePhotos,
+      canManageVolunteers: canManage,
+      isMember,
+      isTeamMember,
+    },
+    isManagedByKalakriti
+  );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
+      {isManagedByKalakriti ? (
+        <KalakritiManagedEventBanner edition={kalakritiEdition} />
+      ) : null}
       <EventDetail
-        canApproveUpdates={canApproveUpdates}
-        canCancelPast={hasPermission("events.cancel")}
-        canCreate={canCreate}
-        canManage={canManage}
-        canManageAttendance={canManageAttendance}
-        canManageFeedback={canManageFeedback}
-        canManageInterest={canManageInterest}
-        canManagePhotos={canManagePhotos}
-        canManageVolunteers={canManage}
+        canApproveUpdates={access.canApproveUpdates}
+        canCancelPast={access.canCancelPast}
+        canCreate={access.canCreate}
+        canManage={access.canManage}
+        canManageAttendance={access.canManageAttendance}
+        canManageFeedback={access.canManageFeedback}
+        canManageInterest={access.canManageInterest}
+        canManagePhotos={access.canManagePhotos}
+        canManageVolunteers={access.canManageVolunteers}
         event={displayEvent}
         interests={
           interests as readonly (EventInterest & {
             user: User | undefined;
           })[]
         }
-        isMember={isMember}
-        isTeamMember={isTeamMember}
+        isMember={access.isMember}
+        isTeamMember={access.isTeamMember}
         myInterest={myInterest ?? null}
         occDate={occDate}
         parentEvent={seriesParent}

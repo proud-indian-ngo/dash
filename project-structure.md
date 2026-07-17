@@ -77,6 +77,10 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
+| `routes/_app/kalakriti/route.tsx` | Kalakriti layout (`kalakriti.view` permission guard) |
+| `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and Edition list fallback |
+| `routes/_app/kalakriti/$year.tsx` | Edition-scoped workspace; inaccessible Editions resolve as not found |
+| `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
 | `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
@@ -112,6 +116,11 @@ All paths are relative to project root.
 | `routes/api/attachments/download.ts` | Authorized attachment download proxy |
 
 All route paths above are prefixed with `apps/web/src/`.
+
+External Kalakriti accounts use the technical `external_user` role. They land
+on their active Edition, are excluded from central volunteer pickers and admin
+user management, and cannot query organization-wide Zero data. The linked
+pi-dash event remains read-only outside the Kalakriti module.
 
 ### Components
 

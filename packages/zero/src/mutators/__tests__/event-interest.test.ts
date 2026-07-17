@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import z from "zod";
+import { eventInterestMutators } from "../event-interest";
 
 const createSchema = z.object({
   eventId: z.string(),
@@ -104,5 +105,123 @@ describe("event interest status transitions", () => {
     expect(canCancel("pending")).toBe(true);
     expect(canCancel("approved")).toBe(false);
     expect(canCancel("rejected")).toBe(false);
+  });
+});
+
+describe("Kalakriti event protection", () => {
+  const context = {
+    permissions: ["events.manage_interest"],
+    role: "admin",
+    userId: "admin-1",
+  };
+
+  it("rejects interest approval before changing the linked event roster", async () => {
+    const insertMember = vi.fn();
+    const updateInterest = vi.fn();
+    const results = [
+      {
+        eventId: "event-1",
+        id: "interest-1",
+        status: "pending",
+        userId: "volunteer-1",
+      },
+      { id: "event-1", teamId: "team-1" },
+      { id: "event-1", managementDomain: "kalakriti" },
+    ];
+    const tx = {
+      location: "server",
+      mutate: {
+        eventInterest: { update: updateInterest },
+        teamEventMember: { insert: insertMember },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+
+    await expect(
+      eventInterestMutators.approve.fn({
+        args: { id: "interest-1", now: 1_700_000_000_000 },
+        ctx: context,
+        tx,
+      } as unknown as Parameters<typeof eventInterestMutators.approve.fn>[0])
+    ).rejects.toThrow("Manage this event from Kalakriti");
+    expect(updateInterest).not.toHaveBeenCalled();
+    expect(insertMember).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      args: {
+        eventId: "event-1",
+        id: "interest-1",
+        now: 1_700_000_000_000,
+      },
+      name: "create",
+      results: [
+        {
+          id: "event-1",
+          isPublic: true,
+          name: "Kalakriti",
+          startTime: 1_800_000_000_000,
+          teamId: "team-1",
+        },
+        { id: "event-1", managementDomain: "kalakriti" },
+      ],
+    },
+    {
+      args: { id: "interest-1", now: 1_700_000_000_000 },
+      name: "reject",
+      results: [
+        {
+          eventId: "event-1",
+          id: "interest-1",
+          status: "pending",
+          userId: "admin-1",
+        },
+        { id: "event-1", teamId: "team-1" },
+        { id: "event-1", managementDomain: "kalakriti" },
+      ],
+    },
+    {
+      args: { id: "interest-1" },
+      name: "cancel",
+      results: [
+        {
+          eventId: "event-1",
+          id: "interest-1",
+          status: "pending",
+          userId: "admin-1",
+        },
+        { id: "event-1", managementDomain: "kalakriti" },
+      ],
+    },
+  ])("rejects $name for a Kalakriti-managed event", async (testCase) => {
+    const insertInterest = vi.fn();
+    const updateInterest = vi.fn();
+    const deleteInterest = vi.fn();
+    const results = [...testCase.results];
+    const tx = {
+      location: "server",
+      mutate: {
+        eventInterest: {
+          delete: deleteInterest,
+          insert: insertInterest,
+          update: updateInterest,
+        },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+    const mutator =
+      eventInterestMutators[testCase.name as "cancel" | "create" | "reject"];
+
+    await expect(
+      mutator.fn({
+        args: testCase.args,
+        ctx: context,
+        tx,
+      } as never)
+    ).rejects.toThrow("Manage this event from Kalakriti");
+    expect(insertInterest).not.toHaveBeenCalled();
+    expect(updateInterest).not.toHaveBeenCalled();
+    expect(deleteInterest).not.toHaveBeenCalled();
   });
 });

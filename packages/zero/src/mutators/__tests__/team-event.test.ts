@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import z from "zod";
-import { computeOccurrenceStart } from "../team-event";
+import { assertEventNotManagedByKalakriti } from "../kalakriti-event-guard";
+import { computeOccurrenceStart, teamEventMutators } from "../team-event";
 
 const recurrenceRuleSchema = z
   .object({
@@ -119,6 +120,170 @@ const cancelSeriesSchema = z.object({
   now: z.number(),
   originalDate: z.string().optional(),
   reason: z.string().optional(),
+});
+
+describe("assertEventNotManagedByKalakriti", () => {
+  it("allows ordinary team events", async () => {
+    const tx = { run: async () => undefined };
+
+    await expect(
+      assertEventNotManagedByKalakriti(tx, "event-1")
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects events linked to a Kalakriti Edition", async () => {
+    const tx = {
+      run: async () => ({ id: "event-1", managementDomain: "kalakriti" }),
+    };
+
+    await expect(
+      assertEventNotManagedByKalakriti(tx, "event-1")
+    ).rejects.toThrow("Manage this event from Kalakriti");
+  });
+});
+
+function makeProtectedEventTx() {
+  const event = {
+    id: "event-1",
+    managementDomain: "kalakriti",
+    recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    teamId: "team-1",
+  };
+  return {
+    location: "server",
+    mutate: {},
+    run: vi.fn(async () => event),
+  };
+}
+
+const protectedEventContext = {
+  permissions: [
+    "events.edit",
+    "events.manage_attendance",
+    "events.manage_members",
+  ],
+  role: "admin",
+  userId: "admin-1",
+};
+
+describe("linked Kalakriti event mutators", () => {
+  const protectedCommands = [
+    [
+      "bulk member management",
+      teamEventMutators.addMembers,
+      {
+        eventId: "event-1",
+        members: [{ id: "member-1", userId: "volunteer-1" }],
+        now: 1_700_000_000_000,
+      },
+    ],
+    [
+      "cancellation",
+      teamEventMutators.cancel,
+      { id: "event-1", now: 1_700_000_000_000 },
+    ],
+    [
+      "series cancellation",
+      teamEventMutators.cancelSeries,
+      { id: "event-1", mode: "all", now: 1_700_000_000_000 },
+    ],
+    [
+      "self join",
+      teamEventMutators.joinAsMember,
+      {
+        eventId: "event-1",
+        id: "member-1",
+        now: 1_700_000_000_000,
+      },
+    ],
+    [
+      "self leave",
+      teamEventMutators.leaveEvent,
+      { eventId: "event-1", now: 1_700_000_000_000 },
+    ],
+    [
+      "bulk attendance",
+      teamEventMutators.markAllPresent,
+      { eventId: "event-1", now: 1_700_000_000_000 },
+    ],
+    [
+      "member removal",
+      teamEventMutators.removeMember,
+      { eventId: "event-1", memberId: "member-1" },
+    ],
+    [
+      "series updates",
+      teamEventMutators.updateSeries,
+      { id: "event-1", mode: "all", now: 1_700_000_000_000 },
+    ],
+    [
+      "occurrence materialization",
+      teamEventMutators.materialize,
+      {
+        id: "exception-1",
+        now: 1_700_000_000_000,
+        originalDate: "2028-11-19",
+        seriesId: "event-1",
+      },
+    ],
+  ] as const;
+
+  it.each(protectedCommands)(
+    "rejects direct %s",
+    async (_name, mutator, args) => {
+      await expect(
+        mutator.fn({
+          args,
+          ctx: protectedEventContext,
+          tx: makeProtectedEventTx(),
+        } as never)
+      ).rejects.toThrow("Manage this event from Kalakriti");
+    }
+  );
+
+  it("rejects direct member management", async () => {
+    await expect(
+      teamEventMutators.addMember.fn({
+        args: {
+          eventId: "event-1",
+          id: "member-1",
+          now: 1_700_000_000_000,
+          userId: "volunteer-1",
+        },
+        ctx: protectedEventContext,
+        tx: makeProtectedEventTx(),
+      } as unknown as Parameters<typeof teamEventMutators.addMember.fn>[0])
+    ).rejects.toThrow("Manage this event from Kalakriti");
+  });
+
+  it("rejects direct attendance management", async () => {
+    await expect(
+      teamEventMutators.markAttendance.fn({
+        args: {
+          attendance: "present",
+          eventId: "event-1",
+          memberId: "member-1",
+          now: 1_700_000_000_000,
+        },
+        ctx: protectedEventContext,
+        tx: makeProtectedEventTx(),
+      } as unknown as Parameters<typeof teamEventMutators.markAttendance.fn>[0])
+    ).rejects.toThrow("Manage this event from Kalakriti");
+  });
+
+  it("rejects direct core event updates", async () => {
+    await expect(
+      teamEventMutators.update.fn({
+        args: {
+          id: "event-1",
+          name: "Changed outside Kalakriti",
+          now: 1_700_000_000_000,
+        },
+        ctx: protectedEventContext,
+        tx: makeProtectedEventTx(),
+      } as unknown as Parameters<typeof teamEventMutators.update.fn>[0])
+    ).rejects.toThrow("Manage this event from Kalakriti");
+  });
 });
 
 describe("teamEvent mutator schemas", () => {
