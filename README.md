@@ -49,6 +49,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Bank accounts | Users manage bank accounts for request payouts |
 | Expense categories | Admin-managed categories for request line items |
 | Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences |
+| Audit log | Immutable user-action history with server-side filters and a viewer restricted by the `audit_log.view` permission |
 | WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
 | CSV export | Export data tables to CSV files |
 | Settings dialog | Profile, account, banking, expense categories, WhatsApp groups, and notification preferences |

@@ -8,6 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
+import { runSessionAuditedAction } from "@/lib/audit";
 import { authMiddleware } from "@/middleware/auth";
 
 export type PostEventRsvpPollResult =
@@ -39,75 +40,92 @@ export const postEventRsvpPoll = createServerFn({ method: "POST" })
       log.emit();
       return { code: "unauthorized", type: "error" };
     }
-    const userId = context.session.user.id;
-    log.set({ userId });
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "event.rsvp_poll.post",
+        target: { id: data.eventId, type: "event" },
+      },
+      async () => {
+        const userId = session.user.id;
+        log.set({ userId });
 
-    const role = context.session.user.role ?? "unoriented_volunteer";
-    const perms = await resolvePermissions(role);
-    if (!perms.includes("events.edit")) {
-      log.set({ event: "forbidden", role });
-      log.emit();
-      return { code: "forbidden", type: "error" };
-    }
-
-    try {
-      const eventRow = await db.query.teamEvent.findFirst({
-        columns: {
-          cancelledAt: true,
-          id: true,
-          postRsvpPoll: true,
-          teamId: true,
-          whatsappGroupId: true,
-        },
-        where: eq(teamEvent.id, data.eventId),
-      });
-
-      if (!eventRow) {
-        log.set({ event: "not_found" });
-        log.emit();
-        return { code: "not_found", type: "error" };
-      }
-
-      if (eventRow.cancelledAt || !eventRow.postRsvpPoll) {
-        log.set({
-          cancelled: !!eventRow.cancelledAt,
-          event: "not_eligible",
-          postRsvpPoll: eventRow.postRsvpPoll,
-        });
-        log.emit();
-        return { code: "not_eligible", type: "error" };
-      }
-
-      if (!eventRow.whatsappGroupId) {
-        const teamRow = await db.query.team.findFirst({
-          columns: { whatsappGroupId: true },
-          where: eq(team.id, eventRow.teamId),
-        });
-        if (!teamRow?.whatsappGroupId) {
-          log.set({ event: "no_whatsapp_group" });
+        const role = session.user.role ?? "unoriented_volunteer";
+        const perms = await resolvePermissions(role);
+        if (!perms.includes("events.edit")) {
+          log.set({ event: "forbidden", role });
           log.emit();
-          return { code: "no_whatsapp_group", type: "error" };
+          return { code: "forbidden", type: "error" } as const;
         }
-      }
 
-      const existing = await db
-        .select({ id: eventRsvpPoll.id })
-        .from(eventRsvpPoll)
-        .where(eq(eventRsvpPoll.eventId, data.eventId))
-        .limit(1);
-      if (existing.length > 0) {
-        log.set({ event: "poll_exists" });
-        log.emit();
-        return { code: "poll_exists", type: "error" };
-      }
+        try {
+          const eventRow = await db.query.teamEvent.findFirst({
+            columns: {
+              cancelledAt: true,
+              id: true,
+              postRsvpPoll: true,
+              teamId: true,
+              whatsappGroupId: true,
+            },
+            where: eq(teamEvent.id, data.eventId),
+          });
 
-      await enqueue("send-single-rsvp-poll", { eventId: data.eventId });
-      log.set({ event: "poll_enqueued" });
-      log.emit();
-      return { type: "ok" };
-    } catch (error) {
-      log.error(error instanceof Error ? error : String(error));
-      log.emit();
-      return { code: "unknown", type: "error" };
-    }
+          if (!eventRow) {
+            log.set({ event: "not_found" });
+            log.emit();
+            return { code: "not_found", type: "error" };
+          }
+
+          if (eventRow.cancelledAt || !eventRow.postRsvpPoll) {
+            log.set({
+              cancelled: !!eventRow.cancelledAt,
+              event: "not_eligible",
+              postRsvpPoll: eventRow.postRsvpPoll,
+            });
+            log.emit();
+            return { code: "not_eligible", type: "error" };
+          }
+
+          if (!eventRow.whatsappGroupId) {
+            const teamRow = await db.query.team.findFirst({
+              columns: { whatsappGroupId: true },
+              where: eq(team.id, eventRow.teamId),
+            });
+            if (!teamRow?.whatsappGroupId) {
+              log.set({ event: "no_whatsapp_group" });
+              log.emit();
+              return { code: "no_whatsapp_group", type: "error" };
+            }
+          }
+
+          const existing = await db
+            .select({ id: eventRsvpPoll.id })
+            .from(eventRsvpPoll)
+            .where(eq(eventRsvpPoll.eventId, data.eventId))
+            .limit(1);
+          if (existing.length > 0) {
+            log.set({ event: "poll_exists" });
+            log.emit();
+            return { code: "poll_exists", type: "error" };
+          }
+
+          await enqueue("send-single-rsvp-poll", { eventId: data.eventId });
+          log.set({ event: "poll_enqueued" });
+          log.emit();
+          return { type: "ok" };
+        } catch (error) {
+          log.error(error instanceof Error ? error : String(error));
+          log.emit();
+          return { code: "unknown", type: "error" } as const;
+        }
+      },
+      (result) => {
+        if (result.type === "ok") {
+          return "success";
+        }
+        return result.code === "forbidden" ? "denied" : "failure";
+      }
+    );
   });

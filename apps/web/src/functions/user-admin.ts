@@ -17,6 +17,7 @@ import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { getUserAdminWhatsappSyncPlan } from "@/functions/user-admin-whatsapp";
+import { runSessionAuditedAction } from "@/lib/audit";
 import { authMiddleware } from "@/middleware/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -161,316 +162,406 @@ export const createUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(createUserSchema)
   .handler(async ({ context, data }) => {
-    await ensurePermission(context, "users.create");
-
-    const normalizedEmail = data.email.toLowerCase();
-    const created = await auth.api.createUser({
-      body: {
-        email: normalizedEmail,
-        name: data.name,
-        password: data.password,
-        role: toBetterAuthRole(data.role),
-      },
-      headers: context.headers,
-    });
-
-    await auth.api.adminUpdateUser({
-      body: {
-        data: {
-          dob: data.dob,
-          email: normalizedEmail,
-          emailVerified: data.emailVerified,
-          gender: normalizeOptionalString(data.gender),
-          isActive: data.isActive,
-          name: data.name,
-          phone: normalizeOptionalString(data.phone),
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "user.create",
+        metadata: {
+          changedFields: [
+            "dob",
+            "emailVerified",
+            "gender",
+            "isActive",
+            "name",
+            "phone",
+            "role",
+          ],
         },
-        userId: created.user.id,
+        target: { type: "user" },
       },
-      headers: context.headers,
-    });
-
-    await auth.api.setRole({
-      body: {
-        role: toBetterAuthRole(data.role),
-        userId: created.user.id,
-      },
-      headers: context.headers,
-    });
-
-    // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
-    await db
-      .update(user)
-      .set({ role: data.role })
-      .where(eq(user.id, created.user.id));
-
-    // Send welcome notification to the new user
-    withFireAndForgetLog(
-      { handler: "createUser:welcome", userId: created.user.id },
       async () => {
-        await enqueue("notify-user-welcome", {
-          email: normalizedEmail,
-          name: data.name,
-          userId: created.user.id,
+        await ensurePermission(context, "users.create");
+
+        const normalizedEmail = data.email.toLowerCase();
+        const created = await auth.api.createUser({
+          body: {
+            email: normalizedEmail,
+            name: data.name,
+            password: data.password,
+            role: toBetterAuthRole(data.role),
+          },
+          headers: context.headers,
         });
+
+        await auth.api.adminUpdateUser({
+          body: {
+            data: {
+              dob: data.dob,
+              email: normalizedEmail,
+              emailVerified: data.emailVerified,
+              gender: normalizeOptionalString(data.gender),
+              isActive: data.isActive,
+              name: data.name,
+              phone: normalizeOptionalString(data.phone),
+            },
+            userId: created.user.id,
+          },
+          headers: context.headers,
+        });
+
+        await auth.api.setRole({
+          body: {
+            role: toBetterAuthRole(data.role),
+            userId: created.user.id,
+          },
+          headers: context.headers,
+        });
+
+        // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
+        await db
+          .update(user)
+          .set({ role: data.role })
+          .where(eq(user.id, created.user.id));
+
+        // Send welcome notification to the new user
+        withFireAndForgetLog(
+          { handler: "createUser:welcome", userId: created.user.id },
+          async () => {
+            await enqueue("notify-user-welcome", {
+              email: normalizedEmail,
+              name: data.name,
+              userId: created.user.id,
+            });
+          }
+        );
+
+        // Enqueue orientation WhatsApp group membership if role is unoriented
+        if (data.role === "unoriented_volunteer") {
+          withFireAndForgetLog(
+            { handler: "createUser:orientation", userId: created.user.id },
+            async () => {
+              await enqueue("whatsapp-manage-orientation", {
+                isOriented: false,
+                userId: created.user.id,
+              });
+            }
+          );
+        }
+
+        return created.user.id;
       }
     );
-
-    // Enqueue orientation WhatsApp group membership if role is unoriented
-    if (data.role === "unoriented_volunteer") {
-      withFireAndForgetLog(
-        { handler: "createUser:orientation", userId: created.user.id },
-        async () => {
-          await enqueue("whatsapp-manage-orientation", {
-            isOriented: false,
-            userId: created.user.id,
-          });
-        }
-      );
-    }
-
-    return created.user.id;
   });
 
 export const updateUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(updateUserSchema)
   .handler(async ({ context, data }) => {
-    await ensurePermission(context, "users.edit");
-
-    // Fetch current user state from the DB to detect actual changes.
-    const currentUser = await db
-      .select({
-        banned: user.banned,
-        isActive: user.isActive,
-        role: user.role,
-      })
-      .from(user)
-      .where(eq(user.id, data.userId))
-      .limit(1)
-      .then((rows) => rows[0]);
-    if (!currentUser) {
-      throw new Error("User not found");
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
-    const previousRole = currentUser.role;
-
-    const normalizedEmail = data.email.toLowerCase();
-    await auth.api.adminUpdateUser({
-      body: {
-        data: {
-          dob: data.dob,
-          email: normalizedEmail,
-          emailVerified: data.emailVerified,
-          gender: normalizeOptionalString(data.gender),
-          isActive: data.isActive,
-          name: data.name,
-          phone: normalizeOptionalString(data.phone),
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "user.update",
+        metadata: {
+          changedFields: [
+            "dob",
+            "email",
+            "emailVerified",
+            "gender",
+            "isActive",
+            "name",
+            "phone",
+            "role",
+          ],
         },
-        userId: data.userId,
+        target: { id: data.userId, type: "user" },
       },
-      headers: context.headers,
-    });
+      async () => {
+        await ensurePermission(context, "users.edit");
 
-    if (data.role && data.role !== previousRole) {
-      const newRole = data.role;
-      await auth.api.setRole({
-        body: {
-          role: toBetterAuthRole(newRole),
-          userId: data.userId,
-        },
-        headers: context.headers,
-      });
-
-      // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
-      await db
-        .update(user)
-        .set({ role: newRole })
-        .where(eq(user.id, data.userId));
-
-      // Invalidate permission cache + user sessions so the new role takes effect
-      invalidatePermissionCache(newRole);
-      invalidatePermissionCache(previousRole);
-      await auth.api.revokeUserSessions({
-        body: { userId: data.userId },
-        headers: context.headers,
-      });
-
-      // Look up display name for notification
-      const roleRecord = await db
-        .select({ name: role.name })
-        .from(role)
-        .where(eq(role.id, newRole))
-        .then((rows) => rows[0]);
-      const roleName = roleRecord?.name ?? newRole;
-
-      // Enqueue role change notification
-      withFireAndForgetLog(
-        {
-          handler: "updateUser:roleChanged",
-          newRole: roleName,
-          userId: data.userId,
-        },
-        async () => {
-          await enqueue("notify-role-changed", {
-            newRole: roleName,
-            userId: data.userId,
-          });
+        // Fetch current user state from the DB to detect actual changes.
+        const currentUser = await db
+          .select({
+            banned: user.banned,
+            isActive: user.isActive,
+            role: user.role,
+          })
+          .from(user)
+          .where(eq(user.id, data.userId))
+          .limit(1)
+          .then((rows) => rows[0]);
+        if (!currentUser) {
+          throw new Error("User not found");
         }
-      );
-    }
+        const previousRole = currentUser.role;
 
-    const whatsappSyncPlan = getUserAdminWhatsappSyncPlan({
-      currentBanned: currentUser.banned,
-      currentIsActive: currentUser.isActive,
-      currentRole: currentUser.role,
-      nextIsActive: data.isActive,
-      nextRole: data.role,
-    });
-
-    if (whatsappSyncPlan.shouldRestoreDefaultGroup) {
-      withFireAndForgetLog(
-        {
-          becameActive: whatsappSyncPlan.becameActive,
-          handler: "updateUser:defaultGroupMembership",
-          isOriented: whatsappSyncPlan.isOriented,
-          nextRole: whatsappSyncPlan.effectiveRole,
-          previousRole: currentUser.role,
-          userId: data.userId,
-        },
-        async () => {
-          await enqueue("whatsapp-manage-orientation", {
-            isOriented: whatsappSyncPlan.isOriented,
+        const normalizedEmail = data.email.toLowerCase();
+        await auth.api.adminUpdateUser({
+          body: {
+            data: {
+              dob: data.dob,
+              email: normalizedEmail,
+              emailVerified: data.emailVerified,
+              gender: normalizeOptionalString(data.gender),
+              isActive: data.isActive,
+              name: data.name,
+              phone: normalizeOptionalString(data.phone),
+            },
             userId: data.userId,
-          });
-        }
-      );
-    }
+          },
+          headers: context.headers,
+        });
 
-    return data.userId;
+        if (data.role && data.role !== previousRole) {
+          const newRole = data.role;
+          await auth.api.setRole({
+            body: {
+              role: toBetterAuthRole(newRole),
+              userId: data.userId,
+            },
+            headers: context.headers,
+          });
+
+          // Persist the actual custom role ID (Better Auth only stores admin/volunteer)
+          await db
+            .update(user)
+            .set({ role: newRole })
+            .where(eq(user.id, data.userId));
+
+          // Invalidate permission cache + user sessions so the new role takes effect
+          invalidatePermissionCache(newRole);
+          invalidatePermissionCache(previousRole);
+          await auth.api.revokeUserSessions({
+            body: { userId: data.userId },
+            headers: context.headers,
+          });
+
+          // Look up display name for notification
+          const roleRecord = await db
+            .select({ name: role.name })
+            .from(role)
+            .where(eq(role.id, newRole))
+            .then((rows) => rows[0]);
+          const roleName = roleRecord?.name ?? newRole;
+
+          // Enqueue role change notification
+          withFireAndForgetLog(
+            {
+              handler: "updateUser:roleChanged",
+              newRole: roleName,
+              userId: data.userId,
+            },
+            async () => {
+              await enqueue("notify-role-changed", {
+                newRole: roleName,
+                userId: data.userId,
+              });
+            }
+          );
+        }
+
+        const whatsappSyncPlan = getUserAdminWhatsappSyncPlan({
+          currentBanned: currentUser.banned,
+          currentIsActive: currentUser.isActive,
+          currentRole: currentUser.role,
+          nextIsActive: data.isActive,
+          nextRole: data.role,
+        });
+
+        if (whatsappSyncPlan.shouldRestoreDefaultGroup) {
+          withFireAndForgetLog(
+            {
+              becameActive: whatsappSyncPlan.becameActive,
+              handler: "updateUser:defaultGroupMembership",
+              isOriented: whatsappSyncPlan.isOriented,
+              nextRole: whatsappSyncPlan.effectiveRole,
+              previousRole: currentUser.role,
+              userId: data.userId,
+            },
+            async () => {
+              await enqueue("whatsapp-manage-orientation", {
+                isOriented: whatsappSyncPlan.isOriented,
+                userId: data.userId,
+              });
+            }
+          );
+        }
+
+        return data.userId;
+      }
+    );
   });
 
 export const setUserPasswordAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(setUserPasswordSchema)
   .handler(async ({ context, data }) => {
-    await ensurePermission(context, "users.set_password");
-
-    await auth.api.setUserPassword({
-      body: {
-        newPassword: data.newPassword,
-        userId: data.userId,
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "user.password.set",
+        metadata: { changedFields: ["password"] },
+        target: { id: data.userId, type: "user" },
       },
-      headers: context.headers,
-    });
-
-    withFireAndForgetLog(
-      { handler: "setUserPassword:notify", userId: data.userId },
       async () => {
-        await enqueue("notify-password-reset", { userId: data.userId });
+        await ensurePermission(context, "users.set_password");
+
+        await auth.api.setUserPassword({
+          body: {
+            newPassword: data.newPassword,
+            userId: data.userId,
+          },
+          headers: context.headers,
+        });
+
+        withFireAndForgetLog(
+          { handler: "setUserPassword:notify", userId: data.userId },
+          async () => {
+            await enqueue("notify-password-reset", { userId: data.userId });
+          }
+        );
+
+        return data.userId;
       }
     );
-
-    return data.userId;
   });
 
 export const deleteUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(deleteUserSchema)
   .handler(async ({ context, data }) => {
-    const authed = await ensurePermission(context, "users.delete");
-
-    if (authed.session.user.id === data.userId) {
-      throw new Error("You cannot delete your own account");
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
-
-    // Called directly (not enqueued) — user must exist when notification is sent,
-    // but is deleted immediately after.
-    try {
-      await notifyUserDeleted({ userId: data.userId });
-    } catch {
-      // Best-effort: don't block deletion if notification fails
-    }
-
-    // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
-    // Best-effort: enqueue failure must not block user deletion.
-    try {
-      const { getUserPhone } = await import("@pi-dash/whatsapp/users");
-      const { getAllGroupJidsForUser } = await import(
-        "@pi-dash/whatsapp/groups"
-      );
-      const [phone, groupJids] = await Promise.all([
-        getUserPhone(data.userId),
-        getAllGroupJidsForUser(data.userId),
-      ]);
-      if (phone && groupJids.length > 0) {
-        await enqueue("whatsapp-remove-from-all-groups", {
-          groupJids,
-          phone,
-        });
-      }
-    } catch (caughtError) {
-      const log = createRequestLogger({
-        method: "POST",
-        path: "deleteUser:whatsappRemoval",
-      });
-      log.set({ userId: data.userId });
-      log.error(
-        caughtError instanceof Error ? caughtError : String(caughtError)
-      );
-      log.emit();
-    }
-
-    await auth.api.removeUser({
-      body: {
-        userId: data.userId,
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "user.delete",
+        target: { id: data.userId, type: "user" },
       },
-      headers: context.headers,
-    });
+      async () => {
+        const authed = await ensurePermission(context, "users.delete");
 
-    return data.userId;
+        if (authed.session.user.id === data.userId) {
+          throw new Error("You cannot delete your own account");
+        }
+
+        // Called directly (not enqueued) — user must exist when notification is sent,
+        // but is deleted immediately after.
+        try {
+          await notifyUserDeleted({ userId: data.userId });
+        } catch {
+          // Best-effort: don't block deletion if notification fails
+        }
+
+        // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
+        // Best-effort: enqueue failure must not block user deletion.
+        try {
+          const { getUserPhone } = await import("@pi-dash/whatsapp/users");
+          const { getAllGroupJidsForUser } = await import(
+            "@pi-dash/whatsapp/groups"
+          );
+          const [phone, groupJids] = await Promise.all([
+            getUserPhone(data.userId),
+            getAllGroupJidsForUser(data.userId),
+          ]);
+          if (phone && groupJids.length > 0) {
+            await enqueue("whatsapp-remove-from-all-groups", {
+              groupJids,
+              phone,
+            });
+          }
+        } catch (caughtError) {
+          const log = createRequestLogger({
+            method: "POST",
+            path: "deleteUser:whatsappRemoval",
+          });
+          log.set({ userId: data.userId });
+          log.error(
+            caughtError instanceof Error ? caughtError : String(caughtError)
+          );
+          log.emit();
+        }
+
+        await auth.api.removeUser({
+          body: {
+            userId: data.userId,
+          },
+          headers: context.headers,
+        });
+
+        return data.userId;
+      }
+    );
   });
 
 export const setUserBanAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(setUserBanSchema)
   .handler(async ({ context, data }) => {
-    const authed = await ensurePermission(context, "users.ban");
-
-    if (authed.session.user.id === data.userId && data.banned) {
-      throw new Error("You cannot ban your own account");
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: data.banned ? "user.ban" : "user.unban",
+        metadata: { changedFields: ["banned", "banExpires", "banReason"] },
+        target: { id: data.userId, type: "user" },
+      },
+      async () => {
+        const authed = await ensurePermission(context, "users.ban");
 
-    await setBanState({
-      banExpires: data.banExpires,
-      banned: data.banned,
-      banReason: data.banReason,
-      context,
-      userId: data.userId,
-    });
+        if (authed.session.user.id === data.userId && data.banned) {
+          throw new Error("You cannot ban your own account");
+        }
 
-    // Enqueue ban/unban notification
-    if (data.banned) {
-      withFireAndForgetLog(
-        {
+        await setBanState({
+          banExpires: data.banExpires,
+          banned: data.banned,
           banReason: data.banReason,
-          handler: "setUserBan:banned",
+          context,
           userId: data.userId,
-        },
-        async () => {
-          await enqueue("notify-user-banned", {
-            reason: data.banReason,
-            userId: data.userId,
-          });
-        }
-      );
-    } else {
-      withFireAndForgetLog(
-        { handler: "setUserBan:unbanned", userId: data.userId },
-        async () => {
-          await enqueue("notify-user-unbanned", { userId: data.userId });
-        }
-      );
-    }
+        });
 
-    return data.userId;
+        // Enqueue ban/unban notification
+        if (data.banned) {
+          withFireAndForgetLog(
+            {
+              banReason: data.banReason,
+              handler: "setUserBan:banned",
+              userId: data.userId,
+            },
+            async () => {
+              await enqueue("notify-user-banned", {
+                reason: data.banReason,
+                userId: data.userId,
+              });
+            }
+          );
+        } else {
+          withFireAndForgetLog(
+            { handler: "setUserBan:unbanned", userId: data.userId },
+            async () => {
+              await enqueue("notify-user-unbanned", { userId: data.userId });
+            }
+          );
+        }
+
+        return data.userId;
+      }
+    );
   });

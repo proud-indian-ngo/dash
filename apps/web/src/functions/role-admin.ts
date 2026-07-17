@@ -13,6 +13,7 @@ import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
+import { runSessionAuditedAction } from "@/lib/audit";
 import { authMiddleware } from "@/middleware/auth";
 
 async function ensureRolePermission(
@@ -186,59 +187,78 @@ export const createRole = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(createRoleSchema)
   .handler(async ({ context, data }) => {
-    await ensureRolePermission(context.session);
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "role.create",
+        metadata: {
+          changedFields: ["description", "name", "permissionIds"],
+          permissionCount: data.permissionIds.length,
+        },
+        target: { id: data.id, type: "role" },
+      },
+      async () => {
+        await ensureRolePermission(context.session);
 
-    try {
-      // Validate permission IDs
-      for (const pid of data.permissionIds) {
-        if (!PERMISSION_IDS.has(pid)) {
-          throw new Error(`Unknown permission: ${pid}`);
-        }
-      }
+        try {
+          // Validate permission IDs
+          for (const pid of data.permissionIds) {
+            if (!PERMISSION_IDS.has(pid)) {
+              throw new Error(`Unknown permission: ${pid}`);
+            }
+          }
 
-      // Check ID uniqueness
-      const [existing] = await db
-        .select({ id: role.id })
-        .from(role)
-        .where(eq(role.id, data.id))
-        .limit(1);
+          // Check ID uniqueness
+          const [existing] = await db
+            .select({ id: role.id })
+            .from(role)
+            .where(eq(role.id, data.id))
+            .limit(1);
 
-      if (existing) {
-        throw new Error(`Role ID "${data.id}" already exists`);
-      }
+          if (existing) {
+            throw new Error(`Role ID "${data.id}" already exists`);
+          }
 
-      await db.transaction(async (tx) => {
-        await tx.insert(role).values({
-          description: data.description ?? null,
-          id: data.id,
-          isSystem: false,
-          name: data.name,
-        });
+          await db.transaction(async (tx) => {
+            await tx.insert(role).values({
+              description: data.description ?? null,
+              id: data.id,
+              isSystem: false,
+              name: data.name,
+            });
 
-        if (data.permissionIds.length > 0) {
-          await tx.insert(rolePermission).values(
-            data.permissionIds.map((permId) => ({
-              permissionId: permId,
+            if (data.permissionIds.length > 0) {
+              await tx.insert(rolePermission).values(
+                data.permissionIds.map((permId) => ({
+                  permissionId: permId,
+                  roleId: data.id,
+                }))
+              );
+            }
+          });
+
+          return data.id;
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/createRole" },
+            {
+              handler: "createRole",
+              permissionCount: data.permissionIds.length,
               roleId: data.id,
-            }))
+              roleName: data.name,
+              userId: context.session?.user.id,
+            },
+            error
           );
         }
-      });
-
-      return data.id;
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/createRole" },
-        {
-          handler: "createRole",
-          permissionCount: data.permissionIds.length,
-          roleId: data.id,
-          roleName: data.name,
-          userId: context.session?.user.id,
-        },
-        error
-      );
-    }
+      },
+      undefined,
+      (roleId) => ({ id: roleId, type: "role" })
+    );
   });
 
 // ── Update role ──
@@ -254,66 +274,83 @@ export const updateRole = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(updateRoleSchema)
   .handler(async ({ context, data }) => {
-    await ensureRolePermission(context.session);
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "role.update",
+        metadata: {
+          changedFields: ["description", "name", "permissionIds"],
+          permissionCount: data.permissionIds.length,
+        },
+        target: { id: data.roleId, type: "role" },
+      },
+      async () => {
+        await ensureRolePermission(context.session);
 
-    try {
-      // Validate permission IDs
-      for (const pid of data.permissionIds) {
-        if (!PERMISSION_IDS.has(pid)) {
-          throw new Error(`Unknown permission: ${pid}`);
-        }
-      }
+        try {
+          // Validate permission IDs
+          for (const pid of data.permissionIds) {
+            if (!PERMISSION_IDS.has(pid)) {
+              throw new Error(`Unknown permission: ${pid}`);
+            }
+          }
 
-      // Check role exists
-      const [found] = await db
-        .select({ id: role.id, isSystem: role.isSystem })
-        .from(role)
-        .where(eq(role.id, data.roleId))
-        .limit(1);
+          // Check role exists
+          const [found] = await db
+            .select({ id: role.id, isSystem: role.isSystem })
+            .from(role)
+            .where(eq(role.id, data.roleId))
+            .limit(1);
 
-      if (!found) {
-        throw new Error("Role not found");
-      }
+          if (!found) {
+            throw new Error("Role not found");
+          }
 
-      if (found.isSystem && ADMIN_TIER_ROLES.has(found.id)) {
-        throw new Error("Cannot modify a system role");
-      }
+          if (found.isSystem && ADMIN_TIER_ROLES.has(found.id)) {
+            throw new Error("Cannot modify a system role");
+          }
 
-      await db.transaction(async (tx) => {
-        await tx
-          .update(role)
-          .set({ description: data.description ?? null, name: data.name })
-          .where(eq(role.id, data.roleId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(role)
+              .set({ description: data.description ?? null, name: data.name })
+              .where(eq(role.id, data.roleId));
 
-        await tx
-          .delete(rolePermission)
-          .where(eq(rolePermission.roleId, data.roleId));
+            await tx
+              .delete(rolePermission)
+              .where(eq(rolePermission.roleId, data.roleId));
 
-        if (data.permissionIds.length > 0) {
-          await tx.insert(rolePermission).values(
-            data.permissionIds.map((permId) => ({
-              permissionId: permId,
+            if (data.permissionIds.length > 0) {
+              await tx.insert(rolePermission).values(
+                data.permissionIds.map((permId) => ({
+                  permissionId: permId,
+                  roleId: data.roleId,
+                }))
+              );
+            }
+          });
+
+          invalidatePermissionCache(data.roleId);
+
+          return data.roleId;
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/updateRole" },
+            {
+              handler: "updateRole",
+              permissionCount: data.permissionIds.length,
               roleId: data.roleId,
-            }))
+              userId: context.session?.user.id,
+            },
+            error
           );
         }
-      });
-
-      invalidatePermissionCache(data.roleId);
-
-      return data.roleId;
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/updateRole" },
-        {
-          handler: "updateRole",
-          permissionCount: data.permissionIds.length,
-          roleId: data.roleId,
-          userId: context.session?.user.id,
-        },
-        error
-      );
-    }
+      }
+    );
   });
 
 // ── Delete role ──
@@ -326,48 +363,61 @@ export const deleteRole = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(deleteRoleSchema)
   .handler(async ({ context, data }) => {
-    await ensureRolePermission(context.session);
-
-    try {
-      const [found] = await db
-        .select({ id: role.id, isSystem: role.isSystem })
-        .from(role)
-        .where(eq(role.id, data.roleId))
-        .limit(1);
-
-      if (!found) {
-        throw new Error("Role not found");
-      }
-      if (found.isSystem) {
-        throw new Error("Cannot delete a system role");
-      }
-
-      // Check no users assigned
-      const [result] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(user)
-        .where(eq(user.role, data.roleId));
-
-      if (result && result.count > 0) {
-        throw new Error(
-          `Cannot delete role: ${result.count} user(s) are still assigned to it`
-        );
-      }
-
-      await db.delete(role).where(eq(role.id, data.roleId));
-
-      invalidatePermissionCache(data.roleId);
-
-      return data.roleId;
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteRole" },
-        {
-          handler: "deleteRole",
-          roleId: data.roleId,
-          userId: context.session?.user.id,
-        },
-        error
-      );
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "role.delete",
+        target: { id: data.roleId, type: "role" },
+      },
+      async () => {
+        await ensureRolePermission(context.session);
+
+        try {
+          const [found] = await db
+            .select({ id: role.id, isSystem: role.isSystem })
+            .from(role)
+            .where(eq(role.id, data.roleId))
+            .limit(1);
+
+          if (!found) {
+            throw new Error("Role not found");
+          }
+          if (found.isSystem) {
+            throw new Error("Cannot delete a system role");
+          }
+
+          // Check no users assigned
+          const [result] = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(user)
+            .where(eq(user.role, data.roleId));
+
+          if (result && result.count > 0) {
+            throw new Error(
+              `Cannot delete role: ${result.count} user(s) are still assigned to it`
+            );
+          }
+
+          await db.delete(role).where(eq(role.id, data.roleId));
+
+          invalidatePermissionCache(data.roleId);
+
+          return data.roleId;
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/deleteRole" },
+            {
+              handler: "deleteRole",
+              roleId: data.roleId,
+              userId: context.session?.user.id,
+            },
+            error
+          );
+        }
+      }
+    );
   });

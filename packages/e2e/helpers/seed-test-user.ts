@@ -1,6 +1,7 @@
 import path from "node:path";
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import {
@@ -86,6 +87,7 @@ const TEST_USERS: TestUser[] = [
 ];
 
 const SEED_CATEGORIES = ["Travel", "Food", "Accommodation", "Supplies"];
+const AUDIT_ENTRY_ID = "00000000-0000-4000-8000-000000000001";
 
 async function ensureTestUser(testUser: TestUser): Promise<string> {
   const existing = await db.query.user.findFirst({
@@ -131,6 +133,30 @@ async function ensureTestUser(testUser: TestUser): Promise<string> {
   }
 
   return record.id;
+}
+
+async function ensureAuditLogEntry(superAdminUserId: string): Promise<void> {
+  const existing = await db.query.auditLog.findFirst({
+    columns: { id: true },
+    where: (table, ops) => ops.eq(table.id, AUDIT_ENTRY_ID),
+  });
+  if (existing) {
+    return;
+  }
+
+  await db.insert(auditLog).values({
+    action: "e2e.audit.seed",
+    actorName: "Test Super Admin",
+    actorRole: "super_admin",
+    actorUserId: superAdminUserId,
+    completedAt: new Date(),
+    id: AUDIT_ENTRY_ID,
+    metadata: { source: "e2e" },
+    outcome: "success",
+    targetId: superAdminUserId,
+    targetType: "user",
+    traceId: "00000000000000000000000000000001",
+  });
 }
 
 async function ensureExpenseCategories(): Promise<void> {
@@ -885,6 +911,7 @@ async function seed(): Promise<void> {
   );
   await ensureZeroQueryAuthorizationFixtures(superAdminUserId, volunteerUserId);
   await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
+  await ensureAuditLogEntry(superAdminUserId);
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });
