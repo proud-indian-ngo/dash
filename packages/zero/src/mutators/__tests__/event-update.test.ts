@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import z from "zod";
+import type { Context } from "../../context";
+import { eventUpdateMutators } from "../event-update";
 
 const createSchema = z.object({
   content: z.string().min(1).max(50_000),
@@ -193,6 +195,213 @@ describe("eventUpdate mutator schemas", () => {
     it("rejects missing id", () => {
       const result = deleteSchema.safeParse({});
       expect(result.success).toBe(false);
+    });
+  });
+});
+
+const plate = (...urls: string[]) =>
+  JSON.stringify([
+    {
+      children: [
+        { text: "Update" },
+        ...urls.map((url) => ({
+          children: [{ text: "" }],
+          type: "img",
+          url,
+        })),
+      ],
+      type: "p",
+    },
+  ]);
+
+const mediaUrl =
+  "/api/media/event-update?eventId=event-1&key=app%2Fupdates%2Fevent-1%2Fprivate.jpg";
+
+const oversizedPlate = () =>
+  JSON.stringify([
+    {
+      children: [
+        {
+          children: [{ text: "" }],
+          type: "img",
+          url: mediaUrl,
+        },
+      ],
+      filler: Array.from({ length: 10_000 }, () => 0),
+      type: "p",
+    },
+  ]);
+
+const makeContext = (permissions: string[]): Context => ({
+  asyncTasks: [],
+  permissions,
+  role: "volunteer",
+  userId: "user-1",
+});
+
+const makeTx = (...rows: unknown[]) => {
+  const insert = vi.fn(async () => undefined);
+  const update = vi.fn(async () => undefined);
+  const queue = [...rows];
+  return {
+    insert,
+    tx: {
+      location: "server",
+      mutate: { eventUpdate: { insert, update } },
+      run: vi.fn(async () => queue.shift()),
+    },
+    update,
+  };
+};
+
+describe("eventUpdate editor images", () => {
+  it("allows a new image reference from an ordinary event member", async () => {
+    const { insert, tx } = makeTx(
+      { startTime: 0, teamId: "team-1" },
+      undefined,
+      { eventId: "event-1", userId: "user-1" }
+    );
+
+    await eventUpdateMutators.create.fn({
+      args: {
+        content: plate(mediaUrl),
+        eventId: "event-1",
+        id: "update-1",
+        now: 1,
+      },
+      ctx: makeContext([]),
+      tx,
+    } as never);
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ content: plate(mediaUrl), status: "pending" })
+    );
+  });
+
+  it("allows renderable image content that exceeds traversal limits", async () => {
+    const content = oversizedPlate();
+    expect(content.length).toBeLessThan(50_000);
+    const { insert, tx } = makeTx(
+      { startTime: 0, teamId: "team-1" },
+      undefined,
+      { eventId: "event-1", userId: "user-1" }
+    );
+
+    await eventUpdateMutators.create.fn({
+      args: {
+        content,
+        eventId: "event-1",
+        id: "update-1",
+        now: 1,
+      },
+      ctx: makeContext([]),
+      tx,
+    } as never);
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ content, status: "pending" })
+    );
+  });
+
+  it("allows an authorized creator to add an image reference", async () => {
+    const { insert, tx } = makeTx(
+      { name: "Event", startTime: 0, teamId: "team-1" },
+      undefined,
+      []
+    );
+
+    await eventUpdateMutators.create.fn({
+      args: {
+        content: plate(mediaUrl),
+        eventId: "event-1",
+        id: "update-1",
+        now: 1,
+      },
+      ctx: makeContext(["event_updates.create"]),
+      tx,
+    } as never);
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ content: plate(mediaUrl), status: "approved" })
+    );
+  });
+
+  it("allows a new image reference when an ordinary author edits", async () => {
+    const { tx, update } = makeTx(
+      {
+        content: plate(),
+        createdBy: "user-1",
+        eventId: "event-1",
+        id: "update-1",
+        status: "pending",
+      },
+      { teamId: "team-1" },
+      undefined
+    );
+
+    await eventUpdateMutators.update.fn({
+      args: { content: plate(mediaUrl), id: "update-1", now: 2 },
+      ctx: makeContext(["event_updates.edit_own"]),
+      tx,
+    } as never);
+
+    expect(update).toHaveBeenCalledWith({
+      content: plate(mediaUrl),
+      id: "update-1",
+      updatedAt: 2,
+    });
+  });
+
+  it("preserves an ordinary author's existing image reference", async () => {
+    const { tx, update } = makeTx(
+      {
+        content: plate(mediaUrl),
+        createdBy: "user-1",
+        eventId: "event-1",
+        id: "update-1",
+        status: "pending",
+      },
+      { teamId: "team-1" },
+      undefined
+    );
+
+    await eventUpdateMutators.update.fn({
+      args: { content: plate(mediaUrl), id: "update-1", now: 2 },
+      ctx: makeContext(["event_updates.edit_own"]),
+      tx,
+    } as never);
+
+    expect(update).toHaveBeenCalledWith({
+      content: plate(mediaUrl),
+      id: "update-1",
+      updatedAt: 2,
+    });
+  });
+
+  it("preserves exact unchanged legacy content that exceeds traversal limits", async () => {
+    const content = oversizedPlate();
+    const { tx, update } = makeTx(
+      {
+        content,
+        createdBy: "user-1",
+        eventId: "event-1",
+        id: "update-1",
+        status: "pending",
+      },
+      { teamId: "team-1" },
+      undefined
+    );
+
+    await eventUpdateMutators.update.fn({
+      args: { content, id: "update-1", now: 2 },
+      ctx: makeContext(["event_updates.edit_own"]),
+      tx,
+    } as never);
+
+    expect(update).toHaveBeenCalledWith({
+      content,
+      id: "update-1",
+      updatedAt: 2,
     });
   });
 });

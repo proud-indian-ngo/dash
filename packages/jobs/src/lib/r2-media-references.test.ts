@@ -1,0 +1,124 @@
+import { describe, expect, it } from "vitest";
+import {
+  collectAvatarReferenceKey,
+  collectPlateReferences,
+} from "./r2-media-references";
+
+const options = {
+  keyPrefix: "app",
+  legacyCdnUrl: "https://cdn.example.test",
+};
+
+describe("collectAvatarReferenceKey", () => {
+  it("recognizes raw, legacy, and canonical avatar references", () => {
+    const key = "app/avatars/user-1/avatar.jpg";
+    expect(collectAvatarReferenceKey("user-1", key, options)).toBe(key);
+    expect(
+      collectAvatarReferenceKey(
+        "user-1",
+        `https://cdn.example.test/${key}`,
+        options
+      )
+    ).toBe(key);
+    expect(
+      collectAvatarReferenceKey(
+        "user-1",
+        `/api/media/avatar/user-1?key=${encodeURIComponent(key)}`,
+        options
+      )
+    ).toBe(key);
+  });
+
+  it("ignores unrelated external avatars", () => {
+    expect(
+      collectAvatarReferenceKey(
+        "user-1",
+        "https://images.example.org/avatar.jpg",
+        options
+      )
+    ).toBeNull();
+  });
+
+  it("conservatively retains a current-prefix avatar scoped to another user", () => {
+    const key = "app/avatars/user-2/wrong-user.jpg";
+    expect(
+      collectAvatarReferenceKey(
+        "user-1",
+        `https://cdn.example.test/${key}`,
+        options
+      )
+    ).toBe(key);
+  });
+});
+
+describe("collectPlateReferences", () => {
+  it("collects legacy and canonical image keys from valid Plate content", () => {
+    const oldKey = "app/updates/event-1/old.jpg";
+    const newKey = "app/updates/event-1/new.jpg";
+    const content = JSON.stringify([
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: `https://cdn.example.test/${oldKey}`,
+      },
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: `/api/media/event-update?eventId=event-1&key=${encodeURIComponent(newKey)}`,
+      },
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: "https://images.example.org/external.jpg",
+      },
+    ]);
+
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set([oldKey, newKey]),
+      malformed: false,
+    });
+  });
+
+  it("conservatively retains a valid reference scoped to another event", () => {
+    const key = "app/updates/event-2/wrong-event.jpg";
+    const content = JSON.stringify([
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: `https://cdn.example.test/${key}`,
+      },
+    ]);
+
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set([key]),
+      malformed: false,
+    });
+  });
+
+  it("conservatively extracts raw and encoded keys from malformed content", () => {
+    const rawKey = "app/updates/event-1/raw.jpg";
+    const encodedKey = "app/updates/event-1/encoded.jpg";
+    const content = `{"broken":"${rawKey}","url":"/api/media/event-update?eventId=event-1&key=${encodeURIComponent(encodedKey)}"`;
+
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set([rawKey, encodedKey]),
+      malformed: true,
+    });
+  });
+
+  it("preserves opaque object-key characters in malformed content", () => {
+    const keys = [
+      "app/updates/event-1/literal%.jpg",
+      "app/updates/event-1/literal%20.jpg",
+      "app/updates/event-1/question?.jpg",
+      "app/updates/event-1/fragment#.jpg",
+      "app/updates/event-1/ampersand&.jpg",
+    ];
+    const content = `{"broken":[${keys.map((key) => `"${key}"`).join(",")}`;
+
+    expect(collectPlateReferences(content, "event-1", options)).toEqual({
+      keys: new Set(keys),
+      malformed: true,
+    });
+  });
+});

@@ -269,8 +269,22 @@ const SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID =
 const SEED_EXPORT_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000007";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
-const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
+const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-4000-8000-000000000201";
 const ZERO_AUTH_LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000202";
+const ZERO_AUTH_PROTECTED_MEDIA_KEY = `${process.env.R2_KEY_PREFIX ?? "attachments"}/updates/${ZERO_AUTH_PROTECTED_EVENT_ID}/e2e-editor-image.jpg`;
+const ZERO_AUTH_PROTECTED_UPDATE_CONTENT = JSON.stringify([
+  {
+    children: [
+      { text: "Protected pending update fixture" },
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: ZERO_AUTH_PROTECTED_MEDIA_KEY,
+      },
+    ],
+    type: "p",
+  },
+]);
 const ZERO_AUTH_PROTECTED_INTEREST_ID = "e2e00000-0000-0000-0000-000000000301";
 const ZERO_AUTH_PROTECTED_UPDATE_ID = "e2e00000-0000-0000-0000-000000000302";
 const ZERO_AUTH_PROTECTED_PHOTO_ID = "e2e00000-0000-0000-0000-000000000303";
@@ -637,6 +651,18 @@ async function ensureZeroQueryAuthorizationFixtures(
     .onConflictDoNothing();
 
   await db
+    .update(teamEvent)
+    .set({ isPublic: false })
+    .where(eq(teamEvent.id, ZERO_AUTH_PROTECTED_EVENT_ID));
+
+  await db
+    .update(user)
+    .set({
+      image: `${process.env.R2_KEY_PREFIX ?? "attachments"}/avatars/${volunteerUserId}/e2e-avatar.jpg`,
+    })
+    .where(eq(user.id, volunteerUserId));
+
+  await db
     .insert(teamEventMember)
     .values([
       {
@@ -681,7 +707,7 @@ async function ensureZeroQueryAuthorizationFixtures(
   await db
     .insert(eventUpdate)
     .values({
-      content: "Protected pending update fixture",
+      content: ZERO_AUTH_PROTECTED_UPDATE_CONTENT,
       createdAt: now,
       createdBy: volunteerUserId,
       eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
@@ -689,7 +715,10 @@ async function ensureZeroQueryAuthorizationFixtures(
       status: "pending",
       updatedAt: now,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      set: { content: ZERO_AUTH_PROTECTED_UPDATE_CONTENT },
+      target: eventUpdate.id,
+    });
 
   await db
     .insert(eventPhoto)

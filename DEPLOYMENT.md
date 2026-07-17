@@ -53,7 +53,20 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | Bucket name |
 | `R2_KEY_PREFIX` | Key prefix for uploads |
-| `VITE_CDN_URL` | Public CDN URL for serving uploaded files |
+| `VITE_CDN_URL` | Historical public CDN URL used to recognize legacy R2 media references |
+
+Current request attachments, event photos, avatars, and editor images use
+authenticated application routes. Keep `VITE_CDN_URL` set to the historical
+origin while legacy references may remain. Before disabling public bucket/CDN
+access:
+
+1. Deploy the private-media application code.
+2. Run `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` and review the
+   changed, skipped, and malformed counts.
+3. Apply with `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url> --apply`.
+4. Repair every row listed in each table's `malformedIds`, then rerun the
+   dry-run until `totals.changed` and `totals.malformed` are both `0`.
+5. Disable public bucket/CDN access only after that clean report.
 
 Protected request attachments and event photos do not use `VITE_CDN_URL`.
 Keep the bucket/CDN public during the staged migration while avatar and editor
@@ -230,7 +243,8 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] `COOKIE_DOMAIN` set if using cross-subdomain cookies
 - [ ] SMTP configured for email verification and password reset
 - [ ] R2 bucket created and credentials set
-- [ ] `VITE_CDN_URL` points to your R2 public access or CDN
+- [ ] `VITE_CDN_URL` matches the historical CDN origin used by legacy media references
+- [ ] Private media backfill completed and public R2 bucket/CDN access disabled
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 

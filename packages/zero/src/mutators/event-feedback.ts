@@ -3,6 +3,7 @@ import z from "zod";
 import "../context";
 import { assertIsLoggedIn } from "../permissions";
 import type {
+  EventFeedback,
   EventFeedbackSubmission,
   TeamEvent,
   TeamEventMember,
@@ -105,6 +106,12 @@ export const eventFeedbackMutators = {
           throw new Error("No feedback submission found");
         }
         if (submission.feedbackId !== args.feedbackId) {
+          throw new Error("Unauthorized");
+        }
+        const existingFeedback = (await tx.run(
+          zql.eventFeedback.where("id", args.feedbackId).one()
+        )) as EventFeedback | undefined;
+        if (!existingFeedback || existingFeedback.eventId !== args.eventId) {
           throw new Error("Unauthorized");
         }
       }

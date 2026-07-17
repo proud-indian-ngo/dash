@@ -84,6 +84,7 @@
     "check:unused": "SKIP_VALIDATION=true knip",
     "check:updates": "bunx taze -I --recursive",
     "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
+    "r2:migrate-media-urls": "bun --env-file=.env --env-file=.env.worktree run scripts/migrate-r2-media-urls.ts",
     "ui:add": "turbo run --filter=@pi-dash/design-system ui:add --",
     "test:unit": "turbo run test:unit",
     "test:seed": "turbo run --filter=@pi-dash/e2e seed",
@@ -97,6 +98,7 @@
   "dependencies": {
     "@pi-dash/auth": "workspace:*",
     "@pi-dash/db": "workspace:*",
+    "@pi-dash/env": "workspace:*",
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {

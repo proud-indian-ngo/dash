@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import z from "zod";
+import type { Context } from "../../context";
+import { eventFeedbackMutators } from "../event-feedback";
 
 const submitSchema = z.object({
   content: z.string().min(1, "Feedback cannot be empty").max(5000),
@@ -263,5 +265,136 @@ describe("eventFeedback update validation logic", () => {
       now,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+const plate = (...urls: string[]) =>
+  JSON.stringify([
+    {
+      children: [
+        { text: "Feedback" },
+        ...urls.map((url) => ({
+          children: [{ text: "" }],
+          type: "img",
+          url,
+        })),
+      ],
+      type: "p",
+    },
+  ]);
+
+const mediaUrl =
+  "/api/media/event-update?eventId=event-1&key=app%2Fupdates%2Fevent-1%2Fprivate.jpg";
+
+const context: Context = {
+  asyncTasks: [],
+  permissions: [],
+  role: "volunteer",
+  userId: "user-1",
+};
+
+const makeTx = (...rows: unknown[]) => {
+  const insertFeedback = vi.fn(async () => undefined);
+  const insertSubmission = vi.fn(async () => undefined);
+  const updateFeedback = vi.fn(async () => undefined);
+  const queue = [...rows];
+  return {
+    insertFeedback,
+    tx: {
+      location: "server",
+      mutate: {
+        eventFeedback: {
+          insert: insertFeedback,
+          update: updateFeedback,
+        },
+        eventFeedbackSubmission: { insert: insertSubmission },
+      },
+      run: vi.fn(async () => queue.shift()),
+    },
+    updateFeedback,
+  };
+};
+
+describe("eventFeedback editor images", () => {
+  it("allows a new image during submission", async () => {
+    const { insertFeedback, tx } = makeTx(
+      {
+        endTime: 0,
+        feedbackDeadline: null,
+        feedbackEnabled: true,
+        startTime: 0,
+      },
+      { eventId: "event-1", userId: "user-1" }
+    );
+
+    await eventFeedbackMutators.submit.fn({
+      args: {
+        content: plate(mediaUrl),
+        eventId: "event-1",
+        feedbackId: "feedback-1",
+        now: 1,
+        submissionId: "submission-1",
+      },
+      ctx: context,
+      tx,
+    } as never);
+
+    expect(insertFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({ content: plate(mediaUrl) })
+    );
+  });
+
+  it("allows a new image during an update", async () => {
+    const { tx, updateFeedback } = makeTx(
+      { feedbackId: "feedback-1" },
+      { content: plate(), eventId: "event-1", id: "feedback-1" },
+      { feedbackDeadline: null }
+    );
+
+    await eventFeedbackMutators.update.fn({
+      args: {
+        content: plate(mediaUrl),
+        eventId: "event-1",
+        feedbackId: "feedback-1",
+        now: 2,
+      },
+      ctx: context,
+      tx,
+    } as never);
+
+    expect(updateFeedback).toHaveBeenCalledWith({
+      content: plate(mediaUrl),
+      id: "feedback-1",
+      updatedAt: 2,
+    });
+  });
+
+  it("preserves an existing image during an update", async () => {
+    const { tx, updateFeedback } = makeTx(
+      { feedbackId: "feedback-1" },
+      {
+        content: plate(mediaUrl),
+        eventId: "event-1",
+        id: "feedback-1",
+      },
+      { feedbackDeadline: null }
+    );
+
+    await eventFeedbackMutators.update.fn({
+      args: {
+        content: plate(mediaUrl),
+        eventId: "event-1",
+        feedbackId: "feedback-1",
+        now: 2,
+      },
+      ctx: context,
+      tx,
+    } as never);
+
+    expect(updateFeedback).toHaveBeenCalledWith({
+      content: plate(mediaUrl),
+      id: "feedback-1",
+      updatedAt: 2,
+    });
   });
 });

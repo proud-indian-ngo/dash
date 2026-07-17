@@ -355,7 +355,11 @@ function TimelineItem({
               saving={saving}
             />
           ) : (
-            <PlateRenderer content={update.content} key={update.updatedAt} />
+            <PlateRenderer
+              content={update.content}
+              eventId={eventId}
+              key={update.updatedAt}
+            />
           )}
         </Suspense>
       </div>
@@ -568,7 +572,11 @@ function PendingUpdateCard({
             saving={saving}
           />
         ) : (
-          <PlateRenderer content={update.content} key={update.updatedAt} />
+          <PlateRenderer
+            content={update.content}
+            eventId={eventId}
+            key={update.updatedAt}
+          />
         )}
       </Suspense>
     </div>

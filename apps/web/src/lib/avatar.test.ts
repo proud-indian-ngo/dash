@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { buildAvatarMediaUrl } from "@pi-dash/shared/media-url";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@pi-dash/env/web", () => ({
+  env: { VITE_CDN_URL: "https://cdn.example.test/" },
+}));
+
 import { buildAvatarUrl, resolveAvatarSrc } from "./avatar";
 
 describe("buildAvatarUrl", () => {
@@ -38,6 +44,17 @@ describe("resolveAvatarSrc", () => {
       image: "https://cdn.example.com/avatar.jpg",
     });
     expect(src).toBe("https://cdn.example.com/avatar.jpg");
+  });
+
+  it("converts a legacy CDN avatar into an authenticated media URL", () => {
+    const key = "app/avatars/user-1/avatar.jpg";
+    const src = resolveAvatarSrc({
+      email: "a@b.com",
+      id: "user-1",
+      image: `https://cdn.example.test/${key}`,
+    });
+
+    expect(src).toBe(buildAvatarMediaUrl("user-1", key));
   });
 
   it("falls back to buildAvatarUrl when image is null", () => {
