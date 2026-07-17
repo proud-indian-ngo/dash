@@ -21,6 +21,7 @@ type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
 type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 
 interface AssignmentTx {
+  location: "client" | "server";
   mutate: {
     kalakritiAssignment: {
       delete: ZeroMutationFn;
@@ -116,6 +117,9 @@ export const kalakritiAssignmentMutators = {
       }
 
       const volunteer = await tx.run(zql.user.where("id", args.userId).one());
+      if (!volunteer && tx.location === "client") {
+        return;
+      }
       if (!volunteer?.isActive) {
         throw new Error("Active volunteer not found");
       }

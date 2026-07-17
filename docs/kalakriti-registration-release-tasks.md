@@ -186,9 +186,12 @@ and Volunteer Coordinator policy.
 **Scope:**
 
 - Implement Edition Administrator and Volunteer Coordinator appointment rules.
-- Implement fixed Responsibility Assignment create, remove, scope validation, and primary card label.
+- Implement fixed Responsibility vocabulary, Edition-scoped create and remove,
+  scope validation foundations, and primary card label.
 - Restrict Volunteer Coordinator appointment to Edition or global administrators.
-- Allow Volunteer Coordinators to assign the Overall Events Lead, Category Leads, Competition Coordinators, Competition Volunteers, operational teams, and Liaisons.
+- Allow Volunteer Coordinators to assign the Overall Events Lead in this task.
+  KRR-007, KRR-009, and the owning operational modules activate Center,
+  Competition, Category, operational-team, and Liaison scopes.
 - Enforce exactly one active Overall Events Lead.
 - Insert or delete `teamEventMember` atomically when a central volunteer gains or loses the final qualifying assignment.
 - Build assignment management UI with scoped pickers that exclude external identities.
