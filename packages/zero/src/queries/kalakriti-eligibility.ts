@@ -23,7 +23,13 @@ export const kalakritiEligibilityQueries = {
             .where("userId", ctx.userId)
             .where("state", "active")
             .whereExists("assignments", (assignment) =>
-              assignment.where("responsibility", "edition_admin")
+              assignment.where(({ or, cmp }) =>
+                or(
+                  cmp("responsibility", "edition_admin"),
+                  cmp("responsibility", "overall_events_lead"),
+                  cmp("responsibility", "competition_category_lead")
+                )
+              )
             )
         )
     );

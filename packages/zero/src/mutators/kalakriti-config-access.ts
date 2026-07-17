@@ -37,6 +37,45 @@ export async function assertCanManageKalakritiConfiguration(
   }
 }
 
+export async function assertCanManageKalakritiCompetitionConfiguration(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+  if (!can(ctx, "kalakriti.view")) {
+    throw new Error("Unauthorized");
+  }
+
+  const membership = (await tx.run(
+    zql.kalakritiEditionMembership
+      .where("editionId", editionId)
+      .where("userId", ctx.userId)
+      .where("state", "active")
+      .one()
+  )) as { id: string } | undefined;
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  const assignment = await tx.run(
+    zql.kalakritiAssignment
+      .where("membershipId", membership.id)
+      .where(({ or, cmp }) =>
+        or(
+          cmp("responsibility", "edition_admin"),
+          cmp("responsibility", "overall_events_lead")
+        )
+      )
+      .one()
+  );
+  if (!assignment) {
+    throw new Error("Unauthorized");
+  }
+}
+
 export function assertKalakritiEditionConfigurable(lifecycle: string): void {
   if (lifecycle === "live" || lifecycle === "archived") {
     throw new Error("Configuration cannot be changed in this Edition state");

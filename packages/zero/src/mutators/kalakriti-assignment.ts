@@ -1,5 +1,7 @@
 import {
   canManageKalakritiResponsibility,
+  KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
+  KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
   KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
@@ -122,6 +124,34 @@ export const kalakritiLiaisonAssignmentCreateSchema = z.object({
   userId: z.string(),
 });
 
+export const kalakritiCompetitionCategoryAssignmentCreateSchema = z.object({
+  assignmentId: z.string(),
+  auditEntryId: z.string(),
+  competitionCategoryId: z.string(),
+  editionId: z.string(),
+  makePrimary: z.boolean(),
+  membershipId: z.string(),
+  now: z.number(),
+  responsibility: z.enum(
+    KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES
+  ),
+  teamEventMemberId: z.string(),
+  userId: z.string(),
+});
+
+export const kalakritiCompetitionScopeAssignmentCreateSchema = z.object({
+  assignmentId: z.string(),
+  auditEntryId: z.string(),
+  competitionId: z.string(),
+  editionId: z.string(),
+  makePrimary: z.boolean(),
+  membershipId: z.string(),
+  now: z.number(),
+  responsibility: z.enum(KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES),
+  teamEventMemberId: z.string(),
+  userId: z.string(),
+});
+
 export const kalakritiAssignmentRemoveSchema = z.object({
   assignmentId: z.string(),
   auditEntryId: z.string(),
@@ -132,6 +162,8 @@ interface AssignVolunteerArgs {
   assignmentId: string;
   auditEntryId: string;
   centerId: string | null;
+  competitionCategoryId: string | null;
+  competitionId: string | null;
   editionId: string;
   makePrimary: boolean;
   membershipId: string;
@@ -149,6 +181,11 @@ interface AssignableVolunteer {
   role: string | null;
 }
 
+interface AssignmentCompetitionScope {
+  editionId: string;
+  retiredAt: number | null;
+}
+
 async function assertAssignmentCenter(
   tx: AssignmentTx,
   editionId: string,
@@ -163,6 +200,38 @@ async function assertAssignmentCenter(
   }
   if (center.retiredAt !== null) {
     throw new Error("Retired Centers cannot receive assignments");
+  }
+}
+
+async function assertAssignmentCompetitionScope(
+  tx: AssignmentTx,
+  editionId: string,
+  competitionCategoryId: string | null,
+  competitionId: string | null
+): Promise<void> {
+  if (competitionCategoryId) {
+    const category = (await tx.run(
+      zql.kalakritiCompetitionCategory.where("id", competitionCategoryId).one()
+    )) as AssignmentCompetitionScope | undefined;
+    if (!(category && category.editionId === editionId)) {
+      throw new Error("Competition Category not found in this Edition");
+    }
+    if (category.retiredAt !== null) {
+      throw new Error(
+        "Retired Competition Categories cannot receive assignments"
+      );
+    }
+  }
+  if (competitionId) {
+    const competition = (await tx.run(
+      zql.kalakritiCompetition.where("id", competitionId).one()
+    )) as AssignmentCompetitionScope | undefined;
+    if (!(competition && competition.editionId === editionId)) {
+      throw new Error("Competition not found in this Edition");
+    }
+    if (competition.retiredAt !== null) {
+      throw new Error("Retired Competitions cannot receive assignments");
+    }
   }
 }
 
@@ -209,6 +278,12 @@ async function assignVolunteerResponsibility(
     throw new Error("Edition not found");
   }
   await assertAssignmentCenter(tx, args.editionId, args.centerId);
+  await assertAssignmentCompetitionScope(
+    tx,
+    args.editionId,
+    args.competitionCategoryId,
+    args.competitionId
+  );
   const volunteer = await getAssignableVolunteer(tx, args.userId);
   if (!volunteer) {
     return;
@@ -237,6 +312,8 @@ async function assignVolunteerResponsibility(
       .orderBy("createdAt", "asc")
   )) as Array<{
     centerId: string | null;
+    competitionCategoryId: string | null;
+    competitionId: string | null;
     id: string;
     isPrimary: boolean;
     responsibility: KalakritiResponsibility;
@@ -245,7 +322,10 @@ async function assignVolunteerResponsibility(
     existingAssignments.some(
       (assignment) =>
         assignment.responsibility === args.responsibility &&
-        (assignment.centerId ?? null) === args.centerId
+        (assignment.centerId ?? null) === args.centerId &&
+        (assignment.competitionCategoryId ?? null) ===
+          args.competitionCategoryId &&
+        (assignment.competitionId ?? null) === args.competitionId
     )
   ) {
     throw new Error("Volunteer already has this scoped responsibility");
@@ -306,8 +386,8 @@ async function assignVolunteerResponsibility(
 
   await tx.mutate.kalakritiAssignment.insert({
     centerId: args.centerId,
-    competitionCategoryId: null,
-    competitionId: null,
+    competitionCategoryId: args.competitionCategoryId,
+    competitionId: args.competitionId,
     createdAt: args.now,
     createdBy: ctx.userId,
     editionId: args.editionId,
@@ -344,6 +424,8 @@ async function assignVolunteerResponsibility(
     id: args.auditEntryId,
     metadata: {
       centerId: args.centerId,
+      competitionCategoryId: args.competitionCategoryId,
+      competitionId: args.competitionId,
       responsibility: args.responsibility,
       userId: args.userId,
     },
@@ -354,18 +436,43 @@ async function assignVolunteerResponsibility(
 }
 
 export const kalakritiAssignmentMutators = {
+  assignCompetitionCategoryLead: defineMutator(
+    kalakritiCompetitionCategoryAssignmentCreateSchema,
+    ({ tx, ctx, args }) =>
+      assignVolunteerResponsibility(tx, ctx, {
+        ...args,
+        centerId: null,
+        competitionId: null,
+      })
+  ),
+  assignCompetitionMember: defineMutator(
+    kalakritiCompetitionScopeAssignmentCreateSchema,
+    ({ tx, ctx, args }) =>
+      assignVolunteerResponsibility(tx, ctx, {
+        ...args,
+        centerId: null,
+        competitionCategoryId: null,
+      })
+  ),
   assignLiaison: defineMutator(
     kalakritiLiaisonAssignmentCreateSchema,
     ({ tx, ctx, args }) =>
       assignVolunteerResponsibility(tx, ctx, {
         ...args,
+        competitionCategoryId: null,
+        competitionId: null,
         responsibility: "liaison",
       })
   ),
   assignVolunteer: defineMutator(
     kalakritiAssignmentCreateSchema,
     ({ tx, ctx, args }) =>
-      assignVolunteerResponsibility(tx, ctx, { ...args, centerId: null })
+      assignVolunteerResponsibility(tx, ctx, {
+        ...args,
+        centerId: null,
+        competitionCategoryId: null,
+        competitionId: null,
+      })
   ),
 
   remove: defineMutator(

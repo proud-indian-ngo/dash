@@ -399,6 +399,90 @@ describe("kalakritiAssignment.assignLiaison", () => {
   });
 });
 
+describe("Kalakriti Competition assignments", () => {
+  it("lets a Volunteer Coordinator assign a Category Lead", async () => {
+    const { tx, spies } = createTx([
+      { id: "actor-membership" },
+      [{ responsibility: "volunteer_coordinator" }],
+      { id: "edition-1", teamEventId: "event-1" },
+      { editionId: "edition-1", id: "category-1", retiredAt: null },
+      {
+        email: "lead@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Category Lead",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignCompetitionCategoryLead.fn({
+      args: {
+        assignmentId: "assignment-category-1",
+        auditEntryId: "audit-category-1",
+        competitionCategoryId: "category-1",
+        editionId: "edition-1",
+        makePrimary: false,
+        membershipId: "membership-category-1",
+        now: 1_700_000_000_000,
+        responsibility: "competition_category_lead",
+        teamEventMemberId: "event-member-category-1",
+        userId: "volunteer-1",
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "coordinator-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignCompetitionCategoryLead.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        competitionCategoryId: "category-1",
+        competitionId: null,
+        responsibility: "competition_category_lead",
+      })
+    );
+  });
+
+  it("rejects a Competition assignment outside the Edition", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", teamEventId: "event-1" },
+      { editionId: "edition-2", id: "competition-1", retiredAt: null },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.assignCompetitionMember.fn({
+        args: {
+          assignmentId: "assignment-competition-1",
+          auditEntryId: "audit-competition-1",
+          competitionId: "competition-1",
+          editionId: "edition-1",
+          makePrimary: false,
+          membershipId: "membership-competition-1",
+          now: 1_700_000_000_000,
+          responsibility: "competition_coordinator",
+          teamEventMemberId: "event-member-competition-1",
+          userId: "volunteer-1",
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignCompetitionMember.fn
+      >[0])
+    ).rejects.toThrow("Competition not found in this Edition");
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+  });
+});
+
 describe("kalakritiAssignment.remove", () => {
   it("keeps membership and event roster when another assignment remains", async () => {
     const { tx, spies } = createTx([
