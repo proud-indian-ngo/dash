@@ -1,0 +1,100 @@
+packages/auth/src/kalakriti-external-user.ts
+  s_c8c0ce2f824e4f::t_bf7dedf7efd7e1 1-37,45-46,48-81
+  s_c8c0ce2f824e4f::t_1354ee9801fafe 38-44,47
+apps/web/src/lib/kalakriti-guardian-policy.ts
+  s_c8c0ce2f824e4f::t_70f452a1e753b0 9,51-52
+  s_c8c0ce2f824e4f::t_7b079d44bba836 43-47,53
+apps/web/src/routes/_app/kalakriti/$year/guardians.tsx
+  s_c8c0ce2f824e4f::t_670c80bad45f13 191
+  s_c8c0ce2f824e4f::t_7b079d44bba836 136-165,180
+apps/web/src/lib/kalakriti-edition-route.test.ts
+  s_c8c0ce2f824e4f::t_dbf1420e041939 46
+  s_c8c0ce2f824e4f::t_ebb243ed732b72 4,7,19,41-45,47-48,51,119-146
+  s_c8c0ce2f824e4f::t_041ab762b9a6bc 76
+  s_c8c0ce2f824e4f::t_72fe467f8fc998 147
+packages/notifications/src/send/user.test.ts
+  s_c8c0ce2f824e4f::t_6c4ab3faff5bb1 1-60
+  s_c8c0ce2f824e4f::t_c1edde66bcd7b0 61-63
+packages/jobs/src/handlers/notify-kalakriti-guardian.test.ts
+  s_c8c0ce2f824e4f::t_04bb4213733bba 8-13
+  s_c8c0ce2f824e4f::t_6c4ab3faff5bb1 1-7,14-37
+  s_c8c0ce2f824e4f::t_172bc10117806c 38-39
+packages/e2e/tests/kalakriti/guardian-lifecycle-concurrency.spec.ts
+  s_c8c0ce2f824e4f::t_77d3863da70c14 61-64,91-92,96-97,104-105,122-125,127-128,165
+  s_c8c0ce2f824e4f::t_60143e5552eb24 1-3,15-20,22-26,34,36-39,41-45,47
+  s_c8c0ce2f824e4f::t_d3940d90c002fb 9,29-33,135-164
+  s_c8c0ce2f824e4f::t_521e6bb2db4943 35
+  s_c8c0ce2f824e4f::t_4d39585e48cfdb 4-8,10-14,21,27-28,40,46,48-60,65-90,93-95,98-103,106-121,126,129-134,166-167
+packages/auth/src/kalakriti-external-user.test.ts
+  s_c8c0ce2f824e4f::t_0ac83caceab1c8 1-6,9-96
+  s_c8c0ce2f824e4f::t_e7872cf573ba1e 7-8
+apps/web/src/components/kalakriti/guardian-roster.tsx
+  s_c8c0ce2f824e4f::t_670c80bad45f13 71-76
+packages/e2e/run-e2e.sh
+  s_c8c0ce2f824e4f::t_58b47a31bcc67b 61
+  s_c8c0ce2f824e4f::t_2564a55178404c 140
+  s_c8c0ce2f824e4f::t_6091cdcacc3641 59-60
+packages/e2e/helpers/kalakriti-guardian-race.ts
+  s_c8c0ce2f824e4f::t_89ac889d37a07e 1-10,12-15,20-36,40-108,122,137-176,184-189,192-195,198-205
+  s_c8c0ce2f824e4f::t_174fad6ac48a66 179
+  s_c8c0ce2f824e4f::t_e368cc06717bf9 11
+  s_c8c0ce2f824e4f::t_d3940d90c002fb 16-19,37-39,109-121,123-136,177-178,180-183,190-191,196-197
+project-structure.md
+  s_c8c0ce2f824e4f::t_670c80bad45f13 81-84
+packages/e2e/pages/kalakriti-guardians-page.ts
+  s_c8c0ce2f824e4f::t_4d39585e48cfdb 1-3,9-64
+  s_c8c0ce2f824e4f::t_44b6c4136b7684 4-8
+apps/web/src/functions/kalakriti-guardian.ts
+  s_c8c0ce2f824e4f::t_3ec52caa84d37f 2-6,20,120-121,125-157
+  s_c8c0ce2f824e4f::t_d0d457e4b2c99f 559-570,572-574,586,602,617
+  s_c8c0ce2f824e4f::t_0d59b3c49e976f 590-593,614
+  s_c8c0ce2f824e4f::t_2c22b4bf32d07e 487
+  s_c8c0ce2f824e4f::t_761a01d6d14c1a 258-279,283-296,298-300,302-303
+  s_c8c0ce2f824e4f::t_1354ee9801fafe 1,100
+  s_c8c0ce2f824e4f::t_414bbe7d90dcb5 160-182,280-282,546,571
+  s_c8c0ce2f824e4f::t_f20b523703812a 363-367,369,400
+  s_c8c0ce2f824e4f::t_d3940d90c002fb 551-558,595-601,603-604
+  s_c8c0ce2f824e4f::t_70f452a1e753b0 371,373,375,377,381-384,480-482
+  s_c8c0ce2f824e4f::t_7b079d44bba836 594,605-613
+  s_c8c0ce2f824e4f::t_79e4731f3f96c3 158-159
+packages/zero/src/kalakriti-membership-schema.test.ts
+  s_c8c0ce2f824e4f::t_70674c127e6dd5 1-17
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_7062ec1fda9a6a 123-127
+apps/web/src/functions/kalakriti-access.ts
+  s_c8c0ce2f824e4f::t_a8b66e26995eef 37-42,45,108,110-115,123-131
+  s_c8c0ce2f824e4f::t_9bf026eec5049a 8
+knip.json
+  s_c8c0ce2f824e4f::t_8c64e485ab4b7c 26-30
+packages/zero/src/queries/kalakriti-guardian.test.ts
+  s_c8c0ce2f824e4f::t_d147fe957b443c 1-41,43-44,57-63
+  s_c8c0ce2f824e4f::t_04bb4213733bba 42,45-56
+apps/web/src/components/kalakriti/guardian-invite-dialog.tsx
+  s_c8c0ce2f824e4f::t_670c80bad45f13 138-140
+apps/web/src/lib/kalakriti-guardian-policy.test.ts
+  s_c8c0ce2f824e4f::t_70f452a1e753b0 10,92-105
+  s_c8c0ce2f824e4f::t_7b079d44bba836 106,108-121
+  s_c8c0ce2f824e4f::t_0e239a1c4bcd7d 107
+packages/db/src/migrations/0052_silent_puppet_master.sql
+  s_c8c0ce2f824e4f::t_f563a2d257b8c2 1
+packages/db/src/migrations/meta/0052_snapshot.json
+  s_c8c0ce2f824e4f::t_97c3236abba6e5 1-6396
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_073ee871cdc90a 368-374
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c09de070274e1cb247ad50f6366a26d0e790c7ff",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
