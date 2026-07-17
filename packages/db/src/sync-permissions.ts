@@ -2,6 +2,7 @@ import { and, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   ADMIN_PERMISSIONS,
+  EXTERNAL_USER_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSIONS,
   SYSTEM_ONLY_PERMISSION_IDS,
@@ -66,6 +67,7 @@ export async function syncPermissions(): Promise<void> {
       { id: "admin", isSystem: true, name: "Admin" },
       { id: "finance_admin", isSystem: true, name: "Finance Admin" },
       { id: "volunteer", isSystem: true, name: "Volunteer" },
+      { id: "external_user", isSystem: true, name: "External User" },
       {
         id: "unoriented_volunteer",
         isSystem: true,
@@ -90,6 +92,7 @@ export async function syncPermissions(): Promise<void> {
         ["super_admin", currentIds],
         ["admin", ADMIN_PERMISSIONS as string[]],
         ["finance_admin", FINANCE_ADMIN_PERMISSIONS as string[]],
+        ["external_user", EXTERNAL_USER_PERMISSIONS as string[]],
       ] as [string, string[]][]
     ).map(async ([roleId, permIds]) => {
       if (permIds.length > 0) {

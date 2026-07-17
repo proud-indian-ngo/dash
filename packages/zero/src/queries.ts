@@ -10,6 +10,7 @@ import {
 } from "./queries/event-photo";
 import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
+import { kalakritiEditionQueries } from "./queries/kalakriti-edition";
 import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { reimbursementQueries } from "./queries/reimbursement";
@@ -32,6 +33,7 @@ export const queries = defineQueries({
   eventPhoto: eventPhotoQueries,
   eventUpdate: eventUpdateQueries,
   expenseCategory: expenseCategoryQueries,
+  kalakritiEdition: kalakritiEditionQueries,
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   reimbursement: reimbursementQueries,

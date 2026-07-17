@@ -353,6 +353,20 @@ export const PERMISSIONS = [
     name: "System Alerts",
   },
 
+  // ── Kalakriti ──
+  {
+    category: "kalakriti",
+    description: "Access Kalakriti editions assigned to the current user",
+    id: "kalakriti.view",
+    name: "View Kalakriti",
+  },
+  {
+    category: "kalakriti",
+    description: "Create editions and administer Kalakriti configuration",
+    id: "kalakriti.admin",
+    name: "Administer Kalakriti",
+  },
+
   // ── Bank Accounts (user-scoped) ──
   {
     category: "bank_accounts",
@@ -397,6 +411,11 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
 /** Minimal permissions for unoriented volunteers (pre-orientation signup default) */
 export const UNORIENTED_VOLUNTEER_PERMISSIONS: readonly PermissionId[] = [
   "events.view_own",
+];
+
+/** External users only enter Kalakriti through an active Edition membership. */
+export const EXTERNAL_USER_PERMISSIONS: readonly PermissionId[] = [
+  "kalakriti.view",
 ];
 
 /** Role IDs that are immutable system roles (permissions managed in code, not editable via UI) */

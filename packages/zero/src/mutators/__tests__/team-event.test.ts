@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import z from "zod";
-import { computeOccurrenceStart } from "../team-event";
+import {
+  assertEventNotManagedByKalakriti,
+  computeOccurrenceStart,
+} from "../team-event";
 
 const recurrenceRuleSchema = z
   .object({
@@ -119,6 +122,24 @@ const cancelSeriesSchema = z.object({
   now: z.number(),
   originalDate: z.string().optional(),
   reason: z.string().optional(),
+});
+
+describe("assertEventNotManagedByKalakriti", () => {
+  it("allows ordinary team events", async () => {
+    const tx = { run: async () => undefined };
+
+    await expect(
+      assertEventNotManagedByKalakriti(tx, "event-1")
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects events linked to a Kalakriti Edition", async () => {
+    const tx = { run: async () => ({ id: "edition-1" }) };
+
+    await expect(
+      assertEventNotManagedByKalakriti(tx, "event-1")
+    ).rejects.toThrow("Manage this event from Kalakriti");
+  });
 });
 
 describe("teamEvent mutator schemas", () => {

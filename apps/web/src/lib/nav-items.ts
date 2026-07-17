@@ -118,6 +118,16 @@ const eventsNavItem: NavItem = {
   url: "/events",
 };
 
+const kalakritiNavItem: NavItem = {
+  icon: Calendar03Icon,
+  subItems: [
+    { isHidden: true, title: "Edition", url: "/kalakriti/$year" },
+    { isHidden: true, title: "New Edition", url: "/kalakriti/new" },
+  ],
+  title: "Kalakriti",
+  url: "/kalakriti",
+};
+
 function has(permissions: string[], id: string): boolean {
   return permissions.includes(id);
 }
@@ -132,6 +142,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
 
   if (hasAny(permissions, "events.view_own", "events.view_all")) {
     items.push(eventsNavItem);
+  }
+  if (has(permissions, "kalakriti.admin")) {
+    items.push(kalakritiNavItem);
   }
   if (hasAny(permissions, "requests.view_own", "requests.view_all")) {
     items.push(reimbursementsNavItem);
@@ -199,6 +212,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (hasEvents) {
     orgItems.push(eventsNavItem);
+  }
+  if (has(permissions, "kalakriti.admin")) {
+    orgItems.push(kalakritiNavItem);
   }
   if (orgItems.length > 0) {
     groups.push({ items: orgItems, label: "Organization" });

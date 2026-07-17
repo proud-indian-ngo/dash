@@ -351,6 +351,13 @@
       "when": 1783507141206,
       "tag": "0049_medical_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1784290335097,
+      "tag": "0050_heavy_kat_farrell",
+      "breakpoints": true
     }
   ]
 }
