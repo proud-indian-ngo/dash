@@ -379,6 +379,13 @@
       "when": 1784318285561,
       "tag": "0053_rapid_blacklash",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1784324707879,
+      "tag": "0054_faithful_vengeance",
+      "breakpoints": true
     }
   ]
 }

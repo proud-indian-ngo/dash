@@ -30,6 +30,7 @@ describe("Kalakriti navigation", () => {
   it("builds Edition-scoped navigation", () => {
     expect(
       buildKalakritiNavGroups({
+        canManageEligibility: true,
         canManageGuardians: true,
         year: 2026,
       }).flatMap((group) =>
@@ -39,6 +40,7 @@ describe("Kalakriti navigation", () => {
       { title: "Dashboard", url: "/" },
       { title: "Overview", url: "/kalakriti/2026" },
       { title: "Centers", url: "/kalakriti/2026/centers" },
+      { title: "Eligibility", url: "/kalakriti/2026/eligibility" },
       { title: "Guardians", url: "/kalakriti/2026/guardians" },
     ]);
   });

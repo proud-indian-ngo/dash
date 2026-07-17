@@ -171,6 +171,96 @@ export const kalakritiCenter = pgTable(
   ]
 );
 
+export const kalakritiAgeCategory = pgTable(
+  "kalakriti_age_category",
+  {
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    maxCompetitionsPerCategory: integer(
+      "max_competitions_per_category"
+    ).notNull(),
+    maximumAge: integer("maximum_age").notNull(),
+    maxTotalCompetitions: integer("max_total_competitions").notNull(),
+    minimumAge: integer("minimum_age").notNull(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_age_category_editionId_normalizedName_uidx").on(
+      table.editionId,
+      table.normalizedName
+    ),
+    uniqueIndex("kalakriti_age_category_editionId_sortOrder_uidx").on(
+      table.editionId,
+      table.sortOrder
+    ),
+    unique("kalakriti_age_category_editionId_id_uq").on(
+      table.editionId,
+      table.id
+    ),
+    index("kalakriti_age_category_editionId_idx").on(table.editionId),
+    check(
+      "kalakriti_age_category_age_range_chk",
+      sql`${table.minimumAge} BETWEEN 0 AND 100 AND ${table.maximumAge} BETWEEN ${table.minimumAge} AND 100`
+    ),
+    check(
+      "kalakriti_age_category_competition_limits_chk",
+      sql`${table.maxTotalCompetitions} > 0 AND ${table.maxCompetitionsPerCategory} > 0 AND ${table.maxCompetitionsPerCategory} <= ${table.maxTotalCompetitions}`
+    ),
+    check("kalakriti_age_category_sortOrder_chk", sql`${table.sortOrder} >= 0`),
+    check(
+      "kalakriti_age_category_normalizedName_chk",
+      sql`length(${table.normalizedName}) > 0`
+    ),
+  ]
+);
+
+export const kalakritiCenterAgeQuota = pgTable(
+  "kalakriti_center_age_quota",
+  {
+    ageCategoryId: uuid("age_category_id").notNull(),
+    centerId: uuid("center_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    editionId: uuid("edition_id").notNull(),
+    femaleStudentLimit: integer("female_student_limit").notNull(),
+    id: uuid("id").primaryKey(),
+    maleStudentLimit: integer("male_student_limit").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_center_age_quota_centerId_ageCategoryId_uidx").on(
+      table.centerId,
+      table.ageCategoryId
+    ),
+    index("kalakriti_center_age_quota_editionId_idx").on(table.editionId),
+    foreignKey({
+      columns: [table.editionId, table.centerId],
+      foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
+      name: "kalakriti_center_age_quota_edition_center_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.editionId, table.ageCategoryId],
+      foreignColumns: [kalakritiAgeCategory.editionId, kalakritiAgeCategory.id],
+      name: "kalakriti_center_age_quota_edition_age_category_fk",
+    }).onDelete("restrict"),
+    check(
+      "kalakriti_center_age_quota_limits_chk",
+      sql`${table.maleStudentLimit} >= 0 AND ${table.femaleStudentLimit} >= 0`
+    ),
+  ]
+);
+
 export const kalakritiAssignment = pgTable(
   "kalakriti_assignment",
   {
@@ -316,6 +406,7 @@ export const kalakritiAuditEntry = pgTable(
 export const kalakritiEditionRelations = relations(
   kalakritiEdition,
   ({ many, one }) => ({
+    ageCategories: many(kalakritiAgeCategory),
     assignments: many(kalakritiAssignment),
     auditEntries: many(kalakritiAuditEntry),
     centers: many(kalakritiCenter),
@@ -374,6 +465,36 @@ export const kalakritiCenterRelations = relations(
       references: [kalakritiEdition.id],
     }),
     guardianCenters: many(kalakritiGuardianCenter),
+    quotas: many(kalakritiCenterAgeQuota),
+  })
+);
+
+export const kalakritiAgeCategoryRelations = relations(
+  kalakritiAgeCategory,
+  ({ many, one }) => ({
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiAgeCategory.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    quotas: many(kalakritiCenterAgeQuota),
+  })
+);
+
+export const kalakritiCenterAgeQuotaRelations = relations(
+  kalakritiCenterAgeQuota,
+  ({ one }) => ({
+    ageCategory: one(kalakritiAgeCategory, {
+      fields: [kalakritiCenterAgeQuota.ageCategoryId],
+      references: [kalakritiAgeCategory.id],
+    }),
+    center: one(kalakritiCenter, {
+      fields: [kalakritiCenterAgeQuota.centerId],
+      references: [kalakritiCenter.id],
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiCenterAgeQuota.editionId],
+      references: [kalakritiEdition.id],
+    }),
   })
 );
 
