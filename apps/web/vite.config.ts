@@ -4,7 +4,12 @@ import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
-import { defineConfig, type UserConfig } from "vite";
+import {
+  defineConfig,
+  type Plugin,
+  type UserConfig,
+  type ViteDevServer,
+} from "vite";
 import "@pi-dash/env";
 
 const RE_REACT = /node_modules[\\/](react|react-dom|scheduler)\//;
@@ -29,6 +34,26 @@ const RE_ZOD = /node_modules[\\/]zod\//;
 const RE_RECHARTS =
   /node_modules[\\/](recharts|react-redux|@reduxjs[\\/]toolkit|redux|redux-thunk|reselect|immer|use-sync-external-store|victory-vendor|decimal\.js-light|eventemitter3)\//;
 const RE_VENDOR = /node_modules/;
+
+const apiPath = /^\/api\//;
+
+const apiImageDevMiddleware: Plugin = {
+  apply: "serve",
+  configureServer(server: ViteDevServer) {
+    server.middlewares.use((request, _response, next) => {
+      if (
+        request.url &&
+        request.headers["sec-fetch-dest"] === "image" &&
+        apiPath.test(request.url)
+      ) {
+        request.headers["sec-fetch-dest"] = "empty";
+      }
+      next();
+    });
+  },
+  enforce: "pre",
+  name: "api-image-dev-middleware",
+};
 
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
@@ -84,6 +109,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       ...devtools(),
       ...tailwindcss(),
       ...tanstackStart(),
+      apiImageDevMiddleware,
       ...nitro({
         experimental: {
           vite: {},

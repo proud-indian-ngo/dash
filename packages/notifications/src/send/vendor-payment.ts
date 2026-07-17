@@ -8,8 +8,6 @@ import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 import { createSubmissionNotifier } from "./submission";
 
-const TRAILING_SLASH = /\/$/;
-
 const notifier = createSubmissionNotifier({
   entityLabel: "Vendor Payment",
   getLineItems: getVendorPaymentLineItems,
@@ -32,19 +30,14 @@ export async function notifyVendorPaymentSubmitted(options: {
 }
 
 export async function notifyVendorPaymentApproved(options: {
-  approvalScreenshotKey?: string;
   note?: string;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
 }): Promise<void> {
-  const screenshotUrl = options.approvalScreenshotKey
-    ? `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${options.approvalScreenshotKey}`
-    : undefined;
   await notifier.notifyApproved({
     entityId: options.vendorPaymentId,
     note: options.note,
-    screenshotUrl,
     submitterId: options.submitterId,
     title: options.title,
   });

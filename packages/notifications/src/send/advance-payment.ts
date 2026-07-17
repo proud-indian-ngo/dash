@@ -1,9 +1,6 @@
-import { env } from "@pi-dash/env/server";
 import { getAdvancePaymentLineItems } from "../helpers";
 import { TOPICS } from "../topics";
 import { createSubmissionNotifier } from "./submission";
-
-const TRAILING_SLASH = /\/$/;
 
 const notifier = createSubmissionNotifier({
   entityLabel: "Advance Payment",
@@ -28,18 +25,13 @@ export async function notifyAdvancePaymentSubmitted(options: {
 
 export async function notifyAdvancePaymentApproved(options: {
   advancePaymentId: string;
-  approvalScreenshotKey?: string;
   note?: string;
   submitterId: string;
   title: string;
 }): Promise<void> {
-  const screenshotUrl = options.approvalScreenshotKey
-    ? `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${options.approvalScreenshotKey}`
-    : undefined;
   await notifier.notifyApproved({
     entityId: options.advancePaymentId,
     note: options.note,
-    screenshotUrl,
     submitterId: options.submitterId,
     title: options.title,
   });

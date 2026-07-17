@@ -215,7 +215,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | Variable | Description |
 |---|---|
 | `VITE_ZERO_URL` | Zero cache server URL (e.g. `http://localhost:4848`) |
-| `VITE_CDN_URL` | CDN base URL for serving uploaded images |
+| `VITE_CDN_URL` | Public CDN base URL for avatar and editor images; attachments and event photos use authenticated routes |
 
 ### Immich (optional photo management)
 

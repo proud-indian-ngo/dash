@@ -3,7 +3,6 @@ import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
-import { env } from "@pi-dash/env/server";
 import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import {
   sendWhatsAppGroupMessage,
@@ -15,6 +14,8 @@ import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import { enqueue, type SendScheduledWhatsAppPayload } from "../enqueue";
+import { getR2Client } from "./r2";
+import { buildScheduledWhatsAppMedia } from "./scheduled-whatsapp-media";
 
 async function cleanupR2IfAllTerminal(scheduledMessageId: string) {
   const log = createRequestLogger({
@@ -147,14 +148,8 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
   log.set({ attachmentCount: attachments?.length });
 
   if (attachments && attachments.length > 0) {
-    const cdnUrl = env.VITE_CDN_URL;
-    const mediaAttachments: WhatsAppMediaAttachment[] = attachments.map(
-      (a) => ({
-        fileName: a.fileName,
-        mimeType: a.mimeType,
-        url: `${cdnUrl}/${a.r2Key}`,
-      })
-    );
+    const mediaAttachments: WhatsAppMediaAttachment[] =
+      buildScheduledWhatsAppMedia(attachments, getR2Client());
 
     // NOTE: On retry, previously sent attachments may be re-delivered (duplicated).
     // This is an accepted trade-off — tracking per-attachment send progress would add

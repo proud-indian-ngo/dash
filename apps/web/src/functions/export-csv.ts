@@ -16,6 +16,10 @@ import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
+import {
+  type ExportAttachmentLink,
+  groupExportAttachments,
+} from "@/lib/export-attachments";
 import { authMiddleware } from "@/middleware/auth";
 
 const statusValues = ["pending", "approved", "rejected"] as const;
@@ -30,13 +34,7 @@ const exportCsvSchema = z.object({
     .min(1, "Select at least one type"),
 });
 
-export interface ExportAttachment {
-  filename: string | null;
-  mimeType: string | null;
-  objectKey: string | null;
-  type: "file" | "url";
-  url: string | null;
-}
+export type ExportAttachment = ExportAttachmentLink;
 
 export interface ExportRow {
   attachments: ExportAttachment[];
@@ -52,24 +50,6 @@ export interface ExportRow {
   type: string;
 }
 
-function groupAttachments<T extends ExportAttachment & { parentId: string }>(
-  attachments: T[]
-): Map<string, ExportAttachment[]> {
-  const map = new Map<string, ExportAttachment[]>();
-  for (const a of attachments) {
-    const list = map.get(a.parentId) ?? [];
-    list.push({
-      filename: a.filename,
-      mimeType: a.mimeType,
-      objectKey: a.objectKey,
-      type: a.type,
-      url: a.url,
-    });
-    map.set(a.parentId, list);
-  }
-  return map;
-}
-
 type MainTable = typeof reimbursement | typeof advancePayment;
 type LineItemTable =
   | typeof reimbursementLineItem
@@ -80,6 +60,7 @@ type AttachmentTable =
 
 interface QueryConfig {
   attachmentJoinCol: AnyPgColumn;
+  attachmentKind: "advancePaymentAttachment" | "reimbursementAttachment";
   attachmentTable: AttachmentTable;
   expenseDateCol?: AnyPgColumn;
   lineItemAmountCol: AnyPgColumn;
@@ -166,6 +147,7 @@ async function queryExportRows(
       ? await db
           .select({
             filename: attachmentTable.filename,
+            id: attachmentTable.id,
             mimeType: attachmentTable.mimeType,
             objectKey: attachmentTable.objectKey,
             parentId: config.attachmentJoinCol,
@@ -176,7 +158,10 @@ async function queryExportRows(
           .where(inArray(config.attachmentJoinCol, ids))
       : [];
 
-  const attachmentsByRecord = groupAttachments(rawAttachments);
+  const attachmentsByRecord = groupExportAttachments(
+    rawAttachments,
+    config.attachmentKind
+  );
 
   return results.map((r) => ({
     attachments: attachmentsByRecord.get(r.id) ?? [],
@@ -195,6 +180,7 @@ async function queryExportRows(
 
 const reimbursementConfig: QueryConfig = {
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
+  attachmentKind: "reimbursementAttachment",
   attachmentTable: reimbursementAttachment,
   expenseDateCol: reimbursement.expenseDate,
   lineItemAmountCol: reimbursementLineItem.amount,
@@ -206,6 +192,7 @@ const reimbursementConfig: QueryConfig = {
 
 const advancePaymentConfig: QueryConfig = {
   attachmentJoinCol: advancePaymentAttachment.advancePaymentId,
+  attachmentKind: "advancePaymentAttachment",
   attachmentTable: advancePaymentAttachment,
   lineItemAmountCol: advancePaymentLineItem.amount,
   lineItemJoinCol: advancePaymentLineItem.advancePaymentId,

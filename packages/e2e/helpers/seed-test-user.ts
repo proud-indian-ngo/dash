@@ -12,8 +12,10 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { role, rolePermission } from "@pi-dash/db/schema/permission";
 import {
   reimbursement,
+  reimbursementAttachment,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { team, teamMember } from "@pi-dash/db/schema/team";
@@ -88,6 +90,42 @@ const TEST_USERS: TestUser[] = [
 
 const SEED_CATEGORIES = ["Travel", "Food", "Accommodation", "Supplies"];
 const AUDIT_ENTRY_ID = "00000000-0000-4000-8000-000000000001";
+const RESERVED_PERMISSION_PROBE_ROLE_ID = "e2e_reserved_permission_probe";
+
+async function verifyReservedPermissionSync(): Promise<void> {
+  await db
+    .insert(role)
+    .values({
+      description: "E2E permission sync probe",
+      id: RESERVED_PERMISSION_PROBE_ROLE_ID,
+      isSystem: false,
+      name: "E2E Permission Sync Probe",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(rolePermission)
+    .values({
+      permissionId: "requests.export",
+      roleId: RESERVED_PERMISSION_PROBE_ROLE_ID,
+    })
+    .onConflictDoNothing();
+
+  try {
+    await syncPermissions();
+    const grants = await db
+      .select({ roleId: rolePermission.roleId })
+      .from(rolePermission)
+      .where(eq(rolePermission.permissionId, "requests.export"));
+    const roleIds = grants.map((grant) => grant.roleId).sort();
+    if (roleIds.length !== 1 || roleIds[0] !== "super_admin") {
+      throw new Error(
+        `Reserved permission sync left unexpected grants: ${roleIds.join(", ")}`
+      );
+    }
+  } finally {
+    await db.delete(role).where(eq(role.id, RESERVED_PERMISSION_PROBE_ROLE_ID));
+  }
+}
 
 async function ensureTestUser(testUser: TestUser): Promise<string> {
   const existing = await db.query.user.findFirst({
@@ -225,6 +263,9 @@ const SEED_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
 const SEED_UPCOMING_REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000002";
 const SEED_VENDOR_ID = "e2e00000-0000-0000-0000-000000000003";
 const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
+const SEED_REIMBURSEMENT_ATTACHMENT_ID = "e2e00000-0000-0000-0000-000000000005";
+const SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID =
+  "e2e00000-0000-0000-0000-000000000006";
 const SEED_EXPORT_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000007";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
@@ -362,6 +403,33 @@ async function ensureUpcomingEventReimbursement(
   });
 
   log("Created upcoming event reimbursement");
+}
+
+async function ensureR2AuthorizationFixtures(): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(reimbursementAttachment)
+    .values([
+      {
+        createdAt: now,
+        filename: "private-receipt.pdf",
+        id: SEED_REIMBURSEMENT_ATTACHMENT_ID,
+        mimeType: "application/pdf",
+        objectKey: "legacy/e2e/private-receipt.pdf",
+        reimbursementId: SEED_REIMBURSEMENT_ID,
+        type: "file",
+      },
+      {
+        createdAt: now,
+        filename: "temporary-receipt.pdf",
+        id: SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID,
+        mimeType: "application/pdf",
+        objectKey: "app/attachments/tmp/e2e/temporary-receipt.pdf",
+        reimbursementId: SEED_REIMBURSEMENT_ID,
+        type: "file",
+      },
+    ])
+    .onConflictDoNothing();
 }
 
 async function ensureEventVendorPayment(
@@ -886,6 +954,7 @@ async function ensureFilterTestEvents(
 
 async function seed(): Promise<void> {
   await syncPermissions();
+  await verifyReservedPermissionSync();
   log("Synced roles and permissions");
 
   await ensureExpenseCategories();
@@ -922,6 +991,7 @@ async function seed(): Promise<void> {
     throw new Error("E2E event expense fixtures require seeded events");
   }
   await ensureReimbursement(superAdminUserId, pastEvent.id);
+  await ensureR2AuthorizationFixtures();
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
   await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);

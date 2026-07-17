@@ -1,5 +1,9 @@
 import { db } from "@pi-dash/db";
-import { ADMIN_TIER_ROLES, PERMISSION_IDS } from "@pi-dash/db/permissions";
+import {
+  ADMIN_TIER_ROLES,
+  isAssignablePermissionId,
+  PERMISSION_IDS,
+} from "@pi-dash/db/permissions";
 import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
@@ -151,6 +155,9 @@ export const getAllPermissions = createServerFn({ method: "GET" })
         { id: string; name: string; description: string | null }[]
       > = {};
       for (const p of perms) {
+        if (!isAssignablePermissionId(p.id)) {
+          continue;
+        }
         const group = grouped[p.category] ?? [];
         grouped[p.category] = group;
         group.push({
@@ -209,6 +216,9 @@ export const createRole = createServerFn({ method: "POST" })
           for (const pid of data.permissionIds) {
             if (!PERMISSION_IDS.has(pid)) {
               throw new Error(`Unknown permission: ${pid}`);
+            }
+            if (!isAssignablePermissionId(pid)) {
+              throw new Error(`Permission cannot be assigned: ${pid}`);
             }
           }
 
@@ -296,6 +306,9 @@ export const updateRole = createServerFn({ method: "POST" })
           for (const pid of data.permissionIds) {
             if (!PERMISSION_IDS.has(pid)) {
               throw new Error(`Unknown permission: ${pid}`);
+            }
+            if (!isAssignablePermissionId(pid)) {
+              throw new Error(`Permission cannot be assigned: ${pid}`);
             }
           }
 

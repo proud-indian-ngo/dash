@@ -53,6 +53,7 @@ import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimburse
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
+import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
 import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
 import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
@@ -277,6 +278,11 @@ const AppSettingsRolesIndexRoute = AppSettingsRolesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSettingsRolesRouteRoute,
 } as any)
+const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
+  id: '/api/media/event-photo/$id',
+  path: '/api/media/event-photo/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJobsIdRetryRoute = ApiJobsIdRetryRouteImport.update({
   id: '/retry',
   path: '/retry',
@@ -350,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -393,6 +400,7 @@ export interface FileRoutesByTo {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesById {
@@ -445,6 +453,7 @@ export interface FileRoutesById {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRouteTypes {
@@ -496,6 +505,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/media/event-photo/$id'
     | '/settings/roles/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -539,6 +549,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/media/event-photo/$id'
     | '/settings/roles'
   id:
     | '__root__'
@@ -590,6 +601,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/media/event-photo/$id'
     | '/_app/settings/roles/'
   fileRoutesById: FileRoutesById
 }
@@ -610,6 +622,7 @@ export interface RootRouteChildren {
   ApiJobsIndexRoute: typeof ApiJobsIndexRoute
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
+  ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -922,6 +935,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRolesIndexRouteImport
       parentRoute: typeof AppSettingsRolesRouteRoute
     }
+    '/api/media/event-photo/$id': {
+      id: '/api/media/event-photo/$id'
+      path: '/api/media/event-photo/$id'
+      fullPath: '/api/media/event-photo/$id'
+      preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/jobs/$id/retry': {
       id: '/api/jobs/$id/retry'
       path: '/retry'
@@ -1134,6 +1154,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsIndexRoute: ApiJobsIndexRoute,
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,
+  ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

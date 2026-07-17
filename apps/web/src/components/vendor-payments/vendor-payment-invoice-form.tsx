@@ -107,6 +107,7 @@ function InvoiceFormContent({
         {(field) => (
           <AttachmentsSection
             entityId={entityId}
+            fileDownloadKind="vendorPaymentAttachment"
             onChange={field.handleChange}
             value={(field.state.value ?? []) as Attachment[]}
           />

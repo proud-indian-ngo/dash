@@ -27,8 +27,6 @@ import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
   getAttachmentPreviewHref,
-  getDirectAttachmentUrl,
-  getImageThumbnailUrl,
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -44,6 +42,28 @@ interface ReimbursementDetailProps {
   canUpdateAnyStatus?: boolean;
   request: RequestDetailData;
 }
+
+const REQUEST_ASSET_KINDS = {
+  advance_payment: {
+    approvalScreenshotKind: "advancePaymentApprovalScreenshot",
+    attachmentKind: "advancePaymentAttachment",
+  },
+  reimbursement: {
+    approvalScreenshotKind: "reimbursementApprovalScreenshot",
+    attachmentKind: "reimbursementAttachment",
+  },
+} as const;
+
+const toApprovalScreenshot = (objectKey: null | string | undefined) =>
+  objectKey
+    ? {
+        filename: "payment-proof",
+        mimeType: "image/jpeg",
+        objectKey,
+        type: "file" as const,
+        url: null,
+      }
+    : null;
 
 export function ReimbursementDetail({
   canApprove,
@@ -76,6 +96,15 @@ export function ReimbursementDetail({
     (sum, item) => sum + Number(item.amount),
     0
   );
+  const { approvalScreenshotKind, attachmentKind } =
+    REQUEST_ASSET_KINDS[request.type];
+  const approvalScreenshot = toApprovalScreenshot(
+    request.approvalScreenshotKey
+  );
+  const approvalScreenshotRef = {
+    id: request.id,
+    kind: approvalScreenshotKind,
+  } as const;
 
   const handleApprove = useEventCallback(
     async (message: string, screenshotKey?: string) => {
@@ -259,12 +288,15 @@ export function ReimbursementDetail({
         ) : null}
 
         {/* Payment proof */}
-        {request.status === "approved" && request.approvalScreenshotKey ? (
+        {request.status === "approved" && approvalScreenshot ? (
           <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-out-expo">
             <h2 className="font-medium text-sm">Payment proof</h2>
             <div className="flex flex-col items-start gap-1.5">
               <a
-                href={getDirectAttachmentUrl(request.approvalScreenshotKey)}
+                href={getAttachmentPreviewHref(
+                  approvalScreenshot,
+                  approvalScreenshotRef
+                )}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -272,20 +304,20 @@ export function ReimbursementDetail({
                   alt="Payment proof"
                   className="h-24 w-24 rounded-md border object-cover"
                   height={96}
-                  src={getImageThumbnailUrl(request.approvalScreenshotKey, 192)}
+                  src={getAttachmentPreviewHref(
+                    approvalScreenshot,
+                    approvalScreenshotRef
+                  )}
                   width={96}
                 />
               </a>
               <a
                 className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                 download
-                href={getAttachmentDownloadHref({
-                  filename: "payment-proof",
-                  mimeType: "image/jpeg",
-                  objectKey: request.approvalScreenshotKey,
-                  type: "file",
-                  url: null,
-                })}
+                href={getAttachmentDownloadHref(
+                  approvalScreenshot,
+                  approvalScreenshotRef
+                )}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -334,7 +366,10 @@ export function ReimbursementDetail({
                       <>
                         <a
                           className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-                          href={getAttachmentPreviewHref(att)}
+                          href={getAttachmentPreviewHref(att, {
+                            id: att.id,
+                            kind: attachmentKind,
+                          })}
                           rel="noopener noreferrer"
                           target="_blank"
                         >
@@ -346,7 +381,10 @@ export function ReimbursementDetail({
                         <a
                           className="font-medium text-primary text-xs underline-offset-2 hover:underline"
                           download
-                          href={getAttachmentDownloadHref(att)}
+                          href={getAttachmentDownloadHref(att, {
+                            id: att.id,
+                            kind: attachmentKind,
+                          })}
                           rel="noopener noreferrer"
                           target="_blank"
                         >

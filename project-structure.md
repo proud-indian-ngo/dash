@@ -104,13 +104,14 @@ All paths are relative to project root.
 | `routes/api/log/ingest.ts` | Client-side log ingestion |
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
+| `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
 | `routes/api/jobs/stats.ts` | Queue size stats API |
 | `routes/api/jobs/$id.ts` | Job detail API |
 | `routes/api/jobs/$id/cancel.ts` | Cancel job API |
 | `routes/api/jobs/$id/retry.ts` | Retry failed job API |
 | `routes/api/audit-log.ts` | Permissioned audit ledger query API (server pagination and filters) |
-| `routes/api/attachments/download.ts` | Attachment download |
+| `routes/api/attachments/download.ts` | Authorized attachment download proxy |
 
 All route paths above are prefixed with `apps/web/src/`.
 
@@ -282,7 +283,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
 - **Preferences**: Per-topic, per-channel (inbox + email + WhatsApp) toggles stored in `notification_topic_preference` table. Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. All preferences checked at send-time from DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
-- **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) is used in notification functions to construct screenshot URLs for approval messages.
+- **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) serves public avatar and editor media. Protected attachments and event photos use authenticated application routes.
 - **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`.
 - **Retention**: `cleanup-notifications` pg-boss cron (daily 2 AM IST) deletes archived >90 days, read >180 days.
 - DO: Add new notification types in `packages/notifications/src/send/`.
