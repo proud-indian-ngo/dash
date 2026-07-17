@@ -1,0 +1,19 @@
+packages/whatsapp/src/messaging.test.ts
+  s_3a2012bdd24d4c::t_42d430d6b8f8dc 72-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b1db8142d8d2c43a2589b3d91263b4b2ce5e5bbe",
+  "prompts": {},
+  "sessions": {
+    "s_3a2012bdd24d4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6eea-ec00-78d2-901e-a63ee63b3372",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
