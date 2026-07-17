@@ -35,15 +35,16 @@ const RE_RECHARTS =
   /node_modules[\\/](recharts|react-redux|@reduxjs[\\/]toolkit|redux|redux-thunk|reselect|immer|use-sync-external-store|victory-vendor|decimal\.js-light|eventemitter3)\//;
 const RE_VENDOR = /node_modules/;
 
-const protectedEventPhotoPath = /^\/api\/media\/event-photo\//;
+const apiPath = /^\/api\//;
 
-const protectedEventPhotoDevMiddleware: Plugin = {
+const apiImageDevMiddleware: Plugin = {
+  apply: "serve",
   configureServer(server: ViteDevServer) {
     server.middlewares.use((request, _response, next) => {
       if (
         request.url &&
         request.headers["sec-fetch-dest"] === "image" &&
-        protectedEventPhotoPath.test(request.url)
+        apiPath.test(request.url)
       ) {
         request.headers["sec-fetch-dest"] = "empty";
       }
@@ -51,7 +52,7 @@ const protectedEventPhotoDevMiddleware: Plugin = {
     });
   },
   enforce: "pre",
-  name: "protected-event-photo-dev-middleware",
+  name: "api-image-dev-middleware",
 };
 
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
@@ -108,7 +109,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       ...devtools(),
       ...tailwindcss(),
       ...tanstackStart(),
-      protectedEventPhotoDevMiddleware,
+      apiImageDevMiddleware,
       ...nitro({
         experimental: {
           vite: {},
