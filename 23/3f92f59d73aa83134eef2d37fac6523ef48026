@@ -1,0 +1,139 @@
+packages/jobs/src/handlers/scheduled-whatsapp-media.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-34
+packages/jobs/package.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 24
+apps/web/src/lib/r2-object-access.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-135
+apps/web/src/lib/r2-object-access.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-282
+apps/web/src/lib/attachment-links.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-6,45-85
+  s_3a2012bdd24d4c::t_d3b434d96aebea 86
+apps/web/vite.config.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 7-12,38-57,112
+DEPLOYMENT.md
+  s_3a2012bdd24d4c::t_efa962151e7c13 58-62
+apps/web/src/lib/authorized-r2-object.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-241
+apps/web/src/routes/api/media/event-photo.$id.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-117
+packages/jobs/src/handlers/scheduled-whatsapp-media.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-49
+apps/web/src/routes/api/media/-event-photo.$id.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-155
+packages/zero/package.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 27
+apps/web/src/routes/_app/export.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 18,27,113,125,263-265
+apps/web/src/components/reimbursements/reimbursement-detail.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 46-67,99-107,291,296-299,307-310,317-320,369-372,384-387
+packages/db/src/permissions.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 375-387,451,455-457
+packages/editor/package.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 13
+apps/web/src/lib/authorized-r2-object.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-274
+packages/notifications/src/send/submission.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 68
+apps/web/src/routes/api/attachments/-download.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-321
+apps/web/src/routeTree.gen.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 56,281-285,359,403,456,508,552,604,625,938-944,1157
+apps/web/src/functions/role-admin.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 2-6,158-160
+  s_3a2012bdd24d4c::t_4720a680f52f48 220-222,310-312
+knip.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 22
+package.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 11,20,23,38-39,103,109,111,113,115
+.github/workflows/ci.yml
+  s_3a2012bdd24d4c::t_efa962151e7c13 119-123
+packages/e2e/tests/authorization/r2-object-access.spec.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-79
+README.md
+  s_3a2012bdd24d4c::t_efa962151e7c13 218
+packages/jobs/src/handlers/send-scheduled-whatsapp.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 17-18,151-152
+apps/web/src/functions/export-csv.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 19-22,37,63,150,161-164,183,195
+packages/email/package.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 18,21
+apps/web/package.json
+  s_3a2012bdd24d4c::t_efa962151e7c13 32-35,42,45
+apps/web/src/lib/attachment-links.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1,19-33,35-36,42,46,50-51,57,61
+packages/e2e/helpers/seed-test-user.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 15,18,93-128,266-268,408-434,957,994
+packages/shared/src/asset-ref.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-15
+apps/web/src/components/scheduled-messages/scheduled-message-detail-sheet.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 26,183-195
+apps/web/src/components/form/attachments-section.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 16-19,46,117,122,147-148,152,161,168,190,196-198,284-290,459-465
+docs/architecture/file-uploads.md
+  s_3a2012bdd24d4c::t_efa962151e7c13 11-13,17-22,80-83
+apps/web/src/components/vendor-payments/vendor-payment-invoice-form.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 110
+packages/whatsapp/src/messaging.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-71,77,87-122
+  s_3a2012bdd24d4c::t_04e5b1dd08fbb2 72-76,78-86
+apps/web/src/lib/export-attachments.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-119
+packages/shared/src/asset-ref.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-47
+apps/web/src/components/vendor-payments/vendor-payment-fields.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 219
+apps/web/src/components/reimbursements/standard-reimbursement-fields.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 316-320
+apps/web/src/components/teams/events/photo-utils.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 21-22,37,47
+apps/web/src/components/teams/events/photo-card.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 15,44
+packages/e2e/tests/authorization/route-guards.spec.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 53-56,73-87
+apps/web/src/components/vendor-payments/vendor-payment-detail.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 201-204,213-216
+packages/notifications/src/send/submission.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-63
+apps/web/src/lib/export-attachments.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-63
+project-structure.md
+  s_3a2012bdd24d4c::t_efa962151e7c13 107,114,286
+apps/web/src/lib/export-permission-policy.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-23
+apps/web/src/components/vendor-payments/vendor-payment-transaction-form.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 198
+docker-compose.prod.yml
+  s_3a2012bdd24d4c::t_efa962151e7c13 76-82,109-110,174
+packages/whatsapp/src/messaging.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 148,171,190,213,226,230,241,263,291
+apps/web/src/routes/api/attachments/download.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-5,9-13,17-67,75-85,87-88,90-94,96-114,116-129,131-163,165-212,214-217
+packages/db/src/sync-permissions.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1,7,52-60
+  s_3a2012bdd24d4c::t_65e73a1a9dd78d 61
+apps/web/src/components/vendor-payments/vendor-payment-invoice-section.tsx
+  s_3a2012bdd24d4c::t_efa962151e7c13 74-77,86-89
+docs/architecture/authorization.md
+  s_3a2012bdd24d4c::t_efa962151e7c13 18-22,46-47
+apps/web/src/components/teams/events/photo-utils.test.ts
+  s_3a2012bdd24d4c::t_efa962151e7c13 1-96
+bun.lock
+  s_3a2012bdd24d4c::t_a905346f2dd89e 13,19,21,23,25,49-52,59,62,182,228,231,268,351,390-391,404,411,414,418,420,422,424,426,428,446,486,514,516,518,520,522,524,526,528,530,1202,1204,1282,1284,1320,1440,1442,1444,1446,1448,1450,1452,1454,1456,1458,1460,1462,1464,1466,1468,1484,1486,1494,1496,1498,1502,1504,1506,1508,1518,1520,1524,1528,1530,1532,1542,1544,1546,1548,1550,1552,1728,1912,2020,2050,2108,2252,2282-2283,2322,2432,2464,2578,2692,2752,2818,3036,3080,3098,3164,3166,3468,3510-3517,3524-3525,3532-3533,3540-3541,3550,3556,3560-3561,3604-3605,3638-3639,3656,3706-3707,3712,3718-3720,3760-3766,3770-3771,3782-3783,4056,4058,4060,4062,4064,4066,4068,4070,4072,4074,4076,4078,4080,4082,4084,4086,4088,4090,4092,4094,4096,4098,4100,4102,4104,4106,4176-4191,4196-4199,4218-4221,4228-4229,4252-4259,4304-4305,4334,4336,4340,4520-4524,4526,4528,4530,4532,4534,4536,4538,4540,4542,4544,4546,4548,4550,4552,4554-4558,4766-4770,4772,4774,4776,4778,4780,4782,4784,4786,4788,4790,4792,4794,4796,4798,4800,4802,4804,4806,4808,4810,4812-4816,4842,4844,4846,4848,4850,4852,4854,4856,4858,4860,4862-4872,4874-4880,4882
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "233f92f59d73aa83134eef2d37fac6523ef48026",
+  "prompts": {},
+  "sessions": {
+    "s_3a2012bdd24d4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6eea-ec00-78d2-901e-a63ee63b3372",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
