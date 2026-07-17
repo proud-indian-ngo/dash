@@ -1,0 +1,21 @@
+apps/web/src/lib/avatar.test.ts
+  s_6c677c3541e969::t_2142f6a09acad2 2-6,8,54
+apps/web/src/functions/attachments.test.ts
+  s_6c677c3541e969::t_2142f6a09acad2 3-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "82e3df967bd21fd7e6ee6a2c4137676a08b418bb",
+  "prompts": {},
+  "sessions": {
+    "s_6c677c3541e969": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6ff1-39b9-7e13-8e64-dd05b4dd485c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
