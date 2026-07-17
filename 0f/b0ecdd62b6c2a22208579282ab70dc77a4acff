@@ -1,0 +1,555 @@
+CONTEXT.md
+  s_96c2c06cf47a89::t_e16a282c2f3a49 1-93
+docs/adr/0001-kalakriti-as-edition-bound-module.md
+  s_96c2c06cf47a89::t_c042315c6b548e 1-20
+docs/kalakriti-native-module-design.md
+  s_96c2c06cf47a89::t_27490f89160a48 1-655
+docs/kalakriti-registration-release-tasks.md
+  s_c8c0ce2f824e4f::t_c3d3f52f285b8e 1-662
+packages/zero/src/queries/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 1-6,8-9,15,25-30,33-39,42-46,52-55
+  s_c8c0ce2f824e4f::t_d60cdfa6da448e 7
+  s_c8c0ce2f824e4f::t_c2c265459e2533 10-14,16-24,31-32,40-41,47-51
+apps/web/src/routes/_app/kalakriti/index.tsx
+  s_c8c0ce2f824e4f::t_e5109d346879c4 6,32
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1-5,8-15,17-21,23-31,33-45,49,59-62
+  s_c8c0ce2f824e4f::t_c2c265459e2533 7,16,46-48,50-58
+  s_c8c0ce2f824e4f::t_7624266f93d4ce 22
+packages/db/src/sync-permissions.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 5,70,95
+  s_c8c0ce2f824e4f::t_49cc71606ab998 21-22
+  s_c8c0ce2f824e4f::t_29233f0490b124 117-118,124-127,129-138,153-154
+packages/db/src/permissions.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 356-369,423-425
+  s_c8c0ce2f824e4f::t_81b42d02ec6e26 426-427
+  s_c8c0ce2f824e4f::t_c2c265459e2533 435-437
+  s_c8c0ce2f824e4f::t_7c83ad2d830865 412
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 377-382,439,457
+apps/web/src/routes/_app/kalakriti/route.tsx
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1-4,6-7
+  s_c8c0ce2f824e4f::t_7c83ad2d830865 5
+apps/web/src/routes/_app/events/$id.tsx
+  s_c8c0ce2f824e4f::t_10deaadf60c120 54-60,216
+  s_c8c0ce2f824e4f::t_b047c0433d2797 1,6,133-134,164-166,249
+  s_c8c0ce2f824e4f::t_2b79a85269bfe4 16-29,44-50,52-53,61-63,65-70,74-75,87-90,228-243,248,251-259,266-267
+  s_c8c0ce2f824e4f::t_e84ee56875a55d 30-43,51
+  s_c8c0ce2f824e4f::t_6354e33d6de9ab 132
+  s_c8c0ce2f824e4f::t_d60cdfa6da448e 64,71-73,76-79,81-84,247
+  s_c8c0ce2f824e4f::t_6cb44308058d58 85-86,227
+  s_c8c0ce2f824e4f::t_7eaa75ec321bb2 80
+apps/web/src/lib/nav-items.ts
+  s_c8c0ce2f824e4f::t_2beeb67d9099bb 127-136,153-154,226-227
+  s_c8c0ce2f824e4f::t_7c83ad2d830865 152,225
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 108-113,180-182,249-251
+apps/web/src/components/layout/nav-main.tsx
+  s_c8c0ce2f824e4f::t_2b79a85269bfe4 91
+packages/zero/src/mutators/__tests__/team-event.test.ts
+  s_c8c0ce2f824e4f::t_9ca21fd48cc07a 125-134,138-142
+  s_c8c0ce2f824e4f::t_10c1c5c828dfc6 143-144
+  s_c8c0ce2f824e4f::t_c790a2e24ed2bf 135-137,146-151,155,170-240
+  s_c8c0ce2f824e4f::t_a074752af8fa0a 3
+  s_c8c0ce2f824e4f::t_c1a34f83516c3a 4,252,267,281
+  s_c8c0ce2f824e4f::t_ccc635d69b0dce 1,145,152-154,156-169,241-251,253-266,268-280,282-283
+  s_c8c0ce2f824e4f::t_bd23dd6583a68f 284-288
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 12,38
+  s_c8c0ce2f824e4f::t_aa45cd17b851c3 11,14,37,40
+  s_c8c0ce2f824e4f::t_4cd1bba671fd49 15,41
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 13,39
+apps/web/src/routes/_app/kalakriti/new.tsx
+  s_c8c0ce2f824e4f::t_e6b07d4fa20744 25-28,30,42,76-77,175-180,182,186
+  s_c8c0ce2f824e4f::t_d1690f625ccdb5 126-131
+  s_c8c0ce2f824e4f::t_30cccbf87cee58 36-38,98-101
+  s_c8c0ce2f824e4f::t_515a2f9f3f0c39 32,55-58,82-84
+  s_c8c0ce2f824e4f::t_02272dc49d4fe5 46-52,183,187-188
+  s_c8c0ce2f824e4f::t_af693076b8f099 39
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1,3-16,18-24,29,31,33-35,40-41,43-45,59,61-67,69-75,78-81,85-91,92-95,96-97,102-114,116-125,132-164,166-174,184,189-199,201-207
+  s_c8c0ce2f824e4f::t_2b79a85269bfe4 2,68,200
+  s_c8c0ce2f824e4f::t_0081856b96ff7f 53-54,165,181
+  s_c8c0ce2f824e4f::t_7c83ad2d830865 17,60,185
+  s_c8c0ce2f824e4f::t_d480947eb6bf9f 115
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_9fd554b29c19f4 48-54,159-160,167-168,172,328-334,772-774,776-787,789-793,798-828,830,834,836-857,860-863,874-889,2051
+  s_c8c0ce2f824e4f::t_26415fddb1a82b 775
+  s_c8c0ce2f824e4f::t_4e9efcd4a4d0f4 67,788,794-797
+  s_c8c0ce2f824e4f::t_27d0aaff32ae6a 169-171,829,831-833,835,858-859,864-870
+  s_c8c0ce2f824e4f::t_280dfea5bf05dd 871-873
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 10,35,126,384-404,2045
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_ef5700d128d9de 157
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 1-2,4-5,7-13,15-40,56-127,131-136,141-155,158-167,314-347,349-364,366-390,451-463
+  s_c8c0ce2f824e4f::t_1cc71f26414ccd 6,128-130,138-140,156,168-175
+  s_c8c0ce2f824e4f::t_f5d0d1304c1373 14,137
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 3,41-45,179-244,348
+  s_c8c0ce2f824e4f::t_77ef2cd8bc5416 365,391-398,434-450
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 263,267,299,399-400
+  s_c8c0ce2f824e4f::t_a714b85484ccc7 46-55,245-262,264-266,268-298,300-315,401-433
+  s_c8c0ce2f824e4f::t_7a2124dd44baa6 316
+packages/zero/src/mutators/team-event.ts
+  s_c8c0ce2f824e4f::t_b8d5d15b73f327 282,378,475,738-739,833,932,981,1120,1221
+  s_c8c0ce2f824e4f::t_515a2f9f3f0c39 560,1341
+  s_c8c0ce2f824e4f::t_14677bd32cb668 1030
+  s_c8c0ce2f824e4f::t_1367ddbbc69f15 1074
+  s_c8c0ce2f824e4f::t_a074752af8fa0a 17
+packages/db/src/schema/index.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 14
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 4
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 14,41
+  s_c8c0ce2f824e4f::t_86423a8356ba2d 13,16,40,43
+  s_c8c0ce2f824e4f::t_0690c7dc93fa84 17,44
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 15,42
+apps/web/src/routes/_app/kalakriti/$year.tsx
+  s_c8c0ce2f824e4f::t_d1690f625ccdb5 685-686
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 7-14,27,61-62,64-65,67-68,70,72-73,199-200,637-642,644-649,651-659,661-664,687-691,695-699,703-708,710-713,715,717,747,749,753,755,758,777-778,1002-1004
+  s_c8c0ce2f824e4f::t_e5109d346879c4 32,643,660
+  s_c8c0ce2f824e4f::t_18b08d7e287f4d 38-47,58-59,709
+  s_c8c0ce2f824e4f::t_9c290efe2bd2b5 34,60,201
+  s_c8c0ce2f824e4f::t_c2c265459e2533 48-54,692-694,700-702
+  s_c8c0ce2f824e4f::t_d60cdfa6da448e 323,762,764,978
+  s_c8c0ce2f824e4f::t_a62126295c50af 322
+  s_c8c0ce2f824e4f::t_227ce892d39fcd 37
+  s_c8c0ce2f824e4f::t_10e372be5a35a8 752
+  s_c8c0ce2f824e4f::t_4c291042b75d26 131-135
+  s_c8c0ce2f824e4f::t_9732d8f721049d 1-5,69,71,203-206
+  s_c8c0ce2f824e4f::t_91ab367353115e 761,763,765-766
+  s_c8c0ce2f824e4f::t_370e0084251a27 56,66,74-81,83-88,90-96,123-128,142-191,211,253-266,726-744,749,755,767-768,770-773
+  s_c8c0ce2f824e4f::t_3fd242cd0d54bd 63
+  s_c8c0ce2f824e4f::t_507a3cc37059c6 82,89,129-130,136-141,769
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 25,35-36,208-210,269-298,432-449,453-487,650,665,675-684,714-719,745,756-758
+  s_c8c0ce2f824e4f::t_956a901165d1f7 29
+  s_c8c0ce2f824e4f::t_2d9a34f9341e9c 6
+  s_c8c0ce2f824e4f::t_37ef0bf8dbe562 15-16,24
+  s_c8c0ce2f824e4f::t_90cab73416aaf2 26
+  s_c8c0ce2f824e4f::t_e4cbc00e11e3a9 28
+  s_c8c0ce2f824e4f::t_fe000c8223c891 31
+  s_c8c0ce2f824e4f::t_6ddf8357b78037 192
+  s_c8c0ce2f824e4f::t_ffa3e367f978f0 202
+  s_c8c0ce2f824e4f::t_045daf2235d643 207
+  s_c8c0ce2f824e4f::t_150ab9d79c876d 228-230,233,247-248
+  s_c8c0ce2f824e4f::t_ddbe5727376e1f 267-268
+  s_c8c0ce2f824e4f::t_b843154fb6388d 720-725
+  s_c8c0ce2f824e4f::t_7e8c2c261d175e 746-748
+  s_c8c0ce2f824e4f::t_ddf7252859d693 750-751
+  s_c8c0ce2f824e4f::t_0f203ad9d66bba 753-754
+  s_c8c0ce2f824e4f::t_e90beaec343c32 759-760
+  s_c8c0ce2f824e4f::t_b34a8a014bc950 774-776
+  s_c8c0ce2f824e4f::t_fae2ab5191915c 231-232,777-778
+  s_c8c0ce2f824e4f::t_9eab2ff4871cec 544
+  s_c8c0ce2f824e4f::t_3fc36d3676bca6 489-543
+  s_c8c0ce2f824e4f::t_2321af3c5fecfd 33,97-101,249-252,488,545,619-637,666-674,779,983-1001
+  s_c8c0ce2f824e4f::t_cc95ec78d77da0 780-856,860-876,878-919,921-944,948-953,955-963,966-982
+  s_c8c0ce2f824e4f::t_2d30a6455509a1 314-317,321-322
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 117,313,318-320,548,554-559,857-859,920,945-947,954
+  s_c8c0ce2f824e4f::t_7106a16a232c72 299-312,323-385,389-431
+  s_c8c0ce2f824e4f::t_230731c387c6f1 546-547,549-553,560-618
+  s_c8c0ce2f824e4f::t_ecd365a2449815 212-227,234-246
+  s_c8c0ce2f824e4f::t_8a0769ee557724 17-23,30,54-55,102-116,118-121
+  s_c8c0ce2f824e4f::t_f4e13bb3f3d409 193-198,386-388,877,964-965
+  s_c8c0ce2f824e4f::t_5f25358bc620d8 122
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 1-6,61-63,65-82,92-97,98-110,112-127,129-131,133-144,148,150,156,159,183-184,204,206-210,215-221
+  s_c8c0ce2f824e4f::t_b8a3149dafee72 83-91,128,132
+  s_c8c0ce2f824e4f::t_c1a34f83516c3a 7-19,64
+  s_c8c0ce2f824e4f::t_d60cdfa6da448e 111
+  s_c8c0ce2f824e4f::t_8cdfc2277fa535 21-27,29-33,35-36,41-43,45-48,51-61,159-174,176-196,198-199,202,209,211-212,216,218,220
+  s_c8c0ce2f824e4f::t_3fc36d3676bca6 34,37-40
+  s_c8c0ce2f824e4f::t_ae8aa8b8b30518 28,44,49-50
+  s_c8c0ce2f824e4f::t_985afd9d23793f 175,197,200-201,203-208,210,213-215,217,219
+apps/web/src/lib/kalakriti-route-guard.test.ts
+  s_c8c0ce2f824e4f::t_26e63dc4aaa40f 5
+  s_c8c0ce2f824e4f::t_9ca21fd48cc07a 1,3-4,6-14,17-18,21-22
+  s_c8c0ce2f824e4f::t_ed7d7c15edfabe 2,15-16,19-20
+apps/web/src/routeTree.gen.ts
+  s_c8c0ce2f824e4f::t_c705c7f790fdf4 33,40,56-57,172-176,207-211,287-296,351,372-373,389,421-422,438,458,480-481,497,517,538-539,555,587-588,604,623,645-646,662,849-855,898-904,1010-1023,1111-1125,1205,1222
+  s_c8c0ce2f824e4f::t_796198c87dff7f 45,62,232-236,317-321,384,400,433,449,492,508,550,566,599,615,657,673,689,696,933-939,1052-1058,1282,1289
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 17,27,92-96,142-146,357,367,407,417,464,474,523,533,573,583,629,639,681,737-743,807-813,1211,1228,1274
+packages/db/src/migrations/0050_needy_silver_fox.sql
+  s_c8c0ce2f824e4f::t_3036628f24cb9f 1-58,61-68,70-71,73-78,80-88
+  s_c8c0ce2f824e4f::t_6a51b9a8dfacee 59-60,69,72,79,118
+packages/db/src/migrations/meta/0050_snapshot.json
+  s_c8c0ce2f824e4f::t_f90fcf924906f2 1,3-496,703-2537,2540,2542-2548,2552-2553,2555-2558,2560-2568,2571-2578,2581-2582,2589-2590,2593,2601-2604,2614-2615,2616-5520,5727-5738,5749-5800,5801-5920,5931-5942
+  s_c8c0ce2f824e4f::t_e8d657e6c5cd37 2561-2562
+  s_c8c0ce2f824e4f::t_d48ba2ee9957b7 5521-5726,5921-5930,5943
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_61b0f32fb79e1d 354-357,374
+  s_c8c0ce2f824e4f::t_bdde7278851b83 361-367
+  s_c8c0ce2f824e4f::t_775ddf9d6f5c75 368-374,377
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_bebdab0a44ce52 982-1088,1201-1365,1367-1373,1444-1468,3474-3509,3562-3570,3579-3612,3621-3645,4306-4307,4310-4311,4313,4359-4360,4363-4364,4505-4518,4531-4544,4552-4558
+  s_c8c0ce2f824e4f::t_6958317601d925 1366,2288-2293
+  s_c8c0ce2f824e4f::t_90bc9dfb61437a 1089-1200,3510-3536,3553-3561,3571-3578,3606-3608,3610-3612,4308-4309,4361-4362,4519-4529
+  s_c8c0ce2f824e4f::t_d5eb2ac9691d78 4530
+  s_c8c0ce2f824e4f::t_6db8c9876721ff 1,364-458,1374-1443,1469-1536,3537-3552,3605,3609,3613,3617,3646-3697,4294,4312,4314,4365-4366,4439-4443,4545-4551,4559-4564
+  s_c8c0ce2f824e4f::t_709d2fc8b8b8a4 4565
+packages/zero/src/queries/event-access.test.ts
+  s_c8c0ce2f824e4f::t_d63bcc8050fbae 2,40
+  s_c8c0ce2f824e4f::t_373e521fcba65a 1,3-17,22-31,37-39,41-49
+  s_c8c0ce2f824e4f::t_86a246df2ee6d8 32-36
+  s_c8c0ce2f824e4f::t_c5052c13643461 18-21
+packages/zero/src/mutators/team-event-series.ts
+  s_c8c0ce2f824e4f::t_1367ddbbc69f15 71
+apps/web/src/routes/api/auth/$.ts
+  s_c8c0ce2f824e4f::t_0c93406027d2d9 8-9,44-48
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 3-7,10-12,17-40,54
+  s_c8c0ce2f824e4f::t_d18082a9683dde 13-16
+  s_c8c0ce2f824e4f::t_46cf0b612f85fd 43,53
+  s_c8c0ce2f824e4f::t_0aa2fe23915cb8 41-42
+packages/zero/src/queries/event-photo.ts
+  s_c8c0ce2f824e4f::t_6fc229ecf63cad 5,40,50,123-125,127
+  s_c8c0ce2f824e4f::t_7c989c9c7da001 12-29,32-37
+  s_c8c0ce2f824e4f::t_7df1c22ff42dd7 3,44,53,65,77-84,126
+packages/zero/src/queries/team.ts
+  s_c8c0ce2f824e4f::t_7e81c2c5e6537e 3,24-27,41
+  s_c8c0ce2f824e4f::t_ffefe70dbcaa20 13-20,22-23,28-40
+apps/web/src/routes/_app/index.tsx
+  s_c8c0ce2f824e4f::t_db836467699357 22,42-46
+packages/zero/src/queries/user.ts
+  s_c8c0ce2f824e4f::t_df345a62e36a7c 8-10,16-19
+packages/zero/src/mutators/event-immich-album.ts
+  s_c8c0ce2f824e4f::t_13279ad90532a1 10,33
+packages/zero/src/queries/external-user-boundary.test.ts
+  s_c8c0ce2f824e4f::t_8fa5fd296ccba7 1-98
+packages/zero/src/queries/team-event.ts
+  s_c8c0ce2f824e4f::t_db670e10bec65e 7-8,10,12-15
+  s_c8c0ce2f824e4f::t_84c0000ee70f65 3,9,11,16-29,43-46,49,57,63-65,70-85,90-94,96-97
+apps/web/src/lib/auth-route-policy.ts
+  s_c8c0ce2f824e4f::t_0c93406027d2d9 1-3
+apps/web/src/functions/users-for-picker.ts
+  s_c8c0ce2f824e4f::t_df345a62e36a7c 6,60-61
+packages/zero/src/permissions.ts
+  s_c8c0ce2f824e4f::t_afb620522c0b67 20-25
+apps/web/src/lib/technical-role-policy.ts
+  s_c8c0ce2f824e4f::t_91beaae92688ae 1-17
+packages/zero/src/queries/vendor-payment-transaction.ts
+  s_c8c0ce2f824e4f::t_7e81c2c5e6537e 3,24-32
+apps/web/src/components/layout/app-sidebar.tsx
+  s_c8c0ce2f824e4f::t_c2c265459e2533 8-9,17-21,23-24,36
+  s_c8c0ce2f824e4f::t_6fb4e2d9fb40f8 22,25-28
+packages/zero/src/queries/kalakriti-edition.test.ts
+  s_c8c0ce2f824e4f::t_25e65bc90b5a4b 23-24,27,29-42,44,54-56
+  s_c8c0ce2f824e4f::t_cb305e81a11c08 1-14,57-58
+  s_c8c0ce2f824e4f::t_c1a34f83516c3a 15-21
+  s_c8c0ce2f824e4f::t_373e521fcba65a 22,46-53
+  s_c8c0ce2f824e4f::t_877f31b9f88b82 25-26,28,43,45
+packages/zero/src/mutators/kalakriti-event-guard.ts
+  s_c8c0ce2f824e4f::t_d60cdfa6da448e 10,12
+  s_c8c0ce2f824e4f::t_a074752af8fa0a 2-8,13-15
+  s_c8c0ce2f824e4f::t_1367ddbbc69f15 1,9,11
+README.md
+  s_c8c0ce2f824e4f::t_eac83db3b41ee5 44
+  s_c8c0ce2f824e4f::t_796198c87dff7f 49,219,260
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 53
+packages/zero/src/mutators/event-photo.ts
+  s_c8c0ce2f824e4f::t_98812035347abd 11,35,131,230,304,391
+packages/db/src/schema/team-event.ts
+  s_c8c0ce2f824e4f::t_d60cdfa6da448e 48,103-105
+  s_c8c0ce2f824e4f::t_ff0a627fc0319f 106
+packages/zero/src/queries/vendor.ts
+  s_c8c0ce2f824e4f::t_7e81c2c5e6537e 3,15-17,20-24
+  s_c8c0ce2f824e4f::t_ffefe70dbcaa20 7-11,13-14
+apps/web/src/lib/auth-route-policy.test.ts
+  s_c8c0ce2f824e4f::t_0c93406027d2d9 1-20
+packages/zero/src/mutators/__tests__/kalakriti-generic-event-writes.test.ts
+  s_c8c0ce2f824e4f::t_ed77d443b48769 1-100
+packages/zero/src/queries/event-feedback.ts
+  s_c8c0ce2f824e4f::t_7df1c22ff42dd7 3,10-15
+apps/web/src/lib/auth-cache.ts
+  s_c8c0ce2f824e4f::t_b9fb4589fe8fc4 28-37
+packages/zero/src/queries/whatsapp-group.ts
+  s_c8c0ce2f824e4f::t_04c4ecfaf6741a 2,6-10
+apps/web/src/functions/user-admin.ts
+  s_c8c0ce2f824e4f::t_91beaae92688ae 21-24,185
+  s_c8c0ce2f824e4f::t_7e30c7d5e90a4e 134-146
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 20,182-184,186-200,202,205-215,218-228,230-270,273-275,282-283,285-300,302,304-321,327-338,340-342,343-364,366-388,391-397,399-415,418-420,427-436,439,441-457,466-467,469-477,480-482,484-519,521-530,537-538,540-549,551-554,556-558,560,562-585,588-590
+  s_c8c0ce2f824e4f::t_a6d38ffa1eb224 323-326,440,478,550
+packages/zero/src/mutators/__tests__/kalakriti-edition.test.ts
+  s_c8c0ce2f824e4f::t_7876f882d72855 1,6-14,16-27,52-53,55-73,75-78,138-156,158-163
+  s_c8c0ce2f824e4f::t_c1a34f83516c3a 2-5,15,54,74,157
+  s_c8c0ce2f824e4f::t_877f31b9f88b82 47
+  s_c8c0ce2f824e4f::t_25e65bc90b5a4b 28-46,48-51
+  s_c8c0ce2f824e4f::t_a62126295c50af 79-137
+  s_c8c0ce2f824e4f::t_4ff5f776dc1e80 190,279
+  s_c8c0ce2f824e4f::t_3fc36d3676bca6 181,205-266,291-294,301
+  s_c8c0ce2f824e4f::t_6097660879f0bb 164-180,182-189,191-204,267-278,280-290,295-300,302-314
+packages/zero/src/mutators/event-update.ts
+  s_c8c0ce2f824e4f::t_d91951adc810c6 11,35,139,268,313,372
+  s_c8c0ce2f824e4f::t_9da72ae902e335 185-188
+packages/zero/src/queries/app-config.ts
+  s_c8c0ce2f824e4f::t_04c4ecfaf6741a 2,6-10
+project-structure.md
+  s_c8c0ce2f824e4f::t_eac83db3b41ee5 81-84,125-128
+  s_c8c0ce2f824e4f::t_ba59b5048698a4 129
+  s_c8c0ce2f824e4f::t_796198c87dff7f 17,113-114,174,298,421-431
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 97,120,136,179-180,189,278-286
+packages/zero/src/queries/expense-category.ts
+  s_c8c0ce2f824e4f::t_04c4ecfaf6741a 2,6-10
+apps/web/src/lib/auth-cache.test.ts
+  s_c8c0ce2f824e4f::t_b9fb4589fe8fc4 1-2,4-36
+  s_c8c0ce2f824e4f::t_41f031d9038bf2 3
+packages/zero/src/mutators/event-interest.ts
+  s_c8c0ce2f824e4f::t_6be7ab75c7cd6b 271
+  s_c8c0ce2f824e4f::t_a074752af8fa0a 12
+  s_c8c0ce2f824e4f::t_14677bd32cb668 131
+  s_c8c0ce2f824e4f::t_26126adf9de088 36,152
+packages/zero/src/mutators/__tests__/team-event-series.test.ts
+  s_c8c0ce2f824e4f::t_1367ddbbc69f15 53
+apps/web/src/lib/technical-role-policy.test.ts
+  s_c8c0ce2f824e4f::t_91beaae92688ae 1-24
+packages/zero/src/mutators/__tests__/event-interest.test.ts
+  s_c8c0ce2f824e4f::t_c1a34f83516c3a 145
+  s_c8c0ce2f824e4f::t_c790a2e24ed2bf 129
+  s_c8c0ce2f824e4f::t_a9b11ec04e886c 1,3,110-111,118-128,130-142,144,146-148
+  s_c8c0ce2f824e4f::t_ed77d443b48769 112-117,143,149-227
+packages/zero/src/queries/event-interest.ts
+  s_c8c0ce2f824e4f::t_7df1c22ff42dd7 3,41,47-53,90
+  s_c8c0ce2f824e4f::t_b952636e637402 5,39-40,42
+  s_c8c0ce2f824e4f::t_7c989c9c7da001 12-29,32-37
+packages/zero/src/queries/scheduled-message.ts
+  s_c8c0ce2f824e4f::t_04c4ecfaf6741a 3,7-8,11-15,18-22
+packages/zero/src/queries/event-update.ts
+  s_c8c0ce2f824e4f::t_7c989c9c7da001 12-29,32-37
+  s_c8c0ce2f824e4f::t_7df1c22ff42dd7 3,44,53,65,77-84
+  s_c8c0ce2f824e4f::t_6fc229ecf63cad 5,40,50
+packages/db/src/migrations/0051_unusual_felicia_hardy.sql
+  s_c8c0ce2f824e4f::t_bdde7278851b83 1-38
+packages/zero/src/queries/kalakriti-membership.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 9-10,26-28,43,46,53-57
+  s_c8c0ce2f824e4f::t_91a4505fb52905 1-5,8,47-52,58-77
+  s_c8c0ce2f824e4f::t_2f14c40b9d6ab0 6-7,11,21-24,44,45
+  s_c8c0ce2f824e4f::t_080dc20b9da411 29-42
+  s_c8c0ce2f824e4f::t_7081b8eddb746b 12-20,25
+packages/zero/src/queries/kalakriti-center.test.ts
+  s_c8c0ce2f824e4f::t_bd79ce4cf51e53 15-30
+  s_c8c0ce2f824e4f::t_c63f5daef0ea98 31
+  s_c8c0ce2f824e4f::t_fadfb10460f9aa 32-33
+  s_c8c0ce2f824e4f::t_375b57fd5cab27 1-14,34,87
+  s_c8c0ce2f824e4f::t_00343bf7a21359 84-85
+  s_c8c0ce2f824e4f::t_495ddbd689a2cf 35-51,69-83,86
+  s_c8c0ce2f824e4f::t_d73faa7a2f7e54 52-68
+packages/db/src/migrations/meta/0051_snapshot.json
+  s_c8c0ce2f824e4f::t_bdde7278851b83 1-6575
+packages/zero/src/mutators/__tests__/kalakriti-center-membership.test.ts
+  s_c8c0ce2f824e4f::t_858f68a91f7ac0 2-3
+  s_c8c0ce2f824e4f::t_b96c811848c356 1,4-16,18-50,52-77,81-84,86-93,95-130,137-172,177-194,236
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 17,51,78-80,85,94,131-136
+  s_c8c0ce2f824e4f::t_e9b36377b71bf1 173-176
+  s_c8c0ce2f824e4f::t_728fb0d319a898 195-235
+packages/zero/src/queries/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_61aa0ac5d1f3b5 1-5,9-15,18-19,29-44,80-81
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 16,20-28,59-60,73-74,77-79
+  s_c8c0ce2f824e4f::t_bce58aa3ef2be2 6-7,17,45,46-53,57-58,61-72,75-76
+  s_c8c0ce2f824e4f::t_ae67ac46834c61 54-55
+  s_c8c0ce2f824e4f::t_d35220f7e516da 56
+  s_c8c0ce2f824e4f::t_67fbdd50b963a1 8
+packages/zero/src/mutators/kalakriti-membership.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 14-53,114,147
+  s_c8c0ce2f824e4f::t_d39212b54be336 1-13,54-71,75-113,115-143,145-146,148-155
+  s_c8c0ce2f824e4f::t_b2941e8736af5e 144
+  s_c8c0ce2f824e4f::t_f33deaaa2a4170 72-74
+packages/zero/src/mutators/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_fcd7d9f9b5fd32 15,54-58,62,95,110-111,195,198-201,203,209,216,218-239,243,246-247,250-253,256-257,272,292-294,319-433
+  s_c8c0ce2f824e4f::t_db5e8cc75d668f 1-8,26-27,30-51,59,63-94,96-107,112-116,118-194,196-197,202,204-207,210-214,240-242,244-245,248-249,254-255,258-270,273-276,282-291,295-318,434-437
+  s_c8c0ce2f824e4f::t_7357da59cb203a 9-14,16-25,28-29,52-53,60-61,108-109,117,208,215,217,271,277-281
+packages/zero/src/queries/kalakriti-membership.test.ts
+  s_c8c0ce2f824e4f::t_ff81a27e1af316 1-39,59-74,76-78
+  s_c8c0ce2f824e4f::t_5117bfd509a1f1 75
+  s_c8c0ce2f824e4f::t_f1ca00150304c6 40-58
+docs/architecture/file-uploads.md
+  s_c8c0ce2f824e4f::t_796198c87dff7f 18-48,110-111
+packages/e2e/tests/authorization/zero-query-authorization.spec.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 4
+apps/web/src/lib/media-upload.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-64
+packages/jobs/src/lib/r2-media-references.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-124
+packages/shared/src/media-url.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-216
+apps/web/src/lib/private-media-db.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-75
+packages/zero/src/mutators/event-feedback.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 6,111-114
+scripts/migrate-r2-media-urls.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-178
+packages/e2e/tests/authorization/r2-object-access.spec.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 6-8,13-15,85-154,156
+DEPLOYMENT.md
+  s_c8c0ce2f824e4f::t_796198c87dff7f 56-69,246-247
+apps/web/src/lib/private-media-access.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-362
+apps/web/src/components/teams/events/event-feedback.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 145,327,333,389-395,400
+package.json
+  s_c8c0ce2f824e4f::t_796198c87dff7f 87,101
+apps/web/src/components/shared/user-avatar.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 23
+packages/e2e/tests/events/private-editor-media.spec.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-116
+apps/web/src/routes/api/media/avatar.$userId.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-104
+packages/jobs/src/handlers/cleanup-r2-orphans.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 2-3,14-17,61-64,66,112-128,130-148,152,204,208,210-214,216-223
+apps/web/src/routes/__root.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 105
+packages/shared/src/constants.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 3
+apps/web/src/lib/avatar.test.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 1-7,47-57
+packages/jobs/src/handlers/cleanup-r2-orphans.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-102
+apps/web/src/lib/media-upload.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-24
+packages/zero/src/mutators/__tests__/event-feedback.test.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 1,3-4,270-399
+packages/jobs/src/lib/r2-media-references.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-91
+packages/db/src/r2-media-migration.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-372
+apps/web/src/routes/api/media/-avatar.$userId.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-106
+apps/web/src/components/editor/plate-renderer.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 4-9,12-28
+apps/web/src/routes/api/media/-event-update.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-100
+apps/web/src/functions/attachments.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 4-7,13-18,191,204-208,224-286,292-293
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 11,152-153,155-186,306-335,352-353,355-361,364-390
+packages/db/package.json
+  s_c8c0ce2f824e4f::t_796198c87dff7f 23-24
+apps/web/src/functions/attachments.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-64
+apps/web/src/lib/authorized-r2-object.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 246,274-277
+apps/web/src/lib/private-media-access.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-205
+apps/web/src/routes/api/media/event-update.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-103
+packages/shared/src/media-url.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-222
+apps/web/src/components/settings/sections/profile-section.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 6-11,52,56,63-64,82,132-136
+apps/web/src/lib/avatar.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 1-6,25,27-38
+packages/db/src/r2-media-migration.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-263
+packages/zero/src/mutators/__tests__/event-update.test.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 1,3-4,201-261,263-286,288-409
+  s_c8c0ce2f824e4f::t_8d132559bbe2af 262,287
+packages/e2e/helpers/seed-test-user.ts
+  s_c8c0ce2f824e4f::t_796198c87dff7f 272,274-287,653-664,710,718-721
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 4,92,176-199,1012
+apps/web/src/components/editor/plate-editor.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 7,10,14-18,22,24,43,56-61
+apps/web/src/components/teams/events/event-updates.tsx
+  s_c8c0ce2f824e4f::t_796198c87dff7f 358-362,575-579
+apps/web/src/lib/audit-auth.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-21
+apps/web/src/lib/audit-query.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-57
+apps/web/src/lib/audit-auth.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-19
+packages/zero/src/mutators/__tests__/kalakriti-registration.test.ts
+  s_c8c0ce2f824e4f::t_c9ddd70f432536 1-2,4-36,38-55,61-150,152-181,183-215,217-253,255-267,269-289
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 3,182,216,254,268
+  s_c8c0ce2f824e4f::t_bc0c26497fd17d 37,56-60,151
+apps/web/src/routes/api/zero/mutate.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 12-16,32-34,45-48,57-69
+packages/zero/src/mutators/kalakriti-student.ts
+  s_c8c0ce2f824e4f::t_cc7295ec0624a5 81-84
+  s_c8c0ce2f824e4f::t_1967fec5bdd4f0 1-80,85-177
+apps/web/src/lib/audit.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-661
+apps/web/src/routes/api/audit-log.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-105
+apps/web/src/lib/audit-permission.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-45
+packages/e2e/tests/audit/audit-log.spec.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-73
+packages/zero/src/queries/kalakriti-student.ts
+  s_c8c0ce2f824e4f::t_f4e13bb3f3d409 23,26,29,63-64,67
+  s_c8c0ce2f824e4f::t_b12c98e53ba2d8 1-22,24-25,27-28,30-42,48,51-55,77
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 43-47,49-50,56-62,65-66,68-76
+apps/web/src/routes/api/jobs/$id/retry.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 8,28-40,42-48,50-56,58-83
+apps/web/src/lib/audit-query.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-23
+apps/web/src/routes/api/jobs/$id/cancel.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 8,28-40,42-48,50-76
+apps/web/src/components/audit/audit-log-table.tsx
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-169
+apps/web/src/functions/admin-actions.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 8,12,34-35,37-60,67-68,70-94
+apps/web/src/functions/role-admin.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 20,197-260,262-265,268-271,287-325,329-358,360-362,365-366,379-380,382-435
+  s_c8c0ce2f824e4f::t_036e8f1b810a2b 326-328
+packages/zero/src/mutators/kalakriti-event-participation.ts
+  s_c8c0ce2f824e4f::t_8f69f0ab2bd5f6 78-81
+  s_c8c0ce2f824e4f::t_ec40022cab7c8a 1-11,13-77,82-98,105-179
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 12,99-104
+apps/web/src/components/audit/audit-detail-sheet.tsx
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-88
+apps/web/src/lib/audit.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-424
+apps/web/src/routes/_app/audit-log.tsx
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-261
+apps/web/src/functions/immich-upload.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 12,103-196
+docs/architecture/auth.md
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 64,67
+.ruler/agent-guide.md
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 15,99-103
+  s_c8c0ce2f824e4f::t_79a7366c5a4f00 104
+apps/web/src/components/analytics/date-range-filter.tsx
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 47,66,78
+packages/zero/src/queries/kalakriti-event-participation.test.ts
+  s_c8c0ce2f824e4f::t_80bc5efa7875ce 1-16,19-37
+  s_c8c0ce2f824e4f::t_3a36cb13c09f3d 17-18
+apps/web/src/functions/event-poll.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 11,43-53,55-61,63-73,75-79,81-112,114-115,117-121,123-128,130
+apps/web/src/routes/api/jobs/index.ts
+  s_c8c0ce2f824e4f::t_7b5d0611c94138 8,149-187
+apps/web/src/lib/audit-entrypoint-coverage.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-138
+apps/web/src/lib/audit-schema.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-19
+packages/db/src/schema/audit-log.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-65
+packages/zero/src/queries/kalakriti-event-participation.ts
+  s_c8c0ce2f824e4f::t_bf4bf9c690df2d 49-50,56-62,65-66,68-76
+  s_c8c0ce2f824e4f::t_412a8bcc8f8960 1-22,25-26,28-48,51-55,77
+  s_c8c0ce2f824e4f::t_f4e13bb3f3d409 23-24,27,63-64,67
+apps/web/src/lib/audit-log-handler.test.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-100
+apps/web/src/lib/audit-log-handler.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-52
+packages/zero/src/queries/kalakriti-student.test.ts
+  s_c8c0ce2f824e4f::t_5087abc4a32a60 1-50
+apps/web/src/components/audit/audit-types.ts
+  s_c8c0ce2f824e4f::t_7d556c5f327fab 1-27
+packages/db/src/migrations/0052_needy_silver_fox.sql
+  s_c8c0ce2f824e4f::t_7e98c5e1a543c8 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0fb0ecdd62b6c2a22208579282ab70dc77a4acff",
+  "prompts": {},
+  "sessions": {
+    "s_96c2c06cf47a89": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6f54-beb0-71e1-a4c9-93c00deb0555",
+        "model": "unknown"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
