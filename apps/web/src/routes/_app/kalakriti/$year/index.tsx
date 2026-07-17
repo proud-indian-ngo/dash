@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Card,
@@ -8,9 +7,8 @@ import {
 } from "@pi-dash/design-system/components/ui/card";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
-import { Loader } from "@/components/loader";
 import { useApp } from "@/context/app-context";
 
 const editionTimestampFormatter = new Intl.DateTimeFormat("en-IN", {
@@ -30,70 +28,24 @@ const editionDateFormatter = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
-function formatEditionTimestamp(timestamp: number): string {
-  return editionTimestampFormatter.format(new Date(timestamp));
-}
-
-export const Route = createFileRoute("/_app/kalakriti/$year")({
-  component: KalakritiEditionRoute,
-  parseParams: (params) => {
-    const year = Number(params.year);
-    if (!Number.isInteger(year)) {
-      throw notFound();
-    }
-    return { year };
-  },
-  stringifyParams: ({ year }) => ({ year: String(year) }),
+export const Route = createFileRoute("/_app/kalakriti/$year/")({
+  component: KalakritiEditionOverview,
 });
 
-function KalakritiEditionRoute() {
-  const { year } = Route.useParams();
+function KalakritiEditionOverview() {
+  const { kalakritiEditionAccess: access } = Route.useRouteContext();
+  const { edition } = access;
   const { hasPermission } = useApp();
   const canViewLinkedEvent =
     hasPermission("events.view_own") || hasPermission("events.view_all");
-  const [edition, result] = useQuery(queries.kalakritiEdition.byYear({ year }));
   const [teamEvent] = useQuery(
-    queries.teamEvent.byId({ id: edition?.teamEventId ?? "" }),
-    {
-      enabled: Boolean(edition) && canViewLinkedEvent,
-    }
+    queries.teamEvent.byId({ id: edition.teamEventId }),
+    { enabled: canViewLinkedEvent }
   );
 
-  if (result.type !== "complete") {
-    return (
-      <div className="flex min-h-48 items-center justify-center">
-        <Loader />
-      </div>
-    );
-  }
-  if (!edition) {
-    throw notFound();
-  }
-
   return (
-    <div className="app-container mx-auto max-w-5xl px-2 py-6 sm:px-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="font-display font-semibold text-3xl tracking-tight">
-              {edition.name}
-            </h1>
-            <Badge variant="outline">
-              {edition.lifecycle?.replaceAll("_", " ") ?? "draft"}
-            </Badge>
-          </div>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Edition workspace for {edition.year}
-          </p>
-        </div>
-        {hasPermission("kalakriti.admin") ? (
-          <Button nativeButton={false} render={<Link to="/kalakriti/new" />}>
-            Create Edition
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="pt-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Event date</CardTitle>
@@ -115,7 +67,9 @@ function KalakritiEditionRoute() {
             <CardTitle>Registration closes</CardTitle>
           </CardHeader>
           <CardContent>
-            {formatEditionTimestamp(edition.plannedRegistrationCloseAt)}
+            {editionTimestampFormatter.format(
+              new Date(edition.plannedRegistrationCloseAt)
+            )}
           </CardContent>
         </Card>
       </div>

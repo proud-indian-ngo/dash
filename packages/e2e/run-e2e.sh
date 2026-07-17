@@ -56,7 +56,9 @@ ZERO_LOG="/tmp/pi-dash-test${WT_SUFFIX}-zero.log"
 VITE_LOG="/tmp/pi-dash-test${WT_SUFFIX}-vite.log"
 REPLICA_FILE="/tmp/pi-dash-test${WT_SUFFIX}.db"
 
-export TEST_DB_URL="postgres://postgres:${DEV_DB_PASSWORD}@localhost:${TEST_DB_HOST_PORT}/pi-dash-test"
+ENCODED_DEV_DB_PASSWORD=$(bun -e 'process.stdout.write(encodeURIComponent(process.env.DEV_DB_PASSWORD ?? ""))')
+export TEST_DB_URL="postgres://postgres:${ENCODED_DEV_DB_PASSWORD}@localhost:${TEST_DB_HOST_PORT}/pi-dash-test"
+export VITE_E2E=true
 
 # Generate a temporary docker-compose file for this E2E run
 E2E_COMPOSE_FILE="$REPO_ROOT/packages/db/docker-compose.e2e${WT_SUFFIX}.yml"
@@ -135,7 +137,7 @@ done
 
 # Migrate schema (run from packages/db so relative config path resolves)
 echo "Migrating test database..."
-(cd packages/db && DATABASE_URL="$TEST_DB_URL" SKIP_VALIDATION=true bunx drizzle-kit migrate)
+(cd packages/db && DATABASE_URL="$TEST_DB_URL" SKIP_VALIDATION=true bun run scripts/migrate.ts)
 
 # Seed test users (run from e2e package for workspace dep resolution)
 echo "Seeding test users..."
@@ -153,7 +155,6 @@ export ZERO_QUERY_FORWARD_COOKIES=true
 export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
-export VITE_E2E=true
 export ZERO_APP_ID=zero
 
 # Disable external notification services during E2E tests
