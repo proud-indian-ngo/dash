@@ -1,0 +1,29 @@
+bun.lock
+  s_6c677c3541e969::t_5428b0d6ff5aa4 10,1729,2323,2579,3311-3312,3647-3648,3739-3740,4337-4339,4341,4467-4470,4823-4824,4849-4850
+package.json
+  s_c535aab79d040b::t_8abfe0e0bd0d90 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d2b93735351d3b694c597d1bde7fbc038dcfed3b",
+  "prompts": {},
+  "sessions": {
+    "s_6c677c3541e969": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6ff1-39b9-7e13-8e64-dd05b4dd485c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    },
+    "s_c535aab79d040b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f7060-ac32-7c80-ae32-2ac7719eab62",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
