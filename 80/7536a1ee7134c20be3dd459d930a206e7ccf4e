@@ -166,6 +166,7 @@ packages/zero/src/queries/event-update.ts
   s_c8c0ce2f824e4f::t_6fc229ecf63cad 5,40,50
 packages/db/src/migrations/0050_needy_silver_fox.sql
   s_c8c0ce2f824e4f::t_6a51b9a8dfacee 59-60,69,72,79,118
+  s_c8c0ce2f824e4f::t_a920757c2f98c0 89,115-117,119-120
 packages/db/src/migrations/meta/0050_snapshot.json
   s_c8c0ce2f824e4f::t_e8d657e6c5cd37 2559
 ---
