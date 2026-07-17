@@ -146,7 +146,10 @@ export async function resolveEventUpdateMedia(
   if (!event) {
     return notFound();
   }
-  const permissions = await deps.resolvePermissions(roleFor(session));
+  const [permissions, records] = await Promise.all([
+    deps.resolvePermissions(roleFor(session)),
+    deps.getEventMediaRecords(ref.eventId),
+  ]);
   const canViewNormally = await canViewEvent(
     session,
     event,
@@ -155,7 +158,6 @@ export async function resolveEventUpdateMedia(
     deps
   );
 
-  const records = await deps.getEventMediaRecords(ref.eventId);
   const matchingRecords = records.filter((record) =>
     recordReferencesKey(record, ref.eventId, ref.key, deps)
   );
@@ -194,7 +196,8 @@ export async function authorizeEventEditorUpload(
   const permissions = await deps.resolvePermissions(roleFor(session));
   if (
     permissions.includes("event_updates.create") ||
-    (await deps.isTeamLead(event.teamId, session.user.id))
+    (await deps.isTeamLead(event.teamId, session.user.id)) ||
+    (await deps.isEventMember(eventId, session.user.id))
   ) {
     return event;
   }

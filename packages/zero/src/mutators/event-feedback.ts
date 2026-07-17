@@ -1,7 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertFeedbackContentMediaPolicy } from "../lib/feedback-content";
 import { assertIsLoggedIn } from "../permissions";
 import type {
   EventFeedback,
@@ -55,7 +54,6 @@ export const eventFeedbackMutators = {
       // Duplicate check on server only — eventFeedbackSubmission is not
       // synced to clients (anonymity preservation).
       if (tx.location === "server") {
-        assertFeedbackContentMediaPolicy(args.content);
         const existing = (await tx.run(
           zql.eventFeedbackSubmission
             .where("eventId", args.eventId)
@@ -116,10 +114,6 @@ export const eventFeedbackMutators = {
         if (!existingFeedback || existingFeedback.eventId !== args.eventId) {
           throw new Error("Unauthorized");
         }
-        assertFeedbackContentMediaPolicy(
-          args.content,
-          existingFeedback.content
-        );
       }
 
       const event = (await tx.run(

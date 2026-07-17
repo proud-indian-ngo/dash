@@ -51,7 +51,6 @@ interface EventUpdatesProps {
   approvedUpdates: readonly UpdateWithAuthor[];
   canApproveUpdates: boolean;
   canManage: boolean;
-  canUploadImages: boolean;
   eventId: string;
   isMember: boolean;
   pendingUpdates: readonly UpdateWithAuthor[];
@@ -61,7 +60,6 @@ export function EventUpdates({
   approvedUpdates,
   canApproveUpdates,
   canManage,
-  canUploadImages,
   eventId,
   isMember,
   pendingUpdates,
@@ -162,7 +160,6 @@ export function EventUpdates({
       {canPost ? (
         <Suspense fallback={<EditorSkeleton />}>
           <PlateEditor
-            allowImageUpload={canUploadImages}
             entityId={eventId}
             key="create"
             onSave={handleCreate}
@@ -179,7 +176,6 @@ export function EventUpdates({
           </h3>
           {pendingUpdates.map((update) => (
             <PendingUpdateCard
-              canUploadImages={canUploadImages}
               eventId={eventId}
               key={update.id}
               onApprove={handleApprove}
@@ -200,7 +196,6 @@ export function EventUpdates({
           </h3>
           {pendingUpdates.map((update) => (
             <PendingUpdateCard
-              canUploadImages={canUploadImages}
               eventId={eventId}
               key={update.id}
               onDelete={stableOnDelete0}
@@ -220,7 +215,6 @@ export function EventUpdates({
       {!isEmpty && approvedUpdates.length > 0 ? (
         <UpdateTimeline
           canManage={canManage}
-          canUploadImages={canUploadImages}
           eventId={eventId}
           onDelete={stableOnDelete0}
           updates={approvedUpdates}
@@ -244,7 +238,6 @@ export function EventUpdates({
 
 function TimelineItem({
   canManage,
-  canUploadImages,
   editingId,
   eventId,
   onDelete,
@@ -255,7 +248,6 @@ function TimelineItem({
   userId,
 }: {
   canManage: boolean;
-  canUploadImages: boolean;
   editingId: string | null;
   eventId: string;
   onDelete: (id: string) => void;
@@ -355,7 +347,6 @@ function TimelineItem({
         >
           {editingId === update.id ? (
             <PlateEditor
-              allowImageUpload={canUploadImages}
               content={update.content}
               entityId={eventId}
               key={editingId}
@@ -378,13 +369,11 @@ function TimelineItem({
 
 function UpdateTimeline({
   canManage,
-  canUploadImages,
   eventId,
   onDelete,
   updates,
 }: {
   canManage: boolean;
-  canUploadImages: boolean;
   eventId: string;
   onDelete: (id: string) => void;
   updates: readonly UpdateWithAuthor[];
@@ -423,7 +412,6 @@ function UpdateTimeline({
         {updates.map((update) => (
           <TimelineItem
             canManage={canManage}
-            canUploadImages={canUploadImages}
             editingId={editingId}
             eventId={eventId}
             key={update.id}
@@ -442,7 +430,6 @@ function UpdateTimeline({
 
 function PendingUpdateCard({
   eventId,
-  canUploadImages,
   onApprove,
   onDelete,
   onEdit,
@@ -450,7 +437,6 @@ function PendingUpdateCard({
   update,
 }: {
   eventId: string;
-  canUploadImages: boolean;
   onApprove?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (id: string, content: string) => Promise<void>;
@@ -578,7 +564,6 @@ function PendingUpdateCard({
       <Suspense fallback={editing ? <EditorSkeleton /> : <RendererSkeleton />}>
         {editing ? (
           <PlateEditor
-            allowImageUpload={canUploadImages}
             content={update.content}
             entityId={eventId}
             key={update.id}

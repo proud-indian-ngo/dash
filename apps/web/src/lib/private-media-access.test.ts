@@ -301,12 +301,22 @@ describe("authorizeEventEditorUpload", () => {
     ).resolves.toMatchObject({ teamId: "team-1" });
   });
 
-  it("rejects plain event membership", async () => {
+  it("allows event membership", async () => {
     await expect(
       authorizeEventEditorUpload(
         { user: { id: "member", role: "volunteer" } },
         EVENT_ID,
         deps({ isEventMember: async () => true })
+      )
+    ).resolves.toMatchObject({ teamId: "team-1" });
+  });
+
+  it("rejects an unrelated user", async () => {
+    await expect(
+      authorizeEventEditorUpload(
+        { user: { id: "other", role: "volunteer" } },
+        EVENT_ID,
+        deps()
       )
     ).rejects.toMatchObject({ status: 403 });
   });

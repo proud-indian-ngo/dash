@@ -345,7 +345,6 @@ function EventFeedbackParticipant({
     return (
       <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
-          allowImageUpload={false}
           content={myFeedback.content}
           entityId={eventId}
           key={`edit-${myFeedback.id}`}
@@ -373,7 +372,6 @@ function EventFeedbackParticipant({
       </div>
       <Suspense fallback={<EditorSkeleton />}>
         <PlateEditor
-          allowImageUpload={false}
           entityId={eventId}
           key="create"
           onSave={handleSubmit}

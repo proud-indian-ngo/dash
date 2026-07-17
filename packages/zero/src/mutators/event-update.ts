@@ -1,7 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertEventUpdateContentMediaPolicy } from "../lib/event-update-content";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -149,10 +148,6 @@ export const eventUpdateMutators = {
           .one()
       ));
       const isAdminOrLead = can(ctx, "event_updates.create") || isTeamLead;
-
-      assertEventUpdateContentMediaPolicy(args.content, {
-        allowNewImages: isAdminOrLead,
-      });
 
       // If not admin/lead, require event membership
       if (!isAdminOrLead) {
@@ -391,27 +386,6 @@ export const eventUpdateMutators = {
       ) {
         throw new Error("Cannot edit an approved update");
       }
-
-      let canAddImages = can(ctx, "event_updates.create");
-      if (!canAddImages) {
-        const event = (await tx.run(
-          zql.teamEvent.where("id", existing.eventId).one()
-        )) as TeamEvent | undefined;
-        if (!event) {
-          throw new Error("Event not found");
-        }
-        canAddImages = !!(await tx.run(
-          zql.teamMember
-            .where("teamId", event.teamId)
-            .where("userId", ctx.userId)
-            .where("role", "lead")
-            .one()
-        ));
-      }
-      assertEventUpdateContentMediaPolicy(args.content, {
-        allowNewImages: canAddImages,
-        existingContent: existing.content,
-      });
 
       await tx.mutate.eventUpdate.update({
         content: args.content,
