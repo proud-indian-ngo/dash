@@ -6,11 +6,13 @@ import {
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
 } from "@pi-dash/db/schema/kalakriti";
+import { rolePermission } from "@pi-dash/db/schema/permission";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
+import { canAccessKalakritiVolunteerPicker } from "@/lib/kalakriti-volunteer-picker-policy";
 import { authMiddleware } from "@/middleware/auth";
 
 export interface PickerUser {
@@ -90,6 +92,9 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
     const role = context.session.user.role ?? "unoriented_volunteer";
     const permissions = await resolvePermissions(role);
     const isGlobalAdmin = permissions.includes("kalakriti.admin");
+    if (!canAccessKalakritiVolunteerPicker(permissions)) {
+      return [];
+    }
 
     if (!isGlobalAdmin) {
       const [managerAssignment] = await db
@@ -126,6 +131,13 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
         role: user.role,
       })
       .from(user)
+      .innerJoin(
+        rolePermission,
+        and(
+          eq(rolePermission.roleId, user.role),
+          eq(rolePermission.permissionId, "kalakriti.view")
+        )
+      )
       .leftJoin(
         kalakritiExternalIdentity,
         eq(kalakritiExternalIdentity.userId, user.id)

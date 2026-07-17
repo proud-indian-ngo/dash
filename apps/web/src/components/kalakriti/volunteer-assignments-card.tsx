@@ -66,7 +66,7 @@ function PickerContent({
   return (
     <VolunteerAssignmentForm
       editionId={editionId}
-      key={responsibilities.join(":")}
+      key={`${editionId}:${responsibilities.join(":")}`}
       responsibilities={responsibilities}
       users={users}
     />

@@ -32,11 +32,15 @@ function createMutationSpies() {
   };
 }
 
-function createTx(results: unknown[]) {
+function createTx(
+  results: unknown[],
+  location: "client" | "server" = "server"
+) {
   const spies = createMutationSpies();
   return {
     spies,
     tx: {
+      location,
       mutate: {
         kalakritiAssignment: {
           delete: spies.deleteAssignment,
@@ -59,6 +63,24 @@ function createTx(results: unknown[]) {
 }
 
 describe("kalakritiAssignment.assignVolunteer", () => {
+  it("defers a missing picker user row to the authoritative server run", async () => {
+    const { tx, spies } = createTx(
+      [{ id: "edition-1", teamEventId: "event-1" }, undefined],
+      "client"
+    );
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: assignArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+
   it("creates membership, assignment, and linked event member together", async () => {
     const { tx, spies } = createTx([
       { id: "edition-1", teamEventId: "event-1" },
