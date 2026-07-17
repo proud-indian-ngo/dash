@@ -19,7 +19,7 @@ import {
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQueryStates } from "nuqs";
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { MyTeams } from "@/components/dashboard/my-teams";
@@ -39,6 +39,11 @@ import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/")({
+  beforeLoad: ({ context }) => {
+    if (context.session.user.role === "external_user") {
+      throw redirect({ to: "/kalakriti" });
+    }
+  },
   component: DashboardHome,
   head: () => ({
     meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],

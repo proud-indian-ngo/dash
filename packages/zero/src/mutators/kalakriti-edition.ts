@@ -4,25 +4,23 @@ import "../context";
 import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export const kalakritiEditionCreateSchema = z.object({
+  ageCutoffDate: z.iso.date(),
+  auditEntryId: z.string(),
+  brandingKey: z.string().min(1),
+  editionId: z.string(),
+  eventDate: z.iso.date(),
+  name: z.string().trim().min(1),
+  now: z.number(),
+  plannedRegistrationCloseAt: z.number(),
+  teamEventId: z.string(),
+  teamId: z.string(),
+  year: z.number().int().min(2000).max(2200),
+});
 
 export const kalakritiEditionMutators = {
   create: defineMutator(
-    z.object({
-      ageCutoffDate: z.string().regex(ISO_DATE_RE),
-      assignmentId: z.string(),
-      auditEntryId: z.string(),
-      brandingKey: z.string().min(1),
-      editionId: z.string(),
-      eventDate: z.string().regex(ISO_DATE_RE),
-      membershipId: z.string(),
-      name: z.string().trim().min(1),
-      now: z.number(),
-      plannedRegistrationCloseAt: z.number(),
-      teamEventId: z.string(),
-      teamId: z.string(),
-      year: z.number().int().min(2000).max(2200),
-    }),
+    kalakritiEditionCreateSchema,
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "kalakriti.admin");
 
@@ -56,11 +54,6 @@ export const kalakritiEditionMutators = {
         throw new Error("Registration must close before the event date");
       }
 
-      const creator = await tx.run(zql.user.where("id", ctx.userId).one());
-      if (!creator) {
-        throw new Error("Creator not found");
-      }
-
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
         city: "bangalore",
@@ -74,6 +67,7 @@ export const kalakritiEditionMutators = {
         inheritVolunteers: false,
         isPublic: false,
         location: null,
+        managementDomain: "kalakriti",
         name: args.name,
         originalDate: null,
         postEventNudgesEnabled: false,
@@ -105,30 +99,6 @@ export const kalakritiEditionMutators = {
         updatedAt: args.now,
         winnerPoints: 10,
         year: args.year,
-      });
-
-      await tx.mutate.kalakritiEditionMembership.insert({
-        archivedAt: null,
-        createdAt: args.now,
-        createdBy: ctx.userId,
-        editionId: args.editionId,
-        id: args.membershipId,
-        kind: "volunteer",
-        snapshotEmail: creator.email,
-        snapshotName: creator.name,
-        snapshotPhone: creator.phone,
-        state: "active",
-        updatedAt: args.now,
-        userId: ctx.userId,
-      });
-
-      await tx.mutate.kalakritiAssignment.insert({
-        createdAt: args.now,
-        createdBy: ctx.userId,
-        editionId: args.editionId,
-        id: args.assignmentId,
-        membershipId: args.membershipId,
-        responsibility: "edition_admin",
       });
 
       await tx.mutate.kalakritiAuditEntry.insert({

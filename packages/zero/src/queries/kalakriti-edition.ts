@@ -4,26 +4,32 @@ import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withEditionDetails(q: typeof zql.kalakritiEdition) {
-  return q
-    .related("teamEvent", (event) => event.related("team"))
-    .related("memberships")
-    .related("assignments");
+  return q;
 }
 
-function accessibleEditions(userId: string | undefined, isAdmin: boolean) {
+function accessibleEditions(
+  userId: string | undefined,
+  isAdmin: boolean,
+  canView: boolean
+) {
   const query = withEditionDetails(zql.kalakritiEdition);
-  return isAdmin
-    ? query
-    : query.whereExists("memberships", (membership) =>
-        membership.where("userId", userId).where("state", "active")
-      );
+  if (isAdmin) {
+    return query;
+  }
+  if (!canView) {
+    return query.where("year", -1);
+  }
+  return query.whereExists("memberships", (membership) =>
+    membership.where("userId", userId).where("state", "active")
+  );
 }
 
 export const kalakritiEditionQueries = {
   accessible: defineQuery(({ ctx }) =>
     accessibleEditions(
       ctx?.userId,
-      ctx !== null && can(ctx, "kalakriti.admin")
+      ctx !== null && can(ctx, "kalakriti.admin"),
+      ctx !== null && can(ctx, "kalakriti.view")
     ).orderBy("year", "desc")
   ),
   byTeamEventId: defineQuery(
@@ -31,13 +37,18 @@ export const kalakritiEditionQueries = {
     ({ args, ctx }) =>
       accessibleEditions(
         ctx?.userId,
-        ctx !== null && can(ctx, "kalakriti.admin")
+        ctx !== null && can(ctx, "kalakriti.admin"),
+        ctx !== null && can(ctx, "kalakriti.view")
       )
         .where("teamEventId", args.teamEventId)
         .one()
   ),
   byYear: defineQuery(z.object({ year: z.number().int() }), ({ args, ctx }) =>
-    accessibleEditions(ctx?.userId, ctx !== null && can(ctx, "kalakriti.admin"))
+    accessibleEditions(
+      ctx?.userId,
+      ctx !== null && can(ctx, "kalakriti.admin"),
+      ctx !== null && can(ctx, "kalakriti.view")
+    )
       .where("year", args.year)
       .one()
   ),

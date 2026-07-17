@@ -14,6 +14,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { assertPermission } from "@/lib/route-guards";
 
 const editionFormSchema = z
   .object({
@@ -49,11 +50,14 @@ const registrationCloseTimeOptions = Array.from({ length: 96 }, (_, index) => {
   return { label: value, value };
 });
 
+const editionCalendarStart = new Date(2000, 0, 1);
+
 function getRegistrationCloseTimestamp(date: Date, time: string): number {
   return new Date(`${format(date, "yyyy-MM-dd")}T${time}:00+05:30`).getTime();
 }
 
 export const Route = createFileRoute("/_app/kalakriti/new")({
+  beforeLoad: ({ context }) => assertPermission(context, "kalakriti.admin"),
   component: NewKalakritiEditionRoute,
 });
 
@@ -85,12 +89,10 @@ function NewKalakritiEditionRoute() {
       const res = await zero.mutate(
         mutators.kalakritiEdition.create({
           ageCutoffDate: format(value.ageCutoffDate, "yyyy-MM-dd"),
-          assignmentId: uuidv7(),
           auditEntryId: uuidv7(),
           brandingKey: value.brandingKey.trim(),
           editionId,
           eventDate: format(value.eventDate, "yyyy-MM-dd"),
-          membershipId: uuidv7(),
           name: value.name.trim(),
           now: Date.now(),
           plannedRegistrationCloseAt: getRegistrationCloseTimestamp(
@@ -160,7 +162,7 @@ function NewKalakritiEditionRoute() {
             isRequired
             label="Event date"
             name="eventDate"
-            startMonth={new Date()}
+            startMonth={editionCalendarStart}
           />
           <DateField
             endMonth={new Date(2200, 11, 1)}
@@ -176,11 +178,11 @@ function NewKalakritiEditionRoute() {
             isRequired
             label="Registration close date"
             name="registrationCloseDate"
-            startMonth={new Date()}
+            startMonth={editionCalendarStart}
           />
           <SelectField
             isRequired
-            label="Registration close time"
+            label="Registration close time (IST)"
             name="registrationCloseTime"
             options={registrationCloseTimeOptions}
             placeholder="Select a time"

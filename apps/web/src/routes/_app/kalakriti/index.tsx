@@ -4,6 +4,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Loader } from "@/components/loader";
+import { useApp } from "@/context/app-context";
 
 export const Route = createFileRoute("/_app/kalakriti/")({
   component: KalakritiIndexRoute,
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_app/kalakriti/")({
 function KalakritiIndexRoute() {
   const [editions, result] = useQuery(queries.kalakritiEdition.accessible());
   const navigate = useNavigate();
+  const { hasPermission } = useApp();
 
   useEffect(() => {
     const latest = editions.at(0);
@@ -41,16 +43,19 @@ function KalakritiIndexRoute() {
       <div className="border bg-card p-8 text-center">
         <h1 className="font-display font-semibold text-2xl">Kalakriti</h1>
         <p className="mx-auto mt-2 max-w-md text-muted-foreground text-sm">
-          Create the first yearly Edition before configuring registrations and
-          competitions.
+          {hasPermission("kalakriti.admin")
+            ? "Create the first yearly Edition before configuring registrations and competitions."
+            : "You don't have an active Kalakriti Edition assignment."}
         </p>
-        <Button
-          className="mt-6"
-          nativeButton={false}
-          render={<Link to="/kalakriti/new" />}
-        >
-          Create Edition
-        </Button>
+        {hasPermission("kalakriti.admin") ? (
+          <Button
+            className="mt-6"
+            nativeButton={false}
+            render={<Link to="/kalakriti/new" />}
+          >
+            Create Edition
+          </Button>
+        ) : null}
       </div>
     </div>
   );

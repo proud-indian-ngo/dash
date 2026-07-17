@@ -61,23 +61,29 @@ function selectManagerInterests<T>(
 function KalakritiManagedEventBanner({
   edition,
 }: {
-  edition: { year: number };
+  edition?: { year: number };
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border border-primary/30 bg-primary/5 p-4">
       <div>
         <p className="font-medium">Managed by Kalakriti</p>
         <p className="text-muted-foreground text-sm">
-          Edit this event from the {edition.year} Edition workspace.
+          {edition
+            ? `Edit this event from the ${edition.year} Edition workspace.`
+            : "This event is read-only outside its Kalakriti Edition."}
         </p>
       </div>
-      <Button
-        nativeButton={false}
-        render={<Link params={{ year: edition.year }} to="/kalakriti/$year" />}
-        variant="outline"
-      >
-        Open Edition
-      </Button>
+      {edition ? (
+        <Button
+          nativeButton={false}
+          render={
+            <Link params={{ year: edition.year }} to="/kalakriti/$year" />
+          }
+          variant="outline"
+        >
+          Open Edition
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -218,7 +224,7 @@ function EventDetailRouteComponent() {
   const { displayEvent } = deriveDisplayEvent(event, occDate);
 
   const seriesParent = deriveSeriesParent(event, parentEvent, displayEvent);
-  const isManagedByKalakriti = Boolean(kalakritiEdition);
+  const isManagedByKalakriti = event.managementDomain === "kalakriti";
   const access = protectKalakritiEventAccess(
     {
       canApproveUpdates,
@@ -238,7 +244,7 @@ function EventDetailRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      {kalakritiEdition ? (
+      {isManagedByKalakriti ? (
         <KalakritiManagedEventBanner edition={kalakritiEdition} />
       ) : null}
       <EventDetail

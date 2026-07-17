@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Route } from "./route";
+import { Route } from "@/routes/_app/kalakriti/route";
 
 function runBeforeLoad(permissions: string[]) {
   const { beforeLoad } = Route.options;
@@ -12,11 +12,11 @@ function runBeforeLoad(permissions: string[]) {
 }
 
 describe("Kalakriti route guard", () => {
-  it("allows Kalakriti administrators", () => {
-    expect(() => runBeforeLoad(["kalakriti.admin"])).not.toThrow();
+  it("allows users with coarse Kalakriti access", () => {
+    expect(() => runBeforeLoad(["kalakriti.view"])).not.toThrow();
   });
 
-  it("redirects users without administration permission", () => {
-    expect(() => runBeforeLoad(["kalakriti.view"])).toThrow();
+  it("redirects users without Kalakriti access", () => {
+    expect(() => runBeforeLoad([])).toThrow();
   });
 });

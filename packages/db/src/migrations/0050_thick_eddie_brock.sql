@@ -56,7 +56,8 @@ CREATE TABLE "kalakriti_edition_membership" (
 	"snapshot_phone" text,
 	"state" "kalakriti_membership_state" DEFAULT 'active' NOT NULL,
 	"updated_at" timestamp NOT NULL,
-	"user_id" text NOT NULL
+	"user_id" text,
+	CONSTRAINT "kalakriti_membership_editionId_id_uq" UNIQUE("edition_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "kalakriti_external_identity" (
@@ -65,16 +66,17 @@ CREATE TABLE "kalakriti_external_identity" (
 	"user_id" text PRIMARY KEY NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "team_event" ADD COLUMN "management_domain" text;--> statement-breakpoint
 ALTER TABLE "kalakriti_assignment" ADD CONSTRAINT "kalakriti_assignment_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_assignment" ADD CONSTRAINT "kalakriti_assignment_edition_id_kalakriti_edition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."kalakriti_edition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "kalakriti_assignment" ADD CONSTRAINT "kalakriti_assignment_membership_id_kalakriti_edition_membership_id_fk" FOREIGN KEY ("membership_id") REFERENCES "public"."kalakriti_edition_membership"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "kalakriti_assignment" ADD CONSTRAINT "kalakriti_assignment_edition_membership_fk" FOREIGN KEY ("edition_id","membership_id") REFERENCES "public"."kalakriti_edition_membership"("edition_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_audit_entry" ADD CONSTRAINT "kalakriti_audit_entry_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_audit_entry" ADD CONSTRAINT "kalakriti_audit_entry_edition_id_kalakriti_edition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."kalakriti_edition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_edition" ADD CONSTRAINT "kalakriti_edition_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_edition" ADD CONSTRAINT "kalakriti_edition_team_event_id_team_event_id_fk" FOREIGN KEY ("team_event_id") REFERENCES "public"."team_event"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_edition_membership" ADD CONSTRAINT "kalakriti_edition_membership_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_edition_membership" ADD CONSTRAINT "kalakriti_edition_membership_edition_id_kalakriti_edition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."kalakriti_edition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "kalakriti_edition_membership" ADD CONSTRAINT "kalakriti_edition_membership_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "kalakriti_edition_membership" ADD CONSTRAINT "kalakriti_edition_membership_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_external_identity" ADD CONSTRAINT "kalakriti_external_identity_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_external_identity" ADD CONSTRAINT "kalakriti_external_identity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "kalakriti_assignment_membership_responsibility_uidx" ON "kalakriti_assignment" USING btree ("membership_id","responsibility");--> statement-breakpoint
@@ -84,4 +86,5 @@ CREATE INDEX "kalakriti_audit_editionId_createdAt_idx" ON "kalakriti_audit_entry
 CREATE UNIQUE INDEX "kalakriti_edition_year_uidx" ON "kalakriti_edition" USING btree ("year");--> statement-breakpoint
 CREATE UNIQUE INDEX "kalakriti_edition_teamEventId_uidx" ON "kalakriti_edition" USING btree ("team_event_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "kalakriti_membership_editionId_userId_uidx" ON "kalakriti_edition_membership" USING btree ("edition_id","user_id");--> statement-breakpoint
-CREATE INDEX "kalakriti_membership_userId_idx" ON "kalakriti_edition_membership" USING btree ("user_id");
+CREATE INDEX "kalakriti_membership_userId_idx" ON "kalakriti_edition_membership" USING btree ("user_id");--> statement-breakpoint
+ALTER TABLE "team_event" ADD CONSTRAINT "team_event_management_domain_chk" CHECK (management_domain IS NULL OR management_domain = 'kalakriti');

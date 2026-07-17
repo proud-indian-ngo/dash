@@ -1,5 +1,5 @@
 {
-  "id": "73dc070a-8036-41d2-a523-3e070683586f",
+  "id": "99e6f118-08ab-44c4-ac6a-5f457aa2bc39",
   "prevId": "b37deab8-6ad1-4716-b05e-090993e144bb",
   "version": "7",
   "dialect": "postgresql",
@@ -2534,14 +2534,16 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "kalakriti_assignment_membership_id_kalakriti_edition_membership_id_fk": {
-          "name": "kalakriti_assignment_membership_id_kalakriti_edition_membership_id_fk",
+        "kalakriti_assignment_edition_membership_fk": {
+          "name": "kalakriti_assignment_edition_membership_fk",
           "tableFrom": "kalakriti_assignment",
           "tableTo": "kalakriti_edition_membership",
           "columnsFrom": [
+            "edition_id",
             "membership_id"
           ],
           "columnsTo": [
+            "edition_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -2928,7 +2930,7 @@
           "name": "user_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         }
       },
       "indexes": {
@@ -3006,12 +3008,21 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "kalakriti_membership_editionId_id_uq": {
+          "name": "kalakriti_membership_editionId_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "edition_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -4398,6 +4409,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "management_domain": {
+          "name": "management_domain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -4655,6 +4672,10 @@
         "team_event_end_after_start_chk": {
           "name": "team_event_end_after_start_chk",
           "value": "end_time IS NULL OR end_time >= start_time"
+        },
+        "team_event_management_domain_chk": {
+          "name": "team_event_management_domain_chk",
+          "value": "management_domain IS NULL OR management_domain = 'kalakriti'"
         }
       },
       "isRLSEnabled": false

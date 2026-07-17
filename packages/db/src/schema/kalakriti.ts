@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -9,6 +10,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -107,14 +109,18 @@ export const kalakritiEditionMembership = pgTable(
     snapshotPhone: text("snapshot_phone"),
     state: kalakritiMembershipStateEnum("state").default("active").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
+    userId: text("user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     uniqueIndex("kalakriti_membership_editionId_userId_uidx").on(
       table.editionId,
       table.userId
+    ),
+    unique("kalakriti_membership_editionId_id_uq").on(
+      table.editionId,
+      table.id
     ),
     index("kalakriti_membership_userId_idx").on(table.userId),
   ]
@@ -131,11 +137,7 @@ export const kalakritiAssignment = pgTable(
       .notNull()
       .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
     id: uuid("id").primaryKey(),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => kalakritiEditionMembership.id, {
-        onDelete: "cascade",
-      }),
+    membershipId: uuid("membership_id").notNull(),
     responsibility: kalakritiResponsibilityEnum("responsibility").notNull(),
   },
   (table) => [
@@ -147,6 +149,14 @@ export const kalakritiAssignment = pgTable(
       .on(table.editionId)
       .where(sql`${table.responsibility} = 'overall_events_lead'`),
     index("kalakriti_assignment_editionId_idx").on(table.editionId),
+    foreignKey({
+      columns: [table.editionId, table.membershipId],
+      foreignColumns: [
+        kalakritiEditionMembership.editionId,
+        kalakritiEditionMembership.id,
+      ],
+      name: "kalakriti_assignment_edition_membership_fk",
+    }).onDelete("cascade"),
   ]
 );
 

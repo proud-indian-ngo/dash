@@ -62,7 +62,7 @@ import {
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
 import { team, teamMember } from "@pi-dash/db/schema/team";
-import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
   vendor,
   vendorPayment,
@@ -161,10 +161,11 @@ const ID = {
   evSupply: "019d52c2-7261-7dce-b0ee-e219e08de6fd",
   evTeaching: "019d52c2-7261-7dce-b0ee-e2143101d41f",
   evTeachingNext: "019d52c2-7261-7dce-b0ee-e215aeea8546",
-  kalakritiAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
-  kalakritiAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
   kalakritiAudit: "019d52c2-7261-7dce-b0ee-e206561715c4",
   kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
+  kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
+  kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
+  kalakritiEditionAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
   kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
@@ -747,6 +748,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
 async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
   log("Seeding Kalakriti edition...");
   const adminId = getUser(userMap, "admin@pi-dash.dev");
+  const editionAdminId = getUser(userMap, "volunteer1@pi-dash.dev");
   const guardianId = getUser(userMap, "guardian@pi-dash.dev");
   const eventDate = new Date("2027-11-21T00:00:00+05:30");
 
@@ -759,12 +761,16 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       description: "Technical event record managed by the Kalakriti module.",
       id: ID.evKalakriti,
       isPublic: false,
+      managementDomain: "kalakriti",
       name: "Kalakriti 2027",
       startTime: eventDate,
       teamId: ID.teamEvents,
       updatedAt: now,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      set: { managementDomain: "kalakriti" },
+      target: teamEvent.id,
+    });
 
   await db
     .insert(kalakritiEdition)
@@ -796,13 +802,13 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
         createdAt: now,
         createdBy: adminId,
         editionId: ID.kalakritiEdition,
-        id: ID.kalakritiAdminMembership,
+        id: ID.kalakritiEditionAdminMembership,
         kind: "volunteer",
-        snapshotEmail: "admin@pi-dash.dev",
-        snapshotName: "Dev Admin",
-        snapshotPhone: "+919876543210",
+        snapshotEmail: "volunteer1@pi-dash.dev",
+        snapshotName: "Rahul Verma",
+        snapshotPhone: "+919876543212",
         updatedAt: now,
-        userId: adminId,
+        userId: editionAdminId,
       },
       {
         createdAt: now,
@@ -825,9 +831,19 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       createdAt: now,
       createdBy: adminId,
       editionId: ID.kalakritiEdition,
-      id: ID.kalakritiAdminAssignment,
-      membershipId: ID.kalakritiAdminMembership,
+      id: ID.kalakritiEditionAdminAssignment,
+      membershipId: ID.kalakritiEditionAdminMembership,
       responsibility: "edition_admin",
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(teamEventMember)
+    .values({
+      addedAt: now,
+      eventId: ID.evKalakriti,
+      id: ID.kalakritiEditionAdminEventMember,
+      userId: editionAdminId,
     })
     .onConflictDoNothing();
 

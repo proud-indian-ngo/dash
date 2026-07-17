@@ -1,6 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
-import { can } from "../permissions";
+import { can, isExternalUser } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.vendorPaymentTransaction) {
@@ -21,9 +21,14 @@ export const vendorPaymentTransactionQueries = {
   ),
   byVendorPayment: defineQuery(
     z.object({ vendorPaymentId: z.string() }),
-    ({ args: { vendorPaymentId } }) =>
-      withRelated(zql.vendorPaymentTransaction)
-        .where("vendorPaymentId", vendorPaymentId)
-        .orderBy("createdAt", "desc")
+    ({ args: { vendorPaymentId }, ctx }) => {
+      const query = withRelated(zql.vendorPaymentTransaction).orderBy(
+        "createdAt",
+        "desc"
+      );
+      return isExternalUser(ctx)
+        ? query.where("id", "__never_match__")
+        : query.where("vendorPaymentId", vendorPaymentId);
+    }
   ),
 };

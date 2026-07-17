@@ -14,6 +14,7 @@ import {
 } from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   buildUpdateFields,
   cancelSeriesAll,
@@ -63,18 +64,6 @@ export function computeOccurrenceStart(
     seriesStart.getMilliseconds()
   );
   return occStart.getTime();
-}
-
-export async function assertEventNotManagedByKalakriti(
-  tx: Pick<Tx, "run">,
-  eventId: string
-) {
-  const edition = await tx.run(
-    zql.kalakritiEdition.where("teamEventId", eventId).one()
-  );
-  if (edition) {
-    throw new Error("Manage this event from Kalakriti");
-  }
 }
 
 interface JoinTarget {
@@ -1038,6 +1027,7 @@ export const teamEventMutators = {
       if (!series) {
         throw new Error("Series not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.seriesId);
       if (!series.recurrenceRule) {
         throw new Error("Event is not a recurring series");
       }
@@ -1081,6 +1071,7 @@ export const teamEventMutators = {
         inheritVolunteers: series.inheritVolunteers,
         isPublic: series.isPublic,
         location: series.location,
+        managementDomain: series.managementDomain,
         name: series.name,
         originalDate: args.originalDate,
         postRsvpPoll: series.postRsvpPoll,

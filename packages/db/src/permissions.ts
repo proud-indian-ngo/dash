@@ -403,6 +403,7 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "vendors.create",
   "teams.view_own",
   "events.view_own",
+  "kalakriti.view",
   "event_updates.edit_own",
   "event_updates.delete_own",
   "bank_accounts.manage_own",
@@ -424,6 +425,9 @@ export const ADMIN_TIER_ROLES = new Set([
   "admin",
   "finance_admin",
 ]);
+
+/** Roles assigned only by their owning domain workflow, never generic user admin. */
+export const TECHNICAL_ROLE_IDS = new Set(["external_user"]);
 
 const adminExcluded = new Set<PermissionId>([
   "requests.approve",
