@@ -33,6 +33,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-event-update-posted",
   "notify-event-update-rejected",
   "notify-event-updated",
+  "notify-kalakriti-guardian-access",
   "notify-password-reset",
   "notify-photo-approved",
   "notify-photo-rejected",

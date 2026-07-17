@@ -51,16 +51,18 @@ import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
 import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
 import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimbursements/$id'
 import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new'
-import { Route as AppKalakritiYearRouteImport } from './routes/_app/kalakriti/$year'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
+import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakriti/$year/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
+import { Route as AppKalakritiYearIndexRouteImport } from './routes/_app/kalakriti/$year/index'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
 import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
 import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
 import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/original.$id'
 import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
+import { Route as AppKalakritiYearGuardiansRouteImport } from './routes/_app/kalakriti/$year/guardians'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -270,11 +272,6 @@ const AppKalakritiNewRoute = AppKalakritiNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppKalakritiRouteRoute,
 } as any)
-const AppKalakritiYearRoute = AppKalakritiYearRouteImport.update({
-  id: '/$year',
-  path: '/$year',
-  getParentRoute: () => AppKalakritiRouteRoute,
-} as any)
 const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -285,10 +282,20 @@ const AppSettingsRolesRouteRoute = AppSettingsRolesRouteRouteImport.update({
   path: '/settings/roles',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKalakritiYearRouteRoute = AppKalakritiYearRouteRouteImport.update({
+  id: '/$year',
+  path: '/$year',
+  getParentRoute: () => AppKalakritiRouteRoute,
+} as any)
 const AppSettingsRolesIndexRoute = AppSettingsRolesIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppSettingsRolesRouteRoute,
+} as any)
+const AppKalakritiYearIndexRoute = AppKalakritiYearIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppKalakritiYearRouteRoute,
 } as any)
 const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   id: '/api/media/event-photo/$id',
@@ -320,6 +327,12 @@ const AppSettingsRolesRoleIdRoute = AppSettingsRolesRoleIdRouteImport.update({
   path: '/$roleId',
   getParentRoute: () => AppSettingsRolesRouteRoute,
 } as any)
+const AppKalakritiYearGuardiansRoute =
+  AppKalakritiYearGuardiansRouteImport.update({
+    id: '/guardians',
+    path: '/guardians',
+    getParentRoute: () => AppKalakritiYearRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -341,9 +354,9 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
+  '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
-  '/kalakriti/$year': typeof AppKalakritiYearRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -365,12 +378,14 @@ export interface FileRoutesByFullPath {
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
   '/api/jobs/': typeof ApiJobsIndexRoute
+  '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -388,7 +403,6 @@ export interface FileRoutesByTo {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
-  '/kalakriti/$year': typeof AppKalakritiYearRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -410,12 +424,14 @@ export interface FileRoutesByTo {
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
   '/api/jobs': typeof ApiJobsIndexRoute
+  '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRoutesById {
@@ -441,9 +457,9 @@ export interface FileRoutesById {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
-  '/_app/kalakriti/$year': typeof AppKalakritiYearRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -465,12 +481,14 @@ export interface FileRoutesById {
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
   '/api/jobs/': typeof ApiJobsIndexRoute
+  '/_app/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
 }
 export interface FileRouteTypes {
@@ -495,9 +513,9 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/avatar'
     | '/api/health'
+    | '/kalakriti/$year'
     | '/settings/roles'
     | '/events/$id'
-    | '/kalakriti/$year'
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
@@ -519,12 +537,14 @@ export interface FileRouteTypes {
     | '/vendor-payments/'
     | '/vendors/'
     | '/api/jobs/'
+    | '/kalakriti/$year/guardians'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
     | '/api/media/event-photo/$id'
+    | '/kalakriti/$year/'
     | '/settings/roles/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -542,7 +562,6 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/events/$id'
-    | '/kalakriti/$year'
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
@@ -564,12 +583,14 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/api/jobs'
+    | '/kalakriti/$year/guardians'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
     | '/api/media/event-photo/$id'
+    | '/kalakriti/$year'
     | '/settings/roles'
   id:
     | '__root__'
@@ -594,9 +615,9 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/_app/'
+    | '/_app/kalakriti/$year'
     | '/_app/settings/roles'
     | '/_app/events/$id'
-    | '/_app/kalakriti/$year'
     | '/_app/kalakriti/new'
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
@@ -618,12 +639,14 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments/'
     | '/_app/vendors/'
     | '/api/jobs/'
+    | '/_app/kalakriti/$year/guardians'
     | '/_app/settings/roles/$roleId'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
     | '/api/media/event-photo/$id'
+    | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
   fileRoutesById: FileRoutesById
 }
@@ -942,13 +965,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKalakritiNewRouteImport
       parentRoute: typeof AppKalakritiRouteRoute
     }
-    '/_app/kalakriti/$year': {
-      id: '/_app/kalakriti/$year'
-      path: '/$year'
-      fullPath: '/kalakriti/$year'
-      preLoaderRoute: typeof AppKalakritiYearRouteImport
-      parentRoute: typeof AppKalakritiRouteRoute
-    }
     '/_app/events/$id': {
       id: '/_app/events/$id'
       path: '/$id'
@@ -963,12 +979,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRolesRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/kalakriti/$year': {
+      id: '/_app/kalakriti/$year'
+      path: '/$year'
+      fullPath: '/kalakriti/$year'
+      preLoaderRoute: typeof AppKalakritiYearRouteRouteImport
+      parentRoute: typeof AppKalakritiRouteRoute
+    }
     '/_app/settings/roles/': {
       id: '/_app/settings/roles/'
       path: '/'
       fullPath: '/settings/roles/'
       preLoaderRoute: typeof AppSettingsRolesIndexRouteImport
       parentRoute: typeof AppSettingsRolesRouteRoute
+    }
+    '/_app/kalakriti/$year/': {
+      id: '/_app/kalakriti/$year/'
+      path: '/'
+      fullPath: '/kalakriti/$year/'
+      preLoaderRoute: typeof AppKalakritiYearIndexRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
     }
     '/api/media/event-photo/$id': {
       id: '/api/media/event-photo/$id'
@@ -1012,6 +1042,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRolesRoleIdRouteImport
       parentRoute: typeof AppSettingsRolesRouteRoute
     }
+    '/_app/kalakriti/$year/guardians': {
+      id: '/_app/kalakriti/$year/guardians'
+      path: '/guardians'
+      fullPath: '/kalakriti/$year/guardians'
+      preLoaderRoute: typeof AppKalakritiYearGuardiansRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
+    }
   }
 }
 
@@ -1029,14 +1066,29 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
 
+interface AppKalakritiYearRouteRouteChildren {
+  AppKalakritiYearGuardiansRoute: typeof AppKalakritiYearGuardiansRoute
+  AppKalakritiYearIndexRoute: typeof AppKalakritiYearIndexRoute
+}
+
+const AppKalakritiYearRouteRouteChildren: AppKalakritiYearRouteRouteChildren = {
+  AppKalakritiYearGuardiansRoute: AppKalakritiYearGuardiansRoute,
+  AppKalakritiYearIndexRoute: AppKalakritiYearIndexRoute,
+}
+
+const AppKalakritiYearRouteRouteWithChildren =
+  AppKalakritiYearRouteRoute._addFileChildren(
+    AppKalakritiYearRouteRouteChildren,
+  )
+
 interface AppKalakritiRouteRouteChildren {
-  AppKalakritiYearRoute: typeof AppKalakritiYearRoute
+  AppKalakritiYearRouteRoute: typeof AppKalakritiYearRouteRouteWithChildren
   AppKalakritiNewRoute: typeof AppKalakritiNewRoute
   AppKalakritiIndexRoute: typeof AppKalakritiIndexRoute
 }
 
 const AppKalakritiRouteRouteChildren: AppKalakritiRouteRouteChildren = {
-  AppKalakritiYearRoute: AppKalakritiYearRoute,
+  AppKalakritiYearRouteRoute: AppKalakritiYearRouteRouteWithChildren,
   AppKalakritiNewRoute: AppKalakritiNewRoute,
   AppKalakritiIndexRoute: AppKalakritiIndexRoute,
 }
