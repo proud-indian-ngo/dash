@@ -77,7 +77,10 @@ function KalakritiManagedEventBanner({
         <Button
           nativeButton={false}
           render={
-            <Link params={{ year: edition.year }} to="/kalakriti/$year" />
+            <Link
+              params={{ year: String(edition.year) }}
+              to="/kalakriti/$year"
+            />
           }
           variant="outline"
         >

@@ -267,6 +267,7 @@ export const auth = betterAuth({
       roles: {
         admin: adminAc,
         finance_admin: adminAc,
+        external_user: userAc,
         super_admin: adminAc,
         unoriented_volunteer: userAc,
         volunteer: userAc,
