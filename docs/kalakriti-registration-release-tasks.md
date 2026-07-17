@@ -175,6 +175,14 @@ bun run test:unit
 
 **Depends on:** KRR-002, KRR-003.
 
+**Implementation sequencing:** Establish the fixed responsibility vocabulary,
+membership lifecycle, primary-card label, and Edition-scoped Administrator,
+Volunteer Coordinator, and Overall Events Lead workflows first. KRR-007 activates
+the typed Center scopes for Liaisons and Transport Coordinators; KRR-009 activates
+Competition Category and Competition scopes. Operational-team assignment UI lands
+with the corresponding operational module, while using the same assignment table
+and Volunteer Coordinator policy.
+
 **Scope:**
 
 - Implement Edition Administrator and Volunteer Coordinator appointment rules.

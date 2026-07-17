@@ -9,6 +9,7 @@ import {
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
 import { Loader } from "@/components/loader";
 import { useApp } from "@/context/app-context";
 
@@ -143,6 +144,8 @@ function KalakritiEditionRoute() {
           </CardContent>
         </Card>
       ) : null}
+
+      <VolunteerAssignmentsCard editionId={edition.id} />
     </div>
   );
 }
