@@ -46,9 +46,11 @@ import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
   kalakritiAssignment,
   kalakritiAuditEntry,
+  kalakritiCenter,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
+  kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
@@ -162,10 +164,12 @@ const ID = {
   evTeaching: "019d52c2-7261-7dce-b0ee-e2143101d41f",
   evTeachingNext: "019d52c2-7261-7dce-b0ee-e215aeea8546",
   kalakritiAudit: "019d52c2-7261-7dce-b0ee-e206561715c4",
+  kalakritiCenter: "019d52c2-7261-7dce-b0ee-e206561715c6",
   kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
   kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
   kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
   kalakritiEditionAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
+  kalakritiGuardianCenter: "019d52c2-7261-7dce-b0ee-e206561715c7",
   kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
@@ -840,6 +844,33 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       set: { isPrimary: true },
       target: kalakritiAssignment.id,
     });
+
+  await db
+    .insert(kalakritiCenter)
+    .values({
+      competitionEntryRegistrationEnabled: false,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCenter,
+      name: "Jayanagar",
+      normalizedName: "jayanagar",
+      studentRegistrationEnabled: false,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiGuardianCenter)
+    .values({
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiGuardianCenter,
+      membershipId: ID.kalakritiGuardianMembership,
+    })
+    .onConflictDoNothing();
 
   await db
     .insert(teamEventMember)

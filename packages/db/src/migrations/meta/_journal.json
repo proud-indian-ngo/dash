@@ -372,6 +372,13 @@
       "when": 1784311762428,
       "tag": "0052_silent_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1784318285561,
+      "tag": "0053_rapid_blacklash",
+      "breakpoints": true
     }
   ]
 }

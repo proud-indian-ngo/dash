@@ -10,9 +10,11 @@ import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiAssignment,
   kalakritiAuditEntry,
+  kalakritiCenter,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
+  kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
@@ -47,6 +49,15 @@ const guardianInviteSchema = z.object({
 
 const archiveGuardianSchema = z.object({
   membershipId: z.uuid(),
+});
+
+const assignGuardianCenterSchema = z.object({
+  centerId: z.uuid(),
+  membershipId: z.uuid(),
+});
+
+const removeGuardianCenterSchema = z.object({
+  guardianCenterId: z.uuid(),
 });
 
 interface AuthenticatedContext {
@@ -572,6 +583,10 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
       ) {
         throw new Error("Guardian membership is already archived");
       }
+      const removedCenterAssignments = await tx
+        .delete(kalakritiGuardianCenter)
+        .where(eq(kalakritiGuardianCenter.membershipId, data.membershipId))
+        .returning({ id: kalakritiGuardianCenter.id });
       await tx
         .update(kalakritiEditionMembership)
         .set({ archivedAt: now, state: "archived", updatedAt: now })
@@ -583,7 +598,10 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
         domain: "guardian_access",
         editionId: membership.editionId,
         id: auditEntryId,
-        metadata: { name: currentMembership.name },
+        metadata: {
+          centerAssignmentCount: removedCenterAssignments.length,
+          name: currentMembership.name,
+        },
         targetId: data.membershipId,
         targetType: "edition_membership",
       });
@@ -616,4 +634,147 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
       }
     });
     return { membershipId: data.membershipId, status: "archived" as const };
+  });
+
+export const assignKalakritiGuardianCenter = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(assignGuardianCenterSchema)
+  .handler(async ({ context, data }) => {
+    const membership = await db.query.kalakritiEditionMembership.findFirst({
+      columns: { editionId: true },
+      where: (table, operators) => operators.eq(table.id, data.membershipId),
+    });
+    if (!membership) {
+      throw new Error("Guardian membership not found");
+    }
+    const authed = await requireGuardianAdmin(context, membership.editionId);
+
+    return db.transaction(async (tx) => {
+      const lockedMembership = await tx
+        .select({
+          editionId: kalakritiEditionMembership.editionId,
+          kind: kalakritiEditionMembership.kind,
+          state: kalakritiEditionMembership.state,
+        })
+        .from(kalakritiEditionMembership)
+        .where(eq(kalakritiEditionMembership.id, data.membershipId))
+        .for("update")
+        .then((rows) => rows[0]);
+      if (
+        !lockedMembership ||
+        lockedMembership.editionId !== membership.editionId ||
+        lockedMembership.kind !== "guardian" ||
+        lockedMembership.state !== "active"
+      ) {
+        throw new Error("Active Guardian membership not found");
+      }
+      const center = await tx
+        .select({
+          editionId: kalakritiCenter.editionId,
+          retiredAt: kalakritiCenter.retiredAt,
+        })
+        .from(kalakritiCenter)
+        .where(eq(kalakritiCenter.id, data.centerId))
+        .for("update")
+        .then((rows) => rows[0]);
+      if (!(center && center.editionId === membership.editionId)) {
+        throw new Error("Center not found in this Edition");
+      }
+      if (center.retiredAt) {
+        throw new Error("Retired Centers cannot receive assignments");
+      }
+      const existing = await tx
+        .select({ id: kalakritiGuardianCenter.id })
+        .from(kalakritiGuardianCenter)
+        .where(
+          and(
+            eq(kalakritiGuardianCenter.membershipId, data.membershipId),
+            eq(kalakritiGuardianCenter.centerId, data.centerId)
+          )
+        )
+        .limit(1)
+        .then((rows) => rows[0]);
+      if (existing) {
+        throw new Error("Guardian is already assigned to this Center");
+      }
+
+      const guardianCenterId = uuidv7();
+      const now = new Date();
+      await tx.insert(kalakritiGuardianCenter).values({
+        centerId: data.centerId,
+        createdAt: now,
+        createdBy: authed.session.user.id,
+        editionId: membership.editionId,
+        id: guardianCenterId,
+        membershipId: data.membershipId,
+      });
+      await tx.insert(kalakritiAuditEntry).values({
+        action: "assigned",
+        actorUserId: authed.session.user.id,
+        createdAt: now,
+        domain: "guardian_center_assignment",
+        editionId: membership.editionId,
+        id: uuidv7(),
+        metadata: {
+          centerId: data.centerId,
+          membershipId: data.membershipId,
+        },
+        targetId: guardianCenterId,
+        targetType: "guardian_center",
+      });
+      return { guardianCenterId };
+    });
+  });
+
+export const removeKalakritiGuardianCenter = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(removeGuardianCenterSchema)
+  .handler(async ({ context, data }) => {
+    const assignment = await db.query.kalakritiGuardianCenter.findFirst({
+      columns: { editionId: true },
+      where: (table, operators) =>
+        operators.eq(table.id, data.guardianCenterId),
+    });
+    if (!assignment) {
+      throw new Error("Guardian Center assignment not found");
+    }
+    const authed = await requireGuardianAdmin(context, assignment.editionId);
+
+    return db.transaction(async (tx) => {
+      const lockedAssignment = await tx
+        .select({
+          centerId: kalakritiGuardianCenter.centerId,
+          editionId: kalakritiGuardianCenter.editionId,
+          membershipId: kalakritiGuardianCenter.membershipId,
+        })
+        .from(kalakritiGuardianCenter)
+        .where(eq(kalakritiGuardianCenter.id, data.guardianCenterId))
+        .for("update")
+        .then((rows) => rows[0]);
+      if (
+        !lockedAssignment ||
+        lockedAssignment.editionId !== assignment.editionId
+      ) {
+        throw new Error("Guardian Center assignment not found");
+      }
+
+      await tx
+        .delete(kalakritiGuardianCenter)
+        .where(eq(kalakritiGuardianCenter.id, data.guardianCenterId));
+      await tx.insert(kalakritiAuditEntry).values({
+        action: "removed",
+        actorUserId: authed.session.user.id,
+        createdAt: new Date(),
+        domain: "guardian_center_assignment",
+        editionId: assignment.editionId,
+        id: uuidv7(),
+        metadata: {
+          centerId: lockedAssignment.centerId,
+          membershipId: lockedAssignment.membershipId,
+        },
+        targetId: data.guardianCenterId,
+        targetType: "guardian_center",
+      });
+      return { removed: true };
+    });
   });

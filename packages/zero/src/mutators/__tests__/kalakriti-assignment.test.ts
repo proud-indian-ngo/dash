@@ -243,6 +243,61 @@ describe("kalakritiAssignment.assignVolunteer", () => {
   });
 });
 
+describe("kalakritiAssignment.assignLiaison", () => {
+  it("lets a Volunteer Coordinator assign one volunteer to a Center", async () => {
+    const { tx, spies } = createTx([
+      { id: "actor-membership" },
+      [{ responsibility: "volunteer_coordinator" }],
+      { id: "edition-1", teamEventId: "event-1" },
+      { editionId: "edition-1", id: "center-1", retiredAt: null },
+      {
+        email: "liaison@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Liaison One",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignLiaison.fn({
+      args: {
+        assignmentId: "liaison-assignment-1",
+        auditEntryId: "audit-1",
+        centerId: "center-1",
+        editionId: "edition-1",
+        makePrimary: false,
+        membershipId: "liaison-membership-1",
+        now: 1_700_000_000_000,
+        teamEventMemberId: "event-member-1",
+        userId: "volunteer-1",
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "coordinator-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignLiaison.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        centerId: "center-1",
+        responsibility: "liaison",
+      })
+    );
+    expect(spies.insertMembership).toHaveBeenCalledOnce();
+    expect(spies.insertEventMember).toHaveBeenCalledOnce();
+  });
+});
+
 describe("kalakritiAssignment.remove", () => {
   it("keeps membership and event roster when another assignment remains", async () => {
     const { tx, spies } = createTx([

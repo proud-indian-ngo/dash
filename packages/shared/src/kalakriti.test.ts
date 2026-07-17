@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { canManageKalakritiResponsibility } from "./kalakriti";
+import {
+  canManageKalakritiResponsibility,
+  normalizeKalakritiCenterName,
+} from "./kalakriti";
 
 describe("canManageKalakritiResponsibility", () => {
   it("allows Edition Administrators to manage Edition roles", () => {
@@ -33,5 +36,18 @@ describe("canManageKalakritiResponsibility", () => {
         "overall_events_lead"
       )
     ).toBe(true);
+  });
+});
+
+describe("normalizeKalakritiCenterName", () => {
+  it("normalizes Unicode, whitespace, and case for Edition uniqueness", () => {
+    expect(normalizeKalakritiCenterName("  North   Centre  ")).toEqual({
+      name: "North Centre",
+      normalizedName: "north centre",
+    });
+    expect(normalizeKalakritiCenterName("ＮＯＲＴＨ Centre")).toEqual({
+      name: "NORTH Centre",
+      normalizedName: "north centre",
+    });
   });
 });

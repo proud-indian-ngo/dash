@@ -11,6 +11,7 @@ import {
 import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
 import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
+import { kalakritiCenterQueries } from "./queries/kalakriti-center";
 import { kalakritiEditionQueries } from "./queries/kalakriti-edition";
 import { kalakritiGuardianQueries } from "./queries/kalakriti-guardian";
 import { notificationQueries } from "./queries/notification";
@@ -36,6 +37,7 @@ export const queries = defineQueries({
   eventUpdate: eventUpdateQueries,
   expenseCategory: expenseCategoryQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
+  kalakritiCenter: kalakritiCenterQueries,
   kalakritiEdition: kalakritiEditionQueries,
   kalakritiGuardian: kalakritiGuardianQueries,
   notification: notificationQueries,
