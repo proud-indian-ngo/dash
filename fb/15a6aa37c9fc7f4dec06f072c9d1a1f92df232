@@ -1,0 +1,33 @@
+apps/web/src/functions/users-for-picker.ts
+  s_c8c0ce2f824e4f::t_317abc623f7d09 15,95-97
+  s_c8c0ce2f824e4f::t_e650ab416c2e2e 9,134-140
+apps/web/src/components/kalakriti/volunteer-assignments-card.tsx
+  s_c8c0ce2f824e4f::t_e650ab416c2e2e 69
+packages/zero/src/mutators/kalakriti-assignment.ts
+  s_c8c0ce2f824e4f::t_e650ab416c2e2e 24,120-122
+packages/zero/src/mutators/__tests__/kalakriti-assignment.test.ts
+  s_c8c0ce2f824e4f::t_e650ab416c2e2e 35-38,43,66-80
+  s_c8c0ce2f824e4f::t_d23509a7d61936 81-83
+docs/kalakriti-registration-release-tasks.md
+  s_c8c0ce2f824e4f::t_e650ab416c2e2e 189-190,192-194
+apps/web/src/lib/kalakriti-volunteer-picker-policy.test.ts
+  s_c8c0ce2f824e4f::t_317abc623f7d09 1-16
+apps/web/src/lib/kalakriti-volunteer-picker-policy.ts
+  s_c8c0ce2f824e4f::t_317abc623f7d09 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "fb15a6aa37c9fc7f4dec06f072c9d1a1f92df232",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
