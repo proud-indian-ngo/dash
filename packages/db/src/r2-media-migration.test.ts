@@ -332,41 +332,41 @@ describe("runR2MediaUrlMigration", () => {
     expect(repository.appliedBatches).toHaveLength(0);
   });
 
-  it.each([
-    "/app",
-    "tenant:app",
-  ])("migrates raw keys for the configured %s prefix", async (keyPrefix) => {
-    const avatarKey = `${keyPrefix}/avatars/u1/private.jpg`;
-    const updateKey = `${keyPrefix}/updates/event-1/private.jpg`;
-    const repository = new FakeRepository({
-      eventFeedback: [],
-      eventUpdate: [
-        {
-          eventId: "event-1",
-          id: "e1",
-          value: plate(updateKey),
-        },
-      ],
-      user: [{ id: "u1", value: avatarKey }],
-    });
+  it.each(["/app", "tenant:app"])(
+    "migrates raw keys for the configured %s prefix",
+    async (keyPrefix) => {
+      const avatarKey = `${keyPrefix}/avatars/u1/private.jpg`;
+      const updateKey = `${keyPrefix}/updates/event-1/private.jpg`;
+      const repository = new FakeRepository({
+        eventFeedback: [],
+        eventUpdate: [
+          {
+            eventId: "event-1",
+            id: "e1",
+            value: plate(updateKey),
+          },
+        ],
+        user: [{ id: "u1", value: avatarKey }],
+      });
 
-    const report = await runR2MediaUrlMigration(repository, {
-      apply: true,
-      batchSize: 10,
-      keyPrefix,
-      legacyCdnUrl: CDN,
-    });
+      const report = await runR2MediaUrlMigration(repository, {
+        apply: true,
+        batchSize: 10,
+        keyPrefix,
+        legacyCdnUrl: CDN,
+      });
 
-    expect(report.totals).toEqual({
-      changed: 2,
-      malformed: 0,
-      skipped: 0,
-    });
-    expect(repository.rows.user[0]?.value).toBe(
-      `/api/media/avatar/u1?key=${encodeURIComponent(avatarKey)}`
-    );
-    expect(repository.rows.eventUpdate[0]?.value).toContain(
-      `key=${encodeURIComponent(updateKey)}`
-    );
-  });
+      expect(report.totals).toEqual({
+        changed: 2,
+        malformed: 0,
+        skipped: 0,
+      });
+      expect(repository.rows.user[0]?.value).toBe(
+        `/api/media/avatar/u1?key=${encodeURIComponent(avatarKey)}`
+      );
+      expect(repository.rows.eventUpdate[0]?.value).toContain(
+        `key=${encodeURIComponent(updateKey)}`
+      );
+    }
+  );
 });

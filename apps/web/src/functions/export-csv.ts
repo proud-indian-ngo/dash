@@ -62,7 +62,7 @@ interface QueryConfig {
   attachmentJoinCol: AnyPgColumn;
   attachmentKind: "advancePaymentAttachment" | "reimbursementAttachment";
   attachmentTable: AttachmentTable;
-  hasExpenseDate: boolean;
+  expenseDateCol?: AnyPgColumn;
   lineItemAmountCol: AnyPgColumn;
   lineItemJoinCol: AnyPgColumn;
   lineItemTable: LineItemTable;
@@ -85,15 +85,24 @@ interface RawResultRow {
 
 async function queryExportRows(
   config: QueryConfig,
-  fyStartDate: Date,
-  fyEndDate: Date,
+  fyStart: number,
   statusFilter: StatusValue[] | null
 ): Promise<ExportRow[]> {
   const { mainTable, lineItemTable, attachmentTable, typeLabel } = config;
+  const fyStartDate = new Date(fyStart, 3, 1); // April 1
+  const fyEndDate = new Date(fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31
+  const dateRangeFilter = config.expenseDateCol
+    ? and(
+        gte(config.expenseDateCol, `${fyStart}-04-01`),
+        lte(config.expenseDateCol, `${fyStart + 1}-03-31`)
+      )
+    : and(
+        gte(mainTable.submittedAt, fyStartDate),
+        lte(mainTable.submittedAt, fyEndDate)
+      );
 
   const whereClause = and(
-    gte(mainTable.submittedAt, fyStartDate),
-    lte(mainTable.submittedAt, fyEndDate),
+    dateRangeFilter,
     statusFilter ? inArray(mainTable.status, statusFilter) : undefined
   );
 
@@ -119,10 +128,9 @@ async function queryExportRows(
     mainTable.createdAt,
   ];
 
-  if (config.hasExpenseDate) {
-    const expenseDateCol = (mainTable as typeof reimbursement).expenseDate;
-    selectFields.expenseDate = expenseDateCol;
-    groupByFields.push(expenseDateCol);
+  if (config.expenseDateCol) {
+    selectFields.expenseDate = config.expenseDateCol;
+    groupByFields.push(config.expenseDateCol);
   }
 
   const results = (await db
@@ -174,7 +182,7 @@ const reimbursementConfig: QueryConfig = {
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
   attachmentKind: "reimbursementAttachment",
   attachmentTable: reimbursementAttachment,
-  hasExpenseDate: true,
+  expenseDateCol: reimbursement.expenseDate,
   lineItemAmountCol: reimbursementLineItem.amount,
   lineItemJoinCol: reimbursementLineItem.reimbursementId,
   lineItemTable: reimbursementLineItem,
@@ -186,7 +194,6 @@ const advancePaymentConfig: QueryConfig = {
   attachmentJoinCol: advancePaymentAttachment.advancePaymentId,
   attachmentKind: "advancePaymentAttachment",
   attachmentTable: advancePaymentAttachment,
-  hasExpenseDate: false,
   lineItemAmountCol: advancePaymentLineItem.amount,
   lineItemJoinCol: advancePaymentLineItem.advancePaymentId,
   lineItemTable: advancePaymentLineItem,
@@ -201,8 +208,6 @@ export const exportCsvData = createServerFn({ method: "POST" })
     try {
       await assertServerPermission(context.session, "requests.export");
 
-      const fyStartDate = new Date(data.fyStart, 3, 1); // April 1
-      const fyEndDate = new Date(data.fyStart + 1, 2, 31, 23, 59, 59, 999); // March 31
       const statusFilter =
         data.statuses && data.statuses.length > 0 ? data.statuses : null;
 
@@ -210,23 +215,13 @@ export const exportCsvData = createServerFn({ method: "POST" })
 
       if (data.types.includes("reimbursement")) {
         promises.push(
-          queryExportRows(
-            reimbursementConfig,
-            fyStartDate,
-            fyEndDate,
-            statusFilter
-          )
+          queryExportRows(reimbursementConfig, data.fyStart, statusFilter)
         );
       }
 
       if (data.types.includes("advancePayment")) {
         promises.push(
-          queryExportRows(
-            advancePaymentConfig,
-            fyStartDate,
-            fyEndDate,
-            statusFilter
-          )
+          queryExportRows(advancePaymentConfig, data.fyStart, statusFilter)
         );
       }
 

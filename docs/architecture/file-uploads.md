@@ -16,8 +16,9 @@ R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact
-persisted database reference; a raw object key is never authorization. Keys
-containing a `tmp/` path segment are never readable.
+persisted database reference, even when the durable key predates the current
+`R2_KEY_PREFIX`; a raw object key is never authorization. Keys containing a
+`tmp/` path segment are never readable.
 
 Avatar and Plate editor uploads have dedicated signers:
 

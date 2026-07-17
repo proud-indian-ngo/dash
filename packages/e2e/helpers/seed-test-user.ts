@@ -240,6 +240,7 @@ const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
 const SEED_REIMBURSEMENT_ATTACHMENT_ID = "e2e00000-0000-0000-0000-000000000005";
 const SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID =
   "e2e00000-0000-0000-0000-000000000006";
+const SEED_EXPORT_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000007";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
 const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
@@ -268,22 +269,6 @@ const ZERO_AUTH_LEAD_ADMIN_EVENT_MEMBER_ID =
   "e2e00000-0000-0000-0000-000000000503";
 const ZERO_AUTH_LEAD_VOLUNTEER_EVENT_MEMBER_ID =
   "e2e00000-0000-0000-0000-000000000504";
-const R2_KEY_PREFIX = process.env.R2_KEY_PREFIX ?? "attachments";
-const LEGACY_CDN_URL = process.env.VITE_CDN_URL ?? "https://cdn.example.test";
-const TRAILING_SLASH = /\/$/;
-const ZERO_AUTH_EVENT_MEDIA_KEY = `${R2_KEY_PREFIX}/updates/${ZERO_AUTH_PROTECTED_EVENT_ID}/e2e-editor-image.jpg`;
-
-const legacyMediaUrl = (key: string): string =>
-  `${LEGACY_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
-
-const plateImageContent = (url: string): string =>
-  JSON.stringify([
-    {
-      children: [{ text: "" }],
-      type: "img",
-      url,
-    },
-  ]);
 
 async function ensureReimbursement(
   userId: string,
@@ -486,21 +471,59 @@ async function ensureEventVendorPayment(
   log("Created event vendor payment");
 }
 
+async function ensureExportVendorPayment(userId: string): Promise<void> {
+  const existingPayment = await db.query.vendorPayment.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_EXPORT_VENDOR_PAYMENT_ID),
+  });
+  if (existingPayment) {
+    return;
+  }
+
+  const category = await db.query.expenseCategory.findFirst();
+  const seededVendor = await db.query.vendor.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_VENDOR_ID),
+  });
+  if (!(category && seededVendor)) {
+    throw new Error(
+      "Vendor payment export fixture requires category and vendor"
+    );
+  }
+
+  const createdAt = new Date("2026-07-01T00:00:00.000Z");
+  await db.insert(vendorPayment).values({
+    city: "bangalore",
+    createdAt,
+    id: SEED_EXPORT_VENDOR_PAYMENT_ID,
+    invoiceDate: "2026-01-20",
+    invoiceNumber: "E2E-INV-2026-001",
+    status: "completed",
+    submittedAt: createdAt,
+    title: "E2E Export Vendor Payment",
+    updatedAt: createdAt,
+    userId,
+    vendorId: seededVendor.id,
+  });
+
+  await db.insert(vendorPaymentLineItem).values({
+    amount: "875.00",
+    categoryId: category.id,
+    createdAt,
+    description: "Export date filter fixture",
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: createdAt,
+    vendorPaymentId: SEED_EXPORT_VENDOR_PAYMENT_ID,
+  });
+
+  log("Created vendor payment export fixture");
+}
+
 async function ensureZeroQueryAuthorizationFixtures(
   adminUserId: string,
   volunteerUserId: string
 ): Promise<void> {
   const now = new Date();
   const pastStart = subDays(now, 2);
-
-  await db
-    .update(user)
-    .set({
-      image: legacyMediaUrl(
-        `${R2_KEY_PREFIX}/avatars/${volunteerUserId}/e2e-avatar.jpg`
-      ),
-    })
-    .where(eq(user.id, volunteerUserId));
 
   await db
     .insert(team)
@@ -566,7 +589,7 @@ async function ensureZeroQueryAuthorizationFixtures(
           "Protected event for direct Zero query authorization tests",
         feedbackEnabled: true,
         id: ZERO_AUTH_PROTECTED_EVENT_ID,
-        isPublic: false,
+        isPublic: true,
         name: "E2E Zero Query Protected Event",
         startTime: pastStart,
         teamId: ZERO_AUTH_PROTECTED_TEAM_ID,
@@ -632,7 +655,7 @@ async function ensureZeroQueryAuthorizationFixtures(
   await db
     .insert(eventUpdate)
     .values({
-      content: plateImageContent(legacyMediaUrl(ZERO_AUTH_EVENT_MEDIA_KEY)),
+      content: "Protected pending update fixture",
       createdAt: now,
       createdBy: volunteerUserId,
       eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
@@ -943,6 +966,7 @@ async function seed(): Promise<void> {
   await ensureReimbursement(superAdminUserId, pastEvent.id);
   await ensureR2AuthorizationFixtures();
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
+  await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }
 

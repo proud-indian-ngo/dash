@@ -68,6 +68,11 @@ access:
    dry-run until `totals.changed` and `totals.malformed` are both `0`.
 5. Disable public bucket/CDN access only after that clean report.
 
+Protected request attachments and event photos do not use `VITE_CDN_URL`.
+Keep the bucket/CDN public during the staged migration while avatar and editor
+assets still depend on it. Disable public bucket access only after those
+remaining asset families move behind authenticated delivery.
+
 ### Voucher Organization
 
 | Variable | Description |
