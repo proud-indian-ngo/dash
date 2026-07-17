@@ -35,6 +35,9 @@ function KalakritiCentersPage() {
   const canManageGuardians = canManageCenters;
   const canManageLiaisons =
     canManageCenters || responsibilities.has("volunteer_coordinator");
+  const centerConfigurationLocked =
+    edition.lifecycle === "live" || edition.lifecycle === "archived";
+  const canConfigureCenters = canManageCenters && !centerConfigurationLocked;
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
@@ -51,6 +54,7 @@ function KalakritiCentersPage() {
     { enabled: canManageGuardians }
   );
   const [volunteerOptions, setVolunteerOptions] = useState<PickerUser[]>([]);
+  const [volunteerOptionsError, setVolunteerOptionsError] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingCenter, setEditingCenter] = useState<CenterListItem | null>(
     null
@@ -59,26 +63,28 @@ function KalakritiCentersPage() {
     null
   );
 
+  const loadVolunteerOptions = useCallback(
+    () =>
+      getKalakritiVolunteersForPicker({
+        data: { editionId: edition.id },
+      })
+        .then((users) => {
+          setVolunteerOptions(users);
+          setVolunteerOptionsError(false);
+        })
+        .catch(() => {
+          setVolunteerOptions([]);
+          setVolunteerOptionsError(true);
+        }),
+    [edition.id]
+  );
+
   useEffect(() => {
     if (!canManageLiaisons) {
       return;
     }
-    let active = true;
-    getKalakritiVolunteersForPicker({ data: { editionId: edition.id } })
-      .then((users) => {
-        if (active) {
-          setVolunteerOptions(users);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setVolunteerOptions([]);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [canManageLiaisons, edition.id]);
+    loadVolunteerOptions();
+  }, [canManageLiaisons, loadVolunteerOptions]);
 
   const retireAction = useConfirmAction<CenterListItem>({
     mutationMeta: {
@@ -154,6 +160,9 @@ function KalakritiCentersPage() {
     [lockAllAction]
   );
   const handleCreate = useEventCallback(() => setCreateOpen(true));
+  const handleVolunteerRetry = useEventCallback(() => {
+    loadVolunteerOptions();
+  });
   const handleEditOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       setEditingCenter(null);
@@ -182,14 +191,8 @@ function KalakritiCentersPage() {
     })
   );
 
-  if (centerResult.type === "error") {
-    return (
-      <div className="py-12 text-center" role="alert">
-        Centers could not be loaded.
-      </div>
-    );
-  }
-  if (centerResult.type !== "complete") {
+  const isLoading = centers.length === 0 && centerResult.type !== "complete";
+  if (isLoading) {
     return (
       <div
         aria-label="Loading Centers"
@@ -205,6 +208,12 @@ function KalakritiCentersPage() {
       center.studentRegistrationEnabled ||
       center.competitionEntryRegistrationEnabled
   );
+  let emptyStateDescription = "You have not been assigned to a Center.";
+  if (canConfigureCenters) {
+    emptyStateDescription = "Add the first Center for this Edition.";
+  } else if (canManageCenters && centerConfigurationLocked) {
+    emptyStateDescription = "Center configuration is locked for this Edition.";
+  }
 
   return (
     <div className="space-y-4 pt-6">
@@ -216,7 +225,7 @@ function KalakritiCentersPage() {
             Edition.
           </p>
         </div>
-        {canManageCenters ? (
+        {canConfigureCenters ? (
           <div className="flex flex-wrap gap-2">
             <Button
               disabled={!hasOpenRegistration}
@@ -232,13 +241,19 @@ function KalakritiCentersPage() {
         ) : null}
       </div>
 
+      {canManageCenters && centerConfigurationLocked ? (
+        <p className="text-muted-foreground text-sm">
+          Center configuration is locked while this Edition is{" "}
+          {edition.lifecycle}. Guardian and Liaison assignments remain
+          available.
+        </p>
+      ) : null}
+
       {centers.length === 0 ? (
         <div className="border border-dashed px-4 py-12 text-center">
           <p className="font-medium">No Centers available</p>
           <p className="mt-1 text-muted-foreground text-sm">
-            {canManageCenters
-              ? "Add the first Center for this Edition."
-              : "You have not been assigned to a Center."}
+            {emptyStateDescription}
           </p>
         </div>
       ) : (
@@ -259,7 +274,7 @@ function KalakritiCentersPage() {
           );
           return (
             <CenterCard
-              canManageCenters={canManageCenters}
+              canManageCenters={canConfigureCenters}
               canManageGuardians={canManageGuardians}
               canManageLiaisons={canManageLiaisons}
               center={center}
@@ -285,7 +300,9 @@ function KalakritiCentersPage() {
               onEdit={setEditingCenter}
               onRegistrationControls={setControlsCenter}
               onRetire={retireAction.trigger}
+              onRetryVolunteers={handleVolunteerRetry}
               volunteerOptions={volunteerOptions}
+              volunteerOptionsError={volunteerOptionsError}
             />
           );
         })

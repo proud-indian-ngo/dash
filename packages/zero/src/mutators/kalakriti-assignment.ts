@@ -8,20 +8,18 @@ import z from "zod";
 import type { Context } from "../context";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
+import {
+  getCenterForUpdate,
+  type LockableKalakritiTx,
+} from "./kalakriti-row-locks";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
 }
 
-abstract class BivariantZeroRun {
-  abstract bivarianceHack(query: unknown): Promise<unknown>;
-}
-
 type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
-type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 
-interface AssignmentTx {
-  location: "client" | "server";
+interface AssignmentTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAssignment: {
       delete: ZeroMutationFn;
@@ -38,7 +36,6 @@ interface AssignmentTx {
       insert: ZeroMutationFn;
     };
   };
-  run: ZeroRunFn;
 }
 
 async function assertCanManageResponsibility(
@@ -160,9 +157,7 @@ async function assertAssignmentCenter(
   if (!centerId) {
     return;
   }
-  const center = (await tx.run(
-    zql.kalakritiCenter.where("id", centerId).one()
-  )) as { editionId: string; retiredAt: number | null } | undefined;
+  const center = await getCenterForUpdate(tx, centerId);
   if (!(center && center.editionId === editionId)) {
     throw new Error("Center not found in this Edition");
   }

@@ -68,6 +68,24 @@ export class KalakritiCentersPage {
       .getByRole("option", { name: new RegExp(volunteerName) })
       .click();
     await card.getByRole("button", { name: "Assign Liaison" }).click();
-    await expect(card.getByText(volunteerName, { exact: true })).toBeVisible();
+    await expect(
+      card
+        .getByRole("list", { name: "Liaisons" })
+        .getByText(volunteerName, { exact: true })
+    ).toBeVisible();
+  }
+
+  async assignGuardian(centerName: string, guardianName: string) {
+    const card = this.center(centerName);
+    await card.getByRole("combobox", { name: "Guardian" }).click();
+    await this.page
+      .getByRole("option", { exact: true, name: guardianName })
+      .click();
+    await card.getByRole("button", { name: "Assign Guardian" }).click();
+    await expect(
+      card
+        .getByRole("list", { name: "Guardians" })
+        .getByText(guardianName, { exact: true })
+    ).toBeVisible();
   }
 }

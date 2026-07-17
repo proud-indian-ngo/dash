@@ -1,16 +1,35 @@
+import {
+  createKalakritiExternalUser,
+  deleteKalakritiExternalUser,
+} from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
-import { kalakritiEdition } from "@pi-dash/db/schema/kalakriti";
+import {
+  kalakritiEdition,
+  kalakritiEditionMembership,
+  kalakritiExternalIdentity,
+} from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { eq } from "drizzle-orm";
 
 const EDITION_ID = "019f0000-0000-7000-8000-00000000c701";
 const EVENT_ID = "019f0000-0000-7000-8000-00000000c702";
+const GUARDIAN_MEMBERSHIP_ID = "019f0000-0000-7000-8000-00000000c703";
+const GUARDIAN_EMAIL = "center-guardian@pi-dash.test";
+const GUARDIAN_NAME = "Center Test Guardian";
+const GUARDIAN_PASSWORD = "CenterGuardian!2197";
 const YEAR = 2197;
 
 async function cleanup(): Promise<void> {
   await db.delete(kalakritiEdition).where(eq(kalakritiEdition.id, EDITION_ID));
   await db.delete(teamEvent).where(eq(teamEvent.id, EVENT_ID));
+  const external = await db.query.user.findFirst({
+    columns: { id: true },
+    where: eq(user.email, GUARDIAN_EMAIL),
+  });
+  if (external) {
+    await deleteKalakritiExternalUser(external.id);
+  }
 }
 
 async function setup(superAdminEmail: string) {
@@ -53,12 +72,50 @@ async function setup(superAdminEmail: string) {
     updatedAt: now,
     year: YEAR,
   });
-  return { year: YEAR };
+  const external = await createKalakritiExternalUser({
+    email: GUARDIAN_EMAIL,
+    name: GUARDIAN_NAME,
+    password: GUARDIAN_PASSWORD,
+    phone: null,
+  });
+  await db.transaction(async (tx) => {
+    await tx.insert(kalakritiExternalIdentity).values({
+      createdAt: now,
+      createdBy: actor.id,
+      userId: external.id,
+    });
+    await tx.insert(kalakritiEditionMembership).values({
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: EDITION_ID,
+      id: GUARDIAN_MEMBERSHIP_ID,
+      kind: "guardian",
+      snapshotEmail: GUARDIAN_EMAIL,
+      snapshotName: GUARDIAN_NAME,
+      snapshotPhone: null,
+      state: "active",
+      updatedAt: now,
+      userId: external.id,
+    });
+  });
+  return {
+    guardianEmail: GUARDIAN_EMAIL,
+    guardianName: GUARDIAN_NAME,
+    guardianPassword: GUARDIAN_PASSWORD,
+    year: YEAR,
+  };
 }
 
 const [action, argument] = process.argv.slice(2);
 try {
-  let result: { removed: boolean } | { year: number };
+  let result:
+    | { removed: boolean }
+    | {
+        guardianEmail: string;
+        guardianName: string;
+        guardianPassword: string;
+        year: number;
+      };
   if (action === "setup") {
     result = await setup(argument ?? "");
   } else if (action === "cleanup") {

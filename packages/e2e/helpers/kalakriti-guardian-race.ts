@@ -2,9 +2,11 @@ import { createKalakritiExternalUser } from "@pi-dash/auth/kalakriti-external-us
 import { db } from "@pi-dash/db";
 import { session, user } from "@pi-dash/db/schema/auth";
 import {
+  kalakritiCenter,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
+  kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
 import { team } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
@@ -26,6 +28,11 @@ const EDITION_IDS = [
   "019f0000-0000-7000-8000-00000000e521",
   "019f0000-0000-7000-8000-00000000e522",
 ] as const;
+const CENTER_IDS = [
+  "019f0000-0000-7000-8000-00000000e541",
+  "019f0000-0000-7000-8000-00000000e542",
+] as const;
+const GUARDIAN_CENTER_ID = "019f0000-0000-7000-8000-00000000e551";
 const YEARS = [2198, 2199] as const;
 const SESSION_ID = "kalakriti-guardian-race-session";
 
@@ -83,6 +90,19 @@ async function setup(superAdminEmail: string) {
       teamEventId: EVENT_IDS[index],
       updatedAt: now,
       year: YEARS[index],
+    }))
+  );
+  await db.insert(kalakritiCenter).values(
+    CENTER_IDS.map((id, index) => ({
+      competitionEntryRegistrationEnabled: false,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: EDITION_IDS[index],
+      id,
+      name: `Race Center ${index + 1}`,
+      normalizedName: `race center ${index + 1}`,
+      studentRegistrationEnabled: false,
+      updatedAt: now,
     }))
   );
 
@@ -149,6 +169,33 @@ async function createSession(userId: string) {
   return { created: true };
 }
 
+async function assignCenter(membershipId: string) {
+  const membership = await db.query.kalakritiEditionMembership.findFirst({
+    columns: { createdBy: true, editionId: true },
+    where: (table, operators) => operators.eq(table.id, membershipId),
+  });
+  if (!membership) {
+    throw new Error("Guardian membership is missing");
+  }
+
+  const editionIndex = EDITION_IDS.indexOf(
+    membership.editionId as (typeof EDITION_IDS)[number]
+  );
+  if (editionIndex < 0) {
+    throw new Error("Guardian membership belongs to an unexpected Edition");
+  }
+
+  await db.insert(kalakritiGuardianCenter).values({
+    centerId: CENTER_IDS[editionIndex],
+    createdAt: new Date(),
+    createdBy: membership.createdBy,
+    editionId: membership.editionId,
+    id: GUARDIAN_CENTER_ID,
+    membershipId,
+  });
+  return { assigned: true };
+}
+
 async function readState(userId: string) {
   const memberships = await db
     .select({
@@ -166,11 +213,23 @@ async function readState(userId: string) {
     .select({ id: session.id })
     .from(session)
     .where(eq(session.userId, userId));
+  const centerAssignments = memberships.length
+    ? await db
+        .select({ id: kalakritiGuardianCenter.id })
+        .from(kalakritiGuardianCenter)
+        .where(
+          inArray(
+            kalakritiGuardianCenter.membershipId,
+            memberships.map((membership) => membership.id)
+          )
+        )
+    : [];
   return {
     activeMemberships: memberships.filter(
       (membership) => membership.state === "active"
     ),
     banned: externalUser?.banned ?? null,
+    centerAssignmentCount: centerAssignments.length,
     memberships,
     sessionCount: sessions.length,
   };
@@ -191,6 +250,8 @@ if (action === "setup" && argument) {
   result = await setupOrphanedCentralGuardian(argument);
 } else if (action === "create-session" && argument) {
   result = await createSession(argument);
+} else if (action === "assign-center" && argument) {
+  result = await assignCenter(argument);
 } else if (action === "state" && argument) {
   result = await readState(argument);
 } else if (action === "membership-state" && argument) {
