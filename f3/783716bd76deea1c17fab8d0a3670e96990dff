@@ -1,0 +1,122 @@
+packages/zero/src/mutators/kalakriti-config-access.ts
+  s_c8c0ce2f824e4f::t_44c8d1c3dbe380 40-78
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_b1c670c1398061 52-54,59,176-178,185,908-968
+  s_c8c0ce2f824e4f::t_0e4950003f6841 969
+apps/web/src/components/kalakriti/competition-assignment-form.tsx
+  s_c8c0ce2f824e4f::t_c2547841f10d1b 1,23,93-95,102,134,172
+  s_c8c0ce2f824e4f::t_480f373590ccb1 2,25-48,99-100,126,133,178-180
+  s_c8c0ce2f824e4f::t_63ce33ff0d1d28 3-22,24,49-92,96-98,101,103-125,127-132,135-171,173-177,181-202
+packages/zero/src/queries/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_54659cfa2c172f 34-48
+  s_c8c0ce2f824e4f::t_5d71ee84b12f6e 1-33,49
+packages/shared/src/kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_9e4cbe91f35f4e 6,9,99-184
+  s_c8c0ce2f824e4f::t_80f84278a90bb5 185
+packages/zero/src/mutators/kalakriti-row-locks.ts
+  s_c8c0ce2f824e4f::t_44c8d1c3dbe380 28,31,145-150
+  s_c8c0ce2f824e4f::t_b5f18f20f2658c 56-74,130-135,137,154
+apps/web/src/components/kalakriti/competition-category-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_e554cb599d52a6 1-45,48-49,51-127,131-132,135-147
+  s_c8c0ce2f824e4f::t_44034556d8b027 46-47,50,128-130,133-134
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_970b8ba3ada4c3 15,43
+apps/web/src/components/kalakriti/venue-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_ef0797f1adaf19 1-38,40,42-48,51-119
+  s_c8c0ce2f824e4f::t_44034556d8b027 39,41,49-50
+apps/web/src/lib/kalakriti-competition-route.test.ts
+  s_c8c0ce2f824e4f::t_252902d2b9e79e 1-66
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_e07b9309d58b1c 13,39
+packages/zero/src/mutators/__tests__/kalakriti-row-locks.test.ts
+  s_c8c0ce2f824e4f::t_b5f18f20f2658c 1-22
+apps/web/src/routes/_app/kalakriti/$year/competitions.tsx
+  s_c8c0ce2f824e4f::t_252902d2b9e79e 10-13,44-48,111-112,157-158
+  s_c8c0ce2f824e4f::t_2d19b0da94a316 1-9,14-43,49-110,113-156,159-423
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_695b68f792bc8e 42-51,274-459,513-525
+  s_c8c0ce2f824e4f::t_32db578c1359f9 623-624,634,661-668,701,723-783
+  s_c8c0ce2f824e4f::t_acb45d7117707e 622
+apps/web/src/components/kalakriti/competition-session-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_aaf9bd43fe2b9f 1-21,23-114,121-122,124-160,162-179,184-189,191-201,204-342
+  s_c8c0ce2f824e4f::t_44034556d8b027 22,115-120,123,161,180-183,190,202-203
+apps/web/src/components/kalakriti/competition-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_225af80977372c 1-73,77-81,92-93,95-226
+  s_c8c0ce2f824e4f::t_44034556d8b027 74-76,82-91,94
+packages/zero/src/mutators/__tests__/kalakriti-assignment.test.ts
+  s_c8c0ce2f824e4f::t_2fe2a84728f4e4 402-485
+packages/zero/src/mutators/__tests__/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_5d71ee84b12f6e 1-313,361
+  s_c8c0ce2f824e4f::t_54659cfa2c172f 314-360
+packages/zero/src/queries/kalakriti-competition.ts
+  s_c8c0ce2f824e4f::t_970b8ba3ada4c3 1-31,34-42,44-69,72-81,83-112,115-155,158-165
+  s_c8c0ce2f824e4f::t_02f2b0de224802 32-33,43,70-71,82,113-114,156-157
+apps/web/src/components/kalakriti/competition-configuration-sections.tsx
+  s_c8c0ce2f824e4f::t_44034556d8b027 38-43,227-230,233-236,248-251,264-267,277-279,343-346,413-418,421-426,429-434,475-478,490-493,495-498,554-556,566-567,572-577,580-585,588-593
+  s_c8c0ce2f824e4f::t_ca2192403283fc 1-37,44-141,143-200,202-226,231-232,237-247,252-263,268-276,280-342,347-412,419-420,427-428,435-474,479-489,494,499-552,557-565,568-571,578-579,586-587,594-597,599-600
+  s_c8c0ce2f824e4f::t_a34f5941dc96ce 142,201,553,598
+packages/zero/src/mutators/__tests__/kalakriti-eligibility.test.ts
+  s_c8c0ce2f824e4f::t_160b3506b94d03 10-15
+packages/e2e/pages/kalakriti-competitions-page.ts
+  s_c8c0ce2f824e4f::t_aa061823082271 1-33
+apps/web/src/components/kalakriti/volunteer-assignment-roster.tsx
+  s_c8c0ce2f824e4f::t_3f703cd2dfccd9 19-20,26-30,41-42,50-51,71-77,83,102-103,109-110,145-146
+packages/e2e/tests/kalakriti/competition-configuration.spec.ts
+  s_c8c0ce2f824e4f::t_aa061823082271 1-25,27-56,58-59,61-62,66,68-91,95-104
+  s_c8c0ce2f824e4f::t_58d9e5d360d2ec 26,60,67
+  s_c8c0ce2f824e4f::t_1889e40578622c 63
+  s_c8c0ce2f824e4f::t_b584cb5f81051a 64-65
+  s_c8c0ce2f824e4f::t_52bcb522674881 57,92-94
+knip.json
+  s_c8c0ce2f824e4f::t_160b3506b94d03 28
+apps/web/src/routes/_app/kalakriti/$year/route.tsx
+  s_c8c0ce2f824e4f::t_726692265f9eee 34-41,71,115-127
+  s_c8c0ce2f824e4f::t_dda938bc2fdf53 128-129
+packages/zero/src/mutators/kalakriti-competition.ts
+  s_c8c0ce2f824e4f::t_ea12c17649b3ad 529,653-663
+  s_c8c0ce2f824e4f::t_b5f18f20f2658c 306
+  s_c8c0ce2f824e4f::t_98f7fe119b977d 1-224,226,229,231,234-305,307-341,344,350-351,362-363,366-368,370-371,377,380-383,386,400,402-403,405,413,444-468,472-486,489,493,509,511-512,515,517-521,524,528,539,558,560,564,567-570,572-573,577,582-584,586-587,589,592-595,597-604,606-609,611-620,623-628,634,636-645,648,652,667-669,671-672,674,677-705,708,712,722,724,728,731-734,737,762-764,766,770,773-807,810,814,821-823,825-826,829,832-835
+  s_c8c0ce2f824e4f::t_03956e5f134119 225,227-228,230,232-233,342-343,345-349,352-361,364-365,369,372-376,378-379,384-385,387-399,401,404,406-412,414-443,469-471,487-488,490-492,494-508,510,513-514,516,522-523,525-527,530-538,540-557,559,561-563,565-566,571,574-576,578-581,585,588,590-591,596,605,610,621-622,629-633,635,646-647,649-651,664-666,670,673,675-676,706-707,709-711,713-721,723,725-727,729-730,735-736,738-761,765,767-769,771-772,808-809,811-813,815-820,824,827-828,830-831
+packages/e2e/helpers/kalakriti-competitions.ts
+  s_c8c0ce2f824e4f::t_720034953faac9 6-7,9,12,43-66,108
+  s_c8c0ce2f824e4f::t_aa061823082271 1-5,8,10-11,13-42,67-107,109-184
+packages/zero/src/mutators/kalakriti-assignment.ts
+  s_c8c0ce2f824e4f::t_b28ff3b0f622bc 184-188,213-215,220-222,226,228,454-456,463
+  s_c8c0ce2f824e4f::t_f322ed5cae448d 3-4,127-154,165-166,206-212,216-219,223-225,227,229-237,281-286,315-316,325-328,389-390,427-428,439-453,462,470-475
+apps/web/src/components/kalakriti/volunteer-assignments-card.tsx
+  s_c8c0ce2f824e4f::t_e243a5bcba546e 38-97,272-280
+  s_c8c0ce2f824e4f::t_7b53b9eff17fc2 269-270
+  s_c8c0ce2f824e4f::t_3f703cd2dfccd9 17,160-167,236-237,264-268,271
+  s_c8c0ce2f824e4f::t_4f1f279a096691 281
+packages/zero/src/queries/kalakriti-eligibility.ts
+  s_c8c0ce2f824e4f::t_03956e5f134119 26-32
+packages/shared/src/kalakriti.ts
+  s_c8c0ce2f824e4f::t_dba35bb6290376 37-51,261-263,274
+  s_c8c0ce2f824e4f::t_74d7e88d6692d2 213-260,264-273,275-303
+apps/web/src/routeTree.gen.ts
+  s_c8c0ce2f824e4f::t_0b8b801a925226 67,345-350,402,451,511,570,619,678,1097-1103,1130,1138
+packages/db/src/migrations/0055_natural_blur.sql
+  s_c8c0ce2f824e4f::t_e2d83dd4ecff5c 1-91
+packages/db/src/migrations/meta/0055_snapshot.json
+  s_c8c0ce2f824e4f::t_fcdbde6066e7c6 1-7833
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_a77faabadcd2eb 389-395
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_500ed7778dbe22 1,913,917,919,923,1241-1465,1706-1758,3713-3720,3731-3746,3842-3935,4003-4026,4051-4058,4086-4103,4716-4718,4723,4773-4775,4779,4946-4966,4995-4999
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f3783716bd76deea1c17fab8d0a3670e96990dff",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
