@@ -23,6 +23,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 const EXEMPT_SERVER_FUNCTIONS = [
   "exportCsvData",
   "exportVendorPaymentsCsv",
+  "getEventEditorUploadUrl",
   "getPresignedUploadUrl",
   "getProfilePictureUploadUrl",
 ];
