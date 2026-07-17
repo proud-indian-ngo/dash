@@ -1,0 +1,78 @@
+packages/zero/src/mutators/__tests__/kalakriti-assignment.test.ts
+  s_c8c0ce2f824e4f::t_b4a8621bef0b69 1-262
+  s_c8c0ce2f824e4f::t_070dad8d8ef0bb 263-266
+apps/web/src/components/kalakriti/volunteer-assignment-roster.tsx
+  s_c8c0ce2f824e4f::t_2e98e0b0712008 1-136
+apps/web/src/components/kalakriti/volunteer-assignment-form.tsx
+  s_c8c0ce2f824e4f::t_61f5e4c70328a0 9,37-63,114-120
+  s_c8c0ce2f824e4f::t_219e619b1a97f4 1-8,10-32,64-88,90-113,121-144
+  s_c8c0ce2f824e4f::t_9f2ba9d22ba2d3 33-36,89
+apps/web/src/components/kalakriti/volunteer-assignments-card.tsx
+  s_c8c0ce2f824e4f::t_2e98e0b0712008 18-21,165
+  s_c8c0ce2f824e4f::t_4178b2ac3a204d 45
+  s_c8c0ce2f824e4f::t_9f2ba9d22ba2d3 31-36,99-102,112,117
+  s_c8c0ce2f824e4f::t_dd97fcb191c781 1-7,12-14,16,22-23,25-29,76-81,85-89,91-98,103-111,113-116,118-140,149-163,172-174,176-182,184-185,192-204,206-211
+  s_c8c0ce2f824e4f::t_61f5e4c70328a0 15,83,141-148
+  s_c8c0ce2f824e4f::t_219e619b1a97f4 17
+  s_c8c0ce2f824e4f::t_0dbe835b711c69 8-11,24,30,37-44,46-75,82,84,90,164,166-171,175,183,186-191,205
+packages/shared/src/kalakriti.ts
+  s_c8c0ce2f824e4f::t_eec33a95cb228e 1-74
+packages/zero/src/mutators/kalakriti-assignment.ts
+  s_c8c0ce2f824e4f::t_9091012d2c94bd 119,278
+  s_c8c0ce2f824e4f::t_206c2c5da87b89 1-118,120-128,130-277,279-307,312,314-335
+  s_c8c0ce2f824e4f::t_15ebc9dbefb99d 308-311,313
+  s_c8c0ce2f824e4f::t_e1c43f410f38fb 129
+docs/kalakriti-registration-release-tasks.md
+  s_c8c0ce2f824e4f::t_5270bbd020764a 178-185
+packages/shared/src/kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_eec33a95cb228e 1-37
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_3b5a10f6d58cff 185,189,193,197
+  s_c8c0ce2f824e4f::t_eec33a95cb228e 37-40
+  s_c8c0ce2f824e4f::t_82924fa6ee55a0 4,145,150-166,179-184,186-188,190-192,194-196,198-199
+  s_c8c0ce2f824e4f::t_abf97ade5fecdd 1,134-136
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_206c2c5da87b89 34
+  s_c8c0ce2f824e4f::t_d3ba5165fa91b9 11
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_206c2c5da87b89 37
+  s_c8c0ce2f824e4f::t_f26b28d6d90834 13
+packages/zero/src/queries/kalakriti-assignment.test.ts
+  s_c8c0ce2f824e4f::t_b4a8621bef0b69 1-52
+apps/web/src/routes/_app/kalakriti/$year.tsx
+  s_c8c0ce2f824e4f::t_dd97fcb191c781 147-148
+  s_c8c0ce2f824e4f::t_fb1b24d93bacfc 12
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_82924fa6ee55a0 835
+  s_c8c0ce2f824e4f::t_eddabe369df5b1 839-842
+apps/web/src/functions/users-for-picker.ts
+  s_c8c0ce2f824e4f::t_cc724a99820897 4-8,11,13,80-140
+  s_c8c0ce2f824e4f::t_6f79447261a001 141
+packages/zero/src/queries/kalakriti-assignment.ts
+  s_c8c0ce2f824e4f::t_206c2c5da87b89 1-9,13-68
+  s_c8c0ce2f824e4f::t_d51ec542d25f41 10-12
+packages/db/src/migrations/0051_numerous_shadowcat.sql
+  s_c8c0ce2f824e4f::t_4bcb3d62b4254d 1-47
+packages/db/src/migrations/meta/0051_snapshot.json
+  s_c8c0ce2f824e4f::t_f493d66f5e12be 1-6380
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_1efbaf22ea51ef 361-367
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_287bd74dfedbe7 1,890-907,931-936,946-967
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "dfe323aeb65da437e9a782ad9bf3f398dfb13ca5",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
