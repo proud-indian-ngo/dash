@@ -1,0 +1,23 @@
+CONTEXT.md
+  s_96c2c06cf47a89::t_e16a282c2f3a49 1-93
+docs/adr/0001-kalakriti-as-edition-bound-module.md
+  s_96c2c06cf47a89::t_c042315c6b548e 1-20
+docs/kalakriti-native-module-design.md
+  s_96c2c06cf47a89::t_27490f89160a48 1-655
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "69f2c959efce52764d6e2a54aeebc0ea5c344453",
+  "prompts": {},
+  "sessions": {
+    "s_96c2c06cf47a89": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6f54-beb0-71e1-a4c9-93c00deb0555",
+        "model": "unknown"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}

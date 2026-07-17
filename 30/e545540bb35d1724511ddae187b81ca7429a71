@@ -1,0 +1,27 @@
+packages/zero/src/queries/kalakriti-membership.ts
+  s_c8c0ce2f824e4f::t_080dc20b9da411 29-42
+  s_c8c0ce2f824e4f::t_7081b8eddb746b 12-20,25
+packages/zero/src/queries/kalakriti-center.test.ts
+  s_c8c0ce2f824e4f::t_d73faa7a2f7e54 52-68
+packages/zero/src/queries/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_ae67ac46834c61 54-55
+  s_c8c0ce2f824e4f::t_d35220f7e516da 56
+packages/zero/src/queries/kalakriti-membership.test.ts
+  s_c8c0ce2f824e4f::t_f1ca00150304c6 40-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "30e545540bb35d1724511ddae187b81ca7429a71",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.3-codex-spark"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
