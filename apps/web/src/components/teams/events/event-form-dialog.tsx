@@ -7,7 +7,10 @@ import {
 } from "@pi-dash/design-system/components/ui/collapsible";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
-import { RSVP_POLL_LEAD_PRESETS } from "@pi-dash/shared/event-reminders";
+import {
+  DEFAULT_RSVP_POLL_LEAD_MINUTES,
+  RSVP_POLL_LEAD_PRESETS,
+} from "@pi-dash/shared/event-reminders";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -151,7 +154,9 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     reminderTarget: (initialValues?.reminderTarget ??
       "participants") as (typeof reminderTargetValues)[number],
     rrule: initialValues?.recurrenceRule?.rrule,
-    rsvpPollLeadMinutes: String(initialValues?.rsvpPollLeadMinutes ?? 60),
+    rsvpPollLeadMinutes: String(
+      initialValues?.rsvpPollLeadMinutes ?? DEFAULT_RSVP_POLL_LEAD_MINUTES
+    ),
     startTime: initialValues?.startTime
       ? new Date(initialValues.startTime)
       : undefined,
@@ -196,7 +201,9 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
-    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    ...(value.postRsvpPoll
+      ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
+      : {}),
     startTime: getStartTimeEpoch(value),
     whatsappGroupId: value.whatsappGroupId || undefined,
   };
@@ -235,7 +242,9 @@ function buildUpdateSeriesArgs(
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
-    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    ...(value.postRsvpPoll
+      ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
+      : {}),
     startTime: getStartTimeEpoch(value),
     whatsappGroupId: value.whatsappGroupId || undefined,
   };
@@ -278,7 +287,9 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
       ? value.reminderIntervals
       : null,
     reminderTarget: value.reminderTarget,
-    rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes),
+    ...(value.postRsvpPoll
+      ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
+      : {}),
     startTime: getStartTimeEpoch(value),
     teamId,
     whatsappGroupId: value.whatsappGroupId || undefined,

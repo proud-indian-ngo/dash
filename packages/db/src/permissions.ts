@@ -360,6 +360,12 @@ export const PERMISSIONS = [
     id: "bank_accounts.manage_own",
     name: "Manage Own Bank Accounts",
   },
+  {
+    category: "system",
+    description: "View the immutable user action audit ledger",
+    id: "audit_log.view",
+    name: "View Audit Log",
+  },
 ] as const;
 
 export type PermissionId = (typeof PERMISSIONS)[number]["id"];
@@ -407,6 +413,7 @@ export const ADMIN_TIER_ROLES = new Set([
 ]);
 
 const adminExcluded = new Set<PermissionId>([
+  "audit_log.view",
   "requests.approve",
   "requests.edit_all_statuses",
   "vendors.approve",
@@ -424,6 +431,7 @@ const adminExcluded = new Set<PermissionId>([
 ]);
 
 const financeAdminExcluded = new Set<PermissionId>([
+  "audit_log.view",
   "requests.edit_all_statuses",
   "users.create",
   "users.edit",

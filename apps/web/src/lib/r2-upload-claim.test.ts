@@ -197,48 +197,50 @@ describe("copyR2Object", () => {
       mimeType: "application/zip",
       sourceKey: "app/scheduled-messages/tmp/user-1/archive.zip",
     },
-  ])("enforces stored size for $sourceKey", async ({
-    maxSize,
-    mimeType,
-    sourceKey,
-  }) => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    s3.stat.mockResolvedValue({ size: maxSize, type: mimeType });
-    streamedSize = maxSize;
+  ])(
+    "enforces stored size for $sourceKey",
+    async ({ maxSize, mimeType, sourceKey }) => {
+      s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      s3.stat.mockResolvedValue({ size: maxSize, type: mimeType });
+      streamedSize = maxSize;
 
-    await copyR2Object(
-      { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
-      deps
-    );
-    expect(writer.write).toHaveBeenCalled();
-
-    vi.clearAllMocks();
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    s3.stat.mockResolvedValue({ size: maxSize + 1, type: mimeType });
-    await expect(
-      copyR2Object(
+      await copyR2Object(
         { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
         deps
-      )
-    ).rejects.toThrow("exceeds");
-    expect(writer.write).not.toHaveBeenCalled();
-  });
+      );
+      expect(writer.write).toHaveBeenCalled();
+
+      vi.clearAllMocks();
+      s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      s3.stat.mockResolvedValue({ size: maxSize + 1, type: mimeType });
+      await expect(
+        copyR2Object(
+          { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
+          deps
+        )
+      ).rejects.toThrow("exceeds");
+      expect(writer.write).not.toHaveBeenCalled();
+    }
+  );
 
   it.each([
     ["app/attachments/tmp/user-1/audio.mp3", "audio/mpeg"],
     ["app/approval-screenshots/tmp/user-1/animation.gif", "image/gif"],
     ["app/photos/tmp/user-1/document.pdf", "application/pdf"],
     ["app/scheduled-messages/tmp/user-1/file", "not-a-mime"],
-  ])("rejects unsupported stored MIME metadata for %s", async (sourceKey, mimeType) => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    s3.stat.mockResolvedValue({ size: 1024, type: mimeType });
+  ])(
+    "rejects unsupported stored MIME metadata for %s",
+    async (sourceKey, mimeType) => {
+      s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      s3.stat.mockResolvedValue({ size: 1024, type: mimeType });
 
-    await expect(
-      copyR2Object(
-        { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
-        deps
-      )
-    ).rejects.toThrow("Unsupported upload type");
-    expect(writer.write).not.toHaveBeenCalled();
-  });
+      await expect(
+        copyR2Object(
+          { mimeType, sourceKey, targetKey: `${sourceKey}-durable` },
+          deps
+        )
+      ).rejects.toThrow("Unsupported upload type");
+      expect(writer.write).not.toHaveBeenCalled();
+    }
+  );
 });

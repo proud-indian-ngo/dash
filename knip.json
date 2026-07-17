@@ -19,8 +19,7 @@
       "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },
     "packages/db": {
-      "ignoreFiles": ["scripts/**"],
-      "ignoreDependencies": ["uuidv7"]
+      "ignoreFiles": ["scripts/**"]
     },
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],

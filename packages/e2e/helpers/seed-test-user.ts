@@ -1,6 +1,7 @@
 import path from "node:path";
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import {
@@ -88,6 +89,7 @@ const TEST_USERS: TestUser[] = [
 ];
 
 const SEED_CATEGORIES = ["Travel", "Food", "Accommodation", "Supplies"];
+const AUDIT_ENTRY_ID = "00000000-0000-4000-8000-000000000001";
 const RESERVED_PERMISSION_PROBE_ROLE_ID = "e2e_reserved_permission_probe";
 
 async function verifyReservedPermissionSync(): Promise<void> {
@@ -171,6 +173,30 @@ async function ensureTestUser(testUser: TestUser): Promise<string> {
   return record.id;
 }
 
+async function ensureAuditLogEntry(superAdminUserId: string): Promise<void> {
+  const existing = await db.query.auditLog.findFirst({
+    columns: { id: true },
+    where: (table, ops) => ops.eq(table.id, AUDIT_ENTRY_ID),
+  });
+  if (existing) {
+    return;
+  }
+
+  await db.insert(auditLog).values({
+    action: "e2e.audit.seed",
+    actorName: "Test Super Admin",
+    actorRole: "super_admin",
+    actorUserId: superAdminUserId,
+    completedAt: new Date(),
+    id: AUDIT_ENTRY_ID,
+    metadata: { source: "e2e" },
+    outcome: "success",
+    targetId: superAdminUserId,
+    targetType: "user",
+    traceId: "00000000000000000000000000000001",
+  });
+}
+
 async function ensureExpenseCategories(): Promise<void> {
   await Promise.all(
     SEED_CATEGORIES.map(async (name) => {
@@ -240,10 +266,25 @@ const SEED_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
 const SEED_REIMBURSEMENT_ATTACHMENT_ID = "e2e00000-0000-0000-0000-000000000005";
 const SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID =
   "e2e00000-0000-0000-0000-000000000006";
+const SEED_EXPORT_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000007";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
-const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
+const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-4000-8000-000000000201";
 const ZERO_AUTH_LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000202";
+const ZERO_AUTH_PROTECTED_MEDIA_KEY = `${process.env.R2_KEY_PREFIX ?? "attachments"}/updates/${ZERO_AUTH_PROTECTED_EVENT_ID}/e2e-editor-image.jpg`;
+const ZERO_AUTH_PROTECTED_UPDATE_CONTENT = JSON.stringify([
+  {
+    children: [
+      { text: "Protected pending update fixture" },
+      {
+        children: [{ text: "" }],
+        type: "img",
+        url: ZERO_AUTH_PROTECTED_MEDIA_KEY,
+      },
+    ],
+    type: "p",
+  },
+]);
 const ZERO_AUTH_PROTECTED_INTEREST_ID = "e2e00000-0000-0000-0000-000000000301";
 const ZERO_AUTH_PROTECTED_UPDATE_ID = "e2e00000-0000-0000-0000-000000000302";
 const ZERO_AUTH_PROTECTED_PHOTO_ID = "e2e00000-0000-0000-0000-000000000303";
@@ -486,6 +527,53 @@ async function ensureEventVendorPayment(
   log("Created event vendor payment");
 }
 
+async function ensureExportVendorPayment(userId: string): Promise<void> {
+  const existingPayment = await db.query.vendorPayment.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_EXPORT_VENDOR_PAYMENT_ID),
+  });
+  if (existingPayment) {
+    return;
+  }
+
+  const category = await db.query.expenseCategory.findFirst();
+  const seededVendor = await db.query.vendor.findFirst({
+    where: (table, ops) => ops.eq(table.id, SEED_VENDOR_ID),
+  });
+  if (!(category && seededVendor)) {
+    throw new Error(
+      "Vendor payment export fixture requires category and vendor"
+    );
+  }
+
+  const createdAt = new Date("2026-07-01T00:00:00.000Z");
+  await db.insert(vendorPayment).values({
+    city: "bangalore",
+    createdAt,
+    id: SEED_EXPORT_VENDOR_PAYMENT_ID,
+    invoiceDate: "2026-01-20",
+    invoiceNumber: "E2E-INV-2026-001",
+    status: "completed",
+    submittedAt: createdAt,
+    title: "E2E Export Vendor Payment",
+    updatedAt: createdAt,
+    userId,
+    vendorId: seededVendor.id,
+  });
+
+  await db.insert(vendorPaymentLineItem).values({
+    amount: "875.00",
+    categoryId: category.id,
+    createdAt,
+    description: "Export date filter fixture",
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: createdAt,
+    vendorPaymentId: SEED_EXPORT_VENDOR_PAYMENT_ID,
+  });
+
+  log("Created vendor payment export fixture");
+}
+
 async function ensureZeroQueryAuthorizationFixtures(
   adminUserId: string,
   volunteerUserId: string
@@ -588,6 +676,18 @@ async function ensureZeroQueryAuthorizationFixtures(
     .onConflictDoNothing();
 
   await db
+    .update(teamEvent)
+    .set({ isPublic: false })
+    .where(eq(teamEvent.id, ZERO_AUTH_PROTECTED_EVENT_ID));
+
+  await db
+    .update(user)
+    .set({
+      image: `${process.env.R2_KEY_PREFIX ?? "attachments"}/avatars/${volunteerUserId}/e2e-avatar.jpg`,
+    })
+    .where(eq(user.id, volunteerUserId));
+
+  await db
     .insert(teamEventMember)
     .values([
       {
@@ -640,7 +740,10 @@ async function ensureZeroQueryAuthorizationFixtures(
       status: "pending",
       updatedAt: now,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      set: { content: ZERO_AUTH_PROTECTED_UPDATE_CONTENT },
+      target: eventUpdate.id,
+    });
 
   await db
     .insert(eventPhoto)
@@ -931,6 +1034,7 @@ async function seed(): Promise<void> {
   );
   await ensureZeroQueryAuthorizationFixtures(superAdminUserId, volunteerUserId);
   await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
+  await ensureAuditLogEntry(superAdminUserId);
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });
@@ -943,6 +1047,7 @@ async function seed(): Promise<void> {
   await ensureReimbursement(superAdminUserId, pastEvent.id);
   await ensureR2AuthorizationFixtures();
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
+  await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }
 

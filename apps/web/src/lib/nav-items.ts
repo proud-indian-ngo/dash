@@ -105,6 +105,12 @@ const jobsNavItem: NavItem = {
   url: "/jobs",
 };
 
+const auditLogNavItem: NavItem = {
+  icon: SecurityLockIcon,
+  title: "Audit Log",
+  url: "/audit-log",
+};
+
 const scheduledMessagesNavItem: NavItem = {
   icon: Message01Icon,
   title: "Messages",
@@ -157,6 +163,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   }
   if (has(permissions, "jobs.manage")) {
     items.push(jobsNavItem);
+  }
+  if (has(permissions, "audit_log.view")) {
+    items.push(auditLogNavItem);
   }
   if (has(permissions, "messages.schedule")) {
     items.push(scheduledMessagesNavItem);
@@ -220,6 +229,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (has(permissions, "jobs.manage")) {
     adminItems.push(jobsNavItem);
+  }
+  if (has(permissions, "audit_log.view")) {
+    adminItems.push(auditLogNavItem);
   }
   if (has(permissions, "messages.schedule")) {
     adminItems.push(scheduledMessagesNavItem);

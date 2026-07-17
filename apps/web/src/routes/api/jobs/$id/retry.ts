@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
+import { classifyAuditResponse, runSessionAuditedAction } from "@/lib/audit";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,54 +19,68 @@ export const Route = createFileRoute("/api/jobs/$id/retry")({
           return error;
         }
 
-        try {
-          await assertServerPermission(session, "jobs.manage");
-        } catch {
-          return Response.json({ error: "Forbidden" }, { status: 403 });
-        }
-
         const { id } = params;
 
         if (!UUID_RE.test(id)) {
           return Response.json({ error: "Job not found" }, { status: 404 });
         }
 
-        try {
-          const rows = await db.execute<{ name: string; state: string }>(
-            sql`SELECT name, state FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
-              QUEUE_NAMES.map((n) => sql`${n}`),
-              sql`, `
-            )}) LIMIT 1`
-          );
+        return await runSessionAuditedAction(
+          session,
+          request.headers,
+          {
+            action: "job.retry",
+            target: { id, type: "job" },
+          },
+          async () => {
+            try {
+              await assertServerPermission(session, "jobs.manage");
+            } catch {
+              return Response.json({ error: "Forbidden" }, { status: 403 });
+            }
 
-          const [row] = rows;
-          if (!row) {
-            return Response.json({ error: "Job not found" }, { status: 404 });
-          }
+            try {
+              const rows = await db.execute<{ name: string; state: string }>(
+                sql`SELECT name, state FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
+                  QUEUE_NAMES.map((n) => sql`${n}`),
+                  sql`, `
+                )}) LIMIT 1`
+              );
 
-          if (row.state !== "failed") {
-            return Response.json(
-              { error: "Only failed jobs can be retried" },
-              { status: 400 }
-            );
-          }
+              const [row] = rows;
+              if (!row) {
+                return Response.json(
+                  { error: "Job not found" },
+                  { status: 404 }
+                );
+              }
 
-          const boss = await ensureBossReady();
-          await boss.retry(row.name, id);
-          return Response.json({ success: true });
-        } catch (err) {
-          const log = createRequestLogger({
-            method: "POST",
-            path: `/api/jobs/${id}/retry`,
-          });
-          log.set({ jobId: id, userId: session.user.id });
-          log.error(err instanceof Error ? err : String(err));
-          log.emit();
-          return Response.json(
-            { error: "Failed to retry job" },
-            { status: 500 }
-          );
-        }
+              if (row.state !== "failed") {
+                return Response.json(
+                  { error: "Only failed jobs can be retried" },
+                  { status: 400 }
+                );
+              }
+
+              const boss = await ensureBossReady();
+              await boss.retry(row.name, id);
+              return Response.json({ success: true });
+            } catch (err) {
+              const log = createRequestLogger({
+                method: "POST",
+                path: `/api/jobs/${id}/retry`,
+              });
+              log.set({ jobId: id, userId: session.user.id });
+              log.error(err instanceof Error ? err : String(err));
+              log.emit();
+              return Response.json(
+                { error: "Failed to retry job" },
+                { status: 500 }
+              );
+            }
+          },
+          classifyAuditResponse
+        );
       },
     },
   },

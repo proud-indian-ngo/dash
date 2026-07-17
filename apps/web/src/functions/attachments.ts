@@ -12,6 +12,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import { runSessionAuditedAction } from "@/lib/audit";
 import {
   approvalScreenshotUploadSchema,
   avatarUploadSchema,
@@ -242,28 +243,40 @@ export const deleteTemporaryUpload = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    try {
-      const s3 = await getS3();
-      await deleteOwnedTemporaryUpload(
-        data.key,
-        { keyPrefix: env.R2_KEY_PREFIX, userId: context.session.user.id },
-        {
-          deleteObject: (key) => s3.delete(key),
-          withDeleteLock: withProtectedR2ObjectDeleteLock,
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "asset.delete",
+        metadata: { temporary: true },
+        target: { type: "asset" },
+      },
+      async () => {
+        try {
+          const s3 = await getS3();
+          await deleteOwnedTemporaryUpload(
+            data.key,
+            { keyPrefix: env.R2_KEY_PREFIX, userId: session.user.id },
+            {
+              deleteObject: (key) => s3.delete(key),
+              withDeleteLock: withProtectedR2ObjectDeleteLock,
+            }
+          );
+          return { success: true };
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/deleteTemporaryUpload" },
+            {
+              handler: "deleteTemporaryUpload",
+              key: data.key,
+              userId: session.user.id,
+            },
+            error
+          );
         }
-      );
-      return { success: true };
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteTemporaryUpload" },
-        {
-          handler: "deleteTemporaryUpload",
-          key: data.key,
-          userId: context.session.user.id,
-        },
-        error
-      );
-    }
+      }
+    );
   });
 
 export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
@@ -383,23 +396,34 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    const expectedPrefix = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/`;
-    if (!data.key.startsWith(expectedPrefix)) {
-      throw new Error("Forbidden");
-    }
-    try {
-      const s3 = await getS3();
-      await s3.delete(data.key);
-      return { success: true };
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteProfilePicture" },
-        {
-          handler: "deleteProfilePicture",
-          key: data.key,
-          userId: context.session.user.id,
-        },
-        error
-      );
-    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "account.profile_photo.delete",
+        target: { id: session.user.id, type: "user" },
+      },
+      async () => {
+        const expectedPrefix = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${session.user.id}/`;
+        if (!data.key.startsWith(expectedPrefix)) {
+          throw new Error("Forbidden");
+        }
+        try {
+          const s3 = await getS3();
+          await s3.delete(data.key);
+          return { success: true };
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/deleteProfilePicture" },
+            {
+              handler: "deleteProfilePicture",
+              key: data.key,
+              userId: session.user.id,
+            },
+            error
+          );
+        }
+      }
+    );
   });

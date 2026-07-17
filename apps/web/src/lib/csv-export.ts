@@ -1,3 +1,16 @@
+import { strToU8, zipSync } from "fflate";
+
+export interface CsvFile {
+  filename: string;
+  headers: string[];
+  rows: string[][];
+}
+
+export interface DownloadArtifact {
+  blob: Blob;
+  filename: string;
+}
+
 function escapeCsvValue(raw: string): string {
   // Prevent CSV injection: prefix formula-triggering characters with a tab
   const firstChar = raw.charAt(0);
@@ -19,21 +32,60 @@ function escapeCsvValue(raw: string): string {
   return value;
 }
 
-export function downloadCsv(
-  filename: string,
-  headers: string[],
-  rows: string[][]
-): void {
+export function buildCsv(headers: string[], rows: string[][]): string {
   const lines = [
     headers.map(escapeCsvValue).join(","),
     ...rows.map((row) => row.map(escapeCsvValue).join(",")),
   ];
-  const csvString = lines.join("\n");
-  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+  return lines.join("\n");
+}
+
+export function createCsvDownload(
+  files: CsvFile[],
+  archiveFilename: string
+): DownloadArtifact {
+  if (files.length === 0) {
+    throw new Error("At least one CSV file is required");
+  }
+
+  if (files.length === 1) {
+    const [file] = files;
+    if (!file) {
+      throw new Error("CSV file is required");
+    }
+    return {
+      blob: new Blob([buildCsv(file.headers, file.rows)], {
+        type: "text/csv;charset=utf-8;",
+      }),
+      filename: file.filename,
+    };
+  }
+
+  const zipFiles = Object.fromEntries(
+    files.map((file) => [
+      file.filename,
+      strToU8(buildCsv(file.headers, file.rows)),
+    ])
+  );
+  const zipped = zipSync(zipFiles);
+
+  return {
+    blob: new Blob([zipped], { type: "application/zip" }),
+    filename: archiveFilename,
+  };
+}
+
+export function downloadCsvFiles(
+  files: CsvFile[],
+  archiveFilename: string
+): void {
+  const artifact = createCsvDownload(files, archiveFilename);
+  const url = URL.createObjectURL(artifact.blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = artifact.filename;
+  document.body.append(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

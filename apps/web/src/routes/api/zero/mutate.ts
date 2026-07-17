@@ -11,6 +11,11 @@ import { handleMutateRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
+import {
+  buildAuditActor,
+  resolveZeroAuditSummary,
+  runZeroAuditedMutation,
+} from "@/lib/audit";
 import { copyR2Object } from "@/lib/r2-upload-claim";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -32,9 +37,9 @@ export const Route = createFileRoute("/api/zero/mutate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { session, error } = await requireSession(request);
-        if (error) {
-          return error;
+        const { session, error: authError } = await requireSession(request);
+        if (authError) {
+          return authError;
         }
 
         const rl = checkRateLimit(`mutate:${session.user.id}`, 100);
@@ -45,8 +50,10 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const traceId = parseTraceparent(
           request.headers.get("traceparent")
         )?.traceId;
-        const { permissions, role, userId } =
-          await buildSessionContext(session);
+        const [{ permissions, role, userId }, actor] = await Promise.all([
+          buildSessionContext(session),
+          buildAuditActor(session),
+        ]);
         const asyncTasks: AsyncTask[] = [];
         const baseContext = {
           copyR2Object,
@@ -87,8 +94,26 @@ export const Route = createFileRoute("/api/zero/mutate")({
                       },
                       rollbackTasks,
                     };
-                    await mutator.fn({ args, ctx, tx });
-                    await runMutationTasksInOrder(beforeCommitTasks);
+                    const summary = await resolveZeroAuditSummary(
+                      name,
+                      args,
+                      userId
+                    );
+                    const auditOptions = {
+                      action: name,
+                      actor,
+                      metadata: summary.metadata,
+                      target: summary.target,
+                      traceId,
+                    };
+                    await runZeroAuditedMutation(
+                      auditOptions,
+                      async () => {
+                        await mutator.fn({ args, ctx, tx });
+                        await runMutationTasksInOrder(beforeCommitTasks);
+                      },
+                      (entry) => tx.mutate.auditLog.insert(entry)
+                    );
                   }
                 );
                 if (isSuccessfulMutationResult(mutationResult)) {

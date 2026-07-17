@@ -50,6 +50,16 @@ vi.mock("@/lib/api-auth", () => ({
   buildSessionContext: mocks.buildSessionContext,
   requireSession: mocks.requireSession,
 }));
+vi.mock("@/lib/audit", () => ({
+  buildAuditActor: vi.fn(async () => ({ type: "user", userId: "user-1" })),
+  resolveZeroAuditSummary: vi.fn(async () => ({
+    metadata: {},
+    target: undefined,
+  })),
+  runZeroAuditedMutation: vi.fn(
+    async (_options: unknown, action: () => Promise<unknown>) => await action()
+  ),
+}));
 vi.mock("@/lib/r2-upload-claim", () => ({
   copyR2Object: mocks.copyR2Object,
 }));

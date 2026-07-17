@@ -90,6 +90,7 @@ All paths are relative to project root.
 | `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
 | `routes/_app/analytics.tsx` | Analytics dashboard with charts (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
+| `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
@@ -112,6 +113,7 @@ All paths are relative to project root.
 | `routes/api/jobs/$id.ts` | Job detail API |
 | `routes/api/jobs/$id/cancel.ts` | Cancel job API |
 | `routes/api/jobs/$id/retry.ts` | Retry failed job API |
+| `routes/api/audit-log.ts` | Permissioned audit ledger query API (server pagination and filters) |
 | `routes/api/attachments/download.ts` | Authorized attachment download proxy |
 
 All route paths above are prefixed with `apps/web/src/`.
@@ -122,6 +124,7 @@ All route paths above are prefixed with `apps/web/src/`.
 |---|---|
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
+| `components/audit/` | audit-log table, row detail sheet, and API response types |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
@@ -164,6 +167,8 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
 | `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
+| `functions/admin-actions.ts` | Audited maintenance and job triggers |
+| `functions/event-poll.ts` | Audited event RSVP poll command |
 
 All function paths above are prefixed with `apps/web/src/`.
 
@@ -172,6 +177,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | File | Purpose |
 |---|---|
 | `lib/api-auth.ts` | API route auth helpers |
+| `lib/audit.ts` | Audit actor snapshots, sanitized mutation summaries, and audited-action runners |
 | `lib/auth-client.ts` | Better-auth client with admin plugin |
 | `lib/avatar.ts` | Avatar URL builder (DiceBear) |
 | `lib/validators.ts` | Shared Zod schemas |
@@ -260,6 +266,15 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `eventReminderSent` | `packages/db/src/schema/event-reminder.ts` |
 | `scheduledMessage` | `packages/db/src/schema/scheduled-message.ts` |
 | `scheduledMessageRecipient` | `packages/db/src/schema/scheduled-message.ts` |
+| `auditLog` | `packages/db/src/schema/audit-log.ts` |
+
+## Audit Ledger
+
+- `audit_log.view` is granted to `super_admin` by default and may be assigned to custom roles through the existing role permission UI. The API enforces the permission independently of the page guard.
+- Zero mutation successes insert their audit row in the mutation transaction. Zero denials and failures use a separate final insert because a thrown mutation rolls back its transaction.
+- Non-Zero actions insert `pending` before execution and finalize it once. Initial audit write failure blocks execution; finalization failure after an external effect leaves the row pending and returns an audit-finalization error.
+- Audit metadata is an explicit sanitized summary. Raw request values, errors, free text, contact and banking data, file contents, URLs, object keys, IP addresses, and user agents are not persisted.
+- Migration `0050_needy_silver_fox.sql` must be applied before deploying the application code. Recording begins at deployment; there is no historical backfill, retention cleanup, or product update/delete path for finalized rows.
 
 ## Notifications
 

@@ -86,6 +86,39 @@ Do not disable public bucket access until a final dry-run reports both zero
 changes and zero malformed rows. The orphan-cleanup job recognizes raw keys,
 legacy CDN URLs, and canonical app URLs.
 
+During the private-storage rollout, the bucket remains publicly reachable only
+for asset families that have not migrated yet. All migrated reads use an exact
+persisted database reference, even when the durable key predates the current
+`R2_KEY_PREFIX`; a raw object key is never authorization. Keys containing a
+`tmp/` path segment are never readable.
+
+Avatar and Plate editor uploads have dedicated signers:
+
+- Avatar replacement is owner-only, accepts the shared image MIME list with a
+  5 MB limit, and stores `/api/media/avatar/<userId>?key=<key>` in `user.image`.
+- Editor image uploads require `event_updates.create` or lead membership in the
+  event's team, accept the shared image MIME list with a 20 MB limit, and store
+  `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
+- The generic attachment signer does not accept the `updates` subfolder.
+
+Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
+dry-run mode first, review changed/skipped/malformed counts, then apply it:
+
+```bash
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply --batch-size=250
+```
+
+The migration rewrites `user.image`, `event_update.content`, and
+`event_feedback.content` in transactional batches of 100 rows by default;
+`--batch-size` accepts 1 through 1000. Raw keys and legacy CDN URLs are
+canonicalized, while unrelated external URLs are left unchanged. The
+report includes `malformedIds` per table so invalid Plate rows can be repaired.
+Do not disable public bucket access until a final dry-run reports both zero
+changes and zero malformed rows. The orphan-cleanup job recognizes raw keys,
+legacy CDN URLs, and canonical app URLs.
+
 ## Immich (Event Photos)
 
 Optional integration for photo album management. Config: `IMMICH_API_KEY`, `VITE_IMMICH_URL`.

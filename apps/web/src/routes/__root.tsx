@@ -102,12 +102,7 @@ function RootDocument() {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {Boolean(import.meta.env.DEV && !import.meta.env.VITE_E2E) && (
-          <script
-            async
-            src="https://unpkg.com/react-scan@0.4.3/dist/auto.global.js"
-          />
-        )}
+        {/* React Scan disabled while debugging local browser tests. */}
         <HeadContent />
       </head>
       <body>

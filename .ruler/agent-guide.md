@@ -1,196 +1,120 @@
-# Agent Guide (Lean)
+# pi-dash repository instructions
 
-## Session Init
+pi-dash is a TypeScript monorepo for a volunteer and admin management dashboard. The web app uses TanStack Start, PostgreSQL, Drizzle, and Rocicorp Zero for real-time data; repository packages own authentication, environment validation, jobs, notifications, email, WhatsApp, observability, design system components, and Playwright E2E tests.
 
-Activate caveman mode (full) at session start. Run `/caveman` or say "caveman mode" before first task. Skip if already active (Claude Code hook, Codex plugin handle automatically).
+This file is the source for generated `AGENTS.md` and `CLAUDE.md`. Apply changes with `bun run ruler:apply`; do not edit generated copies directly.
 
-## RTK — Token-Optimized Tooling
+## Architecture and entry points
 
-Always use `rtk` instead of raw equivalents. Hooks enforce in Claude Code; other agents follow manually.
+| Area | Owns | Entry points |
+|---|---|---|
+| Web app | Routes, server functions, UI, hooks, middleware | `apps/web/src/router.tsx`, `apps/web/src/routes/`, `apps/web/src/functions/` |
+| Database | Drizzle schema, migrations, PostgreSQL and local services | `packages/db/src/schema/`, `packages/db/docker-compose.yml` |
+| Zero | Synced schema, queries, mutators | `packages/zero/` |
+| Auth and permissions | Better Auth configuration and permission resolution | `packages/auth/`, `packages/db/src/permissions.ts` |
+| Audit ledger | Immutable action schema and permission in DB; capture, API, and viewer in web | `packages/db/src/schema/audit-log.ts`, `apps/web/src/lib/audit.ts`, `apps/web/src/routes/api/audit-log.ts`, `apps/web/src/routes/_app/audit-log.tsx` |
+| Jobs and notifications | pg-boss handlers and multi-channel delivery | `packages/jobs/`, `packages/notifications/` |
+| Environment | Server and web environment contracts | `packages/env/`, `.env.sample` |
+| Design system | Shared shadcn/ui and reui components | `packages/design-system/` |
+| E2E | Playwright fixtures, seeds, specs, and orchestration | `packages/e2e/` |
 
-- `rtk grep "<pattern>" [path] -t <type>` — never raw `grep`, `rg`, or built-in Grep. Flags: `-m 50`, `-l 80`, `-u`.
-- `rtk ls [path]`, `rtk read <file>`, `rtk git status|diff|...` — never raw `ls`, `cat`, `git`.
-- RTK output authoritative. Never re-run without RTK, discard output, or fall back to raw commands.
-- Never circumvent: no `command grep`, `command rg`, `/usr/bin/grep`, or any bypass.
+## Setup and focused verification
 
-## Prime Directives
+```bash
+bun install
+cp .env.sample .env
+bun run db:start
+bun run zero:generate
+bun run dev
+```
 
-- Smallest correct change; every changed line traces to request.
-- Verify before claiming success.
-- Prefer repo source-of-truth over memory.
-- Preserve existing architecture unless task asks otherwise.
-- State assumptions explicitly; ask instead of guessing when ambiguous.
-- Prefer simplest non-speculative solution that fully solves request.
+The local app and Zero require Dockerized PostgreSQL. Core local variables are `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ZERO_UPSTREAM_DB`, `ZERO_MUTATE_URL`, `ZERO_QUERY_URL`, and `VITE_ZERO_URL`. Keep secret values in `.env`; only names and sample values belong in `.env.sample`.
 
-## Response Contract
+| Changed surface | Focused checks |
+|---|---|
+| TypeScript in any package | `bun run check:types` |
+| Lint or formatting | `bun run check` |
+| Unit-testable behavior | `bun run test:unit` |
+| Workspace exports or dependency graph | `bun run check:unused` |
+| Drizzle schema | `bun run db:generate`; inspect the generated migration; run `bun run db:migrate` when local application is needed |
+| Zero schema source | `bun run zero:generate` |
+| `packages/e2e/**` or major user flow | `bun run test:e2e`; use `bun run test:e2e:ui` for local debugging |
+| One E2E spec | `cd packages/e2e && bash run-e2e.sh tests/<spec>.spec.ts` |
+| Generated agent instructions | `bun run ruler:apply` |
 
-- Report findings first, then action, then blockers (if any).
-- Include file paths for every code claim.
+Treat this table as the canonical command map for task planning. Do not reopen root or package manifests, `.env.sample`, or generated instructions solely to confirm facts listed here; inspect them only when modifying their contents or when task-specific detail is missing.
 
-## Execution Loop
+There is no single documented full-repository gate. **Done when** the task goal is met, changed files are listed, relevant checks passed or have a concrete unavailable reason, there are no generated-file edits, stale references, or unexplained diffs, and major features have E2E coverage.
 
-1. Clarify ambiguity, state assumptions/tradeoffs, define verification target.
-2. Inspect with `rtk grep` + targeted reads.
-3. Minimal plan → smallest change set → necessary checks → report delta.
+Lefthook runs type checking, lint, unit tests, and unused-export checks in parallel before commits. Commitlint enforces conventional commits.
 
-## Guardrails
+## Generated and protected files
 
-### Source & Generated Files
-- Edit source files, not generated outputs.
-- DO NOT edit `CLAUDE.md`/`AGENTS.md` directly — edit `.ruler/agent-guide.md`, then `bun run ruler:apply`.
-- DO NOT edit: `routeTree.gen.ts`, `packages/zero/src/schema.ts`, `packages/db/src/migrations/**`, `packages/design-system/components/**`, `packages/design-system/lib/utils.ts`, `packages/design-system/hooks/use-mobile.ts`.
-- Router tree changes: edit route source files, regenerate. Zero schema: edit Drizzle schema then `bun run zero:generate`.
+- Edit `.ruler/agent-guide.md`, then run `bun run ruler:apply`; do not edit `AGENTS.md` or `CLAUDE.md` directly.
+- Do not edit `routeTree.gen.ts`, `packages/zero/src/schema.ts`, `packages/db/src/migrations/**`, `packages/design-system/components/**`, `packages/design-system/lib/utils.ts`, or `packages/design-system/hooks/use-mobile.ts` directly.
+- Change route sources to regenerate the route tree. Change the Drizzle schema, then run `bun run zero:generate` for the Zero schema.
+- Add new design-system components with `bun run ui:add <component>`.
+- When adding a new `packages/*` workspace, add its package manifest to the Dockerfile copy layer before `bun install`.
 
-### Imports & Bundling
-- Design-system: `@pi-dash/design-system/components/ui/...` or `.../reui/...` — never `src/` path. New components: `bun run ui:add <component>`.
-- Client-accessible constants: `@pi-dash/shared` (not `@pi-dash/db/schema/shared`).
-- `React.lazy()` for heavy third-party libs not needed on initial render (Plate editor, phone input).
-- Static imports in server functions, API routes, server-only packages — TanStack Start/Nitro handle client exclusion.
-- DO NOT use dynamic `import()` in `createServerFn`, `routes/api/`, or server-only packages. DO NOT use dynamic `import()` for `createServerFn` exports in client components — TanStack Start replaces with RPC stubs.
+## Direct architecture routing
 
-### IDs & Idempotency
-- `uuidv7()` from `uuidv7` package for all IDs — never `crypto.randomUUID()` or `gen_random_uuid()`.
-- DO NOT use `Date.now()` in notification idempotency keys — pass deterministic timestamp from mutator.
+Read the named chapter directly when its detailed behavior is needed; do not read `docs/architecture/index.md` first. For ownership, entry points, commands, and protected paths already stated here, use this file without reopening the chapter or project map.
 
-### React Compiler
-- Keep `useMemo`/`useCallback` for props passed to third-party components using them as internal effect deps (e.g., `ZeroProvider`).
-- Keep `useCallback` on shared hook return values (`useConfirmAction`, `useDialogManager`, etc.) for stable refs.
-- DO NOT remove `useMemo`/`useCallback` from shared hooks or third-party component prop boundaries.
+| Task touches | Read |
+|---|---|
+| Zero, Drizzle, sync, SSR loaders, optimistic updates | `docs/architecture/data-layer.md` |
+| Better Auth, sessions, sign-in | `docs/architecture/auth.md` |
+| Permissions, roles, authorization checks | `docs/architecture/authorization.md` |
+| Recurring events and RRULE | `docs/architecture/recurring-events.md` |
+| Vendor payments and invoice approval | `docs/architecture/vendor-payments.md` |
+| pg-boss, notifications, WhatsApp delivery | `docs/architecture/notifications.md`, `docs/architecture/jobs.md` |
+| R2 uploads, attachments, Immich | `docs/architecture/file-uploads.md` |
+| Cash-voucher PDF generation | `docs/architecture/cash-vouchers.md`, `docs/architecture/pdf.md` |
+| Logging and request/task events | `docs/architecture/observability.md` |
+| Plate editor | `docs/architecture/editor.md` |
+| Shared client/server constants | `docs/architecture/shared.md` |
+| Workspaces, Turborepo, Docker package layout | `docs/architecture/monorepo.md` |
+| Environment, secrets, worktree ports | `docs/architecture/env-and-secrets.md` |
+| Auth cache, permission cache, rate limiting | `docs/architecture/caching.md` |
+| Playwright, seeds, auth state, E2E isolation | `docs/architecture/e2e-testing.md` |
+
+Skip architecture docs for copy, CSS, component restyling, lint-only changes, dependency bumps, isolated tests, typo fixes, and unrelated dev-tool configuration. Start from the owning code and open a chapter only when the code exposes an unfamiliar boundary.
+
+## Load-bearing implementation rules
 
 ### Permissions
-- `assertHasPermission(ctx, "permission.id")` for auth — never `assertIsAdmin` or `role === "admin"`.
-- `can(ctx, "id")` for conditional checks; `hasPermission("id")` from AppContext on client.
-- New permissions: `packages/db/src/permissions.ts` (auto-syncs on boot). Don't delete/rename IDs without migrating `rolePermission` rows.
-- Separate `{entity}.view` (pickers/queries) from `{entity}.manage` (admin pages) when admin page exposes sensitive details.
 
-### Jobs & Enqueue
-- `enqueue()` from `@pi-dash/jobs` for all async side-effects (notifications, WhatsApp). Never call directly from server functions/auth hooks/mutators. Exception: `notifyUserDeleted` (sync before deletion).
-- Wrap in `withFireAndForgetLog()` when enqueue is side-effect. Only `await enqueue()` if enqueue IS primary operation.
-- `withTaskLog()` from `@pi-dash/observability` only for in-process retry (not pg-boss enqueue).
+- Use `assertHasPermission(ctx, "permission.id")` for authorization, `can(ctx, "id")` for conditional server checks, and `hasPermission("id")` from AppContext on the client.
+- For protected TanStack routes, enforce the permission in `beforeLoad` with `assertPermission(context, "permission.id")` and gate the matching UI action with `hasPermission`. Test `Route.options.beforeLoad` directly with denied and allowed contexts; do not extract a wrapper solely to make the guard testable.
+- Add permissions in `packages/db/src/permissions.ts`. Do not delete or rename IDs without migrating `rolePermission` rows.
+- Separate `{entity}.view` from `{entity}.manage` when admin pages expose sensitive data.
 
-### Mutation Results
-- Use `handleMutationResult()` from `@/lib/mutation-result` for Zero mutation server results — never inline `if (res.type === "error") { toast.error(...) }`.
+### Jobs and mutations
 
-### General Discipline
-- Check nearest `package.json` before running scripts. Keep changes scoped to affected package(s).
-- New DB table in `packages/db/src/schema/`: add idempotent seed data in `scripts/seed.ts` (2-3 records, `onConflictDoNothing()`).
-- New `packages/*` workspace: add `COPY packages/<name>/package.json packages/<name>/` to `Dockerfile` before `RUN bun install`.
-- DO NOT: invent commands not in repo manifests, broad refactors during focused tasks, speculative abstractions, "improve" adjacent code unrelated to request, backwards-compat shims (re-exports, type aliases, `// removed` comments).
+- Use `enqueue()` from `@pi-dash/jobs` for asynchronous side effects. Do not call notification or WhatsApp handlers directly from server functions, auth hooks, or mutators; `notifyUserDeleted` is the synchronous pre-deletion exception.
+- Wrap side-effect enqueues with `withFireAndForgetLog()`. Await enqueue only when enqueueing is the primary operation.
+- Use `handleMutationResult()` for Zero mutation server results.
+- Use `uuidv7()` for IDs. Do not use `Date.now()` in notification idempotency keys; pass the deterministic mutator timestamp.
 
-## Validation and Done
+### Audit ledger
 
-**Done when**: task goal satisfied, changed files listed, relevant checks passed (or reason given), no generated-file edits, no stale references, E2E tests for major features.
+- Route direct authenticated state-changing commands through the central Zero mutation audit boundary or `runSessionAuditedAction`. Preserve the explicit exclusions for reads, navigation, exports, presigned-upload URL issuance, unauthenticated auth flows, webhooks, scheduled jobs, and downstream background effects.
+- Store stable action IDs, sanitized entity identifiers, changed field names, and bounded counts only. Never put raw payloads, secrets, contact details, free text, file data, URLs, object keys, request IP/user-agent, or error messages in `audit_log` metadata.
+- Enforce `audit_log.view` independently in the page guard and `/api/audit-log`. Finalized ledger rows have no product update or delete path; only pending non-transactional attempts may finalize once.
 
-| Command | Purpose |
-|---|---|
-| `bun run check:types` | TypeScript type check |
-| `bun run check` | Linter (ultracite/Biome) |
-| `bun run fix` | Auto-fix linter issues |
-| `bun run check:unused` | Unused exports (knip) |
-| `bun run test:unit` | Unit tests (Vitest) |
-| `bun run db:generate` | Migration SQL from Drizzle |
-| `bun run db:migrate` | Apply pending migrations |
-| `bun run zero:generate` | Regenerate Zero schema |
-| `bun run seed` | Seed dev data (idempotent) |
-| `bun run test:seed` | Seed E2E test data |
-| `bun run test:e2e` | E2E tests via Turborepo |
-| `bun run test:e2e:ui` | E2E tests Playwright UI mode |
-| `cd packages/e2e && bash run-e2e.sh` | E2E tests (full stack) |
-| `bun run ruler:apply` | Apply Ruler config |
-| `bun run dev:webhook-proxy` | WhatsApp webhook proxy (local dev) |
+### Imports and React boundaries
 
-- lefthook pre-commit: type check, lint, unit tests, unused-exports in parallel.
-- commitlint enforces conventional commits.
+- Import design-system components through `@pi-dash/design-system/components/ui/...` or `/reui/...`, never through `src/` paths.
+- Put client-accessible constants in `@pi-dash/shared`.
+- Keep static imports in server functions, API routes, and server-only packages. Do not use dynamic imports in `createServerFn` or `routes/api/`.
+- Keep `useMemo` and `useCallback` where third-party components or shared hook return values require stable references.
 
-## Documentation Upkeep
+## Documentation and delivery
 
-- Major feature → update `README.md` and `.ruler/agent-guide.md`.
-- Structural change (routes, env vars, paths, patterns) → update `project-structure.md`.
-- Architectural change (data layer, auth, sync, notifications) → update the matching chapter in `docs/architecture/`.
-- Deployment change (env vars, services, build steps) → update `DEPLOYMENT.md`.
+- Update `README.md` and this source guide for major features.
+- Update `project-structure.md` when routes, environment variables, paths, or structural patterns change.
+- Update the matching architecture chapter when a subsystem boundary changes.
+- Update `DEPLOYMENT.md` when production environment variables, services, or build steps change.
+- New database tables require idempotent seed records in `scripts/seed.ts`.
 
-Read `project-structure.md` for structure/paths, `DEPLOYMENT.md` for production setup.
-
-## Architecture Docs (On-Demand)
-
-Architecture docs live at `docs/architecture/` as sharded chapters. **Do NOT load them by default.** Load ONLY when the current task matches a trigger below.
-
-**Protocol**:
-1. If task matches any trigger → first `rtk read docs/architecture/index.md` (topic map).
-2. Then `rtk read docs/architecture/<chapter>.md` for each matching topic. Multiple chapters allowed.
-3. If task does not match any trigger → skip architecture docs entirely.
-
-**Load triggers (read the matching chapter)**:
-- Zero mutators, Zero queries, Drizzle schema, connection pool, sync flow, SSR loaders, `ZeroProvider`, IndexedDB, optimistic updates → `data-layer.md`
-- Better Auth, session cookie, sign-in flow, `getAuth`, `getCachedAuth`, `requireSession` → `auth.md`
-- Permissions, roles, `assertHasPermission`, `can`, `hasPermission`, `resolvePermissions`, role hierarchy → `authorization.md`
-- Recurring events, RRULE, `teamEvent` recurrence, `seriesId`, `originalDate`, materialize, exdate → `recurring-events.md`
-- Vendor payment, VP status, invoice approval, `recalculateParentStatus` → `vendor-payments.md`
-- `enqueue()`, pg-boss, in-app inbox, WhatsApp poll, notification topic preferences, `notify-*` handlers, webhook proxy → `notifications.md`
-- Cloudflare R2 presign, attachments, Immich sync, event photos → `file-uploads.md`
-- Cash voucher PDF, `generate-cash-voucher`, `VOUCHER_ORG_*` → `cash-vouchers.md`
-- evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, `/api/log/ingest` → `observability.md`
-- pg-boss handlers, job schedules, `createNotifyHandler`, `singletonKey`, 42 handlers → `jobs.md`
-- `@react-pdf/renderer`, voucher layout, `amount-to-words` → `pdf.md`
-- `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, `onImageUpload` → `editor.md`
-- `@pi-dash/shared`, `ALLOWED_IMAGE_TYPES`, reminder presets, client/server constant boundary → `shared.md`
-- New workspace, package layout, Turborepo, Dockerfile copy lines, Biome/lefthook/commitlint config → `monorepo.md`
-- `packages/env`, `.env`, `.env.worktree`, `BETTER_AUTH_SECRET`, `createEnv`, worktree port collision, `SKIP_VALIDATION` → `env-and-secrets.md`
-- `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, rate limiter (`checkRateLimit`), 429 response, HMR-reset cache → `caching.md`
-- `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, shard-by-duration, `run-e2e.sh`, E2E DB isolation → `e2e-testing.md`
-
-**DO NOT read architecture docs for**: UI copy/style tweaks, CSS changes, component restyling, lint fixes, dep bumps, test-only changes, typo fixes, commit message drafting, config-file edits outside the listed triggers, dev-tool config. In these cases skip the index entirely.
-
-**When unsure**: skip the docs, start reading code. Only reconsider if code surfaces architectural patterns you don't recognize.
-
-## GrepAI Usage Policy
-
-- **"I know name"** → `rtk grep` (or Glob). 100% recall. Default for known symbols/patterns/regexes.
-- **"I know intent"** → `grepai search "<query>" -t -c` first. Then narrow with `rtk grep`. Workflow: **grepai discovers → rtk grep narrows → Read confirms**.
-- **"I need impact analysis"** → `grepai trace callers/callees` for project-local direct-call functions. `rtk grep` for external symbols, function-ref patterns, string-based dispatch.
-- Phrase queries with 4-6 domain-specific nouns. Never put known function names into grepai queries.
-- If first query scores < 0.70, rephrase before falling back.
-- **trace callers**: ~100% recall, 97% precision for direct calls. Returns 0 for external symbols, function-ref patterns, string dispatch. Filter phantom `field.tsx`.
-- **trace callees**: ~70% precision (stdlib noise), ~80% recall. Cannot trace external packages.
-- **trace graph**: Same limits. Use `--depth 2`.
-- CLI flags: Search `-t -c`. Trace `-t` only.
-
-## MCP Usage Policy
-
-- Context7 MCP by default for library/API docs, setup, config guidance.
-- Jina MCP to verify uncertain knowledge with current sources.
-- `search_arxiv`/`search_ssrn` always paired with `read_url`/`parallel_read_url`.
-- Never run `search_web`/`search_arxiv`/`search_ssrn` alone.
-- Library docs: Context7 with IDs from `project-structure.md` § Documentation References.
-
-## Skills Policy
-
-**Invoke matching skill before starting**: form (`create-form`), UI data table (`create-data-table`), dialog (`create-dialog`), logging/error handling (`add-logging`), Zero queries (`zero-patterns`), E2E tests (`e2e-testing`), commit (`git-commit`), review (`code-review`), worktree (`worktree-dev`), browser test (`playwriter`), cleanup (`deslop`).
-
-**Decision rules:**
-- Bug IN skill-covered component → invoke skill. Bug NEAR but not IN (runtime, API, scheduling) → skip.
-- `git-commit` only when committing requested. `code-review` only for diff review. `deslop` only for explicit cleanup language ("clean up", "final pass", "remove slop").
-- `create-data-table` = UI tables only, not DB tables/migrations/schema. `zero-patterns` = Zero query hooks/sync only, not plain `createServerFn`.
-- Don't stack unrequested skills. Don't preload component skills for generic feature requests.
-- User-invoked only: `react-doctor`, `design-motion-principles`.
-
-**Multi-skill triggers:**
-- Dialog with input fields → `create-dialog` + `create-form`. Approval/rejection flows collecting user input → same.
-- Zero query feeding table → `zero-patterns` + `create-data-table`. Table toolbar controls part of `create-data-table` alone.
-- Review skills (`code-review`, `deslop`) before `git-commit`. Creation skills before `e2e-testing`. `add-logging` during implementation.
-
-Discovery: `skills-lock.json`, `.agents/skills`, `.claude/skills`.
-
-## Editor Patterns
-
-- `@pi-dash/editor` exports: `@pi-dash/editor/editor` (`PlateEditor`) and `@pi-dash/editor/renderer` (`PlateRenderer`, read-only).
-- `onImageUpload`: `(file: File) => Promise<{ url: string } | undefined>`. Validation inside editor; adapter handles transport.
-- Image MIME types: `ALLOWED_IMAGE_TYPES` from `packages/shared/src/constants.ts`.
-- Plugin composition: `packages/editor/src/editor.tsx` (all plugins), `packages/editor/src/renderer.tsx` (read-only subset).
-- Web adapter: `apps/web/src/components/editor/plate-editor.tsx` wraps with S3 presign. `entityId` in adapter, not editor package.
-- Lazy-load: `React.lazy(() => import("@pi-dash/editor/editor"))`.
-
-## Compact instructions
-
-When compacting, preserve: file paths, code changes, architectural decisions, test results, webfetch content summaries.
-Discard: exploration output, intermediate search results, verbose tool output.
+For worktrees, use `bun run worktree:setup <ID>` and `bun run worktree:teardown`; use `--isolated-db` when the task needs isolated PostgreSQL state.

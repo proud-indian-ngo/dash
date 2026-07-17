@@ -69,21 +69,24 @@ describe("sendWhatsAppMedia", () => {
   it.each([
     ["image/jpeg", "photo.jpg"],
     ["video/mp4", "video.mp4"],
-  ])("does not expose signed %s URLs from gateway errors", async (mimeType, fileName) => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(signedUrl, { status: 500 }))
-    );
+  ])(
+    "does not expose signed %s URLs from gateway errors",
+    async (mimeType, fileName) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(signedUrl, { status: 500 }))
+      );
 
-    await expect(
-      sendWhatsAppMedia("919999999999", {
-        fileName,
-        mimeType,
-        url: signedUrl,
-      })
-    ).rejects.not.toThrow(signedUrl);
-    expect(loggedText()).not.toContain(signedUrl);
-  });
+      await expect(
+        sendWhatsAppMedia("919999999999", {
+          fileName,
+          mimeType,
+          url: signedUrl,
+        })
+      ).rejects.not.toThrow(signedUrl);
+      expect(loggedText()).not.toContain(signedUrl);
+    }
+  );
 
   it("does not include a signed URL in document download errors", async () => {
     vi.stubGlobal(

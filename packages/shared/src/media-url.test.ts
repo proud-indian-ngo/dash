@@ -79,28 +79,26 @@ describe("private media URLs", () => {
     ).toBeNull();
   });
 
-  it.each([
-    "literal%.jpg",
-    "literal%20.jpg",
-    "literal?.jpg",
-    "literal#.jpg",
-  ])("preserves opaque object-key suffix %s", (suffix) => {
-    const avatarKey = `app/avatars/user-1/${suffix}`;
-    const updateKey = `app/updates/event-1/${suffix}`;
+  it.each(["literal%.jpg", "literal%20.jpg", "literal?.jpg", "literal#.jpg"])(
+    "preserves opaque object-key suffix %s",
+    (suffix) => {
+      const avatarKey = `app/avatars/user-1/${suffix}`;
+      const updateKey = `app/updates/event-1/${suffix}`;
 
-    expect(
-      parseAvatarMediaKey(avatarKey, {
-        legacyCdnUrl: LEGACY_CDN_URL,
-        userId: "user-1",
-      })
-    ).toBe(avatarKey);
-    expect(
-      parseEventUpdateMediaKey(`${LEGACY_CDN_URL}/${updateKey}`, {
-        eventId: "event-1",
-        legacyCdnUrl: LEGACY_CDN_URL,
-      })
-    ).toBe(updateKey);
-  });
+      expect(
+        parseAvatarMediaKey(avatarKey, {
+          legacyCdnUrl: LEGACY_CDN_URL,
+          userId: "user-1",
+        })
+      ).toBe(avatarKey);
+      expect(
+        parseEventUpdateMediaKey(`${LEGACY_CDN_URL}/${updateKey}`, {
+          eventId: "event-1",
+          legacyCdnUrl: LEGACY_CDN_URL,
+        })
+      ).toBe(updateKey);
+    }
+  );
 
   it("does not treat encoded separators as generated key separators", () => {
     expect(

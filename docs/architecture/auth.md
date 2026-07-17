@@ -61,7 +61,7 @@ Better Auth's admin plugin supports impersonation via `session.impersonated_by` 
 
 - **Capability present**: DB column + Better Auth admin plugin wiring.
 - **No UI entry point currently**. Trigger would be a server fn calling the admin plugin's impersonate API, setting `impersonated_by = <admin-user-id>` on the new session.
-- **Audit**: any action during an impersonated session has a non-null `impersonated_by`. Evlog context should include this field if impersonation is ever wired up — don't let admin actions appear as the impersonated user in logs without audit trail.
+- **Audit**: direct authenticated state-changing commands write to the persistent `audit_log` ledger. Each entry snapshots the acting user's ID, name, and role plus the impersonator's ID and name when `impersonated_by` is present, so later user deletion cannot erase attribution. The ledger stores sanitized IDs and field names rather than request payloads, secrets, or error messages.
 - **Scope**: full user permissions. Impersonator cannot escalate beyond target's role.
 
-Before adding UI: decide audit log policy, which actions are blocked during impersonation (e.g., changing target's password), and session-end flow.
+Before adding impersonation UI, decide which actions are blocked during impersonation (for example, changing the target's password) and define the session-end flow. Keep all resulting commands inside the existing audit boundaries.
