@@ -1,0 +1,217 @@
+apps/web/src/lib/audit.test.ts
+  s_3a2012bdd24d4c::t_d0508a076bcccb 319-321
+  s_3a2012bdd24d4c::t_729b4cd9de727e 352-355
+  s_3a2012bdd24d4c::t_01da015e5507d2 135-137
+  s_3a2012bdd24d4c::t_fca5b99fce71d8 261-276,286
+  s_3a2012bdd24d4c::t_020266dba18661 226-227,236-243
+  s_3a2012bdd24d4c::t_b64ab143bf5b1c 16
+  s_3a2012bdd24d4c::t_bba2ee17086732 17,31,209-225,228-235,244-245,279,283
+  s_3a2012bdd24d4c::t_3670918cb6e772 21-22,98,100-134,138-157
+  s_3a2012bdd24d4c::t_027a81b2191a6c 373,375,377,380
+  s_3a2012bdd24d4c::t_28e78e9525f415 11-12
+  s_3a2012bdd24d4c::t_7cac3b8eedf4e5 19,23,29-30,35,72,75,80,83,90-97,99,158-159,193-194,196,207-208,246-250,365-372,374,376,378-379,381-400,409-420
+  s_3a2012bdd24d4c::t_0645654d836d82 254-256
+  s_3a2012bdd24d4c::t_45ce3910173195 1-10,13-15,18,20,26-28,32-34,36-48,67-71,73-74,76-79,81-82,84-89,192,197-206,260,287-318,322-323,333-341,356-364,401-408,421-424
+  s_3a2012bdd24d4c::t_132519eaa84468 195
+  s_3a2012bdd24d4c::t_6ea8cf31338dc2 25,49-66,324-332
+  s_3a2012bdd24d4c::t_c2e26fb3e40ba1 24,251-253,257-259
+  s_3a2012bdd24d4c::t_1e8618cbb1ed30 160-173,182-188,190-191
+  s_3a2012bdd24d4c::t_c69bac93fa912e 277-278,280-282,284-285
+  s_3a2012bdd24d4c::t_781118ae143f43 174-181,189,342-351
+apps/web/src/routes/api/jobs/index.ts
+  s_3a2012bdd24d4c::t_99151280d0ef16 186
+  s_3a2012bdd24d4c::t_52f2abf1fbfe67 150-185,187
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 149
+  s_3a2012bdd24d4c::t_a1388cd21f88ee 8
+apps/web/src/lib/audit-auth.ts
+  s_3a2012bdd24d4c::t_6c34d57761bccd 1-19
+.ruler/agent-guide.md
+  s_3a2012bdd24d4c::t_bba2ee17086732 15,99-103
+  s_3a2012bdd24d4c::t_c0e68ab1051192 104
+apps/web/src/lib/audit-schema.test.ts
+  s_3a2012bdd24d4c::t_63322f4d317a7d 1-19
+apps/web/src/components/audit/audit-types.ts
+  s_3a2012bdd24d4c::t_5b51847b9202aa 1-27
+apps/web/src/routes/api/jobs/$id/cancel.ts
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 28
+  s_3a2012bdd24d4c::t_181085482ce419 43-48,50-60,62-68
+  s_3a2012bdd24d4c::t_a1388cd21f88ee 8
+  s_3a2012bdd24d4c::t_b36c9434dac099 29-40,42,61,69-74,76
+  s_3a2012bdd24d4c::t_99151280d0ef16 75
+apps/web/src/routes/api/audit-log.ts
+  s_3a2012bdd24d4c::t_cf67c77722b890 10-49,51-73,75-85,87-97,99-102
+  s_3a2012bdd24d4c::t_e1318b84a9c60f 1,3,5-6,9,50,74,86,98,103-105
+  s_3a2012bdd24d4c::t_3be8582127214e 7
+  s_3a2012bdd24d4c::t_181085482ce419 4
+  s_3a2012bdd24d4c::t_c0fd0f95e2a27f 8
+  s_3a2012bdd24d4c::t_b4bcf686bb8bd9 2
+packages/db/src/migrations/meta/0050_snapshot.json
+  s_3a2012bdd24d4c::t_85df6c4a79c586 1-5727
+apps/web/src/routes/api/jobs/$id/retry.ts
+  s_3a2012bdd24d4c::t_b36c9434dac099 29-40,42,68,76-81,83
+  s_3a2012bdd24d4c::t_99151280d0ef16 82
+  s_3a2012bdd24d4c::t_a1388cd21f88ee 8
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 28
+  s_3a2012bdd24d4c::t_181085482ce419 43-48,50-56,58-67,69-75
+apps/web/src/lib/audit-entrypoint-coverage.test.ts
+  s_3a2012bdd24d4c::t_e2d5346c1ed4d9 1-39,59-75,77,79-80,85-87,116-119,121-122,136-137
+  s_3a2012bdd24d4c::t_d0508a076bcccb 54-58,76,81-84,120,123-125
+  s_3a2012bdd24d4c::t_008d1a8cabb608 78
+  s_3a2012bdd24d4c::t_027a81b2191a6c 96
+  s_3a2012bdd24d4c::t_0ea83d37d7be06 40-42,45-53,88-95,97-115,126-135
+  s_3a2012bdd24d4c::t_377750810b30c7 43-44
+packages/db/src/migrations/meta/_journal.json
+  s_3a2012bdd24d4c::t_85df6c4a79c586 354-360
+apps/web/src/functions/admin-actions.ts
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 37,70
+  s_3a2012bdd24d4c::t_4770b16eb3bf35 8,12,34-35,38-60,67-68,71-94
+apps/web/src/lib/audit-auth.test.ts
+  s_3a2012bdd24d4c::t_6c34d57761bccd 1-21
+apps/web/src/lib/audit-log-handler.ts
+  s_3a2012bdd24d4c::t_b3543e91199c05 2
+  s_3a2012bdd24d4c::t_cf67c77722b890 1,3-52
+apps/web/src/lib/audit-log-handler.test.ts
+  s_3a2012bdd24d4c::t_cf67c77722b890 1-100
+scripts/seed.ts
+  s_3a2012bdd24d4c::t_020266dba18661 10,35,363-383,1906
+  s_3a2012bdd24d4c::t_77906573a92f44 119
+apps/web/src/functions/attachments.ts
+  s_3a2012bdd24d4c::t_e612ef67b87b4c 156,158,244,247,261
+  s_3a2012bdd24d4c::t_46e859afe89010 7,153-154,159-187,241-243,245-246,248-260,262-267,285-286,289-294,297-323
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 157,239,288
+  s_3a2012bdd24d4c::t_38e24e325eee50 238,240
+apps/web/src/functions/immich-upload.ts
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 103
+  s_3a2012bdd24d4c::t_94b5e5a4cba8cc 12,104-115,164,179,184-190,195-196
+  s_3a2012bdd24d4c::t_d4e3e97323a81b 116-162,165-178,180-183
+  s_3a2012bdd24d4c::t_e612ef67b87b4c 191-194
+  s_3a2012bdd24d4c::t_4f92e47fa82ba6 163
+apps/web/src/functions/user-admin.ts
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 168,267,409,447,517
+  s_3a2012bdd24d4c::t_e5a1a90356ebbc 189-197,200-210,212-252,289-316,318-329,331-367,370-376,378-394,420-434,457-459,461-467,469-496,498-503,528-530,532-534,536,538-561
+  s_3a2012bdd24d4c::t_cd0b81a7c02841 20,165-167,169-182,184,187,255-257,264-265,268-282,284,286-287,397-399,406-408,410-415,418,435,444-445,448-455,505-507,514-515,518-526,564-566
+  s_3a2012bdd24d4c::t_7b358ffe1e344f 188
+  s_3a2012bdd24d4c::t_c1d3ec0873ff59 288
+  s_3a2012bdd24d4c::t_125e1f3a1ccbc4 419
+  s_3a2012bdd24d4c::t_6a793a142b5930 504
+apps/web/src/lib/audit-query.ts
+  s_3a2012bdd24d4c::t_b4bcf686bb8bd9 1-3,5-16,19-23
+  s_3a2012bdd24d4c::t_c2e26fb3e40ba1 4
+  s_3a2012bdd24d4c::t_c0fd0f95e2a27f 17-18
+README.md
+  s_3a2012bdd24d4c::t_c69bac93fa912e 52
+apps/web/src/routes/api/auth/$.ts
+  s_3a2012bdd24d4c::t_c6209b7bc32b1c 9,12,34
+  s_3a2012bdd24d4c::t_6c34d57761bccd 4-7,13,29
+  s_3a2012bdd24d4c::t_b64ab143bf5b1c 8
+  s_3a2012bdd24d4c::t_6a3158e3651359 10-11,14-22,24-28,30-33,35-36,42
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 23
+  s_3a2012bdd24d4c::t_a1388cd21f88ee 3
+apps/web/src/functions/role-admin.ts
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 193,280,369
+  s_3a2012bdd24d4c::t_e5a1a90356ebbc 207-250,252-255,294-345,347-349,379-420
+  s_3a2012bdd24d4c::t_8cd8d712c19b8e 16,190-192,194-205,261,277-279,281-292,352-353,366-367,370-377,421-422
+  s_3a2012bdd24d4c::t_781118ae143f43 258-260
+  s_3a2012bdd24d4c::t_ebd4466e656f81 206
+  s_3a2012bdd24d4c::t_be373a8b2e3f2d 293
+  s_3a2012bdd24d4c::t_5ebe71c4b6e8c9 378
+apps/web/src/components/audit/audit-detail-sheet.tsx
+  s_3a2012bdd24d4c::t_5b51847b9202aa 1-42,44-47,56-58,67-88
+  s_3a2012bdd24d4c::t_181085482ce419 48-55,59-66
+  s_3a2012bdd24d4c::t_020266dba18661 43
+apps/web/src/functions/event-poll.ts
+  s_3a2012bdd24d4c::t_e612ef67b87b4c 43,45,52,55
+  s_3a2012bdd24d4c::t_94b5e5a4cba8cc 11,46-51,53,56-61,63,118-121,123-128,130
+  s_3a2012bdd24d4c::t_9e70b0dd526f74 44
+  s_3a2012bdd24d4c::t_d4e3e97323a81b 64-73,75-79,81-112,114-115,117
+apps/web/src/lib/audit-query.test.ts
+  s_3a2012bdd24d4c::t_aa2a8fca4f795f 1,47-51
+  s_3a2012bdd24d4c::t_02890c38ece204 46,52-56
+  s_3a2012bdd24d4c::t_b4bcf686bb8bd9 2-38,41-45,57
+  s_3a2012bdd24d4c::t_c2e26fb3e40ba1 39-40
+packages/e2e/tests/audit/audit-log.spec.ts
+  s_3a2012bdd24d4c::t_c0fd0f95e2a27f 1-13,17-73
+  s_3a2012bdd24d4c::t_3be8582127214e 14-16
+project-structure.md
+  s_3a2012bdd24d4c::t_4cd9eba1b8c566 92,112,123,166-167,176,265-273
+packages/zero/src/schema.ts
+  s_3a2012bdd24d4c::t_25b8aa5ef0ec5a 1,364-458,3509,3637-3641
+apps/web/src/lib/audit-permission.test.ts
+  s_3a2012bdd24d4c::t_cf3620e871b1a2 2-23,28-30,44-45
+  s_3a2012bdd24d4c::t_66a33e847d10fa 43
+  s_3a2012bdd24d4c::t_b64ab143bf5b1c 1
+  s_3a2012bdd24d4c::t_aa2a8fca4f795f 31-42
+  s_3a2012bdd24d4c::t_132519eaa84468 24-27
+apps/web/src/lib/audit.ts
+  s_3a2012bdd24d4c::t_d8ce470b8e803d 298,306-310
+  s_3a2012bdd24d4c::t_e5a1a90356ebbc 2
+  s_3a2012bdd24d4c::t_01da015e5507d2 540,584
+  s_3a2012bdd24d4c::t_84e08d5ccf602d 40,221-229,318,374,376,378,384-386,520-526,529-532,534-535
+  s_3a2012bdd24d4c::t_3edc6c6fc292d2 49-50,52-53,55,477-487,507,537,542-543,546,570,607-613,615-626,629,631-635,639-648
+  s_3a2012bdd24d4c::t_96931701383da6 1,3-4,6,8-11,14-34,41-48,51,172,174-193,202-220,230-234,236-246,249-252,275-295,299,311-317,319-320,325-354,360-361,366-373,377,387,389-393,472-476,505-506,508-509,511,519,533,544-545,547,550-565,630,649-661
+  s_3a2012bdd24d4c::t_eecd0f499049c8 56,262-267,270
+  s_3a2012bdd24d4c::t_c2e26fb3e40ba1 235,247-248,253-256,258-261,271-274,614,627-628
+  s_3a2012bdd24d4c::t_f1b31f2d9b4026 173,362-365
+  s_3a2012bdd24d4c::t_c69bac93fa912e 54,268-269
+  s_3a2012bdd24d4c::t_1e8618cbb1ed30 5,169,431-432,435-438,459-468,577
+  s_3a2012bdd24d4c::t_132519eaa84468 636-638
+  s_3a2012bdd24d4c::t_781118ae143f43 35-39,296-297,300-305,321-324,355,359,375,379-383,399-402,417-424
+  s_3a2012bdd24d4c::t_020266dba18661 7,405-408,413,426-427,429,433-434,439-447,456-457,488-492,497,501-504,510,527-528,536,548,571-575,578-582,585-606
+  s_3a2012bdd24d4c::t_142ab155a538b1 394-398,403-404,409-412,414-416,425,470-471
+  s_3a2012bdd24d4c::t_75ee3b083d0c93 12-13
+  s_3a2012bdd24d4c::t_4209d2faa9885f 257
+  s_3a2012bdd24d4c::t_6ea8cf31338dc2 194-201
+  s_3a2012bdd24d4c::t_bba2ee17086732 57,493-496,498-500,549,566-569
+  s_3a2012bdd24d4c::t_3670918cb6e772 58-168,170-171,428,430,448-455,458,469,512-518,538-539,541,576,583
+  s_3a2012bdd24d4c::t_729b4cd9de727e 356-358,388
+apps/web/src/components/audit/audit-log-table.tsx
+  s_3a2012bdd24d4c::t_5b51847b9202aa 1-169
+packages/db/src/schema/index.ts
+  s_3a2012bdd24d4c::t_42da59b3989519 4
+apps/web/src/routes/api/zero/mutate.ts
+  s_3a2012bdd24d4c::t_78f681e20c6b5f 45-48
+  s_3a2012bdd24d4c::t_0835da1e3f6407 32-34
+  s_3a2012bdd24d4c::t_020266dba18661 14,57
+  s_3a2012bdd24d4c::t_5ddee7c465b01a 15,65-69
+  s_3a2012bdd24d4c::t_efdc5e40fc8315 12-13,16,58-64
+apps/web/src/routes/_app/audit-log.tsx
+  s_3a2012bdd24d4c::t_3be8582127214e 185-187,223-249
+  s_3a2012bdd24d4c::t_b3543e91199c05 2
+  s_3a2012bdd24d4c::t_f241d25e7a2e98 4-15,24,27-48,51-79,92-96,103-104,109-130,132-135,139-151,153-180,184,188-198,253-261
+  s_3a2012bdd24d4c::t_2a423f204211d7 106-108
+  s_3a2012bdd24d4c::t_75ee3b083d0c93 3,16-23,25-26,80-91,97-102,136-138,181-183
+  s_3a2012bdd24d4c::t_c69bac93fa912e 1,49-50,105,131,152,199-222,250-252
+apps/web/src/components/analytics/date-range-filter.tsx
+  s_3a2012bdd24d4c::t_f241d25e7a2e98 47,66,78
+packages/e2e/helpers/seed-test-user.ts
+  s_3a2012bdd24d4c::t_c0fd0f95e2a27f 4,90,138-161,914
+apps/web/src/routeTree.gen.ts
+  s_3a2012bdd24d4c::t_27575c6338d15a 17,27,85-89,135-139,314,324,358,368,408,418,460,470,504,514,553,563,599,652-658,722-728,1061,1077,1123
+apps/web/src/lib/nav-items.ts
+  s_3a2012bdd24d4c::t_8fbd450aecb1bb 108-113,167-169,233-235
+packages/db/src/migrations/0050_needy_silver_fox.sql
+  s_3a2012bdd24d4c::t_85df6c4a79c586 1-23
+packages/db/src/schema/audit-log.ts
+  s_3a2012bdd24d4c::t_42da59b3989519 10-65
+  s_3a2012bdd24d4c::t_e5a1a90356ebbc 1-9
+packages/db/src/permissions.ts
+  s_3a2012bdd24d4c::t_42da59b3989519 363-368,403,421
+docs/architecture/auth.md
+  s_3a2012bdd24d4c::t_bba2ee17086732 64,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "44959195d5ccdbd4b1409ad6626584116624f07b",
+  "prompts": {},
+  "sessions": {
+    "s_3a2012bdd24d4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6eea-ec00-78d2-901e-a63ee63b3372",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
