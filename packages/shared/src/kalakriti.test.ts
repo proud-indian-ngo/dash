@@ -3,8 +3,10 @@ import {
   canManageKalakritiResponsibility,
   deriveKalakritiAgeCategory,
   findKalakritiAgeCategoryOverlap,
+  hasValidKalakritiGroupRules,
   normalizeKalakritiCenterName,
   requireKalakritiAgeCategoryOverrideReason,
+  validateKalakritiSessionSchedule,
 } from "./kalakriti";
 
 describe("canManageKalakritiResponsibility", () => {
@@ -92,5 +94,92 @@ describe("normalizeKalakritiCenterName", () => {
       name: "NORTH Centre",
       normalizedName: "north centre",
     });
+  });
+});
+
+describe("Kalakriti Competition configuration", () => {
+  it("enforces individual and group participation rules", () => {
+    expect(hasValidKalakritiGroupRules("individual", 1, 1)).toBe(true);
+    expect(hasValidKalakritiGroupRules("individual", 1, 2)).toBe(false);
+    expect(hasValidKalakritiGroupRules("group", 2, 4)).toBe(true);
+    expect(hasValidKalakritiGroupRules("group", 1, 4)).toBe(false);
+    expect(hasValidKalakritiGroupRules("group", 4, 3)).toBe(false);
+  });
+
+  it("accepts same-day back-to-back Sessions in one Venue", () => {
+    const existing = {
+      cancelledAt: null,
+      endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+      id: "session-1",
+      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+      venueId: "venue-1",
+    };
+    expect(
+      validateKalakritiSessionSchedule(
+        {
+          ...existing,
+          endAt: Date.parse("2027-11-21T06:30:00.000Z"),
+          id: "session-2",
+          startAt: existing.endAt,
+        },
+        "2027-11-21",
+        "Asia/Kolkata",
+        [existing]
+      )
+    ).toEqual({ valid: true });
+  });
+
+  it("rejects same-Venue overlap and ignores cancelled Sessions", () => {
+    const existing = {
+      cancelledAt: null,
+      endAt: Date.parse("2027-11-21T06:30:00.000Z"),
+      id: "session-1",
+      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+      venueId: "venue-1",
+    };
+    const candidate = {
+      cancelledAt: null,
+      endAt: Date.parse("2027-11-21T07:00:00.000Z"),
+      id: "session-2",
+      startAt: Date.parse("2027-11-21T06:00:00.000Z"),
+      venueId: "venue-1",
+    };
+    expect(
+      validateKalakritiSessionSchedule(
+        candidate,
+        "2027-11-21",
+        "Asia/Kolkata",
+        [existing]
+      )
+    ).toEqual({
+      conflictSessionId: "session-1",
+      reason: "venue_overlap",
+      valid: false,
+    });
+    expect(
+      validateKalakritiSessionSchedule(
+        candidate,
+        "2027-11-21",
+        "Asia/Kolkata",
+        [{ ...existing, cancelledAt: 1 }]
+      )
+    ).toEqual({ valid: true });
+  });
+
+  it("rejects Sessions outside the Edition date in its timezone", () => {
+    expect(
+      validateKalakritiSessionSchedule(
+        {
+          cancelledAt: null,
+          endAt: Date.parse("2027-11-21T19:00:00.000Z"),
+          id: "session-1",
+          startAt: Date.parse("2027-11-21T18:00:00.000Z"),
+          venueId: "venue-1",
+        },
+        "2027-11-21",
+        "Asia/Kolkata",
+        []
+      )
+    ).toEqual({ reason: "outside_event_date", valid: false });
   });
 });

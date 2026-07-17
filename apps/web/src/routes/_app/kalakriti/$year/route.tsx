@@ -31,6 +31,14 @@ function KalakritiEditionLayout() {
   const canManageGuardians =
     access.isGlobalAdmin ||
     access.membership?.responsibilities.includes("edition_admin");
+  const canViewCompetitions =
+    access.isGlobalAdmin ||
+    access.membership?.responsibilities.some(
+      (responsibility) =>
+        responsibility === "edition_admin" ||
+        responsibility === "overall_events_lead" ||
+        responsibility === "competition_category_lead"
+    );
 
   return (
     <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">
@@ -60,7 +68,7 @@ function KalakritiEditionLayout() {
 
       <nav
         aria-label="Kalakriti Edition"
-        className="mt-6 flex gap-2 border-b pb-3"
+        className="mt-6 flex flex-wrap gap-2 border-b pb-3"
       >
         <Button
           nativeButton={false}
@@ -102,6 +110,21 @@ function KalakritiEditionLayout() {
             variant="ghost"
           >
             Eligibility
+          </Button>
+        ) : null}
+        {canViewCompetitions ? (
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                params={{ year: String(edition.year) }}
+                to="/kalakriti/$year/competitions"
+              />
+            }
+            size="sm"
+            variant="ghost"
+          >
+            Competitions
           </Button>
         ) : null}
         {canManageGuardians ? (

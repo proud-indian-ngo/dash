@@ -49,10 +49,14 @@ import {
   kalakritiAuditEntry,
   kalakritiCenter,
   kalakritiCenterAgeQuota,
+  kalakritiCompetition,
+  kalakritiCompetitionCategory,
+  kalakritiCompetitionSession,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
   kalakritiGuardianCenter,
+  kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
@@ -169,12 +173,16 @@ const ID = {
   kalakritiAudit: "019d52c2-7261-7dce-b0ee-e206561715c4",
   kalakritiCenter: "019d52c2-7261-7dce-b0ee-e206561715c6",
   kalakritiCenterAgeQuota: "019d52c2-7261-7dce-b0ee-e206561715c9",
+  kalakritiCompetition: "019d52c2-7261-7dce-b0ee-e206561715cb",
+  kalakritiCompetitionCategory: "019d52c2-7261-7dce-b0ee-e206561715ca",
+  kalakritiCompetitionSession: "019d52c2-7261-7dce-b0ee-e206561715cd",
   kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
   kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
   kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
   kalakritiEditionAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
   kalakritiGuardianCenter: "019d52c2-7261-7dce-b0ee-e206561715c7",
   kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
+  kalakritiVenue: "019d52c2-7261-7dce-b0ee-e206561715cc",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
   // Reimbursements
@@ -894,6 +902,68 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       id: ID.kalakritiCenterAgeQuota,
       maleStudentLimit: 20,
       updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionCategory)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCompetitionCategory,
+      name: "Performing Arts",
+      normalizedName: "performing arts",
+      sortOrder: 0,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetition)
+    .values({
+      competitionCategoryId: ID.kalakritiCompetitionCategory,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      genderEligibility: "both",
+      id: ID.kalakritiCompetition,
+      maximumGroupSize: 1,
+      minimumGroupSize: 1,
+      name: "Solo Dance",
+      normalizedName: "solo dance",
+      participationMode: "individual",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiVenue)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiVenue,
+      name: "Main Stage",
+      normalizedName: "main stage",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionSession)
+    .values({
+      ageCategoryId: ID.kalakritiAgeCategory,
+      capacity: 20,
+      competitionId: ID.kalakritiCompetition,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      endAt: new Date("2027-11-21T10:00:00+05:30"),
+      id: ID.kalakritiCompetitionSession,
+      startAt: new Date("2027-11-21T09:00:00+05:30"),
+      updatedAt: now,
+      venueId: ID.kalakritiVenue,
     })
     .onConflictDoNothing();
 

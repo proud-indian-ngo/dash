@@ -1,0 +1,361 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  kalakritiCompetitionCreateSchema,
+  kalakritiCompetitionMutators,
+} from "../kalakriti-competition";
+
+const adminContext = {
+  permissions: ["kalakriti.admin"],
+  role: "admin",
+  userId: "admin-1",
+};
+
+const edition = {
+  eventDate: "2027-11-21",
+  id: "edition-1",
+  lifecycle: "draft",
+  timezone: "Asia/Kolkata",
+};
+const category = {
+  editionId: "edition-1",
+  id: "category-1",
+  name: "Cultural",
+  retiredAt: null,
+};
+const competition = {
+  cancelledAt: null,
+  competitionCategoryId: category.id,
+  editionId: edition.id,
+  id: "competition-1",
+  name: "Dance",
+  retiredAt: null,
+};
+const venue = {
+  editionId: edition.id,
+  id: "venue-1",
+  name: "Main Hall",
+  retiredAt: null,
+};
+
+function createTx(results: unknown[] = []) {
+  const lockedResults: unknown[][] = [];
+  const spies = {
+    deleteCategory: vi.fn(),
+    deleteCompetition: vi.fn(),
+    deleteSession: vi.fn(),
+    deleteVenue: vi.fn(),
+    insertAudit: vi.fn(),
+    insertCategory: vi.fn(),
+    insertCompetition: vi.fn(),
+    insertSession: vi.fn(),
+    insertVenue: vi.fn(),
+    updateCategory: vi.fn(),
+    updateCompetition: vi.fn(),
+    updateSession: vi.fn(),
+    updateVenue: vi.fn(),
+  };
+  const select = vi.fn(() => {
+    const query = {
+      for: vi.fn(() => lockedResults.shift() ?? []),
+      from: vi.fn(),
+      where: vi.fn(),
+    };
+    query.from.mockReturnValue(query);
+    query.where.mockReturnValue(query);
+    return query;
+  });
+  return {
+    lockedResults,
+    spies,
+    tx: {
+      dbTransaction: { wrappedTransaction: { select } },
+      location: "server" as const,
+      mutate: {
+        kalakritiAuditEntry: { insert: spies.insertAudit },
+        kalakritiCompetition: {
+          delete: spies.deleteCompetition,
+          insert: spies.insertCompetition,
+          update: spies.updateCompetition,
+        },
+        kalakritiCompetitionCategory: {
+          delete: spies.deleteCategory,
+          insert: spies.insertCategory,
+          update: spies.updateCategory,
+        },
+        kalakritiCompetitionSession: {
+          delete: spies.deleteSession,
+          insert: spies.insertSession,
+          update: spies.updateSession,
+        },
+        kalakritiVenue: {
+          delete: spies.deleteVenue,
+          insert: spies.insertVenue,
+          update: spies.updateVenue,
+        },
+      },
+      run: vi.fn(async () => results.shift()),
+    },
+  };
+}
+
+describe("kalakritiCompetition commands", () => {
+  it("allows the Overall Events Lead to create a normalized Category", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      { id: "membership-1" },
+      { id: "assignment-1" },
+    ]);
+    lockedResults.push([edition]);
+
+    await kalakritiCompetitionMutators.createCategory.fn({
+      args: {
+        auditEntryId: "audit-1",
+        categoryId: "category-1",
+        editionId: edition.id,
+        name: "  Cultural   Events ",
+        now: 1,
+        sortOrder: 0,
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "lead-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiCompetitionMutators.createCategory.fn
+    >[0]);
+
+    expect(spies.insertCategory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Cultural Events",
+        normalizedName: "cultural events",
+      })
+    );
+  });
+
+  it("keeps a Category Lead read-only", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      { id: "membership-1" },
+      undefined,
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.createCategory.fn({
+        args: {
+          auditEntryId: "audit-1",
+          categoryId: "category-1",
+          editionId: edition.id,
+          name: "Cultural",
+          now: 1,
+          sortOrder: 0,
+        },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "category-lead-1",
+        },
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.createCategory.fn
+      >[0])
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.insertCategory).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid individual and group size rules at the boundary", () => {
+    const base = {
+      auditEntryId: "audit-1",
+      competitionCategoryId: category.id,
+      competitionId: competition.id,
+      editionId: edition.id,
+      genderEligibility: "both" as const,
+      name: "Dance",
+      now: 1,
+    };
+    expect(
+      kalakritiCompetitionCreateSchema.safeParse({
+        ...base,
+        maximumGroupSize: 2,
+        minimumGroupSize: 1,
+        participationMode: "individual",
+      }).success
+    ).toBe(false);
+    expect(
+      kalakritiCompetitionCreateSchema.safeParse({
+        ...base,
+        maximumGroupSize: 2,
+        minimumGroupSize: 1,
+        participationMode: "group",
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects a Competition Category from another Edition", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      { ...category, editionId: "edition-2" },
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.createCompetition.fn({
+        args: {
+          auditEntryId: "audit-1",
+          competitionCategoryId: category.id,
+          competitionId: competition.id,
+          editionId: edition.id,
+          genderEligibility: "both",
+          maximumGroupSize: 1,
+          minimumGroupSize: 1,
+          name: "Dance",
+          now: 1,
+          participationMode: "individual",
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.createCompetition.fn
+      >[0])
+    ).rejects.toThrow("not found in this Edition");
+    expect(spies.insertCompetition).not.toHaveBeenCalled();
+  });
+
+  it("creates a same-day Session in an active Venue", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      { editionId: edition.id, id: "age-1" },
+      venue,
+      [],
+    ]);
+    lockedResults.push([edition]);
+
+    await kalakritiCompetitionMutators.createSession.fn({
+      args: {
+        ageCategoryId: "age-1",
+        auditEntryId: "audit-1",
+        capacity: 20,
+        competitionId: competition.id,
+        editionId: edition.id,
+        endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+        now: 1,
+        sessionId: "session-1",
+        startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+        venueId: venue.id,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiCompetitionMutators.createSession.fn
+    >[0]);
+
+    expect(spies.insertSession).toHaveBeenCalledWith(
+      expect.objectContaining({ capacity: 20, id: "session-1" })
+    );
+  });
+
+  it("rejects a same-Venue Session overlap", async () => {
+    const existingSession = {
+      cancelledAt: null,
+      endAt: Date.parse("2027-11-21T06:00:00.000Z"),
+      id: "session-existing",
+      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+      venueId: venue.id,
+    };
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      { editionId: edition.id, id: "age-1" },
+      venue,
+      [existingSession],
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.createSession.fn({
+        args: {
+          ageCategoryId: "age-1",
+          auditEntryId: "audit-1",
+          capacity: 20,
+          competitionId: competition.id,
+          editionId: edition.id,
+          endAt: Date.parse("2027-11-21T06:30:00.000Z"),
+          now: 1,
+          sessionId: "session-1",
+          startAt: Date.parse("2027-11-21T05:30:00.000Z"),
+          venueId: venue.id,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.createSession.fn
+      >[0])
+    ).rejects.toThrow("overlapping Session");
+    expect(spies.insertSession).not.toHaveBeenCalled();
+  });
+
+  it("protects referenced Competitions from deletion", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      { id: "session-1" },
+      undefined,
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.deleteCompetition.fn({
+        args: { auditEntryId: "audit-1", id: competition.id, now: 1 },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.deleteCompetition.fn
+      >[0])
+    ).rejects.toThrow("referenced");
+    expect(spies.deleteCompetition).not.toHaveBeenCalled();
+  });
+
+  it("revalidates Venue overlap before restoring a Session", async () => {
+    const cancelledSession = {
+      ageCategoryId: "age-1",
+      cancelledAt: 1,
+      capacity: 20,
+      competitionId: competition.id,
+      editionId: edition.id,
+      endAt: Date.parse("2027-11-21T06:00:00.000Z"),
+      id: "session-cancelled",
+      startAt: Date.parse("2027-11-21T05:00:00.000Z"),
+      venueId: venue.id,
+    };
+    const { lockedResults, spies, tx } = createTx([
+      cancelledSession,
+      competition,
+      { editionId: edition.id, id: "age-1" },
+      venue,
+      [
+        cancelledSession,
+        {
+          cancelledAt: null,
+          endAt: Date.parse("2027-11-21T06:30:00.000Z"),
+          id: "session-active",
+          startAt: Date.parse("2027-11-21T05:30:00.000Z"),
+          venueId: venue.id,
+        },
+      ],
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.setSessionCancelled.fn({
+        args: {
+          auditEntryId: "audit-restore",
+          enabled: false,
+          id: cancelledSession.id,
+          now: 2,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.setSessionCancelled.fn
+      >[0])
+    ).rejects.toThrow("overlapping Session");
+    expect(spies.updateSession).not.toHaveBeenCalled();
+  });
+});

@@ -25,8 +25,10 @@ export interface LockedCenter {
 }
 
 export interface LockedEdition {
+  eventDate: string;
   id: string;
   lifecycle: string;
+  timezone: string;
 }
 
 export interface LockedAgeCategory {
@@ -49,6 +51,25 @@ export interface LockedGuardianCenter {
   editionId: string;
   id: string;
   membershipId: string;
+}
+
+function normalizeEditionEventDate(value: Date | number | string): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function normalizeEdition(edition: {
+  eventDate: Date | number | string;
+  id: string;
+  lifecycle: string;
+  timezone: string;
+}): LockedEdition {
+  return {
+    ...edition,
+    eventDate: normalizeEditionEventDate(edition.eventDate),
+  };
 }
 
 function requireServerTransaction(tx: LockableKalakritiTx) {
@@ -106,9 +127,14 @@ export async function getEditionForUpdate(
   editionId: string
 ): Promise<LockedEdition | undefined> {
   if (tx.location === "client") {
-    return (await tx.run(zql.kalakritiEdition.where("id", editionId).one())) as
-      | LockedEdition
+    const edition = (await tx.run(
+      zql.kalakritiEdition.where("id", editionId).one()
+    )) as
+      | (Omit<LockedEdition, "eventDate"> & {
+          eventDate: Date | number | string;
+        })
       | undefined;
+    return edition ? normalizeEdition(edition) : undefined;
   }
 
   const [{ kalakritiEdition }, { eq }] = await Promise.all([
@@ -116,11 +142,16 @@ export async function getEditionForUpdate(
     import("drizzle-orm"),
   ]);
   const [edition] = await requireServerTransaction(tx)
-    .select({ id: kalakritiEdition.id, lifecycle: kalakritiEdition.lifecycle })
+    .select({
+      eventDate: kalakritiEdition.eventDate,
+      id: kalakritiEdition.id,
+      lifecycle: kalakritiEdition.lifecycle,
+      timezone: kalakritiEdition.timezone,
+    })
     .from(kalakritiEdition)
     .where(eq(kalakritiEdition.id, editionId))
     .for("update");
-  return edition;
+  return edition ? normalizeEdition(edition) : undefined;
 }
 
 export async function getAgeCategoryForUpdate(
