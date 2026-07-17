@@ -30,9 +30,18 @@ export class KalakritiEligibilityPage {
     await this.page.goto(`/kalakriti/${year}/eligibility`);
   }
 
-  async setQuota(categoryName: string, male: number, female: number) {
+  async setQuota(
+    categoryName: string,
+    centerName: string,
+    male: number,
+    female: number
+  ) {
     const card = this.ageCategory(categoryName);
-    await card.getByRole("button", { name: "Set quota" }).click();
+    await card
+      .getByRole("button", {
+        name: `Set ${categoryName} quota for ${centerName}`,
+      })
+      .click();
     const dialog = this.page.getByRole("dialog", {
       name: "Center Student quota",
     });

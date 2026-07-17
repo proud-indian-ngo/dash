@@ -44,9 +44,11 @@ import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
+  kalakritiAgeCategory,
   kalakritiAssignment,
   kalakritiAuditEntry,
   kalakritiCenter,
+  kalakritiCenterAgeQuota,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
@@ -163,8 +165,10 @@ const ID = {
   evSupply: "019d52c2-7261-7dce-b0ee-e219e08de6fd",
   evTeaching: "019d52c2-7261-7dce-b0ee-e2143101d41f",
   evTeachingNext: "019d52c2-7261-7dce-b0ee-e215aeea8546",
+  kalakritiAgeCategory: "019d52c2-7261-7dce-b0ee-e206561715c8",
   kalakritiAudit: "019d52c2-7261-7dce-b0ee-e206561715c4",
   kalakritiCenter: "019d52c2-7261-7dce-b0ee-e206561715c6",
+  kalakritiCenterAgeQuota: "019d52c2-7261-7dce-b0ee-e206561715c9",
   kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
   kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
   kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
@@ -856,6 +860,39 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       name: "Jayanagar",
       normalizedName: "jayanagar",
       studentRegistrationEnabled: false,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiAgeCategory)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiAgeCategory,
+      maxCompetitionsPerCategory: 1,
+      maximumAge: 10,
+      maxTotalCompetitions: 2,
+      minimumAge: 6,
+      name: "Junior",
+      normalizedName: "junior",
+      sortOrder: 0,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCenterAgeQuota)
+    .values({
+      ageCategoryId: ID.kalakritiAgeCategory,
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      femaleStudentLimit: 20,
+      id: ID.kalakritiCenterAgeQuota,
+      maleStudentLimit: 20,
       updatedAt: now,
     })
     .onConflictDoNothing();

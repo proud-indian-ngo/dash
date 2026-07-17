@@ -55,7 +55,7 @@ test("configures Age Categories and protected Center quotas", async ({
     ).toBeDisabled();
     await overlapDialog.getByRole("button", { name: "Cancel" }).click();
 
-    await eligibility.setQuota("Junior", 20, 25);
+    await eligibility.setQuota("Junior", "Jayanagar", 20, 25);
     await expect(eligibility.ageCategory("Junior")).toContainText(
       "Male 20 · Female 25"
     );
@@ -63,7 +63,7 @@ test("configures Age Categories and protected Center quotas", async ({
     await eligibility
       .ageCategory("Junior")
       .getByRole("button", {
-        name: "Delete",
+        name: "Delete Junior Age Category",
       })
       .click();
     await page
@@ -82,7 +82,7 @@ test("configures Age Categories and protected Center quotas", async ({
     await eligibility
       .ageCategory("Junior")
       .getByRole("button", {
-        name: "Remove",
+        name: "Remove Junior quota for Jayanagar",
       })
       .click();
     await page
@@ -92,7 +92,7 @@ test("configures Age Categories and protected Center quotas", async ({
     await eligibility
       .ageCategory("Junior")
       .getByRole("button", {
-        name: "Delete",
+        name: "Delete Junior Age Category",
       })
       .click();
     await page
