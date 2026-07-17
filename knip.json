@@ -24,6 +24,7 @@
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],
       "entry": [
+        "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-guardian-race.ts",
         "helpers/seed-dev-data.ts",
         "shard-by-duration.ts"

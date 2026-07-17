@@ -63,6 +63,7 @@ import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/th
 import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/original.$id'
 import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
 import { Route as AppKalakritiYearGuardiansRouteImport } from './routes/_app/kalakriti/$year/guardians'
+import { Route as AppKalakritiYearCentersRouteImport } from './routes/_app/kalakriti/$year/centers'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -333,6 +334,11 @@ const AppKalakritiYearGuardiansRoute =
     path: '/guardians',
     getParentRoute: () => AppKalakritiYearRouteRoute,
   } as any)
+const AppKalakritiYearCentersRoute = AppKalakritiYearCentersRouteImport.update({
+  id: '/centers',
+  path: '/centers',
+  getParentRoute: () => AppKalakritiYearRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -378,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
   '/api/jobs/': typeof ApiJobsIndexRoute
+  '/kalakriti/$year/centers': typeof AppKalakritiYearCentersRoute
   '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
@@ -424,6 +431,7 @@ export interface FileRoutesByTo {
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
   '/api/jobs': typeof ApiJobsIndexRoute
+  '/kalakriti/$year/centers': typeof AppKalakritiYearCentersRoute
   '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
@@ -481,6 +489,7 @@ export interface FileRoutesById {
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
   '/api/jobs/': typeof ApiJobsIndexRoute
+  '/_app/kalakriti/$year/centers': typeof AppKalakritiYearCentersRoute
   '/_app/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
@@ -537,6 +546,7 @@ export interface FileRouteTypes {
     | '/vendor-payments/'
     | '/vendors/'
     | '/api/jobs/'
+    | '/kalakriti/$year/centers'
     | '/kalakriti/$year/guardians'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
@@ -583,6 +593,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/api/jobs'
+    | '/kalakriti/$year/centers'
     | '/kalakriti/$year/guardians'
     | '/settings/roles/$roleId'
     | '/api/immich/original/$id'
@@ -639,6 +650,7 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments/'
     | '/_app/vendors/'
     | '/api/jobs/'
+    | '/_app/kalakriti/$year/centers'
     | '/_app/kalakriti/$year/guardians'
     | '/_app/settings/roles/$roleId'
     | '/api/immich/original/$id'
@@ -1049,6 +1061,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKalakritiYearGuardiansRouteImport
       parentRoute: typeof AppKalakritiYearRouteRoute
     }
+    '/_app/kalakriti/$year/centers': {
+      id: '/_app/kalakriti/$year/centers'
+      path: '/centers'
+      fullPath: '/kalakriti/$year/centers'
+      preLoaderRoute: typeof AppKalakritiYearCentersRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
+    }
   }
 }
 
@@ -1067,11 +1086,13 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
 )
 
 interface AppKalakritiYearRouteRouteChildren {
+  AppKalakritiYearCentersRoute: typeof AppKalakritiYearCentersRoute
   AppKalakritiYearGuardiansRoute: typeof AppKalakritiYearGuardiansRoute
   AppKalakritiYearIndexRoute: typeof AppKalakritiYearIndexRoute
 }
 
 const AppKalakritiYearRouteRouteChildren: AppKalakritiYearRouteRouteChildren = {
+  AppKalakritiYearCentersRoute: AppKalakritiYearCentersRoute,
   AppKalakritiYearGuardiansRoute: AppKalakritiYearGuardiansRoute,
   AppKalakritiYearIndexRoute: AppKalakritiYearIndexRoute,
 }

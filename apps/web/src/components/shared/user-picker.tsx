@@ -17,6 +17,7 @@ interface UserPickerProps {
   excludeUserIds?: ReadonlySet<string>;
   highlightedUserIds?: ReadonlySet<string>;
   highlightLabel?: string;
+  inputId?: string;
   onValueChange: (ids: string[]) => void;
   placeholder?: string;
   users: readonly {
@@ -33,6 +34,7 @@ export function UserPicker({
   excludeUserIds,
   highlightedUserIds,
   highlightLabel,
+  inputId,
   placeholder = "Search by name or email...",
   users,
   value,
@@ -79,7 +81,7 @@ export function UserPicker({
           const user = userMap.get(id);
           return <ComboboxChip key={id}>{user?.name ?? id}</ComboboxChip>;
         })}
-        <ComboboxChipsInput placeholder={placeholder} />
+        <ComboboxChipsInput id={inputId} placeholder={placeholder} />
       </ComboboxChips>
       <ComboboxContent anchor={anchorRef}>
         <ComboboxList>

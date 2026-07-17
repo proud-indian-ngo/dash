@@ -25,6 +25,7 @@ interface SelectFieldProps {
   disabled?: boolean;
   form?: FormInstance;
   hideLabel?: boolean;
+  id?: string;
   isRequired?: boolean;
   label: string;
   name: string;
@@ -38,6 +39,7 @@ function SelectFieldControl({
   disabled,
   field,
   isRequired,
+  id,
   options,
   placeholder,
   submitted,
@@ -46,6 +48,7 @@ function SelectFieldControl({
   disabled: boolean;
   field: FormFieldApi<string | undefined>;
   isRequired: boolean;
+  id?: string;
   options: SelectOption[];
   placeholder: string;
   submitted: boolean;
@@ -72,7 +75,7 @@ function SelectFieldControl({
         {...fieldErrorProps(field, submitted)}
         aria-required={isRequired}
         className={triggerClassName}
-        id={field.name}
+        id={id ?? field.name}
       >
         <span
           className="flex flex-1 items-center text-left"
@@ -97,6 +100,7 @@ export function SelectField({
   disabled = false,
   form,
   hideLabel = false,
+  id,
   isRequired = false,
   label,
   name,
@@ -108,6 +112,7 @@ export function SelectField({
   const resolvedForm = useResolvedForm(form, "SelectField");
   return (
     <CustomField<string | undefined>
+      controlId={id}
       description={description}
       form={form}
       hideLabel={hideLabel}
@@ -120,6 +125,7 @@ export function SelectField({
         <SelectFieldControl
           disabled={disabled}
           field={field}
+          id={id}
           isRequired={isRequired}
           options={options}
           placeholder={placeholder}

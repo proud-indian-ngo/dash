@@ -76,6 +76,19 @@ function KalakritiEditionLayout() {
         >
           Overview
         </Button>
+        <Button
+          nativeButton={false}
+          render={
+            <Link
+              params={{ year: String(edition.year) }}
+              to="/kalakriti/$year/centers"
+            />
+          }
+          size="sm"
+          variant="ghost"
+        >
+          Centers
+        </Button>
         {canManageGuardians ? (
           <Button
             nativeButton={false}

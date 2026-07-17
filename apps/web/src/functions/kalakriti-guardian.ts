@@ -13,6 +13,7 @@ import {
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
+  kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
@@ -572,6 +573,10 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
       ) {
         throw new Error("Guardian membership is already archived");
       }
+      const removedCenterAssignments = await tx
+        .delete(kalakritiGuardianCenter)
+        .where(eq(kalakritiGuardianCenter.membershipId, data.membershipId))
+        .returning({ id: kalakritiGuardianCenter.id });
       await tx
         .update(kalakritiEditionMembership)
         .set({ archivedAt: now, state: "archived", updatedAt: now })
@@ -583,7 +588,10 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
         domain: "guardian_access",
         editionId: membership.editionId,
         id: auditEntryId,
-        metadata: { name: currentMembership.name },
+        metadata: {
+          centerAssignmentCount: removedCenterAssignments.length,
+          name: currentMembership.name,
+        },
         targetId: data.membershipId,
         targetType: "edition_membership",
       });

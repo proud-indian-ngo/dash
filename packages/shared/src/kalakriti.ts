@@ -72,3 +72,14 @@ export function canManageKalakritiResponsibility(
     targetResponsibility !== "volunteer_coordinator"
   );
 }
+
+export function normalizeKalakritiCenterName(name: string): {
+  name: string;
+  normalizedName: string;
+} {
+  const displayName = name.normalize("NFKC").trim().replace(/\s+/g, " ");
+  return {
+    name: displayName,
+    normalizedName: displayName.toLocaleLowerCase("en-IN"),
+  };
+}
