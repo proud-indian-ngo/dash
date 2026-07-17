@@ -216,6 +216,7 @@ export function VendorPaymentFields({
         {(field) => (
           <AttachmentsSection
             entityId={entityId}
+            fileDownloadKind="vendorPaymentAttachment"
             onChange={field.handleChange}
             value={field.state.value ?? []}
           />

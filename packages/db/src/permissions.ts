@@ -366,6 +366,19 @@ export type PermissionId = (typeof PERMISSIONS)[number]["id"];
 
 export const PERMISSION_IDS = new Set<string>(PERMISSIONS.map((p) => p.id));
 
+export const SYSTEM_ONLY_PERMISSION_IDS: readonly PermissionId[] = [
+  "requests.export",
+];
+const systemOnlyPermissionIds = new Set<PermissionId>(
+  SYSTEM_ONLY_PERMISSION_IDS
+);
+
+export function isAssignablePermissionId(id: string): id is PermissionId {
+  return (
+    PERMISSION_IDS.has(id) && !systemOnlyPermissionIds.has(id as PermissionId)
+  );
+}
+
 /** Baseline permissions granted to the oriented volunteer role */
 export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
   "requests.create",
@@ -427,8 +440,10 @@ const financeAdminExcluded = new Set<PermissionId>([
 /** Permissions for the admin role — all except finance approvals, user CRUD, app settings, and jobs */
 export const ADMIN_PERMISSIONS: readonly PermissionId[] = PERMISSIONS.map(
   (p) => p.id
-).filter((id) => !adminExcluded.has(id));
+).filter((id) => !(adminExcluded.has(id) || systemOnlyPermissionIds.has(id)));
 
 /** Permissions for the finance_admin role — all except user CRUD, app settings, and jobs */
 export const FINANCE_ADMIN_PERMISSIONS: readonly PermissionId[] =
-  PERMISSIONS.map((p) => p.id).filter((id) => !financeAdminExcluded.has(id));
+  PERMISSIONS.map((p) => p.id).filter(
+    (id) => !(financeAdminExcluded.has(id) || systemOnlyPermissionIds.has(id))
+  );

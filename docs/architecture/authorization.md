@@ -15,10 +15,11 @@ role  →  rolePermission  →  permission (code-defined, DB-synced)
 
 Stored in `role` table. Built-in (highest → lowest):
 
-1. **admin** — all permissions, system role
-2. **Custom roles** (e.g. `team_lead`) — configurable via role management UI
-3. **volunteer** — baseline for oriented volunteers
-4. **unoriented_volunteer** — minimal, default for new users pre-orientation
+1. **super_admin** — all permissions, including reserved system-only permissions
+2. **admin** and **finance_admin** — code-managed system roles with different operational permissions
+3. **Custom roles** (e.g. `team_lead`) — configurable via role management UI
+4. **volunteer** — baseline for oriented volunteers
+5. **unoriented_volunteer** — minimal, default for new users pre-orientation
 
 Default for new users + null-role fallback: `unoriented_volunteer`.
 
@@ -42,3 +43,5 @@ Better Auth admin plugin only knows `admin` vs `volunteer`. Custom roles live in
 ## Permission Conventions
 
 Separate `{entity}.view` (pickers/queries) from `{entity}.manage` (admin pages) when admin page exposes sensitive details. Don't delete/rename IDs without migrating `rolePermission` rows. Adding a permission: edit `packages/db/src/permissions.ts`, auto-syncs on boot.
+
+`requests.export` is reserved for `super_admin`. It is omitted from role-management options, rejected by custom-role mutations, excluded from admin and finance-admin defaults, and removed from every non-super-admin role by `syncPermissions()`.

@@ -101,7 +101,6 @@ export const reimbursementMutators = {
         const { title, userId: ownerId } = entity;
         const { id } = args;
         const { note } = args;
-        const { approvalScreenshotKey } = args;
         const approverUserId = userId;
 
         const lineItems = await tx.run(
@@ -118,7 +117,6 @@ export const reimbursementMutators = {
             await enqueue(
               "notify-reimbursement-approved",
               {
-                approvalScreenshotKey,
                 note,
                 reimbursementId: id,
                 submitterId: ownerId,

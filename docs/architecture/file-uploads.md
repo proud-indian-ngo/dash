@@ -8,9 +8,17 @@
 1. Client requests presigned URL via `getPresignedUploadUrl` server fn.
 2. Client uploads directly to R2 via presigned PUT.
 3. Object key stored in DB (attachment record).
-4. Download proxied through `/api/attachments/download`.
+4. Browser receives a typed asset reference, never a caller-provided object key.
+5. Download is authorized against the exact persisted row and streamed through
+   `/api/attachments/download`.
 
 R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+
+During the private-storage rollout, the bucket remains publicly reachable only
+for asset families that have not migrated yet. Request attachments, approval
+screenshots, scheduled-message attachments, and event photos must use the
+authenticated read boundary even when their durable key predates the current
+`R2_KEY_PREFIX`. Keys containing a `tmp/` path segment are never readable.
 
 ## Immich (Event Photos)
 
@@ -69,6 +77,8 @@ Photo sync is **ordered** for crash safety:
 
 ## Asset Proxying
 
-R2 objects never exposed directly to clients:
-- Downloads: `/api/attachments/download?id=<attachmentId>` — validates permission, streams from R2.
+Protected R2 objects are never exposed directly to clients:
+- Downloads: `/api/attachments/download?id=<rowId>&kind=<assetKind>` — resolves the exact database row, validates owner or `requests.view_all` access, and streams from R2. Scheduled-message references also include the exact persisted key because their attachments are stored in JSON.
+- Event media: `/api/media/event-photo/<photoId>` — validates event visibility, membership, uploader, lead, or event-management access, then redirects to a two-minute signed GET URL.
+- Scheduled WhatsApp delivery signs persisted attachment keys for 15 minutes when the job executes. Notification payloads do not include protected approval screenshots.
 - Immich thumbnails: `/api/immich/thumbnail.$id` + `/api/immich/original.$id` — proxies through the server with API key injected. Client never sees `IMMICH_API_KEY`.

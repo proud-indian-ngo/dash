@@ -15,20 +15,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
-import {
-  type ExportAttachment,
-  type ExportRow,
-  exportCsvData,
-} from "@/functions/export-csv";
+import { type ExportRow, exportCsvData } from "@/functions/export-csv";
 import {
   exportVendorPaymentsCsv,
   type TransactionExportRow,
   type VendorPaymentExportRow,
   vendorPaymentStatusValues,
 } from "@/functions/export-vendor-payments-csv";
-import { getAttachmentPreviewHref } from "@/lib/attachment-links";
 import { type CsvFile, downloadCsvFiles } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
+import { formatExportAttachmentLinks } from "@/lib/export-attachments";
 import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/export")({
@@ -114,17 +110,7 @@ const TX_CSV_HEADERS = [
   "Recorded By",
 ];
 
-function formatAttachments(attachments: ExportAttachment[]): string {
-  if (attachments.length === 0) {
-    return "";
-  }
-  return attachments
-    .map((a) => getAttachmentPreviewHref(a))
-    .filter((href) => href !== "#")
-    .join(" | ");
-}
-
-function requestRowToArray(row: ExportRow): string[] {
+function requestRowToArray(row: ExportRow, origin: string): string[] {
   return [
     row.type,
     row.title,
@@ -136,7 +122,7 @@ function requestRowToArray(row: ExportRow): string[] {
     row.expenseDate,
     row.submittedAt,
     row.createdAt,
-    formatAttachments(row.attachments),
+    formatExportAttachmentLinks(row.attachments, origin),
   ];
 }
 
@@ -274,7 +260,9 @@ async function exportRequests(
     file: {
       filename,
       headers: REQUEST_CSV_HEADERS,
-      rows: result.rows.map(requestRowToArray),
+      rows: result.rows.map((row) =>
+        requestRowToArray(row, window.location.origin)
+      ),
     },
     label: `${result.rows.length} reimbursements`,
   };

@@ -55,6 +55,11 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_KEY_PREFIX` | Key prefix for uploads |
 | `VITE_CDN_URL` | Public CDN URL for serving uploaded files |
 
+Protected request attachments and event photos do not use `VITE_CDN_URL`.
+Keep the bucket/CDN public during the staged migration while avatar and editor
+assets still depend on it. Disable public bucket access only after those
+remaining asset families move behind authenticated delivery.
+
 ### Voucher Organization
 
 | Variable | Description |

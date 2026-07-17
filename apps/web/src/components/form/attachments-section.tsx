@@ -13,6 +13,10 @@ import {
   useFileUpload,
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import type {
+  AttachmentDownloadRef,
+  AttachmentRowDownloadKind,
+} from "@pi-dash/shared/asset-ref";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,6 +43,7 @@ import {
 
 interface AttachmentsSectionProps {
   entityId: string;
+  fileDownloadKind?: AttachmentRowDownloadKind;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
 }
@@ -109,10 +114,12 @@ const showUploadResultToasts = (
 function AttachmentRow({
   attachment,
   deleting,
+  downloadRef,
   onRemove,
 }: {
   attachment: Attachment;
   deleting: boolean;
+  downloadRef?: AttachmentDownloadRef;
   onRemove: (attachment: Attachment) => Promise<void>;
 }) {
   const handleRemove = useEventCallback(async () => {
@@ -137,11 +144,12 @@ function AttachmentRow({
               {getAttachmentLabel(attachment)} (opens in new tab)
             </span>
           </a>
-        ) : (
+        ) : null}
+        {attachment.type === "file" && downloadRef ? (
           <>
             <a
               className="font-medium text-primary text-xs underline-offset-2 hover:underline"
-              href={getAttachmentPreviewHref(attachment)}
+              href={getAttachmentPreviewHref(attachment, downloadRef)}
               rel="noopener noreferrer"
               target="_blank"
             >
@@ -150,14 +158,14 @@ function AttachmentRow({
             <a
               className="font-medium text-primary text-xs underline-offset-2 hover:underline"
               download
-              href={getAttachmentDownloadHref(attachment)}
+              href={getAttachmentDownloadHref(attachment, downloadRef)}
               rel="noopener noreferrer"
               target="_blank"
             >
               Download
             </a>
           </>
-        )}
+        ) : null}
         <Button
           aria-label="Remove attachment"
           disabled={deleting}
@@ -179,11 +187,15 @@ function AttachmentRow({
 
 export function AttachmentsSection({
   entityId,
+  fileDownloadKind,
   onChange,
   value,
 }: AttachmentsSectionProps) {
   const getUploadUrl = useServerFn(getPresignedUploadUrl);
   const [isUploading, setIsUploading] = useState(false);
+  const [unpersistedIds, setUnpersistedIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [uploadProgress, setUploadProgress] = useState({
     current: 0,
     total: 0,
@@ -269,6 +281,13 @@ export function AttachmentsSection({
 
       const uploadedCount = uploadedAttachments.length;
       if (uploadedCount > 0) {
+        setUnpersistedIds((current) => {
+          const next = new Set(current);
+          for (const attachment of uploadedAttachments) {
+            next.add(attachment.id);
+          }
+          return next;
+        });
         onChange([...valueRef.current, ...uploadedAttachments]);
       }
 
@@ -437,6 +456,13 @@ export function AttachmentsSection({
             <AttachmentRow
               attachment={attachment}
               deleting={deletingIds.has(attachment.id)}
+              downloadRef={
+                attachment.type === "file" &&
+                !unpersistedIds.has(attachment.id) &&
+                fileDownloadKind
+                  ? { id: attachment.id, kind: fileDownloadKind }
+                  : undefined
+              }
               key={attachment.id}
               onRemove={removeAttachment}
             />

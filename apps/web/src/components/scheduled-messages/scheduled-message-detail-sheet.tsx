@@ -13,7 +13,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
-import { env } from "@pi-dash/env/web";
 import {
   deriveMessageStatus,
   type ScheduledMessageDerivedStatus,
@@ -24,6 +23,7 @@ import type {
 } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
+import { getAttachmentDownloadHref } from "@/lib/attachment-links";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
 type ScheduledMessageWithCreator = ScheduledMessage & {
@@ -180,7 +180,19 @@ export function ScheduledMessageDetailSheet({
                   <a
                     className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
                     download={a.fileName}
-                    href={`${env.VITE_CDN_URL}/${a.r2Key}`}
+                    href={getAttachmentDownloadHref(
+                      {
+                        filename: a.fileName,
+                        mimeType: a.mimeType,
+                        objectKey: a.r2Key,
+                        type: "file",
+                      },
+                      {
+                        id: message.id,
+                        key: a.r2Key,
+                        kind: "scheduledMessageAttachment",
+                      }
+                    )}
                     key={a.r2Key}
                     rel="noopener noreferrer"
                     target="_blank"
