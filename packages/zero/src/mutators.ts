@@ -8,6 +8,7 @@ import { eventInterestMutators } from "./mutators/event-interest";
 import { eventPhotoMutators } from "./mutators/event-photo";
 import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
+import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiEditionMutators } from "./mutators/kalakriti-edition";
 import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
@@ -30,6 +31,7 @@ export const mutators = defineMutators({
   eventPhoto: eventPhotoMutators,
   eventUpdate: eventUpdateMutators,
   expenseCategory: expenseCategoryMutators,
+  kalakritiAssignment: kalakritiAssignmentMutators,
   kalakritiEdition: kalakritiEditionMutators,
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,

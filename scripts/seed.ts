@@ -832,10 +832,14 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       createdBy: adminId,
       editionId: ID.kalakritiEdition,
       id: ID.kalakritiEditionAdminAssignment,
+      isPrimary: true,
       membershipId: ID.kalakritiEditionAdminMembership,
       responsibility: "edition_admin",
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      set: { isPrimary: true },
+      target: kalakritiAssignment.id,
+    });
 
   await db
     .insert(teamEventMember)
