@@ -195,6 +195,7 @@ apps/web/src/routes/api/auth/$.ts
   s_c8c0ce2f824e4f::t_d18082a9683dde 13-16
   s_c8c0ce2f824e4f::t_46cf0b612f85fd 43,53
   s_c8c0ce2f824e4f::t_0aa2fe23915cb8 41-42
+  s_c8c0ce2f824e4f::t_cecdd652b88ae0 49
 packages/zero/src/queries/event-photo.ts
   s_c8c0ce2f824e4f::t_6fc229ecf63cad 5,40,50,123-125,127
   s_c8c0ce2f824e4f::t_7c989c9c7da001 12-29,32-37
