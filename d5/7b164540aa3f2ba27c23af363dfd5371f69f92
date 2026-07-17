@@ -1,0 +1,91 @@
+packages/zero/src/queries/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 1-44
+apps/web/src/routes/_app/kalakriti/index.tsx
+  s_c8c0ce2f824e4f::t_89ea5e0095a6b6 20
+  s_c8c0ce2f824e4f::t_e5109d346879c4 6,30
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1-5,7-19,21-29,31-46,52-57
+  s_c8c0ce2f824e4f::t_d1690f625ccdb5 47-51
+packages/db/src/sync-permissions.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 5,70,95
+packages/db/src/permissions.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 356-369,416-418
+  s_c8c0ce2f824e4f::t_81b42d02ec6e26 419-420
+apps/web/src/routes/_app/kalakriti/route.tsx
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1-7
+packages/auth/src/auth.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 270
+apps/web/src/routes/_app/events/$id.tsx
+  s_c8c0ce2f824e4f::t_10deaadf60c120 54-60,76,210
+  s_c8c0ce2f824e4f::t_b047c0433d2797 1,6,127-128,158-160,221,241,243
+  s_c8c0ce2f824e4f::t_2b79a85269bfe4 16-29,44-50,52-53,61-75,77-84,222-237,242,245-253,260-261
+  s_c8c0ce2f824e4f::t_e84ee56875a55d 30-43,51
+  s_c8c0ce2f824e4f::t_6354e33d6de9ab 126
+apps/web/src/lib/nav-items.ts
+  s_c8c0ce2f824e4f::t_2beeb67d9099bb 121-130,146-148,216-218
+apps/web/src/components/layout/nav-main.tsx
+  s_c8c0ce2f824e4f::t_2b79a85269bfe4 91
+packages/zero/src/mutators/__tests__/team-event.test.ts
+  s_c8c0ce2f824e4f::t_9ca21fd48cc07a 3-6,127-142
+  s_c8c0ce2f824e4f::t_10c1c5c828dfc6 143-144
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 11,33
+apps/web/src/routes/_app/kalakriti/new.tsx
+  s_c8c0ce2f824e4f::t_e6b07d4fa20744 24-27,29,41,72-73,173-180,183-184
+  s_c8c0ce2f824e4f::t_d1690f625ccdb5 124-129
+  s_c8c0ce2f824e4f::t_30cccbf87cee58 35-37,96-99
+  s_c8c0ce2f824e4f::t_515a2f9f3f0c39 31,52-55,78-80
+  s_c8c0ce2f824e4f::t_02272dc49d4fe5 45-51,181,185-186
+  s_c8c0ce2f824e4f::t_af693076b8f099 38
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1,3-23,28,30,32-34,39-40,42-44,56-63,65-71,74-77,81-95,100-112,114-123,130-172,182,187-197,199-205
+  s_c8c0ce2f824e4f::t_89ea5e0095a6b6 113
+  s_c8c0ce2f824e4f::t_2b79a85269bfe4 2,64,198
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_9fd554b29c19f4 46-52,156-157,164-168,324-330,747-849,2010
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_ef5700d128d9de 135-139
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 1-134,140-237
+packages/zero/src/mutators/team-event.ts
+  s_c8c0ce2f824e4f::t_b8d5d15b73f327 293,389,486,749-750,844,943,992,1129,1230
+  s_c8c0ce2f824e4f::t_515a2f9f3f0c39 571,1350
+  s_c8c0ce2f824e4f::t_542649b547c38e 68-79
+packages/db/src/schema/index.ts
+  s_c8c0ce2f824e4f::t_24bc33a7376fb6 13
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 13,36
+apps/web/src/routes/_app/kalakriti/$year.tsx
+  s_c8c0ce2f824e4f::t_d1690f625ccdb5 60-62,100
+  s_c8c0ce2f824e4f::t_9045e1a7c86eea 1-12,14-35,37-52,54-59,63-99,101-110
+  s_c8c0ce2f824e4f::t_e5109d346879c4 13,36,53
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_59bb815b851b42 1-43,53-92,94-96,98-148
+  s_c8c0ce2f824e4f::t_b8a3149dafee72 44-52,93,97
+apps/web/src/routes/_app/kalakriti/route.test.ts
+  s_c8c0ce2f824e4f::t_26e63dc4aaa40f 5
+  s_c8c0ce2f824e4f::t_9ca21fd48cc07a 1-4,6-22
+apps/web/src/routeTree.gen.ts
+  s_c8c0ce2f824e4f::t_c705c7f790fdf4 31,38,53-54,158-162,193-197,268-277,327,346-347,362,391-392,407,426,446-447,462,481,500-501,516,545-546,561,579,599-600,615,784-790,833-839,938-951,1032-1046,1126,1142
+packages/db/src/migrations/0050_heavy_kat_farrell.sql
+  s_c8c0ce2f824e4f::t_3036628f24cb9f 1-87
+packages/db/src/migrations/meta/0050_snapshot.json
+  s_c8c0ce2f824e4f::t_f90fcf924906f2 1-6209
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_61b0f32fb79e1d 354-360
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_bebdab0a44ce52 1,887-1191,3123-3226,3834-3838,3883-3886,4020-4054
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d57b164540aa3f2ba27c23af363dfd5371f69f92",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
