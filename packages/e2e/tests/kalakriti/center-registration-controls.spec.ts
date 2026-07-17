@@ -19,7 +19,20 @@ async function fixture<T>(action: string, argument?: string): Promise<T> {
   return JSON.parse(stdout.trim()) as T;
 }
 
+async function signIn(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string
+) {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Login" }).click();
+  await page.waitForURL((url) => url.pathname !== "/login");
+}
+
 test("manages independent Center registration and scoped Liaison access", async ({
+  baseURL,
   browser,
   page,
   superAdminEmail,
@@ -29,7 +42,13 @@ test("manages independent Center registration and scoped Liaison access", async 
     "Super-admin Center workflow"
   );
   test.slow();
-  const { year } = await fixture<{ year: number }>("setup", superAdminEmail);
+  const { guardianEmail, guardianName, guardianPassword, year } =
+    await fixture<{
+      guardianEmail: string;
+      guardianName: string;
+      guardianPassword: string;
+      year: number;
+    }>("setup", superAdminEmail);
   const centers = new KalakritiCentersPage(page);
   const volunteerState = path.resolve(
     import.meta.dirname,
@@ -41,6 +60,7 @@ test("manages independent Center registration and scoped Liaison access", async 
     await waitForZeroReady(page);
     await centers.addCenter("Basavanagudi");
     await centers.addCenter("Indiranagar");
+    await centers.addCenter("Unassigned Center");
     await centers.configureRegistration("Basavanagudi", {
       participation: false,
       students: true,
@@ -54,6 +74,28 @@ test("manages independent Center registration and scoped Liaison access", async 
     await expect(centers.center("Indiranagar")).toContainText(
       "Students: Closed"
     );
+
+    await centers.assignGuardian("Basavanagudi", guardianName);
+    await centers.assignGuardian("Indiranagar", guardianName);
+    const guardianContext = await browser.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+    });
+    const guardianPage = await guardianContext.newPage();
+    try {
+      await signIn(guardianPage, guardianEmail, guardianPassword);
+      const guardianCenters = new KalakritiCentersPage(guardianPage);
+      await guardianCenters.goto(year);
+      await waitForZeroReady(guardianPage);
+      await expect(guardianCenters.center("Basavanagudi")).toBeVisible();
+      await expect(guardianCenters.center("Indiranagar")).toBeVisible();
+      await expect(guardianCenters.center("Unassigned Center")).toHaveCount(0);
+      await expect(
+        guardianPage.getByRole("button", { name: "Add Center" })
+      ).toHaveCount(0);
+    } finally {
+      await guardianContext.close();
+    }
 
     await centers.assignLiaison("Basavanagudi", "Test Volunteer");
     const volunteerContext = await browser.newContext({
@@ -84,6 +126,36 @@ test("manages independent Center registration and scoped Liaison access", async 
     await expect(
       page.getByRole("button", { name: "All registrations locked" })
     ).toBeDisabled();
+
+    const assignedCenter = centers.center("Basavanagudi");
+    await assignedCenter.getByRole("button", { name: "Retire" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Retire Center?" })
+      .getByRole("button", { name: "Retire Center" })
+      .click();
+    await expect(assignedCenter).toContainText("Retired");
+    await assignedCenter
+      .getByRole("button", {
+        name: `Remove ${guardianName} as Guardians`,
+      })
+      .click();
+    await page
+      .getByRole("alertdialog", { name: "Remove Guardian assignment?" })
+      .getByRole("button", { name: "Remove Guardian" })
+      .click();
+    await assignedCenter
+      .getByRole("button", { name: "Remove Test Volunteer as Liaisons" })
+      .click();
+    await page
+      .getByRole("alertdialog", { name: "Remove Liaison assignment?" })
+      .getByRole("button", { name: "Remove Liaison" })
+      .click();
+    await assignedCenter.getByRole("button", { name: "Delete" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Delete Center?" })
+      .getByRole("button", { name: "Delete Center" })
+      .click();
+    await expect(assignedCenter).toHaveCount(0);
 
     await centers.addCenter("Temporary Center");
     const temporary = centers.center("Temporary Center");

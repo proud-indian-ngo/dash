@@ -22,6 +22,7 @@ interface RaceMembership {
 interface RaceState {
   activeMemberships: RaceMembership[];
   banned: boolean | null;
+  centerAssignmentCount: number;
   memberships: RaceMembership[];
   sessionCount: number;
 }
@@ -102,7 +103,15 @@ test("serializes concurrent Guardian reactivation and archival", async ({
     expect(winningIndex).toBeGreaterThanOrEqual(0);
 
     expect(activeState.banned).toBe(false);
+    await runRaceHelper("assign-center", activeMembership?.id);
     await runRaceHelper("create-session", userId);
+
+    await expect
+      .poll(async () => {
+        const state = await runRaceHelper<RaceState>("state", userId);
+        return state.centerAssignmentCount;
+      })
+      .toBe(1);
 
     await Promise.all([
       firstGuardians.goto(YEARS[winningIndex] as number),
@@ -125,11 +134,17 @@ test("serializes concurrent Guardian reactivation and archival", async ({
         );
         return {
           banned: state.banned,
+          centerAssignmentCount: state.centerAssignmentCount,
           sessionCount: state.sessionCount,
           state: membership?.state,
         };
       })
-      .toEqual({ banned: true, sessionCount: 0, state: "archived" });
+      .toEqual({
+        banned: true,
+        centerAssignmentCount: 0,
+        sessionCount: 0,
+        state: "archived",
+      });
   } finally {
     await otherPage.close();
     await runRaceHelper("cleanup");

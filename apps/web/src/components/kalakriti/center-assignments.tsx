@@ -2,15 +2,13 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { useCallback } from "react";
-import { toast } from "sonner";
+import { type ReactNode, useCallback } from "react";
 import { uuidv7 } from "uuidv7";
 import {
   GuardianCenterAssignmentForm,
   LiaisonCenterAssignmentForm,
 } from "@/components/kalakriti/center-assignment-forms";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { removeKalakritiGuardianCenter } from "@/functions/kalakriti-guardian";
 import type { PickerUser } from "@/functions/users-for-picker";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -78,6 +76,7 @@ function AssignmentRow({
 }
 
 export function CenterAssignments({
+  allowNewAssignments,
   canManageGuardians,
   canManageLiaisons,
   centerId,
@@ -85,8 +84,11 @@ export function CenterAssignments({
   guardianAssignments,
   guardianOptions,
   liaisonAssignments,
+  onRetryVolunteers,
   volunteerOptions,
+  volunteerOptionsError,
 }: {
+  allowNewAssignments: boolean;
   canManageGuardians: boolean;
   canManageLiaisons: boolean;
   centerId: string;
@@ -94,27 +96,26 @@ export function CenterAssignments({
   guardianAssignments: readonly CenterPersonAssignment[];
   guardianOptions: readonly { id: string; name: string }[];
   liaisonAssignments: readonly CenterPersonAssignment[];
+  onRetryVolunteers: () => void;
   volunteerOptions: readonly PickerUser[];
+  volunteerOptionsError: boolean;
 }) {
   const zero = useZero();
   const guardianRemove = useConfirmAction<CenterPersonAssignment>({
-    onConfirm: async (assignment) => {
-      try {
-        await removeKalakritiGuardianCenter({
-          data: { guardianCenterId: assignment.id },
-        });
-        return { type: "success" };
-      } catch (error) {
-        return {
-          error: {
-            message: error instanceof Error ? error.message : undefined,
-          },
-          type: "error",
-        };
-      }
+    mutationMeta: {
+      entityId: (assignment) => assignment.id,
+      errorMsg: "Failed to remove Guardian",
+      mutation: "kalakritiCenter.removeGuardian",
+      successMsg: "Guardian removed",
     },
-    onError: (message) => toast.error(message ?? "Failed to remove Guardian"),
-    onSuccess: () => toast.success("Guardian removed"),
+    onConfirm: (assignment) =>
+      zero.mutate(
+        mutators.kalakritiCenter.removeGuardian({
+          auditEntryId: uuidv7(),
+          guardianCenterId: assignment.id,
+          now: Date.now(),
+        })
+      ).server,
   });
   const liaisonRemove = useConfirmAction<CenterPersonAssignment>({
     mutationMeta: {
@@ -153,6 +154,34 @@ export function CenterAssignments({
     return null;
   }
 
+  let liaisonAssignmentControl: ReactNode = null;
+  if (allowNewAssignments && volunteerOptionsError) {
+    liaisonAssignmentControl = (
+      <div
+        className="flex flex-wrap items-center gap-2 text-destructive text-sm"
+        role="alert"
+      >
+        <span>Central volunteers could not be loaded.</span>
+        <Button
+          onClick={onRetryVolunteers}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  } else if (allowNewAssignments) {
+    liaisonAssignmentControl = (
+      <LiaisonCenterAssignmentForm
+        centerId={centerId}
+        editionId={editionId}
+        users={volunteerOptions}
+      />
+    );
+  }
+
   return (
     <div className="grid gap-6 border-t pt-4 lg:grid-cols-2">
       {canManageGuardians ? (
@@ -168,10 +197,12 @@ export function CenterAssignments({
             label="Guardians"
             onRemove={guardianRemove.trigger}
           />
-          <GuardianCenterAssignmentForm
-            centerId={centerId}
-            guardians={guardianOptions}
-          />
+          {allowNewAssignments ? (
+            <GuardianCenterAssignmentForm
+              centerId={centerId}
+              guardians={guardianOptions}
+            />
+          ) : null}
         </section>
       ) : null}
       {canManageLiaisons ? (
@@ -187,11 +218,7 @@ export function CenterAssignments({
             label="Liaisons"
             onRemove={liaisonRemove.trigger}
           />
-          <LiaisonCenterAssignmentForm
-            centerId={centerId}
-            editionId={editionId}
-            users={volunteerOptions}
-          />
+          {liaisonAssignmentControl}
         </section>
       ) : null}
       <ConfirmDialog

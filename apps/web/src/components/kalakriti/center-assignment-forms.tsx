@@ -9,7 +9,6 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
 import { UserPicker } from "@/components/shared/user-picker";
-import { assignKalakritiGuardianCenter } from "@/functions/kalakriti-guardian";
 import type { PickerUser } from "@/functions/users-for-picker";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -24,32 +23,28 @@ export function GuardianCenterAssignmentForm({
   centerId: string;
   guardians: readonly { id: string; name: string }[];
 }) {
+  const zero = useZero();
   const form = useForm({
     defaultValues: { membershipId: "" },
     onSubmit: async ({ value }) => {
-      try {
-        const result = await assignKalakritiGuardianCenter({
-          data: { centerId, membershipId: value.membershipId },
-        });
-        handleMutationResult(
-          { type: "success" },
-          {
-            entityId: result.guardianCenterId,
-            errorMsg: "Failed to assign Guardian",
-            mutation: "assignKalakritiGuardianCenter",
-            successMsg: "Guardian assigned",
-          }
-        );
+      const guardianCenterId = uuidv7();
+      const result = await zero.mutate(
+        mutators.kalakritiCenter.assignGuardian({
+          auditEntryId: uuidv7(),
+          centerId,
+          guardianCenterId,
+          membershipId: value.membershipId,
+          now: currentTimestamp(),
+        })
+      ).server;
+      handleMutationResult(result, {
+        entityId: guardianCenterId,
+        errorMsg: "Failed to assign Guardian",
+        mutation: "kalakritiCenter.assignGuardian",
+        successMsg: "Guardian assigned",
+      });
+      if (result.type !== "error") {
         form.reset();
-      } catch (error) {
-        handleMutationResult(
-          { error, type: "error" },
-          {
-            entityId: value.membershipId,
-            errorMsg: "Failed to assign Guardian",
-            mutation: "assignKalakritiGuardianCenter",
-          }
-        );
       }
     },
     validators: {
@@ -64,6 +59,7 @@ export function GuardianCenterAssignmentForm({
       form={form}
     >
       <SelectField
+        id={`guardian-${centerId}`}
         isRequired
         label="Guardian"
         name="membershipId"
@@ -92,10 +88,12 @@ function currentTimestamp(): number {
 }
 
 function SingleVolunteerPicker({
+  inputId,
   onValueChange,
   users,
   value,
 }: {
+  inputId: string;
   onValueChange: (userIds: string[]) => void;
   users: readonly PickerUser[];
   value: string[];
@@ -107,6 +105,7 @@ function SingleVolunteerPicker({
   return (
     <UserPicker
       emptyMessage="No matching central volunteers found."
+      inputId={inputId}
       onValueChange={handleValueChange}
       placeholder="Search central volunteers..."
       users={users}
@@ -168,12 +167,14 @@ export function LiaisonCenterAssignmentForm({
       form={form}
     >
       <CustomField<string[]>
+        controlId={`liaison-${centerId}`}
         isRequired
         label="Central volunteer"
         name="userIds"
       >
         {(field) => (
           <SingleVolunteerPicker
+            inputId={`liaison-${centerId}`}
             onValueChange={field.handleChange}
             users={users}
             value={field.state.value ?? []}

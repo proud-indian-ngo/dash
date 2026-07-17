@@ -45,11 +45,13 @@ export function CenterCard({
   guardianAssignments,
   guardianOptions,
   liaisonAssignments,
+  onRetryVolunteers,
   onDelete,
   onEdit,
   onRegistrationControls,
   onRetire,
   volunteerOptions,
+  volunteerOptionsError,
 }: {
   canManageCenters: boolean;
   canManageGuardians: boolean;
@@ -59,11 +61,13 @@ export function CenterCard({
   guardianAssignments: readonly CenterPersonAssignment[];
   guardianOptions: readonly { id: string; name: string }[];
   liaisonAssignments: readonly CenterPersonAssignment[];
+  onRetryVolunteers: () => void;
   onDelete: (center: CenterListItem) => void;
   onEdit: (center: CenterListItem) => void;
   onRegistrationControls: (center: CenterListItem) => void;
   onRetire: (center: CenterListItem) => void;
   volunteerOptions: readonly PickerUser[];
+  volunteerOptionsError: boolean;
 }) {
   const isRetired = center.retiredAt !== null;
   const handleControls = useEventCallback(() => onRegistrationControls(center));
@@ -110,20 +114,21 @@ export function CenterCard({
           </div>
         ) : null}
       </CardHeader>
-      {isRetired ? null : (
-        <CardContent>
-          <CenterAssignments
-            canManageGuardians={canManageGuardians}
-            canManageLiaisons={canManageLiaisons}
-            centerId={center.id}
-            editionId={editionId}
-            guardianAssignments={guardianAssignments}
-            guardianOptions={guardianOptions}
-            liaisonAssignments={liaisonAssignments}
-            volunteerOptions={volunteerOptions}
-          />
-        </CardContent>
-      )}
+      <CardContent>
+        <CenterAssignments
+          allowNewAssignments={!isRetired}
+          canManageGuardians={canManageGuardians}
+          canManageLiaisons={canManageLiaisons}
+          centerId={center.id}
+          editionId={editionId}
+          guardianAssignments={guardianAssignments}
+          guardianOptions={guardianOptions}
+          liaisonAssignments={liaisonAssignments}
+          onRetryVolunteers={onRetryVolunteers}
+          volunteerOptions={volunteerOptions}
+          volunteerOptionsError={volunteerOptionsError}
+        />
+      </CardContent>
     </Card>
   );
 }
