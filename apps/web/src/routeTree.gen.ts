@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
+import { Route as ApiAuditLogRouteImport } from './routes/api/audit-log'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
@@ -23,6 +24,7 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
@@ -81,6 +83,11 @@ const ApiAvatarRoute = ApiAvatarRouteImport.update({
   path: '/api/avatar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuditLogRoute = ApiAuditLogRouteImport.update({
+  id: '/api/audit-log',
+  path: '/api/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
@@ -124,6 +131,11 @@ const AppJobsRoute = AppJobsRouteImport.update({
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditLogRoute = AppAuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
@@ -305,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/analytics': typeof AppAnalyticsRoute
+  '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -314,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof AuthRegisterRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
@@ -348,6 +362,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/analytics': typeof AppAnalyticsRoute
+  '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -357,6 +372,7 @@ export interface FileRoutesByTo {
   '/register': typeof AuthRegisterRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
@@ -397,6 +413,7 @@ export interface FileRoutesById {
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/_app/analytics': typeof AppAnalyticsRoute
+  '/_app/audit-log': typeof AppAuditLogRoute
   '/_app/export': typeof AppExportRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -406,6 +423,7 @@ export interface FileRoutesById {
   '/_auth/register': typeof AuthRegisterRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
+  '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
@@ -448,6 +466,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/analytics'
+    | '/audit-log'
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
@@ -457,6 +476,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/verify-email'
+    | '/api/audit-log'
     | '/api/avatar'
     | '/api/health'
     | '/settings/roles'
@@ -491,6 +511,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analytics'
+    | '/audit-log'
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
@@ -500,6 +521,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/verify-email'
+    | '/api/audit-log'
     | '/api/avatar'
     | '/api/health'
     | '/events/$id'
@@ -539,6 +561,7 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments'
     | '/_app/vendors'
     | '/_app/analytics'
+    | '/_app/audit-log'
     | '/_app/export'
     | '/_app/jobs'
     | '/_app/scheduled-messages'
@@ -548,6 +571,7 @@ export interface FileRouteTypes {
     | '/_auth/register'
     | '/_auth/reset-password'
     | '/_auth/verify-email'
+    | '/api/audit-log'
     | '/api/avatar'
     | '/api/health'
     | '/_app/'
@@ -584,6 +608,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
@@ -635,6 +660,13 @@ declare module '@tanstack/react-router' {
       path: '/api/avatar'
       fullPath: '/api/avatar'
       preLoaderRoute: typeof ApiAvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/audit-log': {
+      id: '/api/audit-log'
+      path: '/api/audit-log'
+      fullPath: '/api/audit-log'
+      preLoaderRoute: typeof ApiAuditLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth/verify-email': {
@@ -698,6 +730,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof AppExportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/audit-log': {
+      id: '/_app/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AppAuditLogRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/analytics': {
@@ -1039,6 +1078,7 @@ interface AppRouteChildren {
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
   AppAnalyticsRoute: typeof AppAnalyticsRoute
+  AppAuditLogRoute: typeof AppAuditLogRoute
   AppExportRoute: typeof AppExportRoute
   AppJobsRoute: typeof AppJobsRoute
   AppScheduledMessagesRoute: typeof AppScheduledMessagesRoute
@@ -1054,6 +1094,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
   AppAnalyticsRoute: AppAnalyticsRoute,
+  AppAuditLogRoute: AppAuditLogRoute,
   AppExportRoute: AppExportRoute,
   AppJobsRoute: AppJobsRoute,
   AppScheduledMessagesRoute: AppScheduledMessagesRoute,
@@ -1099,6 +1140,7 @@ const ApiJobsIdRouteWithChildren = ApiJobsIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,

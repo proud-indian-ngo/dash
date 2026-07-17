@@ -4,6 +4,7 @@ import { MAX_VIDEO_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import { runSessionAuditedAction } from "@/lib/audit";
 import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
@@ -149,26 +150,41 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data, context }) => {
-    const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
-    if (!data.key.startsWith(expectedPrefix)) {
-      throw new Error("Forbidden");
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
-    try {
-      const s3 = await getS3();
-      await s3.delete(data.key);
-      return { success: true };
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteUploadedAsset" },
-        {
-          handler: "deleteUploadedAsset",
-          key: data.key,
-          subfolder: data.subfolder,
-          userId: context.session?.user.id,
-        },
-        error
-      );
-    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "asset.delete",
+        metadata: { subfolder: data.subfolder },
+        target: { type: "asset" },
+      },
+      async () => {
+        const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
+        if (!data.key.startsWith(expectedPrefix)) {
+          throw new Error("Forbidden");
+        }
+        try {
+          const s3 = await getS3();
+          await s3.delete(data.key);
+          return { success: true };
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/deleteUploadedAsset" },
+            {
+              handler: "deleteUploadedAsset",
+              key: data.key,
+              subfolder: data.subfolder,
+              userId: context.session?.user.id,
+            },
+            error
+          );
+        }
+      }
+    );
   });
 
 export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
@@ -219,25 +235,36 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    const expectedPrefix = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/`;
-    if (!data.key.startsWith(expectedPrefix)) {
-      throw new Error("Forbidden");
-    }
-    try {
-      const s3 = await getS3();
-      await s3.delete(data.key);
-      return { success: true };
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteProfilePicture" },
-        {
-          handler: "deleteProfilePicture",
-          key: data.key,
-          userId: context.session.user.id,
-        },
-        error
-      );
-    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "account.profile_photo.delete",
+        target: { id: session.user.id, type: "user" },
+      },
+      async () => {
+        const expectedPrefix = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${session.user.id}/`;
+        if (!data.key.startsWith(expectedPrefix)) {
+          throw new Error("Forbidden");
+        }
+        try {
+          const s3 = await getS3();
+          await s3.delete(data.key);
+          return { success: true };
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/deleteProfilePicture" },
+            {
+              handler: "deleteProfilePicture",
+              key: data.key,
+              userId: session.user.id,
+            },
+            error
+          );
+        }
+      }
+    );
   });
 
 export const deleteUploadedAssets = createServerFn({ method: "POST" })
@@ -255,26 +282,43 @@ export const deleteUploadedAssets = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data, context }) => {
-    const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
-    for (const key of data.keys) {
-      if (!key.startsWith(expectedPrefix)) {
-        throw new Error("Forbidden");
-      }
+    if (!context.session) {
+      throw new Error("Unauthorized");
     }
-    try {
-      const s3 = await getS3();
-      await Promise.all(data.keys.map((key) => s3.delete(key)));
-      return { success: true };
-    } catch (error) {
-      logErrorAndRethrow(
-        { method: "POST", path: "/fn/deleteUploadedAssets" },
-        {
-          handler: "deleteUploadedAssets",
-          keyCount: data.keys.length,
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "asset.delete_batch",
+        metadata: {
+          batchCount: data.keys.length,
           subfolder: data.subfolder,
-          userId: context.session?.user.id,
         },
-        error
-      );
-    }
+        target: { type: "asset" },
+      },
+      async () => {
+        const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
+        for (const key of data.keys) {
+          if (!key.startsWith(expectedPrefix)) {
+            throw new Error("Forbidden");
+          }
+        }
+        try {
+          const s3 = await getS3();
+          await Promise.all(data.keys.map((key) => s3.delete(key)));
+          return { success: true };
+        } catch (error) {
+          logErrorAndRethrow(
+            { method: "POST", path: "/fn/deleteUploadedAssets" },
+            {
+              handler: "deleteUploadedAssets",
+              keyCount: data.keys.length,
+              subfolder: data.subfolder,
+              userId: context.session?.user.id,
+            },
+            error
+          );
+        }
+      }
+    );
   });

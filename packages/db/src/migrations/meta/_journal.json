@@ -351,6 +351,13 @@
       "when": 1783507141206,
       "tag": "0049_medical_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1784273677701,
+      "tag": "0050_needy_silver_fox",
+      "breakpoints": true
     }
   ]
 }

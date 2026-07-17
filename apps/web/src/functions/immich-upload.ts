@@ -9,6 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import { runSessionAuditedAction } from "@/lib/audit";
 import {
   addAssetToAlbum,
   ensureImmichAlbum,
@@ -99,75 +100,98 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
       return { error: "Unauthorized" } as const;
     }
 
-    const { file, eventId, occDate } = data;
-    log.set({
-      eventId,
-      fileName: file.name,
-      fileSize: file.size,
-      occDate,
-      role: session.user.role,
-      userId: session.user.id,
-    });
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "event_photo.immich_upload",
+        metadata: {
+          changedFields: ["asset"],
+          fileSize: data.file.size,
+        },
+        target: { id: data.eventId, type: "event" },
+      },
+      async () => {
+        const { file, eventId, occDate } = data;
+        log.set({
+          eventId,
+          fileName: file.name,
+          fileSize: file.size,
+          occDate,
+          role: session.user.role,
+          userId: session.user.id,
+        });
 
-    // Verify Immich is configured
-    const config = await getImmichConfig();
-    if (!config) {
-      return { error: "Immich not configured" } as const;
-    }
+        // Verify Immich is configured
+        const config = await getImmichConfig();
+        if (!config) {
+          return { error: "Immich not configured" } as const;
+        }
 
-    // Look up event
-    const event = await db.query.teamEvent.findFirst({
-      where: eq(teamEvent.id, eventId),
-    });
-    if (!event) {
-      return { error: "Event not found" } as const;
-    }
+        // Look up event
+        const event = await db.query.teamEvent.findFirst({
+          where: eq(teamEvent.id, eventId),
+        });
+        if (!event) {
+          return { error: "Event not found" } as const;
+        }
 
-    log.set({ eventName: event.name, teamId: event.teamId });
+        log.set({ eventName: event.name, teamId: event.teamId });
 
-    // Verify user has manage_photos permission or is team lead
-    const role = session.user.role ?? "unoriented_volunteer";
-    const permissions = await resolvePermissions(role);
-    let canUpload = permissions.includes("events.manage_photos");
-    if (!canUpload) {
-      const membership = await db.query.teamMember.findFirst({
-        where: (t, { and, eq: e }) =>
-          and(
-            e(t.teamId, event.teamId),
-            e(t.userId, session.user.id),
-            e(t.role, "lead")
-          ),
-      });
-      canUpload = !!membership;
-    }
+        // Verify user has manage_photos permission or is team lead
+        const role = session.user.role ?? "unoriented_volunteer";
+        const permissions = await resolvePermissions(role);
+        let canUpload = permissions.includes("events.manage_photos");
+        if (!canUpload) {
+          const membership = await db.query.teamMember.findFirst({
+            where: (t, { and, eq: e }) =>
+              and(
+                e(t.teamId, event.teamId),
+                e(t.userId, session.user.id),
+                e(t.role, "lead")
+              ),
+          });
+          canUpload = !!membership;
+        }
 
-    if (!canUpload) {
-      return {
-        error:
-          "Only users with photo management permission or team leads can upload directly to Immich",
-      } as const;
-    }
+        if (!canUpload) {
+          return {
+            error:
+              "Only users with photo management permission or team leads can upload directly to Immich",
+          } as const;
+        }
 
-    try {
-      const albumId = await ensureImmichAlbum(
-        config,
-        eventId,
-        buildImmichAlbumName(event, occDate)
-      );
-      log.set({ albumId });
+        try {
+          const albumId = await ensureImmichAlbum(
+            config,
+            eventId,
+            buildImmichAlbumName(event, occDate)
+          );
+          log.set({ albumId });
 
-      const assetId = await uploadAssetToImmich(config, file, file.name);
-      log.set({ immichAssetId: assetId });
+          const assetId = await uploadAssetToImmich(config, file, file.name);
+          log.set({ immichAssetId: assetId });
 
-      await addAssetToAlbum(config, albumId, assetId);
+          await addAssetToAlbum(config, albumId, assetId);
 
-      log.emit();
-      return { immichAssetId: assetId } as const;
-    } catch (err) {
-      log.error(err instanceof Error ? err : String(err), {
-        step: "immich-upload",
-      });
-      log.emit();
-      return { error: "Upload to Immich failed" } as const;
-    }
+          log.emit();
+          return { immichAssetId: assetId } as const;
+        } catch (err) {
+          log.error(err instanceof Error ? err : String(err), {
+            step: "immich-upload",
+          });
+          log.emit();
+          return { error: "Upload to Immich failed" } as const;
+        }
+      },
+      (result) => {
+        if (!("error" in result)) {
+          return "success";
+        }
+        return typeof result.error === "string" &&
+          result.error.startsWith("Only users")
+          ? "denied"
+          : "failure";
+      }
+    );
   });
