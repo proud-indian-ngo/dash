@@ -93,6 +93,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         role: "volunteer",
       },
       undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
       undefined,
       [],
       undefined,
@@ -141,6 +142,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         role: "volunteer",
       },
       undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
       {
         id: "membership-1",
         kind: "volunteer",
@@ -213,6 +215,31 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       >[0])
     ).rejects.toThrow("External identities cannot be volunteer assignments");
     expect(spies.insertAssignment).not.toHaveBeenCalled();
+  });
+
+  it("rejects a volunteer whose role lacks Kalakriti access", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", teamEventId: "event-1" },
+      {
+        id: "volunteer-1",
+        isActive: true,
+        role: "unoriented_volunteer",
+      },
+      undefined,
+      undefined,
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.assignVolunteer.fn({
+        args: assignArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignVolunteer.fn
+      >[0])
+    ).rejects.toThrow("Volunteer does not have Kalakriti access");
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+    expect(spies.insertMembership).not.toHaveBeenCalled();
   });
 });
 

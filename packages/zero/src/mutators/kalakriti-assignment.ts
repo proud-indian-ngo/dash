@@ -79,6 +79,28 @@ async function assertCanManageResponsibility(
   }
 }
 
+async function assertVolunteerHasKalakritiAccess(
+  tx: AssignmentTx,
+  role: string | null
+): Promise<void> {
+  if (tx.location === "client") {
+    return;
+  }
+  if (!role) {
+    throw new Error("Volunteer does not have Kalakriti access");
+  }
+
+  const volunteerAccess = await tx.run(
+    zql.rolePermission
+      .where("roleId", role)
+      .where("permissionId", "kalakriti.view")
+      .one()
+  );
+  if (!volunteerAccess) {
+    throw new Error("Volunteer does not have Kalakriti access");
+  }
+}
+
 export const kalakritiAssignmentCreateSchema = z.object({
   assignmentId: z.string(),
   auditEntryId: z.string(),
@@ -129,6 +151,7 @@ export const kalakritiAssignmentMutators = {
       if (volunteer.role === "external_user" || externalIdentity) {
         throw new Error("External identities cannot be volunteer assignments");
       }
+      await assertVolunteerHasKalakritiAccess(tx, volunteer.role);
 
       const membership = await tx.run(
         zql.kalakritiEditionMembership
