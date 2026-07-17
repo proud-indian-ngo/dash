@@ -24,6 +24,19 @@ export interface LockedCenter {
   studentRegistrationEnabled: boolean;
 }
 
+export interface LockedEdition {
+  id: string;
+  lifecycle: string;
+}
+
+export interface LockedAgeCategory {
+  editionId: string;
+  id: string;
+  maximumAge: number;
+  minimumAge: number;
+  name: string;
+}
+
 export interface LockedEditionMembership {
   editionId: string;
   id: string;
@@ -86,6 +99,84 @@ export async function getCenterForUpdate(
     .where(eq(kalakritiCenter.id, centerId))
     .for("update");
   return center ? normalizeCenter(center) : undefined;
+}
+
+export async function getEditionForUpdate(
+  tx: LockableKalakritiTx,
+  editionId: string
+): Promise<LockedEdition | undefined> {
+  if (tx.location === "client") {
+    return (await tx.run(zql.kalakritiEdition.where("id", editionId).one())) as
+      | LockedEdition
+      | undefined;
+  }
+
+  const [{ kalakritiEdition }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/kalakriti"),
+    import("drizzle-orm"),
+  ]);
+  const [edition] = await requireServerTransaction(tx)
+    .select({ id: kalakritiEdition.id, lifecycle: kalakritiEdition.lifecycle })
+    .from(kalakritiEdition)
+    .where(eq(kalakritiEdition.id, editionId))
+    .for("update");
+  return edition;
+}
+
+export async function getAgeCategoryForUpdate(
+  tx: LockableKalakritiTx,
+  ageCategoryId: string
+): Promise<LockedAgeCategory | undefined> {
+  if (tx.location === "client") {
+    return (await tx.run(
+      zql.kalakritiAgeCategory.where("id", ageCategoryId).one()
+    )) as LockedAgeCategory | undefined;
+  }
+
+  const [{ kalakritiAgeCategory }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/kalakriti"),
+    import("drizzle-orm"),
+  ]);
+  const [category] = await requireServerTransaction(tx)
+    .select({
+      editionId: kalakritiAgeCategory.editionId,
+      id: kalakritiAgeCategory.id,
+      maximumAge: kalakritiAgeCategory.maximumAge,
+      minimumAge: kalakritiAgeCategory.minimumAge,
+      name: kalakritiAgeCategory.name,
+    })
+    .from(kalakritiAgeCategory)
+    .where(eq(kalakritiAgeCategory.id, ageCategoryId))
+    .for("update");
+  return category;
+}
+
+export async function getEditionAgeCategoriesForUpdate(
+  tx: LockableKalakritiTx,
+  editionId: string
+): Promise<LockedAgeCategory[]> {
+  if (tx.location === "client") {
+    return (await tx.run(
+      zql.kalakritiAgeCategory.where("editionId", editionId)
+    )) as LockedAgeCategory[];
+  }
+
+  const [{ kalakritiAgeCategory }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/kalakriti"),
+    import("drizzle-orm"),
+  ]);
+  return requireServerTransaction(tx)
+    .select({
+      editionId: kalakritiAgeCategory.editionId,
+      id: kalakritiAgeCategory.id,
+      maximumAge: kalakritiAgeCategory.maximumAge,
+      minimumAge: kalakritiAgeCategory.minimumAge,
+      name: kalakritiAgeCategory.name,
+    })
+    .from(kalakritiAgeCategory)
+    .where(eq(kalakritiAgeCategory.editionId, editionId))
+    .orderBy(kalakritiAgeCategory.id)
+    .for("update");
 }
 
 export async function getEditionCentersForUpdate(
