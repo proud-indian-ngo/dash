@@ -12,6 +12,7 @@ This file is the source for generated `AGENTS.md` and `CLAUDE.md`. Apply changes
 | Database | Drizzle schema, migrations, PostgreSQL and local services | `packages/db/src/schema/`, `packages/db/docker-compose.yml` |
 | Zero | Synced schema, queries, mutators | `packages/zero/` |
 | Auth and permissions | Better Auth configuration and permission resolution | `packages/auth/`, `packages/db/src/permissions.ts` |
+| Audit ledger | Immutable action schema and permission in DB; capture, API, and viewer in web | `packages/db/src/schema/audit-log.ts`, `apps/web/src/lib/audit.ts`, `apps/web/src/routes/api/audit-log.ts`, `apps/web/src/routes/_app/audit-log.tsx` |
 | Jobs and notifications | pg-boss handlers and multi-channel delivery | `packages/jobs/`, `packages/notifications/` |
 | Environment | Server and web environment contracts | `packages/env/`, `.env.sample` |
 | Design system | Shared shadcn/ui and reui components | `packages/design-system/` |
@@ -94,6 +95,12 @@ Skip architecture docs for copy, CSS, component restyling, lint-only changes, de
 - Wrap side-effect enqueues with `withFireAndForgetLog()`. Await enqueue only when enqueueing is the primary operation.
 - Use `handleMutationResult()` for Zero mutation server results.
 - Use `uuidv7()` for IDs. Do not use `Date.now()` in notification idempotency keys; pass the deterministic mutator timestamp.
+
+### Audit ledger
+
+- Route direct authenticated state-changing commands through the central Zero mutation audit boundary or `runSessionAuditedAction`. Preserve the explicit exclusions for reads, navigation, exports, presigned-upload URL issuance, unauthenticated auth flows, webhooks, scheduled jobs, and downstream background effects.
+- Store stable action IDs, sanitized entity identifiers, changed field names, and bounded counts only. Never put raw payloads, secrets, contact details, free text, file data, URLs, object keys, request IP/user-agent, or error messages in `audit_log` metadata.
+- Enforce `audit_log.view` independently in the page guard and `/api/audit-log`. Finalized ledger rows have no product update or delete path; only pending non-transactional attempts may finalize once.
 
 ### Imports and React boundaries
 
