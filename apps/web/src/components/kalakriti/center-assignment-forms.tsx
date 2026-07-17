@@ -87,6 +87,10 @@ const liaisonAssignmentSchema = z.object({
   userIds: z.array(z.string()).length(1, "Select one volunteer"),
 });
 
+function currentTimestamp(): number {
+  return Date.now();
+}
+
 function SingleVolunteerPicker({
   onValueChange,
   users,
@@ -137,7 +141,7 @@ export function LiaisonCenterAssignmentForm({
           editionId,
           makePrimary: false,
           membershipId: uuidv7(),
-          now: Date.now(),
+          now: currentTimestamp(),
           teamEventMemberId: uuidv7(),
           userId,
         })
