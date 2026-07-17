@@ -1,0 +1,41 @@
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_9dd804f5cb88ac 47,51,168,171,867-898
+  s_c8c0ce2f824e4f::t_6f6f5353c7098a 899
+apps/web/src/components/kalakriti/eligibility-category-card.tsx
+  s_c8c0ce2f824e4f::t_b12da18e3b0427 72-77,81-86,134-139,142-147
+apps/web/src/lib/kalakriti-eligibility-route.test.ts
+  s_c8c0ce2f824e4f::t_01d4725ecbafb1 20-59
+  s_c8c0ce2f824e4f::t_d57ad92fd5ae4d 1-19
+packages/zero/src/queries/kalakriti-eligibility.ts
+  s_c8c0ce2f824e4f::t_b12da18e3b0427 13,30,35,52
+packages/e2e/tests/kalakriti/eligibility-configuration.spec.ts
+  s_c8c0ce2f824e4f::t_c1be576010348b 58,66,85,95
+packages/e2e/pages/kalakriti-eligibility-page.ts
+  s_c8c0ce2f824e4f::t_c1be576010348b 33-38,40-44
+packages/zero/src/mutators/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_b12da18e3b0427 7-9,49
+  s_c8c0ce2f824e4f::t_7c95ad8e5b569d 6
+project-structure.md
+  s_c8c0ce2f824e4f::t_b12da18e3b0427 84
+apps/web/src/routes/_app/kalakriti/$year/eligibility.tsx
+  s_c8c0ce2f824e4f::t_45139033ffa884 7,103-112,156-158
+  s_c8c0ce2f824e4f::t_b12da18e3b0427 57,60,137-155,159-167,169-173
+packages/zero/src/mutators/__tests__/kalakriti-eligibility.test.ts
+  s_c8c0ce2f824e4f::t_bf83a5ebc87d08 184-376
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "216ca494919a29bb34aae3ce849891279785e3e6",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
