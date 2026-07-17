@@ -181,4 +181,197 @@ describe("kalakritiEligibility commands", () => {
     ).rejects.toThrow("has Center quotas");
     expect(spies.deleteAgeCategory).not.toHaveBeenCalled();
   });
+
+  it("allows an Edition Administrator to create an Age Category", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      { id: "membership-1" },
+      { id: "assignment-1" },
+    ]);
+    lockedResults.push([edition], []);
+
+    await kalakritiEligibilityMutators.createAgeCategory.fn({
+      args: {
+        ageCategoryId: "category-2",
+        auditEntryId: "audit-2",
+        editionId: "edition-1",
+        maxCompetitionsPerCategory: 1,
+        maximumAge: 15,
+        maxTotalCompetitions: 2,
+        minimumAge: 11,
+        name: "Senior",
+        now: 1,
+        sortOrder: 1,
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "edition-admin-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEligibilityMutators.createAgeCategory.fn
+    >[0]);
+
+    expect(spies.insertAgeCategory).toHaveBeenCalledOnce();
+  });
+
+  it("rejects configuration changes from an unassigned user", async () => {
+    const { lockedResults, spies, tx } = createTx([undefined]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiEligibilityMutators.createAgeCategory.fn({
+        args: {
+          ageCategoryId: "category-2",
+          auditEntryId: "audit-2",
+          editionId: "edition-1",
+          maxCompetitionsPerCategory: 1,
+          maximumAge: 15,
+          maxTotalCompetitions: 2,
+          minimumAge: 11,
+          name: "Senior",
+          now: 1,
+          sortOrder: 1,
+        },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "ordinary-1",
+        },
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEligibilityMutators.createAgeCategory.fn
+      >[0])
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.insertAgeCategory).not.toHaveBeenCalled();
+  });
+
+  it.each(["live", "archived"])(
+    "rejects configuration changes while the Edition is %s",
+    async (lifecycle) => {
+      const { lockedResults, spies, tx } = createTx();
+      lockedResults.push([{ ...edition, lifecycle }]);
+
+      await expect(
+        kalakritiEligibilityMutators.createAgeCategory.fn({
+          args: {
+            ageCategoryId: "category-2",
+            auditEntryId: "audit-2",
+            editionId: "edition-1",
+            maxCompetitionsPerCategory: 1,
+            maximumAge: 15,
+            maxTotalCompetitions: 2,
+            minimumAge: 11,
+            name: "Senior",
+            now: 1,
+            sortOrder: 1,
+          },
+          ctx: adminContext,
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiEligibilityMutators.createAgeCategory.fn
+        >[0])
+      ).rejects.toThrow("Configuration cannot be changed");
+      expect(spies.insertAgeCategory).not.toHaveBeenCalled();
+    }
+  );
+
+  it("updates an Age Category while excluding its current range", async () => {
+    const { lockedResults, spies, tx } = createTx([{ editionId: "edition-1" }]);
+    lockedResults.push([edition], [category], [category]);
+
+    await kalakritiEligibilityMutators.updateAgeCategory.fn({
+      args: {
+        ageCategoryId: category.id,
+        auditEntryId: "audit-1",
+        maxCompetitionsPerCategory: 2,
+        maximumAge: 11,
+        maxTotalCompetitions: 3,
+        minimumAge: 6,
+        name: "Junior Plus",
+        now: 2,
+        sortOrder: 0,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEligibilityMutators.updateAgeCategory.fn
+    >[0]);
+
+    expect(spies.updateAgeCategory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: category.id,
+        maximumAge: 11,
+        name: "Junior Plus",
+      })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "updated" })
+    );
+  });
+
+  it("rejects an Age Category edit that overlaps another category", async () => {
+    const senior = {
+      editionId: "edition-1",
+      id: "category-2",
+      maximumAge: 15,
+      minimumAge: 11,
+      name: "Senior",
+    };
+    const { lockedResults, spies, tx } = createTx([{ editionId: "edition-1" }]);
+    lockedResults.push([edition], [category], [category, senior]);
+
+    await expect(
+      kalakritiEligibilityMutators.updateAgeCategory.fn({
+        args: {
+          ageCategoryId: category.id,
+          auditEntryId: "audit-1",
+          maxCompetitionsPerCategory: 1,
+          maximumAge: 12,
+          maxTotalCompetitions: 2,
+          minimumAge: 6,
+          name: "Junior",
+          now: 2,
+          sortOrder: 0,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEligibilityMutators.updateAgeCategory.fn
+      >[0])
+    ).rejects.toThrow("Age ranges overlap");
+    expect(spies.updateAgeCategory).not.toHaveBeenCalled();
+  });
+
+  it("updates an existing Center quota and records the audit action", async () => {
+    const { lockedResults, spies, tx } = createTx([{ id: "quota-1" }]);
+    lockedResults.push([edition], [center], [category]);
+
+    await kalakritiEligibilityMutators.setQuota.fn({
+      args: {
+        ageCategoryId: category.id,
+        auditEntryId: "audit-1",
+        centerId: center.id,
+        editionId: edition.id,
+        femaleStudentLimit: 25,
+        maleStudentLimit: 20,
+        now: 2,
+        quotaId: "ignored-new-id",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEligibilityMutators.setQuota.fn
+    >[0]);
+
+    expect(spies.updateQuota).toHaveBeenCalledWith({
+      femaleStudentLimit: 25,
+      id: "quota-1",
+      maleStudentLimit: 20,
+      updatedAt: 2,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "updated", targetId: "quota-1" })
+    );
+  });
 });

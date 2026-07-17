@@ -4,7 +4,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import {
   AgeCategoryFormDialog,
@@ -54,10 +54,10 @@ function KalakritiEligibilityPage() {
   const [categories, categoryResult] = useQuery(
     queries.kalakritiEligibility.ageCategories({ editionId: edition.id })
   );
-  const [quotas] = useQuery(
+  const [quotas, quotaResult] = useQuery(
     queries.kalakritiEligibility.quotas({ editionId: edition.id })
   );
-  const [centers] = useQuery(
+  const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
   const configurationLocked =
@@ -100,22 +100,16 @@ function KalakritiEligibilityPage() {
         })
       ).server,
   });
-  const closeDeleteCategory = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        deleteCategoryAction.cancel();
-      }
-    },
-    [deleteCategoryAction]
-  );
-  const closeDeleteQuota = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        deleteQuotaAction.cancel();
-      }
-    },
-    [deleteQuotaAction]
-  );
+  const closeDeleteCategory = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteCategoryAction.cancel();
+    }
+  });
+  const closeDeleteQuota = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteQuotaAction.cancel();
+    }
+  });
   const handleAddCategory = useEventCallback(() => {
     setEditingCategory(null);
     setCategoryDialogOpen(true);
@@ -140,8 +134,43 @@ function KalakritiEligibilityPage() {
   const handleEditQuota = useEventCallback(
     (selection: CenterAgeQuotaSelection) => setQuotaSelection(selection)
   );
+  const retryQueries = useEventCallback(() => {
+    if (categoryResult.type === "error") {
+      categoryResult.retry();
+    }
+    if (quotaResult.type === "error") {
+      quotaResult.retry();
+    }
+    if (centerResult.type === "error") {
+      centerResult.retry();
+    }
+  });
 
-  if (categories.length === 0 && categoryResult.type !== "complete") {
+  const queryFailed =
+    categoryResult.type === "error" ||
+    quotaResult.type === "error" ||
+    centerResult.type === "error";
+  if (queryFailed) {
+    return (
+      <div className="space-y-3 pt-6" role="alert">
+        <p className="font-medium">
+          Eligibility configuration could not be loaded.
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Check your connection and try again.
+        </p>
+        <Button onClick={retryQueries} variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (
+    categoryResult.type !== "complete" ||
+    quotaResult.type !== "complete" ||
+    centerResult.type !== "complete"
+  ) {
     return (
       <div
         aria-label="Loading eligibility configuration"

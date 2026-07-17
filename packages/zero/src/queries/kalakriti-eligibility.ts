@@ -10,7 +10,7 @@ export const kalakritiEligibilityQueries = {
   ageCategories: defineQuery(editionInput, ({ args, ctx }) => {
     let query = zql.kalakritiAgeCategory.where("editionId", args.editionId);
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
-      return query.related("quotas").orderBy("sortOrder", "asc");
+      return query.orderBy("sortOrder", "asc");
     }
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
@@ -27,15 +27,12 @@ export const kalakritiEligibilityQueries = {
             )
         )
     );
-    return query.related("quotas").orderBy("sortOrder", "asc");
+    return query.orderBy("sortOrder", "asc");
   }),
   quotas: defineQuery(editionInput, ({ args, ctx }) => {
     let query = zql.kalakritiCenterAgeQuota.where("editionId", args.editionId);
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
-      return query
-        .related("ageCategory")
-        .related("center")
-        .orderBy("createdAt", "asc");
+      return query.orderBy("createdAt", "asc");
     }
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
@@ -52,9 +49,6 @@ export const kalakritiEligibilityQueries = {
             )
         )
     );
-    return query
-      .related("ageCategory")
-      .related("center")
-      .orderBy("createdAt", "asc");
+    return query.orderBy("createdAt", "asc");
   }),
 };

@@ -3,7 +3,10 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
-import { assertCanManageKalakritiConfiguration } from "./kalakriti-config-access";
+import {
+  assertCanManageKalakritiConfiguration,
+  assertKalakritiEditionConfigurable,
+} from "./kalakriti-config-access";
 import {
   getCenterForUpdate,
   getEditionCentersForUpdate,
@@ -43,9 +46,7 @@ async function assertEditionConfigurable(
   if (!edition) {
     throw new Error("Edition not found");
   }
-  if (edition.lifecycle === "live" || edition.lifecycle === "archived") {
-    throw new Error("Centers cannot be changed in this Edition state");
-  }
+  assertKalakritiEditionConfigurable(edition.lifecycle);
 }
 
 async function requireLockedCenter(tx: CenterTx, centerId: string) {

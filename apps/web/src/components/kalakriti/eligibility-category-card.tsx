@@ -69,11 +69,21 @@ function QuotaCell({
       </div>
       {configurationLocked ? null : (
         <div className="flex gap-1">
-          <Button onClick={handleEdit} size="sm" variant="outline">
+          <Button
+            aria-label={`${quota ? "Edit" : "Set"} ${category.name} quota for ${center.name}`}
+            onClick={handleEdit}
+            size="sm"
+            variant="outline"
+          >
             {quota ? "Edit" : "Set quota"}
           </Button>
           {quota ? (
-            <Button onClick={handleRemove} size="sm" variant="ghost">
+            <Button
+              aria-label={`Remove ${category.name} quota for ${center.name}`}
+              onClick={handleRemove}
+              size="sm"
+              variant="ghost"
+            >
               Remove
             </Button>
           ) : null}
@@ -121,10 +131,20 @@ export function EligibilityCategoryCard({
         </div>
         {configurationLocked ? null : (
           <div className="flex gap-2">
-            <Button onClick={handleEdit} size="sm" variant="outline">
+            <Button
+              aria-label={`Edit ${category.name} Age Category`}
+              onClick={handleEdit}
+              size="sm"
+              variant="outline"
+            >
               Edit
             </Button>
-            <Button onClick={handleDelete} size="sm" variant="ghost">
+            <Button
+              aria-label={`Delete ${category.name} Age Category`}
+              onClick={handleDelete}
+              size="sm"
+              variant="ghost"
+            >
               Delete
             </Button>
           </div>
