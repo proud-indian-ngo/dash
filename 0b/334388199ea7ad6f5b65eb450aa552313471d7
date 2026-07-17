@@ -1,0 +1,21 @@
+packages/e2e/helpers/seed-test-user.ts
+  s_6c677c3541e969::t_dbcb93d90d7af4 248-261,684,692-695
+  s_6c677c3541e969::t_94ee386dea896e 628-638
+  s_6c677c3541e969::t_674b045bd3203e 627
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0b334388199ea7ad6f5b65eb450aa552313471d7",
+  "prompts": {},
+  "sessions": {
+    "s_6c677c3541e969": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6ff1-39b9-7e13-8e64-dd05b4dd485c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
