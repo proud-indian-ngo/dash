@@ -95,6 +95,21 @@ function KalakritiEditionLayout() {
             render={
               <Link
                 params={{ year: String(edition.year) }}
+                to="/kalakriti/$year/eligibility"
+              />
+            }
+            size="sm"
+            variant="ghost"
+          >
+            Eligibility
+          </Button>
+        ) : null}
+        {canManageGuardians ? (
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                params={{ year: String(edition.year) }}
                 to="/kalakriti/$year/guardians"
               />
             }

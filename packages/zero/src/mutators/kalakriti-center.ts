@@ -1,9 +1,12 @@
 import { normalizeKalakritiCenterName } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import type { Context } from "../context";
-import { assertIsLoggedIn, can } from "../permissions";
+import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
+import {
+  assertCanManageKalakritiConfiguration,
+  assertKalakritiEditionConfigurable,
+} from "./kalakriti-config-access";
 import {
   getCenterForUpdate,
   getEditionCentersForUpdate,
@@ -33,40 +36,6 @@ interface CenterTx extends LockableKalakritiTx {
   };
 }
 
-async function assertCenterAdmin(
-  tx: CenterTx,
-  ctx: Context | undefined,
-  editionId: string
-): Promise<void> {
-  assertIsLoggedIn(ctx);
-  if (can(ctx, "kalakriti.admin")) {
-    return;
-  }
-  if (!can(ctx, "kalakriti.view")) {
-    throw new Error("Unauthorized");
-  }
-
-  const membership = (await tx.run(
-    zql.kalakritiEditionMembership
-      .where("editionId", editionId)
-      .where("userId", ctx.userId)
-      .where("state", "active")
-      .one()
-  )) as { id: string } | undefined;
-  if (!membership) {
-    throw new Error("Unauthorized");
-  }
-  const assignment = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "edition_admin")
-      .one()
-  );
-  if (!assignment) {
-    throw new Error("Unauthorized");
-  }
-}
-
 async function assertEditionConfigurable(
   tx: CenterTx,
   editionId: string
@@ -77,9 +46,7 @@ async function assertEditionConfigurable(
   if (!edition) {
     throw new Error("Edition not found");
   }
-  if (edition.lifecycle === "live" || edition.lifecycle === "archived") {
-    throw new Error("Centers cannot be changed in this Edition state");
-  }
+  assertKalakritiEditionConfigurable(edition.lifecycle);
 }
 
 async function requireLockedCenter(tx: CenterTx, centerId: string) {
@@ -160,7 +127,11 @@ export const kalakritiCenterMutators = {
       if (!membership) {
         throw new Error("Guardian membership not found");
       }
-      await assertCenterAdmin(tx, ctx, membership.editionId);
+      await assertCanManageKalakritiConfiguration(
+        tx,
+        ctx,
+        membership.editionId
+      );
       assertIsLoggedIn(ctx);
 
       const lockedMembership = await getEditionMembershipForUpdate(
@@ -221,7 +192,7 @@ export const kalakritiCenterMutators = {
   create: defineMutator(
     kalakritiCenterCreateSchema,
     async ({ tx, ctx, args }) => {
-      await assertCenterAdmin(tx, ctx, args.editionId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, args.editionId);
       await assertEditionConfigurable(tx, args.editionId);
       assertIsLoggedIn(ctx);
       const normalized = normalizeKalakritiCenterName(args.name);
@@ -257,16 +228,17 @@ export const kalakritiCenterMutators = {
     kalakritiCenterActionSchema,
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
-      await assertCenterAdmin(tx, ctx, center.editionId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
       await assertEditionConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
-      const [guardianCenter, assignment] = await Promise.all([
+      const [guardianCenter, assignment, quota] = await Promise.all([
         tx.run(zql.kalakritiGuardianCenter.where("centerId", center.id).one()),
         tx.run(zql.kalakritiAssignment.where("centerId", center.id).one()),
+        tx.run(zql.kalakritiCenterAgeQuota.where("centerId", center.id).one()),
       ]);
-      if (guardianCenter || assignment) {
+      if (guardianCenter || assignment || quota) {
         throw new Error(
-          "Center has dependent assignments and cannot be deleted"
+          "Center has dependent assignments or quotas and cannot be deleted"
         );
       }
 
@@ -289,7 +261,7 @@ export const kalakritiCenterMutators = {
   lockAllRegistration: defineMutator(
     kalakritiCenterBulkLockSchema,
     async ({ tx, ctx, args }) => {
-      await assertCenterAdmin(tx, ctx, args.editionId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, args.editionId);
       await assertEditionConfigurable(tx, args.editionId);
       assertIsLoggedIn(ctx);
       const centers = await getEditionCentersForUpdate(tx, args.editionId);
@@ -341,7 +313,11 @@ export const kalakritiCenterMutators = {
       if (!assignment) {
         throw new Error("Guardian Center assignment not found");
       }
-      await assertCenterAdmin(tx, ctx, assignment.editionId);
+      await assertCanManageKalakritiConfiguration(
+        tx,
+        ctx,
+        assignment.editionId
+      );
       assertIsLoggedIn(ctx);
 
       const membership = await getEditionMembershipForUpdate(
@@ -388,7 +364,7 @@ export const kalakritiCenterMutators = {
     kalakritiCenterActionSchema,
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
-      await assertCenterAdmin(tx, ctx, center.editionId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
       await assertEditionConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
       if (center.retiredAt !== null) {
@@ -421,7 +397,7 @@ export const kalakritiCenterMutators = {
     kalakritiCenterControlsSchema,
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
-      await assertCenterAdmin(tx, ctx, center.editionId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
       await assertEditionConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
       if (center.retiredAt !== null) {
@@ -480,7 +456,7 @@ export const kalakritiCenterMutators = {
     kalakritiCenterUpdateSchema,
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
-      await assertCenterAdmin(tx, ctx, center.editionId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
       await assertEditionConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
       if (center.retiredAt !== null) {

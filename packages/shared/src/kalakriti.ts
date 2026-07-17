@@ -83,3 +83,115 @@ export function normalizeKalakritiCenterName(name: string): {
     normalizedName: displayName.toLocaleLowerCase("en-IN"),
   };
 }
+
+export interface KalakritiAgeCategoryRange {
+  id: string;
+  maximumAge: number;
+  minimumAge: number;
+  name: string;
+}
+
+export type KalakritiAgeCategoryDerivation =
+  | {
+      age: number;
+      category: KalakritiAgeCategoryRange;
+      eligible: true;
+    }
+  | {
+      age: number | null;
+      eligible: false;
+      reason: "birth_after_cutoff" | "no_matching_category";
+    };
+
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseDateOnly(value: string): {
+  day: number;
+  month: number;
+  year: number;
+} {
+  const match = DATE_ONLY_PATTERN.exec(value);
+  if (!match) {
+    throw new Error("Date must use YYYY-MM-DD format");
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error("Date is invalid");
+  }
+  return { day, month, year };
+}
+
+export function deriveKalakritiAgeCategory(
+  dateOfBirth: string,
+  cutoffDate: string,
+  categories: readonly KalakritiAgeCategoryRange[]
+): KalakritiAgeCategoryDerivation {
+  const birth = parseDateOnly(dateOfBirth);
+  const cutoff = parseDateOnly(cutoffDate);
+  const birthKey = birth.month * 100 + birth.day;
+  const cutoffKey = cutoff.month * 100 + cutoff.day;
+  const age = cutoff.year - birth.year - (cutoffKey < birthKey ? 1 : 0);
+  if (age < 0) {
+    return { age: null, eligible: false, reason: "birth_after_cutoff" };
+  }
+  const matches = categories.filter(
+    (candidate) => candidate.minimumAge <= age && candidate.maximumAge >= age
+  );
+  if (matches.length > 1) {
+    throw new Error("Age Category ranges overlap");
+  }
+  const [category] = matches;
+  return category
+    ? { age, category, eligible: true }
+    : { age, eligible: false, reason: "no_matching_category" };
+}
+
+export function findKalakritiAgeCategoryOverlap(
+  categories: readonly Pick<
+    KalakritiAgeCategoryRange,
+    "id" | "maximumAge" | "minimumAge" | "name"
+  >[]
+): [string, string] | null {
+  const ordered = [...categories].sort(
+    (left, right) => left.minimumAge - right.minimumAge
+  );
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
+    if (previous && current && current.minimumAge <= previous.maximumAge) {
+      return [previous.name, current.name];
+    }
+  }
+  return null;
+}
+
+export function normalizeKalakritiAgeCategoryName(name: string): {
+  name: string;
+  normalizedName: string;
+} {
+  const displayName = name.normalize("NFKC").trim().replace(/\s+/g, " ");
+  return {
+    name: displayName,
+    normalizedName: displayName.toLocaleLowerCase("en-IN"),
+  };
+}
+
+export function requireKalakritiAgeCategoryOverrideReason(
+  reason: string
+): string {
+  const normalized = reason.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    throw new Error("Age Category override reason is required");
+  }
+  if (normalized.length > 500) {
+    throw new Error("Age Category override reason is too long");
+  }
+  return normalized;
+}
