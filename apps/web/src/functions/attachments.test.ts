@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@pi-dash/env/server", () => ({
+  env: { R2_KEY_PREFIX: "app" },
+}));
 vi.mock("@/lib/private-media-db", () => ({
   defaultPrivateMediaAccessDeps: {},
 }));

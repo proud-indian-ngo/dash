@@ -1,9 +1,11 @@
-import { env } from "@pi-dash/env/web";
 import { buildAvatarMediaUrl } from "@pi-dash/shared/media-url";
-import { describe, expect, it } from "vitest";
-import { buildAvatarUrl, resolveAvatarSrc } from "./avatar";
+import { describe, expect, it, vi } from "vitest";
 
-const TRAILING_SLASH = /\/$/;
+vi.mock("@pi-dash/env/web", () => ({
+  env: { VITE_CDN_URL: "https://cdn.example.test/" },
+}));
+
+import { buildAvatarUrl, resolveAvatarSrc } from "./avatar";
 
 describe("buildAvatarUrl", () => {
   it("builds URL with email", () => {
@@ -49,7 +51,7 @@ describe("resolveAvatarSrc", () => {
     const src = resolveAvatarSrc({
       email: "a@b.com",
       id: "user-1",
-      image: `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`,
+      image: `https://cdn.example.test/${key}`,
     });
 
     expect(src).toBe(buildAvatarMediaUrl("user-1", key));
