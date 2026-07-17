@@ -110,7 +110,7 @@ export function CenterFormDialog(props: CenterFormDialogProps) {
             Center names are unique within this Kalakriti Edition.
           </DialogDescription>
         </DialogHeader>
-        <CenterForm {...props} key={formKey} />
+        <CenterForm key={formKey} {...props} />
       </DialogContent>
     </Dialog>
   );
