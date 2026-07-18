@@ -85,6 +85,7 @@ function EntryRowActions({
 }
 
 interface EntryTableProps {
+  activeSessionIds: readonly string[];
   canRegister: boolean;
   canRemove: boolean;
   data: KalakritiEntryRow[];
@@ -99,6 +100,7 @@ function getEntryRowId(entry: KalakritiEntryRow): string {
 }
 
 export function EntryTable({
+  activeSessionIds,
   canRegister,
   canRemove,
   data,
@@ -239,7 +241,10 @@ export function EntryTable({
           {
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
               <EntryRowActions
-                canEdit={canRegister}
+                canEdit={
+                  canRegister &&
+                  activeSessionIds.includes(row.original.sessionId)
+                }
                 entry={row.original}
                 onEdit={onEdit}
                 onRemove={onRemove}

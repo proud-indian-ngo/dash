@@ -135,6 +135,17 @@ test.describe("Kalakriti Competition Entry registration", () => {
         dialog.getByRole("button", { name: "Register Entry" })
       ).toBeDisabled();
 
+      await entriesPage.selectGroupMembers(dialog, ["Entry Student D"]);
+      await expect(
+        dialog.getByText(
+          `KAL-${year}-0004 · Entry Student D: This Competition is limited to female Students`
+        )
+      ).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: "Register Entry" })
+      ).toBeDisabled();
+
+      await entriesPage.removeLastGroupMember(dialog);
       await entriesPage.selectGroupMembers(dialog, ["Entry Student B"]);
       await dialog.getByRole("button", { name: "Register Entry" }).click();
       await expect(

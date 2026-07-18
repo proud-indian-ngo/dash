@@ -219,6 +219,9 @@ const secondStudent = {
   name: "Bina Shah",
   normalizedName: "bina shah",
 };
+type TestStudent = Omit<typeof student, "gender"> & {
+  gender: "female" | "male";
+};
 const groupCompetition = {
   ...competition,
   participationMode: "group" as const,
@@ -242,7 +245,7 @@ function createGroup({
   configuration?: unknown[];
   members?: Array<{ memberId: string; studentId: string }>;
   sessionEntries?: unknown[];
-  studentRows?: (typeof student)[];
+  studentRows?: TestStudent[];
   memberships?: unknown[];
 } = {}) {
   const { lockedResults, spies, tx } = createTx([
@@ -489,14 +492,24 @@ describe("kalakritiEntry commands", () => {
     });
     await expect(crossCenter.promise).rejects.toThrow("Center and Edition");
 
+    const wrongAgeCategory = createGroup({
+      studentRows: [student, { ...secondStudent, ageCategoryId: "age-2" }],
+    });
+    await expect(wrongAgeCategory.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is not eligible for this Session's Age Category"
+    );
+
     const ineligible = createGroup({
       configuration: [
-        { ...groupCompetition, genderEligibility: "male" },
+        { ...groupCompetition, genderEligibility: "female" },
         activeConfiguration[1],
         activeConfiguration[2],
       ],
+      studentRows: [student, { ...secondStudent, gender: "male" }],
     });
-    await expect(ineligible.promise).rejects.toThrow("gender rule");
+    await expect(ineligible.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is not eligible for this Competition's gender rule"
+    );
 
     const existing = {
       entry: {
@@ -511,29 +524,53 @@ describe("kalakritiEntry commands", () => {
       id: "other-member",
       sessionId: "other",
     };
-    const conflict = createGroup({ memberships: [[existing], []] });
-    await expect(conflict.promise).rejects.toThrow("overlapping Session");
+    const conflict = createGroup({ memberships: [[], [existing]] });
+    await expect(conflict.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is already registered in an overlapping Session"
+    );
   });
 
   it("enforces one Student per Session and individual limits for every group member", async () => {
     const sameSession = createGroup({
-      memberships: [[{ sessionId: session.id }], []],
+      memberships: [[], [{ sessionId: session.id }]],
     });
     await expect(sameSession.promise).rejects.toThrow(
-      "already registered for this Session"
+      "KAL-2027-0002 · Bina Shah: Student is already registered for this Session"
     );
 
     const atLimit = createGroup({
       memberships: [
+        [],
         [
           { entryId: "a", sessionId: "a" },
           { entryId: "b", sessionId: "b" },
           { entryId: "c", sessionId: "c" },
         ],
-        [],
       ],
     });
-    await expect(atLimit.promise).rejects.toThrow("total Competition limit");
+    await expect(atLimit.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student has reached the total Competition limit"
+    );
+
+    const categoryMembership = (id: string) => ({
+      entry: {
+        session: {
+          competition: { competitionCategoryId: "category-1" },
+          endAt: 20,
+          id,
+          startAt: 10,
+        },
+      },
+      entryId: `entry-${id}`,
+      id: `member-${id}`,
+      sessionId: id,
+    });
+    const categoryLimit = createGroup({
+      memberships: [[], [categoryMembership("a"), categoryMembership("b")]],
+    });
+    await expect(categoryLimit.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student has reached the Competition Category limit"
+    );
   });
 
   it("rejects canceled or retired Competition Session configuration", async () => {

@@ -13,6 +13,10 @@ import { useState } from "react";
 import type { KalakritiEntryStudent } from "./entry-form-dialog";
 
 interface StudentPickerProps {
+  errorProps: {
+    "aria-describedby": string | undefined;
+    "aria-invalid": boolean;
+  };
   inputId?: string;
   maximum: number;
   onBlur: () => void;
@@ -22,6 +26,7 @@ interface StudentPickerProps {
 }
 
 export function StudentPicker({
+  errorProps,
   inputId,
   maximum,
   onBlur,
@@ -68,6 +73,8 @@ export function StudentPicker({
             );
           })}
           <ComboboxChipsInput
+            {...errorProps}
+            aria-required="true"
             disabled={value.length >= maximum}
             id={inputId}
             onBlur={onBlur}

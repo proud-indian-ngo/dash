@@ -15,6 +15,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
+import { fieldErrorProps } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
 import {
@@ -84,6 +85,31 @@ const entryFormSchema = z.object({
   studentIds: z.array(z.string()).min(1, "Choose at least one Student"),
 });
 
+const unavailableSessionMessage = "This Session is no longer available";
+
+interface EntryMutationResult {
+  error?: unknown;
+  type: string;
+}
+
+function getMutationErrorMessage(result: EntryMutationResult): string | null {
+  if (result.type !== "error") {
+    return null;
+  }
+  if (result.error instanceof Error) {
+    return result.error.message;
+  }
+  if (
+    result.error &&
+    typeof result.error === "object" &&
+    "message" in result.error &&
+    typeof result.error.message === "string"
+  ) {
+    return result.error.message;
+  }
+  return null;
+}
+
 function selectSessionId(state: {
   values: { sessionId: string; studentIds: string[] };
 }): string {
@@ -119,6 +145,13 @@ function EntryForm({
       (candidate) => candidate.id === value.sessionId
     );
     if (!session) {
+      if (value.sessionId) {
+        context.addIssue({
+          code: "custom",
+          message: unavailableSessionMessage,
+          path: ["sessionId"],
+        });
+      }
       return;
     }
     const selectedStudents = value.studentIds.flatMap((studentId) => {
@@ -167,13 +200,20 @@ function EntryForm({
         (candidate) => candidate.id === value.sessionId
       );
       if (!session) {
+        form.setFieldMeta("sessionId", (previous) => ({
+          ...previous,
+          errorMap: {
+            ...previous.errorMap,
+            onServer: { message: unavailableSessionMessage },
+          },
+        }));
         return;
       }
       const members = value.studentIds.map((studentId) => ({
         memberId: uuidv7(),
         studentId,
       }));
-      let result: { error?: unknown; type: string };
+      let result: EntryMutationResult;
       let mutation: string;
       if (entry) {
         result = await zero.mutate(
@@ -218,11 +258,23 @@ function EntryForm({
         ).server;
         mutation = "kalakritiEntry.createIndividual";
       }
+      const mutationErrorMessage = getMutationErrorMessage(result);
+      if (mutationErrorMessage) {
+        form.setFieldMeta("studentIds", (previous) => ({
+          ...previous,
+          errorMap: {
+            ...previous.errorMap,
+            onServer: { message: mutationErrorMessage },
+          },
+        }));
+      }
       handleMutationResult(result, {
         entityId: entry?.id ?? value.sessionId,
-        errorMsg: entry
-          ? "Failed to update Competition group"
-          : "Failed to register Competition Entry",
+        errorMsg:
+          mutationErrorMessage ??
+          (entry
+            ? "Failed to update Competition group"
+            : "Failed to register Competition Entry"),
         mutation,
         successMsg: entry
           ? "Competition group updated"
@@ -277,6 +329,10 @@ function EntryForm({
             >
               {(field) => (
                 <StudentPicker
+                  errorProps={fieldErrorProps(
+                    field,
+                    form.state.submissionAttempts > 0
+                  )}
                   inputId="entry-students"
                   maximum={maximum}
                   onBlur={field.handleBlur}

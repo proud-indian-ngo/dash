@@ -214,7 +214,10 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
       dateOfBirth: `${fixture.year - 8}-06-${String(index + 10).padStart(2, "0")}`,
       derivedAgeCategoryId: fixture.ageCategoryId,
       editionId: fixture.editionId,
-      gender: "female" as const,
+      gender:
+        kind === "liaison" && index === fixture.studentIds.length - 1
+          ? ("male" as const)
+          : ("female" as const),
       humanId: `KAL-${fixture.year}-000${index + 1}`,
       id,
       name: `Entry Student ${String.fromCharCode(65 + index)}`,
@@ -266,7 +269,7 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     createdAt: now,
     createdBy: actor.id,
     editionId: fixture.editionId,
-    genderEligibility: "both",
+    genderEligibility: kind === "liaison" ? "female" : "both",
     id: fixture.groupCompetitionId,
     maximumGroupSize: 3,
     minimumGroupSize: 2,
