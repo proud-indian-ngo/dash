@@ -1,0 +1,76 @@
+apps/web/src/lib/kalakriti-audit-policy.test.ts
+  s_c8c0ce2f824e4f::t_1f664ddbf76c6f 102-119,150
+  s_c8c0ce2f824e4f::t_d5deda12ae9cbb 63-96
+  s_c8c0ce2f824e4f::t_d4bf4a0473c965 5,120-149
+  s_c8c0ce2f824e4f::t_1675898d1fcefd 97
+  s_c8c0ce2f824e4f::t_1b04b111b6342a 151
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_14c2bd82b94d91 842
+apps/web/src/routes/api/kalakriti/$year/-audit.test.ts
+  s_c8c0ce2f824e4f::t_d5deda12ae9cbb 124-127,234-237
+  s_c8c0ce2f824e4f::t_503edc6e363c10 286-287,289-309
+  s_c8c0ce2f824e4f::t_1f664ddbf76c6f 56-80,83,93,136-157,238-285
+  s_c8c0ce2f824e4f::t_2443902074b79f 288
+apps/web/src/lib/kalakriti-audit-route.test.ts
+  s_c8c0ce2f824e4f::t_61668dd76a7007 23,29,33,62,67
+  s_c8c0ce2f824e4f::t_d5deda12ae9cbb 1-22,24-28,30-32,34-61,63-66,68-69
+packages/zero/src/mutators/__tests__/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_9d72e829f0cf44 138-145,289-296,432-438,616-620,642-649,657,691-696,740,742-743
+  s_c8c0ce2f824e4f::t_a5fa4d54ad29de 454-510,697-739,741,744-745
+apps/web/src/lib/server/kalakriti-audit.test.ts
+  s_c8c0ce2f824e4f::t_219b281984dc4f 28,131-173
+  s_c8c0ce2f824e4f::t_b682d2a9e80115 174
+apps/web/src/lib/server/kalakriti-edition-access.test.ts
+  s_c8c0ce2f824e4f::t_4ff92a0d3f983b 3-11,13-59,69-100,103-146,148-162
+  s_c8c0ce2f824e4f::t_8c5b4087c27325 2,102
+  s_c8c0ce2f824e4f::t_2689e9775c5e30 1,60-68,101
+  s_c8c0ce2f824e4f::t_34d7bcf11270ca 12,147
+apps/web/src/routes/api/kalakriti/$year/audit.ts
+  s_c8c0ce2f824e4f::t_f5f0cd07cf2222 19-20,26-37
+  s_c8c0ce2f824e4f::t_d5deda12ae9cbb 16,21-22,44-49,51-63,128,153-164
+  s_c8c0ce2f824e4f::t_61668dd76a7007 42-43
+  s_c8c0ce2f824e4f::t_db8a68e3c3e8d2 64
+  s_c8c0ce2f824e4f::t_1f664ddbf76c6f 17-18,23-25,38-41,50,70,117,125-127
+  s_c8c0ce2f824e4f::t_078ed8608c7dc0 65-69,71-73
+apps/web/src/lib/kalakriti-audit-policy.ts
+  s_c8c0ce2f824e4f::t_34d7bcf11270ca 37,43
+  s_c8c0ce2f824e4f::t_219b281984dc4f 142-145,147-151,161-163,168-171,204-206,230-240
+  s_c8c0ce2f824e4f::t_1f664ddbf76c6f 58-60
+  s_c8c0ce2f824e4f::t_d4bf4a0473c965 34-36,38-42,44-46
+  s_c8c0ce2f824e4f::t_92a4486e5838bd 146,174-185,187-198,200-203,216-221,223,241
+  s_c8c0ce2f824e4f::t_5d42d6db024ced 186,199
+  s_c8c0ce2f824e4f::t_6e67cb4748d32a 222
+apps/web/src/lib/server/kalakriti-audit.ts
+  s_c8c0ce2f824e4f::t_92a4486e5838bd 121,123-125
+  s_c8c0ce2f824e4f::t_219b281984dc4f 118-120,122,126-130,163-167
+packages/zero/src/kalakriti-membership-schema.test.ts
+  s_c8c0ce2f824e4f::t_2d938a8cfc31dd 1-4,21-30
+  s_c8c0ce2f824e4f::t_90ed38b3bd5262 31-32
+apps/web/src/routes/_app/kalakriti/$year/audit.tsx
+  s_c8c0ce2f824e4f::t_68a1fb4bf4edf8 32,55-57,60-67,72,76,99-101,130,207-210,218
+  s_c8c0ce2f824e4f::t_d4bf4a0473c965 30,58,70-71,73-75,77-78,98,102,106-121,129,192
+  s_c8c0ce2f824e4f::t_69fa7db80b3cf3 27,49,52,59,68-69,122-127,139-140,191,233,254
+  s_c8c0ce2f824e4f::t_6e8196da95916e 128
+packages/db/src/migrations/0058_superb_iron_patriot.sql
+  s_c8c0ce2f824e4f::t_34373f99e3932f 1
+packages/db/src/migrations/meta/0058_snapshot.json
+  s_c8c0ce2f824e4f::t_634dac5c9c8bcf 1-8740
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_d06a2edf31048b 410-416
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "45a58a7d205470c5cfe0db6c3971282f1fbca698",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
