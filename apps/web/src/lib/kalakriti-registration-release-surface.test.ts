@@ -135,6 +135,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEdition.cloneConfiguration",
       "kalakritiEdition.create",
       "kalakritiEdition.transition",
+      "kalakritiEdition.updateMetadata",
       "kalakritiEligibility.createAgeCategory",
       "kalakritiEligibility.deleteAgeCategory",
       "kalakritiEligibility.updateAgeCategory",

@@ -18,7 +18,7 @@ async function fixture<T>(action: "cleanup" | "state") {
   return JSON.parse(stdout.trim()) as T;
 }
 
-test("creates an Edition and its protected linked event atomically", async ({
+test("creates and updates an Edition with its protected linked event", async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -31,18 +31,32 @@ test("creates an Edition and its protected linked event atomically", async ({
 
   try {
     await editionPage.create({ name: `Kalakriti ${YEAR}`, year: YEAR });
+    await editionPage.editDetails({
+      name: `Kalakriti ${YEAR} Revised`,
+      year: YEAR,
+    });
     const state = await fixture<{
+      ageCutoffDate: string;
+      brandingKey: string;
       editionId: string;
+      eventDate: string;
       eventName: string;
+      eventStartTime: string;
       managementDomain: string;
       name: string;
+      plannedRegistrationCloseAt: string;
       teamEventId: string;
       year: number;
     }>("state");
     expect(state).toMatchObject({
-      eventName: `Kalakriti ${YEAR}`,
+      ageCutoffDate: `${YEAR}-06-30`,
+      brandingKey: `kalakriti-${YEAR}-updated`,
+      eventDate: `${YEAR}-11-21`,
+      eventName: `Kalakriti ${YEAR} Revised`,
+      eventStartTime: `${YEAR}-11-20T18:30:00.000Z`,
       managementDomain: "kalakriti",
-      name: `Kalakriti ${YEAR}`,
+      name: `Kalakriti ${YEAR} Revised`,
+      plannedRegistrationCloseAt: `${YEAR}-10-31T12:30:00.000Z`,
       year: YEAR,
     });
     expect(state.editionId).not.toBe(state.teamEventId);

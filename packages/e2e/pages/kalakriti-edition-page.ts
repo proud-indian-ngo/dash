@@ -63,6 +63,35 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
+  async editDetails({ name, year }: { name: string; year: number }) {
+    await this.page
+      .getByRole("button", { name: "Edit Edition details" })
+      .click();
+    const dialog = this.page.getByRole("dialog", {
+      name: "Edit Edition details",
+    });
+    const nameInput = dialog.getByLabel("Edition name");
+    await expect(nameInput).toHaveValue(`Kalakriti ${year}`);
+    await nameInput.fill(name);
+    await this.chooseDate(
+      dialog,
+      "Event date",
+      String(year),
+      "November",
+      10,
+      21
+    );
+    await dialog.getByLabel("Branding key").fill(`kalakriti-${year}-updated`);
+    await dialog.getByRole("button", { name: "Save details" }).click();
+    await expect(
+      this.page.getByText("Edition details updated", { exact: true })
+    ).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      this.page.getByRole("heading", { exact: true, name })
+    ).toBeVisible();
+  }
+
   async assignVolunteer(volunteerName: string, responsibility: string) {
     const picker = this.page
       .getByPlaceholder("Search central volunteers...")
