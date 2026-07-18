@@ -18,6 +18,8 @@ import {
   type LockableKalakritiTx,
   type LockedAgeCategory,
   type LockedEdition,
+  type LockedRegistrationEdition,
+  type LockedStudent,
 } from "./kalakriti-row-locks";
 
 abstract class BivariantZeroMutation {
@@ -102,6 +104,18 @@ function assertRegistrationWritable(
   }
 }
 
+function assertRegistrationEditionComplete(
+  edition: LockedEdition & Partial<LockedRegistrationEdition>
+): asserts edition is LockedRegistrationEdition {
+  if (
+    edition.ageCutoffDate === undefined ||
+    edition.nextStudentSequence === undefined ||
+    edition.year === undefined
+  ) {
+    throw new Error("Edition registration data is incomplete");
+  }
+}
+
 function resolveAgeCategory({
   categories,
   edition,
@@ -109,7 +123,7 @@ function resolveAgeCategory({
   values,
 }: {
   categories: readonly LockedAgeCategory[];
-  edition: LockedEdition;
+  edition: LockedRegistrationEdition;
   isEditionAdmin: boolean;
   values: StudentValues;
 }): {
@@ -157,6 +171,73 @@ function resolveAgeCategory({
       values.ageCategoryOverrideReason ?? ""
     ),
     derivedAgeCategoryId: derivation.category.id,
+  };
+}
+
+function resolveUpdatedAgeCategory({
+  actorUserId,
+  categories,
+  edition,
+  isEditionAdmin,
+  now,
+  student,
+  values,
+}: {
+  actorUserId: string;
+  categories: readonly LockedAgeCategory[];
+  edition: LockedRegistrationEdition;
+  isEditionAdmin: boolean;
+  now: number;
+  student: LockedStudent;
+  values: StudentValues;
+}): {
+  ageCategory: ReturnType<typeof resolveAgeCategory>;
+  overrideAt: number | null;
+  overrideBy: string | null;
+} {
+  const existingOverride =
+    student.ageCategoryId !== student.derivedAgeCategoryId;
+  if (!isEditionAdmin && existingOverride) {
+    if (values.dateOfBirth !== student.dateOfBirth) {
+      throw new Error(
+        "An administrator must review the existing Age Category override before changing date of birth"
+      );
+    }
+    if (
+      values.ageCategoryOverrideId !== null &&
+      values.ageCategoryOverrideId !== student.ageCategoryId
+    ) {
+      throw new Error("Only an administrator can override the Age Category");
+    }
+    return {
+      ageCategory: {
+        ageCategoryId: student.ageCategoryId,
+        ageCategoryOverrideReason: student.ageCategoryOverrideReason,
+        derivedAgeCategoryId: student.derivedAgeCategoryId,
+      },
+      overrideAt: student.ageCategoryOverrideAt,
+      overrideBy: student.ageCategoryOverrideBy,
+    };
+  }
+
+  const ageCategory = resolveAgeCategory({
+    categories,
+    edition,
+    isEditionAdmin,
+    values,
+  });
+  if (ageCategory.ageCategoryId === ageCategory.derivedAgeCategoryId) {
+    return { ageCategory, overrideAt: null, overrideBy: null };
+  }
+  const overrideUnchanged =
+    existingOverride &&
+    ageCategory.ageCategoryId === student.ageCategoryId &&
+    ageCategory.derivedAgeCategoryId === student.derivedAgeCategoryId &&
+    ageCategory.ageCategoryOverrideReason === student.ageCategoryOverrideReason;
+  return {
+    ageCategory,
+    overrideAt: overrideUnchanged ? student.ageCategoryOverrideAt : now,
+    overrideBy: overrideUnchanged ? student.ageCategoryOverrideBy : actorUserId,
   };
 }
 
@@ -250,6 +331,7 @@ async function lockRegistrationContext(
     throw new Error("Center not found");
   }
   assertRegistrationWritable(edition, center);
+  assertRegistrationEditionComplete(edition);
   const access = await assertCanManageKalakritiStudents(
     tx,
     ctx,
@@ -436,34 +518,17 @@ export const kalakritiStudentMutators = {
         throw new Error("Student not found");
       }
       const normalized = normalizeKalakritiStudentName(args.name);
-      let ageCategory = resolveAgeCategory({
-        categories,
-        edition,
-        isEditionAdmin: access.isEditionAdmin,
-        values: args,
-      });
-      let overrideAt =
-        ageCategory.ageCategoryId === ageCategory.derivedAgeCategoryId
-          ? null
-          : args.now;
-      let overrideBy = overrideAt === null ? null : ctx.userId;
-      if (
-        !access.isEditionAdmin &&
-        student.ageCategoryId !== student.derivedAgeCategoryId
-      ) {
-        if (args.dateOfBirth !== student.dateOfBirth) {
-          throw new Error(
-            "An administrator must review the existing Age Category override before changing date of birth"
-          );
+      const { ageCategory, overrideAt, overrideBy } = resolveUpdatedAgeCategory(
+        {
+          actorUserId: ctx.userId,
+          categories,
+          edition,
+          isEditionAdmin: access.isEditionAdmin,
+          now: args.now,
+          student,
+          values: args,
         }
-        ageCategory = {
-          ageCategoryId: student.ageCategoryId,
-          ageCategoryOverrideReason: student.ageCategoryOverrideReason,
-          derivedAgeCategoryId: student.derivedAgeCategoryId,
-        };
-        overrideAt = student.ageCategoryOverrideAt;
-        overrideBy = student.ageCategoryOverrideBy;
-      }
+      );
       const duplicate = await findDuplicate(
         tx,
         student.centerId,

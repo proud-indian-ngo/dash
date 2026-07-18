@@ -20,46 +20,22 @@ import { StudentTable } from "@/components/kalakriti/student-table";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import {
+  canAccessKalakritiStudents,
+  getStudentRegistrationAvailability,
+  type StudentRegistrationAvailability,
+  selectKalakritiStudentCenters,
+} from "@/lib/kalakriti-student-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/students")({
   beforeLoad: ({ context }) => {
     const access = context.kalakritiEditionAccess;
-    const canEnter =
-      access.isGlobalAdmin ||
-      access.membership?.kind === "guardian" ||
-      access.membership?.responsibilities.includes("edition_admin") ||
-      access.membership?.responsibilities.includes("liaison");
-    if (!canEnter) {
+    if (!canAccessKalakritiStudents(access)) {
       throw notFound();
     }
   },
   component: KalakritiStudentsPage,
 });
-
-function selectRegistrationCenters<
-  T extends { id: string },
-  A extends { centerId: string | null; responsibility: string },
->(
-  centers: readonly T[],
-  isEditionAdmin: boolean,
-  membershipKind: string | undefined,
-  assignments: readonly A[] | undefined
-): T[] {
-  const hasAllCenters = isEditionAdmin || membershipKind === "guardian";
-  if (hasAllCenters) {
-    return [...centers];
-  }
-  const liaisonCenterIds = new Set<string>();
-  for (const assignment of assignments ?? []) {
-    if (
-      assignment.responsibility === "liaison" &&
-      assignment.centerId !== null
-    ) {
-      liaisonCenterIds.add(assignment.centerId);
-    }
-  }
-  return centers.filter((center) => liaisonCenterIds.has(center.id));
-}
 
 function retryFailedResult(result: { retry?: () => void; type: string }): void {
   if (result.type === "error") {
@@ -71,26 +47,19 @@ function hasFailedResult(...results: { type: string }[]): boolean {
   return results.some((result) => result.type === "error");
 }
 
-function isRegistrationAvailable({
-  ageCategoryCount,
-  centerEnabled,
-  lifecycle,
-  quotaCount,
-  referenceDataLoading,
-}: {
-  ageCategoryCount: number;
-  centerEnabled: boolean;
-  lifecycle: string;
-  quotaCount: number;
-  referenceDataLoading: boolean;
-}): boolean {
-  return (
-    lifecycle === "registration_open" &&
-    centerEnabled &&
-    !referenceDataLoading &&
-    ageCategoryCount > 0 &&
-    quotaCount > 0
-  );
+function registrationAvailabilityMessage(
+  availability: Exclude<StudentRegistrationAvailability, "open">
+): string {
+  const messages = {
+    center_closed:
+      "Student registration is closed for this Center. Existing registrations remain visible.",
+    edition_closed:
+      "Student registration is closed for this Edition. Existing registrations remain visible.",
+    loading: "Checking Student registration availability...",
+    missing_configuration:
+      "Student registration is not configured for this Center. Add an Age Category quota before registering Students.",
+  } satisfies Record<Exclude<StudentRegistrationAvailability, "open">, string>;
+  return messages[availability];
 }
 
 function KalakritiStudentsPage() {
@@ -100,16 +69,10 @@ function KalakritiStudentsPage() {
   const isEditionAdmin =
     access.isGlobalAdmin ||
     access.membership?.responsibilities.includes("edition_admin") === true;
-  const assignments = access.membership?.assignments;
   const [centers, centersResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
-  const selectableCenters = selectRegistrationCenters(
-    centers,
-    isEditionAdmin,
-    access.membership?.kind,
-    assignments
-  );
+  const selectableCenters = selectKalakritiStudentCenters(centers, access);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingStudent, setEditingStudent] =
@@ -239,13 +202,14 @@ function KalakritiStudentsPage() {
     );
   }
 
-  const registrationOpen = isRegistrationAvailable({
+  const registrationAvailability = getStudentRegistrationAvailability({
     ageCategoryCount: ageCategories.length,
     centerEnabled: selectedCenter?.studentRegistrationEnabled === true,
     lifecycle: edition.lifecycle,
     quotaCount: registrationQuotas.length,
     referenceDataLoading: registrationDataLoading,
   });
+  const registrationOpen = registrationAvailability === "open";
 
   return (
     <div className="space-y-6 pt-6">
@@ -279,10 +243,9 @@ function KalakritiStudentsPage() {
           </Select>
         </div>
       </div>
-      {registrationOpen ? null : (
+      {registrationAvailability === "open" ? null : (
         <p className="border border-dashed p-3 text-muted-foreground text-sm">
-          Student registration is currently closed for this Center. Existing
-          registrations remain visible.
+          {registrationAvailabilityMessage(registrationAvailability)}
         </p>
       )}
       <StudentTable

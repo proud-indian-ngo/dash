@@ -7,6 +7,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { canAccessKalakritiStudents } from "@/lib/kalakriti-student-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year")({
   beforeLoad: async ({ params }) => {
@@ -39,11 +40,7 @@ function KalakritiEditionLayout() {
         responsibility === "overall_events_lead" ||
         responsibility === "competition_category_lead"
     );
-  const canViewStudents =
-    access.isGlobalAdmin ||
-    access.membership?.kind === "guardian" ||
-    access.membership?.responsibilities.includes("edition_admin") ||
-    access.membership?.responsibilities.includes("liaison");
+  const canViewStudents = canAccessKalakritiStudents(access);
 
   return (
     <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">

@@ -25,14 +25,19 @@ export interface LockedCenter {
 }
 
 export interface LockedEdition {
-  ageCutoffDate: string;
   eventDate: string;
   id: string;
   lifecycle: string;
-  nextStudentSequence: number;
   timezone: string;
+}
+
+export interface LockedRegistrationEdition extends LockedEdition {
+  ageCutoffDate: string;
+  nextStudentSequence: number;
   year: number;
 }
+
+type LockableEdition = LockedEdition & Partial<LockedRegistrationEdition>;
 
 export interface LockedAgeCategory {
   editionId: string;
@@ -96,18 +101,27 @@ function normalizeEdition(edition: {
   nextStudentSequence?: number;
   timezone: string;
   year?: number;
-}): LockedEdition {
+}): LockableEdition {
   const normalizedAgeCutoff =
     edition.ageCutoffDate === undefined
       ? {}
       : {
           ageCutoffDate: normalizeEditionEventDate(edition.ageCutoffDate),
         };
+  const nextStudentSequence =
+    edition.nextStudentSequence === undefined
+      ? {}
+      : { nextStudentSequence: edition.nextStudentSequence };
+  const year = edition.year === undefined ? {} : { year: edition.year };
   return {
-    ...edition,
     ...normalizedAgeCutoff,
     eventDate: normalizeEditionEventDate(edition.eventDate),
-  } as LockedEdition;
+    id: edition.id,
+    lifecycle: edition.lifecycle,
+    ...nextStudentSequence,
+    timezone: edition.timezone,
+    ...year,
+  };
 }
 
 function requireServerTransaction(tx: LockableKalakritiTx) {
@@ -163,12 +177,12 @@ export async function getCenterForUpdate(
 export async function getEditionForUpdate(
   tx: LockableKalakritiTx,
   editionId: string
-): Promise<LockedEdition | undefined> {
+): Promise<LockableEdition | undefined> {
   if (tx.location === "client") {
     const edition = (await tx.run(
       zql.kalakritiEdition.where("id", editionId).one()
     )) as
-      | (Omit<LockedEdition, "ageCutoffDate" | "eventDate"> & {
+      | (Omit<LockableEdition, "ageCutoffDate" | "eventDate"> & {
           ageCutoffDate?: Date | number | string;
           eventDate: Date | number | string;
         })

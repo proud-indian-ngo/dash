@@ -266,6 +266,26 @@ describe("kalakritiStudent commands", () => {
     }
   );
 
+  it("rejects an incomplete optimistic Edition registration row", async () => {
+    const { lockedResults, spies, tx } = createTx();
+    lockedResults.push(
+      [
+        {
+          eventDate: edition.eventDate,
+          id: edition.id,
+          lifecycle: edition.lifecycle,
+          timezone: edition.timezone,
+        },
+      ],
+      [center]
+    );
+
+    await expect(createStudent(tx)).rejects.toThrow(
+      "Edition registration data is incomplete"
+    );
+    expect(spies.insertStudent).not.toHaveBeenCalled();
+  });
+
   it("rejects a registration when the gender quota is full", async () => {
     const { lockedResults, spies, tx } = createTx([
       [],
@@ -395,8 +415,8 @@ describe("kalakritiStudent commands", () => {
 
     await kalakritiStudentMutators.update.fn({
       args: {
-        ageCategoryOverrideId: null,
-        ageCategoryOverrideReason: null,
+        ageCategoryOverrideId: senior.id,
+        ageCategoryOverrideReason: "School record review",
         auditEntryId: "audit-override-edit",
         dateOfBirth: overriddenStudent.dateOfBirth,
         duplicateConfirmed: false,
@@ -415,6 +435,51 @@ describe("kalakritiStudent commands", () => {
         ageCategoryOverrideAt: 500,
         ageCategoryOverrideBy: "admin-1",
         ageCategoryOverrideReason: "School record review",
+      })
+    );
+  });
+
+  it("preserves override attribution during an unrelated administrator edit", async () => {
+    const overriddenStudent = {
+      ...student,
+      ageCategoryId: senior.id,
+      ageCategoryOverrideAt: 500,
+      ageCategoryOverrideBy: "admin-1",
+      ageCategoryOverrideReason: "School record review",
+    };
+    const { lockedResults, spies, tx } = createTx([
+      { centerId: center.id, editionId: edition.id },
+      [],
+      quota,
+      [],
+    ]);
+    lockedResults.push(
+      [edition],
+      [center],
+      [junior, senior],
+      [overriddenStudent]
+    );
+
+    await kalakritiStudentMutators.update.fn({
+      args: {
+        ageCategoryOverrideId: senior.id,
+        ageCategoryOverrideReason: "School record review",
+        auditEntryId: "audit-admin-override-edit",
+        dateOfBirth: overriddenStudent.dateOfBirth,
+        duplicateConfirmed: false,
+        gender: overriddenStudent.gender,
+        name: "Ananya Rao Updated",
+        now: 2000,
+        studentId: overriddenStudent.id,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<typeof kalakritiStudentMutators.update.fn>[0]);
+
+    expect(spies.updateStudent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ageCategoryOverrideAt: 500,
+        ageCategoryOverrideBy: "admin-1",
       })
     );
   });
