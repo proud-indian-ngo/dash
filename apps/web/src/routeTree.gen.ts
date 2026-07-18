@@ -37,6 +37,7 @@ import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
 import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbursements/index'
 import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
+import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$year/schedule'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
@@ -57,6 +58,7 @@ import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakri
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
 import { Route as AppKalakritiYearIndexRouteImport } from './routes/_app/kalakriti/$year/index'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
+import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
 import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
 import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
@@ -207,6 +209,11 @@ const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppEventsRouteRoute,
 } as any)
+const KalakritiYearScheduleRoute = KalakritiYearScheduleRouteImport.update({
+  id: '/kalakriti/$year/schedule',
+  path: '/kalakriti/$year/schedule',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiZeroQueryRoute = ApiZeroQueryRouteImport.update({
   id: '/api/zero/query',
   path: '/api/zero/query',
@@ -307,6 +314,12 @@ const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   path: '/api/media/event-photo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiKalakritiYearScheduleRoute =
+  ApiKalakritiYearScheduleRouteImport.update({
+    id: '/api/kalakriti/$year/schedule',
+    path: '/api/kalakriti/$year/schedule',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiJobsIdRetryRoute = ApiJobsIdRetryRouteImport.update({
   id: '/retry',
   path: '/retry',
@@ -404,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
+  '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/events/': typeof AppEventsIndexRoute
   '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
@@ -422,6 +436,7 @@ export interface FileRoutesByFullPath {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -455,6 +470,7 @@ export interface FileRoutesByTo {
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
+  '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/events': typeof AppEventsIndexRoute
   '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
@@ -473,6 +489,7 @@ export interface FileRoutesByTo {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
@@ -517,6 +534,7 @@ export interface FileRoutesById {
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
+  '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
@@ -535,6 +553,7 @@ export interface FileRoutesById {
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
+  '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -578,6 +597,7 @@ export interface FileRouteTypes {
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
+    | '/kalakriti/$year/schedule'
     | '/events/'
     | '/kalakriti/'
     | '/reimbursements/'
@@ -596,6 +616,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/kalakriti/$year/schedule'
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year/'
     | '/settings/roles/'
@@ -629,6 +650,7 @@ export interface FileRouteTypes {
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
+    | '/kalakriti/$year/schedule'
     | '/events'
     | '/kalakriti'
     | '/reimbursements'
@@ -647,6 +669,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/kalakriti/$year/schedule'
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year'
     | '/settings/roles'
@@ -690,6 +713,7 @@ export interface FileRouteTypes {
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
+    | '/kalakriti/$year/schedule'
     | '/_app/events/'
     | '/_app/kalakriti/'
     | '/_app/reimbursements/'
@@ -708,6 +732,7 @@ export interface FileRouteTypes {
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
+    | '/api/kalakriti/$year/schedule'
     | '/api/media/event-photo/$id'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
@@ -726,9 +751,11 @@ export interface RootRouteChildren {
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
+  KalakritiYearScheduleRoute: typeof KalakritiYearScheduleRoute
   ApiJobsIndexRoute: typeof ApiJobsIndexRoute
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
+  ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
 }
 
@@ -930,6 +957,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsIndexRouteImport
       parentRoute: typeof AppEventsRouteRoute
     }
+    '/kalakriti/$year/schedule': {
+      id: '/kalakriti/$year/schedule'
+      path: '/kalakriti/$year/schedule'
+      fullPath: '/kalakriti/$year/schedule'
+      preLoaderRoute: typeof KalakritiYearScheduleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/zero/query': {
       id: '/api/zero/query'
       path: '/api/zero/query'
@@ -1068,6 +1102,13 @@ declare module '@tanstack/react-router' {
       path: '/api/media/event-photo/$id'
       fullPath: '/api/media/event-photo/$id'
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/kalakriti/$year/schedule': {
+      id: '/api/kalakriti/$year/schedule'
+      path: '/api/kalakriti/$year/schedule'
+      fullPath: '/api/kalakriti/$year/schedule'
+      preLoaderRoute: typeof ApiKalakritiYearScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jobs/$id/retry': {
@@ -1360,9 +1401,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
+  KalakritiYearScheduleRoute: KalakritiYearScheduleRoute,
   ApiJobsIndexRoute: ApiJobsIndexRoute,
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,
+  ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
 }
 export const routeTree = rootRouteImport
