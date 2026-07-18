@@ -115,6 +115,19 @@ export function buildKalakritiAuditItemsQuery(
     .offset(offset);
 }
 
+export function sanitizeKalakritiAuditPageMetadata(
+  metadata: Record<string, unknown> | null,
+  scope: KalakritiAuditScope,
+  domain: string
+) {
+  const categoryIds = scope.categoryScopedDomains.some(
+    (categoryScopedDomain) => categoryScopedDomain === domain
+  )
+    ? scope.competitionCategoryIds
+    : undefined;
+  return sanitizeKalakritiAuditMetadata(metadata, categoryIds);
+}
+
 export async function getKalakritiAuditPage(input: KalakritiAuditPageInput) {
   const scopeCondition = buildKalakritiAuditScopeCondition(
     input.scope,
@@ -147,7 +160,11 @@ export async function getKalakritiAuditPage(input: KalakritiAuditPageInput) {
     items: items.map((item) => ({
       ...item,
       createdAt: item.createdAt.toISOString(),
-      metadata: sanitizeKalakritiAuditMetadata(item.metadata),
+      metadata: sanitizeKalakritiAuditPageMetadata(
+        item.metadata,
+        input.scope,
+        item.domain
+      ),
     })),
     snapshotVersion,
     total: totals[0]?.total ?? 0,
