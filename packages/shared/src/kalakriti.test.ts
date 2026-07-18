@@ -5,10 +5,42 @@ import {
   findKalakritiAgeCategoryOverlap,
   formatKalakritiStudentHumanId,
   hasValidKalakritiGroupRules,
+  KALAKRITI_ASSIGNMENT_SCOPES,
+  KALAKRITI_EDITION_LIFECYCLES,
+  KALAKRITI_MEMBERSHIP_KINDS,
+  KALAKRITI_MEMBERSHIP_STATES,
+  KALAKRITI_OPERATIONAL_TEAMS,
+  KALAKRITI_TIMEZONE,
   normalizeKalakritiCenterName,
   requireKalakritiAgeCategoryOverrideReason,
   validateKalakritiSessionSchedule,
 } from "./kalakriti";
+
+describe("Kalakriti domain constants", () => {
+  it("keeps Edition access and assignment vocabularies canonical", () => {
+    expect(KALAKRITI_EDITION_LIFECYCLES).toEqual([
+      "draft",
+      "registration_open",
+      "registration_locked",
+      "live",
+      "archived",
+    ]);
+    expect(KALAKRITI_MEMBERSHIP_KINDS).toEqual(["volunteer", "guardian"]);
+    expect(KALAKRITI_MEMBERSHIP_STATES).toEqual(["active", "archived"]);
+    expect(KALAKRITI_ASSIGNMENT_SCOPES).toContain("operational_team");
+    expect(KALAKRITI_OPERATIONAL_TEAMS).toEqual([
+      "food",
+      "transport",
+      "logistics",
+      "awards",
+      "venue",
+      "hospitality",
+      "media",
+      "fundraising",
+    ]);
+    expect(KALAKRITI_TIMEZONE).toBe("Asia/Kolkata");
+  });
+});
 
 describe("formatKalakritiStudentHumanId", () => {
   it("formats an Edition-scoped monotonic sequence", () => {

@@ -50,6 +50,8 @@ Audit reads apply Edition and responsibility scopes before returning privacy-saf
 
 `packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota/capacity/duplicate races.
 
+`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019, including the explicit checks deferred until later modules introduce transport, Credential reissue, and operational dependencies.
+
 The release gate is:
 
 ```bash

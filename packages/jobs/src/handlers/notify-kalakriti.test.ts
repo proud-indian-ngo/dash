@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const notificationEdition = vi.hoisted(() => vi.fn());
-const guardianRecipients = vi.hoisted(() => vi.fn());
+const registrationRecipients = vi.hoisted(() => vi.fn());
 const scheduleRecipients = vi.hoisted(() => vi.fn());
 const notifyRegistration = vi.hoisted(() => vi.fn(async () => undefined));
 const notifySchedule = vi.hoisted(() => vi.fn(async () => undefined));
@@ -9,7 +9,7 @@ const notifyReactivation = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("../lib/kalakriti-notification-recipients", () => ({
   getKalakritiNotificationEdition: notificationEdition,
-  resolveKalakritiGuardianRecipients: guardianRecipients,
+  resolveKalakritiRegistrationRecipients: registrationRecipients,
   resolveKalakritiScheduleRecipients: scheduleRecipients,
 }));
 vi.mock("@pi-dash/notifications/send/kalakriti", () => ({
@@ -26,6 +26,7 @@ vi.mock("@pi-dash/notifications/send-message", () => ({
 
 import {
   handleNotifyKalakritiGuardianReactivated,
+  handleNotifyKalakritiRegistrationClosed,
   handleNotifyKalakritiRegistrationOpen,
   handleNotifyKalakritiScheduleChanged,
   handleRemindKalakritiRegistrationClose,
@@ -47,22 +48,64 @@ describe("Kalakriti notification jobs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     notificationEdition.mockResolvedValue(edition);
-    guardianRecipients.mockResolvedValue(["guardian-1", "guardian-2"]);
+    registrationRecipients.mockResolvedValue([
+      "guardian-1",
+      "guardian-2",
+      "volunteer-1",
+    ]);
     scheduleRecipients.mockResolvedValue(["guardian-1", "volunteer-1"]);
   });
 
-  it("sends registration-open once per active Guardian with the transition revision", async () => {
+  it("sends registration-open once per active Guardian or assigned volunteer", async () => {
     await handleNotifyKalakritiRegistrationOpen(
       job({ editionId: edition.id, transitionId: "transition-1" })
     );
 
-    expect(guardianRecipients).toHaveBeenCalledWith(edition.id);
-    expect(notifyRegistration).toHaveBeenCalledTimes(2);
+    expect(registrationRecipients).toHaveBeenCalledWith(edition.id);
+    expect(notifyRegistration).toHaveBeenCalledTimes(3);
     expect(notifyRegistration).toHaveBeenCalledWith(
       expect.objectContaining({
         recipientUserId: "guardian-1",
         transition: "registration_open",
         transitionRevision: "transition-1",
+      })
+    );
+    expect(notifyRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientUserId: "volunteer-1" })
+    );
+  });
+
+  it("uses the same Edition recipients when registration closes", async () => {
+    await handleNotifyKalakritiRegistrationClosed(
+      job({ editionId: edition.id, transitionId: "transition-2" })
+    );
+
+    expect(registrationRecipients).toHaveBeenCalledWith(edition.id);
+    expect(notifyRegistration).toHaveBeenCalledTimes(3);
+    expect(notifyRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: "volunteer-1",
+        transition: "registration_closed",
+        transitionRevision: "transition-2",
+      })
+    );
+  });
+
+  it("uses the same Edition recipients for the planned-close reminder", async () => {
+    await handleRemindKalakritiRegistrationClose(
+      job({
+        editionId: edition.id,
+        plannedRegistrationCloseAt:
+          edition.plannedRegistrationCloseAt.getTime(),
+      })
+    );
+
+    expect(registrationRecipients).toHaveBeenCalledWith(edition.id);
+    expect(notifyRegistration).toHaveBeenCalledTimes(3);
+    expect(notifyRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: "volunteer-1",
+        transition: "registration_close_reminder",
       })
     );
   });
@@ -81,7 +124,7 @@ describe("Kalakriti notification jobs", () => {
       })
     );
 
-    expect(guardianRecipients).not.toHaveBeenCalled();
+    expect(registrationRecipients).not.toHaveBeenCalled();
     expect(notifyRegistration).not.toHaveBeenCalled();
   });
 
@@ -94,7 +137,7 @@ describe("Kalakriti notification jobs", () => {
       })
     );
 
-    expect(guardianRecipients).not.toHaveBeenCalled();
+    expect(registrationRecipients).not.toHaveBeenCalled();
     expect(notifyRegistration).not.toHaveBeenCalled();
   });
 
