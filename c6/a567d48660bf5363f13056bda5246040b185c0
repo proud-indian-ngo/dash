@@ -1,0 +1,92 @@
+apps/web/src/components/settings/sections/notifications-section.tsx
+  s_c8c0ce2f824e4f::t_b9783197ca7be5 11-13,15,32,66-67,69-78,80-89,91-98,122
+  s_c8c0ce2f824e4f::t_8f6ce6f6abed9b 14,35,68,79,90
+packages/jobs/src/handlers/notify-kalakriti.ts
+  s_c8c0ce2f824e4f::t_d50b8a317176bf 1-23,29-31,33-53,58-62,67-73,75-102,107-112,114-136,141-146,148-157
+  s_c8c0ce2f824e4f::t_a9728c84fb4a0c 24-28,32,54-57,63-66,74,103-106,113,137-140,147
+packages/e2e/tests/settings/notification-preferences.spec.ts
+  s_c8c0ce2f824e4f::t_006efca56845dc 25-32,34-35,37-38,40-41,43-44,46-47,49-51
+  s_c8c0ce2f824e4f::t_8f6ce6f6abed9b 22-24,33,36,39,42,45,48
+packages/notifications/src/send-message.test.ts
+  s_c8c0ce2f824e4f::t_2e6ee36cd13b43 48
+  s_c8c0ce2f824e4f::t_e0a99ae67a0c66 165-177,181
+  s_c8c0ce2f824e4f::t_2816c617240b5e 44-47,127-164
+  s_c8c0ce2f824e4f::t_6acb7ab7230df0 49-50
+  s_c8c0ce2f824e4f::t_c33a4b2c1cd161 178-180
+  s_c8c0ce2f824e4f::t_2777d95aea1687 182
+docs/architecture/notifications.md
+  s_c8c0ce2f824e4f::t_f48aa1fefbf5bd 44-47,68-69
+  s_c8c0ce2f824e4f::t_968568a5265497 70
+docs/architecture/jobs.md
+  s_c8c0ce2f824e4f::t_ad628f4e2165d5 30-34
+packages/notifications/src/send/kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_2e6ee36cd13b43 24-41
+  s_c8c0ce2f824e4f::t_e092b4aa451c9f 99-100
+  s_c8c0ce2f824e4f::t_2816c617240b5e 1-23,42-98,101-106
+packages/jobs/src/lib/kalakriti-notification-recipients.ts
+  s_c8c0ce2f824e4f::t_c76bb99570375d 123-125,132-135,155,160-161,164-165,167,187
+  s_c8c0ce2f824e4f::t_fdf5ecc7c33475 1-31,33-67,89-122,166,168-173,175-186,188-214
+  s_c8c0ce2f824e4f::t_a5fa7bdb9c017f 32,68-88,126-131,136-154,156-159,162-163,174
+packages/notifications/src/topics.ts
+  s_c8c0ce2f824e4f::t_b9783197ca7be5 3-5,22,34,44
+  s_c8c0ce2f824e4f::t_dddcb226d02f6e 12-13,33,35-43,45-52
+packages/zero/src/mutators/__tests__/kalakriti-edition.test.ts
+  s_c8c0ce2f824e4f::t_5fdddfa914bb9f 557-562
+  s_c8c0ce2f824e4f::t_5ac62bcdac6b8a 571-574,601,603-607,611-612
+  s_c8c0ce2f824e4f::t_04bf913111a875 539-556,563-570,575-600,602,608-610,613
+  s_c8c0ce2f824e4f::t_e1e34d2274b2d4 614
+packages/jobs/src/enqueue.ts
+  s_c8c0ce2f824e4f::t_f4cd369ce77ca0 37-40,77
+packages/jobs/src/lib/kalakriti-notification-recipients.test.ts
+  s_c8c0ce2f824e4f::t_a5fa7bdb9c017f 9,28-30,38,48
+  s_c8c0ce2f824e4f::t_b7779e40d42cc5 1-8,10-27,31-37,39-47,49-61
+packages/jobs/src/types.ts
+  s_c8c0ce2f824e4f::t_f4cd369ce77ca0 394-416,561-564,600
+packages/jobs/src/handlers/index.ts
+  s_c8c0ce2f824e4f::t_4f4f121f55eafd 288-307,460-464
+  s_c8c0ce2f824e4f::t_ff0f0226e739e6 36-42
+packages/notifications/src/send/kalakriti.ts
+  s_c8c0ce2f824e4f::t_2816c617240b5e 16,25,33,109
+  s_c8c0ce2f824e4f::t_2e6ee36cd13b43 112-115
+  s_c8c0ce2f824e4f::t_dddcb226d02f6e 1-15,17-24,26-32,34-108,110-111,116-117
+packages/notifications/src/send-message.ts
+  s_c8c0ce2f824e4f::t_b9783197ca7be5 19,23
+  s_c8c0ce2f824e4f::t_dddcb226d02f6e 21,57,86-87,100,110-112
+  s_c8c0ce2f824e4f::t_2e6ee36cd13b43 88-97
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_8940d783ad5576 3,101-109,112-161,590-593,595
+  s_c8c0ce2f824e4f::t_c76bb99570375d 110-111,560
+  s_c8c0ce2f824e4f::t_a438e773715085 556-559,594
+  s_c8c0ce2f824e4f::t_fbec8e1083c44c 565
+packages/zero/src/mutators/__tests__/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_6a56b9c9f7f6fd 327-330,338,352,375-381
+  s_c8c0ce2f824e4f::t_5fdddfa914bb9f 387,521
+  s_c8c0ce2f824e4f::t_c35a0612779b30 382-383
+packages/zero/src/mutators/kalakriti-competition.ts
+  s_c8c0ce2f824e4f::t_5fdddfa914bb9f 908,1074
+  s_c8c0ce2f824e4f::t_670af5924abd8c 181-244
+  s_c8c0ce2f824e4f::t_e0106cc1778515 596-603,728,751-758,830-835,850-857,923-930,1094-1101
+apps/web/src/lib/notification-helpers.ts
+  s_c8c0ce2f824e4f::t_19b5fcc7b1bc26 6
+apps/web/src/functions/kalakriti-guardian.ts
+  s_c8c0ce2f824e4f::t_47939627db1895 222-249,333-334
+packages/jobs/src/handlers/notify-kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_ce734346a2ca81 1-131,135-154
+  s_c8c0ce2f824e4f::t_5146f06b91caf9 132-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c6a567d48660bf5363f13056bda5246040b185c0",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
