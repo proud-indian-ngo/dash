@@ -1,0 +1,49 @@
+apps/web/src/lib/kalakriti-student-policy.ts
+  s_c8c0ce2f824e4f::t_911c70d7976300 1-80
+apps/web/src/lib/kalakriti-student-policy.test.ts
+  s_c8c0ce2f824e4f::t_e3ecac2574db93 1-112
+packages/zero/src/mutators/kalakriti-student.ts
+  s_c8c0ce2f824e4f::t_a80e9b74deb6a4 22,177-243
+  s_c8c0ce2f824e4f::t_26fc8a613d124f 21,107-118,126,334,524-526,529
+  s_c8c0ce2f824e4f::t_52a92895e31275 521-523,527-528
+  s_c8c0ce2f824e4f::t_5eecff1f8c583e 531
+apps/web/src/routes/_app/kalakriti/$year/students.tsx
+  s_c8c0ce2f824e4f::t_911c70d7976300 23-28,33,50-62,75,205,212,246,248
+apps/web/src/lib/kalakriti-student-route.test.ts
+  s_c8c0ce2f824e4f::t_e3ecac2574db93 1-69
+packages/zero/src/mutators/kalakriti-row-locks.ts
+  s_c8c0ce2f824e4f::t_9d73dfe25d714b 111-115,119-123
+  s_c8c0ce2f824e4f::t_23fa3b824e16a7 32-36,40-41,104,124,180,185
+apps/web/src/routes/_app/kalakriti/$year/route.tsx
+  s_c8c0ce2f824e4f::t_911c70d7976300 10,43
+packages/zero/src/mutators/__tests__/kalakriti-student.test.ts
+  s_c8c0ce2f824e4f::t_3fe071c68c71a8 269-288,485
+  s_c8c0ce2f824e4f::t_e6dcb478d76016 442-482,484
+  s_c8c0ce2f824e4f::t_b10a0be799e13b 418-419
+  s_c8c0ce2f824e4f::t_7d7391999a89ac 483
+  s_c8c0ce2f824e4f::t_da5b8fb251527c 486
+project-structure.md
+  s_c8c0ce2f824e4f::t_b83063c98a29f5 87,142
+packages/zero/src/mutators/__tests__/kalakriti-row-locks.test.ts
+  s_c8c0ce2f824e4f::t_e6dcb478d76016 22-39
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_af391a4964c90d 55,60,181,188,812-817,918-952
+  s_c8c0ce2f824e4f::t_8fc6a7f30322fe 806
+  s_c8c0ce2f824e4f::t_0cbd1dfbf0a3da 953
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8258f3627a0d288f0f1bc4c2189fd400a5a0df15",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
