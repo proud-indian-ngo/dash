@@ -1,6 +1,11 @@
+import { createHash } from "node:crypto";
 import { createRequestLogger } from "evlog";
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
+
+function hashIdempotencyKey(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
 
 export async function sendWhatsAppMessage(
   phone: string,
@@ -27,7 +32,7 @@ export async function sendWhatsAppMessage(
     headers: {
       ...getWhatsAppHeaders(),
       ...(options?.idempotencyKey
-        ? { "Idempotency-Key": options.idempotencyKey }
+        ? { "Idempotency-Key": hashIdempotencyKey(options.idempotencyKey) }
         : {}),
     },
     method: "POST",

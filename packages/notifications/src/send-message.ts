@@ -127,7 +127,7 @@ export async function sendMessage({
       const imageSuffix = imageUrl ? `\n\nPayment proof: ${imageUrl}` : "";
       const fullMessage = `*${title}*\n\n${whatsappBody}${imageSuffix}${footer}`;
       await sendWhatsAppMessage(phone, fullMessage, {
-        idempotencyKey: `${idempotencyKey}-whatsapp`,
+        idempotencyKey: `${idempotencyKey}-whatsapp-${to}`,
       });
       return true;
     } catch (error) {

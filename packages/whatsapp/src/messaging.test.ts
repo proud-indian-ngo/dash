@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -32,19 +33,22 @@ beforeEach(() => {
 });
 
 describe("sendWhatsAppMessage", () => {
-  it("forwards a deterministic delivery key to the gateway", async () => {
+  it("forwards a deterministic ASCII-safe delivery key to the gateway", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null));
     vi.stubGlobal("fetch", fetch);
+    const deliveryKey = `kalakriti-नाम-${"x".repeat(500)}-whatsapp-user-1`;
 
     await sendWhatsAppMessage("919999999999", "Hello", {
-      idempotencyKey: "kalakriti-registration-1-whatsapp",
+      idempotencyKey: deliveryKey,
     });
 
     expect(fetch).toHaveBeenCalledWith(
       "https://whatsapp.example.test/send/message",
       expect.objectContaining({
         headers: {
-          "Idempotency-Key": "kalakriti-registration-1-whatsapp",
+          "Idempotency-Key": createHash("sha256")
+            .update(deliveryKey)
+            .digest("hex"),
         },
       })
     );

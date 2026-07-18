@@ -92,9 +92,10 @@ Any false → skip WhatsApp for that user.
 
 The notification layer derives a stable WhatsApp delivery key from the domain
 message key, recipient, and channel, then forwards it to the gateway as the
-`Idempotency-Key` header. Inbox delivery is deduplicated locally. The upstream
-GoWA API does not currently guarantee atomic idempotency for text sends, so a
-retry after an ambiguous provider response remains at-least-once for WhatsApp.
+bounded, ASCII-safe `Idempotency-Key` header. Inbox delivery is deduplicated
+locally. The upstream GoWA API does not currently guarantee atomic idempotency
+for text sends, so a retry after an ambiguous provider response remains
+at-least-once for WhatsApp.
 
 **Group ops**: `whatsapp-add-to-group`, `whatsapp-remove-from-group` jobs — idempotent, retry-safe. Used by RSVP poll vote handler and team-membership mutations.
 
