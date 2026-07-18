@@ -15,24 +15,32 @@ import {
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { and, eq, inArray } from "drizzle-orm";
+import type { KalakritiRegistrationScope } from "../../../apps/web/src/lib/kalakriti-registration-scope-policy";
+import { getKalakritiRegistrationDashboardProjections } from "../../../apps/web/src/lib/server/kalakriti-registration-dashboard";
+import { getKalakritiRegistrationExport } from "../../../apps/web/src/lib/server/kalakriti-registration-export";
 
 const IDS = {
   ageCategory: "019f0000-0000-7000-8000-00000000d001",
   category: "019f0000-0000-7000-8000-00000000d002",
   center: "019f0000-0000-7000-8000-00000000d003",
+  centerB: "019f0000-0000-7000-8000-00000000d012",
   competition: "019f0000-0000-7000-8000-00000000d004",
   editionA: "019f0000-0000-7000-8000-00000000d005",
   editionB: "019f0000-0000-7000-8000-00000000d006",
   entryA: "019f0000-0000-7000-8000-00000000d007",
   entryB: "019f0000-0000-7000-8000-00000000d008",
+  entryC: "019f0000-0000-7000-8000-00000000d013",
   eventA: "019f0000-0000-7000-8000-00000000d009",
   eventB: "019f0000-0000-7000-8000-00000000d00a",
   memberA: "019f0000-0000-7000-8000-00000000d00b",
   memberB: "019f0000-0000-7000-8000-00000000d00c",
+  memberC: "019f0000-0000-7000-8000-00000000d014",
   membershipA: "019f0000-0000-7000-8000-00000000d00d",
   membershipB: "019f0000-0000-7000-8000-00000000d00e",
   session: "019f0000-0000-7000-8000-00000000d00f",
   student: "019f0000-0000-7000-8000-00000000d010",
+  studentB: "019f0000-0000-7000-8000-00000000d015",
+  studentC: "019f0000-0000-7000-8000-00000000d016",
   venue: "019f0000-0000-7000-8000-00000000d011",
 } as const;
 const YEARS = [2182, 2183] as const;
@@ -144,17 +152,30 @@ async function setup(email: string) {
       year: YEARS[1],
     },
   ]);
-  await db.insert(kalakritiCenter).values({
-    competitionEntryRegistrationEnabled: true,
-    createdAt: now,
-    createdBy: actor.id,
-    editionId: IDS.editionA,
-    id: IDS.center,
-    name: "Release Race Center",
-    normalizedName: "release race center",
-    studentRegistrationEnabled: true,
-    updatedAt: now,
-  });
+  await db.insert(kalakritiCenter).values([
+    {
+      competitionEntryRegistrationEnabled: true,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: IDS.editionA,
+      id: IDS.center,
+      name: "Release Race Center",
+      normalizedName: "release race center",
+      studentRegistrationEnabled: true,
+      updatedAt: now,
+    },
+    {
+      competitionEntryRegistrationEnabled: true,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: IDS.editionA,
+      id: IDS.centerB,
+      name: "Release Race Center B",
+      normalizedName: "release race center b",
+      studentRegistrationEnabled: true,
+      updatedAt: now,
+    },
+  ]);
   await db.insert(kalakritiAgeCategory).values({
     createdAt: now,
     createdBy: actor.id,
@@ -215,22 +236,28 @@ async function setup(email: string) {
     updatedAt: now,
     venueId: IDS.venue,
   });
-  await db.insert(kalakritiStudent).values({
-    ageCategoryId: IDS.ageCategory,
-    centerId: IDS.center,
-    createdAt: now,
-    createdBy: actor.id,
-    dateOfBirth: `${YEARS[0] - 8}-06-15`,
-    derivedAgeCategoryId: IDS.ageCategory,
-    editionId: IDS.editionA,
-    gender: "female",
-    humanId: `KAL-${YEARS[0]}-0001`,
-    id: IDS.student,
-    name: "Release Race Student",
-    normalizedName: "release race student",
-    updatedAt: now,
-    updatedBy: actor.id,
-  });
+  await db.insert(kalakritiStudent).values(
+    [
+      [IDS.student, IDS.center, "0001"],
+      [IDS.studentB, IDS.centerB, "0002"],
+      [IDS.studentC, IDS.centerB, "0003"],
+    ].map(([id, centerId, suffix]) => ({
+      ageCategoryId: IDS.ageCategory,
+      centerId,
+      createdAt: now,
+      createdBy: actor.id,
+      dateOfBirth: `${YEARS[0] - 8}-06-15`,
+      derivedAgeCategoryId: IDS.ageCategory,
+      editionId: IDS.editionA,
+      gender: "female" as const,
+      humanId: `KAL-${YEARS[0]}-${suffix}`,
+      id,
+      name: `Release Race Student ${suffix}`,
+      normalizedName: `release race student ${suffix}`,
+      updatedAt: now,
+      updatedBy: actor.id,
+    }))
+  );
   return { actorId: actor.id };
 }
 
@@ -336,6 +363,68 @@ async function raceEntries(actorId: string) {
   };
 }
 
+async function addSecondCenterEntry(actorId: string) {
+  const now = new Date();
+  await db.insert(kalakritiCompetitionEntry).values({
+    centerId: IDS.centerB,
+    createdAt: now,
+    createdBy: actorId,
+    editionId: IDS.editionA,
+    id: IDS.entryC,
+    participationMode: "individual",
+    sessionId: IDS.session,
+    updatedAt: now,
+    updatedBy: actorId,
+  });
+  await db.insert(kalakritiEntryMember).values({
+    centerId: IDS.centerB,
+    createdAt: now,
+    createdBy: actorId,
+    editionId: IDS.editionA,
+    entryId: IDS.entryC,
+    id: IDS.memberC,
+    sessionId: IDS.session,
+    studentId: IDS.studentB,
+  });
+}
+
+async function projectionParity() {
+  const scopes: KalakritiRegistrationScope[] = [
+    { kind: "edition" },
+    { centerIds: [IDS.center], kind: "center" },
+    {
+      competitionCategoryIds: [IDS.category],
+      kind: "competition_category",
+    },
+    { competitionIds: [IDS.competition], kind: "competition" },
+  ];
+  const dashboard = await getKalakritiRegistrationDashboardProjections({
+    editionId: IDS.editionA,
+    scopes,
+  });
+
+  return Promise.all(
+    scopes.map(async (scope, index) => {
+      const exported = await getKalakritiRegistrationExport({
+        editionId: IDS.editionA,
+        scopes: [scope],
+      });
+      return {
+        dashboard: dashboard[index]?.totals,
+        export: {
+          entries: exported.entries.length,
+          participants: exported.entries.reduce(
+            (total, entry) => total + entry.participantIds.length,
+            0
+          ),
+          students: exported.students.length,
+        },
+        kind: scope.kind,
+      };
+    })
+  );
+}
+
 const [action, actorEmail] = process.argv.slice(2);
 let output: unknown;
 if (action === "cleanup") {
@@ -345,8 +434,10 @@ if (action === "cleanup") {
   const { actorId } = await setup(actorEmail);
   const membership = await raceMemberships(actorId);
   const entries = await raceEntries(actorId);
+  await addSecondCenterEntry(actorId);
   const live = await raceLiveEditions();
-  output = { entries, live, membership };
+  const projections = await projectionParity();
+  output = { entries, live, membership, projections };
 } else {
   throw new Error(`Unsupported release race action: ${action ?? ""}`);
 }

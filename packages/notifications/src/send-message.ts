@@ -126,7 +126,9 @@ export async function sendMessage({
       const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
       const imageSuffix = imageUrl ? `\n\nPayment proof: ${imageUrl}` : "";
       const fullMessage = `*${title}*\n\n${whatsappBody}${imageSuffix}${footer}`;
-      await sendWhatsAppMessage(phone, fullMessage);
+      await sendWhatsAppMessage(phone, fullMessage, {
+        idempotencyKey: `${idempotencyKey}-whatsapp`,
+      });
       return true;
     } catch (error) {
       const log = createRequestLogger();
@@ -333,8 +335,10 @@ export async function sendBulkMessage({
       const fullMessage = `*${title}*\n\n${whatsappBody}${footer}`;
 
       const results = await Promise.allSettled(
-        [...phoneMap.values()].map((phone) =>
-          sendWhatsAppMessage(phone, fullMessage)
+        [...phoneMap.entries()].map(([userId, phone]) =>
+          sendWhatsAppMessage(phone, fullMessage, {
+            idempotencyKey: `${idempotencyKey}-whatsapp-${userId}`,
+          })
         )
       );
       return results.filter((r) => r.status === "fulfilled").length;

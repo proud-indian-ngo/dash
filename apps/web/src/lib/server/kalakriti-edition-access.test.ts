@@ -7,6 +7,7 @@ const dbMocks = vi.hoisted(() => {
     const query = {
       from: vi.fn(),
       innerJoin: vi.fn(),
+      leftJoin: vi.fn(),
       limit: vi.fn(),
       orderBy: vi.fn(),
       // biome-ignore lint/suspicious/noThenProperty: Drizzle query builders are intentionally promise-like.
@@ -18,6 +19,7 @@ const dbMocks = vi.hoisted(() => {
     };
     query.from.mockReturnValue(query);
     query.innerJoin.mockReturnValue(query);
+    query.leftJoin.mockReturnValue(query);
     query.limit.mockReturnValue(query);
     query.orderBy.mockReturnValue(query);
     query.where.mockReturnValue(query);
@@ -43,7 +45,10 @@ vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions,
 }));
 
-import { resolveKalakritiEditionAccess } from "./kalakriti-edition-access";
+import {
+  resolveCurrentKalakritiEditionAccess,
+  resolveKalakritiEditionAccess,
+} from "./kalakriti-edition-access";
 
 const edition = {
   ageCutoffDate: "2027-01-01",
@@ -64,6 +69,17 @@ function selectedWhereParams(callIndex: number) {
     throw new Error(`Missing where predicate for select call ${callIndex}`);
   }
   return new PgDialect().sqlToQuery(predicate).params;
+}
+
+function selectedDistinctWhereQuery(callIndex: number) {
+  const query = dbMocks.selectDistinct.mock.results[callIndex]?.value;
+  const predicate = query?.where.mock.calls[0]?.[0];
+  if (!predicate) {
+    throw new Error(
+      `Missing where predicate for selectDistinct call ${callIndex}`
+    );
+  }
+  return new PgDialect().sqlToQuery(predicate);
 }
 
 describe("resolveKalakritiEditionAccess", () => {
@@ -100,6 +116,46 @@ describe("resolveKalakritiEditionAccess", () => {
     ).resolves.toBeNull();
     expect(selectedWhereParams(0)).toEqual([edition.year]);
     expect(selectedWhereParams(1)).toEqual([edition.id, "user-1", "active"]);
+  });
+
+  it("rejects an active volunteer membership without an assignment", async () => {
+    resolvePermissions.mockResolvedValue(["kalakriti.view"]);
+    dbMocks.results.push(
+      [edition],
+      [{ id: "membership-1", kind: "volunteer" }],
+      []
+    );
+
+    await expect(
+      resolveKalakritiEditionAccess({
+        role: "volunteer",
+        userId: "user-1",
+        year: edition.year,
+      })
+    ).resolves.toBeNull();
+  });
+
+  it("allows an active Guardian membership without an assignment", async () => {
+    resolvePermissions.mockResolvedValue(["kalakriti.view"]);
+    dbMocks.results.push(
+      [edition],
+      [{ id: "membership-1", kind: "guardian" }],
+      []
+    );
+
+    await expect(
+      resolveKalakritiEditionAccess({
+        role: "external_user",
+        userId: "guardian-1",
+        year: edition.year,
+      })
+    ).resolves.toMatchObject({
+      edition: { id: edition.id },
+      membership: {
+        assignments: [],
+        kind: "guardian",
+      },
+    });
   });
 
   it("loads active membership assignments for the requested Edition", async () => {
@@ -158,5 +214,31 @@ describe("resolveKalakritiEditionAccess", () => {
       isGlobalAdmin: true,
       membership: null,
     });
+  });
+});
+
+describe("resolveCurrentKalakritiEditionAccess", () => {
+  beforeEach(() => {
+    dbMocks.results.length = 0;
+    dbMocks.select.mockClear();
+    dbMocks.selectDistinct.mockClear();
+    resolvePermissions.mockReset();
+  });
+
+  it("discovers only Guardian or assigned volunteer memberships", async () => {
+    resolvePermissions.mockResolvedValue(["kalakriti.view"]);
+    dbMocks.results.push([]);
+
+    await expect(
+      resolveCurrentKalakritiEditionAccess({
+        role: "volunteer",
+        userId: "volunteer-1",
+      })
+    ).resolves.toBeNull();
+
+    const query = selectedDistinctWhereQuery(0);
+    expect(query.params).toEqual(["volunteer-1", "active", "guardian"]);
+    expect(query.sql).toContain("kalakriti_assignment");
+    expect(query.sql).toContain("is not null");
   });
 });
