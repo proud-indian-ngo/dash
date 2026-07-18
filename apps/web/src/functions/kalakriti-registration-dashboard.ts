@@ -3,9 +3,9 @@ import { kalakritiGuardianCenter } from "@pi-dash/db/schema/kalakriti";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { resolveKalakritiRegistrationDashboardScopes } from "@/lib/kalakriti-registration-dashboard-policy";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
-import { getKalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
+import { getKalakritiRegistrationDashboardProjections } from "@/lib/server/kalakriti-registration-dashboard";
+import { resolveKalakritiRegistrationDashboardRequest } from "@/lib/server/kalakriti-registration-dashboard-request";
 import { authMiddleware } from "@/middleware/auth";
 
 const inputSchema = z.strictObject({
@@ -17,22 +17,19 @@ export const getKalakritiRegistrationDashboard = createServerFn({
 })
   .middleware([authMiddleware])
   .validator(inputSchema)
-  .handler(async ({ context, data }) => {
-    if (!context.session) {
-      return null;
-    }
-    const access = await resolveKalakritiEditionAccess({
-      role: context.session.user.role ?? "unoriented_volunteer",
-      userId: context.session.user.id,
-      year: data.year,
-    });
-    if (!access) {
-      return null;
-    }
-
-    const guardianCenterIds =
-      access.membership?.kind === "guardian"
-        ? await db
+  .handler(({ context, data }) =>
+    resolveKalakritiRegistrationDashboardRequest(
+      {
+        sessionUser: context.session?.user ?? null,
+        year: data.year,
+      },
+      {
+        getProjections: getKalakritiRegistrationDashboardProjections,
+        loadGuardianCenterIds: (access) => {
+          if (access.membership?.kind !== "guardian") {
+            return Promise.resolve([]);
+          }
+          return db
             .select({ centerId: kalakritiGuardianCenter.centerId })
             .from(kalakritiGuardianCenter)
             .where(
@@ -41,19 +38,9 @@ export const getKalakritiRegistrationDashboard = createServerFn({
                 eq(kalakritiGuardianCenter.membershipId, access.membership.id)
               )
             )
-            .then((rows) => rows.map(({ centerId }) => centerId))
-        : [];
-    const scopes = resolveKalakritiRegistrationDashboardScopes(
-      access,
-      guardianCenterIds
-    );
-    const projections = await Promise.all(
-      scopes.map((scope) =>
-        getKalakritiRegistrationDashboardProjection({
-          editionId: access.edition.id,
-          scope,
-        })
-      )
-    );
-    return { projections };
-  });
+            .then((rows) => rows.map(({ centerId }) => centerId));
+        },
+        resolveAccess: resolveKalakritiEditionAccess,
+      }
+    )
+  );

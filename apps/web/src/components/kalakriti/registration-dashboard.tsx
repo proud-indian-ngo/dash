@@ -86,14 +86,25 @@ function AggregateTable({
         <tbody className="divide-y">
           {rows.map((row) => (
             <tr key={String(row[0])}>
-              {row.map((value, index) => (
-                <td
-                  className={index === 0 ? "px-3 py-2" : "px-3 py-2 text-right"}
-                  key={`${String(row[0])}-${columns[index]}`}
-                >
-                  {value}
-                </td>
-              ))}
+              {row.map((value, index) => {
+                const key = `${String(row[0])}-${columns[index]}`;
+                if (index === 0) {
+                  return (
+                    <th
+                      className="px-3 py-2 text-left font-normal"
+                      key={key}
+                      scope="row"
+                    >
+                      {value}
+                    </th>
+                  );
+                }
+                return (
+                  <td className="px-3 py-2 text-right" key={key}>
+                    {value}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -131,9 +142,9 @@ function DashboardProjection({
             },
             capacity === null
               ? {
-                  description: "Configured for your Centers",
-                  label: "Student quota",
-                  value: projection.totals.quotaLimit ?? "Restricted",
+                  description: "Across your assigned Centers",
+                  label: "Student limit",
+                  value: projection.totals.studentLimit ?? "Restricted",
                 }
               : {
                   description: "Across active Competition Sessions",
@@ -151,7 +162,7 @@ function DashboardProjection({
             "Registered",
             "Entries",
             "Participations",
-            "Quota",
+            "Student limit",
           ]}
           rows={projection.centers.map((center) => [
             center.name,
@@ -159,27 +170,57 @@ function DashboardProjection({
             center.registeredStudents,
             center.entries,
             center.participants,
-            center.quotaLimit,
+            center.studentLimit,
           ])}
         />
         <AggregateTable
           caption={`${heading.title} by Age Category`}
-          columns={[
-            "Age Category",
-            "Students",
-            "Registered",
-            "Entries",
-            "Participations",
-            "Capacity",
-          ]}
-          rows={projection.ageCategories.map((age) => [
-            age.name,
-            age.students,
-            age.registeredStudents,
-            age.entries,
-            age.participants,
-            age.capacity ?? "Restricted",
-          ])}
+          columns={
+            projection.totals.studentLimit === null
+              ? [
+                  "Age Category",
+                  "Students",
+                  "Registered",
+                  "Entries",
+                  "Participations",
+                  "Capacity",
+                ]
+              : [
+                  "Age Category",
+                  "Students",
+                  "Registered",
+                  "Female",
+                  "Female limit per Center",
+                  "Male",
+                  "Male limit per Center",
+                  "Entries",
+                  "Participations",
+                  "Capacity",
+                ]
+          }
+          rows={projection.ageCategories.map((age) =>
+            projection.totals.studentLimit === null
+              ? [
+                  age.name,
+                  age.students,
+                  age.registeredStudents,
+                  age.entries,
+                  age.participants,
+                  age.capacity ?? "Restricted",
+                ]
+              : [
+                  age.name,
+                  age.students,
+                  age.registeredStudents,
+                  age.femaleStudents ?? 0,
+                  age.femaleStudentLimit ?? 0,
+                  age.maleStudents ?? 0,
+                  age.maleStudentLimit ?? 0,
+                  age.entries,
+                  age.participants,
+                  age.capacity ?? "Restricted",
+                ]
+          )}
         />
         <AggregateTable
           caption={`${heading.title} by Competition Category`}
@@ -215,23 +256,6 @@ function DashboardProjection({
             competition.capacity ?? "Restricted",
           ])}
         />
-        <AggregateTable
-          caption={`${heading.title} quotas`}
-          columns={[
-            "Center and Age Category",
-            "Female used",
-            "Female limit",
-            "Male used",
-            "Male limit",
-          ]}
-          rows={projection.quotas.map((quota) => [
-            `${quota.centerName} · ${quota.ageCategoryName}`,
-            quota.femaleUsed,
-            quota.femaleLimit,
-            quota.maleUsed,
-            quota.maleLimit,
-          ])}
-        />
       </CardContent>
     </Card>
   );
@@ -255,7 +279,7 @@ export function RegistrationDashboard({
           Registration dashboard
         </h2>
         <p className="mt-1 text-muted-foreground text-sm">
-          Live private totals from the current registration records.
+          Private totals loaded with this page.
         </p>
       </div>
       <div className="space-y-4">

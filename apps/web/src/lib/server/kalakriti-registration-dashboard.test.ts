@@ -1,3 +1,6 @@
+import { kalakritiCenter } from "@pi-dash/db/schema/kalakriti";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { drizzle } from "drizzle-orm/pg-proxy";
 import { describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => {
@@ -36,13 +39,30 @@ vi.mock("@pi-dash/db", () => ({
 
 import {
   assembleKalakritiRegistrationDashboardProjection,
-  getKalakritiRegistrationDashboardProjection,
+  buildKalakritiRegistrationDashboardCategoryCondition,
+  buildKalakritiRegistrationDashboardCenterCondition,
+  buildKalakritiRegistrationDashboardCompetitionCondition,
+  getKalakritiRegistrationDashboardProjections,
 } from "./kalakriti-registration-dashboard";
+
+const dialect = new PgDialect();
 
 const rows = {
   ages: [
-    { id: "age-1", name: "Junior", sortOrder: 1 },
-    { id: "age-2", name: "Senior", sortOrder: 2 },
+    {
+      femaleStudentLimit: 3,
+      id: "age-1",
+      maleStudentLimit: 2,
+      name: "Junior",
+      sortOrder: 1,
+    },
+    {
+      femaleStudentLimit: 5,
+      id: "age-2",
+      maleStudentLimit: 5,
+      name: "Senior",
+      sortOrder: 2,
+    },
   ],
   categories: [
     { id: "category-1", name: "Art", sortOrder: 1 },
@@ -56,6 +76,7 @@ const rows = {
     {
       cancelled: false,
       categoryId: "category-1",
+      categoryRetired: false,
       id: "competition-1",
       name: "Drawing",
       retired: false,
@@ -63,6 +84,7 @@ const rows = {
     {
       cancelled: false,
       categoryId: "category-2",
+      categoryRetired: false,
       id: "competition-2",
       name: "Dance",
       retired: false,
@@ -83,20 +105,6 @@ const rows = {
     },
   ],
   participants: [],
-  quotas: [
-    {
-      ageCategoryId: "age-1",
-      centerId: "center-1",
-      femaleLimit: 3,
-      maleLimit: 2,
-    },
-    {
-      ageCategoryId: "age-2",
-      centerId: "center-2",
-      femaleLimit: 5,
-      maleLimit: 5,
-    },
-  ],
   sessions: [
     {
       ageCategoryId: "age-1",
@@ -104,6 +112,7 @@ const rows = {
       capacity: 10,
       competitionId: "competition-1",
       id: "session-1",
+      venueRetired: false,
     },
     {
       ageCategoryId: "age-2",
@@ -111,6 +120,7 @@ const rows = {
       capacity: 20,
       competitionId: "competition-2",
       id: "session-2",
+      venueRetired: false,
     },
   ],
   students: [
@@ -135,15 +145,52 @@ const rows = {
 
 describe("Kalakriti registration dashboard aggregation", () => {
   it("reads every projection from one repeatable, read-only snapshot", async () => {
-    await getKalakritiRegistrationDashboardProjection({
+    await getKalakritiRegistrationDashboardProjections({
       editionId: "edition-1",
-      scope: { kind: "edition" },
+      scopes: [
+        { kind: "edition" },
+        { competitionIds: ["competition-1"], kind: "competition" },
+      ],
     });
 
+    expect(dbMocks.transaction).toHaveBeenCalledTimes(1);
     expect(dbMocks.transaction).toHaveBeenCalledWith(expect.any(Function), {
       accessMode: "read only",
       isolationLevel: "repeatable read",
     });
+  });
+
+  it("binds Center, Category, and Competition IDs into SQL scope conditions", () => {
+    const center = dialect.sqlToQuery(
+      buildKalakritiRegistrationDashboardCenterCondition(
+        { centerIds: ["center-1"], kind: "center" },
+        kalakritiCenter.id
+      )
+    );
+    expect(center.params).toContain("center-1");
+
+    const competition = dialect.sqlToQuery(
+      buildKalakritiRegistrationDashboardCompetitionCondition({
+        competitionIds: ["competition-1"],
+        kind: "competition",
+      })
+    );
+    expect(competition.params).toContain("competition-1");
+
+    const proxy = drizzle(() => Promise.resolve({ rows: [] }));
+    const category = dialect.sqlToQuery(
+      buildKalakritiRegistrationDashboardCategoryCondition(
+        proxy as never,
+        "edition-1",
+        {
+          competitionIds: ["competition-1"],
+          kind: "competition",
+        }
+      )
+    );
+    expect(category.params).toEqual(
+      expect.arrayContaining(["edition-1", "competition-1"])
+    );
   });
 
   it("assembles authoritative Edition totals without double-counting groups", () => {
@@ -156,8 +203,8 @@ describe("Kalakriti registration dashboard aggregation", () => {
       capacity: 10,
       entries: 3,
       participants: 6,
-      quotaLimit: 15,
       registeredStudents: 6,
+      studentLimit: 30,
       students: 7,
     });
     expect(projection.centers).toHaveLength(2);
@@ -174,7 +221,6 @@ describe("Kalakriti registration dashboard aggregation", () => {
       centers: rows.centers.slice(0, 1),
       competitions: rows.competitions.slice(0, 1),
       entries: rows.entries.slice(0, 1),
-      quotas: rows.quotas.slice(0, 1),
       sessions: rows.sessions.slice(0, 1),
       students: rows.students.slice(0, 1),
     };
@@ -186,7 +232,11 @@ describe("Kalakriti registration dashboard aggregation", () => {
     expect(projection.totals.capacity).toBeNull();
     expect(projection.competitions[0]?.capacity).toBeNull();
     expect(projection.centers).toEqual([
-      expect.objectContaining({ id: "center-1", students: 3 }),
+      expect.objectContaining({
+        id: "center-1",
+        studentLimit: 15,
+        students: 3,
+      }),
     ]);
     expect(JSON.stringify(projection)).not.toContain("Center Two");
   });
@@ -204,21 +254,77 @@ describe("Kalakriti registration dashboard aggregation", () => {
         competitions: rows.competitions.slice(0, 1),
         entries: rows.entries.slice(0, 1),
         participants: [{ ageCategoryId: "age-1", registeredStudents: 2 }],
-        quotas: [],
         sessions: rows.sessions.slice(0, 1),
         students: [],
       }
     );
 
     expect(projection.centers).toEqual([]);
-    expect(projection.quotas).toEqual([]);
     expect(projection.ageCategories).toEqual([
       expect.objectContaining({
+        femaleStudentLimit: null,
+        femaleStudents: null,
         id: "age-1",
+        maleStudentLimit: null,
+        maleStudents: null,
         registeredStudents: 2,
         students: 2,
       }),
     ]);
     expect(projection.totals.students).toBe(2);
+  });
+
+  it("reports zero active capacity for retired Category and Venue Sessions", () => {
+    const projection = assembleKalakritiRegistrationDashboardProjection(
+      { kind: "edition" },
+      {
+        ...rows,
+        competitions: rows.competitions.map((competition, index) => ({
+          ...competition,
+          categoryRetired: index === 0,
+        })),
+        sessions: rows.sessions.map((session, index) => ({
+          ...session,
+          cancelled: false,
+          venueRetired: index === 1,
+        })),
+      }
+    );
+
+    expect(projection.totals.capacity).toBe(0);
+    expect(projection.totals.entries).toBe(3);
+  });
+
+  it("returns an empty bounded projection for an empty Edition", () => {
+    const projection = assembleKalakritiRegistrationDashboardProjection(
+      { kind: "edition" },
+      {
+        ages: [],
+        categories: [],
+        centers: [],
+        competitions: [],
+        entries: [],
+        participants: [],
+        sessions: [],
+        students: [],
+      }
+    );
+
+    expect(projection).toEqual(
+      expect.objectContaining({
+        ageCategories: [],
+        centers: [],
+        competitionCategories: [],
+        competitions: [],
+        totals: {
+          capacity: 0,
+          entries: 0,
+          participants: 0,
+          registeredStudents: 0,
+          studentLimit: 0,
+          students: 0,
+        },
+      })
+    );
   });
 });
