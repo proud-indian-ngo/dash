@@ -1,0 +1,183 @@
+// biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@pi-dash/db", () => ({ db: {} }));
+
+import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { type AuditHandlerDeps, handleKalakritiAuditRequest } from "./audit";
+
+const edition = {
+  id: "00000000-0000-4000-8000-000000000001",
+  year: 2027,
+} as KalakritiEditionAccess["edition"];
+
+function request(path = "/api/kalakriti/2027/audit") {
+  return new Request(`http://localhost${path}`);
+}
+
+function deps(
+  access: KalakritiEditionAccess | null,
+  getPage: AuditHandlerDeps["getPage"] = vi.fn(async () => ({
+    items: [],
+    snapshot: null,
+    total: 0,
+  })) as AuditHandlerDeps["getPage"]
+): AuditHandlerDeps {
+  return {
+    getAccess: vi.fn(async () => access),
+    getPage,
+    getSession: vi.fn(async () => ({
+      session: {
+        user: { id: "user-1", role: "volunteer" },
+      },
+    })) as unknown as AuditHandlerDeps["getSession"],
+  };
+}
+
+describe("Kalakriti audit API", () => {
+  it("returns the full Edition log scope to an Edition administrator", async () => {
+    const getPage = vi.fn(async () => ({
+      items: [],
+      snapshot: null,
+      total: 0,
+    }));
+    const response = await handleKalakritiAuditRequest(
+      request(),
+      "2027",
+      deps(
+        {
+          edition,
+          isGlobalAdmin: false,
+          membership: {
+            assignments: [],
+            id: "membership-1",
+            kind: "volunteer",
+            responsibilities: ["edition_admin"],
+          },
+        },
+        getPage
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(getPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        editionId: edition.id,
+        scope: expect.objectContaining({ fullEdition: true }),
+      })
+    );
+  });
+
+  it("passes only assigned Competition Category scope for a Category Lead", async () => {
+    const getPage = vi.fn(async () => ({
+      items: [],
+      snapshot: null,
+      total: 0,
+    }));
+    const response = await handleKalakritiAuditRequest(
+      request("/api/kalakriti/2027/audit?domain=schedule_configuration"),
+      "2027",
+      deps(
+        {
+          edition,
+          isGlobalAdmin: false,
+          membership: {
+            assignments: [
+              {
+                centerId: null,
+                competitionCategoryId: "category-1",
+                competitionId: null,
+                responsibility: "competition_category_lead",
+              },
+            ],
+            id: "membership-1",
+            kind: "volunteer",
+            responsibilities: ["competition_category_lead"],
+          },
+        },
+        getPage
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(getPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: "schedule_configuration",
+        scope: expect.objectContaining({
+          competitionCategoryIds: ["category-1"],
+          fullEdition: false,
+        }),
+      })
+    );
+  });
+
+  it("rejects ordinary members without querying audit rows", async () => {
+    const testDeps = deps({
+      edition,
+      isGlobalAdmin: false,
+      membership: {
+        assignments: [],
+        id: "membership-1",
+        kind: "volunteer",
+        responsibilities: ["liaison"],
+      },
+    });
+    const response = await handleKalakritiAuditRequest(
+      request(),
+      "2027",
+      testDeps
+    );
+
+    expect(response.status).toBe(403);
+    expect(testDeps.getPage).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed and half-specified snapshot cursors", async () => {
+    const testDeps = deps(null);
+    const response = await handleKalakritiAuditRequest(
+      request("/api/kalakriti/2027/audit?snapshotAt=2027-01-01"),
+      "2027",
+      testDeps
+    );
+
+    expect(response.status).toBe(400);
+    expect(testDeps.getAccess).not.toHaveBeenCalled();
+  });
+
+  it("forwards the stable snapshot and page window on later pages", async () => {
+    const getPage = vi.fn(async () => ({
+      items: [],
+      snapshot: {
+        createdAt: "2027-01-01T00:00:00.000Z",
+        id: "00000000-0000-4000-8000-000000000099",
+      },
+      total: 70,
+    }));
+    const response = await handleKalakritiAuditRequest(
+      request(
+        "/api/kalakriti/2027/audit?limit=25&offset=50&snapshotAt=2027-01-01T00%3A00%3A00.000Z&snapshotId=00000000-0000-4000-8000-000000000099"
+      ),
+      "2027",
+      deps(
+        {
+          edition,
+          isGlobalAdmin: true,
+          membership: null,
+        },
+        getPage
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(getPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 25,
+        offset: 50,
+        snapshot: {
+          createdAt: new Date("2027-01-01T00:00:00.000Z"),
+          id: "00000000-0000-4000-8000-000000000099",
+        },
+      })
+    );
+  });
+});

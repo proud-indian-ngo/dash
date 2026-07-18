@@ -452,6 +452,14 @@ describe("kalakritiCompetition commands", () => {
     expect(spies.updateCompetition).toHaveBeenCalledWith(
       expect.objectContaining({ cancelledAt: 1, id: competition.id })
     );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "cancelled",
+        metadata: {
+          competitionCategoryId: competition.competitionCategoryId,
+        },
+      })
+    );
     expect(asyncTasks[0]?.meta).toEqual(
       expect.objectContaining({
         competitionIds: [competition.id],
@@ -476,9 +484,10 @@ describe("kalakritiCompetition commands", () => {
       fn: () => Promise<void>;
       meta: Record<string, unknown>;
     }> = [];
-    const { lockedResults, tx } = createTx([
+    const { lockedResults, spies, tx } = createTx([
       session,
       [{ centerId: "center-1" }],
+      competition,
     ]);
     lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
 
@@ -500,6 +509,16 @@ describe("kalakritiCompetition commands", () => {
         centerIds: ["center-1"],
         competitionIds: [competition.id],
         revision: "session-cancel-audit",
+      })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "cancelled",
+        domain: "schedule_configuration",
+        metadata: {
+          competitionCategoryId: competition.competitionCategoryId,
+          competitionId: competition.id,
+        },
       })
     );
   });
