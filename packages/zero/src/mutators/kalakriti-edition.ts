@@ -1,6 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
-import "../context";
+import type { Context } from "../context";
 import {
   getKalakritiRegistrationReadiness,
   type KalakritiRegistrationReadinessSnapshot,
@@ -96,6 +96,75 @@ function getMappedId(
     throw new Error(`${label} ID map is incomplete`);
   }
   return targetId;
+}
+
+function pushRegistrationNotificationTasks(
+  tx: EditionTx,
+  ctx: Context | undefined,
+  args: z.infer<typeof kalakritiEditionTransitionSchema>,
+  plannedRegistrationCloseAt: number
+) {
+  if (tx.location !== "server") {
+    return;
+  }
+  const { editionId } = args;
+  const { auditEntryId: transitionId } = args;
+  const queueName =
+    args.targetLifecycle === "registration_open"
+      ? "notify-kalakriti-registration-open"
+      : "notify-kalakriti-registration-closed";
+  const lifecycleSingletonKey = `kalakriti-registration-${editionId}-${transitionId}`;
+  ctx?.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue(
+        queueName,
+        { editionId, transitionId },
+        {
+          singletonKey: lifecycleSingletonKey,
+          traceId: ctx.traceId,
+        }
+      );
+    },
+    meta: {
+      editionId,
+      mutator: "transitionKalakritiEdition",
+      queueName,
+      singletonKey: lifecycleSingletonKey,
+      targetLifecycle: args.targetLifecycle,
+      transitionId,
+    },
+  });
+
+  if (args.targetLifecycle !== "registration_open") {
+    return;
+  }
+  const reminderSingletonKey = `kalakriti-registration-reminder-${editionId}-${plannedRegistrationCloseAt}`;
+  const startAfter = new Date(
+    plannedRegistrationCloseAt - 24 * 60 * 60 * 1000
+  ).toISOString();
+  ctx?.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue(
+        "remind-kalakriti-registration-close",
+        { editionId, plannedRegistrationCloseAt },
+        {
+          singletonKey: reminderSingletonKey,
+          startAfter,
+          traceId: ctx.traceId,
+        }
+      );
+    },
+    meta: {
+      editionId,
+      mutator: "transitionKalakritiEdition",
+      plannedRegistrationCloseAt,
+      queueName: "remind-kalakriti-registration-close",
+      singletonKey: reminderSingletonKey,
+      startAfter,
+    },
+  });
 }
 
 async function getReadinessSnapshot(
@@ -492,13 +561,16 @@ export const kalakritiEditionMutators = {
         throw new Error("Invalid Edition lifecycle transition");
       }
 
+      const readinessSnapshot = await getReadinessSnapshot(
+        tx as EditionTx,
+        args.editionId
+      );
+      const { plannedRegistrationCloseAt } = readinessSnapshot.edition;
       if (
         args.targetLifecycle === "registration_open" ||
         args.targetLifecycle === "registration_locked"
       ) {
-        const blockers = getKalakritiRegistrationReadiness(
-          await getReadinessSnapshot(tx as EditionTx, args.editionId)
-        );
+        const blockers = getKalakritiRegistrationReadiness(readinessSnapshot);
         if (blockers.length > 0) {
           throw new Error(
             `Edition is not ready: ${blockers.map((blocker) => blocker.code).join(", ")}`
@@ -523,6 +595,12 @@ export const kalakritiEditionMutators = {
         targetId: args.editionId,
         targetType: "edition",
       });
+      pushRegistrationNotificationTasks(
+        tx as EditionTx,
+        ctx,
+        args,
+        plannedRegistrationCloseAt
+      );
     }
   ),
 };

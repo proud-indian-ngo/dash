@@ -34,6 +34,13 @@ import {
   handleNotifyEventUpdateRejected,
 } from "./notify-event-update";
 import {
+  handleNotifyKalakritiGuardianReactivated,
+  handleNotifyKalakritiRegistrationClosed,
+  handleNotifyKalakritiRegistrationOpen,
+  handleNotifyKalakritiScheduleChanged,
+  handleRemindKalakritiRegistrationClose,
+} from "./notify-kalakriti";
+import {
   handleNotifyReimbursementApproved,
   handleNotifyReimbursementRejected,
   handleNotifyReimbursementSubmitted,
@@ -278,6 +285,26 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     NOTIFY_POLL,
     handleNotifyKalakritiGuardianAccess
   );
+  await boss.work(
+    "notify-kalakriti-guardian-reactivated",
+    NOTIFY_POLL,
+    handleNotifyKalakritiGuardianReactivated
+  );
+  await boss.work(
+    "notify-kalakriti-registration-open",
+    NOTIFY_POLL,
+    handleNotifyKalakritiRegistrationOpen
+  );
+  await boss.work(
+    "notify-kalakriti-registration-closed",
+    NOTIFY_POLL,
+    handleNotifyKalakritiRegistrationClosed
+  );
+  await boss.work(
+    "notify-kalakriti-schedule-changed",
+    NOTIFY_POLL,
+    handleNotifyKalakritiScheduleChanged
+  );
   await boss.work("notify-user-welcome", NOTIFY_POLL, handleNotifyUserWelcome);
   await boss.work("notify-user-banned", NOTIFY_POLL, handleNotifyUserBanned);
   await boss.work(
@@ -429,6 +456,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "remind-feedback-deadline",
     NOTIFY_POLL,
     withDefaultOutput(handleRemindFeedbackDeadline)
+  );
+  await boss.work(
+    "remind-kalakriti-registration-close",
+    NOTIFY_POLL,
+    handleRemindKalakritiRegistrationClose
   );
   await boss.work(
     "remind-photo-approval",

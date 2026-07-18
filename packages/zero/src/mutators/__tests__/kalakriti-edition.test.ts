@@ -536,6 +536,161 @@ describe("Kalakriti Edition registration readiness", () => {
     }
   );
 
+  it("enqueues lifecycle delivery and a separate deterministic close reminder after opening", async () => {
+    const currentEdition = {
+      eventDate: "2028-11-19",
+      id: "edition-1",
+      lifecycle: "draft",
+      timezone: "Asia/Kolkata",
+    };
+    const select = vi.fn(() => {
+      const query = {
+        for: vi.fn(async () => [currentEdition]),
+        from: vi.fn(),
+        where: vi.fn(),
+      };
+      query.from.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      return query;
+    });
+    const results = [
+      {
+        ...readySnapshot.edition,
+        id: currentEdition.id,
+        lifecycle: currentEdition.lifecycle,
+        timezone: currentEdition.timezone,
+      },
+      readySnapshot.centers,
+      readySnapshot.ageCategories,
+      readySnapshot.quotas,
+      readySnapshot.competitionCategories,
+      readySnapshot.competitions,
+      readySnapshot.sessions,
+      readySnapshot.venues,
+    ];
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+    const tx = {
+      dbTransaction: { wrappedTransaction: { select } },
+      location: "server" as const,
+      mutate: {
+        kalakritiAuditEntry: { insert: vi.fn() },
+        kalakritiEdition: { update: vi.fn() },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+    const args = {
+      auditEntryId: "transition-1",
+      confirmed: true as const,
+      editionId: currentEdition.id,
+      now: 1,
+      targetLifecycle: "registration_open" as const,
+    };
+
+    await kalakritiEditionMutators.transition.fn({
+      args,
+      ctx: { ...adminContext, asyncTasks, traceId: "trace-1" },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.transition.fn
+    >[0]);
+
+    expect(asyncTasks).toHaveLength(2);
+    expect(asyncTasks.map(({ meta }) => meta)).toEqual([
+      expect.objectContaining({
+        editionId: currentEdition.id,
+        queueName: "notify-kalakriti-registration-open",
+        singletonKey: `kalakriti-registration-${currentEdition.id}-${args.auditEntryId}`,
+        targetLifecycle: "registration_open",
+        transitionId: args.auditEntryId,
+      }),
+      expect.objectContaining({
+        editionId: currentEdition.id,
+        plannedRegistrationCloseAt:
+          readySnapshot.edition.plannedRegistrationCloseAt,
+        queueName: "remind-kalakriti-registration-close",
+        singletonKey: `kalakriti-registration-reminder-${currentEdition.id}-${readySnapshot.edition.plannedRegistrationCloseAt}`,
+        startAfter: new Date(
+          readySnapshot.edition.plannedRegistrationCloseAt - 24 * 60 * 60 * 1000
+        ).toISOString(),
+      }),
+    ]);
+  });
+
+  it("enqueues the deterministic registration-closed job when locking", async () => {
+    const currentEdition = {
+      eventDate: "2028-11-19",
+      id: "edition-1",
+      lifecycle: "registration_open",
+      timezone: "Asia/Kolkata",
+    };
+    const select = vi.fn(() => {
+      const query = {
+        for: vi.fn(async () => [currentEdition]),
+        from: vi.fn(),
+        where: vi.fn(),
+      };
+      query.from.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      return query;
+    });
+    const results = [
+      {
+        ...readySnapshot.edition,
+        id: currentEdition.id,
+        lifecycle: currentEdition.lifecycle,
+        timezone: currentEdition.timezone,
+      },
+      readySnapshot.centers,
+      readySnapshot.ageCategories,
+      readySnapshot.quotas,
+      readySnapshot.competitionCategories,
+      readySnapshot.competitions,
+      readySnapshot.sessions,
+      readySnapshot.venues,
+    ];
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+    const tx = {
+      dbTransaction: { wrappedTransaction: { select } },
+      location: "server" as const,
+      mutate: {
+        kalakritiAuditEntry: { insert: vi.fn() },
+        kalakritiEdition: { update: vi.fn() },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+
+    await kalakritiEditionMutators.transition.fn({
+      args: {
+        auditEntryId: "transition-close-1",
+        confirmed: true,
+        editionId: currentEdition.id,
+        now: 2,
+        targetLifecycle: "registration_locked",
+      },
+      ctx: { ...adminContext, asyncTasks, traceId: "trace-close-1" },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.transition.fn
+    >[0]);
+
+    expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.meta).toEqual(
+      expect.objectContaining({
+        editionId: currentEdition.id,
+        queueName: "notify-kalakriti-registration-closed",
+        singletonKey: `kalakriti-registration-${currentEdition.id}-transition-close-1`,
+        targetLifecycle: "registration_locked",
+        transitionId: "transition-close-1",
+      })
+    );
+  });
+
   it("clones only active structural Competition configuration", async () => {
     const edition = {
       eventDate: "2028-11-19",

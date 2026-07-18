@@ -50,7 +50,19 @@ test.describe("User row actions (admin)", () => {
     target: Locator
   ): Promise<void> {
     const tryOpen = async (attempt: number): Promise<void> => {
-      await list.openRowActionAndClick(getVolunteerRow(), action);
+      try {
+        await list.openRowActionAndClick(getVolunteerRow(), action);
+      } catch (error) {
+        if (attempt >= 2) {
+          throw error;
+        }
+        await page.keyboard.press("Escape").catch(() => {
+          // Ignore stale overlays between retries.
+        });
+        await page.waitForTimeout(500);
+        await tryOpen(attempt + 1);
+        return;
+      }
       if (await target.isVisible({ timeout: 3000 }).catch(() => false)) {
         return;
       }
@@ -155,5 +167,25 @@ test.describe("User row actions (admin)", () => {
     await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
+  });
+
+  test("Notifications shows only supported Kalakriti channels", async ({
+    page,
+  }) => {
+    const dialog = page.getByRole("dialog");
+    await openVolunteerActionAndWaitFor(page, "Notifications", dialog);
+
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Registration in-app" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Registration WhatsApp" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Registration email" })
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Schedule email" })
+    ).toHaveCount(0);
   });
 });

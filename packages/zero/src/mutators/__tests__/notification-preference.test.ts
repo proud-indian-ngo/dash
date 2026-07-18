@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { TOPICS } from "@pi-dash/notifications/topics";
+import { describe, expect, it, vi } from "vitest";
 import z from "zod";
+import { notificationPreferenceMutators } from "../notification-preference";
 
 const upsertSchema = z.object({
-  channel: z.enum(["email", "whatsapp"]),
+  channel: z.enum(["email", "whatsapp", "inbox"]),
   enabled: z.boolean(),
   topicId: z.string().min(1),
 });
@@ -142,5 +144,54 @@ describe("notificationPreference mutator schemas", () => {
       });
       expect(result.success).toBe(false);
     });
+  });
+
+  it("rejects channels a catalog topic does not support", async () => {
+    const tx = {
+      mutate: { notificationTopicPreference: {} },
+      run: vi.fn(),
+    };
+
+    await expect(
+      notificationPreferenceMutators.upsert.fn({
+        args: {
+          channel: "email",
+          enabled: true,
+          topicId: TOPICS.KALAKRITI_REGISTRATION,
+        },
+        ctx: { userId: "guardian-1" },
+        tx,
+      } as unknown as Parameters<
+        typeof notificationPreferenceMutators.upsert.fn
+      >[0])
+    ).rejects.toThrow("does not support email");
+    expect(tx.run).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported channels from the admin mutator", async () => {
+    const tx = {
+      mutate: { notificationTopicPreference: {} },
+      run: vi.fn(),
+    };
+
+    await expect(
+      notificationPreferenceMutators.adminUpsert.fn({
+        args: {
+          channel: "email",
+          enabled: true,
+          topicId: TOPICS.KALAKRITI_SCHEDULE,
+          userId: "guardian-1",
+        },
+        ctx: {
+          permissions: ["users.edit"],
+          role: "admin",
+          userId: "admin-1",
+        },
+        tx,
+      } as unknown as Parameters<
+        typeof notificationPreferenceMutators.adminUpsert.fn
+      >[0])
+    ).rejects.toThrow("does not support email");
+    expect(tx.run).not.toHaveBeenCalled();
   });
 });

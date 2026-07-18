@@ -8,7 +8,11 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { TOPIC_CATALOG } from "@pi-dash/notifications/topics";
+import {
+  getTopicChannels,
+  type NotificationChannel,
+  TOPIC_CATALOG,
+} from "@pi-dash/notifications/topics";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -25,8 +29,10 @@ interface TopicPreferenceRowProps {
     enabled: boolean
   ) => void;
   topic: {
+    channels: readonly NotificationChannel[];
     description: string;
     emailEnabled: boolean;
+    group: string;
     inboxEnabled: boolean;
     required: boolean;
     topicId: string;
@@ -57,27 +63,39 @@ function TopicPreferenceRow({ onToggle, topic }: TopicPreferenceRowProps) {
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-6">
-        <Switch
-          aria-label={`${topic.topicName} in-app`}
-          checked={topic.inboxEnabled}
-          disabled={topic.required}
-          id={`${topic.topicId}-inbox`}
-          onCheckedChange={handleInboxChange}
-        />
-        <Switch
-          aria-label={`${topic.topicName} email`}
-          checked={topic.emailEnabled}
-          disabled={topic.required}
-          id={`${topic.topicId}-email`}
-          onCheckedChange={handleEmailChange}
-        />
-        <Switch
-          aria-label={`${topic.topicName} WhatsApp`}
-          checked={topic.whatsappEnabled}
-          disabled={topic.required}
-          id={`${topic.topicId}-whatsapp`}
-          onCheckedChange={handleWhatsappChange}
-        />
+        {topic.channels.includes("inbox") ? (
+          <Switch
+            aria-label={`${topic.group} ${topic.topicName} in-app`}
+            checked={topic.inboxEnabled}
+            disabled={topic.required}
+            id={`${topic.topicId}-inbox`}
+            onCheckedChange={handleInboxChange}
+          />
+        ) : (
+          <div aria-hidden="true" className="w-9" />
+        )}
+        {topic.channels.includes("email") ? (
+          <Switch
+            aria-label={`${topic.group} ${topic.topicName} email`}
+            checked={topic.emailEnabled}
+            disabled={topic.required}
+            id={`${topic.topicId}-email`}
+            onCheckedChange={handleEmailChange}
+          />
+        ) : (
+          <div aria-hidden="true" className="w-9" />
+        )}
+        {topic.channels.includes("whatsapp") ? (
+          <Switch
+            aria-label={`${topic.group} ${topic.topicName} WhatsApp`}
+            checked={topic.whatsappEnabled}
+            disabled={topic.required}
+            id={`${topic.topicId}-whatsapp`}
+            onCheckedChange={handleWhatsappChange}
+          />
+        ) : (
+          <div aria-hidden="true" className="w-9" />
+        )}
       </div>
     </div>
   );
@@ -101,6 +119,7 @@ export function NotificationsSection() {
   const topicsWithPrefs = visibleTopics.map((meta) => {
     const pref = prefMap.get(meta.id);
     return {
+      channels: getTopicChannels(meta.id),
       description: meta.description,
       emailEnabled: pref?.emailEnabled ?? true,
       group: meta.group,
