@@ -220,11 +220,98 @@ async function getCompetition(tx: CompetitionTx, id: string) {
         cancelledAt: number | null;
         competitionCategoryId: string;
         editionId: string;
+        genderEligibility: "both" | "female" | "male";
         id: string;
+        maximumGroupSize: number;
+        minimumGroupSize: number;
         name: string;
+        participationMode: "group" | "individual";
         retiredAt: number | null;
       }
     | undefined;
+}
+
+async function competitionHasEntries(
+  tx: CompetitionTx,
+  competitionId: string
+): Promise<boolean> {
+  const entry = await tx.run(
+    zql.kalakritiCompetitionEntry
+      .whereExists("session", (session) =>
+        session.where("competitionId", competitionId)
+      )
+      .one()
+  );
+  return Boolean(entry);
+}
+
+interface SessionEntrySnapshot {
+  members: readonly {
+    student?: {
+      entryMemberships: readonly {
+        entry?: { session?: { endAt: number; id: string; startAt: number } };
+      }[];
+    };
+  }[];
+}
+
+async function assertSessionUpdatePreservesEntries(
+  tx: CompetitionTx,
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
+  values: {
+    ageCategoryId: string;
+    capacity: number;
+    competitionId: string;
+    endAt: number;
+    startAt: number;
+  }
+): Promise<void> {
+  const entries = (await tx.run(
+    zql.kalakritiCompetitionEntry
+      .where("sessionId", session.id)
+      .related("members", (member) =>
+        member.related("student", (student) =>
+          student.related("entryMemberships", (membership) =>
+            membership.related("entry", (entry) => entry.related("session"))
+          )
+        )
+      )
+  )) as readonly SessionEntrySnapshot[];
+  if (entries.length === 0) {
+    return;
+  }
+  if (values.capacity < entries.length) {
+    throw new Error("Session capacity cannot be lower than its Entry count");
+  }
+  if (
+    values.ageCategoryId !== session.ageCategoryId ||
+    values.competitionId !== session.competitionId
+  ) {
+    throw new Error(
+      "Session Competition and Age Category cannot change while Entries exist"
+    );
+  }
+  if (values.startAt === session.startAt && values.endAt === session.endAt) {
+    return;
+  }
+  const createsConflict = entries.some((entry) =>
+    entry.members.some((member) =>
+      member.student?.entryMemberships.some(({ entry: otherEntry }) => {
+        const otherSession = otherEntry?.session;
+        return (
+          otherSession !== undefined &&
+          otherSession.id !== session.id &&
+          otherSession.startAt < values.endAt &&
+          otherSession.endAt > values.startAt
+        );
+      })
+    )
+  );
+  if (createsConflict) {
+    throw new Error(
+      "Session time would overlap another Entry for a registered Student"
+    );
+  }
 }
 
 async function getVenue(tx: CompetitionTx, id: string) {
@@ -571,6 +658,14 @@ export const kalakritiCompetitionMutators = {
         ctx,
         session.editionId
       );
+      const entry = await tx.run(
+        zql.kalakritiCompetitionEntry.where("sessionId", session.id).one()
+      );
+      if (entry) {
+        throw new Error(
+          "Competition Session has Entries and cannot be deleted"
+        );
+      }
       await tx.mutate.kalakritiCompetitionSession.delete({ id: session.id });
       await insertAudit(tx, ctx, {
         action: "deleted",
@@ -817,6 +912,18 @@ export const kalakritiCompetitionMutators = {
       if (category?.retiredAt !== null) {
         throw new Error("Competition Category is retired");
       }
+      if (
+        (args.competitionCategoryId !== competition.competitionCategoryId ||
+          args.genderEligibility !== competition.genderEligibility ||
+          args.maximumGroupSize !== competition.maximumGroupSize ||
+          args.minimumGroupSize !== competition.minimumGroupSize ||
+          args.participationMode !== competition.participationMode) &&
+        (await competitionHasEntries(tx, competition.id))
+      ) {
+        throw new Error(
+          "Competition eligibility cannot change while Entries exist"
+        );
+      }
       const normalized = normalizeKalakritiConfigurationName(args.name);
       await tx.mutate.kalakritiCompetition.update({
         competitionCategoryId: args.competitionCategoryId,
@@ -860,6 +967,7 @@ export const kalakritiCompetitionMutators = {
           "Only Session time and Venue can be changed after registration is locked"
         );
       }
+      await assertSessionUpdatePreservesEntries(tx, session, args);
       await validateSessionValues(tx, edition, args);
       await tx.mutate.kalakritiCompetitionSession.update({
         ageCategoryId: args.ageCategoryId,

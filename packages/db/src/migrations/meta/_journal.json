@@ -407,6 +407,13 @@
       "when": 1785338293699,
       "tag": "0057_redundant_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1785348473567,
+      "tag": "0058_shallow_moondragon",
+      "breakpoints": true
     }
   ]
 }

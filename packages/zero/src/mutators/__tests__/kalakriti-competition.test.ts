@@ -326,6 +326,7 @@ describe("kalakritiCompetition commands", () => {
     const nextEndAt = Date.parse("2027-11-21T07:30:00.000Z");
     const { lockedResults, spies, tx } = createTx([
       session,
+      [],
       competition,
       { editionId: edition.id, id: "age-1" },
       nextVenue,
@@ -447,6 +448,33 @@ describe("kalakritiCompetition commands", () => {
       >[0])
     ).rejects.toThrow("referenced");
     expect(spies.deleteCompetition).not.toHaveBeenCalled();
+  });
+
+  it("protects Sessions with Entries from deletion", async () => {
+    const session = {
+      ageCategoryId: "age-1",
+      cancelledAt: null,
+      capacity: 20,
+      competitionId: competition.id,
+      editionId: edition.id,
+      endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+      id: "session-1",
+      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+      venueId: venue.id,
+    };
+    const { lockedResults, spies, tx } = createTx([session, { id: "entry-1" }]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.deleteSession.fn({
+        args: { auditEntryId: "audit-1", id: session.id, now: 1 },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.deleteSession.fn
+      >[0])
+    ).rejects.toThrow("has Entries and cannot be deleted");
+    expect(spies.deleteSession).not.toHaveBeenCalled();
   });
 
   it("revalidates Venue overlap before restoring a Session", async () => {

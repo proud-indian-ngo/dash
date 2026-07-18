@@ -64,6 +64,7 @@ import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/ori
 import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
 import { Route as AppKalakritiYearStudentsRouteImport } from './routes/_app/kalakriti/$year/students'
 import { Route as AppKalakritiYearGuardiansRouteImport } from './routes/_app/kalakriti/$year/guardians'
+import { Route as AppKalakritiYearEntriesRouteImport } from './routes/_app/kalakriti/$year/entries'
 import { Route as AppKalakritiYearEligibilityRouteImport } from './routes/_app/kalakriti/$year/eligibility'
 import { Route as AppKalakritiYearCompetitionsRouteRouteImport } from './routes/_app/kalakriti/$year/competitions/route'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
@@ -349,6 +350,11 @@ const AppKalakritiYearGuardiansRoute =
     path: '/guardians',
     getParentRoute: () => AppKalakritiYearRouteRoute,
   } as any)
+const AppKalakritiYearEntriesRoute = AppKalakritiYearEntriesRouteImport.update({
+  id: '/entries',
+  path: '/entries',
+  getParentRoute: () => AppKalakritiYearRouteRoute,
+} as any)
 const AppKalakritiYearEligibilityRoute =
   AppKalakritiYearEligibilityRouteImport.update({
     id: '/eligibility',
@@ -450,6 +456,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
+  '/kalakriti/$year/entries': typeof AppKalakritiYearEntriesRoute
   '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/kalakriti/$year/students': typeof AppKalakritiYearStudentsRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
@@ -505,6 +512,7 @@ export interface FileRoutesByTo {
   '/vendors': typeof AppVendorsIndexRoute
   '/api/jobs': typeof ApiJobsIndexRoute
   '/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
+  '/kalakriti/$year/entries': typeof AppKalakritiYearEntriesRoute
   '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/kalakriti/$year/students': typeof AppKalakritiYearStudentsRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
@@ -572,6 +580,7 @@ export interface FileRoutesById {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/_app/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/_app/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
+  '/_app/kalakriti/$year/entries': typeof AppKalakritiYearEntriesRoute
   '/_app/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/_app/kalakriti/$year/students': typeof AppKalakritiYearStudentsRoute
   '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
@@ -638,6 +647,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/kalakriti/$year/competitions'
     | '/kalakriti/$year/eligibility'
+    | '/kalakriti/$year/entries'
     | '/kalakriti/$year/guardians'
     | '/kalakriti/$year/students'
     | '/settings/roles/$roleId'
@@ -693,6 +703,7 @@ export interface FileRouteTypes {
     | '/vendors'
     | '/api/jobs'
     | '/kalakriti/$year/eligibility'
+    | '/kalakriti/$year/entries'
     | '/kalakriti/$year/guardians'
     | '/kalakriti/$year/students'
     | '/settings/roles/$roleId'
@@ -759,6 +770,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/_app/kalakriti/$year/competitions'
     | '/_app/kalakriti/$year/eligibility'
+    | '/_app/kalakriti/$year/entries'
     | '/_app/kalakriti/$year/guardians'
     | '/_app/kalakriti/$year/students'
     | '/_app/settings/roles/$roleId'
@@ -1184,6 +1196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKalakritiYearGuardiansRouteImport
       parentRoute: typeof AppKalakritiYearRouteRoute
     }
+    '/_app/kalakriti/$year/entries': {
+      id: '/_app/kalakriti/$year/entries'
+      path: '/entries'
+      fullPath: '/kalakriti/$year/entries'
+      preLoaderRoute: typeof AppKalakritiYearEntriesRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
+    }
     '/_app/kalakriti/$year/eligibility': {
       id: '/_app/kalakriti/$year/eligibility'
       path: '/eligibility'
@@ -1294,6 +1313,7 @@ const AppKalakritiYearCompetitionsRouteRouteWithChildren =
 interface AppKalakritiYearRouteRouteChildren {
   AppKalakritiYearCompetitionsRouteRoute: typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   AppKalakritiYearEligibilityRoute: typeof AppKalakritiYearEligibilityRoute
+  AppKalakritiYearEntriesRoute: typeof AppKalakritiYearEntriesRoute
   AppKalakritiYearGuardiansRoute: typeof AppKalakritiYearGuardiansRoute
   AppKalakritiYearStudentsRoute: typeof AppKalakritiYearStudentsRoute
   AppKalakritiYearIndexRoute: typeof AppKalakritiYearIndexRoute
@@ -1305,6 +1325,7 @@ const AppKalakritiYearRouteRouteChildren: AppKalakritiYearRouteRouteChildren = {
   AppKalakritiYearCompetitionsRouteRoute:
     AppKalakritiYearCompetitionsRouteRouteWithChildren,
   AppKalakritiYearEligibilityRoute: AppKalakritiYearEligibilityRoute,
+  AppKalakritiYearEntriesRoute: AppKalakritiYearEntriesRoute,
   AppKalakritiYearGuardiansRoute: AppKalakritiYearGuardiansRoute,
   AppKalakritiYearStudentsRoute: AppKalakritiYearStudentsRoute,
   AppKalakritiYearIndexRoute: AppKalakritiYearIndexRoute,

@@ -65,10 +65,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     membership?.assignments.some((assignment) =>
       ["edition_admin", "liaison"].includes(assignment.responsibility)
     ) === true;
+  const canViewEntries = canViewStudents;
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
     canViewCompetitions,
+    canViewEntries,
     canViewStudents,
     centers,
     year: activeEdition?.year,

@@ -22,7 +22,7 @@ async function getActiveMembership(
   )) as ActiveMembership | undefined;
 }
 
-export async function assertCanManageKalakritiStudents(
+export async function assertCanManageKalakritiCenterRegistration(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
   editionId: string,
