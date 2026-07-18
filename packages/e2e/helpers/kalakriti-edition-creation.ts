@@ -19,16 +19,31 @@ async function cleanup() {
 
 async function state() {
   const edition = await db.query.kalakritiEdition.findFirst({
-    columns: { id: true, name: true, teamEventId: true, year: true },
+    columns: {
+      ageCutoffDate: true,
+      brandingKey: true,
+      eventDate: true,
+      id: true,
+      name: true,
+      plannedRegistrationCloseAt: true,
+      teamEventId: true,
+      year: true,
+    },
     where: eq(kalakritiEdition.year, YEAR),
     with: { teamEvent: true },
   });
   return edition
     ? {
+        ageCutoffDate: edition.ageCutoffDate,
+        brandingKey: edition.brandingKey,
         editionId: edition.id,
+        eventDate: edition.eventDate,
         eventName: edition.teamEvent.name,
+        eventStartTime: edition.teamEvent.startTime.toISOString(),
         managementDomain: edition.teamEvent.managementDomain,
         name: edition.name,
+        plannedRegistrationCloseAt:
+          edition.plannedRegistrationCloseAt.toISOString(),
         teamEventId: edition.teamEventId,
         year: edition.year,
       }

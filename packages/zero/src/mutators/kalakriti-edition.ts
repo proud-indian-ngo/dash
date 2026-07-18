@@ -27,7 +27,7 @@ interface EditionTx extends LockableKalakritiTx {
     kalakritiCompetitionCategory: { insert: ZeroMutationFn };
     kalakritiEdition: { insert: ZeroMutationFn; update: ZeroMutationFn };
     kalakritiVenue: { insert: ZeroMutationFn };
-    teamEvent: { insert: ZeroMutationFn };
+    teamEvent: { insert: ZeroMutationFn; update: ZeroMutationFn };
   };
 }
 
@@ -43,6 +43,17 @@ export const kalakritiEditionCreateSchema = z.object({
   teamEventId: z.string(),
   teamId: z.string(),
   year: z.number().int().min(2000).max(2200),
+});
+
+export const kalakritiEditionUpdateMetadataSchema = z.object({
+  ageCutoffDate: z.iso.date(),
+  auditEntryId: z.string(),
+  brandingKey: z.string().trim().min(1),
+  editionId: z.string(),
+  eventDate: z.iso.date(),
+  name: z.string().trim().min(1),
+  now: z.number(),
+  plannedRegistrationCloseAt: z.number(),
 });
 
 export const kalakritiEditionTransitionSchema = z.object({
@@ -68,6 +79,29 @@ export const kalakritiEditionCloneConfigurationSchema = z.object({
   targetEditionId: z.string(),
   venueIds: cloneMapSchema,
 });
+
+function parseEditionDates(args: {
+  ageCutoffDate: string;
+  eventDate: string;
+  plannedRegistrationCloseAt: number;
+}) {
+  const eventStart = new Date(`${args.eventDate}T00:00:00+05:30`).getTime();
+  const eventDate = new Date(`${args.eventDate}T00:00:00Z`).getTime();
+  const ageCutoffDate = new Date(`${args.ageCutoffDate}T00:00:00Z`).getTime();
+  if (
+    !(
+      Number.isFinite(eventStart) &&
+      Number.isFinite(eventDate) &&
+      Number.isFinite(ageCutoffDate)
+    )
+  ) {
+    throw new Error("Invalid event date");
+  }
+  if (args.plannedRegistrationCloseAt >= eventStart) {
+    throw new Error("Registration must close before the event date");
+  }
+  return { ageCutoffDate, eventDate, eventStart };
+}
 
 function assertExactMaps(
   maps: readonly { sourceId: string; targetId: string }[],
@@ -453,23 +487,7 @@ export const kalakritiEditionMutators = {
         throw new Error("Owning team not found");
       }
 
-      const eventStart = new Date(`${args.eventDate}T00:00:00+05:30`).getTime();
-      const eventDate = new Date(`${args.eventDate}T00:00:00Z`).getTime();
-      const ageCutoffDate = new Date(
-        `${args.ageCutoffDate}T00:00:00Z`
-      ).getTime();
-      if (
-        !(
-          Number.isFinite(eventStart) &&
-          Number.isFinite(eventDate) &&
-          Number.isFinite(ageCutoffDate)
-        )
-      ) {
-        throw new Error("Invalid event date");
-      }
-      if (args.plannedRegistrationCloseAt >= eventStart) {
-        throw new Error("Registration must close before the event date");
-      }
+      const { ageCutoffDate, eventDate, eventStart } = parseEditionDates(args);
 
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
@@ -601,6 +619,73 @@ export const kalakritiEditionMutators = {
         args,
         plannedRegistrationCloseAt
       );
+    }
+  ),
+
+  updateMetadata: defineMutator(
+    kalakritiEditionUpdateMetadataSchema,
+    async ({ tx, ctx, args }) => {
+      const lockedEdition = await getEditionForUpdate(
+        tx as EditionTx,
+        args.editionId
+      );
+      if (!lockedEdition) {
+        throw new Error("Edition not found");
+      }
+      await assertCanManageKalakritiConfiguration(
+        tx as EditionTx,
+        ctx,
+        args.editionId
+      );
+      assertIsLoggedIn(ctx);
+      if (lockedEdition.lifecycle !== "draft") {
+        throw new Error("Edition metadata can only be changed while draft");
+      }
+
+      const { ageCutoffDate, eventDate, eventStart } = parseEditionDates(args);
+      const edition = await tx.run(
+        zql.kalakritiEdition.where("id", args.editionId).one()
+      );
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+
+      await (tx as EditionTx).mutate.teamEvent.update({
+        id: edition.teamEventId,
+        name: args.name,
+        startTime: eventStart,
+        updatedAt: args.now,
+      });
+      await (tx as EditionTx).mutate.kalakritiEdition.update({
+        ageCutoffDate,
+        brandingKey: args.brandingKey,
+        eventDate,
+        id: args.editionId,
+        name: args.name,
+        plannedRegistrationCloseAt: args.plannedRegistrationCloseAt,
+        updatedAt: args.now,
+      });
+      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
+        action: "updated",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "edition",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: {
+          fields: [
+            "name",
+            "eventDate",
+            "ageCutoffDate",
+            "plannedRegistrationCloseAt",
+            "brandingKey",
+          ],
+          teamEventId: edition.teamEventId,
+        },
+        reason: null,
+        targetId: args.editionId,
+        targetType: "edition",
+      });
     }
   ),
 };
