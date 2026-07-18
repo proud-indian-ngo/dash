@@ -1,0 +1,114 @@
+packages/e2e/pages/kalakriti-students-page.ts
+  s_c8c0ce2f824e4f::t_e5f2b41a8a1fea 1-19,24-51,56-57,59-68,70-72
+  s_c8c0ce2f824e4f::t_5d2b57aee8535d 52-55,58
+  s_c8c0ce2f824e4f::t_95bc1fec7ae88a 20-23,69
+apps/web/src/components/kalakriti/student-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_71e2b543181309 70-78,83-99,212-256,279-282,284
+  s_c8c0ce2f824e4f::t_a961887b67fae6 2-9,11-20,25-36,38-67,69,79,100-116,118-134,136-137,139-143,162-171,257-258,263-265,267-269,276-278,283,285,287-289,303-340,342-346,350-403
+  s_c8c0ce2f824e4f::t_a05ddcb98cde8c 1,37,80-82,135,138,144-146,148-161,200-201,270-275,290-295,347-348
+  s_c8c0ce2f824e4f::t_3249963548c421 10,117,172-174,176-199,202-211,259-261,266,286,349
+  s_c8c0ce2f824e4f::t_7880cff2466117 68,262,296-302,341
+  s_c8c0ce2f824e4f::t_c4d36767ba4120 175
+  s_c8c0ce2f824e4f::t_5acb490da013d3 21-24,147
+packages/shared/src/kalakriti.ts
+  s_c8c0ce2f824e4f::t_f80cfcf0348ea0 204-223
+packages/shared/src/kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_21b639ba53131c 13-17
+  s_c8c0ce2f824e4f::t_db3731122f46ac 6,18
+packages/zero/src/queries/kalakriti-student.test.ts
+  s_c8c0ce2f824e4f::t_82e45968d4d477 11-51
+  s_c8c0ce2f824e4f::t_96089dcdc04805 1-10,52-98
+packages/zero/src/queries/kalakriti-student.ts
+  s_c8c0ce2f824e4f::t_fbdfa361022cf8 1-12,115-143,145-161
+  s_c8c0ce2f824e4f::t_82e45968d4d477 13-114,144
+packages/zero/src/mutators/kalakriti-row-locks.ts
+  s_c8c0ce2f824e4f::t_8522ab7d77ba85 82-84,92,96,98,100-105,108,110,172
+  s_c8c0ce2f824e4f::t_fe158dbc9c49c5 28,32,34,59-60,64-74,171,185,189,191,338-343,345,355-363,367-379
+  s_c8c0ce2f824e4f::t_399edd940e7d57 344,349-354
+  s_c8c0ce2f824e4f::t_6a2f00e0a81012 61-63,346-348,364-366,380-382,386-387
+  s_c8c0ce2f824e4f::t_ac37fcf39dbf48 85-90,383-385,388
+packages/zero/src/mutators/__tests__/kalakriti-student.test.ts
+  s_c8c0ce2f824e4f::t_4a7c513ce89745 114-128,258-267
+  s_c8c0ce2f824e4f::t_21b639ba53131c 1-45,49-113,129-215,255-257,268-364,420-449
+  s_c8c0ce2f824e4f::t_e9cb0972580341 46-48,365-419
+  s_c8c0ce2f824e4f::t_33c8d08e219fb9 216-254
+apps/web/src/routes/_app/kalakriti/$year/route.tsx
+  s_c8c0ce2f824e4f::t_8c8a2954063fe5 42-46,150-162
+  s_c8c0ce2f824e4f::t_7e66dd09122bb2 163-164
+packages/e2e/tests/kalakriti/student-registration.spec.ts
+  s_c8c0ce2f824e4f::t_bd1125c3566e5f 118
+  s_c8c0ce2f824e4f::t_c22ca3a901f187 108-112
+  s_c8c0ce2f824e4f::t_7faca08aaeb436 1-45,47-67,69-73,80,84-87,98-103,107,113-115,123-132,136-164,166-180,184-199
+  s_c8c0ce2f824e4f::t_95bc1fec7ae88a 68,74,76-79,81-83,88-97,104-106,116-117,119-122,133-135,165,181-183
+  s_c8c0ce2f824e4f::t_e63fc17bbbb8f1 75
+  s_c8c0ce2f824e4f::t_7e1567011f2419 46
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_a5b9a4eb2b5b64 72
+  s_c8c0ce2f824e4f::t_f80cfcf0348ea0 52-56,96,99,284-289,291-301,303-386,388-414
+  s_c8c0ce2f824e4f::t_e9e8f6fa557645 290,302,387,415,834,841,874-879,881-907
+  s_c8c0ce2f824e4f::t_e7e22341cdbd3c 773,850-852
+  s_c8c0ce2f824e4f::t_f7f5abcf9780e9 880
+  s_c8c0ce2f824e4f::t_c4b118b6cb5336 97-98,416,842-843,908
+packages/zero/src/mutators/kalakriti-registration-access.ts
+  s_c8c0ce2f824e4f::t_6b50ef7950446d 1-72
+packages/zero/src/mutators/kalakriti-student.ts
+  s_c8c0ce2f824e4f::t_b42e85877b6277 275,439,445-466
+  s_c8c0ce2f824e4f::t_6a2f00e0a81012 489-490
+  s_c8c0ce2f824e4f::t_399edd940e7d57 78-85,167,285,313,471,492
+  s_c8c0ce2f824e4f::t_61513e4398fb19 216,226-228,394-398
+  s_c8c0ce2f824e4f::t_1d3993eff5ea5a 1-77,86-166,168-215,217-225,229-274,276-284,286-312,314-393,399-438,440-444,467-470,472-488,491,493-532
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_fbdfa361022cf8 16,43
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_66a28045a99a3f 443
+apps/web/src/components/kalakriti/student-table.tsx
+  s_c8c0ce2f824e4f::t_a05ddcb98cde8c 25,54-58,82-85,98-103,105-108,113-122,124-127,132-143,145-148,153-162,164-167,172-183,185-188,221
+  s_c8c0ce2f824e4f::t_3ced53f1d22d9f 74,87,191-211,213,232-234
+  s_c8c0ce2f824e4f::t_a961887b67fae6 1-24,26-53,59-73,75-81,86,88-97,104,109-112,123,128-131,144,149-152,163,168-171,184,189-190,212,214-220,222-231,235-237
+  s_c8c0ce2f824e4f::t_d2fbc0b9a5a449 238-239
+apps/web/src/routes/_app/kalakriti/$year/students.tsx
+  s_c8c0ce2f824e4f::t_3249963548c421 159
+  s_c8c0ce2f824e4f::t_1ff13c89c95226 91-94
+  s_c8c0ce2f824e4f::t_a48fabb8f24121 90
+  s_c8c0ce2f824e4f::t_09e133b6095ab3 39-48,101-105
+  s_c8c0ce2f824e4f::t_875f49ba736a92 49,55-76,238-244
+  s_c8c0ce2f824e4f::t_8c8a2954063fe5 1-16,18-38,77-89,95-100,106-113,117-128,141-158,160-164,166-179,184-188,191-204,207,215-237,245-255,260-277,279-282,284,286-289,291-327
+  s_c8c0ce2f824e4f::t_a05ddcb98cde8c 17,114-116,165,205-206,208-210,256-259,278,283,290
+  s_c8c0ce2f824e4f::t_9abfa86da6462d 50-54,180-183
+  s_c8c0ce2f824e4f::t_3ced53f1d22d9f 285
+  s_c8c0ce2f824e4f::t_82e45968d4d477 129-140,189-190,211-214
+knip.json
+  s_c8c0ce2f824e4f::t_f99b9d89d3a33a 32
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_fbdfa361022cf8 19,48
+packages/e2e/helpers/kalakriti-students.ts
+  s_c8c0ce2f824e4f::t_3a37aa019bb1f5 1-19,21-174
+  s_c8c0ce2f824e4f::t_2db6c5320d09be 20
+  s_c8c0ce2f824e4f::t_e578a1f852289f 175
+apps/web/src/routeTree.gen.ts
+  s_c8c0ce2f824e4f::t_717cb6b1e0f563 65,334-339,412,462,523,583,633,693,1096-1102,1153,1162
+packages/db/src/migrations/0056_furry_blackheart.sql
+  s_c8c0ce2f824e4f::t_963ec4ece12a05 1-74
+packages/db/src/migrations/meta/0056_snapshot.json
+  s_c8c0ce2f824e4f::t_7746dc60a209e7 1-8381
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_c879e566e7c64f 396-402
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_2980c55bfacc49 1,1466-1531,1585-1590,1778-1895,3887-3894,3919-3926,4047-4054,4150-4159,4267-4274,4318-4359,4993,4998,5052,5056,5245-5251,5280-5286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f8766fcf220026867191d6ffb789ab4e804879c3",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
