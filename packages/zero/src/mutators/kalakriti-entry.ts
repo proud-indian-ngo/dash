@@ -207,6 +207,31 @@ function assertUniqueGroupMembers(
   }
 }
 
+function groupMemberLabel(student: LockedStudent): string {
+  return `${student.humanId} · ${student.name}`;
+}
+
+function assertGroupMemberEligibility(
+  student: LockedStudent,
+  session: LockedCompetitionSession,
+  competition: CompetitionConfiguration
+): void {
+  const label = groupMemberLabel(student);
+  if (student.ageCategoryId !== session.ageCategoryId) {
+    throw new Error(
+      `${label}: Student is not eligible for this Session's Age Category`
+    );
+  }
+  if (
+    competition.genderEligibility !== "both" &&
+    competition.genderEligibility !== student.gender
+  ) {
+    throw new Error(
+      `${label}: Student is not eligible for this Competition's gender rule`
+    );
+  }
+}
+
 async function lockAndValidateGroupMembers(
   tx: EntryTx,
   members: readonly { memberId: string; studentId: string }[],
@@ -237,7 +262,7 @@ async function lockAndValidateGroupMembers(
     throw new Error("Student Age Category not found in this Edition");
   }
   for (const student of students) {
-    assertStudentEligibility(student, session, competition);
+    assertGroupMemberEligibility(student, session, competition);
   }
   const membershipGroups = (await Promise.all(
     students.map((student) =>
@@ -252,7 +277,12 @@ async function lockAndValidateGroupMembers(
       )
     )
   )) as ExistingEntryMembership[][];
-  for (const memberships of membershipGroups) {
+  for (const [index, memberships] of membershipGroups.entries()) {
+    const student = students[index];
+    if (!student) {
+      throw new Error("Group Entry member could not be validated");
+    }
+    const label = groupMemberLabel(student);
     const relevantMemberships = excludedEntryId
       ? memberships.filter(
           (membership) => membership.entryId !== excludedEntryId
@@ -263,10 +293,14 @@ async function lockAndValidateGroupMembers(
         (membership) => membership.sessionId === session.id
       )
     ) {
-      throw new Error("Student is already registered for this Session");
+      throw new Error(
+        `${label}: Student is already registered for this Session`
+      );
     }
     if (relevantMemberships.length >= ageCategory.maxTotalCompetitions) {
-      throw new Error("Student has reached the total Competition limit");
+      throw new Error(
+        `${label}: Student has reached the total Competition limit`
+      );
     }
     const categoryEntryCount = relevantMemberships.filter(
       ({ entry }) =>
@@ -274,9 +308,11 @@ async function lockAndValidateGroupMembers(
         competition.competitionCategoryId
     ).length;
     if (categoryEntryCount >= ageCategory.maxCompetitionsPerCategory) {
-      throw new Error("Student has reached the Competition Category limit");
+      throw new Error(
+        `${label}: Student has reached the Competition Category limit`
+      );
     }
-    assertNoScheduleConflict(relevantMemberships, session);
+    assertNoScheduleConflict(relevantMemberships, session, label);
   }
 }
 
@@ -300,7 +336,8 @@ function assertStudentEligibility(
 
 function assertNoScheduleConflict(
   existingMemberships: readonly ExistingEntryMembership[],
-  session: LockedCompetitionSession
+  session: LockedCompetitionSession,
+  studentLabel?: string
 ): void {
   const conflict = existingMemberships.find(({ entry }) => {
     const existingSession = entry?.session;
@@ -311,7 +348,11 @@ function assertNoScheduleConflict(
     );
   });
   if (conflict) {
-    throw new Error("Student is already registered in an overlapping Session");
+    throw new Error(
+      studentLabel
+        ? `${studentLabel}: Student is already registered in an overlapping Session`
+        : "Student is already registered in an overlapping Session"
+    );
   }
 }
 

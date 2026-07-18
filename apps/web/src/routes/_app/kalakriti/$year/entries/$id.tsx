@@ -414,6 +414,9 @@ function KalakritiSessionEntriesPage() {
         </p>
       )}
       <EntryTable
+        activeSessionIds={completeSessions.map(
+          (activeSession) => activeSession.id
+        )}
         canEdit={removalEnabled}
         canRegister={registrationOpen}
         canRemove={removalEnabled}

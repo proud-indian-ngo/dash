@@ -100,6 +100,31 @@ const entryFormSchema = z.object({
   studentIds: z.array(z.string()).min(1, "Choose at least one Student"),
 });
 
+const unavailableSessionMessage = "This Session is no longer available";
+
+interface EntryMutationResult {
+  error?: unknown;
+  type: string;
+}
+
+function getMutationErrorMessage(result: EntryMutationResult): string | null {
+  if (result.type !== "error") {
+    return null;
+  }
+  if (result.error instanceof Error) {
+    return result.error.message;
+  }
+  if (
+    result.error &&
+    typeof result.error === "object" &&
+    "message" in result.error &&
+    typeof result.error.message === "string"
+  ) {
+    return result.error.message;
+  }
+  return null;
+}
+
 function selectSessionId(state: {
   values: { sessionId: string; studentIds: string[] };
 }): string {
@@ -244,6 +269,13 @@ function EntryForm({
       (candidate) => candidate.id === value.sessionId
     );
     if (!session) {
+      if (value.sessionId) {
+        context.addIssue({
+          code: "custom",
+          message: unavailableSessionMessage,
+          path: ["sessionId"],
+        });
+      }
       return;
     }
     const selectedStudents = value.studentIds.flatMap((studentId) => {
@@ -304,6 +336,13 @@ function EntryForm({
         (candidate) => candidate.id === value.sessionId
       );
       if (!session) {
+        form.setFieldMeta("sessionId", (previous) => ({
+          ...previous,
+          errorMap: {
+            ...previous.errorMap,
+            onServer: { message: unavailableSessionMessage },
+          },
+        }));
         return;
       }
       const now = Date.now();
@@ -319,9 +358,20 @@ function EntryForm({
             now,
           })
         ).server;
+        const mutationErrorMessage = getMutationErrorMessage(result);
+        if (mutationErrorMessage) {
+          form.setFieldMeta("studentIds", (previous) => ({
+            ...previous,
+            errorMap: {
+              ...previous.errorMap,
+              onServer: { message: mutationErrorMessage },
+            },
+          }));
+        }
         handleMutationResult(result, {
           entityId: entry.id,
-          errorMsg: "Failed to update Competition group",
+          errorMsg:
+            mutationErrorMessage ?? "Failed to update Competition group",
           mutation: "kalakritiEntry.replaceGroupMembers",
           successMsg: "Competition group updated",
         });
@@ -345,9 +395,20 @@ function EntryForm({
             sessionId: value.sessionId,
           })
         ).server;
+        const mutationErrorMessage = getMutationErrorMessage(result);
+        if (mutationErrorMessage) {
+          form.setFieldMeta("studentIds", (previous) => ({
+            ...previous,
+            errorMap: {
+              ...previous.errorMap,
+              onServer: { message: mutationErrorMessage },
+            },
+          }));
+        }
         handleMutationResult(result, {
           entityId: value.sessionId,
-          errorMsg: "Failed to register Competition group",
+          errorMsg:
+            mutationErrorMessage ?? "Failed to register Competition group",
           mutation: "kalakritiEntry.createGroup",
           successMsg: "Competition group registered",
         });
@@ -374,9 +435,23 @@ function EntryForm({
         )
       );
       const failedResult = results.find((result) => result.type === "error");
+      const mutationErrorMessage = failedResult
+        ? getMutationErrorMessage(failedResult)
+        : null;
+      if (mutationErrorMessage) {
+        form.setFieldMeta("studentIds", (previous) => ({
+          ...previous,
+          errorMap: {
+            ...previous.errorMap,
+            onServer: { message: mutationErrorMessage },
+          },
+        }));
+      }
       handleMutationResult(failedResult ?? { type: "complete" }, {
         entityId: value.studentIds.join(","),
-        errorMsg: "Some Competition Entries could not be registered",
+        errorMsg:
+          mutationErrorMessage ??
+          "Some Competition Entries could not be registered",
         mutation: "kalakritiEntry.createIndividual",
         successMsg:
           value.studentIds.length === 1
