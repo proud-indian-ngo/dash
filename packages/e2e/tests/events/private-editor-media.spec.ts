@@ -1,6 +1,6 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
-const PRIVATE_EVENT_ID = "e2e00000-0000-0000-0000-000000000201";
+const PRIVATE_EVENT_ID = "e2e00000-0000-4000-8000-000000000201";
 
 test.describe("Private editor media", () => {
   test("renders legacy editor images through the authenticated media route", async ({
