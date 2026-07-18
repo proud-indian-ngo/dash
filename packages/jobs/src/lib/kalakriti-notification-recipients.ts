@@ -38,10 +38,10 @@ export async function getKalakritiNotificationEdition(
   return edition ?? null;
 }
 
-export async function resolveKalakritiGuardianRecipients(
+export async function resolveKalakritiRegistrationRecipients(
   editionId: string
 ): Promise<string[]> {
-  const rows = await db
+  const guardianRows = await db
     .select({ userId: kalakritiEditionMembership.userId })
     .from(kalakritiEditionMembership)
     .where(
@@ -52,7 +52,31 @@ export async function resolveKalakritiGuardianRecipients(
         isNotNull(kalakritiEditionMembership.userId)
       )
     );
-  return rows.flatMap(({ userId }) => (userId ? [userId] : []));
+  const volunteerRows = await db
+    .select({ userId: kalakritiEditionMembership.userId })
+    .from(kalakritiAssignment)
+    .innerJoin(
+      kalakritiEditionMembership,
+      and(
+        eq(kalakritiEditionMembership.id, kalakritiAssignment.membershipId),
+        eq(kalakritiEditionMembership.editionId, kalakritiAssignment.editionId)
+      )
+    )
+    .where(
+      and(
+        eq(kalakritiAssignment.editionId, editionId),
+        eq(kalakritiEditionMembership.kind, "volunteer"),
+        eq(kalakritiEditionMembership.state, "active"),
+        isNotNull(kalakritiEditionMembership.userId)
+      )
+    );
+  const recipientIds = new Set<string>();
+  for (const { userId } of [...guardianRows, ...volunteerRows]) {
+    if (userId) {
+      recipientIds.add(userId);
+    }
+  }
+  return [...recipientIds].sort();
 }
 
 export async function resolveKalakritiScheduleRecipients({

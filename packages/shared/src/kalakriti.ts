@@ -1,3 +1,50 @@
+export const KALAKRITI_EDITION_LIFECYCLES = [
+  "draft",
+  "registration_open",
+  "registration_locked",
+  "live",
+  "archived",
+] as const;
+
+export type KalakritiEditionLifecycle =
+  (typeof KALAKRITI_EDITION_LIFECYCLES)[number];
+
+export const KALAKRITI_MEMBERSHIP_KINDS = ["volunteer", "guardian"] as const;
+
+export type KalakritiMembershipKind =
+  (typeof KALAKRITI_MEMBERSHIP_KINDS)[number];
+
+export const KALAKRITI_MEMBERSHIP_STATES = ["active", "archived"] as const;
+
+export type KalakritiMembershipState =
+  (typeof KALAKRITI_MEMBERSHIP_STATES)[number];
+
+export const KALAKRITI_OPERATIONAL_TEAMS = [
+  "food",
+  "transport",
+  "logistics",
+  "awards",
+  "venue",
+  "hospitality",
+  "media",
+  "fundraising",
+] as const;
+
+export type KalakritiOperationalTeam =
+  (typeof KALAKRITI_OPERATIONAL_TEAMS)[number];
+
+export const KALAKRITI_ASSIGNMENT_SCOPES = [
+  "edition",
+  "center",
+  "competition_category",
+  "competition",
+] as const;
+
+export type KalakritiAssignmentScope =
+  (typeof KALAKRITI_ASSIGNMENT_SCOPES)[number];
+
+export const KALAKRITI_TIMEZONE = "Asia/Kolkata" as const;
+
 export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "edition_admin",
   "volunteer_coordinator",

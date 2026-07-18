@@ -11,7 +11,7 @@ import type {
 } from "../enqueue";
 import {
   getKalakritiNotificationEdition,
-  resolveKalakritiGuardianRecipients,
+  resolveKalakritiRegistrationRecipients,
   resolveKalakritiScheduleRecipients,
 } from "../lib/kalakriti-notification-recipients";
 import { createNotifyHandler } from "./create-handler";
@@ -34,7 +34,9 @@ async function sendRegistrationLifecycle(
   if (!edition) {
     return { recipientCount: 0, skipped: "edition_missing" };
   }
-  const recipientIds = await resolveKalakritiGuardianRecipients(data.editionId);
+  const recipientIds = await resolveKalakritiRegistrationRecipients(
+    data.editionId
+  );
   await Promise.all(
     recipientIds.map(async (recipientUserId) =>
       notifyKalakritiRegistrationLifecycle({
@@ -80,7 +82,9 @@ async function remindRegistrationClose(
   ) {
     return { recipientCount: 0, skipped: "reminder_stale" };
   }
-  const recipientIds = await resolveKalakritiGuardianRecipients(data.editionId);
+  const recipientIds = await resolveKalakritiRegistrationRecipients(
+    data.editionId
+  );
   await Promise.all(
     recipientIds.map(async (recipientUserId) =>
       notifyKalakritiRegistrationLifecycle({

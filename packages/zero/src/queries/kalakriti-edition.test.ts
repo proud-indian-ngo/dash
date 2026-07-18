@@ -27,6 +27,25 @@ describe("Kalakriti Edition query privacy", () => {
     expect(ast).toContain('"value":"guardian-1"');
     expect(ast).toContain('"name":"state"');
     expect(ast).toContain('"value":"active"');
+    expect(ast).toContain('"name":"kind"');
+    expect(ast).toContain('"value":"guardian"');
+    expect(ast).toContain('"table":"kalakritiAssignment"');
+  });
+
+  it("requires volunteer Edition access to have an assignment", () => {
+    const query = kalakritiEditionQueries.accessible.fn({
+      args: undefined,
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "volunteer-1",
+      },
+    });
+    const ast = JSON.stringify((query as unknown as { ast: unknown }).ast);
+
+    expect(ast).toContain('"value":"volunteer-1"');
+    expect(ast).toContain('"value":"guardian"');
+    expect(ast).toContain('"table":"kalakritiAssignment"');
   });
 
   it("gives global Kalakriti administrators an Edition-wide override", () => {

@@ -6,6 +6,8 @@ The first release is complete when an administrator can create and configure a y
 
 This breakdown implements Phase 0 and Phase 1 from [the architecture plan](./kalakriti-native-module-design.md). Task IDs are dependency identifiers for planning and assignment; they are not external tracker issue numbers.
 
+The checked-in [release evidence matrix](./kalakriti-registration-release-evidence.md) maps every task to its implementation, automated proof, or explicit later-release check.
+
 ## Scope guardrails
 
 The release includes:

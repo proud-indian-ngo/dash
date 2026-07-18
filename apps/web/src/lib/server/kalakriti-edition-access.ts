@@ -5,7 +5,7 @@ import {
   kalakritiEdition,
   kalakritiEditionMembership,
 } from "@pi-dash/db/schema/kalakriti";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 export async function resolveKalakritiEditionAccess({
@@ -63,9 +63,6 @@ export async function resolveKalakritiEditionAccess({
     .limit(1)
     .then((rows) => rows[0]);
 
-  if (!(isGlobalAdmin || membership)) {
-    return null;
-  }
   const assignments = membership
     ? await db
         .select({
@@ -77,6 +74,12 @@ export async function resolveKalakritiEditionAccess({
         .from(kalakritiAssignment)
         .where(eq(kalakritiAssignment.membershipId, membership.id))
     : [];
+
+  const hasEditionAccess =
+    membership?.kind === "guardian" || assignments.length > 0;
+  if (!(isGlobalAdmin || hasEditionAccess)) {
+    return null;
+  }
 
   return {
     edition,
@@ -117,10 +120,18 @@ export async function resolveCurrentKalakritiEditionAccess({
           kalakritiEditionMembership,
           eq(kalakritiEditionMembership.editionId, kalakritiEdition.id)
         )
+        .leftJoin(
+          kalakritiAssignment,
+          eq(kalakritiAssignment.membershipId, kalakritiEditionMembership.id)
+        )
         .where(
           and(
             eq(kalakritiEditionMembership.userId, userId),
-            eq(kalakritiEditionMembership.state, "active")
+            eq(kalakritiEditionMembership.state, "active"),
+            or(
+              eq(kalakritiEditionMembership.kind, "guardian"),
+              isNotNull(kalakritiAssignment.id)
+            )
           )
         )
         .orderBy(kalakritiEdition.year);

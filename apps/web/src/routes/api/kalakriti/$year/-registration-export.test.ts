@@ -138,6 +138,6 @@ describe("Kalakriti registration export API", () => {
       strFromU8(
         files["kalakriti-2027-competition-entries.csv"] ?? new Uint8Array()
       )
-    ).toContain('"\t=1+1"');
+    ).toContain(",'=1+1,");
   });
 });

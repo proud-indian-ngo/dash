@@ -17,7 +17,24 @@ const secondFile: CsvFile = {
 describe("CSV exports", () => {
   test("escapes CSV values", () => {
     expect(buildCsv(firstFile.headers, firstFile.rows)).toBe(
-      'Title,Amount\n"Travel, ""local""","\t=2+2"'
+      'Title,Amount\n"Travel, ""local""",\'=2+2'
+    );
+  });
+
+  test.each(["=1+1", "+1+1", "-1+1", "@SUM(A1)", "\t=1+1", "\r=1+1"])(
+    "neutralizes a leading spreadsheet formula trigger in %j",
+    (value) => {
+      const csv = buildCsv(["Value"], [[value]]);
+      const exportedValue = csv.slice("Value\n".length);
+      const unquotedValue = exportedValue.replace(/^"|"$/g, "");
+
+      expect(unquotedValue).toBe(`'${value}`);
+    }
+  );
+
+  test("quotes carriage returns, newlines, tabs, commas, and double quotes", () => {
+    expect(buildCsv(["Value"], [['line 1\r\nline 2, "quoted"\t']])).toBe(
+      'Value\n"line 1\r\nline 2, ""quoted""\t"'
     );
   });
 

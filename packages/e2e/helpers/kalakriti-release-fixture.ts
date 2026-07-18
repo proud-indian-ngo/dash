@@ -50,6 +50,7 @@ const membershipIds = {
   liaison: `${prefix}1914`,
   overallEventsLead: `${prefix}1913`,
   unrelatedVolunteer: `${prefix}1917`,
+  unrelatedVolunteerCurrent: `${prefix}1929`,
   volunteerCoordinator: `${prefix}1912`,
 } as const;
 
@@ -421,6 +422,17 @@ export async function seedKalakritiReleaseFixture(
       snapshotName: "Guardian",
       updatedAt: now,
       userId: ids.guardian,
+    },
+    {
+      createdAt: now,
+      createdBy: globalAdminId,
+      editionId: fixture.editionId,
+      id: membershipIds.unrelatedVolunteerCurrent,
+      kind: "volunteer" as const,
+      snapshotEmail: KALAKRITI_ACTORS.unrelatedVolunteer.email,
+      snapshotName: "Unassigned Volunteer",
+      updatedAt: now,
+      userId: ids.unrelatedVolunteer,
     },
     {
       createdAt: now,
