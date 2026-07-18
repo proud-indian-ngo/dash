@@ -16,6 +16,11 @@ const center = {
 };
 
 function createTx(results: unknown[]) {
+  const lifecycleResult = results.find(
+    (result): result is { lifecycle: string } =>
+      typeof result === "object" && result !== null && "lifecycle" in result
+  );
+  const runResults = results.filter((result) => result !== lifecycleResult);
   const spies = {
     deleteCenter: vi.fn(),
     deleteGuardianCenter: vi.fn(),
@@ -26,10 +31,20 @@ function createTx(results: unknown[]) {
     updateCenter: vi.fn(),
   };
   const lockedResults: unknown[][] = [[center]];
-  const select = vi.fn(() => {
+  const select = vi.fn((fields: Record<string, unknown>) => {
     const query = {
       for: vi.fn(() => {
-        const rows = lockedResults.shift() ?? [];
+        const rows =
+          "eventDate" in fields
+            ? [
+                {
+                  eventDate: "2028-11-19",
+                  id: "edition-1",
+                  lifecycle: lifecycleResult?.lifecycle ?? "draft",
+                  timezone: "Asia/Kolkata",
+                },
+              ]
+            : (lockedResults.shift() ?? []);
         spies.lockRows(rows);
         return rows;
       }),
@@ -60,7 +75,7 @@ function createTx(results: unknown[]) {
           insert: spies.insertGuardianCenter,
         },
       },
-      run: vi.fn(async () => results.shift()),
+      run: vi.fn(async () => runResults.shift()),
     },
   };
 }
@@ -92,6 +107,46 @@ describe("kalakritiCenter commands", () => {
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "created" })
     );
+  });
+
+  it("rejects structural Center changes after registration is locked", async () => {
+    const { spies, tx } = createTx([{ lifecycle: "registration_locked" }]);
+
+    await expect(
+      kalakritiCenterMutators.create.fn({
+        args: {
+          auditEntryId: "audit-1",
+          centerId: "center-2",
+          editionId: "edition-1",
+          name: "South Centre",
+          now: 1,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiCenterMutators.create.fn>[0])
+    ).rejects.toThrow("Structural configuration");
+    expect(spies.insertCenter).not.toHaveBeenCalled();
+  });
+
+  it("allows Center registration controls after registration is locked", async () => {
+    const { spies, tx } = createTx([{ lifecycle: "registration_locked" }]);
+
+    await kalakritiCenterMutators.setRegistrationControls.fn({
+      args: {
+        auditEntryId: "audit-1",
+        centerId: center.id,
+        competitionEntryRegistrationEnabled: true,
+        confirmReopen: true,
+        now: 1,
+        studentRegistrationEnabled: false,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiCenterMutators.setRegistrationControls.fn
+    >[0]);
+
+    expect(spies.updateCenter).toHaveBeenCalledOnce();
   });
 
   it("requires explicit confirmation before either control reopens", async () => {
@@ -193,7 +248,7 @@ describe("kalakritiCenter commands", () => {
         metadata: { centerCount: 2 },
       })
     );
-    expect(spies.lockRows).toHaveBeenCalledOnce();
+    expect(spies.lockRows).toHaveBeenCalledTimes(2);
   });
 
   it("protects a Center with Guardian or Liaison dependencies", async () => {

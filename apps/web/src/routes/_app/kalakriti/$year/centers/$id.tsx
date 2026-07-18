@@ -43,9 +43,12 @@ function KalakritiCenterDetailPage() {
   const canManageGuardians = canManageCenters;
   const canManageLiaisons =
     canManageCenters || responsibilities.has("volunteer_coordinator");
-  const configurationLocked =
+  const fullyLocked =
     edition.lifecycle === "live" || edition.lifecycle === "archived";
-  const canConfigureCenters = canManageCenters && !configurationLocked;
+  const structuralLocked =
+    edition.lifecycle === "registration_locked" || fullyLocked;
+  const canConfigureCenters = canManageCenters && !structuralLocked;
+  const canManageRegistrationControls = canManageCenters && !fullyLocked;
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
@@ -174,8 +177,9 @@ function KalakritiCenterDetailPage() {
       canManageCenters={canManageCenters}
       canManageGuardians={canManageGuardians}
       canManageLiaisons={canManageLiaisons}
+      canManageRegistrationControls={canManageRegistrationControls}
       center={center}
-      configurationLocked={configurationLocked}
+      configurationLocked={structuralLocked}
       editionId={edition.id}
       editionLifecycle={edition.lifecycle}
       guardianAssignments={guardianRows}

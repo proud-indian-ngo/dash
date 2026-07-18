@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { getKalakritiRegistrationReadiness } from "../../kalakriti-registration-readiness";
 import {
+  kalakritiEditionCloneConfigurationSchema,
   kalakritiEditionCreateSchema,
   kalakritiEditionMutators,
+  kalakritiEditionTransitionSchema,
 } from "../kalakriti-edition";
 
 const validArgs = {
@@ -159,5 +162,136 @@ describe("kalakritiEdition.create", () => {
     expect(insertEvent).toHaveBeenCalledOnce();
     expect(insertEdition).toHaveBeenCalledOnce();
     expect(insertAudit).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Kalakriti Edition registration readiness", () => {
+  const readySnapshot = {
+    ageCategories: [{ id: "age-1", maximumAge: 12, minimumAge: 8 }],
+    centers: [{ id: "center-1", retiredAt: null }],
+    competitionCategories: [{ id: "category-1", retiredAt: null }],
+    competitions: [
+      {
+        cancelledAt: null,
+        competitionCategoryId: "category-1",
+        editionId: "edition-1",
+        id: "competition-1",
+        retiredAt: null,
+      },
+    ],
+    edition: {
+      ageCutoffDate: Date.UTC(2028, 5, 1),
+      eventDate: Date.UTC(2028, 10, 19),
+      plannedRegistrationCloseAt: Date.UTC(2028, 9, 31),
+      timezone: "Asia/Kolkata",
+    },
+    quotas: [{ ageCategoryId: "age-1", centerId: "center-1" }],
+    sessions: [
+      {
+        ageCategoryId: "age-1",
+        cancelledAt: null,
+        capacity: 10,
+        competitionId: "competition-1",
+        endAt: new Date("2028-11-19T11:00:00+05:30").getTime(),
+        id: "session-1",
+        startAt: new Date("2028-11-19T10:00:00+05:30").getTime(),
+        venueId: "venue-1",
+      },
+    ],
+    venues: [{ id: "venue-1", retiredAt: null }],
+  };
+
+  it("returns stable blockers for a missing quota and invalid Session", () => {
+    const session = readySnapshot.sessions.at(0);
+    if (!session) {
+      throw new Error("Ready snapshot requires a Session");
+    }
+    expect(
+      getKalakritiRegistrationReadiness({
+        ...readySnapshot,
+        quotas: [],
+        sessions: [{ ...session, capacity: 0 }],
+      }).map((blocker) => blocker.code)
+    ).toEqual(["missing_center_age_quotas", "invalid_active_sessions"]);
+  });
+
+  it("requires explicit confirmation for lifecycle and clone commands", () => {
+    expect(
+      kalakritiEditionTransitionSchema.safeParse({
+        auditEntryId: "audit",
+        editionId: "edition-1",
+        now: 1,
+        targetLifecycle: "registration_open",
+      }).success
+    ).toBe(false);
+    expect(
+      kalakritiEditionCloneConfigurationSchema.safeParse({
+        ageCategoryIds: [],
+        auditEntryId: "audit",
+        competitionCategoryIds: [],
+        competitionIds: [],
+        now: 1,
+        sourceEditionId: "source",
+        targetEditionId: "target",
+        venueIds: [],
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects a clone source with no active structural configuration", async () => {
+    const insertAudit = vi.fn();
+    const edition = {
+      eventDate: "2028-11-19",
+      id: "edition",
+      lifecycle: "draft",
+      timezone: "Asia/Kolkata",
+    };
+    const results = [
+      { ...edition, id: "source" },
+      { ...edition, id: "target" },
+      { ...edition, id: "target" },
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ];
+    const tx = {
+      location: "client",
+      mutate: {
+        kalakritiAgeCategory: { insert: vi.fn() },
+        kalakritiAuditEntry: { insert: insertAudit },
+        kalakritiCompetition: { insert: vi.fn() },
+        kalakritiCompetitionCategory: { insert: vi.fn() },
+        kalakritiEdition: { insert: vi.fn(), update: vi.fn() },
+        kalakritiVenue: { insert: vi.fn() },
+        teamEvent: { insert: vi.fn() },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+
+    await expect(
+      kalakritiEditionMutators.cloneConfiguration.fn({
+        args: {
+          ageCategoryIds: [],
+          auditEntryId: "audit",
+          competitionCategoryIds: [],
+          competitionIds: [],
+          confirmed: true,
+          now: 1,
+          sourceEditionId: "source",
+          targetEditionId: "target",
+          venueIds: [],
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.cloneConfiguration.fn
+      >[0])
+    ).rejects.toThrow("Source Edition has no active structural configuration");
+    expect(insertAudit).not.toHaveBeenCalled();
   });
 });

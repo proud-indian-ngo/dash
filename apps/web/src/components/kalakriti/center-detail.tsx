@@ -56,6 +56,7 @@ export function CenterDetail({
   canManageCenters,
   canManageGuardians,
   canManageLiaisons,
+  canManageRegistrationControls,
   center,
   configurationLocked,
   editionId,
@@ -73,6 +74,7 @@ export function CenterDetail({
   canManageCenters: boolean;
   canManageGuardians: boolean;
   canManageLiaisons: boolean;
+  canManageRegistrationControls: boolean;
   center: CenterListItem;
   configurationLocked: boolean;
   editionId: string;
@@ -174,54 +176,62 @@ export function CenterDetail({
           </p>
         </div>
 
-        {canConfigureCenters ? (
+        {canConfigureCenters || canManageRegistrationControls ? (
           <div className="flex flex-wrap gap-2">
             {isRetired ? null : (
               <>
-                <Button
-                  onClick={handleControls}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Registration controls
-                </Button>
-                <Button
-                  onClick={handleEdit}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Edit02Icon}
-                    strokeWidth={2}
-                  />
-                  Edit
-                </Button>
-                <Button
-                  onClick={handleRetire}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Retire
-                </Button>
+                {canManageRegistrationControls ? (
+                  <Button
+                    onClick={handleControls}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Registration controls
+                  </Button>
+                ) : null}
+                {canConfigureCenters ? (
+                  <>
+                    <Button
+                      onClick={handleEdit}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <HugeiconsIcon
+                        className="size-4"
+                        icon={Edit02Icon}
+                        strokeWidth={2}
+                      />
+                      Edit
+                    </Button>
+                    <Button
+                      onClick={handleRetire}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Retire
+                    </Button>
+                  </>
+                ) : null}
               </>
             )}
-            <Button
-              onClick={handleDelete}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Delete02Icon}
-                strokeWidth={2}
-              />
-              Delete
-            </Button>
+            {canConfigureCenters ? (
+              <Button
+                onClick={handleDelete}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={Delete02Icon}
+                  strokeWidth={2}
+                />
+                Delete
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -229,7 +239,8 @@ export function CenterDetail({
       {canManageCenters && configurationLocked ? (
         <p className="border-primary border-l-2 pl-4 text-muted-foreground text-sm">
           Center configuration is locked while this Edition is{" "}
-          {editionLifecycle}. Guardian and Liaison assignments remain available.
+          {editionLifecycle}. Assignments remain available; registration
+          controls remain available until the Edition goes live.
         </p>
       ) : null}
 

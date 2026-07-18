@@ -25,7 +25,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export function CompetitionDetailSheet({
-  canManage,
+  canManageCancellations,
+  canManageStructure,
   competition,
   onDelete,
   onEdit,
@@ -33,7 +34,8 @@ export function CompetitionDetailSheet({
   onSetState,
   open,
 }: {
-  canManage: boolean;
+  canManageCancellations: boolean;
+  canManageStructure: boolean;
   competition: CompetitionTableRow | null;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (competition: CompetitionTableRow) => void;
@@ -125,18 +127,26 @@ export function CompetitionDetailSheet({
             </div>
           </div>
 
-          {canManage ? (
+          {canManageCancellations || canManageStructure ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
-              <Button onClick={handleEdit}>Edit Competition</Button>
-              <Button onClick={handleCancel} variant="outline">
-                {competition.cancelledAt === null ? "Cancel" : "Restore"}
-              </Button>
-              <Button onClick={handleRetire} variant="outline">
-                {competition.retiredAt === null ? "Retire" : "Restore"}
-              </Button>
-              <Button onClick={handleDelete} variant="destructive">
-                Delete
-              </Button>
+              {canManageStructure ? (
+                <Button onClick={handleEdit}>Edit Competition</Button>
+              ) : null}
+              {canManageCancellations ? (
+                <Button onClick={handleCancel} variant="outline">
+                  {competition.cancelledAt === null ? "Cancel" : "Restore"}
+                </Button>
+              ) : null}
+              {canManageStructure ? (
+                <>
+                  <Button onClick={handleRetire} variant="outline">
+                    {competition.retiredAt === null ? "Retire" : "Restore"}
+                  </Button>
+                  <Button onClick={handleDelete} variant="destructive">
+                    Delete
+                  </Button>
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>

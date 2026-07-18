@@ -28,6 +28,7 @@ const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
 function RowActions({
+  canDelete,
   canManage,
   onDelete,
   onEdit,
@@ -35,6 +36,7 @@ function RowActions({
   onView,
   session,
 }: {
+  canDelete: boolean;
   canManage: boolean;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (session: ScheduleTableRow) => void;
@@ -92,10 +94,14 @@ function RowActions({
             <DropdownMenuItem onClick={handleCancel}>
               {session.cancelledAt === null ? "Cancel" : "Restore"} Session
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete Session
-            </DropdownMenuItem>
+            {canDelete ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDelete} variant="destructive">
+                  Delete Session
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </>
         ) : null}
       </DropdownMenuContent>
@@ -120,6 +126,7 @@ function searchSession(session: ScheduleTableRow, query: string): boolean {
 }
 
 export function CompetitionSessionsTable({
+  canDelete,
   canManage,
   data,
   isLoading,
@@ -130,6 +137,7 @@ export function CompetitionSessionsTable({
   timeZone,
   toolbarActions,
 }: {
+  canDelete: boolean;
   canManage: boolean;
   data: ScheduleTableRow[];
   isLoading: boolean;
@@ -241,6 +249,7 @@ export function CompetitionSessionsTable({
     {
       cell: ({ row }) => (
         <RowActions
+          canDelete={canDelete}
           canManage={canManage}
           onDelete={onDelete}
           onEdit={onEdit}
