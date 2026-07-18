@@ -33,6 +33,7 @@ describe("Kalakriti navigation", () => {
         canManageEligibility: true,
         canManageGuardians: true,
         canViewCompetitions: true,
+        canViewStudents: true,
         year: 2026,
       }).flatMap((group) =>
         group.items.map(({ title, url }) => ({ title, url }))
@@ -42,6 +43,7 @@ describe("Kalakriti navigation", () => {
       { title: "Overview", url: "/kalakriti/2026" },
       { title: "Centers", url: "/kalakriti/2026/centers" },
       { title: "Eligibility", url: "/kalakriti/2026/eligibility" },
+      { title: "Students", url: "/kalakriti/2026/students" },
       { title: "Competitions", url: "/kalakriti/2026/competitions" },
       { title: "Guardians", url: "/kalakriti/2026/guardians" },
     ]);
@@ -86,6 +88,15 @@ describe("Kalakriti navigation", () => {
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
     ).toEqual(["Dashboard", "Overview", "Centers", "Competitions"]);
+  });
+
+  it("shows Students to users with registration access", () => {
+    expect(
+      buildKalakritiNavGroups({
+        canViewStudents: true,
+        year: 2026,
+      }).flatMap((group) => group.items.map(({ title }) => title))
+    ).toEqual(["Dashboard", "Overview", "Centers", "Students"]);
   });
 
   it("adds Competition configuration pages as nested navigation", () => {
