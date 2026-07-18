@@ -1,0 +1,56 @@
+apps/web/src/components/kalakriti/edition-lifecycle-card.tsx
+  s_c8c0ce2f824e4f::t_a441f8d7353ccf 171-175,222-235
+  s_c8c0ce2f824e4f::t_67ef65236c18e3 139-144,149
+  s_c8c0ce2f824e4f::t_a645d686c1fb03 210-211
+  s_c8c0ce2f824e4f::t_61fd5ffdbc360a 124-131,135-138,145-148,150-159,246-249
+  s_c8c0ce2f824e4f::t_f1729a44fa5024 132-134,176,267-268
+packages/e2e/helpers/kalakriti-lifecycle.ts
+  s_c8c0ce2f824e4f::t_ef261d7a2f09f9 37,41,129-148,262-289
+  s_c8c0ce2f824e4f::t_5ff10f84906863 298-300,302-304,307-310,313-314
+  s_c8c0ce2f824e4f::t_dbdbb0d91413f7 301
+packages/e2e/run-e2e.sh
+  s_c8c0ce2f824e4f::t_44a522ebd6ff39 149-150
+packages/zero/src/queries/kalakriti-edition.test.ts
+  s_c8c0ce2f824e4f::t_f1729a44fa5024 91-142,153
+  s_c8c0ce2f824e4f::t_67ef65236c18e3 143-152,154-158
+  s_c8c0ce2f824e4f::t_555ea535de451b 58-90
+packages/e2e/tests/kalakriti/lifecycle-readiness.spec.ts
+  s_c8c0ce2f824e4f::t_5ff10f84906863 12-15,134-154
+apps/web/src/components/kalakriti/edition-clone-card.tsx
+  s_c8c0ce2f824e4f::t_34e4724418dc31 49-141,310-317,319,321-324,341-345
+  s_c8c0ce2f824e4f::t_a441f8d7353ccf 191,282-286,320,325,337
+  s_c8c0ce2f824e4f::t_a645d686c1fb03 192-193,218
+  s_c8c0ce2f824e4f::t_5867ef78b6f234 39-48,275-280
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_a645d686c1fb03 236,494-497
+packages/zero/src/mutators/__tests__/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_19d3ad7883df78 312-370
+packages/zero/src/queries/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_a645d686c1fb03 27,32,49-57,125
+  s_c8c0ce2f824e4f::t_61fd5ffdbc360a 119-124
+  s_c8c0ce2f824e4f::t_60c5577a4d7259 58-60
+packages/zero/src/mutators/__tests__/kalakriti-edition.test.ts
+  s_c8c0ce2f824e4f::t_7c8894e400a488 42-70,407,465-494,518,538-608,610-732
+  s_c8c0ce2f824e4f::t_5867ef78b6f234 498-517,519-537
+  s_c8c0ce2f824e4f::t_d8e4ac571157b3 259-319
+  s_c8c0ce2f824e4f::t_61fd5ffdbc360a 609
+  s_c8c0ce2f824e4f::t_5ff10f84906863 30-41,343-406
+  s_c8c0ce2f824e4f::t_43e5ad46f69002 495-497
+  s_c8c0ce2f824e4f::t_7d3b5b957870f3 408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "09eb73d5afce671d2cc1ba85ac4b5ac4b1bb2421",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
