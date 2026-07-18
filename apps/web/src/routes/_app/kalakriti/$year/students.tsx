@@ -10,7 +10,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import {
   type KalakritiStudentRow,
@@ -36,20 +36,39 @@ export const Route = createFileRoute("/_app/kalakriti/$year/students")({
   component: KalakritiStudentsPage,
 });
 
-function selectRegistrationCenters<T extends { id: string }>(
+function selectRegistrationCenters<
+  T extends { id: string },
+  A extends { centerId: string | null; responsibility: string },
+>(
   centers: readonly T[],
-  hasAllCenters: boolean,
-  liaisonCenterIds: ReadonlySet<string>
+  isEditionAdmin: boolean,
+  membershipKind: string | undefined,
+  assignments: readonly A[] | undefined
 ): T[] {
-  return hasAllCenters
-    ? [...centers]
-    : centers.filter((center) => liaisonCenterIds.has(center.id));
+  const hasAllCenters = isEditionAdmin || membershipKind === "guardian";
+  if (hasAllCenters) {
+    return [...centers];
+  }
+  const liaisonCenterIds = new Set<string>();
+  for (const assignment of assignments ?? []) {
+    if (
+      assignment.responsibility === "liaison" &&
+      assignment.centerId !== null
+    ) {
+      liaisonCenterIds.add(assignment.centerId);
+    }
+  }
+  return centers.filter((center) => liaisonCenterIds.has(center.id));
 }
 
 function retryFailedResult(result: { retry?: () => void; type: string }): void {
   if (result.type === "error") {
     result.retry?.();
   }
+}
+
+function hasFailedResult(...results: { type: string }[]): boolean {
+  return results.some((result) => result.type === "error");
 }
 
 function isRegistrationAvailable({
@@ -81,42 +100,26 @@ function KalakritiStudentsPage() {
   const isEditionAdmin =
     access.isGlobalAdmin ||
     access.membership?.responsibilities.includes("edition_admin") === true;
-  const liaisonCenterIds = new Set(
-    access.membership?.assignments
-      .filter(
-        (assignment) =>
-          assignment.responsibility === "liaison" && assignment.centerId
-      )
-      .map((assignment) => assignment.centerId)
-      .filter(
-        (assignedCenterId): assignedCenterId is string =>
-          assignedCenterId !== null
-      ) ?? []
-  );
+  const assignments = access.membership?.assignments;
   const [centers, centersResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
-  const selectableCenters = useMemo(
-    () =>
-      selectRegistrationCenters(
-        centers,
-        isEditionAdmin || access.membership?.kind === "guardian",
-        liaisonCenterIds
-      ),
-    [access.membership?.kind, centers, isEditionAdmin, liaisonCenterIds]
+  const selectableCenters = selectRegistrationCenters(
+    centers,
+    isEditionAdmin,
+    access.membership?.kind,
+    assignments
   );
-  const [centerId, setCenterId] = useState<string | null>(null);
+  const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingStudent, setEditingStudent] =
     useState<KalakritiStudentRow | null>(null);
 
-  useEffect(() => {
-    if (
-      !(centerId && selectableCenters.some((center) => center.id === centerId))
-    ) {
-      setCenterId(selectableCenters[0]?.id ?? null);
-    }
-  }, [centerId, selectableCenters]);
+  const centerId = selectableCenters.some(
+    (center) => center.id === selectedCenterId
+  )
+    ? selectedCenterId
+    : (selectableCenters[0]?.id ?? null);
 
   const selectedCenter = selectableCenters.find(
     (center) => center.id === centerId
@@ -157,7 +160,7 @@ function KalakritiStudentsPage() {
       ).server,
   });
   const handleCenterChange = useEventCallback((value: string | null) =>
-    setCenterId(value)
+    setSelectedCenterId(value)
   );
   const handleCreateOpenChange = useEventCallback((open: boolean) =>
     setCreateOpen(open)
@@ -183,11 +186,12 @@ function KalakritiStudentsPage() {
     retryFailedResult(studentsResult);
   });
 
-  const queryFailed =
-    centersResult.type === "error" ||
-    studentsResult.type === "error" ||
-    categoriesResult.type === "error" ||
-    quotasResult.type === "error";
+  const queryFailed = hasFailedResult(
+    centersResult,
+    studentsResult,
+    categoriesResult,
+    quotasResult
+  );
   if (queryFailed) {
     return (
       <div className="space-y-3 pt-6" role="alert">
