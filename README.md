@@ -41,7 +41,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Requests | Unified view for reimbursement and advance payment requests — submit, review, approve/reject with line items and type filter |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
-| Kalakriti Editions | Create yearly Kalakriti workspaces with Edition-scoped access, persistent external identities, registration workflows, assignment-scoped dashboards and ZIP exports, and administrator or assigned-Lead audit trails |
+| Kalakriti Editions | Run production-gated yearly registration workspaces with Edition-scoped access, persistent external identities, Center quotas and controls, student and competition-entry registration, public schedules, assignment-scoped dashboards and ZIP exports, and administrator or assigned-Lead audit trails |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
@@ -84,7 +84,7 @@ pi-dash/
 │       ├── fixtures/       # Custom test fixtures (auth emails)
 │       ├── helpers/        # Seed scripts (test users, categories)
 │       ├── tests/          # Test specs organized by feature
-│       ├── global-setup.ts # Authenticates admin & volunteer sessions
+│       ├── global-setup.ts # Authenticates shared roles and active Kalakriti actors
 │       ├── playwright.config.ts
 │       └── run-e2e.sh      # Full-stack test orchestration script
 ├── ARCHITECTURE.md         # Stub → docs/architecture/ (sharded chapters, on-demand)
@@ -290,13 +290,14 @@ Copy `.env.sample` to `.env`. Required variables:
 | `bun run test:e2e` | Run E2E tests via Turborepo |
 | `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
 
-The E2E suite uses three Playwright projects:
+The E2E suite uses setup plus seven browser projects:
 
-- **admin** — authenticated as admin, runs all feature tests except auth
-- **volunteer** — authenticated as volunteer, runs non-admin feature tests
-- **unauthenticated** — runs auth tests (login, forgot password)
+- **super_admin**, **admin**, and **finance_admin** — authenticated administrative perspectives
+- **volunteer** and **unoriented_volunteer** — authenticated volunteer perspectives with different access
+- **unauthenticated** — login and password recovery coverage
+- **kalakriti_release_invariants** — public schedule privacy and singleton live-Edition races, serialized through one worker
 
-Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run-e2e.sh`) handles spinning up a dedicated test PostgreSQL on port 5433, pushing the schema, seeding test data, starting zero-cache, and cleaning up after tests complete.
+Global setup also saves Edition Admin, Volunteer Coordinator, Overall Events Lead, Category Lead, Guardian, Liaison, and unrelated-volunteer sessions for the Kalakriti registration access matrix. Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run-e2e.sh`) handles spinning up a dedicated test PostgreSQL on port 5433, pushing the schema, seeding test data, starting zero-cache, and cleaning up after tests complete.
 
 ### Build & quality
 

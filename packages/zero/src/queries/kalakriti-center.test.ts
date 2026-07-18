@@ -24,6 +24,7 @@ describe("kalakritiCenter queries", () => {
     expect(ast).toContain('"table":"kalakritiAssignment"');
     expect(ast).toContain('"value":"guardian-1"');
     expect(ast).toContain('"value":"active"');
+    expect(ast).toContain('"value":"liaison"');
   });
 
   it("returns a never-match query without Kalakriti access", () => {

@@ -100,9 +100,11 @@ export const kalakritiCenterQueries = {
           )
         ),
         exists("assignments", (assignment) =>
-          assignment.whereExists("membership", (membership) =>
-            membership.where("userId", ctx.userId).where("state", "active")
-          )
+          assignment
+            .where("responsibility", "liaison")
+            .whereExists("membership", (membership) =>
+              membership.where("userId", ctx.userId).where("state", "active")
+            )
         )
       )
     );

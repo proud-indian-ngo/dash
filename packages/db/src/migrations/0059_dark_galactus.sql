@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "kalakriti_edition_single_live_uidx" ON "kalakriti_edition" USING btree ("lifecycle") WHERE "kalakriti_edition"."lifecycle" = 'live';

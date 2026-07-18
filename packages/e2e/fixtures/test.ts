@@ -1,6 +1,7 @@
 import path from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 import dotenv from "dotenv";
+import { KALAKRITI_ACTORS, type KalakritiActorName } from "./kalakriti-actors";
 
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../.env.test"),
@@ -53,6 +54,10 @@ export const test = base.extend<{
   financeAdminEmail: string;
   volunteerEmail: string;
   unorientedVolunteerEmail: string;
+  kalakritiActors: Record<
+    KalakritiActorName,
+    { email: string; password: string; storageState?: string }
+  >;
   consoleErrors: Error[];
 }>({
   adminEmail: process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test",
@@ -76,6 +81,27 @@ export const test = base.extend<{
   ],
   financeAdminEmail:
     process.env.FINANCE_ADMIN_EMAIL ?? "test-finance-admin@pi-dash.test",
+  kalakritiActors: Object.fromEntries(
+    Object.entries(KALAKRITI_ACTORS).map(([name, actor]) => [
+      name,
+      {
+        email: actor.email,
+        password: actor.password,
+        ...("authFile" in actor
+          ? {
+              storageState: path.resolve(
+                import.meta.dirname,
+                "..",
+                actor.authFile
+              ),
+            }
+          : {}),
+      },
+    ])
+  ) as Record<
+    KalakritiActorName,
+    { email: string; password: string; storageState?: string }
+  >,
   superAdminEmail:
     process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test",
   unorientedVolunteerEmail:

@@ -26,12 +26,16 @@
       "entry": [
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-competitions.ts",
+        "helpers/kalakriti-edition-creation.ts",
         "helpers/kalakriti-entries.ts",
         "helpers/kalakriti-eligibility.ts",
+        "helpers/kalakriti-guardian-invite.ts",
         "helpers/kalakriti-guardian-race.ts",
         "helpers/kalakriti-lifecycle.ts",
         "helpers/kalakriti-public-schedule.ts",
+        "helpers/kalakriti-release-races.ts",
         "helpers/kalakriti-students.ts",
+        "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/seed-dev-data.ts",
         "shard-by-duration.ts"
       ],

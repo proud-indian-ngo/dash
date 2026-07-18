@@ -1,6 +1,7 @@
 import path from "node:path";
 import { test as setup } from "@playwright/test";
 import dotenv from "dotenv";
+import { KALAKRITI_ACTORS } from "./fixtures/kalakriti-actors";
 
 dotenv.config({
   path: path.resolve(import.meta.dirname, ".env.test"),
@@ -45,23 +46,14 @@ async function authenticate(
   password: string,
   attempt = 0
 ) {
-  // Log auth API responses for CI debugging
-  page.on("response", (res) => {
-    const url = res.url();
-    if (url.includes("/api/auth/")) {
-      console.log(`[auth] ${res.status()} ${res.request().method()} ${url}`);
-    }
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email, password },
   });
-
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Login" }).click();
-  const reachedDashboard = await page
-    .waitForURL("/", { timeout: 10_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (reachedDashboard) {
+  console.log(`[auth] ${response.status()} POST ${response.url()}`);
+  if (response.ok()) {
+    await page.goto("/");
+  }
+  if (response.ok() && new URL(page.url()).pathname !== "/login") {
     return;
   }
   if (attempt >= 2) {
@@ -99,3 +91,15 @@ setup("authenticate as unoriented_volunteer", async ({ page }) => {
   );
   await page.context().storageState({ path: unorientedVolunteerAuthFile });
 });
+
+for (const [name, actor] of Object.entries(KALAKRITI_ACTORS)) {
+  if (!("authFile" in actor)) {
+    continue;
+  }
+  setup(`authenticate as Kalakriti ${name}`, async ({ page }) => {
+    await authenticate(page, actor.email, actor.password);
+    await page.context().storageState({
+      path: path.resolve(import.meta.dirname, actor.authFile),
+    });
+  });
+}

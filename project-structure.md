@@ -233,7 +233,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/pdf/` | Server-side PDF generation using @react-pdf/renderer. First template: NGO cash voucher. `src/voucher.ts` (cash voucher PDF builder), `assets/` (logo, signature) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
 | `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group, scheduled-message), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, scheduled-message, submission-helpers), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion — exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
+| `packages/e2e/` | `tests/` (feature specs including the Kalakriti registration and release gates), `pages/` (Page Object Models including Kalakriti Editions, Centers, Students, Competitions, and schedules), `fixtures/` (auth and multi-actor Kalakriti fixtures with console error monitoring), `helpers/` (idempotent seeds and DB-state probes), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
 
@@ -311,18 +311,18 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `reimbursements/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
 - **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up. Pass test file paths as args for targeted runs (e.g., `bash run-e2e.sh tests/reimbursements/reimbursement-delete.spec.ts`).
 - **Timeout**: Global timeout is 45s. Use `test.slow()` (triples to 135s) for multi-step CRUD tests.
-- **Projects**: Three Playwright projects — `admin` (authenticated as admin), `volunteer` (authenticated as volunteer), `unauthenticated` (no auth, for login/forgot-password tests).
-- **Auth state**: Global setup (`packages/e2e/global-setup.ts`) logs in both test users and saves storage state to `packages/e2e/.auth/`. Feature tests reuse these sessions.
-- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`, `consoleErrors`). The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
-- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `RequestPage` for request feature tests — it composes `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`, parameterized by type (`"reimbursement"` or `"advance_payment"`). New feature test suites should follow this pattern.
+- **Projects**: Setup plus seven browser projects — `super_admin`, `admin`, `finance_admin`, `volunteer`, `unoriented_volunteer`, `unauthenticated`, and the one-worker `kalakriti_release_invariants` project for public schedule privacy and singleton live-Edition races.
+- **Auth state**: Global setup (`packages/e2e/global-setup.ts`) signs in the standard users and the active Kalakriti role actors, then saves their storage states to `packages/e2e/.auth/`. Feature tests reuse these sessions; the deliberately dormant external actor has no saved session.
+- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
+- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via direct API calls to `/api/zero/mutate`.
 - **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
-- **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts for E2E tests.
+- **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
 - **Env**: Test credentials live in `packages/e2e/.env.test`. Do not commit real credentials.
 - DO: Add E2E tests for new major features covering the happy path and key error states.
 - DO: Place tests in the appropriate feature subdirectory under `packages/e2e/tests/`.
-- DO: Use page objects from `packages/e2e/pages/` for reimbursement, advance-payment, and user tests.
+- DO: Use page objects from `packages/e2e/pages/` for multi-step user flows.
 - DO: Test both admin and volunteer perspectives when the feature is role-gated.
 - DO NOT: Write E2E tests for trivial UI changes or refactors.
 - DO NOT: Place API authorization tests in `tests/auth/` — use `tests/authorization/` to avoid the volunteer project's `testIgnore: /auth\//` filter.

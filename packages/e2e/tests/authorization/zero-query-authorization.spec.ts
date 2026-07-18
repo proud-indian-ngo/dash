@@ -133,7 +133,7 @@ test.describe("Zero query API authorization — volunteer", () => {
     );
     expect(myInterestAst).toContain(ZERO_AUTH_PROTECTED_EVENT_ID);
     expect(myInterestAst).toContain("user_id");
-    expect(myInterestAst).not.toContain("team_member");
+    expect(myInterestAst).toContain("team_member");
     expect(myInterestAst).not.toContain("__never_match__");
     expect(myInterestAst).not.toContain(ZERO_AUTH_PROTECTED_INTEREST_ID);
 

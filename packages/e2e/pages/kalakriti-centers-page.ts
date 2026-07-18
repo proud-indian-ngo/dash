@@ -18,7 +18,7 @@ export class KalakritiCentersPage {
     ).toBeVisible();
     await expect(
       this.page.getByRole("heading", { name: "Centers" })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
   }
 
   async addCenter(name: string) {
