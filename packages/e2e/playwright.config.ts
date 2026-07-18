@@ -77,8 +77,24 @@ export default defineConfig({
     },
     {
       name: "unauthenticated",
-      testMatch: [/auth\//, /kalakriti\/public-schedule\.spec\.ts/],
+      testMatch: /auth\//,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      dependencies: ["setup"],
+      name: "kalakriti_release_invariants",
+      testMatch: [
+        /kalakriti\/public-schedule\.spec\.ts/,
+        /kalakriti\/release-database-races\.spec\.ts/,
+      ],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/unoriented_volunteer.json"
+        ),
+      },
+      workers: 1,
     },
   ],
   reporter: isCI
