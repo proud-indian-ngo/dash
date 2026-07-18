@@ -118,6 +118,22 @@ describe("Kalakriti notification jobs", () => {
     );
   });
 
+  it("does not resolve or notify recipients for a draft schedule", async () => {
+    notificationEdition.mockResolvedValue({ ...edition, lifecycle: "draft" });
+
+    await handleNotifyKalakritiScheduleChanged(
+      job({
+        centerIds: ["center-1"],
+        competitionIds: ["competition-1"],
+        editionId: edition.id,
+        revision: "draft-revision-1",
+      })
+    );
+
+    expect(scheduleRecipients).not.toHaveBeenCalled();
+    expect(notifySchedule).not.toHaveBeenCalled();
+  });
+
   it("keeps retry inputs stable for inbox idempotency", async () => {
     const payload = {
       centerIds: ["center-1"],

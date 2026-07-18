@@ -17,6 +17,12 @@ import {
   getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
+import {
+  getCompetitionScheduleImpact,
+  getSessionScheduleImpact,
+  getVenueScheduleImpact,
+  pushKalakritiScheduleChangedTask,
+} from "./kalakriti-schedule-notification";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -176,70 +182,6 @@ async function lockStructurallyConfigurableCompetitionEdition(
   assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
   assertIsLoggedIn(ctx);
   return edition;
-}
-
-async function getSessionCenterIds(
-  tx: CompetitionTx,
-  sessionId: string
-): Promise<string[]> {
-  const entries = (await tx.run(
-    zql.kalakritiCompetitionEntry.where("sessionId", sessionId)
-  )) as { centerId: string }[];
-  return [...new Set(entries.map(({ centerId }) => centerId))].sort();
-}
-
-async function getCompetitionCenterIds(
-  tx: CompetitionTx,
-  competitionId: string
-): Promise<string[]> {
-  const entries = (await tx.run(
-    zql.kalakritiCompetitionEntry.whereExists("session", (session) =>
-      session.where("competitionId", competitionId)
-    )
-  )) as { centerId: string }[];
-  return [...new Set(entries.map(({ centerId }) => centerId))].sort();
-}
-
-function pushScheduleChangedTask(
-  tx: CompetitionTx,
-  ctx: Context | undefined,
-  impact: {
-    centerIds: string[];
-    competitionIds: string[];
-    editionId: string;
-    revision: string;
-  }
-) {
-  if (tx.location !== "server") {
-    return;
-  }
-  const centerIds = [...new Set(impact.centerIds)].sort();
-  const competitionIds = [...new Set(impact.competitionIds)].sort();
-  ctx?.asyncTasks?.push({
-    fn: async () => {
-      const { enqueue } = await import("@pi-dash/jobs/enqueue");
-      await enqueue(
-        "notify-kalakriti-schedule-changed",
-        {
-          centerIds,
-          competitionIds,
-          editionId: impact.editionId,
-          revision: impact.revision,
-        },
-        {
-          singletonKey: `kalakriti-schedule-${impact.editionId}-${impact.revision}`,
-          traceId: ctx.traceId,
-        }
-      );
-    },
-    meta: {
-      centerIds,
-      competitionIds,
-      editionId: impact.editionId,
-      mutator: "changeKalakritiSchedule",
-      revision: impact.revision,
-    },
-  });
 }
 
 async function insertAudit(
@@ -594,7 +536,7 @@ export const kalakritiCompetitionMutators = {
         targetType: "competition_session",
       });
       if (edition.lifecycle !== "draft") {
-        pushScheduleChangedTask(tx, ctx, {
+        pushKalakritiScheduleChangedTask(tx, ctx, {
           centerIds: [],
           competitionIds: [args.competitionId],
           editionId: args.editionId,
@@ -749,7 +691,7 @@ export const kalakritiCompetitionMutators = {
         targetType: "competition_session",
       });
       if (edition.lifecycle !== "draft") {
-        pushScheduleChangedTask(tx, ctx, {
+        pushKalakritiScheduleChangedTask(tx, ctx, {
           centerIds: [],
           competitionIds: [session.competitionId],
           editionId: session.editionId,
@@ -832,7 +774,10 @@ export const kalakritiCompetitionMutators = {
         ctx,
         competition.editionId
       );
-      const centerIds = await getCompetitionCenterIds(tx, competition.id);
+      const { centerIds } = await getCompetitionScheduleImpact(
+        tx,
+        competition.id
+      );
       await tx.mutate.kalakritiCompetition.update({
         cancelledAt: args.enabled ? args.now : null,
         id: competition.id,
@@ -848,7 +793,7 @@ export const kalakritiCompetitionMutators = {
         targetType: "competition",
       });
       if (edition.lifecycle !== "draft") {
-        pushScheduleChangedTask(tx, ctx, {
+        pushKalakritiScheduleChangedTask(tx, ctx, {
           centerIds,
           competitionIds: [competition.id],
           editionId: competition.editionId,
@@ -905,7 +850,11 @@ export const kalakritiCompetitionMutators = {
           venueId: session.venueId,
         });
       }
-      const centerIds = await getSessionCenterIds(tx, session.id);
+      const { centerIds } = await getSessionScheduleImpact(
+        tx,
+        session.id,
+        session.competitionId
+      );
       await tx.mutate.kalakritiCompetitionSession.update({
         cancelledAt: args.enabled ? args.now : null,
         id: session.id,
@@ -921,7 +870,7 @@ export const kalakritiCompetitionMutators = {
         targetType: "competition_session",
       });
       if (edition.lifecycle !== "draft") {
-        pushScheduleChangedTask(tx, ctx, {
+        pushKalakritiScheduleChangedTask(tx, ctx, {
           centerIds,
           competitionIds: [session.competitionId],
           editionId: session.editionId,
@@ -1000,7 +949,7 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      await lockStructurallyConfigurableCompetitionEdition(
+      const edition = await lockStructurallyConfigurableCompetitionEdition(
         tx,
         ctx,
         competition.editionId
@@ -1027,6 +976,7 @@ export const kalakritiCompetitionMutators = {
         );
       }
       const normalized = normalizeKalakritiConfigurationName(args.name);
+      const publicScheduleChanged = normalized.name !== competition.name;
       await tx.mutate.kalakritiCompetition.update({
         competitionCategoryId: args.competitionCategoryId,
         genderEligibility: args.genderEligibility,
@@ -1048,6 +998,14 @@ export const kalakritiCompetitionMutators = {
         targetId: competition.id,
         targetType: "competition",
       });
+      if (edition.lifecycle !== "draft" && publicScheduleChanged) {
+        const impact = await getCompetitionScheduleImpact(tx, competition.id);
+        pushKalakritiScheduleChangedTask(tx, ctx, {
+          ...impact,
+          editionId: competition.editionId,
+          revision: args.auditEntryId,
+        });
+      }
     }
   ),
 
@@ -1071,7 +1029,11 @@ export const kalakritiCompetitionMutators = {
       }
       await assertSessionUpdatePreservesEntries(tx, session, args);
       await validateSessionValues(tx, edition, args);
-      const centerIds = await getSessionCenterIds(tx, session.id);
+      const { centerIds } = await getSessionScheduleImpact(
+        tx,
+        session.id,
+        session.competitionId
+      );
       await tx.mutate.kalakritiCompetitionSession.update({
         ageCategoryId: args.ageCategoryId,
         capacity: args.capacity,
@@ -1092,7 +1054,7 @@ export const kalakritiCompetitionMutators = {
         targetType: "competition_session",
       });
       if (edition.lifecycle !== "draft") {
-        pushScheduleChangedTask(tx, ctx, {
+        pushKalakritiScheduleChangedTask(tx, ctx, {
           centerIds,
           competitionIds: [session.competitionId, args.competitionId],
           editionId: session.editionId,
@@ -1109,12 +1071,13 @@ export const kalakritiCompetitionMutators = {
       if (!venue) {
         throw new Error("Venue not found");
       }
-      await lockStructurallyConfigurableCompetitionEdition(
+      const edition = await lockStructurallyConfigurableCompetitionEdition(
         tx,
         ctx,
         venue.editionId
       );
       const normalized = normalizeKalakritiConfigurationName(args.name);
+      const publicScheduleChanged = normalized.name !== venue.name;
       await tx.mutate.kalakritiVenue.update({
         id: venue.id,
         name: normalized.name,
@@ -1131,6 +1094,14 @@ export const kalakritiCompetitionMutators = {
         targetId: venue.id,
         targetType: "venue",
       });
+      if (edition.lifecycle !== "draft" && publicScheduleChanged) {
+        const impact = await getVenueScheduleImpact(tx, venue.id);
+        pushKalakritiScheduleChangedTask(tx, ctx, {
+          ...impact,
+          editionId: venue.editionId,
+          revision: args.auditEntryId,
+        });
+      }
     }
   ),
 };

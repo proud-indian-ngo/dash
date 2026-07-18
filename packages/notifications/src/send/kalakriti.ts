@@ -1,7 +1,5 @@
 import { sendMessage } from "../send-message";
-import { TOPICS } from "../topics";
-
-const KALAKRITI_CHANNELS = ["inbox", "whatsapp"] as const;
+import { getTopicChannels, TOPICS } from "../topics";
 
 export type KalakritiRegistrationTransition =
   | "registration_open"
@@ -28,7 +26,7 @@ export async function notifyKalakritiRegistrationLifecycle({
   const copy = registrationCopy(editionName, transition);
   await sendMessage({
     body: copy.body,
-    channels: KALAKRITI_CHANNELS,
+    channels: getTopicChannels(TOPICS.KALAKRITI_REGISTRATION),
     clickAction: `/kalakriti/${year}`,
     idempotencyKey: `kalakriti-registration-${editionId}-${transition}-${transitionRevision}-${recipientUserId}`,
     title: copy.title,
@@ -54,7 +52,7 @@ export async function notifyKalakritiScheduleChanged({
 }: KalakritiScheduleChangedOptions): Promise<void> {
   await sendMessage({
     body: `The schedule for ${editionName} has changed.`,
-    channels: KALAKRITI_CHANNELS,
+    channels: getTopicChannels(TOPICS.KALAKRITI_SCHEDULE),
     clickAction: `/kalakriti/${year}/schedule`,
     idempotencyKey: `kalakriti-schedule-${editionId}-${scheduleRevision}-${recipientUserId}`,
     title: "Kalakriti schedule updated",
@@ -80,7 +78,7 @@ export async function notifyKalakritiGuardianReactivated({
 }: KalakritiGuardianReactivatedOptions): Promise<void> {
   await sendMessage({
     body: `Your Guardian access for ${editionName} is active again.`,
-    channels: KALAKRITI_CHANNELS,
+    channels: getTopicChannels(TOPICS.KALAKRITI_REGISTRATION),
     clickAction: `/kalakriti/${year}`,
     idempotencyKey: `kalakriti-guardian-reactivated-${editionId}-${membershipId}-${recipientUserId}`,
     title: "Kalakriti Guardian access restored",

@@ -151,6 +151,19 @@ describe("sendMessage channel allowlist", () => {
     expect(sendNotificationEmail).not.toHaveBeenCalled();
   });
 
+  it("reuses the same inbox key when a delivery is retried", async () => {
+    await sendMessage({ ...baseMessage, channels: ["inbox"] });
+    await sendMessage({ ...baseMessage, channels: ["inbox"] });
+
+    expect(insertNotification).toHaveBeenCalledTimes(2);
+    expect(
+      vi.mocked(insertNotification).mock.calls[0]?.[0].idempotencyKey
+    ).toBe("k-inbox");
+    expect(
+      vi.mocked(insertNotification).mock.calls[1]?.[0].idempotencyKey
+    ).toBe("k-inbox");
+  });
+
   it("honors preferences for allowed channels", async () => {
     vi.mocked(getChannelPreferences).mockResolvedValue({
       emailEnabled: true,

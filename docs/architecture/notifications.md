@@ -41,9 +41,10 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
    - **WhatsApp**: `sendWhatsAppMessage()` via GoWA gateway (unchanged).
 4. Return `SendMessageResult` with per-channel success status.
 
-Domain senders may pass a channel allowlist when a notification contract uses
-only a subset of these channels. Kalakriti registration and schedule messages
-use inbox and WhatsApp while still honoring each recipient's topic preferences.
+`TOPIC_CATALOG` owns each topic's supported-channel allowlist. Both preference
+editors and the preference mutators enforce that contract, and domain senders
+consume the same lookup. Kalakriti registration and schedule messages use inbox
+and WhatsApp while still honoring each recipient's topic preferences.
 
 ### In-App Inbox
 
@@ -72,7 +73,7 @@ assigned volunteers can control those streams independently.
 
 **UI**: Users manage prefs via settings (`NotificationsSection`). Admins edit any user (`UserNotificationsForm`). Both use Zero queries/mutators — no server fns.
 
-**Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled (server-side guard).
+**Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled, and unsupported topic/channel pairs are rejected server-side.
 
 ## WhatsApp Gateway (GoWA)
 

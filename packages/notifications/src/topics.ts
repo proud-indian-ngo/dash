@@ -125,3 +125,24 @@ export const TOPIC_CATALOG: TopicMeta[] = [
     requiredPermission: "events.view_own",
   },
 ];
+
+const TOPIC_CHANNELS: ReadonlyMap<string, readonly NotificationChannel[]> =
+  new Map(
+    TOPIC_CATALOG.map((topic) => [
+      topic.id,
+      topic.channels ?? NOTIFICATION_CHANNELS,
+    ])
+  );
+
+export function getTopicChannels(
+  topicId: string
+): readonly NotificationChannel[] {
+  return TOPIC_CHANNELS.get(topicId) ?? NOTIFICATION_CHANNELS;
+}
+
+export function topicSupportsChannel(
+  topicId: string,
+  channel: NotificationChannel
+): boolean {
+  return getTopicChannels(topicId).includes(channel);
+}
