@@ -11,16 +11,16 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { and, asc, eq, inArray, or, type SQL, sql } from "drizzle-orm";
-import type { KalakritiRegistrationDashboardScope } from "@/lib/kalakriti-registration-dashboard-policy";
 import type {
   KalakritiRegistrationExportData,
   KalakritiRegistrationExportEntryRow,
 } from "@/lib/kalakriti-registration-export";
+import type { KalakritiRegistrationScope } from "@/lib/kalakriti-registration-scope-policy";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export function buildKalakritiRegistrationExportScopeCondition(
-  scopes: readonly KalakritiRegistrationDashboardScope[]
+  scopes: readonly KalakritiRegistrationScope[]
 ): SQL {
   const conditions = scopes.map((scope): SQL => {
     if (scope.kind === "edition") {
@@ -40,6 +40,42 @@ export function buildKalakritiRegistrationExportScopeCondition(
     return inArray(kalakritiCompetition.id, scope.competitionIds);
   });
   return or(...conditions) ?? sql`false`;
+}
+
+export function buildKalakritiRegistrationExportEntryCondition(
+  editionId: string,
+  scopes: readonly KalakritiRegistrationScope[]
+) {
+  return and(
+    eq(kalakritiCompetitionEntry.editionId, editionId),
+    buildKalakritiRegistrationExportScopeCondition(scopes)
+  ) as SQL;
+}
+
+export function buildKalakritiRegistrationExportStudentCondition({
+  editionId,
+  participantStudentIds,
+  scopes,
+}: {
+  editionId: string;
+  participantStudentIds: readonly string[];
+  scopes: readonly KalakritiRegistrationScope[];
+}) {
+  const conditions: SQL[] = [];
+  for (const scope of scopes) {
+    if (scope.kind === "edition") {
+      conditions.push(sql`true`);
+    } else if (scope.kind === "center") {
+      conditions.push(inArray(kalakritiStudent.centerId, scope.centerIds));
+    }
+  }
+  if (participantStudentIds.length > 0) {
+    conditions.push(inArray(kalakritiStudent.id, participantStudentIds));
+  }
+  return and(
+    eq(kalakritiStudent.editionId, editionId),
+    or(...conditions) ?? sql`false`
+  ) as SQL;
 }
 
 interface EntryQueryRow {
@@ -93,7 +129,7 @@ function loadScopedEntryRows({
   tx,
 }: {
   editionId: string;
-  scopes: readonly KalakritiRegistrationDashboardScope[];
+  scopes: readonly KalakritiRegistrationScope[];
   tx: DbTransaction;
 }) {
   return tx
@@ -183,12 +219,7 @@ function loadScopedEntryRows({
         eq(kalakritiStudent.id, kalakritiEntryMember.studentId)
       )
     )
-    .where(
-      and(
-        eq(kalakritiCompetitionEntry.editionId, editionId),
-        buildKalakritiRegistrationExportScopeCondition(scopes)
-      )
-    )
+    .where(buildKalakritiRegistrationExportEntryCondition(editionId, scopes))
     .orderBy(
       asc(kalakritiCompetitionCategory.name),
       asc(kalakritiCompetition.name),
@@ -207,29 +238,14 @@ function loadScopedStudents({
 }: {
   editionId: string;
   entryRows: readonly EntryQueryRow[];
-  scopes: readonly KalakritiRegistrationDashboardScope[];
+  scopes: readonly KalakritiRegistrationScope[];
   tx: DbTransaction;
 }) {
-  const conditions: SQL[] = [];
-  for (const scope of scopes) {
-    if (scope.kind === "edition") {
-      conditions.push(sql`true`);
-    } else if (scope.kind === "center") {
-      conditions.push(inArray(kalakritiStudent.centerId, scope.centerIds));
-    }
-  }
   const participantStudentIds = [
     ...new Set(
       entryRows.flatMap((row) => (row.studentId ? [row.studentId] : []))
     ),
   ];
-  if (participantStudentIds.length > 0) {
-    conditions.push(inArray(kalakritiStudent.id, participantStudentIds));
-  }
-  const condition = or(...conditions);
-  if (!condition) {
-    return [];
-  }
   return tx
     .select({
       ageCategory: kalakritiAgeCategory.name,
@@ -254,7 +270,13 @@ function loadScopedStudents({
         eq(kalakritiAgeCategory.id, kalakritiStudent.ageCategoryId)
       )
     )
-    .where(and(eq(kalakritiStudent.editionId, editionId), condition))
+    .where(
+      buildKalakritiRegistrationExportStudentCondition({
+        editionId,
+        participantStudentIds,
+        scopes,
+      })
+    )
     .orderBy(
       asc(kalakritiCenter.name),
       asc(kalakritiStudent.name),
@@ -267,7 +289,7 @@ export function getKalakritiRegistrationExport({
   scopes,
 }: {
   editionId: string;
-  scopes: readonly KalakritiRegistrationDashboardScope[];
+  scopes: readonly KalakritiRegistrationScope[];
 }): Promise<KalakritiRegistrationExportData> {
   if (scopes.length === 0) {
     return Promise.resolve({ entries: [], students: [] });

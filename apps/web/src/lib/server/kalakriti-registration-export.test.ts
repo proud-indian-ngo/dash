@@ -34,7 +34,9 @@ vi.mock("@pi-dash/db", () => ({
 
 import {
   assembleKalakritiRegistrationExportEntries,
+  buildKalakritiRegistrationExportEntryCondition,
   buildKalakritiRegistrationExportScopeCondition,
+  buildKalakritiRegistrationExportStudentCondition,
   getKalakritiRegistrationExport,
 } from "@/lib/server/kalakriti-registration-export";
 
@@ -54,6 +56,31 @@ describe("assembleKalakritiRegistrationExportEntries", () => {
     expect(dialect.sqlToQuery(condition).params).toEqual(
       expect.arrayContaining(["center-1", "category-1", "competition-1"])
     );
+  });
+
+  it("binds Edition isolation and the same scoped actor inputs to both exports", () => {
+    const scopes = [
+      { centerIds: ["center-1"], kind: "center" as const },
+      { competitionIds: ["competition-1"], kind: "competition" as const },
+    ];
+    const entryParams = dialect.sqlToQuery(
+      buildKalakritiRegistrationExportEntryCondition("edition-1", scopes)
+    ).params;
+    const studentParams = dialect.sqlToQuery(
+      buildKalakritiRegistrationExportStudentCondition({
+        editionId: "edition-1",
+        participantStudentIds: ["student-1"],
+        scopes,
+      })
+    ).params;
+
+    expect(entryParams).toEqual(
+      expect.arrayContaining(["edition-1", "center-1", "competition-1"])
+    );
+    expect(studentParams).toEqual(
+      expect.arrayContaining(["edition-1", "center-1", "student-1"])
+    );
+    expect(studentParams).not.toContain("competition-1");
   });
 
   it("reads Student and Entry rows from one repeatable, read-only snapshot", async () => {
