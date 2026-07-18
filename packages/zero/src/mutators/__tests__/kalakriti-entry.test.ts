@@ -59,6 +59,8 @@ const competition = {
   competitionCategoryId: "category-1",
   genderEligibility: "both" as const,
   id: "competition-1",
+  maximumGroupSize: 4,
+  minimumGroupSize: 2,
   participationMode: "individual" as const,
   retiredAt: null as number | null,
 };
@@ -86,6 +88,7 @@ function createTx(results: unknown[] = []) {
     insertAudit: vi.fn(),
     insertEntry: vi.fn(),
     insertMember: vi.fn(),
+    updateEntry: vi.fn(),
   };
   const select = vi.fn(() => {
     const query = {
@@ -108,6 +111,7 @@ function createTx(results: unknown[] = []) {
         kalakritiCompetitionEntry: {
           delete: spies.deleteEntry,
           insert: spies.insertEntry,
+          update: spies.updateEntry,
         },
         kalakritiEntryMember: {
           delete: spies.deleteMember,
@@ -178,16 +182,18 @@ function removeEntry({
   actorContext = ctx,
   centerRow = center,
   editionRow = edition,
+  snapshot = entrySnapshot,
 }: {
   accessResults?: unknown[];
   actorContext?: typeof ctx;
   centerRow?: typeof center;
   editionRow?: typeof edition;
+  snapshot?: typeof entrySnapshot;
 } = {}) {
   const { lockedResults, spies, tx } = createTx([
-    entrySnapshot,
+    snapshot,
     ...accessResults,
-    entrySnapshot,
+    snapshot,
   ]);
   lockedResults.push([editionRow], [centerRow], [session]);
   const promise = kalakritiEntryMutators.remove.fn({
@@ -195,6 +201,113 @@ function removeEntry({
     ctx: actorContext,
     tx,
   } as unknown as Parameters<typeof kalakritiEntryMutators.remove.fn>[0]);
+  return { promise, spies };
+}
+
+const firstGroupMember = {
+  memberId: "member-1",
+  studentId: "student-1",
+};
+const groupMembers = [
+  firstGroupMember,
+  { memberId: "member-2", studentId: "student-2" },
+];
+const secondStudent = {
+  ...student,
+  humanId: "KAL-2027-0002",
+  id: "student-2",
+  name: "Bina Shah",
+  normalizedName: "bina shah",
+};
+type TestStudent = Omit<typeof student, "gender"> & {
+  gender: "female" | "male";
+};
+const groupCompetition = {
+  ...competition,
+  participationMode: "group" as const,
+};
+const groupEntrySnapshot = {
+  ...entrySnapshot,
+  participationMode: "group" as const,
+};
+
+function createGroup({
+  configuration = [
+    groupCompetition,
+    activeConfiguration[1],
+    activeConfiguration[2],
+  ],
+  members = groupMembers,
+  sessionEntries = [],
+  studentRows = [student, secondStudent],
+  memberships = [[], []],
+}: {
+  configuration?: unknown[];
+  members?: Array<{ memberId: string; studentId: string }>;
+  sessionEntries?: unknown[];
+  studentRows?: TestStudent[];
+  memberships?: unknown[];
+} = {}) {
+  const { lockedResults, spies, tx } = createTx([
+    ...configuration,
+    ...memberships,
+    sessionEntries,
+  ]);
+  lockedResults.push(
+    [edition],
+    [center],
+    [session],
+    ...studentRows.sort((a, b) => a.id.localeCompare(b.id)).map((row) => [row]),
+    [ageCategory]
+  );
+  const promise = kalakritiEntryMutators.createGroup.fn({
+    args: {
+      auditEntryId: "audit-1",
+      centerId: center.id,
+      editionId: edition.id,
+      entryId: "entry-1",
+      members,
+      now: 1000,
+      sessionId: session.id,
+    },
+    ctx,
+    tx,
+  } as unknown as Parameters<typeof kalakritiEntryMutators.createGroup.fn>[0]);
+  return { promise, spies };
+}
+
+function replaceGroup({
+  members = groupMembers,
+  memberships = [[], []],
+  snapshot = groupEntrySnapshot,
+}: {
+  members?: Array<{ memberId: string; studentId: string }>;
+  memberships?: unknown[];
+  snapshot?: typeof groupEntrySnapshot;
+} = {}) {
+  const { lockedResults, spies, tx } = createTx([
+    snapshot,
+    snapshot,
+    groupCompetition,
+    activeConfiguration[1],
+    activeConfiguration[2],
+    ...memberships,
+  ]);
+  lockedResults.push(
+    [edition],
+    [center],
+    [session],
+    [student],
+    [secondStudent],
+    [ageCategory]
+  );
+  const promise = kalakritiEntryMutators.replaceGroupMembers.fn({
+    args: { auditEntryId: "audit-2", entryId: "entry-1", members, now: 1001 },
+    ctx,
+    tx,
+  } as unknown as Parameters<
+    typeof kalakritiEntryMutators.replaceGroupMembers.fn
+  >[0]);
   return { promise, spies };
 }
 
@@ -313,6 +426,151 @@ describe("kalakritiEntry commands", () => {
       ],
     });
     await expect(promise).rejects.toThrow("requires a group Entry");
+  });
+
+  it("creates a valid group Entry and counts it as one Session capacity unit", async () => {
+    const { promise, spies } = createGroup({
+      sessionEntries: [{ id: "entry-a" }],
+    });
+    await promise;
+
+    expect(spies.insertEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ participationMode: "group" })
+    );
+    expect(spies.insertMember).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires group-mode Competition configuration for group Entries", async () => {
+    const { promise, spies } = createGroup({
+      configuration: activeConfiguration,
+    });
+    await expect(promise).rejects.toThrow("requires an individual Entry");
+    expect(spies.insertEntry).not.toHaveBeenCalled();
+  });
+
+  it("rejects group sizes outside the configured minimum and maximum", async () => {
+    const belowMinimum = createGroup({ members: [firstGroupMember] });
+    await expect(belowMinimum.promise).rejects.toThrow("configured limits");
+    expect(belowMinimum.spies.insertEntry).not.toHaveBeenCalled();
+
+    const aboveMaximum = createGroup({
+      configuration: [
+        { ...groupCompetition, maximumGroupSize: 1 },
+        activeConfiguration[1],
+        activeConfiguration[2],
+      ],
+    });
+    await expect(aboveMaximum.promise).rejects.toThrow("configured limits");
+  });
+
+  it("rejects duplicate group member and Student IDs before writes", async () => {
+    const duplicateStudent = createGroup({
+      members: [
+        firstGroupMember,
+        { memberId: "member-2", studentId: "student-1" },
+      ],
+    });
+    await expect(duplicateStudent.promise).rejects.toThrow(
+      "students must be unique"
+    );
+    expect(duplicateStudent.spies.insertEntry).not.toHaveBeenCalled();
+
+    const duplicateMember = createGroup({
+      members: [
+        firstGroupMember,
+        { memberId: "member-1", studentId: "student-2" },
+      ],
+    });
+    await expect(duplicateMember.promise).rejects.toThrow(
+      "member IDs must be unique"
+    );
+  });
+
+  it("rejects group members outside the Center, eligibility, limits, or schedule", async () => {
+    const crossCenter = createGroup({
+      studentRows: [student, { ...secondStudent, centerId: "center-2" }],
+    });
+    await expect(crossCenter.promise).rejects.toThrow("Center and Edition");
+
+    const wrongAgeCategory = createGroup({
+      studentRows: [student, { ...secondStudent, ageCategoryId: "age-2" }],
+    });
+    await expect(wrongAgeCategory.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is not eligible for this Session's Age Category"
+    );
+
+    const ineligible = createGroup({
+      configuration: [
+        { ...groupCompetition, genderEligibility: "female" },
+        activeConfiguration[1],
+        activeConfiguration[2],
+      ],
+      studentRows: [student, { ...secondStudent, gender: "male" }],
+    });
+    await expect(ineligible.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is not eligible for this Competition's gender rule"
+    );
+
+    const existing = {
+      entry: {
+        session: {
+          competition: { competitionCategoryId: "other" },
+          endAt: 150,
+          id: "other",
+          startAt: 50,
+        },
+      },
+      entryId: "other-entry",
+      id: "other-member",
+      sessionId: "other",
+    };
+    const conflict = createGroup({ memberships: [[], [existing]] });
+    await expect(conflict.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is already registered in an overlapping Session"
+    );
+  });
+
+  it("enforces one Student per Session and individual limits for every group member", async () => {
+    const sameSession = createGroup({
+      memberships: [[], [{ sessionId: session.id }]],
+    });
+    await expect(sameSession.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student is already registered for this Session"
+    );
+
+    const atLimit = createGroup({
+      memberships: [
+        [],
+        [
+          { entryId: "a", sessionId: "a" },
+          { entryId: "b", sessionId: "b" },
+          { entryId: "c", sessionId: "c" },
+        ],
+      ],
+    });
+    await expect(atLimit.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student has reached the total Competition limit"
+    );
+
+    const categoryMembership = (id: string) => ({
+      entry: {
+        session: {
+          competition: { competitionCategoryId: "category-1" },
+          endAt: 20,
+          id,
+          startAt: 10,
+        },
+      },
+      entryId: `entry-${id}`,
+      id: `member-${id}`,
+      sessionId: id,
+    });
+    const categoryLimit = createGroup({
+      memberships: [[], [categoryMembership("a"), categoryMembership("b")]],
+    });
+    await expect(categoryLimit.promise).rejects.toThrow(
+      "KAL-2027-0002 · Bina Shah: Student has reached the Competition Category limit"
+    );
   });
 
   it("rejects canceled or retired Competition Session configuration", async () => {
@@ -437,6 +695,44 @@ describe("kalakritiEntry commands", () => {
     await promise;
 
     expect(spies.deleteMember).toHaveBeenCalledWith({ id: "member-1" });
+    expect(spies.deleteEntry).toHaveBeenCalledWith({ id: "entry-1" });
+  });
+
+  it("replaces group membership atomically and records old and new Students", async () => {
+    const { promise, spies } = replaceGroup();
+    await promise;
+
+    expect(spies.deleteMember).toHaveBeenCalledWith({ id: "member-1" });
+    expect(spies.insertMember).toHaveBeenCalledTimes(2);
+    expect(spies.updateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "entry-1", updatedBy: ctx.userId })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "updated",
+        metadata: expect.objectContaining({
+          newStudentIds: ["student-1", "student-2"],
+          oldStudentIds: ["student-1"],
+        }),
+      })
+    );
+  });
+
+  it("rejects below-minimum replacement before deleting or inserting members", async () => {
+    const { promise, spies } = replaceGroup({ members: [firstGroupMember] });
+    await expect(promise).rejects.toThrow("configured limits");
+    expect(spies.deleteMember).not.toHaveBeenCalled();
+    expect(spies.insertMember).not.toHaveBeenCalled();
+  });
+
+  it("removes a group Entry while registration is writable", async () => {
+    const { promise, spies } = removeEntry({
+      snapshot: {
+        ...entrySnapshot,
+        participationMode: "group",
+      } as unknown as typeof entrySnapshot,
+    });
+    await promise;
     expect(spies.deleteEntry).toHaveBeenCalledWith({ id: "entry-1" });
   });
 

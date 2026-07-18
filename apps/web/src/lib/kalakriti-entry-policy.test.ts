@@ -3,6 +3,7 @@ import {
   canAccessKalakritiEntries,
   canRemoveKalakritiEntries,
   getEntryRegistrationAvailability,
+  getGroupEntryValidationErrors,
   getIndividualEntryValidationError,
   selectKalakritiEntryCenters,
 } from "./kalakriti-entry-policy";
@@ -116,6 +117,8 @@ describe("Kalakriti Entry policy", () => {
           category: { name: "Art" },
           competitionCategoryId: "category-1",
           genderEligibility: "both" as "both" | "female" | "male",
+          maximumGroupSize: 1,
+          minimumGroupSize: 1,
           participationMode: "individual" as "group" | "individual",
           ...competitionOverrides,
         } as Parameters<
@@ -147,6 +150,100 @@ describe("Kalakriti Entry policy", () => {
       ).toBe(expected);
     }
   );
+
+  it("returns member-specific group validation errors", () => {
+    const session = {
+      ageCategory: { name: "Junior" },
+      ageCategoryId: "age-1",
+      capacity: 2,
+      competition: {
+        category: { name: "Art" },
+        competitionCategoryId: "category-1",
+        genderEligibility: "female" as const,
+        maximumGroupSize: 3,
+        minimumGroupSize: 2,
+        participationMode: "group" as const,
+      },
+      endAt: 200,
+      entries: [] as { id: string }[],
+      id: "session-1",
+      startAt: 100,
+    };
+    const student = {
+      ageCategory: {
+        maxCompetitionsPerCategory: 2,
+        maxTotalCompetitions: 3,
+      },
+      ageCategoryId: "age-1",
+      gender: "female" as const,
+      humanId: "KAL-2027-0001",
+      id: "student-1",
+      name: "Ananya Rao",
+    };
+
+    expect(
+      getGroupEntryValidationErrors({
+        entries: [],
+        session,
+        students: [student],
+      })
+    ).toEqual(["Select at least 2 Students for this group"]);
+    expect(
+      getGroupEntryValidationErrors({
+        entries: [],
+        session,
+        students: [student, { ...student, gender: "male", id: "student-2" }],
+      })
+    ).toEqual([
+      "KAL-2027-0001 · Ananya Rao: This Competition is limited to female Students",
+    ]);
+  });
+
+  it("excludes the edited group from capacity and Student limits", () => {
+    const student = {
+      ageCategory: {
+        maxCompetitionsPerCategory: 1,
+        maxTotalCompetitions: 1,
+      },
+      ageCategoryId: "age-1",
+      gender: "female" as const,
+      humanId: "KAL-2027-0001",
+      id: "student-1",
+      name: "Ananya Rao",
+    };
+    const session = {
+      ageCategory: { name: "Junior" },
+      ageCategoryId: "age-1",
+      capacity: 1,
+      competition: {
+        category: { name: "Art" },
+        competitionCategoryId: "category-1",
+        genderEligibility: "both" as const,
+        maximumGroupSize: 2,
+        minimumGroupSize: 2,
+        participationMode: "group" as const,
+      },
+      endAt: 200,
+      entries: [{ id: "entry-1" }],
+      id: "session-1",
+      startAt: 100,
+    };
+    const entry = {
+      id: "entry-1",
+      members: [{ studentId: student.id }],
+      session,
+      sessionId: session.id,
+    };
+
+    expect(
+      getGroupEntryValidationErrors({
+        editingEntryId: entry.id,
+        entries: [entry],
+        session,
+        students: [student, { ...student, id: "student-2" }],
+      })
+    ).toEqual([]);
+  });
 
   it("limits a Liaison to explicitly assigned Centers", () => {
     const centers = [{ id: "center-1" }, { id: "center-2" }];

@@ -36,20 +36,28 @@ function searchEntries(row: KalakritiEntryRow, query: string): boolean {
 }
 
 function EntryRowActions({
+  canEdit,
   entry,
+  onEdit,
   onRemove,
 }: {
+  canEdit: boolean;
   entry: KalakritiEntryRow;
+  onEdit: (entry: KalakritiEntryRow) => void;
   onRemove: (entry: KalakritiEntryRow) => void;
 }) {
+  const handleEdit = useEventCallback(() => onEdit(entry));
   const handleRemove = useEventCallback(() => onRemove(entry));
-  const studentName = entry.members[0]?.student.name ?? "Entry";
+  const actionLabel =
+    entry.participationMode === "group"
+      ? `${entry.session.competition.name} group`
+      : (entry.members[0]?.student.name ?? "Entry");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={`Actions for ${studentName}`}
+            aria-label={`Actions for ${actionLabel}`}
             className="size-7"
             data-testid="row-actions"
             size="icon"
@@ -64,7 +72,10 @@ function EntryRowActions({
           </Button>
         }
       />
-      <DropdownMenuContent align="end" className="w-36">
+      <DropdownMenuContent align="end" className="w-40">
+        {canEdit && entry.participationMode === "group" ? (
+          <DropdownMenuItem onClick={handleEdit}>Edit Group</DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onClick={handleRemove} variant="destructive">
           Remove Entry
         </DropdownMenuItem>
@@ -74,10 +85,12 @@ function EntryRowActions({
 }
 
 interface EntryTableProps {
+  activeSessionIds: readonly string[];
   canRegister: boolean;
   canRemove: boolean;
   data: KalakritiEntryRow[];
   isLoading: boolean;
+  onEdit: (entry: KalakritiEntryRow) => void;
   onRegister: () => void;
   onRemove: (entry: KalakritiEntryRow) => void;
 }
@@ -87,52 +100,64 @@ function getEntryRowId(entry: KalakritiEntryRow): string {
 }
 
 export function EntryTable({
+  activeSessionIds,
   canRegister,
   canRemove,
   data,
   isLoading,
+  onEdit,
   onRegister,
   onRemove,
 }: EntryTableProps) {
   const columns: ColumnDef<KalakritiEntryRow>[] = [
     {
-      accessorFn: (row) => row.members[0]?.student.humanId ?? "",
+      accessorFn: (row) =>
+        row.members.map((member) => member.student.humanId).join(" "),
       cell: ({ row }) => (
-        <span className="font-mono text-sm">
-          {row.original.members[0]?.student.humanId ?? "Unknown"}
-        </span>
+        <div className="flex flex-wrap gap-x-2 gap-y-1 font-mono text-sm">
+          {row.original.members.length > 0
+            ? row.original.members.map((member) => (
+                <span key={member.student.id}>{member.student.humanId}</span>
+              ))
+            : "Unknown"}
+        </div>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Student ID"
+          title="Student IDs"
           visibility={true}
         />
       ),
       id: "studentId",
       meta: {
-        headerTitle: "Student ID",
+        headerTitle: "Student IDs",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 135,
     },
     {
-      accessorFn: (row) => row.members[0]?.student.name ?? "",
+      accessorFn: (row) =>
+        row.members.map((member) => member.student.name).join(" "),
       cell: ({ row }) => (
-        <span className="font-medium text-sm">
-          {row.original.members[0]?.student.name ?? "Unknown Student"}
-        </span>
+        <div className="flex flex-wrap gap-x-2 gap-y-1 font-medium text-sm">
+          {row.original.members.length > 0
+            ? row.original.members.map((member) => (
+                <span key={member.student.id}>{member.student.name}</span>
+              ))
+            : "Unknown Student"}
+        </div>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Student"
+          title="Participants"
           visibility={true}
         />
       ),
       id: "student",
       meta: {
-        headerTitle: "Student",
+        headerTitle: "Participants",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
       size: 210,
@@ -215,7 +240,15 @@ export function EntryTable({
       ? [
           {
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
-              <EntryRowActions entry={row.original} onRemove={onRemove} />
+              <EntryRowActions
+                canEdit={
+                  canRegister &&
+                  activeSessionIds.includes(row.original.sessionId)
+                }
+                entry={row.original}
+                onEdit={onEdit}
+                onRemove={onRemove}
+              />
             ),
             enableHiding: false,
             header: () => null,
