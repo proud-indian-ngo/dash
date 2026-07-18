@@ -118,6 +118,7 @@ All paths are relative to project root.
 | `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
 | `routes/api/kalakriti/$year/schedule.ts` | Unauthenticated lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
 | `routes/api/kalakriti/$year/audit.ts` | Authenticated Edition/domain-scoped Kalakriti audit API with privacy-safe metadata |
+| `routes/api/kalakriti/$year/registration-export.ts` | Authenticated assignment-scoped Student and Competition Entry CSV archive download |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
 | `routes/api/jobs/stats.ts` | Queue size stats API |
 | `routes/api/jobs/$id.ts` | Job detail API |
@@ -144,7 +145,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
-| `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, and scoped audit tables |
+| `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
@@ -209,6 +210,8 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/s3.ts` | S3/R2 client utilities |
 | `lib/rate-limit.ts` | Rate limiting helpers |
 | `lib/csv-export.ts` | CSV export utilities |
+| `lib/kalakriti-registration-export.ts` | Allowlisted Kalakriti registration CSV and ZIP archive generation |
+| `lib/kalakriti-registration-scope-policy.ts` | Canonical assignment-to-registration-scope policy for dashboards and exports |
 | `lib/client-logger.ts` | Client-side logging |
 
 All lib paths above are prefixed with `apps/web/src/`.

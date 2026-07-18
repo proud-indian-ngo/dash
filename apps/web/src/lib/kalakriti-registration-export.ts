@@ -1,5 +1,7 @@
+import { strToU8, zipSync } from "fflate";
 import { z } from "zod";
 import type { CsvFile } from "@/lib/csv-export";
+import { buildCsv } from "@/lib/csv-export";
 
 export const kalakritiRegistrationExportInputSchema = z.strictObject({
   year: z.number().int().min(2000).max(2200),
@@ -87,4 +89,18 @@ export function buildKalakritiRegistrationCsvFiles(
       ]),
     },
   ];
+}
+
+export function buildKalakritiRegistrationCsvArchive(
+  year: number,
+  data: KalakritiRegistrationExportData
+) {
+  return zipSync(
+    Object.fromEntries(
+      buildKalakritiRegistrationCsvFiles(year, data).map((file) => [
+        file.filename,
+        strToU8(buildCsv(file.headers, file.rows)),
+      ])
+    )
+  );
 }

@@ -1,6 +1,6 @@
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
-export type KalakritiRegistrationDashboardScope =
+export type KalakritiRegistrationScope =
   | { kind: "edition" }
   | { centerIds: string[]; kind: "center" }
   | { competitionCategoryIds: string[] | null; kind: "competition_category" }
@@ -40,10 +40,10 @@ function collectAssignedScopes(
   return allCompetitionCategories;
 }
 
-export function resolveKalakritiRegistrationDashboardScopes(
+export function resolveKalakritiRegistrationScopes(
   access: KalakritiEditionAccess,
   guardianCenterIds: readonly string[] = []
-): KalakritiRegistrationDashboardScope[] {
+): KalakritiRegistrationScope[] {
   if (access.isGlobalAdmin) {
     return [{ kind: "edition" }];
   }
@@ -66,7 +66,7 @@ export function resolveKalakritiRegistrationDashboardScopes(
     competitionIds
   );
 
-  const scopes: KalakritiRegistrationDashboardScope[] = [];
+  const scopes: KalakritiRegistrationScope[] = [];
   if (centerIds.size > 0) {
     scopes.push({ centerIds: sorted(centerIds), kind: "center" });
   }

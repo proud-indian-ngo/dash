@@ -9,31 +9,29 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
-import { exportKalakritiRegistration } from "@/functions/kalakriti-registration-export";
-import { downloadCsvFiles } from "@/lib/csv-export";
-import { buildKalakritiRegistrationCsvFiles } from "@/lib/kalakriti-registration-export";
 
 export function RegistrationExportCard({ year }: { year: number }) {
-  const exportRegistration = useServerFn(exportKalakritiRegistration);
   const [isExporting, setIsExporting] = useState(false);
   const handleExport = useEventCallback(async () => {
     setIsExporting(true);
     try {
-      const data = await exportRegistration({
-        data: { year },
-      });
-      if (!data) {
-        toast.error("You no longer have access to this registration export");
-        return;
-      }
-      downloadCsvFiles(
-        buildKalakritiRegistrationCsvFiles(year, data),
-        `kalakriti-${year}-registration.zip`
+      const response = await fetch(
+        `/api/kalakriti/${year}/registration-export`
       );
+      if (!response.ok) {
+        throw new Error(`Registration export failed (${response.status})`);
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `kalakriti-${year}-registration.zip`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
       toast.success("Registration export downloaded");
     } catch (error) {
       log.error({

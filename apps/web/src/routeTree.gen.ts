@@ -59,6 +59,7 @@ import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/setting
 import { Route as AppKalakritiYearIndexRouteImport } from './routes/_app/kalakriti/$year/index'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
 import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
+import { Route as ApiKalakritiYearRegistrationExportRouteImport } from './routes/api/kalakriti/$year/registration-export'
 import { Route as ApiKalakritiYearAuditRouteImport } from './routes/api/kalakriti/$year/audit'
 import { Route as ApiJobsIdRetryRouteImport } from './routes/api/jobs/$id/retry'
 import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
@@ -322,6 +323,12 @@ const ApiKalakritiYearScheduleRoute =
     path: '/api/kalakriti/$year/schedule',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiKalakritiYearRegistrationExportRoute =
+  ApiKalakritiYearRegistrationExportRouteImport.update({
+    id: '/api/kalakriti/$year/registration-export',
+    path: '/api/kalakriti/$year/registration-export',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiKalakritiYearAuditRoute = ApiKalakritiYearAuditRouteImport.update({
   id: '/api/kalakriti/$year/audit',
   path: '/api/kalakriti/$year/audit',
@@ -450,6 +457,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/api/kalakriti/$year/audit': typeof ApiKalakritiYearAuditRoute
+  '/api/kalakriti/$year/registration-export': typeof ApiKalakritiYearRegistrationExportRoute
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
@@ -505,6 +513,7 @@ export interface FileRoutesByTo {
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/api/kalakriti/$year/audit': typeof ApiKalakritiYearAuditRoute
+  '/api/kalakriti/$year/registration-export': typeof ApiKalakritiYearRegistrationExportRoute
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
@@ -571,6 +580,7 @@ export interface FileRoutesById {
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
   '/api/jobs/$id/retry': typeof ApiJobsIdRetryRoute
   '/api/kalakriti/$year/audit': typeof ApiKalakritiYearAuditRoute
+  '/api/kalakriti/$year/registration-export': typeof ApiKalakritiYearRegistrationExportRoute
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
@@ -636,6 +646,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
     | '/api/kalakriti/$year/audit'
+    | '/api/kalakriti/$year/registration-export'
     | '/api/kalakriti/$year/schedule'
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year/'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
     | '/api/kalakriti/$year/audit'
+    | '/api/kalakriti/$year/registration-export'
     | '/api/kalakriti/$year/schedule'
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year'
@@ -756,6 +768,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id/cancel'
     | '/api/jobs/$id/retry'
     | '/api/kalakriti/$year/audit'
+    | '/api/kalakriti/$year/registration-export'
     | '/api/kalakriti/$year/schedule'
     | '/api/media/event-photo/$id'
     | '/_app/kalakriti/$year/'
@@ -780,6 +793,7 @@ export interface RootRouteChildren {
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
   ApiKalakritiYearAuditRoute: typeof ApiKalakritiYearAuditRoute
+  ApiKalakritiYearRegistrationExportRoute: typeof ApiKalakritiYearRegistrationExportRoute
   ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
 }
@@ -1136,6 +1150,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiKalakritiYearScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/kalakriti/$year/registration-export': {
+      id: '/api/kalakriti/$year/registration-export'
+      path: '/api/kalakriti/$year/registration-export'
+      fullPath: '/api/kalakriti/$year/registration-export'
+      preLoaderRoute: typeof ApiKalakritiYearRegistrationExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/kalakriti/$year/audit': {
       id: '/api/kalakriti/$year/audit'
       path: '/api/kalakriti/$year/audit'
@@ -1447,6 +1468,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,
   ApiKalakritiYearAuditRoute: ApiKalakritiYearAuditRoute,
+  ApiKalakritiYearRegistrationExportRoute:
+    ApiKalakritiYearRegistrationExportRoute,
   ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
 }
