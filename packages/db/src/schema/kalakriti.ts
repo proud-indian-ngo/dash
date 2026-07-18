@@ -49,6 +49,11 @@ export const kalakritiGenderEligibilityEnum = pgEnum(
   ["male", "female", "both"]
 );
 
+export const kalakritiStudentGenderEnum = pgEnum("kalakriti_student_gender", [
+  "male",
+  "female",
+]);
+
 export const kalakritiEdition = pgTable(
   "kalakriti_edition",
   {
@@ -64,6 +69,7 @@ export const kalakritiEdition = pgTable(
       .default("draft")
       .notNull(),
     name: text("name").notNull(),
+    nextStudentSequence: integer("next_student_sequence").default(1).notNull(),
     plannedRegistrationCloseAt: timestamp("planned_registration_close_at", {
       withTimezone: true,
     }).notNull(),
@@ -86,6 +92,10 @@ export const kalakritiEdition = pgTable(
     check(
       "kalakriti_edition_points_chk",
       sql`${table.winnerPoints} >= 0 AND ${table.runnerUpPoints} >= 0`
+    ),
+    check(
+      "kalakriti_edition_nextStudentSequence_chk",
+      sql`${table.nextStudentSequence} > 0`
     ),
   ]
 );
@@ -267,6 +277,139 @@ export const kalakritiCenterAgeQuota = pgTable(
     check(
       "kalakriti_center_age_quota_limits_chk",
       sql`${table.maleStudentLimit} >= 0 AND ${table.femaleStudentLimit} >= 0`
+    ),
+  ]
+);
+
+export const kalakritiStudent = pgTable(
+  "kalakriti_student",
+  {
+    ageCategoryId: uuid("age_category_id").notNull(),
+    ageCategoryOverrideAt: timestamp("age_category_override_at"),
+    ageCategoryOverrideBy: text("age_category_override_by").references(
+      () => user.id
+    ),
+    ageCategoryOverrideReason: text("age_category_override_reason"),
+    centerId: uuid("center_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    dateOfBirth: date("date_of_birth").notNull(),
+    derivedAgeCategoryId: uuid("derived_age_category_id").notNull(),
+    duplicateConfirmedAt: timestamp("duplicate_confirmed_at"),
+    duplicateConfirmedBy: text("duplicate_confirmed_by").references(
+      () => user.id
+    ),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    gender: kalakritiStudentGenderEnum("gender").notNull(),
+    humanId: text("human_id").notNull(),
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    updatedBy: text("updated_by")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_student_humanId_uidx").on(table.humanId),
+    unique("kalakriti_student_editionId_id_uq").on(table.editionId, table.id),
+    index("kalakriti_student_editionId_centerId_idx").on(
+      table.editionId,
+      table.centerId
+    ),
+    index("kalakriti_student_centerId_ageCategoryId_gender_idx").on(
+      table.centerId,
+      table.ageCategoryId,
+      table.gender
+    ),
+    index("kalakriti_student_duplicate_lookup_idx").on(
+      table.centerId,
+      table.normalizedName,
+      table.dateOfBirth
+    ),
+    foreignKey({
+      columns: [table.editionId, table.centerId],
+      foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
+      name: "kalakriti_student_edition_center_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.editionId, table.derivedAgeCategoryId],
+      foreignColumns: [kalakritiAgeCategory.editionId, kalakritiAgeCategory.id],
+      name: "kalakriti_student_edition_derived_age_category_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.editionId, table.ageCategoryId],
+      foreignColumns: [kalakritiAgeCategory.editionId, kalakritiAgeCategory.id],
+      name: "kalakriti_student_edition_age_category_fk",
+    }).onDelete("restrict"),
+    check(
+      "kalakriti_student_normalizedName_chk",
+      sql`length(${table.normalizedName}) > 0`
+    ),
+    check(
+      "kalakriti_student_age_category_override_chk",
+      sql`(
+        ${table.ageCategoryId} = ${table.derivedAgeCategoryId}
+        AND ${table.ageCategoryOverrideAt} IS NULL
+        AND ${table.ageCategoryOverrideBy} IS NULL
+        AND ${table.ageCategoryOverrideReason} IS NULL
+      ) OR (
+        ${table.ageCategoryId} <> ${table.derivedAgeCategoryId}
+        AND ${table.ageCategoryOverrideAt} IS NOT NULL
+        AND ${table.ageCategoryOverrideBy} IS NOT NULL
+        AND length(${table.ageCategoryOverrideReason}) > 0
+      )`
+    ),
+    check(
+      "kalakriti_student_duplicate_confirmation_chk",
+      sql`(${table.duplicateConfirmedAt} IS NULL AND ${table.duplicateConfirmedBy} IS NULL)
+        OR (${table.duplicateConfirmedAt} IS NOT NULL AND ${table.duplicateConfirmedBy} IS NOT NULL)`
+    ),
+  ]
+);
+
+export const kalakritiCredential = pgTable(
+  "kalakriti_credential",
+  {
+    createdAt: timestamp("created_at").notNull(),
+    editionId: uuid("edition_id").notNull(),
+    humanId: text("human_id").notNull(),
+    id: uuid("id").primaryKey(),
+    issuedAt: timestamp("issued_at").notNull(),
+    issuedBy: text("issued_by")
+      .notNull()
+      .references(() => user.id),
+    revokedAt: timestamp("revoked_at"),
+    revokedBy: text("revoked_by").references(() => user.id),
+    studentId: uuid("student_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_credential_tokenHash_uidx").on(table.tokenHash),
+    uniqueIndex("kalakriti_credential_active_studentId_uidx")
+      .on(table.studentId)
+      .where(sql`${table.revokedAt} IS NULL`),
+    index("kalakriti_credential_editionId_humanId_idx").on(
+      table.editionId,
+      table.humanId
+    ),
+    foreignKey({
+      columns: [table.editionId, table.studentId],
+      foreignColumns: [kalakritiStudent.editionId, kalakritiStudent.id],
+      name: "kalakriti_credential_edition_student_fk",
+    }).onDelete("cascade"),
+    check(
+      "kalakriti_credential_tokenHash_chk",
+      sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`
+    ),
+    check(
+      "kalakriti_credential_revocation_chk",
+      sql`(${table.revokedAt} IS NULL AND ${table.revokedBy} IS NULL)
+        OR (${table.revokedAt} IS NOT NULL AND ${table.revokedBy} IS NOT NULL)`
     ),
   ]
 );
@@ -627,6 +770,7 @@ export const kalakritiEditionRelations = relations(
       references: [user.id],
     }),
     memberships: many(kalakritiEditionMembership),
+    students: many(kalakritiStudent),
     teamEvent: one(teamEvent, {
       fields: [kalakritiEdition.teamEventId],
       references: [teamEvent.id],
@@ -687,18 +831,25 @@ export const kalakritiCenterRelations = relations(
     }),
     guardianCenters: many(kalakritiGuardianCenter),
     quotas: many(kalakritiCenterAgeQuota),
+    students: many(kalakritiStudent),
   })
 );
 
 export const kalakritiAgeCategoryRelations = relations(
   kalakritiAgeCategory,
   ({ many, one }) => ({
+    derivedStudents: many(kalakritiStudent, {
+      relationName: "kalakriti_student_derived_age_category",
+    }),
     edition: one(kalakritiEdition, {
       fields: [kalakritiAgeCategory.editionId],
       references: [kalakritiEdition.id],
     }),
     quotas: many(kalakritiCenterAgeQuota),
     sessions: many(kalakritiCompetitionSession),
+    students: many(kalakritiStudent, {
+      relationName: "kalakriti_student_age_category",
+    }),
   })
 );
 
@@ -716,6 +867,41 @@ export const kalakritiCenterAgeQuotaRelations = relations(
     edition: one(kalakritiEdition, {
       fields: [kalakritiCenterAgeQuota.editionId],
       references: [kalakritiEdition.id],
+    }),
+  })
+);
+
+export const kalakritiStudentRelations = relations(
+  kalakritiStudent,
+  ({ many, one }) => ({
+    ageCategory: one(kalakritiAgeCategory, {
+      fields: [kalakritiStudent.ageCategoryId],
+      references: [kalakritiAgeCategory.id],
+      relationName: "kalakriti_student_age_category",
+    }),
+    center: one(kalakritiCenter, {
+      fields: [kalakritiStudent.centerId],
+      references: [kalakritiCenter.id],
+    }),
+    credentials: many(kalakritiCredential),
+    derivedAgeCategory: one(kalakritiAgeCategory, {
+      fields: [kalakritiStudent.derivedAgeCategoryId],
+      references: [kalakritiAgeCategory.id],
+      relationName: "kalakriti_student_derived_age_category",
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiStudent.editionId],
+      references: [kalakritiEdition.id],
+    }),
+  })
+);
+
+export const kalakritiCredentialRelations = relations(
+  kalakritiCredential,
+  ({ one }) => ({
+    student: one(kalakritiStudent, {
+      fields: [kalakritiCredential.studentId],
+      references: [kalakritiStudent.id],
     }),
   })
 );

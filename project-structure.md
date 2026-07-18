@@ -84,6 +84,7 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and per-Center Student quotas |
 | `routes/_app/kalakriti/$year/competitions.tsx` | Edition Competition catalog, Venues, and scoped schedule; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
+| `routes/_app/kalakriti/$year/students.tsx` | Center-scoped Student registration, editing, and read-only lifecycle state |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
@@ -138,6 +139,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
+| `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, and Student registration forms and tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |

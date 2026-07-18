@@ -3,11 +3,18 @@ import {
   canManageKalakritiResponsibility,
   deriveKalakritiAgeCategory,
   findKalakritiAgeCategoryOverlap,
+  formatKalakritiStudentHumanId,
   hasValidKalakritiGroupRules,
   normalizeKalakritiCenterName,
   requireKalakritiAgeCategoryOverrideReason,
   validateKalakritiSessionSchedule,
 } from "./kalakriti";
+
+describe("formatKalakritiStudentHumanId", () => {
+  it("formats an Edition-scoped monotonic sequence", () => {
+    expect(formatKalakritiStudentHumanId(2027, 12)).toBe("KAL-2027-0012");
+  });
+});
 
 describe("canManageKalakritiResponsibility", () => {
   it("allows Edition Administrators to manage Edition roles", () => {
