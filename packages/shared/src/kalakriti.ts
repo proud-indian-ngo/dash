@@ -38,7 +38,6 @@ export const KALAKRITI_ASSIGNMENT_SCOPES = [
   "center",
   "competition_category",
   "competition",
-  "operational_team",
 ] as const;
 
 export type KalakritiAssignmentScope =

@@ -27,7 +27,12 @@ describe("Kalakriti domain constants", () => {
     ]);
     expect(KALAKRITI_MEMBERSHIP_KINDS).toEqual(["volunteer", "guardian"]);
     expect(KALAKRITI_MEMBERSHIP_STATES).toEqual(["active", "archived"]);
-    expect(KALAKRITI_ASSIGNMENT_SCOPES).toContain("operational_team");
+    expect(KALAKRITI_ASSIGNMENT_SCOPES).toEqual([
+      "edition",
+      "center",
+      "competition_category",
+      "competition",
+    ]);
     expect(KALAKRITI_OPERATIONAL_TEAMS).toEqual([
       "food",
       "transport",
