@@ -30,6 +30,7 @@
         "helpers/kalakriti-eligibility.ts",
         "helpers/kalakriti-guardian-race.ts",
         "helpers/kalakriti-lifecycle.ts",
+        "helpers/kalakriti-public-schedule.ts",
         "helpers/kalakriti-students.ts",
         "helpers/seed-dev-data.ts",
         "shard-by-duration.ts"
