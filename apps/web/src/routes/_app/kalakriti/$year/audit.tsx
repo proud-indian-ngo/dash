@@ -33,7 +33,7 @@ import {
 interface AuditResponse {
   allowedDomains: KalakritiAuditDomain[];
   items: KalakritiAuditRow[];
-  snapshot: null | { createdAt: string; id: string };
+  snapshotVersion: string;
   total: number;
 }
 
@@ -56,7 +56,7 @@ function KalakritiAuditPage() {
   const [resolvedRequestKey, setResolvedRequestKey] = useState<string | null>(
     null
   );
-  const snapshotRef = useRef<AuditResponse["snapshot"]>(null);
+  const snapshotVersionRef = useRef<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [domain, setDomain] = useQueryState(
     "auditDomain",
@@ -85,9 +85,8 @@ function KalakritiAuditPage() {
     if (domain) {
       params.set("domain", domain);
     }
-    if (snapshotRef.current) {
-      params.set("snapshotAt", snapshotRef.current.createdAt);
-      params.set("snapshotId", snapshotRef.current.id);
+    if (snapshotVersionRef.current) {
+      params.set("snapshotVersion", snapshotVersionRef.current);
     }
     fetch(`/api/kalakriti/${access.edition.year}/audit?${params.toString()}`)
       .then(async (response) => {
@@ -102,7 +101,7 @@ function KalakritiAuditPage() {
         }
         setRows(result.items);
         setTotal(result.total);
-        snapshotRef.current = result.snapshot;
+        snapshotVersionRef.current = result.snapshotVersion;
         setError(null);
         setResolvedRequestKey(requestKey);
       })
@@ -140,12 +139,12 @@ function KalakritiAuditPage() {
   ]);
 
   const handleDomainChange = useEventCallback((value: string) => {
-    snapshotRef.current = null;
+    snapshotVersionRef.current = null;
     setPagination({ pageIndex: 0 });
     setDomain(value);
   });
   const handleRefresh = useEventCallback(() => {
-    snapshotRef.current = null;
+    snapshotVersionRef.current = null;
     setPagination({ pageIndex: 0 });
     setRefreshKey((current) => current + 1);
   });
@@ -184,6 +183,7 @@ function KalakritiAuditPage() {
             onClearFilters={handleClearFilters}
             rowCount={total}
             rows={rows}
+            timeZone={access.edition.timezone}
             toolbarActions={
               <Button onClick={handleRefresh} size="sm" variant="outline">
                 <HugeiconsIcon

@@ -237,6 +237,22 @@ async function getCompetition(tx: CompetitionTx, id: string) {
     | undefined;
 }
 
+async function getCompetitionCategoryIds(
+  tx: CompetitionTx,
+  competitionIds: string[]
+) {
+  const competitions = await Promise.all(
+    competitionIds.map((competitionId) => getCompetition(tx, competitionId))
+  );
+  return [
+    ...new Set(
+      competitions.flatMap((competition) =>
+        competition ? [competition.competitionCategoryId] : []
+      )
+    ),
+  ].sort();
+}
+
 async function competitionHasEntries(
   tx: CompetitionTx,
   competitionId: string
@@ -920,6 +936,11 @@ export const kalakritiCompetitionMutators = {
         ctx,
         venue.editionId
       );
+      const impact = await getVenueScheduleImpact(tx, venue.id);
+      const competitionCategoryIds = await getCompetitionCategoryIds(
+        tx,
+        impact.competitionIds
+      );
       await tx.mutate.kalakritiVenue.update({
         id: venue.id,
         retiredAt: args.enabled ? args.now : null,
@@ -930,6 +951,10 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "schedule_configuration",
         editionId: venue.editionId,
+        metadata: {
+          competitionCategoryIds,
+          competitionIds: impact.competitionIds,
+        },
         now: args.now,
         targetId: venue.id,
         targetType: "venue",
@@ -1129,6 +1154,11 @@ export const kalakritiCompetitionMutators = {
       );
       const normalized = normalizeKalakritiConfigurationName(args.name);
       const publicScheduleChanged = normalized.name !== venue.name;
+      const impact = await getVenueScheduleImpact(tx, venue.id);
+      const competitionCategoryIds = await getCompetitionCategoryIds(
+        tx,
+        impact.competitionIds
+      );
       await tx.mutate.kalakritiVenue.update({
         id: venue.id,
         name: normalized.name,
@@ -1140,13 +1170,16 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "schedule_configuration",
         editionId: venue.editionId,
-        metadata: { name: normalized.name },
+        metadata: {
+          competitionCategoryIds,
+          competitionIds: impact.competitionIds,
+          name: normalized.name,
+        },
         now: args.now,
         targetId: venue.id,
         targetType: "venue",
       });
       if (edition.lifecycle !== "draft" && publicScheduleChanged) {
-        const impact = await getVenueScheduleImpact(tx, venue.id);
         pushKalakritiScheduleChangedTask(tx, ctx, {
           ...impact,
           editionId: venue.editionId,

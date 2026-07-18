@@ -19,7 +19,7 @@ function deps(
   access: KalakritiEditionAccess | null,
   getPage: AuditHandlerDeps["getPage"] = vi.fn(async () => ({
     items: [],
-    snapshot: null,
+    snapshotVersion: "100:100:",
     total: 0,
   })) as AuditHandlerDeps["getPage"]
 ): AuditHandlerDeps {
@@ -35,10 +35,51 @@ function deps(
 }
 
 describe("Kalakriti audit API", () => {
+  it("returns the session error without resolving audit access", async () => {
+    const testDeps = deps(null);
+    testDeps.getSession = vi.fn(async () => ({
+      error: Response.json({ error: "Unauthorized" }, { status: 401 }),
+    }));
+
+    const response = await handleKalakritiAuditRequest(
+      request(),
+      "2027",
+      testDeps
+    );
+
+    expect(response.status).toBe(401);
+    expect(testDeps.getAccess).not.toHaveBeenCalled();
+    expect(testDeps.getPage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { path: "/api/kalakriti/2027/audit?domain=unknown", year: "2027" },
+    { path: "/api/kalakriti/2027/audit?limit=9", year: "2027" },
+    { path: "/api/kalakriti/2027/audit?limit=101", year: "2027" },
+    { path: "/api/kalakriti/2027/audit?offset=-1", year: "2027" },
+    { path: "/api/kalakriti/2027/audit", year: "1999" },
+  ])(
+    "rejects an invalid audit query: $path ($year)",
+    async ({ path, year }) => {
+      const testDeps = deps(null);
+
+      const response = await handleKalakritiAuditRequest(
+        request(path),
+        year,
+        testDeps
+      );
+
+      expect(response.status).toBe(400);
+      expect(testDeps.getSession).not.toHaveBeenCalled();
+      expect(testDeps.getAccess).not.toHaveBeenCalled();
+      expect(testDeps.getPage).not.toHaveBeenCalled();
+    }
+  );
+
   it("returns the full Edition log scope to an Edition administrator", async () => {
     const getPage = vi.fn(async () => ({
       items: [],
-      snapshot: null,
+      snapshotVersion: "100:100:",
       total: 0,
     }));
     const response = await handleKalakritiAuditRequest(
@@ -71,7 +112,7 @@ describe("Kalakriti audit API", () => {
   it("passes only assigned Competition Category scope for a Category Lead", async () => {
     const getPage = vi.fn(async () => ({
       items: [],
-      snapshot: null,
+      snapshotVersion: "100:100:",
       total: 0,
     }));
     const response = await handleKalakritiAuditRequest(
@@ -132,10 +173,10 @@ describe("Kalakriti audit API", () => {
     expect(testDeps.getPage).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed and half-specified snapshot cursors", async () => {
+  it("rejects malformed snapshot versions", async () => {
     const testDeps = deps(null);
     const response = await handleKalakritiAuditRequest(
-      request("/api/kalakriti/2027/audit?snapshotAt=2027-01-01"),
+      request("/api/kalakriti/2027/audit?snapshotVersion=not-a-snapshot"),
       "2027",
       testDeps
     );
@@ -147,15 +188,12 @@ describe("Kalakriti audit API", () => {
   it("forwards the stable snapshot and page window on later pages", async () => {
     const getPage = vi.fn(async () => ({
       items: [],
-      snapshot: {
-        createdAt: "2027-01-01T00:00:00.000Z",
-        id: "00000000-0000-4000-8000-000000000099",
-      },
+      snapshotVersion: "100:110:105,106",
       total: 70,
     }));
     const response = await handleKalakritiAuditRequest(
       request(
-        "/api/kalakriti/2027/audit?limit=25&offset=50&snapshotAt=2027-01-01T00%3A00%3A00.000Z&snapshotId=00000000-0000-4000-8000-000000000099"
+        "/api/kalakriti/2027/audit?limit=25&offset=50&snapshotVersion=100%3A110%3A105%2C106"
       ),
       "2027",
       deps(
@@ -173,10 +211,7 @@ describe("Kalakriti audit API", () => {
       expect.objectContaining({
         limit: 25,
         offset: 50,
-        snapshot: {
-          createdAt: new Date("2027-01-01T00:00:00.000Z"),
-          id: "00000000-0000-4000-8000-000000000099",
-        },
+        snapshotVersion: "100:110:105,106",
       })
     );
   });

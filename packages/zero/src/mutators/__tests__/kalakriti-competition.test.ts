@@ -603,10 +603,11 @@ describe("kalakritiCompetition commands", () => {
       fn: () => Promise<void>;
       meta: Record<string, unknown>;
     }> = [];
-    const { lockedResults, tx } = createTx([
+    const { lockedResults, spies, tx } = createTx([
       venue,
       [{ competitionId: competition.id }],
       [{ centerId: "center-1" }],
+      competition,
     ]);
     lockedResults.push([{ ...edition, lifecycle: "registration_open" }]);
 
@@ -630,6 +631,16 @@ describe("kalakritiCompetition commands", () => {
         competitionIds: [competition.id],
         editionId: edition.id,
         revision: "venue-name-audit",
+      })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          competitionCategoryIds: [competition.competitionCategoryId],
+          competitionIds: [competition.id],
+          name: "Main Auditorium",
+        },
+        targetType: "venue",
       })
     );
   });
