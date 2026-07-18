@@ -32,7 +32,10 @@ import {
 } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
-import { getIndividualEntryValidationError } from "@/lib/kalakriti-entry-policy";
+import {
+  getGroupEntryValidationErrors,
+  getIndividualEntryValidationError,
+} from "@/lib/kalakriti-entry-policy";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export interface KalakritiEntryStudent {
@@ -57,6 +60,8 @@ export interface KalakritiEntrySession {
     competitionCategoryId: string;
     genderEligibility: "both" | "female" | "male";
     id: string;
+    maximumGroupSize: number;
+    minimumGroupSize: number;
     name: string;
     participationMode: "group" | "individual";
   };
@@ -82,6 +87,7 @@ interface EntryFormDialogProps {
   centerId: string;
   editionId: string;
   entries: readonly KalakritiEntryRow[];
+  entry?: KalakritiEntryRow;
   fixedSession?: KalakritiEntrySession;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -94,6 +100,12 @@ const entryFormSchema = z.object({
   studentIds: z.array(z.string()).min(1, "Choose at least one Student"),
 });
 
+function selectSessionId(state: {
+  values: { sessionId: string; studentIds: string[] };
+}): string {
+  return state.values.sessionId;
+}
+
 function sessionOptionLabel(
   session: KalakritiEntrySession,
   includeCompetition: boolean
@@ -101,6 +113,9 @@ function sessionOptionLabel(
   const remaining = Math.max(0, session.capacity - session.entries.length);
   return [
     ...(includeCompetition ? [session.competition.name] : []),
+    session.competition.participationMode === "group"
+      ? `Group of ${session.competition.minimumGroupSize}–${session.competition.maximumGroupSize}`
+      : "Individual",
     session.ageCategory.name,
     `${format(new Date(session.startAt), "dd MMM, h:mm a")}–${format(new Date(session.endAt), "h:mm a")}`,
     session.venue.name,
@@ -109,17 +124,29 @@ function sessionOptionLabel(
 }
 
 function StudentCombobox({
+  description,
+  label,
+  maximum,
   students,
 }: {
+  description: string;
+  label: string;
+  maximum: number;
   students: readonly KalakritiEntryStudent[];
 }) {
   const form = useResolvedForm(undefined, "StudentCombobox");
 
   return (
-    <CustomField<string[]> isRequired label="Students" name="studentIds">
+    <CustomField<string[]>
+      description={description}
+      isRequired
+      label={label}
+      name="studentIds"
+    >
       {(field) => (
         <StudentComboboxControl
           field={field}
+          maximum={maximum}
           students={students}
           submitted={form.state.submissionAttempts > 0}
         />
@@ -130,10 +157,12 @@ function StudentCombobox({
 
 function StudentComboboxControl({
   field,
+  maximum,
   students,
   submitted,
 }: {
   field: FormFieldApi<string[]>;
+  maximum: number;
   students: readonly KalakritiEntryStudent[];
   submitted: boolean;
 }) {
@@ -150,7 +179,7 @@ function StudentComboboxControl({
       )
     : students;
   const handleValueChange = useEventCallback((studentIds: string[]) =>
-    field.handleChange(studentIds)
+    field.handleChange(studentIds.slice(0, maximum))
   );
 
   return (
@@ -170,9 +199,14 @@ function StudentComboboxControl({
         ))}
         <ComboboxChipsInput
           aria-required="true"
+          disabled={field.state.value.length >= maximum}
           id={field.name}
           onBlur={field.handleBlur}
-          placeholder="Search eligible Students..."
+          placeholder={
+            field.state.value.length >= maximum
+              ? `Maximum ${maximum} selected`
+              : "Search eligible Students..."
+          }
         />
       </ComboboxChips>
       <ComboboxContent anchor={anchorRef}>
@@ -197,6 +231,7 @@ function EntryForm({
   centerId,
   editionId,
   entries,
+  entry,
   fixedSession,
   onOpenChange,
   sessions,
@@ -211,6 +246,29 @@ function EntryForm({
     if (!session) {
       return;
     }
+    const selectedStudents = value.studentIds.flatMap((studentId) => {
+      const student = studentMap.get(studentId);
+      return student ? [student] : [];
+    });
+    if (selectedStudents.length !== value.studentIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: "One or more selected Students are no longer available",
+        path: ["studentIds"],
+      });
+      return;
+    }
+    if (session.competition.participationMode === "group") {
+      for (const message of getGroupEntryValidationErrors({
+        editingEntryId: entry?.id,
+        entries,
+        session,
+        students: selectedStudents,
+      })) {
+        context.addIssue({ code: "custom", message, path: ["studentIds"] });
+      }
+      return;
+    }
     const remainingCapacity = session.capacity - session.entries.length;
     if (value.studentIds.length > remainingCapacity) {
       context.addIssue({
@@ -220,11 +278,7 @@ function EntryForm({
       });
       return;
     }
-    for (const studentId of value.studentIds) {
-      const student = studentMap.get(studentId);
-      if (!student) {
-        continue;
-      }
+    for (const student of selectedStudents) {
       const message = getIndividualEntryValidationError({
         entries,
         session,
@@ -242,11 +296,66 @@ function EntryForm({
   });
   const form = useForm({
     defaultValues: {
-      sessionId: fixedSession?.id ?? "",
-      studentIds: [] as string[],
+      sessionId: entry?.sessionId ?? fixedSession?.id ?? "",
+      studentIds: entry?.members.map((member) => member.studentId) ?? [],
     },
     onSubmit: async ({ value }) => {
+      const session = sessions.find(
+        (candidate) => candidate.id === value.sessionId
+      );
+      if (!session) {
+        return;
+      }
       const now = Date.now();
+      if (entry) {
+        const result = await zero.mutate(
+          mutators.kalakritiEntry.replaceGroupMembers({
+            auditEntryId: uuidv7(),
+            entryId: entry.id,
+            members: value.studentIds.map((studentId) => ({
+              memberId: uuidv7(),
+              studentId,
+            })),
+            now,
+          })
+        ).server;
+        handleMutationResult(result, {
+          entityId: entry.id,
+          errorMsg: "Failed to update Competition group",
+          mutation: "kalakritiEntry.replaceGroupMembers",
+          successMsg: "Competition group updated",
+        });
+        if (result.type !== "error") {
+          onOpenChange(false);
+        }
+        return;
+      }
+      if (session.competition.participationMode === "group") {
+        const result = await zero.mutate(
+          mutators.kalakritiEntry.createGroup({
+            auditEntryId: uuidv7(),
+            centerId,
+            editionId,
+            entryId: uuidv7(),
+            members: value.studentIds.map((studentId) => ({
+              memberId: uuidv7(),
+              studentId,
+            })),
+            now,
+            sessionId: value.sessionId,
+          })
+        ).server;
+        handleMutationResult(result, {
+          entityId: value.sessionId,
+          errorMsg: "Failed to register Competition group",
+          mutation: "kalakritiEntry.createGroup",
+          successMsg: "Competition group registered",
+        });
+        if (result.type !== "error") {
+          onOpenChange(false);
+        }
+        return;
+      }
       const results = await Promise.all(
         value.studentIds.map(
           (studentId) =>
@@ -284,8 +393,7 @@ function EntryForm({
 
   return (
     <FormLayout form={form} showSubmitError>
-      <StudentCombobox students={students} />
-      {fixedSession ? null : (
+      {fixedSession || entry ? null : (
         <SelectField
           description="Availability is rechecked when you submit, so a place cannot be overbooked."
           isRequired
@@ -298,10 +406,43 @@ function EntryForm({
           placeholder="Choose Session"
         />
       )}
+      <form.Subscribe selector={selectSessionId}>
+        {(sessionId) => {
+          const session = sessions.find(
+            (candidate) => candidate.id === sessionId
+          );
+          const isGroup =
+            session?.competition.participationMode === "group";
+          const maximum = isGroup
+            ? (session?.competition.maximumGroupSize ?? 1)
+            : Math.max(
+                1,
+                (session?.capacity ?? 1) - (session?.entries.length ?? 0)
+              );
+          return (
+            <StudentCombobox
+              description={
+                isGroup
+                  ? `Select ${session?.competition.minimumGroupSize ?? 1} to ${maximum} Students. Every member is checked against eligibility, limits, and schedule conflicts.`
+                  : "Select one or more eligible Students for this Session."
+              }
+              label={isGroup ? "Group members" : "Students"}
+              maximum={maximum}
+              students={students}
+            />
+          );
+        }}
+      </form.Subscribe>
       <FormActions
         onCancel={handleCancel}
-        submitLabel="Register Entries"
-        submittingLabel="Registering Entries..."
+        submitLabel={
+          entry
+            ? "Save Group"
+            : fixedSession?.competition.participationMode === "group"
+              ? "Register Group"
+              : "Register Entries"
+        }
+        submittingLabel={entry ? "Saving..." : "Registering..."}
       />
     </FormLayout>
   );
@@ -320,11 +461,19 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
       <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Register Competition Entries</DialogTitle>
+          <DialogTitle>
+            {props.entry
+              ? "Edit Competition Group"
+              : props.fixedSession?.competition.participationMode === "group"
+                ? "Register Competition Group"
+                : "Register Competition Entries"}
+          </DialogTitle>
           <DialogDescription>
-            {props.fixedSession
-              ? `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`
-              : "Choose eligible Students and an individual Competition Session."}
+            {props.entry
+              ? "Update the Students in this group. The existing group remains unchanged if validation fails."
+              : props.fixedSession
+                ? `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`
+                : "Choose eligible Students and a Competition Session."}
           </DialogDescription>
         </DialogHeader>
         <EntryForm key={formKey} {...props} />
