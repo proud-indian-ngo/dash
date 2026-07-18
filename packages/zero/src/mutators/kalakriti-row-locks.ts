@@ -25,10 +25,13 @@ export interface LockedCenter {
 }
 
 export interface LockedEdition {
+  ageCutoffDate: string;
   eventDate: string;
   id: string;
   lifecycle: string;
+  nextStudentSequence: number;
   timezone: string;
+  year: number;
 }
 
 export interface LockedAgeCategory {
@@ -53,6 +56,22 @@ export interface LockedGuardianCenter {
   membershipId: string;
 }
 
+export interface LockedStudent {
+  ageCategoryId: string;
+  ageCategoryOverrideAt: number | null;
+  ageCategoryOverrideBy: string | null;
+  ageCategoryOverrideReason: string | null;
+  centerId: string;
+  dateOfBirth: string;
+  derivedAgeCategoryId: string;
+  editionId: string;
+  gender: "female" | "male";
+  humanId: string;
+  id: string;
+  name: string;
+  normalizedName: string;
+}
+
 function normalizeEditionEventDate(value: Date | number | string): string {
   if (typeof value === "string") {
     return value;
@@ -60,16 +79,35 @@ function normalizeEditionEventDate(value: Date | number | string): string {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function normalizeTimestamp(
+  value: Date | number | string | null
+): number | null {
+  if (value === null) {
+    return null;
+  }
+  return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
+
 function normalizeEdition(edition: {
+  ageCutoffDate?: Date | number | string;
   eventDate: Date | number | string;
   id: string;
   lifecycle: string;
+  nextStudentSequence?: number;
   timezone: string;
+  year?: number;
 }): LockedEdition {
+  const normalizedAgeCutoff =
+    edition.ageCutoffDate === undefined
+      ? {}
+      : {
+          ageCutoffDate: normalizeEditionEventDate(edition.ageCutoffDate),
+        };
   return {
     ...edition,
+    ...normalizedAgeCutoff,
     eventDate: normalizeEditionEventDate(edition.eventDate),
-  };
+  } as LockedEdition;
 }
 
 function requireServerTransaction(tx: LockableKalakritiTx) {
@@ -130,7 +168,8 @@ export async function getEditionForUpdate(
     const edition = (await tx.run(
       zql.kalakritiEdition.where("id", editionId).one()
     )) as
-      | (Omit<LockedEdition, "eventDate"> & {
+      | (Omit<LockedEdition, "ageCutoffDate" | "eventDate"> & {
+          ageCutoffDate?: Date | number | string;
           eventDate: Date | number | string;
         })
       | undefined;
@@ -143,10 +182,13 @@ export async function getEditionForUpdate(
   ]);
   const [edition] = await requireServerTransaction(tx)
     .select({
+      ageCutoffDate: kalakritiEdition.ageCutoffDate,
       eventDate: kalakritiEdition.eventDate,
       id: kalakritiEdition.id,
       lifecycle: kalakritiEdition.lifecycle,
+      nextStudentSequence: kalakritiEdition.nextStudentSequence,
       timezone: kalakritiEdition.timezone,
+      year: kalakritiEdition.year,
     })
     .from(kalakritiEdition)
     .where(eq(kalakritiEdition.id, editionId))
@@ -292,4 +334,55 @@ export async function getGuardianCenterForUpdate(
     .where(eq(kalakritiGuardianCenter.id, guardianCenterId))
     .for("update");
   return assignment;
+}
+
+export async function getStudentForUpdate(
+  tx: LockableKalakritiTx,
+  studentId: string
+): Promise<LockedStudent | undefined> {
+  if (tx.location === "client") {
+    const student = (await tx.run(
+      zql.kalakritiStudent.where("id", studentId).one()
+    )) as
+      | (Omit<LockedStudent, "dateOfBirth"> & { dateOfBirth: number })
+      | undefined;
+    return student
+      ? {
+          ...student,
+          dateOfBirth: normalizeEditionEventDate(student.dateOfBirth),
+        }
+      : undefined;
+  }
+
+  const [{ kalakritiStudent }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/kalakriti"),
+    import("drizzle-orm"),
+  ]);
+  const [student] = await requireServerTransaction(tx)
+    .select({
+      ageCategoryId: kalakritiStudent.ageCategoryId,
+      ageCategoryOverrideAt: kalakritiStudent.ageCategoryOverrideAt,
+      ageCategoryOverrideBy: kalakritiStudent.ageCategoryOverrideBy,
+      ageCategoryOverrideReason: kalakritiStudent.ageCategoryOverrideReason,
+      centerId: kalakritiStudent.centerId,
+      dateOfBirth: kalakritiStudent.dateOfBirth,
+      derivedAgeCategoryId: kalakritiStudent.derivedAgeCategoryId,
+      editionId: kalakritiStudent.editionId,
+      gender: kalakritiStudent.gender,
+      humanId: kalakritiStudent.humanId,
+      id: kalakritiStudent.id,
+      name: kalakritiStudent.name,
+      normalizedName: kalakritiStudent.normalizedName,
+    })
+    .from(kalakritiStudent)
+    .where(eq(kalakritiStudent.id, studentId))
+    .for("update");
+  return student
+    ? {
+        ...student,
+        ageCategoryOverrideAt: normalizeTimestamp(
+          student.ageCategoryOverrideAt
+        ),
+      }
+    : undefined;
 }

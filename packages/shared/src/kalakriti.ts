@@ -201,6 +201,26 @@ export function normalizeKalakritiAgeCategoryName(name: string): {
   return normalizeKalakritiName(name);
 }
 
+export function normalizeKalakritiStudentName(name: string): {
+  name: string;
+  normalizedName: string;
+} {
+  return normalizeKalakritiName(name);
+}
+
+export function formatKalakritiStudentHumanId(
+  year: number,
+  sequence: number
+): string {
+  if (!(Number.isInteger(year) && year >= 2000 && year <= 2200)) {
+    throw new Error("Edition year is invalid");
+  }
+  if (!(Number.isInteger(sequence) && sequence > 0)) {
+    throw new Error("Student sequence must be positive");
+  }
+  return `KAL-${year}-${String(sequence).padStart(4, "0")}`;
+}
+
 export function requireKalakritiAgeCategoryOverrideReason(
   reason: string
 ): string {
