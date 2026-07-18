@@ -2,6 +2,7 @@ import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 import { describe, expect, it } from "vitest";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import {
+  getKalakritiAuditViewKey,
   resolveKalakritiAuditScope,
   sanitizeKalakritiAuditMetadata,
 } from "./kalakriti-audit-policy";
@@ -59,8 +60,93 @@ describe("Kalakriti audit policy", () => {
     });
   });
 
+  it.each([
+    {
+      domains: ["competition_configuration", "schedule_configuration"],
+      responsibility: "overall_events_lead" as const,
+    },
+    {
+      domains: ["volunteer_assignment"],
+      responsibility: "volunteer_coordinator" as const,
+    },
+  ])(
+    "gives $responsibility its unrestricted assigned domains",
+    ({ domains, responsibility }) => {
+      expect(
+        resolveKalakritiAuditScope(
+          access(
+            [responsibility],
+            [
+              {
+                centerId: null,
+                competitionCategoryId: null,
+                competitionId: null,
+                responsibility,
+              },
+            ]
+          )
+        )
+      ).toEqual({
+        categoryScopedDomains: [],
+        competitionCategoryIds: [],
+        domains,
+        fullEdition: false,
+      });
+    }
+  );
+
   it("does not expose an audit view to ordinary assigned members", () => {
     expect(resolveKalakritiAuditScope(access(["liaison"]))).toBeNull();
+  });
+
+  it("limits archived Edition audit data to global administrators", () => {
+    const editionAdmin = access(["edition_admin"]);
+    editionAdmin.edition = {
+      ...editionAdmin.edition,
+      lifecycle: "archived",
+    };
+    const globalAdmin = {
+      ...editionAdmin,
+      isGlobalAdmin: true,
+      membership: null,
+    };
+
+    expect(resolveKalakritiAuditScope(editionAdmin)).toBeNull();
+    expect(resolveKalakritiAuditScope(globalAdmin)).toMatchObject({
+      fullEdition: true,
+    });
+  });
+
+  it("changes the view key when the Edition or authorized categories change", () => {
+    const categoryLead = (editionId: string, competitionCategoryId: string) => {
+      const categoryAccess = access(
+        ["competition_category_lead"],
+        [
+          {
+            centerId: null,
+            competitionCategoryId,
+            competitionId: null,
+            responsibility: "competition_category_lead",
+          },
+        ]
+      );
+      categoryAccess.edition = {
+        ...categoryAccess.edition,
+        id: editionId,
+      };
+      return categoryAccess;
+    };
+
+    const firstKey = getKalakritiAuditViewKey(
+      categoryLead("edition-1", "category-1")
+    );
+
+    expect(
+      getKalakritiAuditViewKey(categoryLead("edition-1", "category-2"))
+    ).not.toBe(firstKey);
+    expect(
+      getKalakritiAuditViewKey(categoryLead("edition-2", "category-1"))
+    ).not.toBe(firstKey);
   });
 
   it("removes private Student profile fields from legacy metadata", () => {

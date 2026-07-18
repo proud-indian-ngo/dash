@@ -31,6 +31,19 @@ export interface KalakritiAuditScope {
   fullEdition: boolean;
 }
 
+export function getKalakritiAuditViewKey(access: KalakritiEditionAccess) {
+  const scope = resolveKalakritiAuditScope(access);
+  return JSON.stringify({
+    categoryScopedDomains: scope ? [...scope.categoryScopedDomains].sort() : [],
+    competitionCategoryIds: scope
+      ? [...scope.competitionCategoryIds].sort()
+      : [],
+    domains: scope ? [...scope.domains].sort() : [],
+    editionId: access.edition.id,
+    fullEdition: scope ? scope.fullEdition : false,
+  });
+}
+
 export function resolveKalakritiAuditScope(
   access: KalakritiEditionAccess
 ): KalakritiAuditScope | null {
@@ -41,6 +54,9 @@ export function resolveKalakritiAuditScope(
       domains: [...KALAKRITI_AUDIT_DOMAINS],
       fullEdition: true,
     };
+  }
+  if (access.edition.lifecycle === "archived") {
+    return null;
   }
 
   const { membership } = access;
@@ -123,7 +139,16 @@ const SAFE_AUDIT_METADATA_KEYS = new Set([
   "venueId",
 ]);
 
-function sanitizeValue(value: unknown): unknown {
+const COMPETITION_IDENTIFIER_KEYS = new Set([
+  "competitionId",
+  "competitionIds",
+]);
+const OMIT_AUDIT_METADATA_VALUE = Symbol("omit-audit-metadata-value");
+
+function sanitizeValue(
+  value: unknown,
+  allowedCompetitionCategoryIds: ReadonlySet<string> | null
+): unknown {
   if (
     value === null ||
     typeof value === "boolean" ||
@@ -133,16 +158,52 @@ function sanitizeValue(value: unknown): unknown {
     return value;
   }
   if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
+    return value.map((item) =>
+      sanitizeValue(item, allowedCompetitionCategoryIds)
+    );
   }
   if (typeof value !== "object") {
     return;
   }
-  return sanitizeKalakritiAuditMetadata(value as Record<string, unknown>);
+  return sanitizeMetadata(
+    value as Record<string, unknown>,
+    allowedCompetitionCategoryIds
+  );
 }
 
-export function sanitizeKalakritiAuditMetadata(
-  metadata: Record<string, unknown> | null
+function sanitizeMetadataValue(
+  key: string,
+  value: unknown,
+  allowedCompetitionCategoryIds: ReadonlySet<string> | null
+) {
+  if (!allowedCompetitionCategoryIds) {
+    return sanitizeValue(value, null);
+  }
+  if (COMPETITION_IDENTIFIER_KEYS.has(key)) {
+    return OMIT_AUDIT_METADATA_VALUE;
+  }
+  if (key === "competitionCategoryId") {
+    return typeof value === "string" && allowedCompetitionCategoryIds.has(value)
+      ? value
+      : OMIT_AUDIT_METADATA_VALUE;
+  }
+  if (key === "competitionCategoryIds") {
+    if (!Array.isArray(value)) {
+      return OMIT_AUDIT_METADATA_VALUE;
+    }
+    const categoryIds = value.filter(
+      (categoryId): categoryId is string =>
+        typeof categoryId === "string" &&
+        allowedCompetitionCategoryIds.has(categoryId)
+    );
+    return categoryIds.length > 0 ? categoryIds : OMIT_AUDIT_METADATA_VALUE;
+  }
+  return sanitizeValue(value, allowedCompetitionCategoryIds);
+}
+
+function sanitizeMetadata(
+  metadata: Record<string, unknown> | null,
+  allowedCompetitionCategoryIds: ReadonlySet<string> | null
 ): Record<string, unknown> | null {
   if (!metadata) {
     return null;
@@ -152,10 +213,29 @@ export function sanitizeKalakritiAuditMetadata(
     if (!SAFE_AUDIT_METADATA_KEYS.has(key)) {
       continue;
     }
-    const safeValue = sanitizeValue(value);
+    const safeValue = sanitizeMetadataValue(
+      key,
+      value,
+      allowedCompetitionCategoryIds
+    );
+    if (safeValue === OMIT_AUDIT_METADATA_VALUE) {
+      continue;
+    }
     if (safeValue !== undefined) {
       sanitized[key] = safeValue;
     }
   }
   return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
+export function sanitizeKalakritiAuditMetadata(
+  metadata: Record<string, unknown> | null,
+  allowedCompetitionCategoryIds?: readonly string[]
+): Record<string, unknown> | null {
+  return sanitizeMetadata(
+    metadata,
+    allowedCompetitionCategoryIds
+      ? new Set(allowedCompetitionCategoryIds)
+      : null
+  );
 }

@@ -24,9 +24,12 @@ import {
   type KalakritiAuditRow,
   KalakritiAuditTable,
 } from "@/components/kalakriti/audit-table";
+import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import {
   formatAuditLabel,
+  getKalakritiAuditViewKey,
   type KalakritiAuditDomain,
+  type KalakritiAuditScope,
   resolveKalakritiAuditScope,
 } from "@/lib/kalakriti-audit-policy";
 
@@ -43,13 +46,36 @@ export const Route = createFileRoute("/_app/kalakriti/$year/audit")({
       throw notFound();
     }
   },
-  component: KalakritiAuditPage,
+  component: KalakritiAuditRoute,
 });
 
-function KalakritiAuditPage() {
+function KalakritiAuditRoute() {
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const scope = resolveKalakritiAuditScope(access);
-  const hasScope = scope !== null;
+  if (!scope) {
+    throw notFound();
+  }
+  const viewKey = getKalakritiAuditViewKey(access);
+
+  return (
+    <KalakritiAuditPage
+      access={access}
+      key={viewKey}
+      scope={scope}
+      viewKey={viewKey}
+    />
+  );
+}
+
+function KalakritiAuditPage({
+  access,
+  scope,
+  viewKey,
+}: {
+  access: KalakritiEditionAccess;
+  scope: KalakritiAuditScope;
+  viewKey: string;
+}) {
   const [rows, setRows] = useState<KalakritiAuditRow[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -69,11 +95,39 @@ function KalakritiAuditPage() {
     },
     { urlKeys: { pageIndex: "page", pageSize: "size" } }
   );
-  const requestKey = `${domain}:${pageIndex}:${pageSize}:${refreshKey}`;
+  const [isViewReady, setIsViewReady] = useState(pageIndex === 0);
+  const requestedDomain = scope.domains.some((value) => value === domain)
+    ? domain
+    : "";
+  const requestKey = `${viewKey}:${requestedDomain}:${pageIndex}:${pageSize}:${refreshKey}`;
   const isLoading = resolvedRequestKey !== requestKey;
 
   useEffect(() => {
-    if (!hasScope) {
+    if (isViewReady) {
+      return;
+    }
+    snapshotVersionRef.current = null;
+    let cancelled = false;
+    setPagination({ pageIndex: 0 }).then(() => {
+      if (!cancelled) {
+        setIsViewReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isViewReady, setPagination]);
+
+  useEffect(() => {
+    if (domain && !requestedDomain) {
+      snapshotVersionRef.current = null;
+      setPagination({ pageIndex: 0 });
+      setDomain("");
+    }
+  }, [domain, requestedDomain, setDomain, setPagination]);
+
+  useEffect(() => {
+    if (!isViewReady) {
       return;
     }
     let cancelled = false;
@@ -82,8 +136,8 @@ function KalakritiAuditPage() {
       offset: String(pageIndex * pageSize),
       refresh: String(refreshKey),
     });
-    if (domain) {
-      params.set("domain", domain);
+    if (requestedDomain) {
+      params.set("domain", requestedDomain);
     }
     if (snapshotVersionRef.current) {
       params.set("snapshotVersion", snapshotVersionRef.current);
@@ -130,12 +184,12 @@ function KalakritiAuditPage() {
   }, [
     access.edition.id,
     access.edition.year,
-    domain,
     pageIndex,
     pageSize,
     refreshKey,
     requestKey,
-    hasScope,
+    requestedDomain,
+    isViewReady,
   ]);
 
   const handleDomainChange = useEventCallback((value: string) => {
@@ -150,12 +204,10 @@ function KalakritiAuditPage() {
   });
   const handleClearFilters = useEventCallback(() => handleDomainChange(""));
 
-  const domainOptions = scope
-    ? scope.domains.map((value) => ({
-        label: formatAuditLabel(value),
-        value,
-      }))
-    : [];
+  const domainOptions = scope.domains.map((value) => ({
+    label: formatAuditLabel(value),
+    value,
+  }));
 
   return (
     <div className="pt-6">
@@ -163,7 +215,7 @@ function KalakritiAuditPage() {
         <CardHeader>
           <CardTitle>Audit trail</CardTitle>
           <CardDescription>
-            {scope?.fullEdition
+            {scope.fullEdition
               ? "Review security-sensitive changes across this Edition."
               : "Review changes within your assigned Kalakriti domain."}
           </CardDescription>
@@ -178,7 +230,7 @@ function KalakritiAuditPage() {
             </div>
           ) : null}
           <KalakritiAuditTable
-            hasActiveFilters={Boolean(domain)}
+            hasActiveFilters={Boolean(requestedDomain)}
             isLoading={isLoading}
             onClearFilters={handleClearFilters}
             rowCount={total}
@@ -199,7 +251,7 @@ function KalakritiAuditPage() {
                 label="Domain"
                 onChange={handleDomainChange}
                 options={domainOptions}
-                value={domain}
+                value={requestedDomain}
               />
             }
           />

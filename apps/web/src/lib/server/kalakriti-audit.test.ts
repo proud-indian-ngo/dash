@@ -25,6 +25,7 @@ import {
   buildKalakritiAuditItemsQuery,
   buildKalakritiAuditWhereCondition,
   getKalakritiAuditPage,
+  sanitizeKalakritiAuditPageMetadata,
 } from "./kalakriti-audit";
 
 const dialect = new PgDialect();
@@ -125,6 +126,50 @@ describe("Kalakriti audit query", () => {
     expect(query.sql).toContain("competitionCategoryId");
     expect(query.sql).toContain("competitionCategoryIds");
     expect(query.params).toContain("category-1");
+  });
+
+  it("redacts identifiers outside a Category Lead's audit scope", () => {
+    expect(
+      sanitizeKalakritiAuditPageMetadata(
+        {
+          competitionCategoryId: "category-2",
+          competitionCategoryIds: ["category-1", "category-2"],
+          competitionId: "competition-2",
+          competitionIds: ["competition-1", "competition-2"],
+          controls: {
+            competitionCategoryId: "category-2",
+            competitionId: "competition-2",
+          },
+          venueId: "venue-1",
+        },
+        {
+          categoryScopedDomains: ["schedule_configuration"],
+          competitionCategoryIds: ["category-1"],
+          domains: ["schedule_configuration"],
+          fullEdition: false,
+        },
+        "schedule_configuration"
+      )
+    ).toEqual({
+      competitionCategoryIds: ["category-1"],
+      controls: null,
+      venueId: "venue-1",
+    });
+  });
+
+  it("keeps complete identifiers for unrestricted audit domains", () => {
+    const metadata = {
+      competitionCategoryIds: ["category-1", "category-2"],
+      competitionIds: ["competition-1", "competition-2"],
+    };
+
+    expect(
+      sanitizeKalakritiAuditPageMetadata(
+        metadata,
+        adminScope,
+        "schedule_configuration"
+      )
+    ).toEqual(metadata);
   });
 
   it("rejects domains outside the resolved Lead scope", () => {
