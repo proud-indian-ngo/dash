@@ -309,6 +309,65 @@ describe("kalakritiCompetition commands", () => {
     expect(spies.updateSession).not.toHaveBeenCalled();
   });
 
+  it("allows Session time and Venue changes after registration is locked", async () => {
+    const session = {
+      ageCategoryId: "age-1",
+      cancelledAt: null,
+      capacity: 20,
+      competitionId: competition.id,
+      editionId: edition.id,
+      endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+      id: "session-1",
+      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+      venueId: venue.id,
+    };
+    const nextVenue = { ...venue, id: "venue-2", name: "Second Hall" };
+    const nextStartAt = Date.parse("2027-11-21T06:30:00.000Z");
+    const nextEndAt = Date.parse("2027-11-21T07:30:00.000Z");
+    const { lockedResults, spies, tx } = createTx([
+      session,
+      competition,
+      { editionId: edition.id, id: "age-1" },
+      nextVenue,
+      [],
+    ]);
+    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
+
+    await kalakritiCompetitionMutators.updateSession.fn({
+      args: {
+        ...session,
+        auditEntryId: "audit-1",
+        endAt: nextEndAt,
+        now: 1,
+        sessionId: session.id,
+        startAt: nextStartAt,
+        venueId: nextVenue.id,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiCompetitionMutators.updateSession.fn
+    >[0]);
+
+    expect(spies.updateSession).toHaveBeenCalledWith({
+      ageCategoryId: session.ageCategoryId,
+      capacity: session.capacity,
+      competitionId: session.competitionId,
+      endAt: nextEndAt,
+      id: session.id,
+      startAt: nextStartAt,
+      updatedAt: 1,
+      venueId: nextVenue.id,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "updated",
+        targetId: session.id,
+        targetType: "competition_session",
+      })
+    );
+  });
+
   it("allows Competition cancellation after registration is locked", async () => {
     const { lockedResults, spies, tx } = createTx([competition]);
     lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);

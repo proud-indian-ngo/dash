@@ -36,6 +36,109 @@ function idMap(rows: readonly { id: string }[]) {
   return rows.map((row) => ({ sourceId: row.id, targetId: uuidv7() }));
 }
 
+function retryFailedQueries(
+  results: readonly { retry?: () => void; type: string }[]
+) {
+  for (const result of results) {
+    if (result.type === "error") {
+      result.retry?.();
+    }
+  }
+}
+
+type CloneCardAvailability = "hidden" | "query_error" | "ready";
+
+function getCloneCardAvailability({
+  editionsResultType,
+  lifecycle,
+  sourceOptionCount,
+  targetHasStructure,
+  targetIsAvailable,
+  targetResultType,
+}: {
+  editionsResultType: string;
+  lifecycle: string;
+  sourceOptionCount: number;
+  targetHasStructure: boolean;
+  targetIsAvailable: boolean;
+  targetResultType: string;
+}): CloneCardAvailability {
+  if (lifecycle !== "draft") {
+    return "hidden";
+  }
+  if (editionsResultType === "error" || targetResultType === "error") {
+    return "query_error";
+  }
+  if (
+    sourceOptionCount === 0 ||
+    targetResultType !== "complete" ||
+    !targetIsAvailable ||
+    targetHasStructure
+  ) {
+    return "hidden";
+  }
+  return "ready";
+}
+
+function CloneCardUnavailable({
+  availability,
+  onRetry,
+}: {
+  availability: Exclude<CloneCardAvailability, "ready">;
+  onRetry: () => void;
+}) {
+  if (availability === "hidden") {
+    return null;
+  }
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle>Reuse yearly structure</CardTitle>
+        <CardDescription>
+          Start from a prior Edition without copying Centers, Sessions, people,
+          assignments, or registrations.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3" role="alert">
+        <p className="font-medium">
+          Edition configuration could not be loaded.
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Check your connection and try again.
+        </p>
+        <Button onClick={onRetry} type="button" variant="outline">
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CloneSourceError({
+  editionName,
+  onRetry,
+  visible,
+}: {
+  editionName: string;
+  onRetry: () => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div className="space-y-3" role="alert">
+      <p className="font-medium">{editionName} could not be loaded.</p>
+      <p className="text-muted-foreground text-sm">
+        Check your connection and try again.
+      </p>
+      <Button onClick={onRetry} type="button" variant="outline">
+        Retry
+      </Button>
+    </div>
+  );
+}
+
 function CloneSourceForm({
   editions,
   onCancel,
@@ -85,7 +188,9 @@ export function EditionCloneCard({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [sourceEditionId, setSourceEditionId] = useState<string | null>(null);
-  const [editions] = useQuery(queries.kalakritiEdition.accessible());
+  const [editions, editionsResult] = useQuery(
+    queries.kalakritiEdition.configurationAccessible()
+  );
   const [source, sourceResult] = useQuery(
     queries.kalakritiEdition.cloneSource({
       editionId: sourceEditionId ?? "00000000-0000-0000-0000-000000000000",
@@ -110,6 +215,7 @@ export function EditionCloneCard({
     source?.competitions.filter(
       (competition) =>
         competition.retiredAt === null &&
+        competition.cancelledAt === null &&
         activeCompetitionCategoryIds.has(competition.competitionCategoryId)
     ) ?? [];
   const activeVenues =
@@ -166,8 +272,18 @@ export function EditionCloneCard({
   });
   const handleOpen = useEventCallback(() => handleDialogChange(true));
   const handleCancel = useEventCallback(() => setDialogOpen(false));
+  const retryBaseQueries = useEventCallback(() =>
+    retryFailedQueries([editionsResult, targetResult])
+  );
+  const retrySource = useEventCallback(() =>
+    retryFailedQueries([sourceResult])
+  );
   const sourceLoading =
-    sourceEditionId !== null && sourceResult.type !== "complete";
+    sourceEditionId !== null &&
+    sourceResult.type !== "complete" &&
+    sourceResult.type !== "error";
+  const sourceFailed =
+    sourceEditionId !== null && sourceResult.type === "error";
   const cloneableRowCount = source
     ? source.ageCategories.length +
       activeCompetitionCategories.length +
@@ -191,15 +307,22 @@ export function EditionCloneCard({
       target.competitionCategories.length > 0 ||
       target.competitions.length > 0 ||
       target.venues.length > 0);
+  const availability = getCloneCardAvailability({
+    editionsResultType: editionsResult.type,
+    lifecycle,
+    sourceOptionCount: sourceOptions.length,
+    targetHasStructure,
+    targetIsAvailable: target !== undefined,
+    targetResultType: targetResult.type,
+  });
 
-  if (
-    lifecycle !== "draft" ||
-    sourceOptions.length === 0 ||
-    targetResult.type !== "complete" ||
-    target === undefined ||
-    targetHasStructure
-  ) {
-    return null;
+  if (availability !== "ready") {
+    return (
+      <CloneCardUnavailable
+        availability={availability}
+        onRetry={retryBaseQueries}
+      />
+    );
   }
 
   return (
@@ -211,10 +334,15 @@ export function EditionCloneCard({
           assignments, or registrations.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <Button onClick={handleOpen} variant="outline">
           Clone configuration
         </Button>
+        <CloneSourceError
+          editionName={sourceEdition?.name ?? "Source Edition"}
+          onRetry={retrySource}
+          visible={sourceFailed}
+        />
       </CardContent>
 
       <Dialog onOpenChange={handleDialogChange} open={dialogOpen}>
