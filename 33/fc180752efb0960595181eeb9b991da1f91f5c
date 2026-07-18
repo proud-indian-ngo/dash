@@ -1,0 +1,46 @@
+apps/web/src/functions/kalakriti-public-schedule.ts
+  s_c8c0ce2f824e4f::t_edc82937c05726 1-13
+apps/web/src/routes/api/kalakriti/$year/schedule.ts
+  s_c8c0ce2f824e4f::t_edc82937c05726 1-9,11-42
+  s_c8c0ce2f824e4f::t_3bdfbc522ec742 10
+packages/e2e/helpers/kalakriti-public-schedule.ts
+  s_c8c0ce2f824e4f::t_f473bdb02e5da9 81,84-89,275
+  s_c8c0ce2f824e4f::t_c8a8c328252fe0 274,277-287,289-290
+  s_c8c0ce2f824e4f::t_a6a47057d2f8ad 1-72,76-80,82-83,90-257,263-272,288
+  s_c8c0ce2f824e4f::t_04ce523c5cc10d 73-75,258-262,273,276
+packages/e2e/tests/kalakriti/public-schedule.spec.ts
+  s_c8c0ce2f824e4f::t_a6a47057d2f8ad 1-24,27,32-34,36-37,39-58,64-76,78-83,87-88,92-93,95-98,100-103
+  s_c8c0ce2f824e4f::t_f473bdb02e5da9 25-26,28-31,35,38,59-63,77,84-86,89-91,94,99
+knip.json
+  s_c8c0ce2f824e4f::t_cabc18161f6575 33
+packages/db/src/queries/kalakriti-public-schedule.ts
+  s_c8c0ce2f824e4f::t_edc82937c05726 1-98
+apps/web/src/routes/api/kalakriti/$year/-schedule.test.ts
+  s_c8c0ce2f824e4f::t_3bdfbc522ec742 1-9,11-119
+  s_c8c0ce2f824e4f::t_c8a8c328252fe0 10
+packages/e2e/playwright.config.ts
+  s_c8c0ce2f824e4f::t_f473bdb02e5da9 80
+apps/web/src/routes/kalakriti/$year/schedule.tsx
+  s_c8c0ce2f824e4f::t_6168996234dfd2 1-11,13-21,23,36-57,59-187
+  s_c8c0ce2f824e4f::t_3cf4166c8e5405 12,22,24-35,58
+apps/web/src/lib/kalakriti-public-schedule.ts
+  s_c8c0ce2f824e4f::t_edc82937c05726 1-30
+apps/web/src/routeTree.gen.ts
+  s_c8c0ce2f824e4f::t_d03c5290e9b97a 40,61,212-216,317-322,420,439,473,492,537,556,600,619,653,672,716,735,754,758,960-966,1107-1113,1404,1408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "33fc180752efb0960595181eeb9b991da1f91f5c",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
