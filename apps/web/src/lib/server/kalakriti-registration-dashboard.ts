@@ -20,7 +20,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import type { KalakritiRegistrationDashboardScope } from "@/lib/kalakriti-registration-dashboard-policy";
+import type { KalakritiRegistrationScope } from "@/lib/kalakriti-registration-scope-policy";
 
 interface CenterConfig {
   id: string;
@@ -131,7 +131,7 @@ export interface KalakritiRegistrationDashboardProjection {
     maleLimit: number;
     maleUsed: number;
   }>;
-  scope: KalakritiRegistrationDashboardScope;
+  scope: KalakritiRegistrationScope;
   totals: {
     capacity: number | null;
     entries: number;
@@ -159,7 +159,7 @@ function sum<T>(rows: readonly T[], value: (row: T) => number) {
 }
 
 export function assembleKalakritiRegistrationDashboardProjection(
-  scope: KalakritiRegistrationDashboardScope,
+  scope: KalakritiRegistrationScope,
   rows: ProjectionRows
 ): KalakritiRegistrationDashboardProjection {
   const ageById = new Map(rows.ages.map((age) => [age.id, age]));
@@ -349,7 +349,7 @@ export function assembleKalakritiRegistrationDashboardProjection(
 }
 
 export function buildKalakritiRegistrationDashboardCompetitionCondition(
-  scope: KalakritiRegistrationDashboardScope
+  scope: KalakritiRegistrationScope
 ) {
   if (scope.kind === "competition_category" && scope.competitionCategoryIds) {
     return inArray(
@@ -364,7 +364,7 @@ export function buildKalakritiRegistrationDashboardCompetitionCondition(
 }
 
 export function buildKalakritiRegistrationDashboardCenterCondition(
-  scope: KalakritiRegistrationDashboardScope,
+  scope: KalakritiRegistrationScope,
   column:
     | typeof kalakritiCenter.id
     | typeof kalakritiStudent.centerId
@@ -378,7 +378,7 @@ type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export function buildKalakritiRegistrationDashboardCategoryCondition(
   tx: DbTransaction,
   editionId: string,
-  scope: KalakritiRegistrationDashboardScope
+  scope: KalakritiRegistrationScope
 ): SQL {
   if (scope.kind === "competition_category" && scope.competitionCategoryIds) {
     return inArray(
@@ -409,7 +409,7 @@ async function loadKalakritiRegistrationDashboardProjection({
   tx,
 }: {
   editionId: string;
-  scope: KalakritiRegistrationDashboardScope;
+  scope: KalakritiRegistrationScope;
   tx: DbTransaction;
 }) {
   // The branches map four explicit authorization projections to bounded SQL aggregates.
@@ -649,7 +649,7 @@ export function getKalakritiRegistrationDashboardProjections({
   scopes,
 }: {
   editionId: string;
-  scopes: readonly KalakritiRegistrationDashboardScope[];
+  scopes: readonly KalakritiRegistrationScope[];
 }) {
   return db.transaction(
     (tx) =>
