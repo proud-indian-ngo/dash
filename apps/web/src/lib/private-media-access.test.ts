@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   authorizeEventEditorUpload,
+  authorizeProtectedUpload,
   type PrivateMediaAccessDeps,
   PrivateMediaAccessError,
   resolveAvatarMedia,
@@ -16,6 +17,7 @@ const deps = (
 ): PrivateMediaAccessDeps => ({
   findEvent: async () => ({ isPublic: false, teamId: "team-1" }),
   findUserImage: async () => null,
+  findVendorPaymentOwner: async () => null,
   getEventMediaRecords: async () => [
     {
       content: JSON.stringify([
@@ -301,24 +303,143 @@ describe("authorizeEventEditorUpload", () => {
     ).resolves.toMatchObject({ teamId: "team-1" });
   });
 
-  it("allows event membership", async () => {
+  it("rejects plain event membership", async () => {
     await expect(
       authorizeEventEditorUpload(
         { user: { id: "member", role: "volunteer" } },
         EVENT_ID,
         deps({ isEventMember: async () => true })
       )
-    ).resolves.toMatchObject({ teamId: "team-1" });
+    ).rejects.toMatchObject({ status: 403 });
   });
+});
 
-  it("rejects an unrelated user", async () => {
+describe("authorizeProtectedUpload", () => {
+  it("allows request writers and rejects unrelated roles", async () => {
     await expect(
-      authorizeEventEditorUpload(
+      authorizeProtectedUpload(
+        { user: { id: "author", role: "volunteer" } },
+        { kind: "request" },
+        deps({ resolvePermissions: async () => ["requests.edit_own"] })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
         { user: { id: "other", role: "volunteer" } },
-        EVENT_ID,
+        { kind: "request" },
         deps()
       )
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("requires approval and scheduled-message permissions", async () => {
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "approver", role: "admin" } },
+        { kind: "approvalScreenshot" },
+        deps({ resolvePermissions: async () => ["requests.approve"] })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "scheduler", role: "admin" } },
+        { kind: "scheduledMessage" },
+        deps({ resolvePermissions: async () => ["messages.schedule"] })
+      )
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows event photo managers, team leads, and event members", async () => {
+    const scope = { eventId: EVENT_ID, kind: "eventPhoto" } as const;
+
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "manager", role: "admin" } },
+        scope,
+        deps({ resolvePermissions: async () => ["events.manage_photos"] })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "lead", role: "volunteer" } },
+        scope,
+        deps({ isTeamLead: async () => true })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "member", role: "volunteer" } },
+        scope,
+        deps({ isEventMember: async () => true })
+      )
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects event photo uploads without event access", async () => {
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "other", role: "volunteer" } },
+        { eventId: EVENT_ID, kind: "eventPhoto" },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows vendor-payment invoice uploads for the owner and approvers", async () => {
+    const scope = {
+      kind: "vendorPaymentInvoice",
+      vendorPaymentId: "vendor-payment-1",
+    } as const;
+
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "owner", role: "volunteer" } },
+        scope,
+        deps({ findVendorPaymentOwner: async () => "owner" })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "approver", role: "admin" } },
+        scope,
+        deps({
+          findVendorPaymentOwner: async () => "owner",
+          resolvePermissions: async () => ["requests.approve"],
+        })
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "editor", role: "admin" } },
+        scope,
+        deps({
+          findVendorPaymentOwner: async () => "owner",
+          resolvePermissions: async () => ["requests.edit_all"],
+        })
+      )
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects unrelated and missing vendor-payment invoice scopes", async () => {
+    const scope = {
+      kind: "vendorPaymentInvoice",
+      vendorPaymentId: "vendor-payment-1",
+    } as const;
+
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "other", role: "volunteer" } },
+        scope,
+        deps({ findVendorPaymentOwner: async () => "owner" })
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      authorizeProtectedUpload(
+        { user: { id: "approver", role: "admin" } },
+        scope,
+        deps({ resolvePermissions: async () => ["requests.approve"] })
+      )
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
 

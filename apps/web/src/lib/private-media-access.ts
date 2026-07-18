@@ -10,6 +10,13 @@ interface SessionLike {
   user: { id: string; role?: null | string };
 }
 
+export type ProtectedUploadScope =
+  | { kind: "approvalScreenshot" }
+  | { eventId: string; kind: "eventPhoto" }
+  | { kind: "request" }
+  | { kind: "scheduledMessage" }
+  | { kind: "vendorPaymentInvoice"; vendorPaymentId: string };
+
 export interface PrivateMediaEvent {
   isPublic: boolean;
   teamId: string;
@@ -31,6 +38,7 @@ export type PrivateEventMediaRecord =
 export interface PrivateMediaAccessDeps extends R2ObjectAccessDeps {
   findEvent: (eventId: string) => Promise<PrivateMediaEvent | null>;
   findUserImage: (userId: string) => Promise<null | string>;
+  findVendorPaymentOwner: (vendorPaymentId: string) => Promise<null | string>;
   getEventMediaRecords: (eventId: string) => Promise<PrivateEventMediaRecord[]>;
   keyPrefix: string;
   legacyCdnUrl: string;
@@ -146,10 +154,7 @@ export async function resolveEventUpdateMedia(
   if (!event) {
     return notFound();
   }
-  const [permissions, records] = await Promise.all([
-    deps.resolvePermissions(roleFor(session)),
-    deps.getEventMediaRecords(ref.eventId),
-  ]);
+  const permissions = await deps.resolvePermissions(roleFor(session));
   const canViewNormally = await canViewEvent(
     session,
     event,
@@ -158,6 +163,7 @@ export async function resolveEventUpdateMedia(
     deps
   );
 
+  const records = await deps.getEventMediaRecords(ref.eventId);
   const matchingRecords = records.filter((record) =>
     recordReferencesKey(record, ref.eventId, ref.key, deps)
   );
@@ -196,10 +202,70 @@ export async function authorizeEventEditorUpload(
   const permissions = await deps.resolvePermissions(roleFor(session));
   if (
     permissions.includes("event_updates.create") ||
-    (await deps.isTeamLead(event.teamId, session.user.id)) ||
-    (await deps.isEventMember(eventId, session.user.id))
+    (await deps.isTeamLead(event.teamId, session.user.id))
   ) {
     return event;
+  }
+  throw new PrivateMediaAccessError(403, "Forbidden");
+}
+
+const REQUEST_UPLOAD_PERMISSIONS = new Set([
+  "requests.create",
+  "requests.edit_own",
+  "requests.edit_all",
+  "requests.edit_all_statuses",
+  "requests.record_payment",
+]);
+
+export async function authorizeProtectedUpload(
+  session: SessionLike,
+  scope: ProtectedUploadScope,
+  deps: PrivateMediaAccessDeps
+): Promise<void> {
+  const permissions = await deps.resolvePermissions(roleFor(session));
+  if (
+    scope.kind === "request" &&
+    permissions.some((permission) => REQUEST_UPLOAD_PERMISSIONS.has(permission))
+  ) {
+    return;
+  }
+  if (
+    scope.kind === "approvalScreenshot" &&
+    permissions.includes("requests.approve")
+  ) {
+    return;
+  }
+  if (
+    scope.kind === "scheduledMessage" &&
+    permissions.includes("messages.schedule")
+  ) {
+    return;
+  }
+  if (scope.kind === "vendorPaymentInvoice") {
+    const ownerId = await deps.findVendorPaymentOwner(scope.vendorPaymentId);
+    if (!ownerId) {
+      throw new PrivateMediaAccessError(404, "Vendor payment not found");
+    }
+    if (
+      ownerId === session.user.id ||
+      permissions.includes("requests.approve") ||
+      permissions.includes("requests.edit_all")
+    ) {
+      return;
+    }
+  }
+  if (scope.kind === "eventPhoto") {
+    const event = await deps.findEvent(scope.eventId);
+    if (!event) {
+      throw new PrivateMediaAccessError(404, "Event not found");
+    }
+    if (
+      permissions.includes("events.manage_photos") ||
+      (await deps.isTeamLead(event.teamId, session.user.id)) ||
+      (await deps.isEventMember(scope.eventId, session.user.id))
+    ) {
+      return;
+    }
   }
   throw new PrivateMediaAccessError(403, "Forbidden");
 }

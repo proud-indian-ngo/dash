@@ -105,6 +105,10 @@ function hashPollOption(option: string): string {
   return createHash("sha256").update(option).digest("hex");
 }
 
+function plateTextContent(text: string): string {
+  return JSON.stringify([{ children: [{ text }], type: "p" }]);
+}
+
 // ── Deterministic IDs ────────────────────────────────────────────────────────
 
 const ID = {
@@ -863,8 +867,9 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(eventFeedback)
     .values({
-      content:
-        "Great session! The kids were very engaged. Could use more art supplies next time.",
+      content: plateTextContent(
+        "Great session! The kids were very engaged. Could use more art supplies next time."
+      ),
       createdAt: past(5),
       eventId: ID.evTeaching,
       id: ID.efTeaching,
@@ -964,8 +969,9 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(eventUpdate)
     .values({
-      content:
-        "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets.",
+      content: plateTextContent(
+        "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets."
+      ),
       createdAt: past(13),
       createdBy: adminId,
       eventId: ID.evPlanning,
@@ -979,8 +985,9 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(eventUpdate)
     .values({
-      content:
-        "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM.",
+      content: plateTextContent(
+        "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM."
+      ),
       createdAt: past(1),
       createdBy: adminId,
       eventId: ID.evOutreach,

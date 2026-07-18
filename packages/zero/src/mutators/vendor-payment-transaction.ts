@@ -14,9 +14,16 @@ import {
   assertCanModify,
   assertEntityExists,
   assertPending,
-  buildAttachmentInsert,
+  buildClaimedAttachmentInsert,
   buildHistoryInsert,
+  createR2ClaimOptions,
+  enqueueDeleteR2Object,
 } from "./submission-helpers";
+
+export const transactionAttachmentKeyPrefixes = (id: string) => [
+  `attachments/vendor-payment-transactions/${id}/`,
+  `attachments/${id}/`,
+];
 
 const createSchema = z.object({
   amount: z
@@ -291,7 +298,14 @@ export const vendorPaymentTransactionMutators = {
     await Promise.all(
       args.attachments.map(async (att) => {
         await tx.mutate.vendorPaymentTransactionAttachment.insert({
-          ...buildAttachmentInsert(att, now),
+          ...buildClaimedAttachmentInsert(
+            att,
+            now,
+            createR2ClaimOptions(ctx, tx.location, {
+              durablePrefix: `vendor-payment-transactions/${args.id}`,
+              subfolder: "attachments",
+            })
+          ),
           ...fk(args.id),
         });
       })
@@ -401,6 +415,13 @@ export const vendorPaymentTransactionMutators = {
       );
       await Promise.all(
         attachments.map(async (att) => {
+          enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
+            keyPrefixes: transactionAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "vendorPaymentTransaction.delete",
+              transactionId: args.id,
+            },
+          });
           await tx.mutate.vendorPaymentTransactionAttachment.delete({
             id: att.id,
           });
@@ -546,8 +567,27 @@ export const vendorPaymentTransactionMutators = {
           args.id
         )
       );
+      const existingObjectKeys = new Set(
+        existingAtts
+          .map((attachment) => attachment.objectKey)
+          .filter((key): key is string => Boolean(key))
+      );
+      const retainedObjectKeys = new Set(
+        args.attachments
+          .filter((attachment) => attachment.type === "file")
+          .map((attachment) => attachment.objectKey)
+      );
       await Promise.all(
         existingAtts.map(async (att) => {
+          if (att.objectKey && !retainedObjectKeys.has(att.objectKey)) {
+            enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
+              keyPrefixes: transactionAttachmentKeyPrefixes(args.id),
+              meta: {
+                mutator: "vendorPaymentTransaction.update",
+                transactionId: args.id,
+              },
+            });
+          }
           await tx.mutate.vendorPaymentTransactionAttachment.delete({
             id: att.id,
           });
@@ -556,7 +596,15 @@ export const vendorPaymentTransactionMutators = {
       await Promise.all(
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentTransactionAttachment.insert({
-            ...buildAttachmentInsert(att, now),
+            ...buildClaimedAttachmentInsert(
+              att,
+              now,
+              createR2ClaimOptions(ctx, tx.location, {
+                durablePrefix: `vendor-payment-transactions/${args.id}`,
+                existingObjectKeys,
+                subfolder: "attachments",
+              })
+            ),
             ...fk(args.id),
           });
         })

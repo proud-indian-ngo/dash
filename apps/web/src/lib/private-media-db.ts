@@ -6,6 +6,7 @@ import {
 } from "@pi-dash/db/schema/event-feedback";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { vendorPayment } from "@pi-dash/db/schema/vendor";
 import { env } from "@pi-dash/env/server";
 import { eq } from "drizzle-orm";
 import { defaultR2ObjectAccessDeps } from "./authorized-r2-object";
@@ -26,6 +27,13 @@ export const defaultPrivateMediaAccessDeps: PrivateMediaAccessDeps = {
       where: eq(user.id, userId),
     });
     return row?.image ?? null;
+  },
+  findVendorPaymentOwner: async (vendorPaymentId) => {
+    const row = await db.query.vendorPayment.findFirst({
+      columns: { userId: true },
+      where: eq(vendorPayment.id, vendorPaymentId),
+    });
+    return row?.userId ?? null;
   },
   getEventMediaRecords: async (eventId) => {
     const [updates, feedback, feedbackSubmissions] = await Promise.all([

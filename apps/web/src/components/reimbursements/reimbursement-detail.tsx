@@ -13,7 +13,6 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { log } from "evlog";
 import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
@@ -22,7 +21,6 @@ import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimburseme
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
-import { deleteUploadedAsset } from "@/functions/attachments";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -121,21 +119,7 @@ export function ReimbursementDetail({
         mutation: `${mutatorName}.approve`,
         successMsg: `${typeLabel} approved`,
       });
-      if (res.type === "error" && screenshotKey) {
-        deleteUploadedAsset({
-          data: { key: screenshotKey, subfolder: "approval-screenshots" },
-        }).catch((error) => {
-          log.error({
-            action: "cleanupScreenshot",
-            component: "ReimbursementDetail",
-            error: error instanceof Error ? error.message : String(error),
-            screenshotKey,
-          });
-        });
-      }
-      if (res.type !== "error") {
-        setApproveOpen(false);
-      }
+      return res.type !== "error";
     }
   );
 

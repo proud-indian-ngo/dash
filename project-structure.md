@@ -162,7 +162,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/get-session.ts` | Authenticated user session |
 | `functions/get-permissions.ts` | Resolve permissions for current user's role |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
-| `functions/attachments.ts` | Generic attachment signing plus dedicated avatar and event editor-media upload/delete functions |
+| `functions/attachments.ts` | Surface-specific temp attachment signing (including owner/approver invoice scope) plus dedicated avatar and event editor-media upload/delete functions |
 | `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
@@ -407,12 +407,22 @@ Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. 
 
 ### File Upload Flow
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
+`scheduled-messages`. Dedicated avatar/editor signers use `avatars` and
+`updates`.
 
-1. Client calls the asset-specific signer and receives a signed S3 PUT URL.
-2. Client uploads directly to R2.
-3. The durable database row stores an exact object key or canonical authenticated media URL.
-4. Reads use `routes/api/attachments/download.ts`, `routes/api/media/event-photo.$id.ts`, `routes/api/media/avatar.$userId.ts`, or `routes/api/media/event-update.ts`; a raw key is never authorization.
+1. Client calls a surface-specific signer. Protected attachment, approval,
+   photo, and scheduled-message uploads receive a current-user temp key.
+2. Client uploads directly to R2 through the signed PUT URL.
+3. The owning Zero mutator validates and copies a protected temp object to a
+   parent-scoped durable key before committing the database row.
+4. The durable row stores an exact object key or canonical authenticated media
+   URL; a raw key is never authorization.
+5. Temp-source and replaced-object deletion are queued after commit.
+6. Reads use `routes/api/attachments/download.ts`,
+   `routes/api/media/event-photo.$id.ts`,
+   `routes/api/media/avatar.$userId.ts`, or
+   `routes/api/media/event-update.ts`.
 
 Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` and
 are scoped to `avatars/{userId}/`. Event editor uploads use
@@ -425,7 +435,7 @@ dry-run before disabling public R2/CDN access.
 
 1. Zero mutator performs data change (e.g., approve reimbursement)
 2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
-3. `routes/api/zero/mutate.ts` awaits async tasks after mutation completes
+3. `routes/api/zero/mutate.ts` awaits `beforeCommitTasks` inside the transaction, then starts `asyncTasks` as logged fire-and-forget work after commit
 4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via nodemailer
 5. Client-side inbox synced in real-time via Zero
 

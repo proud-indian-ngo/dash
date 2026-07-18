@@ -11,6 +11,7 @@ import { isNotNull, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import type { CleanupR2OrphansPayload } from "../enqueue";
+import { withProtectedR2ObjectReferenceLock } from "../lib/protected-r2-reference";
 import {
   collectAvatarReferenceKey,
   collectPlateReferences,
@@ -167,7 +168,15 @@ async function deleteOrphans(
   await batches.reduce<Promise<void>>(async (previous, batch) => {
     await previous;
     const results = await Promise.allSettled(
-      batch.map((key) => S3Client.delete(key, credentials))
+      batch.map((key) =>
+        withProtectedR2ObjectReferenceLock(key, async (referenced) => {
+          if (referenced) {
+            return false;
+          }
+          await S3Client.delete(key, credentials);
+          return true;
+        })
+      )
     );
     for (let j = 0; j < results.length; j += 1) {
       const key = batch[j];
@@ -175,9 +184,9 @@ async function deleteOrphans(
       if (!(key && result)) {
         continue;
       }
-      if (result.status === "fulfilled") {
+      if (result.status === "fulfilled" && result.value) {
         deletedKeys.push(key);
-      } else {
+      } else if (result.status === "rejected") {
         failedKeys.push(key);
       }
     }

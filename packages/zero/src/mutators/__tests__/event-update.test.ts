@@ -254,31 +254,30 @@ const makeTx = (...rows: unknown[]) => {
   };
 };
 
-describe("eventUpdate editor images", () => {
-  it("allows a new image reference from an ordinary event member", async () => {
+describe("eventUpdate media policy", () => {
+  it("rejects a new image reference from an ordinary event member", async () => {
     const { insert, tx } = makeTx(
       { startTime: 0, teamId: "team-1" },
       undefined,
       { eventId: "event-1", userId: "user-1" }
     );
 
-    await eventUpdateMutators.create.fn({
-      args: {
-        content: plate(mediaUrl),
-        eventId: "event-1",
-        id: "update-1",
-        now: 1,
-      },
-      ctx: makeContext([]),
-      tx,
-    } as never);
-
-    expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({ content: plate(mediaUrl), status: "pending" })
-    );
+    await expect(
+      eventUpdateMutators.create.fn({
+        args: {
+          content: plate(mediaUrl),
+          eventId: "event-1",
+          id: "update-1",
+          now: 1,
+        },
+        ctx: makeContext([]),
+        tx,
+      } as never)
+    ).rejects.toThrow("Update cannot contain new images");
+    expect(insert).not.toHaveBeenCalled();
   });
 
-  it("allows renderable image content that exceeds traversal limits", async () => {
+  it("rejects renderable image content that exceeds traversal limits", async () => {
     const content = oversizedPlate();
     expect(content.length).toBeLessThan(50_000);
     const { insert, tx } = makeTx(
@@ -287,20 +286,19 @@ describe("eventUpdate editor images", () => {
       { eventId: "event-1", userId: "user-1" }
     );
 
-    await eventUpdateMutators.create.fn({
-      args: {
-        content,
-        eventId: "event-1",
-        id: "update-1",
-        now: 1,
-      },
-      ctx: makeContext([]),
-      tx,
-    } as never);
-
-    expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({ content, status: "pending" })
-    );
+    await expect(
+      eventUpdateMutators.create.fn({
+        args: {
+          content,
+          eventId: "event-1",
+          id: "update-1",
+          now: 1,
+        },
+        ctx: makeContext([]),
+        tx,
+      } as never)
+    ).rejects.toThrow("Update cannot contain new images");
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("allows an authorized creator to add an image reference", async () => {
@@ -326,7 +324,7 @@ describe("eventUpdate editor images", () => {
     );
   });
 
-  it("allows a new image reference when an ordinary author edits", async () => {
+  it("rejects a new image reference when an ordinary author edits", async () => {
     const { tx, update } = makeTx(
       {
         content: plate(),
@@ -339,17 +337,14 @@ describe("eventUpdate editor images", () => {
       undefined
     );
 
-    await eventUpdateMutators.update.fn({
-      args: { content: plate(mediaUrl), id: "update-1", now: 2 },
-      ctx: makeContext(["event_updates.edit_own"]),
-      tx,
-    } as never);
-
-    expect(update).toHaveBeenCalledWith({
-      content: plate(mediaUrl),
-      id: "update-1",
-      updatedAt: 2,
-    });
+    await expect(
+      eventUpdateMutators.update.fn({
+        args: { content: plate(mediaUrl), id: "update-1", now: 2 },
+        ctx: makeContext(["event_updates.edit_own"]),
+        tx,
+      } as never)
+    ).rejects.toThrow("Update cannot contain new images");
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("preserves an ordinary author's existing image reference", async () => {

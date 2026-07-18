@@ -1,6 +1,10 @@
 import { env } from "@pi-dash/env/server";
+import { withProtectedR2ObjectDeleteLock } from "@pi-dash/jobs/lib/protected-r2-reference";
 import { logErrorAndRethrow } from "@pi-dash/observability";
-import { MAX_VIDEO_SIZE_BYTES } from "@pi-dash/shared/constants";
+import {
+  ALLOWED_MIME_TYPES,
+  type AllowedMimeType,
+} from "@pi-dash/shared/constants";
 import {
   buildAvatarMediaUrl,
   buildEventUpdateMediaUrl,
@@ -9,36 +13,28 @@ import { createServerFn } from "@tanstack/react-start";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { runSessionAuditedAction } from "@/lib/audit";
-import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@/lib/form-schemas";
 import {
+  approvalScreenshotUploadSchema,
   avatarUploadSchema,
   eventEditorUploadSchema,
+  eventPhotoUploadSchema,
+  requestUploadSchema,
+  scheduledMessageUploadSchema,
+  vendorPaymentInvoiceUploadSchema,
 } from "@/lib/media-upload";
-import { authorizeEventEditorUpload } from "@/lib/private-media-access";
+import {
+  authorizeEventEditorUpload,
+  authorizeProtectedUpload,
+  type ProtectedUploadScope,
+} from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { getS3 } from "@/lib/s3";
+import {
+  createTemporaryUpload,
+  deleteOwnedTemporaryUpload,
+  type ProtectedUploadSubfolder,
+} from "@/lib/temporary-upload";
 import { authMiddleware } from "@/middleware/auth";
-
-export const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/svg+xml",
-  "image/heic",
-  "image/heif",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-  "text/csv",
-  "video/mp4",
-  "video/quicktime",
-] as const;
-
-export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
 export function toAllowedMimeType(value: string): AllowedMimeType {
   if (!ALLOWED_MIME_TYPES.includes(value as AllowedMimeType)) {
@@ -48,11 +44,7 @@ export function toAllowedMimeType(value: string): AllowedMimeType {
 }
 
 const R2_SUBFOLDERS = {
-  approvalScreenshots: "approval-screenshots",
-  attachments: "attachments",
   avatars: "avatars",
-  photos: "photos",
-  scheduledMessages: "scheduled-messages",
   updates: "updates",
 } as const;
 
@@ -64,90 +56,189 @@ const sanitizeFileName = (fileName: string): string =>
     .replaceAll(/"/g, "")
     .replaceAll(/\s+/g, "-");
 
-export const getPresignedUploadUrl = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .validator(
-    z
-      .object({
-        entityId: z.string().min(1),
-        fileName: z.string().min(1),
-        fileSize: z.number().int().positive(),
-        mimeType: z.string().min(1),
-        subfolder: z.enum([
-          R2_SUBFOLDERS.attachments,
-          R2_SUBFOLDERS.photos,
-          R2_SUBFOLDERS.scheduledMessages,
-          R2_SUBFOLDERS.approvalScreenshots,
-        ]),
-      })
-      .refine(
-        (data) =>
-          data.subfolder === R2_SUBFOLDERS.scheduledMessages ||
-          (ALLOWED_MIME_TYPES as readonly string[]).includes(data.mimeType),
-        {
-          message: "File type not allowed for this subfolder",
-          path: ["mimeType"],
-        }
-      )
-      .superRefine((data, ctx) => {
-        const maxBytes = data.mimeType.startsWith("video/")
-          ? MAX_VIDEO_SIZE_BYTES
-          : MAX_ATTACHMENT_FILE_SIZE_BYTES;
-        if (data.fileSize > maxBytes) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: data.mimeType.startsWith("video/")
-              ? `Video exceeds ${MAX_VIDEO_SIZE_BYTES / 1024 / 1024} MB limit`
-              : `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_BYTES / 1024 / 1024} MB limit`,
-            path: ["fileSize"],
-          });
-        }
-      })
-  )
-  .handler(async ({ data, context }) => {
-    try {
+const presignProtectedUpload = (input: {
+  fileName: string;
+  keyPrefix: string;
+  mimeType: string;
+  scope: ProtectedUploadScope;
+  subfolder: ProtectedUploadSubfolder;
+  user: { id: string; role?: null | string };
+}) =>
+  createTemporaryUpload(input, {
+    authorize: (user, scope) =>
+      authorizeProtectedUpload({ user }, scope, defaultPrivateMediaAccessDeps),
+    presign: async (key, mimeType) => {
       const s3 = await getS3();
-      const key = `${env.R2_KEY_PREFIX}/${data.subfolder}/${data.entityId}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
-      // NOTE: Bun's S3.presign() does not support content-length conditions.
-      // fileSize is validated by Zod above but cannot be enforced at the storage layer.
-      // To enforce upload size, switch to @aws-sdk/s3-request-presigner with
-      // createPresignedPost and a ["content-length-range", 1, MAX] condition.
-      const presignedUrl = s3.presign(key, {
+      return s3.presign(key, {
         expiresIn: 300,
         method: "PUT",
-        type: data.mimeType,
+        type: mimeType,
       });
-      return { key, presignedUrl };
+    },
+  });
+
+export const getRequestUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(requestUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: { kind: "request" },
+        subfolder: "attachments",
+        user: context.session.user,
+      });
     } catch (error) {
       logErrorAndRethrow(
-        { method: "POST", path: "/fn/getPresignedUploadUrl" },
+        { method: "POST", path: "/fn/getRequestUploadUrl" },
         {
-          entityId: data.entityId,
           fileName: data.fileName,
           fileSize: data.fileSize,
-          handler: "getPresignedUploadUrl",
+          handler: "getRequestUploadUrl",
           mimeType: data.mimeType,
-          subfolder: data.subfolder,
-          userId: context.session?.user.id,
+          userId: context.session.user.id,
         },
         error
       );
     }
   });
 
-export const deleteUploadedAsset = createServerFn({ method: "POST" })
+export const getVendorPaymentInvoiceUploadUrl = createServerFn({
+  method: "POST",
+})
   .middleware([authMiddleware])
-  .validator(
-    z.object({
-      key: z.string().startsWith(`${env.R2_KEY_PREFIX}/`),
-      subfolder: z.enum([
-        R2_SUBFOLDERS.attachments,
-        R2_SUBFOLDERS.approvalScreenshots,
-        R2_SUBFOLDERS.photos,
-        R2_SUBFOLDERS.scheduledMessages,
-      ]),
-    })
-  )
+  .validator(vendorPaymentInvoiceUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: {
+          kind: "vendorPaymentInvoice",
+          vendorPaymentId: data.vendorPaymentId,
+        },
+        subfolder: "attachments",
+        user: context.session.user,
+      });
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getVendorPaymentInvoiceUploadUrl" },
+        {
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getVendorPaymentInvoiceUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+          vendorPaymentId: data.vendorPaymentId,
+        },
+        error
+      );
+    }
+  });
+
+export const getApprovalScreenshotUploadUrl = createServerFn({
+  method: "POST",
+})
+  .middleware([authMiddleware])
+  .validator(approvalScreenshotUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: { kind: "approvalScreenshot" },
+        subfolder: "approval-screenshots",
+        user: context.session.user,
+      });
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getApprovalScreenshotUploadUrl" },
+        {
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getApprovalScreenshotUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getEventPhotoUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(eventPhotoUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: { eventId: data.eventId, kind: "eventPhoto" },
+        subfolder: "photos",
+        user: context.session.user,
+      });
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getEventPhotoUploadUrl" },
+        {
+          eventId: data.eventId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getEventPhotoUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getScheduledMessageUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(scheduledMessageUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: { kind: "scheduledMessage" },
+        subfolder: "scheduled-messages",
+        user: context.session.user,
+      });
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getScheduledMessageUploadUrl" },
+        {
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getScheduledMessageUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const deleteTemporaryUpload = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ key: z.string().min(1) }))
   .handler(async ({ data, context }) => {
     if (!context.session) {
       throw new Error("Unauthorized");
@@ -158,26 +249,28 @@ export const deleteUploadedAsset = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "asset.delete",
-        metadata: { subfolder: data.subfolder },
+        metadata: { temporary: true },
         target: { type: "asset" },
       },
       async () => {
-        const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
-        if (!data.key.startsWith(expectedPrefix)) {
-          throw new Error("Forbidden");
-        }
         try {
           const s3 = await getS3();
-          await s3.delete(data.key);
+          await deleteOwnedTemporaryUpload(
+            data.key,
+            { keyPrefix: env.R2_KEY_PREFIX, userId: session.user.id },
+            {
+              deleteObject: (key) => s3.delete(key),
+              withDeleteLock: withProtectedR2ObjectDeleteLock,
+            }
+          );
           return { success: true };
         } catch (error) {
           logErrorAndRethrow(
-            { method: "POST", path: "/fn/deleteUploadedAsset" },
+            { method: "POST", path: "/fn/deleteTemporaryUpload" },
             {
-              handler: "deleteUploadedAsset",
+              handler: "deleteTemporaryUpload",
               key: data.key,
-              subfolder: data.subfolder,
-              userId: context.session?.user.id,
+              userId: session.user.id,
             },
             error
           );
@@ -327,61 +420,6 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
               handler: "deleteProfilePicture",
               key: data.key,
               userId: session.user.id,
-            },
-            error
-          );
-        }
-      }
-    );
-  });
-
-export const deleteUploadedAssets = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .validator(
-    z.object({
-      keys: z.array(z.string().startsWith(`${env.R2_KEY_PREFIX}/`)),
-      subfolder: z.enum([
-        R2_SUBFOLDERS.attachments,
-        R2_SUBFOLDERS.approvalScreenshots,
-        R2_SUBFOLDERS.photos,
-        R2_SUBFOLDERS.scheduledMessages,
-      ]),
-    })
-  )
-  .handler(async ({ data, context }) => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
-    return await runSessionAuditedAction(
-      context.session,
-      context.headers,
-      {
-        action: "asset.delete_batch",
-        metadata: {
-          batchCount: data.keys.length,
-          subfolder: data.subfolder,
-        },
-        target: { type: "asset" },
-      },
-      async () => {
-        const expectedPrefix = `${env.R2_KEY_PREFIX}/${data.subfolder}/`;
-        for (const key of data.keys) {
-          if (!key.startsWith(expectedPrefix)) {
-            throw new Error("Forbidden");
-          }
-        }
-        try {
-          const s3 = await getS3();
-          await Promise.all(data.keys.map((key) => s3.delete(key)));
-          return { success: true };
-        } catch (error) {
-          logErrorAndRethrow(
-            { method: "POST", path: "/fn/deleteUploadedAssets" },
-            {
-              handler: "deleteUploadedAssets",
-              keyCount: data.keys.length,
-              subfolder: data.subfolder,
-              userId: context.session?.user.id,
             },
             error
           );

@@ -315,8 +315,8 @@ const makeTx = (...rows: unknown[]) => {
   };
 };
 
-describe("eventFeedback editor images", () => {
-  it("allows a new image during submission", async () => {
+describe("eventFeedback server media policy", () => {
+  it("rejects a new image during submission", async () => {
     const { insertFeedback, tx } = makeTx(
       {
         endTime: 0,
@@ -327,46 +327,41 @@ describe("eventFeedback editor images", () => {
       { eventId: "event-1", userId: "user-1" }
     );
 
-    await eventFeedbackMutators.submit.fn({
-      args: {
-        content: plate(mediaUrl),
-        eventId: "event-1",
-        feedbackId: "feedback-1",
-        now: 1,
-        submissionId: "submission-1",
-      },
-      ctx: context,
-      tx,
-    } as never);
-
-    expect(insertFeedback).toHaveBeenCalledWith(
-      expect.objectContaining({ content: plate(mediaUrl) })
-    );
+    await expect(
+      eventFeedbackMutators.submit.fn({
+        args: {
+          content: plate(mediaUrl),
+          eventId: "event-1",
+          feedbackId: "feedback-1",
+          now: 1,
+          submissionId: "submission-1",
+        },
+        ctx: context,
+        tx,
+      } as never)
+    ).rejects.toThrow("Feedback cannot contain new images");
+    expect(insertFeedback).not.toHaveBeenCalled();
   });
 
-  it("allows a new image during an update", async () => {
+  it("rejects a new image during an update", async () => {
     const { tx, updateFeedback } = makeTx(
       { feedbackId: "feedback-1" },
-      { content: plate(), eventId: "event-1", id: "feedback-1" },
-      { feedbackDeadline: null }
+      { content: plate(), eventId: "event-1", id: "feedback-1" }
     );
 
-    await eventFeedbackMutators.update.fn({
-      args: {
-        content: plate(mediaUrl),
-        eventId: "event-1",
-        feedbackId: "feedback-1",
-        now: 2,
-      },
-      ctx: context,
-      tx,
-    } as never);
-
-    expect(updateFeedback).toHaveBeenCalledWith({
-      content: plate(mediaUrl),
-      id: "feedback-1",
-      updatedAt: 2,
-    });
+    await expect(
+      eventFeedbackMutators.update.fn({
+        args: {
+          content: plate(mediaUrl),
+          eventId: "event-1",
+          feedbackId: "feedback-1",
+          now: 2,
+        },
+        ctx: context,
+        tx,
+      } as never)
+    ).rejects.toThrow("Feedback cannot contain new images");
+    expect(updateFeedback).not.toHaveBeenCalled();
   });
 
   it("preserves an existing image during an update", async () => {

@@ -8,6 +8,11 @@ import {
 } from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import {
+  claimUploadedR2ObjectKey,
+  createR2ClaimOptions,
+  enqueueDeleteR2Object,
+} from "./submission-helpers";
 
 export const eventPhotoMutators = {
   approve: defineMutator(
@@ -244,16 +249,8 @@ export const eventPhotoMutators = {
 
       if (tx.location === "server") {
         if (photo.r2Key) {
-          const { r2Key } = photo;
-          ctx.asyncTasks?.push({
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "delete-r2-object",
-                { r2Key },
-                { traceId: ctx.traceId }
-              );
-            },
+          enqueueDeleteR2Object(ctx, tx.location, photo.r2Key, {
+            keyPrefixes: [`photos/${photo.eventId}/`],
             meta: { mutator: "deleteEventPhoto", photoId: args.id },
           });
         }
@@ -309,6 +306,7 @@ export const eventPhotoMutators = {
 
       await tx.mutate.eventPhoto.update({
         id: args.id,
+        r2Key: null,
         reviewedAt: args.now,
         reviewedBy: ctx.userId,
         status: "rejected",
@@ -316,16 +314,8 @@ export const eventPhotoMutators = {
 
       if (tx.location === "server") {
         if (photo.r2Key) {
-          const { r2Key } = photo;
-          ctx.asyncTasks?.push({
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "delete-r2-object",
-                { r2Key },
-                { traceId: ctx.traceId }
-              );
-            },
+          enqueueDeleteR2Object(ctx, tx.location, photo.r2Key, {
+            keyPrefixes: [`photos/${photo.eventId}/`],
             meta: { mutator: "rejectEventPhoto", photoId: args.id },
           });
         }
@@ -412,6 +402,16 @@ export const eventPhotoMutators = {
       }
 
       const status = isAdminOrLead ? "approved" : "pending";
+      const r2Key = args.r2Key
+        ? claimUploadedR2ObjectKey(
+            args.r2Key,
+            createR2ClaimOptions(ctx, tx.location, {
+              durablePrefix: args.eventId,
+              mimeType: args.mimeType,
+              subfolder: "photos",
+            })
+          )
+        : undefined;
 
       await tx.mutate.eventPhoto.insert({
         caption: args.caption,
@@ -420,7 +420,7 @@ export const eventPhotoMutators = {
         id: args.id,
         immichAssetId: args.immichAssetId,
         mimeType: args.mimeType,
-        r2Key: args.r2Key,
+        r2Key,
         reviewedAt: isAdminOrLead ? args.now : null,
         reviewedBy: isAdminOrLead ? ctx.userId : null,
         status,
@@ -430,11 +430,10 @@ export const eventPhotoMutators = {
       // Enqueue Immich sync for R2-backed photos that are auto-approved
       if (
         status === "approved" &&
-        args.r2Key &&
+        r2Key &&
         !args.immichAssetId &&
         tx.location === "server"
       ) {
-        const { r2Key } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");

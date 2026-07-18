@@ -7,8 +7,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "createUserAdmin",
   "deleteProfilePicture",
   "deleteRole",
-  "deleteUploadedAsset",
-  "deleteUploadedAssets",
+  "deleteTemporaryUpload",
   "deleteUserAdmin",
   "postEventRsvpPoll",
   "setUserBanAdmin",
@@ -24,8 +23,10 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "exportCsvData",
   "exportVendorPaymentsCsv",
   "getEventEditorUploadUrl",
-  "getPresignedUploadUrl",
+  "getEventPhotoUploadUrl",
   "getProfilePictureUploadUrl",
+  "getRequestUploadUrl",
+  "getScheduledMessageUploadUrl",
 ];
 
 const CLASSIFIED_API_POST_FILES = [
@@ -118,6 +119,7 @@ describe("audit entrypoint coverage", () => {
     const srcDirectory = join(import.meta.dirname, "..");
     const directory = join(srcDirectory, "routes/api");
     const discovered = listTypeScriptFiles(directory)
+      .filter((path) => !path.endsWith(".test.ts"))
       .filter((path) => POST_API_ROUTE_PATTERN.test(readFileSync(path, "utf8")))
       .map((path) => relative(srcDirectory, path));
 

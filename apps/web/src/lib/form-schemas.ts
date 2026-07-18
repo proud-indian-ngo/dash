@@ -4,7 +4,6 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 export const MAX_ATTACHMENT_FILES = 10;
-export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const ATTACHMENT_ACCEPT = "image/*,application/pdf";
 
 export const cityOptions = cityValues.map((value) => ({

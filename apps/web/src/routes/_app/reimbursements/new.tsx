@@ -2,8 +2,10 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
+import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/reimbursements/new")({
+  beforeLoad: ({ context }) => assertPermission(context, "requests.create"),
   component: NewReimbursementRouteComponent,
   head: () => ({
     meta: [{ title: `New Reimbursement | ${env.VITE_APP_NAME}` }],

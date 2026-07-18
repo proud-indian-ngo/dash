@@ -55,14 +55,7 @@ test.describe("R2 object authorization", () => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
     const response = await page.request.get(
       `${baseURL}/api/media/event-photo/${PENDING_EVENT_PHOTO_ID}`,
-      {
-        headers: {
-          Accept:
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-          "Sec-Fetch-Dest": "image",
-        },
-        maxRedirects: 0,
-      }
+      { maxRedirects: 0 }
     );
     expect(response.status()).toBe(302);
     expect(response.headers().location).toMatch(/^https:\/\//);

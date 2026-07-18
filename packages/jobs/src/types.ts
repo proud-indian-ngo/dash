@@ -490,6 +490,7 @@ export interface ImmichDeleteAlbumPayload {
 }
 
 export interface DeleteR2ObjectPayload {
+  mode: "if-unreferenced" | "temporary-source";
   r2Key: string;
 }
 

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AsyncTask } from "../../context";
 import {
   assertCanDelete,
   assertCanModify,
@@ -7,7 +8,24 @@ import {
   buildAttachmentInsert,
   buildHistoryInsert,
   buildLineItemInsert,
+  claimUploadedR2ObjectKey,
+  deleteAllRelations,
+  enqueueDeleteR2Object,
+  replaceRelations,
 } from "../submission-helpers";
+
+const copyR2Object = vi.fn();
+const enqueue = vi.fn();
+const clientClaimOptions = {
+  durablePrefix: "reimbursements/request-1",
+  subfolder: "attachments" as const,
+  txLocation: "client",
+  userId: "user-1",
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("assertEntityExists", () => {
   it("passes when entity is defined", () => {
@@ -253,5 +271,328 @@ describe("buildHistoryInsert", () => {
     const now = 1_700_000_000_000;
     const result = buildHistoryInsert("actor-1", "created", now);
     expect(result.note).toBeNull();
+  });
+});
+
+describe("claimUploadedR2ObjectKey", () => {
+  it("claims the current user's temp key under the durable parent", () => {
+    expect(
+      claimUploadedR2ObjectKey(
+        "app/attachments/tmp/user-1/upload-id-receipt.pdf",
+        clientClaimOptions
+      )
+    ).toBe("app/attachments/reimbursements/request-1/upload-id-receipt.pdf");
+  });
+
+  it("keeps the signer upload ID when filenames repeat", () => {
+    const first = claimUploadedR2ObjectKey(
+      "app/attachments/tmp/user-1/upload-a-receipt.pdf",
+      clientClaimOptions
+    );
+    const second = claimUploadedR2ObjectKey(
+      "app/attachments/tmp/user-1/upload-b-receipt.pdf",
+      clientClaimOptions
+    );
+
+    expect(first).not.toBe(second);
+    expect(first.endsWith("/upload-a-receipt.pdf")).toBe(true);
+    expect(second.endsWith("/upload-b-receipt.pdf")).toBe(true);
+  });
+
+  it("queues copy before commit and source deletion after commit", async () => {
+    const beforeCommitTasks: AsyncTask[] = [];
+    const asyncTasks: AsyncTask[] = [];
+    const rollbackTasks: AsyncTask[] = [];
+    const lockR2Object = vi.fn();
+    const lockR2ObjectForClaim = vi.fn();
+    const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
+    const targetKey =
+      "app/attachments/reimbursements/request-1/upload-id-receipt.pdf";
+
+    expect(
+      claimUploadedR2ObjectKey(sourceKey, {
+        ...clientClaimOptions,
+        asyncTasks,
+        beforeCommitTasks,
+        copyR2Object,
+        enqueue,
+        lockR2Object,
+        lockR2ObjectForClaim,
+        mimeType: "application/pdf",
+        r2KeyPrefix: "app",
+        rollbackTasks,
+        traceId: "trace-id",
+        txLocation: "server",
+      })
+    ).toBe(targetKey);
+
+    expect(beforeCommitTasks).toHaveLength(1);
+    expect(asyncTasks).toHaveLength(1);
+    await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(sourceKey);
+    expect(lockR2ObjectForClaim).toHaveBeenCalledWith(targetKey);
+    expect(lockR2Object.mock.invocationCallOrder[0]).toBeLessThan(
+      lockR2ObjectForClaim.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(lockR2ObjectForClaim.mock.invocationCallOrder[0]).toBeLessThan(
+      copyR2Object.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(copyR2Object).toHaveBeenCalledWith({
+      mimeType: "application/pdf",
+      sourceKey,
+      targetKey,
+    });
+    expect(enqueue).not.toHaveBeenCalled();
+
+    expect(rollbackTasks).toHaveLength(1);
+    await rollbackTasks[0]?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { mode: "if-unreferenced", r2Key: targetKey },
+      { startAfter: "30 seconds", traceId: "trace-id" }
+    );
+    enqueue.mockClear();
+
+    await asyncTasks[0]?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      { mode: "temporary-source", r2Key: sourceKey },
+      { traceId: "trace-id" }
+    );
+  });
+
+  it("locks and revalidates an existing durable key before commit", async () => {
+    const beforeCommitTasks: AsyncTask[] = [];
+    const asyncTasks: AsyncTask[] = [];
+    const key = "app/attachments/reimbursements/request-1/receipt.pdf";
+    const lockR2Object = vi.fn();
+
+    expect(
+      claimUploadedR2ObjectKey(key, {
+        ...clientClaimOptions,
+        asyncTasks,
+        beforeCommitTasks,
+        copyR2Object,
+        enqueue,
+        existingObjectKeys: new Set([key]),
+        lockR2Object,
+        r2KeyPrefix: "app",
+        txLocation: "server",
+      })
+    ).toBe(key);
+    expect(beforeCommitTasks).toHaveLength(1);
+    expect(asyncTasks).toEqual([]);
+
+    await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(key);
+    expect(copyR2Object).toHaveBeenCalledWith({
+      sourceKey: key,
+      targetKey: key,
+    });
+    expect(lockR2Object.mock.invocationCallOrder[0]).toBeLessThan(
+      copyR2Object.mock.invocationCallOrder[0] ?? 0
+    );
+  });
+
+  it("retains a trusted legacy key that predates the configured prefix", async () => {
+    const beforeCommitTasks: AsyncTask[] = [];
+    const key = "legacy/attachments/request-1/receipt.pdf";
+    const lockR2Object = vi.fn();
+
+    expect(
+      claimUploadedR2ObjectKey(key, {
+        ...clientClaimOptions,
+        asyncTasks: [],
+        beforeCommitTasks,
+        copyR2Object,
+        enqueue,
+        existingObjectKeys: new Set([key]),
+        lockR2Object,
+        r2KeyPrefix: "app",
+        txLocation: "server",
+      })
+    ).toBe(key);
+
+    await beforeCommitTasks[0]?.fn();
+    expect(lockR2Object).toHaveBeenCalledWith(key);
+    expect(copyR2Object).toHaveBeenCalledWith({
+      sourceKey: key,
+      targetKey: key,
+    });
+  });
+
+  it("rejects another user's temp key", () => {
+    expect(() =>
+      claimUploadedR2ObjectKey(
+        "app/attachments/tmp/other-user/upload-id-receipt.pdf",
+        clientClaimOptions
+      )
+    ).toThrow("Invalid attachment object key");
+  });
+
+  it.each([
+    "app/attachments/tmp/other-user/upload-id-receipt.pdf",
+    "app/photos/tmp/user-1/upload-id-receipt.pdf",
+    "other/attachments/tmp/user-1/upload-id-receipt.pdf",
+  ])("rejects an unowned server key before queueing work: %s", (key) => {
+    const beforeCommitTasks: AsyncTask[] = [];
+    const asyncTasks: AsyncTask[] = [];
+
+    expect(() =>
+      claimUploadedR2ObjectKey(key, {
+        ...clientClaimOptions,
+        asyncTasks,
+        beforeCommitTasks,
+        copyR2Object,
+        enqueue,
+        r2KeyPrefix: "app",
+        txLocation: "server",
+      })
+    ).toThrow("Invalid attachment object key");
+    expect(beforeCommitTasks).toEqual([]);
+    expect(asyncTasks).toEqual([]);
+  });
+});
+
+describe("enqueueDeleteR2Object", () => {
+  it("queues persisted deletion only for a server mutation", async () => {
+    const asyncTasks: AsyncTask[] = [];
+    enqueueDeleteR2Object(
+      {
+        asyncTasks,
+        enqueue,
+        r2KeyPrefix: "app",
+        traceId: "trace-id",
+      },
+      "server",
+      "app/attachments/reimbursements/request-1/receipt.pdf",
+      {
+        keyPrefixes: ["attachments/reimbursements/request-1/"],
+        meta: { mutator: "reimbursement.delete", requestId: "request-1" },
+      }
+    );
+
+    expect(asyncTasks).toHaveLength(1);
+    await asyncTasks[0]?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      {
+        mode: "if-unreferenced",
+        r2Key: "app/attachments/reimbursements/request-1/receipt.pdf",
+      },
+      { startAfter: "30 seconds", traceId: "trace-id" }
+    );
+  });
+
+  it("accepts a parent-bound legacy key", async () => {
+    const asyncTasks: AsyncTask[] = [];
+    enqueueDeleteR2Object(
+      { asyncTasks, enqueue, r2KeyPrefix: "app" },
+      "server",
+      "app/attachments/request-1/receipt.pdf",
+      {
+        keyPrefixes: [
+          "attachments/reimbursements/request-1/",
+          "attachments/request-1/",
+        ],
+        meta: { mutator: "reimbursement.delete" },
+      }
+    );
+
+    expect(asyncTasks).toHaveLength(1);
+    await asyncTasks[0]?.fn();
+    expect(enqueue).toHaveBeenCalledWith(
+      "delete-r2-object",
+      {
+        mode: "if-unreferenced",
+        r2Key: "app/attachments/request-1/receipt.pdf",
+      },
+      { startAfter: "30 seconds", traceId: undefined }
+    );
+  });
+
+  it("does not enqueue a key outside the owning parent", () => {
+    const asyncTasks: AsyncTask[] = [];
+    enqueueDeleteR2Object(
+      { asyncTasks, enqueue, r2KeyPrefix: "app" },
+      "server",
+      "app/attachments/reimbursements/other-request/receipt.pdf",
+      {
+        keyPrefixes: [
+          "attachments/reimbursements/request-1/",
+          "attachments/request-1/",
+        ],
+        meta: { mutator: "reimbursement.delete" },
+      }
+    );
+
+    expect(asyncTasks).toEqual([]);
+  });
+});
+
+describe("relation attachment cleanup callbacks", () => {
+  const baseOps = {
+    deleteAttachment: () => Promise.resolve(),
+    deleteLineItem: () => Promise.resolve(),
+    insertAttachment: () => Promise.resolve(),
+    insertHistory: () => Promise.resolve(),
+    insertLineItem: () => Promise.resolve(),
+    queryLineItems: () => Promise.resolve([]),
+  };
+
+  it("deletes only dropped attachment object keys during replacement", async () => {
+    const deleted: string[] = [];
+    const retainedKey = "app/attachments/reimbursements/request-1/keep.pdf";
+    const droppedKey = "app/attachments/reimbursements/request-1/drop.pdf";
+
+    await replaceRelations(
+      { reimbursementId: "request-1" },
+      [],
+      [
+        {
+          filename: "keep.pdf",
+          id: "keep",
+          mimeType: "application/pdf",
+          objectKey: retainedKey,
+          type: "file",
+        },
+      ],
+      "user-1",
+      1,
+      {
+        ...baseOps,
+        onDeleteAttachmentObjectKey: (key) => deleted.push(key),
+        queryAttachments: () =>
+          Promise.resolve([
+            { id: "keep", objectKey: retainedKey },
+            { id: "drop", objectKey: droppedKey },
+          ]),
+      },
+      clientClaimOptions
+    );
+
+    expect(deleted).toEqual([droppedKey]);
+  });
+
+  it("deletes all attachment object keys with their relations", async () => {
+    const deleted: string[] = [];
+    await deleteAllRelations({
+      deleteAttachment: () => Promise.resolve(),
+      deleteHistory: () => Promise.resolve(),
+      deleteLineItem: () => Promise.resolve(),
+      onDeleteAttachmentObjectKey: (key) => deleted.push(key),
+      queryAttachments: () =>
+        Promise.resolve([
+          {
+            id: "attachment-1",
+            objectKey: "app/attachments/reimbursements/request-1/file.pdf",
+          },
+        ]),
+      queryHistory: () => Promise.resolve([]),
+      queryLineItems: () => Promise.resolve([]),
+    });
+    expect(deleted).toEqual([
+      "app/attachments/reimbursements/request-1/file.pdf",
+    ]);
   });
 });

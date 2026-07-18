@@ -36,7 +36,6 @@ import { cityOptions } from "@/lib/form-schemas";
 
 interface VendorPaymentFieldsProps {
   categoryList: ExpenseCategory[];
-  entityId: string;
   eventOptions: SelectOption[];
   isEdit: boolean;
   onCancel: () => void;
@@ -158,7 +157,6 @@ function EventSelectField({
 
 export function VendorPaymentFields({
   categoryList,
-  entityId,
   eventOptions,
   isEdit,
   onCancel,
@@ -215,7 +213,6 @@ export function VendorPaymentFields({
       >
         {(field) => (
           <AttachmentsSection
-            entityId={entityId}
             fileDownloadKind="vendorPaymentAttachment"
             onChange={field.handleChange}
             value={field.state.value ?? []}

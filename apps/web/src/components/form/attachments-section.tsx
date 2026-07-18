@@ -17,6 +17,7 @@ import type {
   AttachmentDownloadRef,
   AttachmentRowDownloadKind,
 } from "@pi-dash/shared/asset-ref";
+import { MAX_ATTACHMENT_FILE_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -25,7 +26,8 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { AddUrlRow } from "@/components/form/add-url-row";
 import {
-  getPresignedUploadUrl,
+  getRequestUploadUrl,
+  getVendorPaymentInvoiceUploadUrl,
   toAllowedMimeType,
 } from "@/functions/attachments";
 import { useAttachmentActions } from "@/hooks/use-attachment-actions";
@@ -37,53 +39,19 @@ import {
 import {
   ATTACHMENT_ACCEPT,
   type Attachment,
-  MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILES,
 } from "@/lib/form-schemas";
+import { uploadSingleAttachment } from "./attachment-upload";
 
 interface AttachmentsSectionProps {
-  entityId: string;
   fileDownloadKind?: AttachmentRowDownloadKind;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
+  vendorPaymentInvoiceId?: string;
 }
 
 const isFileAttachment = (attachment: Attachment): boolean =>
   attachment.type === "file";
-
-const uploadSingleFile = async (
-  file: File,
-  entityId: string,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
-): Promise<Attachment> => {
-  const { presignedUrl, key } = await getUploadUrl({
-    data: {
-      entityId,
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: toAllowedMimeType(file.type),
-      subfolder: "attachments",
-    },
-  });
-
-  const response = await fetch(presignedUrl, {
-    body: file,
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    method: "PUT",
-  });
-
-  if (!response.ok) {
-    throw new Error("Upload request failed");
-  }
-
-  return {
-    filename: file.name,
-    id: uuidv7(),
-    mimeType: file.type,
-    objectKey: key,
-    type: "file",
-  };
-};
 
 const showUploadResultToasts = (
   uploadedCount: number,
@@ -186,12 +154,15 @@ function AttachmentRow({
 }
 
 export function AttachmentsSection({
-  entityId,
   fileDownloadKind,
   onChange,
   value,
+  vendorPaymentInvoiceId,
 }: AttachmentsSectionProps) {
-  const getUploadUrl = useServerFn(getPresignedUploadUrl);
+  const requestUploadUrl = useServerFn(getRequestUploadUrl);
+  const vendorPaymentInvoiceUploadUrl = useServerFn(
+    getVendorPaymentInvoiceUploadUrl
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [unpersistedIds, setUnpersistedIds] = useState<Set<string>>(
     () => new Set()
@@ -260,11 +231,12 @@ export function AttachmentsSection({
             current: prev.current + 1,
           }));
           try {
-            const uploadedAttachment = await uploadSingleFile(
-              file,
-              entityId,
-              getUploadUrl
-            );
+            const uploadedAttachment = await uploadSingleAttachment(file, {
+              getRequestUploadUrl: requestUploadUrl,
+              getVendorPaymentInvoiceUploadUrl: vendorPaymentInvoiceUploadUrl,
+              toAllowedMimeType,
+              vendorPaymentInvoiceId,
+            });
             uploadedAttachments.push(uploadedAttachment);
           } catch (error) {
             failedCount += 1;
@@ -296,7 +268,13 @@ export function AttachmentsSection({
 
       setIsUploading(false);
     },
-    [entityId, getUploadUrl, onChange, remainingFileSlots]
+    [
+      onChange,
+      remainingFileSlots,
+      requestUploadUrl,
+      vendorPaymentInvoiceId,
+      vendorPaymentInvoiceUploadUrl,
+    ]
   );
 
   const uploadFilesRef = useRef(uploadFiles);

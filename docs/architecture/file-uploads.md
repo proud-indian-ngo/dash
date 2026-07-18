@@ -5,14 +5,86 @@
 
 ## Cloudflare R2 (Attachments)
 
-1. Client requests presigned URL via `getPresignedUploadUrl` server fn.
+1. Client requests a surface-specific presigned URL. Protected signers create
+   keys under `<prefix>/<surface>/tmp/<userId>/`; callers cannot choose a
+   parent ID or storage subfolder.
 2. Client uploads directly to R2 via presigned PUT.
-3. Object key stored in DB (attachment record).
-4. Browser receives a typed asset reference, never a caller-provided object key.
-5. Download is authorized against the exact persisted row and streamed through
+3. The owning Zero mutator validates the current user's exact temp prefix and
+   computes a deterministic parent-scoped durable key.
+4. Before the database transaction commits, the server validates stored R2
+   MIME/size metadata, streams the exact source bytes through a bounded writer,
+   and idempotently copies the temp object to the durable key. A zero-length,
+   changed, or oversized stream fails the copy, rolls back the database
+   transaction, and retains the temp source for retry. Attempted durable
+   targets are queued for delayed, reference-checked cleanup on rollback. The
+   transaction holds a shared advisory lock on the temp source and an exclusive
+   advisory lock on the durable target through commit.
+5. After commit, the server enqueues temp-source deletion under an exclusive
+   advisory lock on the same source key. Browser-triggered temp cleanup uses the
+   same lock. Replaced or deleted durable objects are delayed for 30 seconds;
+   the job holds an exclusive lock, rechecks every protected database reference,
+   and deletes only when the key is still unreferenced. Every delete job must
+   select an explicit `temporary-source` or `if-unreferenced` mode; omission is
+   a type error.
+6. Browser reads use typed asset references, never a caller-provided object
+   key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
+`scheduled-messages`. Avatar and editor uploads remain dedicated durable
+signers under `avatars` and `updates`.
+
+Vendor-payment invoice signing accepts the payment ID only to authorize the
+payment owner or a user with `requests.approve` or `requests.edit_all`; the
+generated key remains under the current user's `attachments/tmp/` prefix.
+
+During the private-storage rollout, the bucket remains publicly reachable only
+for asset families that have not migrated yet. All migrated reads use an exact
+persisted database reference; a raw object key is never authorization. Keys
+containing a `tmp/` path segment are never readable.
+
+Avatar and Plate editor uploads have dedicated signers:
+
+- Avatar replacement is owner-only, accepts the shared image MIME list with a
+  5 MB limit, and stores `/api/media/avatar/<userId>?key=<key>` in `user.image`.
+- Editor image uploads require `event_updates.create` or lead membership in the
+  event's team, accept the shared image MIME list with a 20 MB limit, and store
+  `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
+- No generic protected signer or generic persisted-object delete endpoint is
+  exposed to the browser.
+
+Configure R2 lifecycle rules that expire these prefixes after 24 hours:
+`<R2_KEY_PREFIX>/attachments/tmp/`,
+`<R2_KEY_PREFIX>/approval-screenshots/tmp/`,
+`<R2_KEY_PREFIX>/photos/tmp/`, and
+`<R2_KEY_PREFIX>/scheduled-messages/tmp/`. The repository does not manage the
+bucket, so the rules must be applied in Cloudflare before deploying
+transactional claims. They are a fallback for abandoned uploads; successful
+claims enqueue source deletion immediately after commit.
+
+Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
+dry-run mode first, review changed/skipped/malformed counts, then apply it:
+
+Reference-checked deletion also recognizes the two historical protected-upload
+layouts: `scheduled-messages/scheduled-message-draft/` and invoice attachments
+under `attachments/<dialogUuid>/`. New uploads never use these layouts.
+Scheduled-message attachments remain referenced and downloadable after delivery;
+replacement or message deletion retires the reference and enqueues cleanup.
+
+```bash
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply
+bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply --batch-size=250
+```
+
+The migration rewrites `user.image`, `event_update.content`, and
+`event_feedback.content` in transactional batches of 100 rows by default;
+`--batch-size` accepts 1 through 1000. Raw keys and legacy CDN URLs are
+canonicalized, while unrelated external URLs are left unchanged. The
+report includes `malformedIds` per table so invalid Plate rows can be repaired.
+Do not disable public bucket access until a final dry-run reports both zero
+changes and zero malformed rows. The orphan-cleanup job recognizes raw keys,
+legacy CDN URLs, and canonical app URLs.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact
@@ -55,7 +127,7 @@ Flow:
 
 1. Member uploads photo → stored as event photo record with R2 key.
 2. Lead/admin approves → `immich-sync-photo` pg-boss job enqueued (with `singletonKey: photoId` → no dup processing).
-3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → deletes R2 object (best-effort).
+3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → enqueues delayed, reference-checked R2 cleanup.
 4. Photo deletion enqueues `immich-delete-asset` and/or `delete-r2-object` jobs as needed.
 5. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`.
 
@@ -98,7 +170,7 @@ Photo sync is **ordered** for crash safety:
 3. **Persist `immichAssetId` in DB immediately** (before album-add + R2 delete). If worker crashes after this, next retry skips re-upload.
 4. Add asset to Immich album via `PUT /api/albums/:id/assets`.
 5. Clear R2 key from DB (`r2Key = null`).
-6. Best-effort R2 delete via `delete-r2-object` job enqueue.
+6. Delayed, reference-checked R2 cleanup via `delete-r2-object` job enqueue.
 
 `singletonKey: photoId` on `immich-sync-photo` job → pg-boss dedups concurrent enqueues for the same photo.
 

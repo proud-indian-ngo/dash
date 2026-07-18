@@ -43,7 +43,6 @@ interface StandardReimbursementFieldsProps {
   bankAccountsStatus: "loading" | "complete" | "error";
   categoryList: ExpenseCategory[];
   disableBankAccountSelection: boolean;
-  entityId: string;
   eventOptions: SelectOption[];
   form: FormWithField;
   isEdit: boolean;
@@ -213,7 +212,6 @@ export function StandardReimbursementFields({
   bankAccountsStatus,
   categoryList,
   disableBankAccountSelection,
-  entityId,
   eventOptions,
   form,
   onBankAccountSelected,
@@ -312,7 +310,6 @@ export function StandardReimbursementFields({
       <form.Field name="attachments">
         {(field: FormFieldApi<unknown[]>) => (
           <AttachmentsSection
-            entityId={entityId}
             fileDownloadKind={
               requestType === "reimbursement"
                 ? "reimbursementAttachment"

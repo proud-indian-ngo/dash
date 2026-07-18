@@ -14,7 +14,7 @@ import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
-import { deleteUploadedAssets } from "@/functions/attachments";
+import { useApp } from "@/context/app-context";
 import { cityOptions } from "@/lib/form-schemas";
 import {
   normalizeToRequestRows,
@@ -44,13 +44,6 @@ export const Route = createFileRoute("/_app/reimbursements/")({
   },
 });
 
-function fetchRequestItem(zero: ReturnType<typeof useZero>, row: RequestRow) {
-  if (row.type === "reimbursement") {
-    return zero.run(queries.reimbursement.byId({ id: row.id }));
-  }
-  return zero.run(queries.advancePayment.byId({ id: row.id }));
-}
-
 function getMutatorNs(type: RequestRow["type"]) {
   if (type === "reimbursement") {
     return mutators.reimbursement;
@@ -61,6 +54,7 @@ function getMutatorNs(type: RequestRow["type"]) {
 function ReimbursementsRouteComponent() {
   const navigate = useNavigate();
   const zero = useZero();
+  const { hasPermission } = useApp();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -105,18 +99,6 @@ function ReimbursementsRouteComponent() {
   const handleDelete = useEventCallback(async (row: RequestRow) => {
     const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
     try {
-      const item = await fetchRequestItem(zero, row);
-      const r2Keys =
-        item?.attachments
-          ?.filter((a) => a.type === "file" && a.objectKey)
-          .map((a) => a.objectKey as string) ?? [];
-
-      if (r2Keys.length > 0) {
-        await deleteUploadedAssets({
-          data: { keys: r2Keys, subfolder: "attachments" },
-        });
-      }
-
       const mutatorNs = getMutatorNs(row.type);
       await zero.mutate(mutatorNs.delete({ id: row.id }));
       toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
@@ -162,14 +144,16 @@ function ReimbursementsRouteComponent() {
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
           toolbarActions={
-            <Button onClick={stableOnClick2} size="sm" type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add reimbursement
-            </Button>
+            hasPermission("requests.create") ? (
+              <Button onClick={stableOnClick2} size="sm" type="button">
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={PlusSignIcon}
+                  strokeWidth={2}
+                />
+                Add reimbursement
+              </Button>
+            ) : null
           }
           toolbarFilters={
             <>
