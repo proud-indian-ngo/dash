@@ -416,6 +416,7 @@ async function validateSessionValues(
     }
     throw new Error("Session end time must be after its start time");
   }
+  return competition;
 }
 
 export const kalakritiCompetitionMutators = {
@@ -444,7 +445,10 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: args.editionId,
-        metadata: { name: normalized.name },
+        metadata: {
+          competitionCategoryId: args.categoryId,
+          name: normalized.name,
+        },
         now: args.now,
         targetId: args.categoryId,
         targetType: "competition_category",
@@ -506,7 +510,7 @@ export const kalakritiCompetitionMutators = {
         ctx,
         args.editionId
       );
-      await validateSessionValues(tx, edition, args);
+      const competition = await validateSessionValues(tx, edition, args);
       await tx.mutate.kalakritiCompetitionSession.insert({
         ageCategoryId: args.ageCategoryId,
         cancelledAt: null,
@@ -528,6 +532,7 @@ export const kalakritiCompetitionMutators = {
         editionId: args.editionId,
         metadata: {
           ageCategoryId: args.ageCategoryId,
+          competitionCategoryId: competition?.competitionCategoryId,
           competitionId: args.competitionId,
           venueId: args.venueId,
         },
@@ -613,7 +618,10 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: category.editionId,
-        metadata: { name: category.name },
+        metadata: {
+          competitionCategoryId: category.id,
+          name: category.name,
+        },
         now: args.now,
         targetId: category.id,
         targetType: "competition_category",
@@ -652,7 +660,10 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: competition.editionId,
-        metadata: { name: competition.name },
+        metadata: {
+          competitionCategoryId: competition.competitionCategoryId,
+          name: competition.name,
+        },
         now: args.now,
         targetId: competition.id,
         targetType: "competition",
@@ -681,11 +692,16 @@ export const kalakritiCompetitionMutators = {
         );
       }
       await tx.mutate.kalakritiCompetitionSession.delete({ id: session.id });
+      const competition = await getCompetition(tx, session.competitionId);
       await insertAudit(tx, ctx, {
         action: "deleted",
         auditEntryId: args.auditEntryId,
         domain: "schedule_configuration",
         editionId: session.editionId,
+        metadata: {
+          competitionCategoryId: competition?.competitionCategoryId,
+          competitionId: session.competitionId,
+        },
         now: args.now,
         targetId: session.id,
         targetType: "competition_session",
@@ -755,6 +771,7 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: category.editionId,
+        metadata: { competitionCategoryId: category.id },
         now: args.now,
         targetId: category.id,
         targetType: "competition_category",
@@ -788,6 +805,9 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: competition.editionId,
+        metadata: {
+          competitionCategoryId: competition.competitionCategoryId,
+        },
         now: args.now,
         targetId: competition.id,
         targetType: "competition",
@@ -825,6 +845,9 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: competition.editionId,
+        metadata: {
+          competitionCategoryId: competition.competitionCategoryId,
+        },
         now: args.now,
         targetId: competition.id,
         targetType: "competition",
@@ -855,6 +878,7 @@ export const kalakritiCompetitionMutators = {
         session.id,
         session.competitionId
       );
+      const competition = await getCompetition(tx, session.competitionId);
       await tx.mutate.kalakritiCompetitionSession.update({
         cancelledAt: args.enabled ? args.now : null,
         id: session.id,
@@ -865,6 +889,10 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "schedule_configuration",
         editionId: session.editionId,
+        metadata: {
+          competitionCategoryId: competition?.competitionCategoryId,
+          competitionId: session.competitionId,
+        },
         now: args.now,
         targetId: session.id,
         targetType: "competition_session",
@@ -934,7 +962,10 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: category.editionId,
-        metadata: { name: normalized.name },
+        metadata: {
+          competitionCategoryId: category.id,
+          name: normalized.name,
+        },
         now: args.now,
         targetId: category.id,
         targetType: "competition_category",
@@ -993,7 +1024,14 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: competition.editionId,
-        metadata: { name: normalized.name },
+        metadata: {
+          competitionCategoryId: args.competitionCategoryId,
+          competitionCategoryIds: [
+            competition.competitionCategoryId,
+            args.competitionCategoryId,
+          ],
+          name: normalized.name,
+        },
         now: args.now,
         targetId: competition.id,
         targetType: "competition",
@@ -1028,7 +1066,11 @@ export const kalakritiCompetitionMutators = {
         );
       }
       await assertSessionUpdatePreservesEntries(tx, session, args);
-      await validateSessionValues(tx, edition, args);
+      const nextCompetition = await validateSessionValues(tx, edition, args);
+      const previousCompetition =
+        session.competitionId === args.competitionId
+          ? nextCompetition
+          : await getCompetition(tx, session.competitionId);
       const { centerIds } = await getSessionScheduleImpact(
         tx,
         session.id,
@@ -1049,6 +1091,15 @@ export const kalakritiCompetitionMutators = {
         auditEntryId: args.auditEntryId,
         domain: "schedule_configuration",
         editionId: session.editionId,
+        metadata: {
+          competitionCategoryId: nextCompetition?.competitionCategoryId,
+          competitionCategoryIds: [
+            previousCompetition?.competitionCategoryId,
+            nextCompetition?.competitionCategoryId,
+          ].filter((id): id is string => Boolean(id)),
+          competitionId: args.competitionId,
+          competitionIds: [session.competitionId, args.competitionId],
+        },
         now: args.now,
         targetId: session.id,
         targetType: "competition_session",
