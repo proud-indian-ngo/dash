@@ -14,6 +14,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { CompetitionAssignmentForm } from "@/components/kalakriti/competition-assignment-form";
 import { VolunteerAssignmentForm } from "@/components/kalakriti/volunteer-assignment-form";
 import {
   type RemoveAssignmentPayload,
@@ -32,6 +33,66 @@ interface PickerData {
   editionId: string;
   state: "error" | "ready";
   users: PickerUser[];
+}
+
+interface CompetitionScopeOption {
+  id: string;
+  name: string;
+  retiredAt: number | null;
+}
+
+function CompetitionAssignmentContent({
+  categories,
+  categoriesState,
+  competitions,
+  competitionsState,
+  editionId,
+  pickerState,
+  users,
+}: {
+  categories: readonly CompetitionScopeOption[];
+  categoriesState: "complete" | "error" | "unknown";
+  competitions: readonly CompetitionScopeOption[];
+  competitionsState: "complete" | "error" | "unknown";
+  editionId: string;
+  pickerState: "error" | "idle" | "loading" | "ready";
+  users: readonly PickerUser[];
+}) {
+  if (
+    pickerState === "error" ||
+    categoriesState === "error" ||
+    competitionsState === "error"
+  ) {
+    return (
+      <p className="text-destructive text-sm" role="alert">
+        Competition assignment options could not be loaded. Refresh and try
+        again.
+      </p>
+    );
+  }
+  if (
+    pickerState === "ready" &&
+    categoriesState === "complete" &&
+    competitionsState === "complete"
+  ) {
+    return (
+      <CompetitionAssignmentForm
+        categories={categories}
+        competitions={competitions}
+        editionId={editionId}
+        users={users}
+      />
+    );
+  }
+  return (
+    <div
+      aria-label="Loading Competition assignment options"
+      className="flex min-h-24 items-center justify-center"
+      role="status"
+    >
+      <Loader />
+    </div>
+  );
 }
 
 function PickerContent({
@@ -94,6 +155,14 @@ export function VolunteerAssignmentsCard({ editionId }: { editionId: string }) {
       : (["overall_events_lead"] as const);
   const [roster, rosterResult] = useQuery(
     queries.kalakritiAssignment.roster({ editionId }),
+    { enabled: canManage }
+  );
+  const [competitionCategories, competitionCategoriesResult] = useQuery(
+    queries.kalakritiCompetition.categories({ editionId }),
+    { enabled: canManage }
+  );
+  const [competitions, competitionsResult] = useQuery(
+    queries.kalakritiCompetition.competitions({ editionId }),
     { enabled: canManage }
   );
   const [pickerData, setPickerData] = useState<PickerData | null>(null);
@@ -164,6 +233,8 @@ export function VolunteerAssignmentsCard({ editionId }: { editionId: string }) {
         {rosterResult.type === "complete" ? (
           <VolunteerAssignmentRoster
             actorResponsibilities={actorResponsibilityValues}
+            competitionCategories={competitionCategories}
+            competitions={competitions}
             isGlobalAdmin={isGlobalAdmin}
             memberships={roster}
             onRemove={removeAction.trigger}
@@ -187,6 +258,24 @@ export function VolunteerAssignmentsCard({ editionId }: { editionId: string }) {
             editionId={editionId}
             pickerState={pickerState}
             responsibilities={availableResponsibilities}
+            users={pickerUsers}
+          />
+        </div>
+        <div className="border-t pt-6">
+          <h3 className="font-medium text-base">
+            Add Competition responsibility
+          </h3>
+          <p className="mt-1 mb-4 text-muted-foreground text-sm">
+            Scope Category Leads to one Category, and Coordinators or Volunteers
+            to one Competition.
+          </p>
+          <CompetitionAssignmentContent
+            categories={competitionCategories}
+            categoriesState={competitionCategoriesResult.type}
+            competitions={competitions}
+            competitionsState={competitionsResult.type}
+            editionId={editionId}
+            pickerState={pickerState}
             users={pickerUsers}
           />
         </div>

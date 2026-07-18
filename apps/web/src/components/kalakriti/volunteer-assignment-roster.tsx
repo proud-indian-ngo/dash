@@ -16,9 +16,16 @@ export interface RemoveAssignmentPayload {
 }
 
 interface VolunteerAssignment {
+  competitionCategoryId: string | null;
+  competitionId: string | null;
   id: string;
   isPrimary: boolean | null;
   responsibility: KalakritiResponsibility;
+}
+
+interface AssignmentScope {
+  id: string;
+  name: string;
 }
 
 interface VolunteerMembership {
@@ -31,6 +38,8 @@ interface VolunteerMembership {
 function VolunteerAssignmentRow({
   actorResponsibilities,
   assignment,
+  competitionCategories,
+  competitions,
   isFinalAssignment,
   isGlobalAdmin,
   onRemove,
@@ -38,6 +47,8 @@ function VolunteerAssignmentRow({
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   assignment: VolunteerAssignment;
+  competitionCategories: readonly AssignmentScope[];
+  competitions: readonly AssignmentScope[];
   isFinalAssignment: boolean;
   isGlobalAdmin: boolean;
   onRemove: (payload: RemoveAssignmentPayload) => void;
@@ -57,11 +68,19 @@ function VolunteerAssignmentRow({
       actorResponsibilities,
       assignment.responsibility
     );
+  const scopeName = assignment.competitionCategoryId
+    ? competitionCategories.find(
+        (category) => category.id === assignment.competitionCategoryId
+      )?.name
+    : competitions.find(
+        (competition) => competition.id === assignment.competitionId
+      )?.name;
 
   return (
     <div className="flex items-center gap-1">
       <Badge variant="outline">
         {KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]}
+        {scopeName ? ` · ${scopeName}` : ""}
         {assignment.isPrimary ? " · Primary" : ""}
       </Badge>
       {canRemove ? (
@@ -80,11 +99,15 @@ function VolunteerAssignmentRow({
 
 export function VolunteerAssignmentRoster({
   actorResponsibilities,
+  competitionCategories,
+  competitions,
   isGlobalAdmin,
   memberships,
   onRemove,
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
+  competitionCategories: readonly AssignmentScope[];
+  competitions: readonly AssignmentScope[];
   isGlobalAdmin: boolean;
   memberships: readonly VolunteerMembership[];
   onRemove: (payload: RemoveAssignmentPayload) => void;
@@ -119,6 +142,8 @@ export function VolunteerAssignmentRoster({
                   <VolunteerAssignmentRow
                     actorResponsibilities={actorResponsibilities}
                     assignment={assignment}
+                    competitionCategories={competitionCategories}
+                    competitions={competitions}
                     isFinalAssignment={membership.assignments.length === 1}
                     isGlobalAdmin={isGlobalAdmin}
                     key={assignment.id}

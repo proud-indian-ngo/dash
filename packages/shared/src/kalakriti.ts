@@ -34,6 +34,21 @@ export const KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES = [
 export type KalakritiEditionScopedResponsibility =
   (typeof KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES)[number];
 
+export const KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES = [
+  "competition_category_lead",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiCompetitionCategoryScopedResponsibility =
+  (typeof KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES)[number];
+
+export const KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES = [
+  "competition_coordinator",
+  "competition_volunteer",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiCompetitionScopedResponsibility =
+  (typeof KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES)[number];
+
 export const KALAKRITI_RESPONSIBILITY_LABELS = {
   awards_lead: "Awards Lead",
   awards_member: "Awards Member",
@@ -73,7 +88,7 @@ export function canManageKalakritiResponsibility(
   );
 }
 
-export function normalizeKalakritiCenterName(name: string): {
+function normalizeKalakritiName(name: string): {
   name: string;
   normalizedName: string;
 } {
@@ -82,6 +97,13 @@ export function normalizeKalakritiCenterName(name: string): {
     name: displayName,
     normalizedName: displayName.toLocaleLowerCase("en-IN"),
   };
+}
+
+export function normalizeKalakritiCenterName(name: string): {
+  name: string;
+  normalizedName: string;
+} {
+  return normalizeKalakritiName(name);
 }
 
 export interface KalakritiAgeCategoryRange {
@@ -176,11 +198,7 @@ export function normalizeKalakritiAgeCategoryName(name: string): {
   name: string;
   normalizedName: string;
 } {
-  const displayName = name.normalize("NFKC").trim().replace(/\s+/g, " ");
-  return {
-    name: displayName,
-    normalizedName: displayName.toLocaleLowerCase("en-IN"),
-  };
+  return normalizeKalakritiName(name);
 }
 
 export function requireKalakritiAgeCategoryOverrideReason(
@@ -194,4 +212,91 @@ export function requireKalakritiAgeCategoryOverrideReason(
     throw new Error("Age Category override reason is too long");
   }
   return normalized;
+}
+
+export type KalakritiParticipationMode = "group" | "individual";
+export type KalakritiGenderEligibility = "both" | "female" | "male";
+
+export function normalizeKalakritiConfigurationName(name: string): {
+  name: string;
+  normalizedName: string;
+} {
+  return normalizeKalakritiName(name);
+}
+
+export function hasValidKalakritiGroupRules(
+  participationMode: KalakritiParticipationMode,
+  minimumGroupSize: number,
+  maximumGroupSize: number
+): boolean {
+  return participationMode === "individual"
+    ? minimumGroupSize === 1 && maximumGroupSize === 1
+    : minimumGroupSize >= 2 && maximumGroupSize >= minimumGroupSize;
+}
+
+export interface KalakritiScheduleSession {
+  cancelledAt: number | null;
+  endAt: number;
+  id: string;
+  startAt: number;
+  venueId: string;
+}
+
+export type KalakritiSessionScheduleValidation =
+  | { valid: true }
+  | {
+      conflictSessionId?: string;
+      reason: "invalid_time_range" | "outside_event_date" | "venue_overlap";
+      valid: false;
+    };
+
+function dateInTimeZone(timestamp: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone,
+    year: "numeric",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function validateKalakritiSessionSchedule(
+  candidate: KalakritiScheduleSession,
+  eventDate: string,
+  timeZone: string,
+  sessions: readonly KalakritiScheduleSession[]
+): KalakritiSessionScheduleValidation {
+  if (
+    !(Number.isFinite(candidate.startAt) && Number.isFinite(candidate.endAt)) ||
+    candidate.endAt <= candidate.startAt
+  ) {
+    return { reason: "invalid_time_range", valid: false };
+  }
+  if (
+    dateInTimeZone(candidate.startAt, timeZone) !== eventDate ||
+    dateInTimeZone(candidate.endAt, timeZone) !== eventDate
+  ) {
+    return { reason: "outside_event_date", valid: false };
+  }
+  if (candidate.cancelledAt !== null) {
+    return { valid: true };
+  }
+  const conflict = sessions.find(
+    (session) =>
+      session.id !== candidate.id &&
+      session.cancelledAt === null &&
+      session.venueId === candidate.venueId &&
+      candidate.startAt < session.endAt &&
+      session.startAt < candidate.endAt
+  );
+  return conflict
+    ? {
+        conflictSessionId: conflict.id,
+        reason: "venue_overlap",
+        valid: false,
+      }
+    : { valid: true };
 }
