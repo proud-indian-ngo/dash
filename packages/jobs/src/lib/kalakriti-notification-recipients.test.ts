@@ -28,7 +28,7 @@ vi.mock("drizzle-orm", async (importOriginal) => {
 });
 
 import {
-  resolveKalakritiGuardianRecipients,
+  resolveKalakritiRegistrationRecipients,
   resolveKalakritiScheduleRecipients,
 } from "./kalakriti-notification-recipients";
 
@@ -48,18 +48,30 @@ describe("Kalakriti schedule recipient resolution", () => {
     vi.clearAllMocks();
   });
 
-  it("selects only active Guardian identities from the requested Edition", async () => {
-    select.mockReturnValueOnce(
-      queryReturning([{ userId: "guardian-1" }, { userId: null }])
-    );
+  it("selects active Guardians and assigned volunteers from the requested Edition", async () => {
+    select
+      .mockReturnValueOnce(
+        queryReturning([
+          { userId: "guardian-1" },
+          { userId: "shared-recipient" },
+          { userId: null },
+        ])
+      )
+      .mockReturnValueOnce(
+        queryReturning([
+          { userId: "volunteer-1" },
+          { userId: "shared-recipient" },
+          { userId: null },
+        ])
+      );
 
     await expect(
-      resolveKalakritiGuardianRecipients("edition-1")
-    ).resolves.toEqual(["guardian-1"]);
+      resolveKalakritiRegistrationRecipients("edition-1")
+    ).resolves.toEqual(["guardian-1", "shared-recipient", "volunteer-1"]);
     expect(filterCalls.eq.mock.calls.map(([, value]) => value)).toEqual(
-      expect.arrayContaining(["edition-1", "guardian", "active"])
+      expect.arrayContaining(["edition-1", "guardian", "active", "volunteer"])
     );
-    expect(filterCalls.isNotNull).toHaveBeenCalledOnce();
+    expect(filterCalls.isNotNull).toHaveBeenCalledTimes(2);
   });
 
   it("deduplicates affected Center Guardians and assigned Competition staff", async () => {

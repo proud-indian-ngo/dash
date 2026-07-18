@@ -1,3 +1,4 @@
+import { KALAKRITI_TIMEZONE } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import type { Context } from "../context";
@@ -531,7 +532,7 @@ export const kalakritiEditionMutators = {
         plannedRegistrationCloseAt: args.plannedRegistrationCloseAt,
         runnerUpPoints: 5,
         teamEventId: args.teamEventId,
-        timezone: "Asia/Kolkata",
+        timezone: KALAKRITI_TIMEZONE,
         updatedAt: args.now,
         winnerPoints: 10,
         year: args.year,
