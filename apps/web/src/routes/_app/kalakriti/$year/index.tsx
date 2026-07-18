@@ -8,6 +8,8 @@ import {
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
+import { EditionLifecycleCard } from "@/components/kalakriti/edition-lifecycle-card";
 import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
 import { useApp } from "@/context/app-context";
 
@@ -38,6 +40,9 @@ function KalakritiEditionOverview() {
   const { hasPermission } = useApp();
   const canViewLinkedEvent =
     hasPermission("events.view_own") || hasPermission("events.view_all");
+  const canManageLifecycle =
+    access.isGlobalAdmin ||
+    access.membership?.responsibilities.includes("edition_admin") === true;
   const [teamEvent] = useQuery(
     queries.teamEvent.byId({ id: edition.teamEventId }),
     { enabled: canViewLinkedEvent }
@@ -97,6 +102,17 @@ function KalakritiEditionOverview() {
             </Button>
           </CardContent>
         </Card>
+      ) : null}
+
+      <EditionLifecycleCard
+        canManage={canManageLifecycle}
+        editionId={edition.id}
+      />
+      {canManageLifecycle ? (
+        <EditionCloneCard
+          editionId={edition.id}
+          lifecycle={edition.lifecycle}
+        />
       ) : null}
 
       <VolunteerAssignmentsCard editionId={edition.id} />

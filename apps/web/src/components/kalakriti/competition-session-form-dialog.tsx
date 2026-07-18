@@ -144,6 +144,7 @@ function SessionForm({
   onOpenChange,
   session,
   sessions,
+  structuralLocked,
   timeZone,
   venues,
 }: {
@@ -154,6 +155,7 @@ function SessionForm({
   onOpenChange: (open: boolean) => void;
   session: CompetitionSessionFormValue | null;
   sessions: readonly CompetitionSessionFormValue[];
+  structuralLocked: boolean;
   timeZone: string;
   venues: readonly SessionOption[];
 }) {
@@ -227,6 +229,7 @@ function SessionForm({
   return (
     <FormLayout form={form}>
       <SelectField
+        disabled={structuralLocked}
         isRequired
         label="Competition"
         name="competitionId"
@@ -236,6 +239,7 @@ function SessionForm({
         }))}
       />
       <SelectField
+        disabled={structuralLocked}
         isRequired
         label="Age Category"
         name="ageCategoryId"
@@ -269,6 +273,7 @@ function SessionForm({
       </div>
       <InputField
         description="Capacity counts Entries; a group Entry uses one place."
+        disabled={structuralLocked}
         isRequired
         label="Entry capacity"
         name="capacity"
@@ -292,6 +297,7 @@ export function CompetitionSessionFormDialog({
   open,
   session,
   sessions,
+  structuralLocked = false,
   timeZone,
   venues,
 }: {
@@ -303,6 +309,7 @@ export function CompetitionSessionFormDialog({
   open: boolean;
   session: CompetitionSessionFormValue | null;
   sessions: readonly CompetitionSessionFormValue[];
+  structuralLocked?: boolean;
   timeZone: string;
   venues: readonly SessionOption[];
 }) {
@@ -321,7 +328,9 @@ export function CompetitionSessionFormDialog({
             {session ? "Edit Competition Session" : "Add Competition Session"}
           </DialogTitle>
           <DialogDescription>
-            Schedule one Competition and Age Category in an active Venue.
+            {structuralLocked
+              ? "Competition, Age Category, and capacity are locked. Update the Session time or Venue, or cancel the Session."
+              : "Schedule one Competition and Age Category in an active Venue."}
           </DialogDescription>
         </DialogHeader>
         <SessionForm
@@ -333,6 +342,7 @@ export function CompetitionSessionFormDialog({
           onOpenChange={onOpenChange}
           session={session}
           sessions={sessions}
+          structuralLocked={structuralLocked}
           timeZone={timeZone}
           venues={venues}
         />

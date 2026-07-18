@@ -81,9 +81,12 @@ function KalakritiCompetitionsPage() {
     access.isGlobalAdmin ||
     responsibilities.includes("edition_admin") ||
     responsibilities.includes("overall_events_lead");
-  const configurationLocked =
+  const fullyLocked =
     edition.lifecycle === "live" || edition.lifecycle === "archived";
-  const canManage = actorCanManage && !configurationLocked;
+  const structuralLocked =
+    edition.lifecycle === "registration_locked" || fullyLocked;
+  const canManage = actorCanManage && !structuralLocked;
+  const canManageCancellations = actorCanManage && !fullyLocked;
 
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] =
@@ -332,15 +335,18 @@ function KalakritiCompetitionsPage() {
             ? "Configure the Competition catalog, Venues, and one-day schedule."
             : "Read-only configuration for your assigned Competition Categories."}
         </p>
-        {configurationLocked ? (
+        {structuralLocked ? (
           <p className="mt-2 text-muted-foreground text-sm">
-            Configuration is locked while this Edition is {edition.lifecycle}.
+            {edition.lifecycle === "registration_locked"
+              ? "Competition, Category, Venue, and Session structure is locked. You can still update existing Session times and Venues, or cancel and restore Competitions and Sessions."
+              : `Configuration is locked while this Edition is ${edition.lifecycle}.`}
           </p>
         ) : null}
       </div>
 
       <CompetitionCatalogSection
         canManage={canManage}
+        canManageCancellations={canManageCancellations}
         categories={categoryViews}
         competitions={competitionViews}
         onAddCategory={handleAddCategory}
@@ -360,13 +366,14 @@ function KalakritiCompetitionsPage() {
       />
       <ScheduleSection
         ageCategoryNames={ageCategoryNames}
-        canManage={canManage}
+        canManage={canManageCancellations}
         competitionNames={competitionNames}
         onAdd={handleAddSession}
         onDelete={deleteAction.trigger}
         onEdit={handleEditSession}
         onSetState={stateAction.trigger}
         sessions={sessionViews}
+        structuralLocked={structuralLocked}
         timeZone={edition.timezone}
         venueNames={venueNames}
       />
@@ -400,6 +407,7 @@ function KalakritiCompetitionsPage() {
         open={sessionDialogOpen}
         session={editingSession}
         sessions={sessionViews}
+        structuralLocked={edition.lifecycle === "registration_locked"}
         timeZone={edition.timezone}
         venues={dialogOptions.venues}
       />

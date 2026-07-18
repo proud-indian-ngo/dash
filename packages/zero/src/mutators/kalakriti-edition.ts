@@ -1,8 +1,35 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
-import { assertHasPermission } from "../permissions";
+import {
+  getKalakritiRegistrationReadiness,
+  type KalakritiRegistrationReadinessSnapshot,
+} from "../kalakriti-registration-readiness";
+import { assertHasPermission, assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
+import { assertCanManageKalakritiConfiguration } from "./kalakriti-config-access";
+import {
+  getEditionForUpdate,
+  type LockableKalakritiTx,
+} from "./kalakriti-row-locks";
+
+abstract class BivariantZeroMutation {
+  abstract bivarianceHack(args: unknown): Promise<void>;
+}
+
+type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
+
+interface EditionTx extends LockableKalakritiTx {
+  mutate: {
+    kalakritiAgeCategory: { insert: ZeroMutationFn };
+    kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiCompetition: { insert: ZeroMutationFn };
+    kalakritiCompetitionCategory: { insert: ZeroMutationFn };
+    kalakritiEdition: { insert: ZeroMutationFn; update: ZeroMutationFn };
+    kalakritiVenue: { insert: ZeroMutationFn };
+    teamEvent: { insert: ZeroMutationFn };
+  };
+}
 
 export const kalakritiEditionCreateSchema = z.object({
   ageCutoffDate: z.iso.date(),
@@ -18,7 +45,327 @@ export const kalakritiEditionCreateSchema = z.object({
   year: z.number().int().min(2000).max(2200),
 });
 
+export const kalakritiEditionTransitionSchema = z.object({
+  auditEntryId: z.string(),
+  confirmed: z.literal(true),
+  editionId: z.string(),
+  now: z.number(),
+  targetLifecycle: z.enum(["registration_open", "registration_locked"]),
+});
+
+const cloneMapSchema = z.array(
+  z.object({ sourceId: z.string(), targetId: z.string() })
+);
+
+export const kalakritiEditionCloneConfigurationSchema = z.object({
+  ageCategoryIds: cloneMapSchema,
+  auditEntryId: z.string(),
+  competitionCategoryIds: cloneMapSchema,
+  competitionIds: cloneMapSchema,
+  confirmed: z.literal(true),
+  now: z.number(),
+  sourceEditionId: z.string(),
+  targetEditionId: z.string(),
+  venueIds: cloneMapSchema,
+});
+
+function assertExactMaps(
+  maps: readonly { sourceId: string; targetId: string }[],
+  sourceIds: readonly string[],
+  label: string
+) {
+  const mappedSources = maps.map((map) => map.sourceId);
+  const mappedTargets = maps.map((map) => map.targetId);
+  if (
+    new Set(mappedSources).size !== mappedSources.length ||
+    new Set(mappedTargets).size !== mappedTargets.length ||
+    mappedSources.length !== sourceIds.length ||
+    mappedSources.some((id) => !sourceIds.includes(id))
+  ) {
+    throw new Error(`${label} ID map must cover each source row exactly once`);
+  }
+}
+
+function getMappedId(
+  ids: ReadonlyMap<string, string>,
+  sourceId: string,
+  label: string
+): string {
+  const targetId = ids.get(sourceId);
+  if (!targetId) {
+    throw new Error(`${label} ID map is incomplete`);
+  }
+  return targetId;
+}
+
+async function getReadinessSnapshot(
+  tx: EditionTx,
+  editionId: string
+): Promise<KalakritiRegistrationReadinessSnapshot> {
+  const [
+    edition,
+    centers,
+    ageCategories,
+    quotas,
+    competitionCategories,
+    competitions,
+    sessions,
+    venues,
+  ] = await Promise.all([
+    tx.run(zql.kalakritiEdition.where("id", editionId).one()),
+    tx.run(zql.kalakritiCenter.where("editionId", editionId)),
+    tx.run(zql.kalakritiAgeCategory.where("editionId", editionId)),
+    tx.run(zql.kalakritiCenterAgeQuota.where("editionId", editionId)),
+    tx.run(zql.kalakritiCompetitionCategory.where("editionId", editionId)),
+    tx.run(zql.kalakritiCompetition.where("editionId", editionId)),
+    tx.run(zql.kalakritiCompetitionSession.where("editionId", editionId)),
+    tx.run(zql.kalakritiVenue.where("editionId", editionId)),
+  ]);
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  return {
+    ageCategories:
+      ageCategories as KalakritiRegistrationReadinessSnapshot["ageCategories"],
+    centers: centers as KalakritiRegistrationReadinessSnapshot["centers"],
+    competitionCategories:
+      competitionCategories as KalakritiRegistrationReadinessSnapshot["competitionCategories"],
+    competitions:
+      competitions as KalakritiRegistrationReadinessSnapshot["competitions"],
+    edition: edition as KalakritiRegistrationReadinessSnapshot["edition"],
+    quotas: quotas as KalakritiRegistrationReadinessSnapshot["quotas"],
+    sessions: sessions as KalakritiRegistrationReadinessSnapshot["sessions"],
+    venues: venues as KalakritiRegistrationReadinessSnapshot["venues"],
+  };
+}
+
 export const kalakritiEditionMutators = {
+  cloneConfiguration: defineMutator(
+    kalakritiEditionCloneConfigurationSchema,
+    async ({ tx, ctx, args }) => {
+      if (args.sourceEditionId === args.targetEditionId) {
+        throw new Error("Source and target Editions must differ");
+      }
+      for (const editionId of [
+        args.sourceEditionId,
+        args.targetEditionId,
+      ].sort()) {
+        // Edition locks must be acquired sequentially in stable ID order.
+        // biome-ignore lint/performance/noAwaitInLoops: parallel locking can deadlock competing clones
+        const edition = await getEditionForUpdate(tx as EditionTx, editionId);
+        if (!edition) {
+          throw new Error("Edition not found");
+        }
+      }
+      await assertCanManageKalakritiConfiguration(
+        tx as EditionTx,
+        ctx,
+        args.sourceEditionId
+      );
+      await assertCanManageKalakritiConfiguration(
+        tx as EditionTx,
+        ctx,
+        args.targetEditionId
+      );
+      assertIsLoggedIn(ctx);
+      const target = await tx.run(
+        zql.kalakritiEdition.where("id", args.targetEditionId).one()
+      );
+      if (target?.lifecycle !== "draft") {
+        throw new Error("Target Edition must be a draft");
+      }
+      const [
+        targetAgeCategories,
+        targetCategories,
+        targetCompetitions,
+        targetVenues,
+      ] = await Promise.all([
+        tx.run(
+          zql.kalakritiAgeCategory.where("editionId", args.targetEditionId)
+        ),
+        tx.run(
+          zql.kalakritiCompetitionCategory.where(
+            "editionId",
+            args.targetEditionId
+          )
+        ),
+        tx.run(
+          zql.kalakritiCompetition.where("editionId", args.targetEditionId)
+        ),
+        tx.run(zql.kalakritiVenue.where("editionId", args.targetEditionId)),
+      ]);
+      if (
+        [
+          targetAgeCategories,
+          targetCategories,
+          targetCompetitions,
+          targetVenues,
+        ].some((rows) => rows.length > 0)
+      ) {
+        throw new Error("Target Edition must have no structural configuration");
+      }
+
+      const [ageCategories, categories, competitions, venues] =
+        await Promise.all([
+          tx.run(
+            zql.kalakritiAgeCategory.where("editionId", args.sourceEditionId)
+          ),
+          tx.run(
+            zql.kalakritiCompetitionCategory.where(
+              "editionId",
+              args.sourceEditionId
+            )
+          ),
+          tx.run(
+            zql.kalakritiCompetition.where("editionId", args.sourceEditionId)
+          ),
+          tx.run(zql.kalakritiVenue.where("editionId", args.sourceEditionId)),
+        ]);
+      assertExactMaps(
+        args.ageCategoryIds,
+        ageCategories.map((row) => row.id),
+        "Age Category"
+      );
+      const activeCategories = categories.filter(
+        (row) => row.retiredAt === null
+      );
+      const activeCategoryIds = new Set(activeCategories.map((row) => row.id));
+      const activeCompetitions = competitions.filter(
+        (row) =>
+          row.retiredAt === null &&
+          activeCategoryIds.has(row.competitionCategoryId)
+      );
+      const activeVenues = venues.filter((row) => row.retiredAt === null);
+      if (
+        ageCategories.length === 0 &&
+        activeCategories.length === 0 &&
+        activeCompetitions.length === 0 &&
+        activeVenues.length === 0
+      ) {
+        throw new Error(
+          "Source Edition has no active structural configuration"
+        );
+      }
+      assertExactMaps(
+        args.competitionCategoryIds,
+        activeCategories.map((row) => row.id),
+        "Competition Category"
+      );
+      assertExactMaps(
+        args.competitionIds,
+        activeCompetitions.map((row) => row.id),
+        "Competition"
+      );
+      assertExactMaps(
+        args.venueIds,
+        activeVenues.map((row) => row.id),
+        "Venue"
+      );
+      const ageMap = new Map(
+        args.ageCategoryIds.map((map) => [map.sourceId, map.targetId])
+      );
+      const categoryMap = new Map(
+        args.competitionCategoryIds.map((map) => [map.sourceId, map.targetId])
+      );
+      const competitionMap = new Map(
+        args.competitionIds.map((map) => [map.sourceId, map.targetId])
+      );
+      const venueMap = new Map(
+        args.venueIds.map((map) => [map.sourceId, map.targetId])
+      );
+      await Promise.all(
+        ageCategories.map((row) =>
+          (tx as EditionTx).mutate.kalakritiAgeCategory.insert({
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: args.targetEditionId,
+            id: getMappedId(ageMap, row.id, "Age Category"),
+            maxCompetitionsPerCategory: row.maxCompetitionsPerCategory,
+            maximumAge: row.maximumAge,
+            maxTotalCompetitions: row.maxTotalCompetitions,
+            minimumAge: row.minimumAge,
+            name: row.name,
+            normalizedName: row.normalizedName,
+            sortOrder: row.sortOrder,
+            updatedAt: args.now,
+          })
+        )
+      );
+      await Promise.all(
+        activeCategories.map((row) =>
+          (tx as EditionTx).mutate.kalakritiCompetitionCategory.insert({
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: args.targetEditionId,
+            id: getMappedId(categoryMap, row.id, "Competition Category"),
+            name: row.name,
+            normalizedName: row.normalizedName,
+            retiredAt: null,
+            sortOrder: row.sortOrder,
+            updatedAt: args.now,
+          })
+        )
+      );
+      await Promise.all(
+        activeCompetitions.map((row) =>
+          (tx as EditionTx).mutate.kalakritiCompetition.insert({
+            cancelledAt: null,
+            competitionCategoryId: getMappedId(
+              categoryMap,
+              row.competitionCategoryId,
+              "Competition Category"
+            ),
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: args.targetEditionId,
+            genderEligibility: row.genderEligibility,
+            id: getMappedId(competitionMap, row.id, "Competition"),
+            maximumGroupSize: row.maximumGroupSize,
+            minimumGroupSize: row.minimumGroupSize,
+            name: row.name,
+            normalizedName: row.normalizedName,
+            participationMode: row.participationMode,
+            retiredAt: null,
+            updatedAt: args.now,
+          })
+        )
+      );
+      await Promise.all(
+        activeVenues.map((row) =>
+          (tx as EditionTx).mutate.kalakritiVenue.insert({
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: args.targetEditionId,
+            id: getMappedId(venueMap, row.id, "Venue"),
+            name: row.name,
+            normalizedName: row.normalizedName,
+            retiredAt: null,
+            updatedAt: args.now,
+          })
+        )
+      );
+      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
+        action: "configuration_cloned",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "edition",
+        editionId: args.targetEditionId,
+        id: args.auditEntryId,
+        metadata: {
+          copied: {
+            ageCategories: ageCategories.length,
+            competitionCategories: activeCategories.length,
+            competitions: activeCompetitions.length,
+            venues: activeVenues.length,
+          },
+          sourceEditionId: args.sourceEditionId,
+        },
+        reason: null,
+        targetId: args.targetEditionId,
+        targetType: "edition",
+      });
+    }
+  ),
   create: defineMutator(
     kalakritiEditionCreateSchema,
     async ({ tx, ctx, args }) => {
@@ -109,6 +456,64 @@ export const kalakritiEditionMutators = {
         editionId: args.editionId,
         id: args.auditEntryId,
         metadata: { teamEventId: args.teamEventId, teamId: args.teamId },
+        reason: null,
+        targetId: args.editionId,
+        targetType: "edition",
+      });
+    }
+  ),
+
+  transition: defineMutator(
+    kalakritiEditionTransitionSchema,
+    async ({ tx, ctx, args }) => {
+      const edition = await getEditionForUpdate(
+        tx as EditionTx,
+        args.editionId
+      );
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      await assertCanManageKalakritiConfiguration(
+        tx as EditionTx,
+        ctx,
+        args.editionId
+      );
+      assertIsLoggedIn(ctx);
+      const allowed =
+        (edition.lifecycle === "draft" &&
+          args.targetLifecycle === "registration_open") ||
+        (edition.lifecycle === "registration_open" &&
+          args.targetLifecycle === "registration_locked") ||
+        (edition.lifecycle === "registration_locked" &&
+          args.targetLifecycle === "registration_open");
+      if (!allowed) {
+        throw new Error("Invalid Edition lifecycle transition");
+      }
+
+      if (args.targetLifecycle === "registration_open") {
+        const blockers = getKalakritiRegistrationReadiness(
+          await getReadinessSnapshot(tx as EditionTx, args.editionId)
+        );
+        if (blockers.length > 0) {
+          throw new Error(
+            `Edition is not ready: ${blockers.map((blocker) => blocker.code).join(", ")}`
+          );
+        }
+      }
+
+      await (tx as EditionTx).mutate.kalakritiEdition.update({
+        id: args.editionId,
+        lifecycle: args.targetLifecycle,
+        updatedAt: args.now,
+      });
+      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
+        action: "lifecycle_transitioned",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "edition",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: { from: edition.lifecycle, to: args.targetLifecycle },
         reason: null,
         targetId: args.editionId,
         targetType: "edition",

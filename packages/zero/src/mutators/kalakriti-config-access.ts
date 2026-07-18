@@ -81,3 +81,14 @@ export function assertKalakritiEditionConfigurable(lifecycle: string): void {
     throw new Error("Configuration cannot be changed in this Edition state");
   }
 }
+
+export function assertKalakritiEditionStructurallyConfigurable(
+  lifecycle: string
+): void {
+  assertKalakritiEditionConfigurable(lifecycle);
+  if (lifecycle === "registration_locked") {
+    throw new Error(
+      "Structural configuration cannot be changed after registration is locked"
+    );
+  }
+}

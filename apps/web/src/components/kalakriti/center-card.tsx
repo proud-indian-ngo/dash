@@ -37,9 +37,6 @@ function RegistrationBadge({
 }
 
 export function CenterCard({
-  canManageCenters,
-  canManageGuardians,
-  canManageLiaisons,
   center,
   editionId,
   guardianAssignments,
@@ -50,12 +47,10 @@ export function CenterCard({
   onEdit,
   onRegistrationControls,
   onRetire,
+  permissions,
   volunteerOptions,
   volunteerOptionsError,
 }: {
-  canManageCenters: boolean;
-  canManageGuardians: boolean;
-  canManageLiaisons: boolean;
   center: CenterListItem;
   editionId: string;
   guardianAssignments: readonly CenterPersonAssignment[];
@@ -66,6 +61,12 @@ export function CenterCard({
   onEdit: (center: CenterListItem) => void;
   onRegistrationControls: (center: CenterListItem) => void;
   onRetire: (center: CenterListItem) => void;
+  permissions: {
+    manageGuardians: boolean;
+    manageLiaisons: boolean;
+    manageRegistrationControls: boolean;
+    manageStructure: boolean;
+  };
   volunteerOptions: readonly PickerUser[];
   volunteerOptionsError: boolean;
 }) {
@@ -93,13 +94,16 @@ export function CenterCard({
             />
           </CardDescription>
         </div>
-        {canManageCenters ? (
+        {permissions.manageRegistrationControls ||
+        permissions.manageStructure ? (
           <div className="flex flex-wrap gap-2">
-            {isRetired ? null : (
+            {isRetired || !permissions.manageRegistrationControls ? null : (
+              <Button onClick={handleControls} size="sm" variant="outline">
+                Registration controls
+              </Button>
+            )}
+            {isRetired || !permissions.manageStructure ? null : (
               <>
-                <Button onClick={handleControls} size="sm" variant="outline">
-                  Registration controls
-                </Button>
                 <Button onClick={handleEdit} size="sm" variant="ghost">
                   Edit
                 </Button>
@@ -108,17 +112,19 @@ export function CenterCard({
                 </Button>
               </>
             )}
-            <Button onClick={handleDelete} size="sm" variant="ghost">
-              Delete
-            </Button>
+            {permissions.manageStructure ? (
+              <Button onClick={handleDelete} size="sm" variant="ghost">
+                Delete
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </CardHeader>
       <CardContent>
         <CenterAssignments
           allowNewAssignments={!isRetired}
-          canManageGuardians={canManageGuardians}
-          canManageLiaisons={canManageLiaisons}
+          canManageGuardians={permissions.manageGuardians}
+          canManageLiaisons={permissions.manageLiaisons}
           centerId={center.id}
           editionId={editionId}
           guardianAssignments={guardianAssignments}
