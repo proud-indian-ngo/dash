@@ -263,23 +263,33 @@ async function updateVenue() {
     .where(eq(kalakritiVenue.id, FIXTURE.venueId));
 }
 
-async function archiveEdition() {
+type PublicLifecycle = "archived" | "live" | "registration_locked";
+
+function isPublicLifecycle(
+  value: string | undefined
+): value is PublicLifecycle {
+  return (
+    value === "registration_locked" || value === "live" || value === "archived"
+  );
+}
+
+async function updateLifecycle(lifecycle: PublicLifecycle) {
   await db
     .update(kalakritiEdition)
-    .set({ lifecycle: "archived", updatedAt: new Date() })
+    .set({ lifecycle, updatedAt: new Date() })
     .where(eq(kalakritiEdition.id, FIXTURE.editionId));
 }
 
-const [action, emailArgument] = process.argv.slice(2);
+const [action, actionArgument] = process.argv.slice(2);
 let result: unknown;
 if (action === "setup") {
-  result = await setup(emailArgument);
+  result = await setup(actionArgument);
 } else if (action === "update-venue") {
   await updateVenue();
   result = { updated: true };
-} else if (action === "archive") {
-  await archiveEdition();
-  result = { archived: true };
+} else if (action === "set-lifecycle" && isPublicLifecycle(actionArgument)) {
+  await updateLifecycle(actionArgument);
+  result = { lifecycle: actionArgument };
 } else if (action === "cleanup") {
   await cleanup();
   result = { cleaned: true };
