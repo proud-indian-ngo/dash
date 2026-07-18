@@ -55,7 +55,7 @@ function availabilityMessage(
       "Competition Entry registration is closed for this Edition. Existing Entries remain visible.",
     loading: "Checking Competition Entry registration availability...",
     missing_sessions:
-      "No active individual Competition Sessions are available. Ask an Events Lead to configure the schedule.",
+      "No active Competition Sessions are available. Ask an Events Lead to configure the schedule.",
     missing_students:
       "Register at least one Student for this Center before creating a Competition Entry.",
   } satisfies Record<Exclude<EntryRegistrationAvailability, "open">, string>;
@@ -110,6 +110,9 @@ function KalakritiEntriesPage() {
   const selectableCenters = selectKalakritiEntryCenters(centers, access);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<KalakritiEntryRow | null>(
+    null
+  );
   const centerId = selectableCenters.some(
     (center) => center.id === selectedCenterId
   )
@@ -153,8 +156,20 @@ function KalakritiEntriesPage() {
   const handleCenterChange = useEventCallback((value: string | null) =>
     setSelectedCenterId(value)
   );
-  const handleCreateOpenChange = useEventCallback(setCreateOpen);
-  const handleRegister = useEventCallback(() => setCreateOpen(true));
+  const handleCreateOpenChange = useEventCallback((open: boolean) => {
+    setCreateOpen(open);
+    if (!open) {
+      setEditingEntry(null);
+    }
+  });
+  const handleRegister = useEventCallback(() => {
+    setEditingEntry(null);
+    setCreateOpen(true);
+  });
+  const handleEdit = useEventCallback((entry: KalakritiEntryRow) => {
+    setEditingEntry(entry);
+    setCreateOpen(true);
+  });
   const handleRemoveOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       removeAction.cancel();
@@ -244,8 +259,8 @@ function KalakritiEntriesPage() {
             Competition Entries
           </h2>
           <p className="mt-1 text-muted-foreground text-sm">
-            Register Students in individual Competition Sessions for one Center
-            at a time.
+            Register individual Students and groups in Competition Sessions for
+            one Center at a time.
           </p>
         </div>
         <div className="min-w-52">
@@ -281,6 +296,7 @@ function KalakritiEntriesPage() {
         canRemove={removalEnabled}
         data={completeEntries}
         isLoading={entriesLoading}
+        onEdit={handleEdit}
         onRegister={handleRegister}
         onRemove={removeAction.trigger}
       />
@@ -289,6 +305,7 @@ function KalakritiEntriesPage() {
           centerId={centerId}
           editionId={edition.id}
           entries={completeEntries}
+          entry={editingEntry ?? undefined}
           onOpenChange={handleCreateOpenChange}
           open={createOpen}
           sessions={completeSessions}
@@ -297,7 +314,11 @@ function KalakritiEntriesPage() {
       ) : null}
       <ConfirmDialog
         confirmLabel="Remove Entry"
-        description="This removes the Student from this Competition Session."
+        description={
+          removeAction.payload?.participationMode === "group"
+            ? `This removes the group and all ${removeAction.payload.members.length} Students from this Competition Session.`
+            : "This removes the Student from this Competition Session."
+        }
         loading={removeAction.isLoading}
         onConfirm={removeAction.confirm}
         onOpenChange={handleRemoveOpenChange}

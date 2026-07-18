@@ -34,12 +34,16 @@ const FIXTURES = {
     ],
     editionId: "019f0000-0000-7000-8000-00000000e101",
     eventId: "019f0000-0000-7000-8000-00000000e102",
+    groupCompetitionId: "019f0000-0000-7000-8000-00000000e110",
+    groupSessionId: "019f0000-0000-7000-8000-00000000e111",
     membershipId: "019f0000-0000-7000-8000-00000000e10e",
     quotaId: "019f0000-0000-7000-8000-00000000e105",
     sessionId: "019f0000-0000-7000-8000-00000000e10a",
     studentIds: [
       "019f0000-0000-7000-8000-00000000e106",
       "019f0000-0000-7000-8000-00000000e10f",
+      "019f0000-0000-7000-8000-00000000e112",
+      "019f0000-0000-7000-8000-00000000e113",
     ],
     venueId: "019f0000-0000-7000-8000-00000000e109",
     year: 2193,
@@ -56,12 +60,16 @@ const FIXTURES = {
     ],
     editionId: "019f0000-0000-7000-8000-00000000e201",
     eventId: "019f0000-0000-7000-8000-00000000e202",
+    groupCompetitionId: "019f0000-0000-7000-8000-00000000e210",
+    groupSessionId: "019f0000-0000-7000-8000-00000000e211",
     membershipId: "019f0000-0000-7000-8000-00000000e20e",
     quotaId: "019f0000-0000-7000-8000-00000000e205",
     sessionId: "019f0000-0000-7000-8000-00000000e20a",
     studentIds: [
       "019f0000-0000-7000-8000-00000000e206",
       "019f0000-0000-7000-8000-00000000e20f",
+      "019f0000-0000-7000-8000-00000000e212",
+      "019f0000-0000-7000-8000-00000000e213",
     ],
     venueId: "019f0000-0000-7000-8000-00000000e209",
     year: 2192,
@@ -203,14 +211,14 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
       centerId: fixture.centerId,
       createdAt: now,
       createdBy: actor.id,
-      dateOfBirth: `${fixture.year - 8}-06-${index === 0 ? "10" : "11"}`,
+      dateOfBirth: `${fixture.year - 8}-06-${String(index + 10).padStart(2, "0")}`,
       derivedAgeCategoryId: fixture.ageCategoryId,
       editionId: fixture.editionId,
       gender: "female" as const,
       humanId: `KAL-${fixture.year}-000${index + 1}`,
       id,
-      name: `Entry Student ${index === 0 ? "A" : "B"}`,
-      normalizedName: `entry student ${index === 0 ? "a" : "b"}`,
+      name: `Entry Student ${String.fromCharCode(65 + index)}`,
+      normalizedName: `entry student ${String.fromCharCode(97 + index)}`,
       updatedAt: now,
       updatedBy: actor.id,
     }))
@@ -253,6 +261,20 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     participationMode: "individual",
     updatedAt: now,
   });
+  await db.insert(kalakritiCompetition).values({
+    competitionCategoryId: fixture.categoryId,
+    createdAt: now,
+    createdBy: actor.id,
+    editionId: fixture.editionId,
+    genderEligibility: "both",
+    id: fixture.groupCompetitionId,
+    maximumGroupSize: 3,
+    minimumGroupSize: 2,
+    name: "Group Dance",
+    normalizedName: "group dance",
+    participationMode: "group",
+    updatedAt: now,
+  });
   await db.insert(kalakritiVenue).values({
     createdAt: now,
     createdBy: actor.id,
@@ -272,6 +294,19 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     endAt: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
     id: fixture.sessionId,
     startAt: new Date(`${fixture.year}-11-21T03:30:00.000Z`),
+    updatedAt: now,
+    venueId: fixture.venueId,
+  });
+  await db.insert(kalakritiCompetitionSession).values({
+    ageCategoryId: fixture.ageCategoryId,
+    capacity,
+    competitionId: fixture.groupCompetitionId,
+    createdAt: now,
+    createdBy: actor.id,
+    editionId: fixture.editionId,
+    endAt: new Date(`${fixture.year}-11-21T06:30:00.000Z`),
+    id: fixture.groupSessionId,
+    startAt: new Date(`${fixture.year}-11-21T05:30:00.000Z`),
     updatedAt: now,
     venueId: fixture.venueId,
   });
@@ -303,7 +338,7 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
 
 async function readState(kind: FixtureKind) {
   const fixture = FIXTURES[kind];
-  const [entries, audits] = await Promise.all([
+  const [entries, audits, members] = await Promise.all([
     db
       .select({ id: kalakritiCompetitionEntry.id })
       .from(kalakritiCompetitionEntry)
@@ -312,8 +347,15 @@ async function readState(kind: FixtureKind) {
       .select({ action: kalakritiAuditEntry.action })
       .from(kalakritiAuditEntry)
       .where(eq(kalakritiAuditEntry.editionId, fixture.editionId)),
+    db
+      .select({
+        entryId: kalakritiEntryMember.entryId,
+        studentId: kalakritiEntryMember.studentId,
+      })
+      .from(kalakritiEntryMember)
+      .where(eq(kalakritiEntryMember.editionId, fixture.editionId)),
   ]);
-  return { audits, entries };
+  return { audits, entries, members };
 }
 
 const [action, kindArgument, email, capacityArgument] = process.argv.slice(2);
