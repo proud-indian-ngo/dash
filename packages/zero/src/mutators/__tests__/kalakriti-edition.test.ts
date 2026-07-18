@@ -5,6 +5,7 @@ import {
   kalakritiEditionCreateSchema,
   kalakritiEditionMutators,
   kalakritiEditionTransitionSchema,
+  kalakritiEditionUpdateMetadataSchema,
 } from "../kalakriti-edition";
 
 const validArgs = {
@@ -47,6 +48,7 @@ function createEditionCommandTx(results: unknown[]) {
     insertCompetitionCategory: vi.fn(),
     insertVenue: vi.fn(),
     updateEdition: vi.fn(),
+    updateEvent: vi.fn(),
   };
   return {
     spies,
@@ -61,7 +63,7 @@ function createEditionCommandTx(results: unknown[]) {
         },
         kalakritiEdition: { insert: vi.fn(), update: spies.updateEdition },
         kalakritiVenue: { insert: spies.insertVenue },
-        teamEvent: { insert: vi.fn() },
+        teamEvent: { insert: vi.fn(), update: spies.updateEvent },
       },
       run: vi.fn(async () => results.shift()),
     },
@@ -203,6 +205,133 @@ describe("kalakritiEdition.create", () => {
     expect(insertEvent).toHaveBeenCalledOnce();
     expect(insertEdition).toHaveBeenCalledOnce();
     expect(insertAudit).toHaveBeenCalledOnce();
+  });
+});
+
+describe("kalakritiEdition.updateMetadata", () => {
+  const updateArgs = {
+    ageCutoffDate: "2028-07-01",
+    auditEntryId: "audit-update-1",
+    brandingKey: "kalakriti-2028-revised",
+    editionId: "edition-1",
+    eventDate: "2028-11-21",
+    name: "Kalakriti 2028 Revised",
+    now: 1_700_000_100_000,
+    plannedRegistrationCloseAt: new Date("2028-11-01T18:00:00+05:30").getTime(),
+  };
+  const draftEdition = {
+    ageCutoffDate: "2028-06-01",
+    brandingKey: "kalakriti-2028",
+    eventDate: "2028-11-19",
+    id: "edition-1",
+    lifecycle: "draft",
+    name: "Kalakriti 2028",
+    plannedRegistrationCloseAt: validArgs.plannedRegistrationCloseAt,
+    teamEventId: "event-1",
+    timezone: "Asia/Kolkata",
+  };
+
+  it("rejects impossible calendar dates at the command boundary", () => {
+    expect(
+      kalakritiEditionUpdateMetadataSchema.safeParse({
+        ...updateArgs,
+        ageCutoffDate: "2028-02-31",
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects callers without Edition administration", async () => {
+    const { spies, tx } = createEditionCommandTx([draftEdition, undefined]);
+
+    await expect(
+      kalakritiEditionMutators.updateMetadata.fn({
+        args: updateArgs,
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "ordinary-member-1",
+        },
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.updateMetadata.fn
+      >[0])
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.updateEvent).not.toHaveBeenCalled();
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects metadata edits after the draft lifecycle", async () => {
+    const { spies, tx } = createEditionCommandTx([
+      { ...draftEdition, lifecycle: "registration_open" },
+    ]);
+
+    await expect(
+      kalakritiEditionMutators.updateMetadata.fn({
+        args: updateArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.updateMetadata.fn
+      >[0])
+    ).rejects.toThrow("Edition metadata can only be changed while draft");
+    expect(spies.updateEvent).not.toHaveBeenCalled();
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("synchronizes authoritative metadata to the linked event", async () => {
+    const { spies, tx } = createEditionCommandTx([draftEdition, draftEdition]);
+
+    await kalakritiEditionMutators.updateMetadata.fn({
+      args: updateArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.updateMetadata.fn
+    >[0]);
+
+    expect(spies.updateEvent).toHaveBeenCalledWith({
+      id: draftEdition.teamEventId,
+      name: updateArgs.name,
+      startTime: new Date(`${updateArgs.eventDate}T00:00:00+05:30`).getTime(),
+      updatedAt: updateArgs.now,
+    });
+    expect(spies.updateEdition).toHaveBeenCalledWith({
+      ageCutoffDate: new Date(
+        `${updateArgs.ageCutoffDate}T00:00:00Z`
+      ).getTime(),
+      brandingKey: updateArgs.brandingKey,
+      eventDate: new Date(`${updateArgs.eventDate}T00:00:00Z`).getTime(),
+      id: updateArgs.editionId,
+      name: updateArgs.name,
+      plannedRegistrationCloseAt: updateArgs.plannedRegistrationCloseAt,
+      updatedAt: updateArgs.now,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "updated",
+        editionId: updateArgs.editionId,
+        targetId: updateArgs.editionId,
+      })
+    );
+  });
+
+  it("does not update the Edition when linked-event synchronization fails", async () => {
+    const { spies, tx } = createEditionCommandTx([draftEdition, draftEdition]);
+    spies.updateEvent.mockRejectedValueOnce(new Error("event update failed"));
+
+    await expect(
+      kalakritiEditionMutators.updateMetadata.fn({
+        args: updateArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.updateMetadata.fn
+      >[0])
+    ).rejects.toThrow("event update failed");
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
   });
 });
 

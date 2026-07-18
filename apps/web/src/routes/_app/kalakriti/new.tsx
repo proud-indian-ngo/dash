@@ -13,48 +13,26 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
+import {
+  editionCalendarStart,
+  editionMetadataFormFields,
+  getRegistrationCloseTimestamp,
+  registrationClosesBeforeEvent,
+  registrationCloseTimeOptions,
+} from "@/lib/kalakriti-edition-metadata";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { assertPermission } from "@/lib/route-guards";
 
 const editionFormSchema = z
   .object({
-    ageCutoffDate: z.date({ error: "Choose an age cutoff date" }),
-    brandingKey: z.string().trim().min(1, "Enter a branding key"),
-    eventDate: z.date({ error: "Choose an event date" }),
-    name: z.string().trim().min(1, "Enter an Edition name"),
-    registrationCloseDate: z.date({
-      error: "Choose the registration close date",
-    }),
-    registrationCloseTime: z
-      .string()
-      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Choose the registration close time"),
+    ...editionMetadataFormFields,
     teamId: z.string().min(1, "Choose an owning team"),
     year: z.string().regex(/^20\d{2}$/, "Enter a four-digit year"),
   })
-  .refine(
-    (value) =>
-      getRegistrationCloseTimestamp(
-        value.registrationCloseDate,
-        value.registrationCloseTime
-      ) < getRegistrationCloseTimestamp(value.eventDate, "00:00"),
-    {
-      message: "Registration must close before the event date",
-      path: ["registrationCloseDate"],
-    }
-  );
-
-const registrationCloseTimeOptions = Array.from({ length: 96 }, (_, index) => {
-  const hour = Math.floor(index / 4);
-  const minute = (index % 4) * 15;
-  const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  return { label: value, value };
-});
-
-const editionCalendarStart = new Date(2000, 0, 1);
-
-function getRegistrationCloseTimestamp(date: Date, time: string): number {
-  return new Date(`${format(date, "yyyy-MM-dd")}T${time}:00+05:30`).getTime();
-}
+  .refine(registrationClosesBeforeEvent, {
+    message: "Registration must close before the event date",
+    path: ["registrationCloseDate"],
+  });
 
 export const Route = createFileRoute("/_app/kalakriti/new")({
   beforeLoad: ({ context }) => assertPermission(context, "kalakriti.admin"),

@@ -60,6 +60,7 @@ function DateInputPicker({
   value,
 }: DateInputPickerProps) {
   const [month, setMonth] = useState<Date>(value ?? new Date());
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (value) {
@@ -68,16 +69,19 @@ function DateInputPicker({
   }, [value]);
 
   const stableOnOpenChange0 = useEventCallback((open: boolean) => {
+    setIsOpen(open);
     if (!open) {
       onBlur();
     }
   });
-  const stableOnSelect1 = useEventCallback((date: Date | undefined) =>
-    onChange(date)
-  );
+  const stableOnSelect1 = useEventCallback((date: Date | undefined) => {
+    onChange(date);
+    onBlur();
+    setIsOpen(false);
+  });
 
   return (
-    <Popover onOpenChange={stableOnOpenChange0}>
+    <Popover onOpenChange={stableOnOpenChange0} open={isOpen}>
       <PopoverTrigger
         render={
           <Button
