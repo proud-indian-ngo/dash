@@ -326,6 +326,9 @@ const plateImageContent = (url: string): string =>
     },
   ]);
 
+const plateTextContent = (text: string): string =>
+  JSON.stringify([{ children: [{ text }], type: "p" }]);
+
 async function ensureReimbursement(
   userId: string,
   eventId?: string
@@ -763,14 +766,14 @@ async function ensureZeroQueryAuthorizationFixtures(
     .insert(eventFeedback)
     .values([
       {
-        content: "Protected lead feedback fixture",
+        content: plateTextContent("Protected lead feedback fixture"),
         createdAt: now,
         eventId: ZERO_AUTH_LEAD_EVENT_ID,
         id: ZERO_AUTH_LEAD_FEEDBACK_ID,
         updatedAt: now,
       },
       {
-        content: "Protected participant feedback fixture",
+        content: plateTextContent("Protected participant feedback fixture"),
         createdAt: now,
         eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
         id: ZERO_AUTH_PROTECTED_FEEDBACK_ID,
@@ -804,8 +807,9 @@ async function ensureZeroQueryAuthorizationFixtures(
 
 const SEED_TEAM_NAME = "E2E Updates Team";
 const SEED_EVENT_NAME = "E2E Past Event With Pending Update";
-const SEED_PENDING_UPDATE_CONTENT =
-  "This is a pending update from a volunteer that needs admin approval.";
+const SEED_PENDING_UPDATE_CONTENT = plateTextContent(
+  "This is a pending update from a volunteer that needs admin approval."
+);
 
 async function ensureEventWithPendingUpdate(
   adminUserId: string,
