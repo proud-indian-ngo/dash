@@ -1,0 +1,106 @@
+packages/zero/src/mutators/kalakriti-registration-access.ts
+  s_c8c0ce2f824e4f::t_350209a6ca9ea3 25
+packages/e2e/pages/kalakriti-entries-page.ts
+  s_c8c0ce2f824e4f::t_ea0d0a42ae2a47 1-46
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_f6b4d989edbfeb 320-324,608-706
+  s_c8c0ce2f824e4f::t_32b341bdbe74da 935
+  s_c8c0ce2f824e4f::t_7b3e5a132e79d7 707,1004,1059,1072,1080-1111
+  s_c8c0ce2f824e4f::t_66e1f0a2b25077 708,872,1112
+apps/web/src/lib/kalakriti-entry-policy.ts
+  s_c8c0ce2f824e4f::t_d6338a0b52536c 1-74
+packages/zero/src/queries/kalakriti-entry.ts
+  s_c8c0ce2f824e4f::t_e272e6445481b5 1-19,21-81,85-114,116-134
+  s_c8c0ce2f824e4f::t_c9af2dc1af1921 82-84,115
+  s_c8c0ce2f824e4f::t_9dd6a46febe8ca 20
+apps/web/src/routes/_app/kalakriti/$year/entries.tsx
+  s_c8c0ce2f824e4f::t_4accfe3552c48c 1-63,102-221,225,227-228,231-275,277-284,286-287,290-294,296-304
+  s_c8c0ce2f824e4f::t_582c989f098bca 64-66,70-71,75-76,82-83,90-91
+  s_c8c0ce2f824e4f::t_ee428edf1dbf86 295
+  s_c8c0ce2f824e4f::t_c9af2dc1af1921 67-69,72-74,77-81,84-89,92-101,222-224,226,229-230,276,285,288-289
+packages/zero/src/mutators/kalakriti-row-locks.ts
+  s_c8c0ce2f824e4f::t_59bfa66ae92bdb 45,47,52-63,253-254,256,284-285,287,431-471
+  s_c8c0ce2f824e4f::t_05e7a831792ee8 110-117,472-473,476
+  s_c8c0ce2f824e4f::t_e9dd51279ee14b 474-475
+packages/zero/src/mutators/kalakriti-student.ts
+  s_c8c0ce2f824e4f::t_fdaded557ce1cd 39-40,49-60,333-373,390,531-557,633-637
+  s_c8c0ce2f824e4f::t_350209a6ca9ea3 12
+  s_c8c0ce2f824e4f::t_346fff4cf5456a 638-640
+packages/zero/src/mutators/kalakriti-entry.ts
+  s_c8c0ce2f824e4f::t_e21009c3ea2547 90-92,145-147,170-172,262,330-333,344
+  s_c8c0ce2f824e4f::t_04c47576a4d74c 61,72,317
+  s_c8c0ce2f824e4f::t_82bf135548e1d7 1-60,62-71,73-89,93-144,148-169,173-261,263-316,318-329,334-343,345-370
+packages/zero/src/mutators/__tests__/kalakriti-entry.test.ts
+  s_c8c0ce2f824e4f::t_e110c766d2282f 1-52,54-121,123-196,200-240,244-274,278-321
+  s_c8c0ce2f824e4f::t_e21009c3ea2547 53,122,197-199,241-243,275-277
+packages/zero/src/mutators/__tests__/kalakriti-student.test.ts
+  s_c8c0ce2f824e4f::t_feb66cc38d64f1 100,106,507,526-563,565-608,610-644
+  s_c8c0ce2f824e4f::t_fbddd267a262a8 199,234,368-369,465,564,609
+  s_c8c0ce2f824e4f::t_8c77d325cac422 417
+  s_c8c0ce2f824e4f::t_cdb505eb029eac 235
+  s_c8c0ce2f824e4f::t_6283c986ea6ad0 66-67
+apps/web/src/components/kalakriti/entry-table.tsx
+  s_c8c0ce2f824e4f::t_d6338a0b52536c 1-24,27,32-45,47-96,98-99,101-103,109-110,115-117,119-120,122-124,130-131,136-138,143,149-150,155-157,162,168-169,174-176,183,189-190,195-197,202-205,210-220,225-252
+  s_c8c0ce2f824e4f::t_417c831877df7b 25-26,28-31,46,97,100,104-108,111-114,118,121,125-129,132-135,139-140,142,144-148,151-154,158-159,161,163-167,170-173,177-182,184-188,191-194,198-199,201,206-209,221-224
+  s_c8c0ce2f824e4f::t_1a61582069dc2f 141,160,200
+packages/db/src/migrations/0057_fancy_joseph.sql
+  s_c8c0ce2f824e4f::t_1ccfd504b6d98c 1-38
+packages/zero/src/mutators/__tests__/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_5f73596ab0a3bb 329,453-479
+apps/web/src/routes/_app/kalakriti/$year/route.tsx
+  s_c8c0ce2f824e4f::t_4accfe3552c48c 10,45,164-176
+  s_c8c0ce2f824e4f::t_1f02130b08f4de 177-178
+packages/e2e/helpers/kalakriti-entries.ts
+  s_c8c0ce2f824e4f::t_ea0d0a42ae2a47 1-122,124-158,160-319,322-326,328,330,332-337
+  s_c8c0ce2f824e4f::t_e9a86f6b8697b0 123,159,320-321,327,329,331
+packages/zero/src/queries.ts
+  s_c8c0ce2f824e4f::t_e272e6445481b5 18,48
+packages/zero/src/mutators/kalakriti-competition.ts
+  s_c8c0ce2f824e4f::t_3855844c692e72 223,225-226,228,234-316,661-668,915-924
+  s_c8c0ce2f824e4f::t_d7a59579f2a27c 925-926,970
+scripts/seed.ts
+  s_c8c0ce2f824e4f::t_191dcaff8b9b3e 54,59,182,189,1020-1047
+  s_c8c0ce2f824e4f::t_aab2ab90b810e8 1048
+apps/web/src/lib/kalakriti-entry-policy.test.ts
+  s_c8c0ce2f824e4f::t_4accfe3552c48c 1-77
+packages/zero/src/mutators.ts
+  s_c8c0ce2f824e4f::t_39730337931f98 16,44
+knip.json
+  s_c8c0ce2f824e4f::t_07ac7b755bfcc0 29
+packages/zero/src/queries/kalakriti-entry.test.ts
+  s_c8c0ce2f824e4f::t_1234996ee5ffc5 52,65
+  s_c8c0ce2f824e4f::t_e110c766d2282f 1-51,53-64,66-69
+apps/web/src/components/kalakriti/entry-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_86898f9d7c705a 98-149,169-170,173,214
+  s_c8c0ce2f824e4f::t_d6338a0b52536c 1-21,23-25,27-34,36-37,40-43,45-48,50-54,56-58,60-89,92,94-97,150-159,166-168,171-172,174-213,215-261
+  s_c8c0ce2f824e4f::t_4c57514a38d1fc 22,26,35,38-39,44,49,55,59,90-91,93,160-165
+packages/e2e/tests/kalakriti/competition-entry-registration.spec.ts
+  s_c8c0ce2f824e4f::t_ea0d0a42ae2a47 1-81,85-151
+  s_c8c0ce2f824e4f::t_e9a86f6b8697b0 82-84
+project-structure.md
+  s_c8c0ce2f824e4f::t_999ee11388d889 88,143
+apps/web/src/routeTree.gen.ts
+  s_c8c0ce2f824e4f::t_8a38860c804723 67,347-351,417,468,530,591,642,703,1122-1128,1171,1181
+packages/db/src/migrations/meta/0057_snapshot.json
+  s_c8c0ce2f824e4f::t_310f45752d762e 1-8753
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_ed31b39deef701 403-409
+packages/zero/src/schema.ts
+  s_c8c0ce2f824e4f::t_78238448cda06b 1,1389-1448,1771-1824,4137-4144,4204-4237,4297-4304,4399-4406,4464-4481,4549-4556,5190,5195,5250,5256,5440-5446,5476-5482
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bdb138ccad4ddaa17270c55edd8b868deea29895",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
