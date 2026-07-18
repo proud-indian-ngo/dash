@@ -11,6 +11,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
 import { EditionLifecycleCard } from "@/components/kalakriti/edition-lifecycle-card";
 import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
+import { RegistrationExportCard } from "@/components/kalakriti/registration-export-card";
 import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
 import { useApp } from "@/context/app-context";
 import { getKalakritiRegistrationDashboard } from "@/functions/kalakriti-registration-dashboard";
@@ -116,6 +117,9 @@ function KalakritiEditionOverview() {
         editionId={edition.id}
       />
       <RegistrationDashboard projections={dashboard?.projections ?? []} />
+      {dashboard && dashboard.projections.length > 0 ? (
+        <RegistrationExportCard year={edition.year} />
+      ) : null}
       {canManageLifecycle ? (
         <EditionCloneCard
           editionId={edition.id}
