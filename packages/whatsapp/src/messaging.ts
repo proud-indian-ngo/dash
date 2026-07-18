@@ -4,7 +4,8 @@ import { formatPhoneForWhatsApp } from "./phone";
 
 export async function sendWhatsAppMessage(
   phone: string,
-  message: string
+  message: string,
+  options?: { idempotencyKey?: string }
 ): Promise<void> {
   const log = createRequestLogger({
     method: "POST",
@@ -23,7 +24,12 @@ export async function sendWhatsAppMessage(
 
   const response = await fetch(`${apiUrl}/send/message`, {
     body: JSON.stringify({ message, phone: formatted }),
-    headers: getWhatsAppHeaders(),
+    headers: {
+      ...getWhatsAppHeaders(),
+      ...(options?.idempotencyKey
+        ? { "Idempotency-Key": options.idempotencyKey }
+        : {}),
+    },
     method: "POST",
   });
 

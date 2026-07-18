@@ -55,10 +55,10 @@ describe("Kalakriti registration CSV exports", () => {
     expect(studentsFile.headers).not.toContain("Created By");
     expect(studentsFile.headers).not.toContain("Credential");
     expect(buildCsv(studentsFile.headers, studentsFile.rows)).toContain(
-      '"\t=1+1"'
+      "'=1+1"
     );
     expect(buildCsv(entriesFile.headers, entriesFile.rows)).toContain(
-      '"\t=HYPERLINK(""https://invalid"")"'
+      '"\'=HYPERLINK(""https://invalid"")"'
     );
 
     const artifact = createCsvDownload(

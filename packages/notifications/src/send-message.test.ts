@@ -192,4 +192,20 @@ describe("sendMessage channel allowlist", () => {
     expect(result.channels.whatsapp).toBe(false);
     expect(sendWhatsAppMessage).not.toHaveBeenCalled();
   });
+
+  it("reuses the recipient and channel-specific WhatsApp key on retry", async () => {
+    vi.mocked(getUserPhone).mockResolvedValue("919999999999");
+    vi.mocked(isWhatsAppTopicEnabled).mockResolvedValue(true);
+
+    await sendMessage({ ...baseMessage, channels: ["whatsapp"] });
+    await sendMessage({ ...baseMessage, channels: ["whatsapp"] });
+
+    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[0]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp",
+    });
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[1]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp",
+    });
+  });
 });

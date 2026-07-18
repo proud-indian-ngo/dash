@@ -20,7 +20,12 @@ function accessibleEditions(
     return query.where("year", -1);
   }
   return query.whereExists("memberships", (membership) =>
-    membership.where("userId", userId).where("state", "active")
+    membership
+      .where("userId", userId)
+      .where("state", "active")
+      .where(({ or, cmp, exists }) =>
+        or(cmp("kind", "guardian"), exists("assignments"))
+      )
   );
 }
 
