@@ -1,0 +1,25 @@
+packages/e2e/helpers/kalakriti-public-schedule.ts
+  s_c8c0ce2f824e4f::t_5d95b2e8de9a72 266-274,279
+  s_c8c0ce2f824e4f::t_e99711e0dd9356 290
+  s_c8c0ce2f824e4f::t_5ae51ab1e4e20a 275-276,283,286,291-292
+packages/e2e/tests/kalakriti/public-schedule.spec.ts
+  s_c8c0ce2f824e4f::t_5d95b2e8de9a72 12,15,95-118,120-121
+project-structure.md
+  s_c8c0ce2f824e4f::t_5d95b2e8de9a72 90,118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f983d302ef66a3bc6b483babf00314f7145f20cf",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
