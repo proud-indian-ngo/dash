@@ -1,22 +1,7 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
-import {
-  kalakritiAuditEntry,
-  kalakritiCompetition,
-  kalakritiCompetitionSession,
-} from "@pi-dash/db/schema/kalakriti";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  inArray,
-  lt,
-  lte,
-  or,
-  type SQL,
-  sql,
-} from "drizzle-orm";
+import { kalakritiAuditEntry } from "@pi-dash/db/schema/kalakriti";
+import { and, count, desc, eq, inArray, or, type SQL, sql } from "drizzle-orm";
 import type {
   KalakritiAuditDomain,
   KalakritiAuditScope,
@@ -29,7 +14,7 @@ export interface KalakritiAuditPageInput {
   limit: number;
   offset: number;
   scope: KalakritiAuditScope;
-  snapshot: null | { createdAt: Date; id: string };
+  snapshotVersion: string | null;
 }
 
 function categoryCondition(categoryIds: string[]): SQL {
@@ -41,37 +26,6 @@ function categoryCondition(categoryIds: string[]): SQL {
     and(
       eq(kalakritiAuditEntry.targetType, "competition_category"),
       inArray(kalakritiAuditEntry.targetId, categoryIds)
-    ),
-    and(
-      eq(kalakritiAuditEntry.targetType, "competition"),
-      inArray(
-        kalakritiAuditEntry.targetId,
-        db
-          .select({ id: kalakritiCompetition.id })
-          .from(kalakritiCompetition)
-          .where(
-            inArray(kalakritiCompetition.competitionCategoryId, categoryIds)
-          )
-      )
-    ),
-    and(
-      eq(kalakritiAuditEntry.targetType, "competition_session"),
-      inArray(
-        kalakritiAuditEntry.targetId,
-        db
-          .select({ id: kalakritiCompetitionSession.id })
-          .from(kalakritiCompetitionSession)
-          .innerJoin(
-            kalakritiCompetition,
-            eq(
-              kalakritiCompetition.id,
-              kalakritiCompetitionSession.competitionId
-            )
-          )
-          .where(
-            inArray(kalakritiCompetition.competitionCategoryId, categoryIds)
-          )
-      )
     ),
     ...metadataConditions
   ) as SQL;
@@ -108,17 +62,57 @@ export function buildKalakritiAuditScopeCondition(
   return conditions.length > 0 ? (or(...conditions) as SQL) : null;
 }
 
-function snapshotCondition(snapshot: KalakritiAuditPageInput["snapshot"]) {
-  if (!snapshot) {
-    return;
-  }
-  return or(
-    lt(kalakritiAuditEntry.createdAt, snapshot.createdAt),
-    and(
-      eq(kalakritiAuditEntry.createdAt, snapshot.createdAt),
-      lte(kalakritiAuditEntry.id, snapshot.id)
-    )
+export function buildKalakritiAuditSnapshotCondition(snapshotVersion: string) {
+  const auditTransactionId = sql.raw(
+    '"kalakriti_audit_entry"."xmin"::text::xid8'
   );
+  return sql`pg_visible_in_snapshot(${auditTransactionId}, ${snapshotVersion}::pg_snapshot)`;
+}
+
+export function buildKalakritiAuditWhereCondition(
+  editionId: string,
+  scope: KalakritiAuditScope,
+  requestedDomain: KalakritiAuditDomain | null,
+  snapshotVersion: string
+): SQL | null {
+  const scopeCondition = buildKalakritiAuditScopeCondition(
+    scope,
+    requestedDomain
+  );
+  if (!scopeCondition) {
+    return null;
+  }
+  return and(
+    eq(kalakritiAuditEntry.editionId, editionId),
+    scopeCondition,
+    buildKalakritiAuditSnapshotCondition(snapshotVersion)
+  ) as SQL;
+}
+
+export function buildKalakritiAuditItemsQuery(
+  where: SQL,
+  limit: number,
+  offset: number
+) {
+  return db
+    .select({
+      action: kalakritiAuditEntry.action,
+      actorName: user.name,
+      actorUserId: kalakritiAuditEntry.actorUserId,
+      createdAt: kalakritiAuditEntry.createdAt,
+      domain: kalakritiAuditEntry.domain,
+      id: kalakritiAuditEntry.id,
+      metadata: kalakritiAuditEntry.metadata,
+      reason: kalakritiAuditEntry.reason,
+      targetId: kalakritiAuditEntry.targetId,
+      targetType: kalakritiAuditEntry.targetType,
+    })
+    .from(kalakritiAuditEntry)
+    .leftJoin(user, eq(user.id, kalakritiAuditEntry.actorUserId))
+    .where(where)
+    .orderBy(desc(kalakritiAuditEntry.createdAt), desc(kalakritiAuditEntry.id))
+    .limit(limit)
+    .offset(offset);
 }
 
 export async function getKalakritiAuditPage(input: KalakritiAuditPageInput) {
@@ -129,53 +123,23 @@ export async function getKalakritiAuditPage(input: KalakritiAuditPageInput) {
   if (!scopeCondition) {
     return null;
   }
-  const baseCondition = and(
-    eq(kalakritiAuditEntry.editionId, input.editionId),
-    scopeCondition
-  );
-  const snapshot =
-    input.snapshot ??
+  const snapshotVersion =
+    input.snapshotVersion ??
     (await db
-      .select({
-        createdAt: kalakritiAuditEntry.createdAt,
-        id: kalakritiAuditEntry.id,
-      })
-      .from(kalakritiAuditEntry)
-      .where(baseCondition)
-      .orderBy(
-        desc(kalakritiAuditEntry.createdAt),
-        desc(kalakritiAuditEntry.id)
+      .execute<{ snapshotVersion: string }>(
+        sql`SELECT pg_current_snapshot()::text AS "snapshotVersion"`
       )
-      .limit(1)
-      .then((rows) => rows[0] ?? null));
-
-  if (!snapshot) {
-    return { items: [], snapshot: null, total: 0 };
+      .then((rows) => rows[0]?.snapshotVersion));
+  if (!snapshotVersion) {
+    throw new Error("Could not establish an audit pagination snapshot");
   }
-  const where = and(baseCondition, snapshotCondition(snapshot));
+  const where = and(
+    eq(kalakritiAuditEntry.editionId, input.editionId),
+    scopeCondition,
+    buildKalakritiAuditSnapshotCondition(snapshotVersion)
+  ) as SQL;
   const [items, totals] = await Promise.all([
-    db
-      .select({
-        action: kalakritiAuditEntry.action,
-        actorName: user.name,
-        actorUserId: kalakritiAuditEntry.actorUserId,
-        createdAt: kalakritiAuditEntry.createdAt,
-        domain: kalakritiAuditEntry.domain,
-        id: kalakritiAuditEntry.id,
-        metadata: kalakritiAuditEntry.metadata,
-        reason: kalakritiAuditEntry.reason,
-        targetId: kalakritiAuditEntry.targetId,
-        targetType: kalakritiAuditEntry.targetType,
-      })
-      .from(kalakritiAuditEntry)
-      .leftJoin(user, eq(user.id, kalakritiAuditEntry.actorUserId))
-      .where(where)
-      .orderBy(
-        desc(kalakritiAuditEntry.createdAt),
-        desc(kalakritiAuditEntry.id)
-      )
-      .limit(input.limit)
-      .offset(input.offset),
+    buildKalakritiAuditItemsQuery(where, input.limit, input.offset),
     db.select({ total: count() }).from(kalakritiAuditEntry).where(where),
   ]);
 
@@ -185,10 +149,7 @@ export async function getKalakritiAuditPage(input: KalakritiAuditPageInput) {
       createdAt: item.createdAt.toISOString(),
       metadata: sanitizeKalakritiAuditMetadata(item.metadata),
     })),
-    snapshot: {
-      createdAt: snapshot.createdAt.toISOString(),
-      id: snapshot.id,
-    },
+    snapshotVersion,
     total: totals[0]?.total ?? 0,
   };
 }

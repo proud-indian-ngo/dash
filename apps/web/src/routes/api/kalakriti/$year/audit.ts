@@ -2,24 +2,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { requireSession } from "@/lib/api-auth";
 import {
   KALAKRITI_AUDIT_DOMAINS,
   resolveKalakritiAuditScope,
 } from "@/lib/kalakriti-audit-policy";
-import type { KalakritiAuditPageInput } from "@/lib/server/kalakriti-audit";
+import {
+  getKalakritiAuditPage,
+  type KalakritiAuditPageInput,
+} from "@/lib/server/kalakriti-audit";
+import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
 
 const querySchema = z
   .object({
     domain: z.enum(KALAKRITI_AUDIT_DOMAINS).nullable(),
     limit: z.number().int().min(10).max(100),
     offset: z.number().int().min(0),
-    snapshotAt: z.coerce.date().nullable(),
-    snapshotId: z.uuid().nullable(),
+    snapshotVersion: z
+      .string()
+      .regex(/^\d+:\d+:(?:\d+(?:,\d+)*)?$/)
+      .nullable(),
   })
-  .refine(
-    (value) => Boolean(value.snapshotAt) === Boolean(value.snapshotId),
-    "Snapshot timestamp and ID must be provided together"
-  );
+  .strict();
 
 export interface AuditHandlerDeps {
   getAccess: (input: {
@@ -29,7 +33,7 @@ export interface AuditHandlerDeps {
   }) => Promise<KalakritiEditionAccess | null>;
   getPage: (input: KalakritiAuditPageInput) => Promise<{
     items: unknown[];
-    snapshot: null | { createdAt: string; id: string };
+    snapshotVersion: string;
     total: number;
   } | null>;
   getSession: (request: Request) => Promise<
@@ -42,22 +46,9 @@ export interface AuditHandlerDeps {
 }
 
 const defaultDeps: AuditHandlerDeps = {
-  getAccess: async (input) => {
-    const { resolveKalakritiEditionAccess } = await import(
-      "@/lib/server/kalakriti-edition-access"
-    );
-    return resolveKalakritiEditionAccess(input);
-  },
-  getPage: async (input) => {
-    const { getKalakritiAuditPage } = await import(
-      "@/lib/server/kalakriti-audit"
-    );
-    return getKalakritiAuditPage(input);
-  },
-  getSession: async (request) => {
-    const { requireSession } = await import("@/lib/api-auth");
-    return requireSession(request);
-  },
+  getAccess: resolveKalakritiEditionAccess,
+  getPage: getKalakritiAuditPage,
+  getSession: requireSession,
 };
 
 function parseQuery(request: Request) {
@@ -66,8 +57,7 @@ function parseQuery(request: Request) {
     domain: url.searchParams.get("domain"),
     limit: Number(url.searchParams.get("limit") ?? 25),
     offset: Number(url.searchParams.get("offset") ?? 0),
-    snapshotAt: url.searchParams.get("snapshotAt"),
-    snapshotId: url.searchParams.get("snapshotId"),
+    snapshotVersion: url.searchParams.get("snapshotVersion"),
   });
 }
 
@@ -105,13 +95,7 @@ export async function handleKalakritiAuditRequest(
     limit: query.data.limit,
     offset: query.data.offset,
     scope,
-    snapshot:
-      query.data.snapshotAt && query.data.snapshotId
-        ? {
-            createdAt: query.data.snapshotAt,
-            id: query.data.snapshotId,
-          }
-        : null,
+    snapshotVersion: query.data.snapshotVersion,
   });
   if (!page) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
