@@ -86,14 +86,25 @@ function AggregateTable({
         <tbody className="divide-y">
           {rows.map((row) => (
             <tr key={String(row[0])}>
-              {row.map((value, index) => (
-                <td
-                  className={index === 0 ? "px-3 py-2" : "px-3 py-2 text-right"}
-                  key={`${String(row[0])}-${columns[index]}`}
-                >
-                  {value}
-                </td>
-              ))}
+              {row.map((value, index) => {
+                const key = `${String(row[0])}-${columns[index]}`;
+                if (index === 0) {
+                  return (
+                    <th
+                      className="px-3 py-2 text-left font-normal"
+                      key={key}
+                      scope="row"
+                    >
+                      {value}
+                    </th>
+                  );
+                }
+                return (
+                  <td className="px-3 py-2 text-right" key={key}>
+                    {value}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -255,7 +266,7 @@ export function RegistrationDashboard({
           Registration dashboard
         </h2>
         <p className="mt-1 text-muted-foreground text-sm">
-          Live private totals from the current registration records.
+          Private totals loaded with this page.
         </p>
       </div>
       <div className="space-y-4">
