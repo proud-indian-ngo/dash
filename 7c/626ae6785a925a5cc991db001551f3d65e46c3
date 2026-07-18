@@ -1,0 +1,39 @@
+apps/web/src/components/kalakriti/student-picker.tsx
+  s_c8c0ce2f824e4f::t_b1377264d34643 16-19,29,76-77
+packages/zero/src/mutators/__tests__/kalakriti-entry.test.ts
+  s_c8c0ce2f824e4f::t_7f32a2fe9ebfb7 222-224,248,496,569
+  s_c8c0ce2f824e4f::t_ecdda569605722 495,497-501,504,508,510-512,527-530,535,538,543,551-568,570-573
+packages/e2e/tests/kalakriti/competition-entry-registration.spec.ts
+  s_c8c0ce2f824e4f::t_fcb164662f4964 138-148
+apps/web/src/components/kalakriti/entry-form-dialog.tsx
+  s_c8c0ce2f824e4f::t_7f32a2fe9ebfb7 18
+  s_c8c0ce2f824e4f::t_b1377264d34643 88-112,148-154,203-209,216,261-270,273-277,332-335
+project-structure.md
+  s_c8c0ce2f824e4f::t_693a8ee2376111 88
+packages/zero/src/mutators/kalakriti-entry.ts
+  s_c8c0ce2f824e4f::t_9f7f6c8a1408b7 210-234,265,280-285,296-298,301-303,311-313,315,339-340,351-355
+packages/e2e/helpers/kalakriti-entries.ts
+  s_c8c0ce2f824e4f::t_1e2c010c50d879 272
+  s_c8c0ce2f824e4f::t_fcb164662f4964 217-220
+apps/web/src/components/kalakriti/entry-table.tsx
+  s_c8c0ce2f824e4f::t_5b50595c917dfb 244-247
+  s_c8c0ce2f824e4f::t_b1377264d34643 88,103
+apps/web/src/routes/_app/kalakriti/$year/entries.tsx
+  s_c8c0ce2f824e4f::t_b1377264d34643 295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "7c626ae6785a925a5cc991db001551f3d65e46c3",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
