@@ -84,7 +84,7 @@ pi-dash/
 │       ├── fixtures/       # Custom test fixtures (auth emails)
 │       ├── helpers/        # Seed scripts (test users, categories)
 │       ├── tests/          # Test specs organized by feature
-│       ├── global-setup.ts # Authenticates admin & volunteer sessions
+│       ├── global-setup.ts # Authenticates shared roles and active Kalakriti actors
 │       ├── playwright.config.ts
 │       └── run-e2e.sh      # Full-stack test orchestration script
 ├── ARCHITECTURE.md         # Stub → docs/architecture/ (sharded chapters, on-demand)
@@ -290,11 +290,12 @@ Copy `.env.sample` to `.env`. Required variables:
 | `bun run test:e2e` | Run E2E tests via Turborepo |
 | `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
 
-The E2E suite uses setup plus six browser projects:
+The E2E suite uses setup plus seven browser projects:
 
 - **super_admin**, **admin**, and **finance_admin** — authenticated administrative perspectives
 - **volunteer** and **unoriented_volunteer** — authenticated volunteer perspectives with different access
-- **unauthenticated** — login, password recovery, and public Kalakriti schedule coverage
+- **unauthenticated** — login and password recovery coverage
+- **kalakriti_release_invariants** — public schedule privacy and singleton live-Edition races, serialized through one worker
 
 Global setup also saves Edition Admin, Volunteer Coordinator, Overall Events Lead, Category Lead, Guardian, Liaison, and unrelated-volunteer sessions for the Kalakriti registration access matrix. Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run-e2e.sh`) handles spinning up a dedicated test PostgreSQL on port 5433, pushing the schema, seeding test data, starting zero-cache, and cleaning up after tests complete.
 

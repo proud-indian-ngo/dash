@@ -26,7 +26,7 @@ test.describe("Kalakriti public schedule", () => {
     request,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "unauthenticated",
+      testInfo.project.name !== "kalakriti_release_invariants",
       "Unauthenticated public schedule workflow"
     );
     const { draftYear, year } = await fixture<{

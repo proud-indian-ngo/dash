@@ -14,7 +14,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const IDS = {
   ageCategory: "019f0000-0000-7000-8000-00000000d001",
@@ -252,7 +252,12 @@ async function raceLiveEditions() {
   const live = await db
     .select({ id: kalakritiEdition.id })
     .from(kalakritiEdition)
-    .where(eq(kalakritiEdition.lifecycle, "live"));
+    .where(
+      and(
+        inArray(kalakritiEdition.id, [IDS.editionA, IDS.editionB]),
+        eq(kalakritiEdition.lifecycle, "live")
+      )
+    );
   return { liveCount: live.length, successfulWrites: successful(results) };
 }
 

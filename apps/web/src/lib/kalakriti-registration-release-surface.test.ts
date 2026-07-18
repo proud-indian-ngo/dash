@@ -4,11 +4,38 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { describe, expect, it } from "vitest";
 
-function routeSources(directory: string) {
-  return readdirSync(directory)
-    .filter(
-      (file) =>
-        !file.startsWith("-") && (file.endsWith(".ts") || file.endsWith(".tsx"))
+function routeSources(root: string) {
+  const sources: string[] = [];
+
+  function visit(directory: string) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name.startsWith("-")) {
+        continue;
+      }
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+      } else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
+        sources.push(
+          path.relative(root, absolutePath).split(path.sep).join("/")
+        );
+      }
+    }
+  }
+
+  visit(root);
+  return sources.sort((left, right) => left.localeCompare(right));
+}
+
+function operationKeys(registry: Record<string, unknown>) {
+  return Object.entries(registry)
+    .filter(([namespace]) => namespace.startsWith("kalakriti"))
+    .flatMap(([namespace, operations]) =>
+      operations && typeof operations === "object"
+        ? Object.keys(operations)
+            .filter((operation) => operation !== "~")
+            .map((operation) => `${namespace}.${operation}`)
+        : []
     )
     .sort();
 }
@@ -43,32 +70,77 @@ describe("Kalakriti Registration Release surface", () => {
   });
 
   it("registers no Event-day, Results, Awards, or Inventory queries or mutations", () => {
-    expect(
-      Object.keys(queries)
-        .filter((key) => key.startsWith("kalakriti"))
-        .sort()
-    ).toEqual([
-      "kalakritiAssignment",
-      "kalakritiCenter",
-      "kalakritiCompetition",
-      "kalakritiEdition",
-      "kalakritiEligibility",
-      "kalakritiEntry",
-      "kalakritiGuardian",
-      "kalakritiStudent",
+    expect(operationKeys(queries)).toEqual([
+      "kalakritiAssignment.myAccess",
+      "kalakritiAssignment.roster",
+      "kalakritiCenter.guardianAssignments",
+      "kalakritiCenter.liaisonAssignments",
+      "kalakritiCenter.visible",
+      "kalakritiCompetition.categories",
+      "kalakritiCompetition.competitions",
+      "kalakritiCompetition.sessions",
+      "kalakritiCompetition.venues",
+      "kalakritiEdition.accessible",
+      "kalakritiEdition.byTeamEventId",
+      "kalakritiEdition.byYear",
+      "kalakritiEdition.cloneSource",
+      "kalakritiEdition.configurationAccessible",
+      "kalakritiEdition.readiness",
+      "kalakritiEligibility.ageCategories",
+      "kalakritiEligibility.quotas",
+      "kalakritiEntry.availableSessionsByCenter",
+      "kalakritiEntry.visibleByCenter",
+      "kalakritiGuardian.roster",
+      "kalakritiStudent.ageCategoriesByCenter",
+      "kalakritiStudent.quotasByCenter",
+      "kalakritiStudent.visibleByCenter",
     ]);
-    expect(
-      Object.keys(mutators)
-        .filter((key) => key.startsWith("kalakriti"))
-        .sort()
-    ).toEqual([
-      "kalakritiAssignment",
-      "kalakritiCenter",
-      "kalakritiCompetition",
-      "kalakritiEdition",
-      "kalakritiEligibility",
-      "kalakritiEntry",
-      "kalakritiStudent",
+    expect(operationKeys(mutators)).toEqual([
+      "kalakritiAssignment.assignCompetitionCategoryLead",
+      "kalakritiAssignment.assignCompetitionMember",
+      "kalakritiAssignment.assignLiaison",
+      "kalakritiAssignment.assignVolunteer",
+      "kalakritiAssignment.remove",
+      "kalakritiCenter.assignGuardian",
+      "kalakritiCenter.create",
+      "kalakritiCenter.delete",
+      "kalakritiCenter.lockAllRegistration",
+      "kalakritiCenter.removeGuardian",
+      "kalakritiCenter.retire",
+      "kalakritiCenter.setRegistrationControls",
+      "kalakritiCenter.update",
+      "kalakritiCompetition.createCategory",
+      "kalakritiCompetition.createCompetition",
+      "kalakritiCompetition.createSession",
+      "kalakritiCompetition.createVenue",
+      "kalakritiCompetition.deleteCategory",
+      "kalakritiCompetition.deleteCompetition",
+      "kalakritiCompetition.deleteSession",
+      "kalakritiCompetition.deleteVenue",
+      "kalakritiCompetition.setCategoryRetired",
+      "kalakritiCompetition.setCompetitionCancelled",
+      "kalakritiCompetition.setCompetitionRetired",
+      "kalakritiCompetition.setSessionCancelled",
+      "kalakritiCompetition.setVenueRetired",
+      "kalakritiCompetition.updateCategory",
+      "kalakritiCompetition.updateCompetition",
+      "kalakritiCompetition.updateSession",
+      "kalakritiCompetition.updateVenue",
+      "kalakritiEdition.cloneConfiguration",
+      "kalakritiEdition.create",
+      "kalakritiEdition.transition",
+      "kalakritiEligibility.createAgeCategory",
+      "kalakritiEligibility.deleteAgeCategory",
+      "kalakritiEligibility.deleteQuota",
+      "kalakritiEligibility.setQuota",
+      "kalakritiEligibility.updateAgeCategory",
+      "kalakritiEntry.createGroup",
+      "kalakritiEntry.createIndividual",
+      "kalakritiEntry.remove",
+      "kalakritiEntry.replaceGroupMembers",
+      "kalakritiStudent.create",
+      "kalakritiStudent.delete",
+      "kalakritiStudent.update",
     ]);
   });
 });

@@ -1,6 +1,10 @@
 import { auth } from "@pi-dash/auth";
+import {
+  createKalakritiExternalUser,
+  setKalakritiExternalUserBlocked,
+} from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
-import { session, user } from "@pi-dash/db/schema/auth";
+import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiAgeCategory,
   kalakritiAssignment,
@@ -57,9 +61,8 @@ const assignmentIds = {
   volunteerCoordinator: `${prefix}1922`,
 } as const;
 
-async function ensureActor(
-  name: KalakritiActorName,
-  role: "external_user" | "volunteer"
+async function ensureVolunteerActor(
+  name: Exclude<KalakritiActorName, "dormantExternalUser" | "guardian">
 ): Promise<string> {
   const actor = KALAKRITI_ACTORS[name];
   let existing = await db.query.user.findFirst({
@@ -88,10 +91,35 @@ async function ensureActor(
       banReason: null,
       emailVerified: true,
       isActive: true,
-      role,
+      role: "volunteer",
     })
     .where(eq(user.id, existing.id));
   return existing.id;
+}
+
+async function ensureExternalActor(
+  name: "dormantExternalUser" | "guardian"
+): Promise<string> {
+  const actor = KALAKRITI_ACTORS[name];
+  const existing = await db.query.user.findFirst({
+    columns: { id: true },
+    where: eq(user.email, actor.email),
+  });
+  const actorId =
+    existing?.id ??
+    (
+      await createKalakritiExternalUser({
+        email: actor.email,
+        name,
+        password: actor.password,
+        phone: null,
+      })
+    ).id;
+
+  await db.transaction((tx) =>
+    setKalakritiExternalUserBlocked(tx, { blocked: false, userId: actorId })
+  );
+  return actorId;
 }
 
 async function cleanupEdition(
@@ -156,26 +184,19 @@ export async function seedKalakritiReleaseFixture(
     "unrelatedVolunteer",
   ] as const;
   const volunteerIds = await Promise.all(
-    volunteerNames.map((name) => ensureActor(name, "volunteer"))
+    volunteerNames.map((name) => ensureVolunteerActor(name))
   );
   volunteerNames.forEach((name, index) => {
     ids[name] = volunteerIds[index]!;
   });
-  ids.guardian = await ensureActor("guardian", "external_user");
-  ids.dormantExternalUser = await ensureActor(
-    "dormantExternalUser",
-    "external_user"
-  );
-
-  await db.delete(session).where(eq(session.userId, ids.dormantExternalUser));
-  await db
-    .update(user)
-    .set({
-      banExpires: null,
-      banned: true,
-      banReason: "No active Kalakriti Edition membership",
+  ids.guardian = await ensureExternalActor("guardian");
+  ids.dormantExternalUser = await ensureExternalActor("dormantExternalUser");
+  await db.transaction((tx) =>
+    setKalakritiExternalUserBlocked(tx, {
+      blocked: true,
+      userId: ids.dormantExternalUser,
     })
-    .where(eq(user.id, ids.dormantExternalUser));
+  );
 
   await db
     .insert(kalakritiExternalIdentity)

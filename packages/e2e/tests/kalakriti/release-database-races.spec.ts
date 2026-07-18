@@ -22,7 +22,7 @@ test("serializes live Edition, duplicate Membership, and duplicate Entry races",
   superAdminEmail,
 }, testInfo) => {
   test.skip(
-    testInfo.project.name !== "super_admin",
+    testInfo.project.name !== "kalakriti_release_invariants",
     "Authoritative PostgreSQL release races"
   );
   test.slow();
@@ -47,7 +47,7 @@ test("serializes live Edition, duplicate Membership, and duplicate Entry races",
       successfulWrites: 1,
     });
     expect(result.live.liveCount).toBe(1);
-    expect(result.live.successfulWrites).toBeLessThanOrEqual(1);
+    expect(result.live.successfulWrites).toBe(1);
   } finally {
     await fixture("cleanup");
   }
