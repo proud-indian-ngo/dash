@@ -511,7 +511,7 @@ export const kalakritiStudentMutators = {
       if (!snapshot) {
         throw new Error("Student not found");
       }
-      await lockRegistrationContext(
+      const { center } = await lockRegistrationContext(
         tx,
         ctx,
         snapshot.editionId,
@@ -532,6 +532,14 @@ export const kalakritiStudentMutators = {
         tx,
         student.id
       );
+      if (
+        entryMemberships.length > 0 &&
+        !center.competitionEntryRegistrationEnabled
+      ) {
+        throw new Error(
+          "Competition Entry registration is closed for this Center"
+        );
+      }
       const entryIds = new Set<string>();
       const entryMemberIds = new Set<string>();
       for (const membership of entryMemberships) {

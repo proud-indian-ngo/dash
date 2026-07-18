@@ -63,6 +63,7 @@ describe("kalakritiStudent queries", () => {
     expect(ast).toContain('"value":"center-1"');
     expect(ast).toContain('"table":"kalakritiAgeCategory"');
     expect(ast).toContain('"table":"kalakritiCenter"');
+    expect(ast).toContain('"table":"kalakritiEntryMember"');
   });
 
   it("allows only Guardian, Liaison, or Edition Administrator scope", () => {

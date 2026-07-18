@@ -35,6 +35,7 @@ export interface KalakritiStudentRow {
   dateOfBirth: number;
   derivedAgeCategory?: { name: string } | null;
   derivedAgeCategoryId: string;
+  entryMemberships?: readonly { id: string }[];
   gender: "female" | "male";
   humanId: string;
   id: string;

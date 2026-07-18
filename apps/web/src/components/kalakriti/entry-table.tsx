@@ -74,7 +74,8 @@ function EntryRowActions({
 }
 
 interface EntryTableProps {
-  canManage: boolean;
+  canRegister: boolean;
+  canRemove: boolean;
   data: KalakritiEntryRow[];
   isLoading: boolean;
   onRegister: () => void;
@@ -86,7 +87,8 @@ function getEntryRowId(entry: KalakritiEntryRow): string {
 }
 
 export function EntryTable({
-  canManage,
+  canRegister,
+  canRemove,
   data,
   isLoading,
   onRegister,
@@ -209,7 +211,7 @@ export function EntryTable({
       },
       size: 160,
     },
-    ...(canManage
+    ...(canRemove
       ? [
           {
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
@@ -245,7 +247,9 @@ export function EntryTable({
         columnsVisibility: true,
       }}
       toolbarActions={
-        canManage ? <Button onClick={onRegister}>Register Entry</Button> : null
+        canRegister ? (
+          <Button onClick={onRegister}>Register Entry</Button>
+        ) : null
       }
     />
   );

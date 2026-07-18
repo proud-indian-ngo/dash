@@ -116,6 +116,7 @@ export const kalakritiStudentQueries = {
       .where("centerId", args.centerId)
       .related("ageCategory")
       .related("derivedAgeCategory")
+      .related("entryMemberships")
       .related("center");
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("humanId", "asc");
