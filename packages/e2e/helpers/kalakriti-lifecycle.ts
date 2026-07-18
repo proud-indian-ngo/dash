@@ -34,9 +34,11 @@ const fixtures = {
   source: {
     ageCategoryId: "019f0000-0000-7000-8000-00000000a303",
     categoryId: "019f0000-0000-7000-8000-00000000a304",
+    centerId: "019f0000-0000-7000-8000-00000000a307",
     competitionId: "019f0000-0000-7000-8000-00000000a305",
     editionId: "019f0000-0000-7000-8000-00000000a301",
     eventId: "019f0000-0000-7000-8000-00000000a302",
+    sessionId: "019f0000-0000-7000-8000-00000000a308",
     venueId: "019f0000-0000-7000-8000-00000000a306",
     year: 2187,
   },
@@ -124,15 +126,26 @@ async function setup(actorEmail: string) {
     }))
   );
 
-  await db.insert(kalakritiCenter).values({
-    createdAt: now,
-    createdBy: actor.id,
-    editionId: fixtures.ready.editionId,
-    id: fixtures.ready.centerId,
-    name: "Jayanagar",
-    normalizedName: "jayanagar",
-    updatedAt: now,
-  });
+  await db.insert(kalakritiCenter).values([
+    {
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixtures.ready.editionId,
+      id: fixtures.ready.centerId,
+      name: "Jayanagar",
+      normalizedName: "jayanagar",
+      updatedAt: now,
+    },
+    {
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixtures.source.editionId,
+      id: fixtures.source.centerId,
+      name: "Source Center",
+      normalizedName: "source center",
+      updatedAt: now,
+    },
+  ]);
   await db.insert(kalakritiAgeCategory).values([
     {
       createdAt: now,
@@ -246,19 +259,34 @@ async function setup(actorEmail: string) {
       updatedAt: now,
     },
   ]);
-  await db.insert(kalakritiCompetitionSession).values({
-    ageCategoryId: fixtures.ready.ageCategoryId,
-    capacity: 30,
-    competitionId: fixtures.ready.competitionId,
-    createdAt: now,
-    createdBy: actor.id,
-    editionId: fixtures.ready.editionId,
-    endAt: new Date(`${fixtures.ready.year}-11-21T05:30:00.000Z`),
-    id: fixtures.ready.sessionId,
-    startAt: new Date(`${fixtures.ready.year}-11-21T04:30:00.000Z`),
-    updatedAt: now,
-    venueId: fixtures.ready.venueId,
-  });
+  await db.insert(kalakritiCompetitionSession).values([
+    {
+      ageCategoryId: fixtures.ready.ageCategoryId,
+      capacity: 30,
+      competitionId: fixtures.ready.competitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixtures.ready.editionId,
+      endAt: new Date(`${fixtures.ready.year}-11-21T05:30:00.000Z`),
+      id: fixtures.ready.sessionId,
+      startAt: new Date(`${fixtures.ready.year}-11-21T04:30:00.000Z`),
+      updatedAt: now,
+      venueId: fixtures.ready.venueId,
+    },
+    {
+      ageCategoryId: fixtures.source.ageCategoryId,
+      capacity: 25,
+      competitionId: fixtures.source.competitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixtures.source.editionId,
+      endAt: new Date(`${fixtures.source.year}-11-21T05:30:00.000Z`),
+      id: fixtures.source.sessionId,
+      startAt: new Date(`${fixtures.source.year}-11-21T04:30:00.000Z`),
+      updatedAt: now,
+      venueId: fixtures.source.venueId,
+    },
+  ]);
 
   return {
     cloneTargetYear: fixtures.cloneTarget.year,
@@ -267,11 +295,23 @@ async function setup(actorEmail: string) {
   };
 }
 
+async function invalidateReadyEdition() {
+  await db
+    .delete(kalakritiCenterAgeQuota)
+    .where(inArray(kalakritiCenterAgeQuota.id, [fixtures.ready.quotaId]));
+  return { invalidated: true };
+}
+
 const [action, emailArgument] = process.argv.slice(2);
 try {
-  let result: { removed: true } | Awaited<ReturnType<typeof setup>>;
+  let result:
+    | { invalidated: true }
+    | { removed: true }
+    | Awaited<ReturnType<typeof setup>>;
   if (action === "setup") {
     result = await setup(emailArgument ?? "");
+  } else if (action === "invalidate_ready") {
+    result = await invalidateReadyEdition();
   } else if (action === "cleanup") {
     await cleanup();
     result = { removed: true };

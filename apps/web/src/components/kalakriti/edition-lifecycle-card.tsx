@@ -121,6 +121,42 @@ function useRegistrationLifecycleTransition({
   };
 }
 
+function RegistrationReadinessBlockers({
+  blockers,
+  lifecycle,
+}: {
+  blockers: ReturnType<typeof getKalakritiRegistrationReadiness>;
+  lifecycle: RegistrationLifecycle | undefined;
+}) {
+  if (
+    (lifecycle !== "draft" &&
+      lifecycle !== "registration_open" &&
+      lifecycle !== "registration_locked") ||
+    blockers.length === 0
+  ) {
+    return null;
+  }
+  let action = "reopening";
+  if (lifecycle === "draft") {
+    action = "opening";
+  } else if (lifecycle === "registration_open") {
+    action = "locking";
+  }
+
+  return (
+    <section aria-labelledby="readiness-blockers-heading">
+      <p className="font-medium text-sm" id="readiness-blockers-heading">
+        Complete these before {action} registration
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground text-sm">
+        {blockers.map((blocker) => (
+          <li key={blocker.code}>{blocker.message}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function EditionLifecycleCard({
   canManage,
   editionId,
@@ -132,7 +168,12 @@ export function EditionLifecycleCard({
     queries.kalakritiEdition.readiness({ editionId }),
     { enabled: canManage }
   );
-  const isLoading = canManage && !snapshot && result.type !== "complete";
+  const isLoading =
+    canManage &&
+    !snapshot &&
+    result.type !== "complete" &&
+    result.type !== "error";
+  const readinessUnavailable = result.type !== "complete" || !snapshot;
   const lifecycle = snapshot?.lifecycle as RegistrationLifecycle | undefined;
   const blockers = snapshot
     ? getKalakritiRegistrationReadiness({
@@ -166,7 +207,8 @@ export function EditionLifecycleCard({
           <div>
             <CardTitle>Registration lifecycle</CardTitle>
             <CardDescription>
-              Readiness is checked again by the server when registration opens.
+              Readiness is checked again by the server when registration opens
+              or locks.
             </CardDescription>
           </div>
           {lifecycle ? (
@@ -177,6 +219,20 @@ export function EditionLifecycleCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {result.type === "error" ? (
+          <div className="space-y-3" role="alert">
+            <p className="font-medium">
+              Registration readiness could not be loaded.
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Check your connection and try again.
+            </p>
+            <Button onClick={result.retry} type="button" variant="outline">
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
         {isLoading ? (
           <div
             aria-label="Loading registration readiness"
@@ -187,18 +243,10 @@ export function EditionLifecycleCard({
           </div>
         ) : null}
 
-        {lifecycle === "draft" && blockers.length > 0 ? (
-          <section aria-labelledby="readiness-blockers-heading">
-            <p className="font-medium text-sm" id="readiness-blockers-heading">
-              Complete these before opening registration
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground text-sm">
-              {blockers.map((blocker) => (
-                <li key={blocker.code}>{blocker.message}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        <RegistrationReadinessBlockers
+          blockers={blockers}
+          lifecycle={lifecycle}
+        />
 
         {lifecycle === "registration_open" ? (
           <p className="text-muted-foreground text-sm">
@@ -216,8 +264,8 @@ export function EditionLifecycleCard({
         {copy ? (
           <Button
             disabled={
-              isLoading ||
-              (lifecycle === "draft" && blockers.length > 0) ||
+              readinessUnavailable ||
+              blockers.length > 0 ||
               transition.isLoading
             }
             onClick={handleTrigger}

@@ -9,7 +9,10 @@ const helperPath = path.resolve(
   "../../helpers/kalakriti-lifecycle.ts"
 );
 
-async function fixture<T>(action: "cleanup" | "setup", email?: string) {
+async function fixture<T>(
+  action: "cleanup" | "invalidate_ready" | "setup",
+  email?: string
+) {
   const { stdout } = await execFileAsync(
     "bun",
     ["run", helperPath, action, ...(email ? [email] : [])],
@@ -128,6 +131,27 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
       page.getByText("Registration opened", { exact: true })
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Lock registration" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Lock registration?" })
+      .getByRole("button", { name: "Lock registration" })
+      .click();
+    await expect(
+      page.getByText("Registration locked", { exact: true })
+    ).toBeVisible();
+    await fixture("invalidate_ready");
+    await page.reload();
+    await waitForZeroReady(page);
+    await expect(
+      page.getByText("Every active Center and Age Category needs a quota")
+    ).toBeVisible();
+    await expect(
+      page.getByText("Complete these before reopening registration")
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Open registration" })
+    ).toBeDisabled();
   } finally {
     await fixture("cleanup");
   }

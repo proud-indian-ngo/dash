@@ -233,6 +233,7 @@ export const kalakritiEditionMutators = {
       const activeCompetitions = competitions.filter(
         (row) =>
           row.retiredAt === null &&
+          row.cancelledAt === null &&
           activeCategoryIds.has(row.competitionCategoryId)
       );
       const activeVenues = venues.filter((row) => row.retiredAt === null);
@@ -490,7 +491,10 @@ export const kalakritiEditionMutators = {
         throw new Error("Invalid Edition lifecycle transition");
       }
 
-      if (args.targetLifecycle === "registration_open") {
+      if (
+        args.targetLifecycle === "registration_open" ||
+        args.targetLifecycle === "registration_locked"
+      ) {
         const blockers = getKalakritiRegistrationReadiness(
           await getReadinessSnapshot(tx as EditionTx, args.editionId)
         );

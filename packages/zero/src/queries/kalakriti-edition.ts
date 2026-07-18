@@ -24,13 +24,12 @@ function accessibleEditions(
   );
 }
 
-function configurationAccessibleEdition(
-  editionId: string,
+function configurationAccessibleEditions(
   userId: string | undefined,
   isAdmin: boolean,
   canView: boolean
 ) {
-  const query = zql.kalakritiEdition.where("id", editionId);
+  const query = zql.kalakritiEdition;
   if (isAdmin) {
     return query;
   }
@@ -44,6 +43,18 @@ function configurationAccessibleEdition(
       .whereExists("assignments", (assignment) =>
         assignment.where("responsibility", "edition_admin")
       )
+  );
+}
+
+function configurationAccessibleEdition(
+  editionId: string,
+  userId: string | undefined,
+  isAdmin: boolean,
+  canView: boolean
+) {
+  return configurationAccessibleEditions(userId, isAdmin, canView).where(
+    "id",
+    editionId
   );
 }
 
@@ -104,6 +115,13 @@ export const kalakritiEditionQueries = {
           ctx !== null && can(ctx, "kalakriti.view")
         ) as typeof zql.kalakritiEdition
       ).one()
+  ),
+  configurationAccessible: defineQuery(({ ctx }) =>
+    configurationAccessibleEditions(
+      ctx?.userId,
+      ctx !== null && can(ctx, "kalakriti.admin"),
+      ctx !== null && can(ctx, "kalakriti.view")
+    ).orderBy("year", "desc")
   ),
   readiness: defineQuery(z.object({ editionId: z.string() }), ({ args, ctx }) =>
     withReadinessSnapshot(
