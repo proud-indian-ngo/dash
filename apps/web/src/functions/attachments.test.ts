@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@pi-dash/env/server", () => ({
+  env: { R2_KEY_PREFIX: "app" },
+}));
 vi.mock("@pi-dash/jobs/lib/protected-r2-reference", () => ({
   withProtectedR2ObjectDeleteLock: vi.fn(),
 }));
