@@ -839,9 +839,7 @@ export const kalakritiAuditEntry = pgTable(
   "kalakriti_audit_entry",
   {
     action: text("action").notNull(),
-    actorUserId: text("actor_user_id").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    actorUserId: text("actor_user_id"),
     createdAt: timestamp("created_at").notNull(),
     domain: text("domain").notNull(),
     editionId: uuid("edition_id")

@@ -332,6 +332,14 @@ describe("kalakritiStudent commands", () => {
         duplicateConfirmedBy: adminContext.userId,
       })
     );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          duplicateConfirmed: true,
+          duplicateStudentId: "existing-1",
+        }),
+      })
+    );
   });
 
   it("requires and audits an administrator Age Category override reason", async () => {
@@ -354,6 +362,10 @@ describe("kalakritiStudent commands", () => {
     );
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({
+        metadata: expect.objectContaining({
+          ageCategoryOverridden: true,
+          duplicateConfirmed: false,
+        }),
         reason: "Approved after school record review",
       })
     );
@@ -391,6 +403,14 @@ describe("kalakritiStudent commands", () => {
     );
     expect(spies.insertCredential).not.toHaveBeenCalled();
     expect(spies.deleteCredential).not.toHaveBeenCalled();
+    const auditPayload = spies.insertAudit.mock.calls[0]?.[0];
+    expect(JSON.stringify(auditPayload?.metadata)).not.toContain("Ananya Rao");
+    expect(JSON.stringify(auditPayload?.metadata)).not.toContain(
+      student.dateOfBirth
+    );
+    expect(JSON.stringify(auditPayload?.metadata)).not.toContain(
+      student.gender
+    );
   });
 
   it("preserves an administrator override during a Liaison name edit", async () => {
@@ -519,7 +539,10 @@ describe("kalakritiStudent commands", () => {
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "deleted",
-        metadata: { humanId: student.humanId, name: student.name },
+        metadata: {
+          centerId: student.centerId,
+          humanId: student.humanId,
+        },
       })
     );
   });

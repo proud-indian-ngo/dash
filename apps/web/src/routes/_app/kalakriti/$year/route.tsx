@@ -7,6 +7,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { resolveKalakritiAuditScope } from "@/lib/kalakriti-audit-policy";
 import { canAccessKalakritiEntries } from "@/lib/kalakriti-entry-policy";
 import { canAccessKalakritiStudents } from "@/lib/kalakriti-student-policy";
 
@@ -43,6 +44,7 @@ function KalakritiEditionLayout() {
     );
   const canViewStudents = canAccessKalakritiStudents(access);
   const canViewEntries = canAccessKalakritiEntries(access);
+  const canViewAudit = Boolean(resolveKalakritiAuditScope(access));
 
   return (
     <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">
@@ -174,6 +176,21 @@ function KalakritiEditionLayout() {
             variant="ghost"
           >
             Entries
+          </Button>
+        ) : null}
+        {canViewAudit ? (
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                params={{ year: String(edition.year) }}
+                to="/kalakriti/$year/audit"
+              />
+            }
+            size="sm"
+            variant="ghost"
+          >
+            Audit
           </Button>
         ) : null}
       </nav>
