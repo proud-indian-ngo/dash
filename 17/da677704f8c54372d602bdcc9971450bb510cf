@@ -1,0 +1,28 @@
+packages/notifications/src/send-message.test.ts
+  s_c8c0ce2f824e4f::t_e26b5a090a0431 45-48,199,205-209,211,213,216,218-250,254-259
+  s_c8c0ce2f824e4f::t_0554caa8437057 251-253
+docs/architecture/notifications.md
+  s_c8c0ce2f824e4f::t_e26b5a090a0431 95-98
+packages/notifications/src/send-message.ts
+  s_c8c0ce2f824e4f::t_e26b5a090a0431 130
+packages/whatsapp/src/messaging.ts
+  s_c8c0ce2f824e4f::t_085ca15a25d453 1,6-9,35
+packages/whatsapp/src/messaging.test.ts
+  s_c8c0ce2f824e4f::t_085ca15a25d453 1,36,39,42,49-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "17da677704f8c54372d602bdcc9971450bb510cf",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
