@@ -540,7 +540,12 @@ describe("kalakritiStudent commands", () => {
         },
       ],
     ]);
-    lockedResults.push([edition], [center], [junior], [student]);
+    lockedResults.push(
+      [edition],
+      [{ ...center, competitionEntryRegistrationEnabled: true }],
+      [junior],
+      [student]
+    );
 
     await kalakritiStudentMutators.delete.fn({
       args: { auditEntryId: "audit-3", now: 3000, studentId: student.id },
@@ -553,11 +558,41 @@ describe("kalakritiStudent commands", () => {
     expect(spies.deleteStudent).toHaveBeenCalledWith({ id: student.id });
   });
 
+  it("does not delete Competition Entries after Entry registration closes", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      {
+        centerId: center.id,
+        editionId: edition.id,
+        humanId: student.humanId,
+        name: student.name,
+      },
+      [{ id: "credential-1" }],
+      [
+        {
+          entry: { id: "entry-1", members: [{ id: "member-1" }] },
+          id: "member-1",
+        },
+      ],
+    ]);
+    lockedResults.push([edition], [center], [junior], [student]);
+
+    await expect(
+      kalakritiStudentMutators.delete.fn({
+        args: { auditEntryId: "audit-3", now: 3000, studentId: student.id },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiStudentMutators.delete.fn>[0])
+    ).rejects.toThrow("Competition Entry registration is closed");
+
+    expect(spies.deleteEntryMember).not.toHaveBeenCalled();
+    expect(spies.deleteEntry).not.toHaveBeenCalled();
+    expect(spies.deleteStudent).not.toHaveBeenCalled();
+  });
+
   it("blocks Student changes that would invalidate Competition Entries", async () => {
     const ageChange = createTx([
       { centerId: center.id, editionId: edition.id },
       [],
-      quota,
       [],
       [
         {
@@ -602,7 +637,6 @@ describe("kalakritiStudent commands", () => {
     const genderChange = createTx([
       { centerId: center.id, editionId: edition.id },
       [],
-      quota,
       [],
       [
         {

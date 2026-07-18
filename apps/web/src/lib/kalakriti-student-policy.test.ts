@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAccessKalakritiStudents,
+  canDeleteKalakritiStudent,
   getStudentRegistrationAvailability,
   type KalakritiStudentAccess,
   selectKalakritiStudentCenters,
@@ -87,6 +88,27 @@ describe("Kalakriti Student policy", () => {
     expect(selectKalakritiStudentCenters(centers, liaison)).toEqual([
       { id: "center-2" },
     ]);
+  });
+
+  it("requires open Entry registration to delete a Student with Entries", () => {
+    expect(
+      canDeleteKalakritiStudent({
+        entryCount: 1,
+        entryRegistrationEnabled: false,
+      })
+    ).toBe(false);
+    expect(
+      canDeleteKalakritiStudent({
+        entryCount: 0,
+        entryRegistrationEnabled: false,
+      })
+    ).toBe(true);
+    expect(
+      canDeleteKalakritiStudent({
+        entryCount: 1,
+        entryRegistrationEnabled: true,
+      })
+    ).toBe(true);
   });
 
   it.each([

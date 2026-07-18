@@ -14,6 +14,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 import type { KalakritiStudentRow } from "./student-form-dialog";
 
 function searchStudents(row: KalakritiStudentRow, query: string): boolean {
@@ -28,16 +29,22 @@ function searchStudents(row: KalakritiStudentRow, query: string): boolean {
 }
 
 function StudentRowActions({
+  entryRegistrationEnabled,
   onDelete,
   onEdit,
   student,
 }: {
+  entryRegistrationEnabled: boolean;
   onDelete: (student: KalakritiStudentRow) => void;
   onEdit: (student: KalakritiStudentRow) => void;
   student: KalakritiStudentRow;
 }) {
   const handleEdit = useEventCallback(() => onEdit(student));
   const handleDelete = useEventCallback(() => onDelete(student));
+  const canDelete = canDeleteKalakritiStudent({
+    entryCount: student.entryMemberships?.length ?? 0,
+    entryRegistrationEnabled,
+  });
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -58,11 +65,15 @@ function StudentRowActions({
           </Button>
         }
       />
-      <DropdownMenuContent align="end" className="w-32">
+      <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleDelete} variant="destructive">
-          Delete
+        <DropdownMenuItem
+          disabled={!canDelete}
+          onClick={handleDelete}
+          variant="destructive"
+        >
+          {canDelete ? "Delete" : "Delete (Entries locked)"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -72,6 +83,7 @@ function StudentRowActions({
 interface StudentTableProps {
   canManage: boolean;
   data: KalakritiStudentRow[];
+  entryRegistrationEnabled: boolean;
   isLoading: boolean;
   onDelete: (student: KalakritiStudentRow) => void;
   onEdit: (student: KalakritiStudentRow) => void;
@@ -85,6 +97,7 @@ function getStudentRowId(student: KalakritiStudentRow): string {
 export function StudentTable({
   canManage,
   data,
+  entryRegistrationEnabled,
   isLoading,
   onDelete,
   onEdit,
@@ -191,6 +204,7 @@ export function StudentTable({
           {
             cell: ({ row }: { row: { original: KalakritiStudentRow } }) => (
               <StudentRowActions
+                entryRegistrationEnabled={entryRegistrationEnabled}
                 onDelete={onDelete}
                 onEdit={onEdit}
                 student={row.original}

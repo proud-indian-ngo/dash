@@ -16,6 +16,7 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
+import { getIndividualEntryValidationError } from "@/lib/kalakriti-entry-policy";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export interface KalakritiEntryStudent {
@@ -75,15 +76,6 @@ const entryFormSchema = z.object({
   studentId: z.string().min(1, "Choose a Student"),
 });
 
-function studentEntries(
-  entries: readonly KalakritiEntryRow[],
-  studentId: string
-): KalakritiEntryRow[] {
-  return entries.filter((entry) =>
-    entry.members.some((member) => member.studentId === studentId)
-  );
-}
-
 function sessionOptionLabel(session: KalakritiEntrySession): string {
   const remaining = Math.max(0, session.capacity - session.entries.length);
   return [
@@ -93,58 +85,6 @@ function sessionOptionLabel(session: KalakritiEntrySession): string {
     session.venue.name,
     `${remaining} ${remaining === 1 ? "place" : "places"} left`,
   ].join(" · ");
-}
-
-function entryValidationError({
-  entries,
-  session,
-  student,
-}: {
-  entries: readonly KalakritiEntryRow[];
-  session: KalakritiEntrySession;
-  student: KalakritiEntryStudent;
-}): string | null {
-  const { competition } = session;
-  if (competition.participationMode !== "individual") {
-    return "Choose an individual Competition Session";
-  }
-  if (student.ageCategoryId !== session.ageCategoryId) {
-    return `This Session is for ${session.ageCategory.name}`;
-  }
-  if (
-    competition.genderEligibility !== "both" &&
-    competition.genderEligibility !== student.gender
-  ) {
-    return `This Competition is limited to ${competition.genderEligibility} Students`;
-  }
-  if (session.entries.length >= session.capacity) {
-    return "This Session is full. Choose another Session.";
-  }
-  const existing = studentEntries(entries, student.id);
-  if (existing.some((entry) => entry.sessionId === session.id)) {
-    return "This Student is already registered for this Session";
-  }
-  if (existing.length >= student.ageCategory.maxTotalCompetitions) {
-    return "This Student has reached the total Competition limit";
-  }
-  const categoryEntries = existing.filter(
-    (entry) =>
-      entry.session.competition.competitionCategoryId ===
-      competition.competitionCategoryId
-  ).length;
-  if (categoryEntries >= student.ageCategory.maxCompetitionsPerCategory) {
-    return `This Student has reached the ${competition.category.name} limit`;
-  }
-  if (
-    existing.some(
-      (entry) =>
-        entry.session.startAt < session.endAt &&
-        entry.session.endAt > session.startAt
-    )
-  ) {
-    return "This Session overlaps another Entry for this Student";
-  }
-  return null;
 }
 
 function EntryForm({
@@ -166,7 +106,11 @@ function EntryForm({
     if (!(student && session)) {
       return;
     }
-    const message = entryValidationError({ entries, session, student });
+    const message = getIndividualEntryValidationError({
+      entries,
+      session,
+      student,
+    });
     if (message) {
       context.addIssue({
         code: "custom",

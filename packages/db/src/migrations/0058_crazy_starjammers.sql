@@ -28,11 +28,10 @@ ALTER TABLE "kalakriti_competition_entry" ADD CONSTRAINT "kalakriti_competition_
 ALTER TABLE "kalakriti_competition_entry" ADD CONSTRAINT "kalakriti_competition_entry_edition_session_fk" FOREIGN KEY ("edition_id","session_id") REFERENCES "public"."kalakriti_competition_session"("edition_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_entry_member" ADD CONSTRAINT "kalakriti_entry_member_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kalakriti_entry_member" ADD CONSTRAINT "kalakriti_entry_member_entry_scope_fk" FOREIGN KEY ("edition_id","center_id","session_id","entry_id") REFERENCES "public"."kalakriti_competition_entry"("edition_id","center_id","session_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "kalakriti_entry_member" ADD CONSTRAINT "kalakriti_entry_member_student_scope_fk" FOREIGN KEY ("edition_id","center_id","student_id") REFERENCES "public"."kalakriti_student"("edition_id","center_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "kalakriti_entry_member" ADD CONSTRAINT "kalakriti_entry_member_student_fk" FOREIGN KEY ("student_id") REFERENCES "public"."kalakriti_student"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "kalakriti_competition_entry_editionId_centerId_idx" ON "kalakriti_competition_entry" USING btree ("edition_id","center_id");--> statement-breakpoint
 CREATE INDEX "kalakriti_competition_entry_sessionId_idx" ON "kalakriti_competition_entry" USING btree ("session_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "kalakriti_entry_member_entryId_studentId_uidx" ON "kalakriti_entry_member" USING btree ("entry_id","student_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "kalakriti_entry_member_sessionId_studentId_uidx" ON "kalakriti_entry_member" USING btree ("session_id","student_id");--> statement-breakpoint
 CREATE INDEX "kalakriti_entry_member_editionId_centerId_idx" ON "kalakriti_entry_member" USING btree ("edition_id","center_id");--> statement-breakpoint
-CREATE INDEX "kalakriti_entry_member_studentId_idx" ON "kalakriti_entry_member" USING btree ("student_id");--> statement-breakpoint
-ALTER TABLE "kalakriti_student" ADD CONSTRAINT "kalakriti_student_editionId_centerId_id_uq" UNIQUE("edition_id","center_id","id");
+CREATE INDEX "kalakriti_entry_member_studentId_idx" ON "kalakriti_entry_member" USING btree ("student_id");

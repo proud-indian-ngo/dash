@@ -1,5 +1,5 @@
 {
-  "id": "af01ca67-aa0e-459e-b14a-bb7878c92e0e",
+  "id": "a6a87e4a-f5ea-48f0-be68-d955e1792416",
   "prevId": "0580e176-c820-4247-a176-3d93a423b8b1",
   "version": "7",
   "dialect": "postgresql",
@@ -4698,18 +4698,14 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "kalakriti_entry_member_student_scope_fk": {
-          "name": "kalakriti_entry_member_student_scope_fk",
+        "kalakriti_entry_member_student_fk": {
+          "name": "kalakriti_entry_member_student_fk",
           "tableFrom": "kalakriti_entry_member",
           "tableTo": "kalakriti_student",
           "columnsFrom": [
-            "edition_id",
-            "center_id",
             "student_id"
           ],
           "columnsTo": [
-            "edition_id",
-            "center_id",
             "id"
           ],
           "onDelete": "restrict",
@@ -5260,15 +5256,6 @@
           "nullsNotDistinct": false,
           "columns": [
             "edition_id",
-            "id"
-          ]
-        },
-        "kalakriti_student_editionId_centerId_id_uq": {
-          "name": "kalakriti_student_editionId_centerId_id_uq",
-          "nullsNotDistinct": false,
-          "columns": [
-            "edition_id",
-            "center_id",
             "id"
           ]
         }

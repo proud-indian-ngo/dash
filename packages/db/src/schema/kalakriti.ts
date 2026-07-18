@@ -285,11 +285,6 @@ export const kalakritiStudent = pgTable(
   (table) => [
     uniqueIndex("kalakriti_student_humanId_uidx").on(table.humanId),
     unique("kalakriti_student_editionId_id_uq").on(table.editionId, table.id),
-    unique("kalakriti_student_editionId_centerId_id_uq").on(
-      table.editionId,
-      table.centerId,
-      table.id
-    ),
     index("kalakriti_student_editionId_centerId_idx").on(
       table.editionId,
       table.centerId
@@ -663,13 +658,9 @@ export const kalakritiEntryMember = pgTable(
       name: "kalakriti_entry_member_entry_scope_fk",
     }).onDelete("cascade"),
     foreignKey({
-      columns: [table.editionId, table.centerId, table.studentId],
-      foreignColumns: [
-        kalakritiStudent.editionId,
-        kalakritiStudent.centerId,
-        kalakritiStudent.id,
-      ],
-      name: "kalakriti_entry_member_student_scope_fk",
+      columns: [table.studentId],
+      foreignColumns: [kalakritiStudent.id],
+      name: "kalakriti_entry_member_student_fk",
     }).onDelete("restrict"),
   ]
 );

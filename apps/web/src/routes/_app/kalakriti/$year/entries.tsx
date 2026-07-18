@@ -24,6 +24,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   canAccessKalakritiEntries,
+  canRemoveKalakritiEntries,
   type EntryRegistrationAvailability,
   getEntryRegistrationAvailability,
   selectKalakritiEntryCenters,
@@ -230,6 +231,10 @@ function KalakritiEntriesPage() {
     studentCount: completeStudents.length,
   });
   const registrationOpen = availability === "open";
+  const removalEnabled = canRemoveKalakritiEntries({
+    centerEnabled: selectedCenter?.competitionEntryRegistrationEnabled === true,
+    lifecycle: edition.lifecycle,
+  });
 
   return (
     <div className="space-y-6 pt-6">
@@ -272,7 +277,8 @@ function KalakritiEntriesPage() {
         </p>
       )}
       <EntryTable
-        canManage={registrationOpen}
+        canRegister={registrationOpen}
+        canRemove={removalEnabled}
         data={completeEntries}
         isLoading={entriesLoading}
         onRegister={handleRegister}
