@@ -51,10 +51,12 @@ import {
   kalakritiCenterAgeQuota,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
+  kalakritiEntryMember,
   kalakritiExternalIdentity,
   kalakritiGuardianCenter,
   kalakritiStudent,
@@ -177,12 +179,14 @@ const ID = {
   kalakritiCenterAgeQuota: "019d52c2-7261-7dce-b0ee-e206561715c9",
   kalakritiCompetition: "019d52c2-7261-7dce-b0ee-e206561715cb",
   kalakritiCompetitionCategory: "019d52c2-7261-7dce-b0ee-e206561715ca",
+  kalakritiCompetitionEntry: "019d52c2-7261-7dce-b0ee-e206561715d0",
   kalakritiCompetitionSession: "019d52c2-7261-7dce-b0ee-e206561715cd",
   kalakritiCredential: "019d52c2-7261-7dce-b0ee-e206561715cf",
   kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
   kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
   kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
   kalakritiEditionAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
+  kalakritiEntryMember: "019d52c2-7261-7dce-b0ee-e206561715d1",
   kalakritiGuardianCenter: "019d52c2-7261-7dce-b0ee-e206561715c7",
   kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
   kalakritiStudent: "019d52c2-7261-7dce-b0ee-e206561715ce",
@@ -1010,6 +1014,35 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       startAt: new Date("2027-11-21T09:00:00+05:30"),
       updatedAt: now,
       venueId: ID.kalakritiVenue,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionEntry)
+    .values({
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCompetitionEntry,
+      participationMode: "individual",
+      sessionId: ID.kalakritiCompetitionSession,
+      updatedAt: now,
+      updatedBy: adminId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiEntryMember)
+    .values({
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      entryId: ID.kalakritiCompetitionEntry,
+      id: ID.kalakritiEntryMember,
+      sessionId: ID.kalakritiCompetitionSession,
+      studentId: ID.kalakritiStudent,
     })
     .onConflictDoNothing();
 

@@ -26,6 +26,7 @@
       "entry": [
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-competitions.ts",
+        "helpers/kalakriti-entries.ts",
         "helpers/kalakriti-eligibility.ts",
         "helpers/kalakriti-guardian-race.ts",
         "helpers/kalakriti-lifecycle.ts",

@@ -7,6 +7,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { canAccessKalakritiEntries } from "@/lib/kalakriti-entry-policy";
 import { canAccessKalakritiStudents } from "@/lib/kalakriti-student-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year")({
@@ -41,6 +42,7 @@ function KalakritiEditionLayout() {
         responsibility === "competition_category_lead"
     );
   const canViewStudents = canAccessKalakritiStudents(access);
+  const canViewEntries = canAccessKalakritiEntries(access);
 
   return (
     <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">
@@ -157,6 +159,21 @@ function KalakritiEditionLayout() {
             variant="ghost"
           >
             Students
+          </Button>
+        ) : null}
+        {canViewEntries ? (
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                params={{ year: String(edition.year) }}
+                to="/kalakriti/$year/entries"
+              />
+            }
+            size="sm"
+            variant="ghost"
+          >
+            Entries
           </Button>
         ) : null}
       </nav>

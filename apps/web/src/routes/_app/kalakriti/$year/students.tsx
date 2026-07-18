@@ -251,6 +251,9 @@ function KalakritiStudentsPage() {
       <StudentTable
         canManage={registrationOpen}
         data={students as KalakritiStudentRow[]}
+        entryRegistrationEnabled={
+          selectedCenter?.competitionEntryRegistrationEnabled === true
+        }
         isLoading={studentsLoading}
         onDelete={deleteAction.trigger}
         onEdit={handleEdit}
@@ -281,7 +284,7 @@ function KalakritiStudentsPage() {
       ) : null}
       <ConfirmDialog
         confirmLabel="Delete Student"
-        description={`Delete ${deleteAction.payload?.name ?? "this Student"}? This permanently removes the Student and their credential.`}
+        description={`Delete ${deleteAction.payload?.name ?? "this Student"}? This permanently removes the Student, their credential, and any Competition Entries.`}
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
