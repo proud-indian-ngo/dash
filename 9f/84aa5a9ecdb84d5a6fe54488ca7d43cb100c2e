@@ -1,0 +1,51 @@
+packages/e2e/tests/kalakriti/competition-configuration.spec.ts
+  s_c8c0ce2f824e4f::t_aa679a07652d2f 96-100,103-104,106-112,116-137
+  s_c8c0ce2f824e4f::t_77fcd41c1b2fe6 93,101-102,115
+packages/shared/src/kalakriti.ts
+  s_c8c0ce2f824e4f::t_32584e7bd6c304 91,102-108,201,224
+apps/web/src/components/kalakriti/competition-assignment-form.tsx
+  s_c8c0ce2f824e4f::t_32584e7bd6c304 2-6,23-24
+project-structure.md
+  s_c8c0ce2f824e4f::t_826c77a3ae383a 85
+apps/web/src/components/kalakriti/competition-configuration-sections.tsx
+  s_c8c0ce2f824e4f::t_826c77a3ae383a 36,62,122,131,396,548
+packages/zero/src/queries/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_03643c1646f13a 22-40
+  s_c8c0ce2f824e4f::t_296ac2b4ec39f4 21
+packages/zero/src/queries/kalakriti-eligibility.test.ts
+  s_c8c0ce2f824e4f::t_03643c1646f13a 24-42
+apps/web/src/routes/_app/kalakriti/$year/competitions.tsx
+  s_c8c0ce2f824e4f::t_826c77a3ae383a 42-44,417,422
+  s_c8c0ce2f824e4f::t_85a27be823d80a 416
+packages/e2e/helpers/kalakriti-competitions.ts
+  s_c8c0ce2f824e4f::t_77fcd41c1b2fe6 38-47,148-163,165-177,179-235
+  s_c8c0ce2f824e4f::t_224479e8d7ead9 164,178
+packages/zero/src/queries/kalakriti-eligibility.ts
+  s_c8c0ce2f824e4f::t_31b7c7b8df33e8 19-33,36-49,51,53
+packages/zero/src/mutators/__tests__/kalakriti-assignment.test.ts
+  s_c8c0ce2f824e4f::t_03643c1646f13a 83-104,512-545
+  s_c8c0ce2f824e4f::t_efc95dada656da 107-110,128,177,241,264,293,358,393,432,483,556,590
+packages/zero/src/queries/kalakriti-competition.ts
+  s_c8c0ce2f824e4f::t_31b7c7b8df33e8 21-23,62-64,108-110,156-186,190
+packages/zero/src/mutators/kalakriti-assignment.ts
+  s_c8c0ce2f824e4f::t_efc95dada656da 185,198-200
+  s_c8c0ce2f824e4f::t_a3b5af9331d771 184,186-197,201-207,298,519
+apps/web/src/lib/kalakriti-competition-route.test.ts
+  s_c8c0ce2f824e4f::t_826c77a3ae383a 31,53,63,69-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9f84aa5a9ecdb84d5a6fe54488ca7d43cb100c2e",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
