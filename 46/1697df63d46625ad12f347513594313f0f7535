@@ -1,0 +1,48 @@
+packages/shared/src/kalakriti.ts
+  s_c8c0ce2f824e4f::t_817bc3a06ff985 1-48
+packages/jobs/src/handlers/notify-kalakriti.ts
+  s_c8c0ce2f824e4f::t_120b49343031b0 14,37-39,85-87
+packages/e2e/tests/kalakriti/edition-creation.spec.ts
+  s_c8c0ce2f824e4f::t_ca3241dd8bea14 14-21,28-60,107-168
+  s_c8c0ce2f824e4f::t_612c50de55814c 169-170
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_817bc3a06ff985 1-7,30,33-36,40,86
+packages/jobs/src/lib/kalakriti-notification-recipients.test.ts
+  s_c8c0ce2f824e4f::t_f87ef2ede3fb3f 70,72
+  s_c8c0ce2f824e4f::t_120b49343031b0 31,51-66,69,74
+packages/jobs/src/lib/kalakriti-notification-recipients.ts
+  s_c8c0ce2f824e4f::t_120b49343031b0 41,44,55-61,63-79
+  s_c8c0ce2f824e4f::t_f87ef2ede3fb3f 62
+packages/e2e/helpers/kalakriti-edition-creation.ts
+  s_c8c0ce2f824e4f::t_ca3241dd8bea14 2-5,8,12-16,63-111,117-123
+  s_c8c0ce2f824e4f::t_c553bceb7c492a 11
+docs/kalakriti-registration-release-evidence.md
+  s_c8c0ce2f824e4f::t_b02a959ddf0cc2 1-51
+docs/architecture/kalakriti-registration.md
+  s_c8c0ce2f824e4f::t_b02a959ddf0cc2 53-54
+packages/shared/src/kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_817bc3a06ff985 8-13,19-43
+  s_c8c0ce2f824e4f::t_bf1ed623832ac1 44
+packages/jobs/src/handlers/notify-kalakriti.test.ts
+  s_c8c0ce2f824e4f::t_120b49343031b0 4,12,29,51-55,59,64-65,73-110,127,140
+docs/kalakriti-registration-release-tasks.md
+  s_c8c0ce2f824e4f::t_b02a959ddf0cc2 9-10
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_817bc3a06ff985 1,535
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "461697df63d46625ad12f347513594313f0f7535",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
