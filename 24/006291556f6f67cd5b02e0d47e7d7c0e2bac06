@@ -1,0 +1,24 @@
+packages/zero/src/queries/kalakriti-center.ts
+  s_c8c0ce2f824e4f::t_a0aa1da9092acf 103-107
+packages/e2e/tests/kalakriti/registration-release-authorization.spec.ts
+  s_c8c0ce2f824e4f::t_dab6a7274ccaee 91-110
+  s_c8c0ce2f824e4f::t_8a3a05a049043d 90
+packages/zero/src/queries/kalakriti-center.test.ts
+  s_c8c0ce2f824e4f::t_a0aa1da9092acf 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "24006291556f6f67cd5b02e0d47e7d7c0e2bac06",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
