@@ -1,0 +1,132 @@
+packages/e2e/fixtures/kalakriti-actors.ts
+  s_c8c0ce2f824e4f::t_edab46a93839d4 1-43
+packages/e2e/helpers/seed-test-user.ts
+  s_c8c0ce2f824e4f::t_a9ca21f970ab5d 956
+  s_c8c0ce2f824e4f::t_ce181f0656bbd8 33
+packages/e2e/helpers/kalakriti-release-fixture.ts
+  s_c8c0ce2f824e4f::t_db11d6c852a87e 374,382,496
+  s_c8c0ce2f824e4f::t_a9ca21f970ab5d 1-7,9-21,27-96,140-149,151-156,164,169-179,191,200-204,216-217,229-232,245-246,259-261,284-288,373,381,428-429,486,509,511,544,546,569,592-593
+  s_c8c0ce2f824e4f::t_edab46a93839d4 23-26
+  s_c8c0ce2f824e4f::t_683051128f5f67 22
+  s_c8c0ce2f824e4f::t_cfba22b9d5b10e 157
+  s_c8c0ce2f824e4f::t_41cf3552d8a307 570,591
+  s_c8c0ce2f824e4f::t_b8766a167a8418 8,129-131,303-326
+  s_c8c0ce2f824e4f::t_ce181f0656bbd8 97-128,132-139,165-168,180-190,192-199,205-215,218-228,233-244,247-258,262-283,289-302,327-372,375-380,383-427,430-485,487-495,497-508,510,512-543,545,547-568,571-590
+  s_c8c0ce2f824e4f::t_50e87090bd0e4c 150,158-163
+README.md
+  s_c8c0ce2f824e4f::t_0049e21d8136c5 44,293,295-297,299
+packages/db/src/migrations/meta/_journal.json
+  s_c8c0ce2f824e4f::t_42fa6773045740 417-423
+packages/e2e/fixtures/test.ts
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 4
+  s_c8c0ce2f824e4f::t_ce181f0656bbd8 91-97
+  s_c8c0ce2f824e4f::t_a9ca21f970ab5d 57-60,84-90,98-104
+packages/e2e/pages/kalakriti-centers-page.ts
+  s_c8c0ce2f824e4f::t_04a0328c279618 21
+packages/e2e/tests/kalakriti/edition-creation.spec.ts
+  s_c8c0ce2f824e4f::t_80f6a2907c4fe3 12
+  s_c8c0ce2f824e4f::t_db1349a9750e74 1-11,13-52
+packages/e2e/helpers/kalakriti-volunteer-assignment.ts
+  s_c8c0ce2f824e4f::t_606684e3a97367 74
+  s_c8c0ce2f824e4f::t_81c167413f7d6b 5,8,11-15,18-19,21,23-24,26,30-32,34-36,38-44,46-47,49-73,75-79,83,88,96,110,115-116
+  s_c8c0ce2f824e4f::t_1686bd26d73023 1-4,6-7,9-10,16-17,20,22,25,27-29,33,37,80-82,84-87,89-95,97-102,105-109,111-114,117-124
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 103-104
+  s_c8c0ce2f824e4f::t_71f989f9782fb8 45,48
+packages/e2e/tests/kalakriti/release-database-races.spec.ts
+  s_c8c0ce2f824e4f::t_f1ef3dc27bf821 49-50
+  s_c8c0ce2f824e4f::t_0d2291e1a79ba4 1-48,51-54
+project-structure.md
+  s_c8c0ce2f824e4f::t_0049e21d8136c5 236,314-317,320,325
+packages/e2e/.env.test
+  s_c8c0ce2f824e4f::t_a9ca21f970ab5d 11-26
+packages/e2e/tests/authorization/zero-query-authorization.spec.ts
+  s_c8c0ce2f824e4f::t_dc2e17af6fcc38 136
+docs/architecture/index.md
+  s_c8c0ce2f824e4f::t_e9bb6ded93eaf1 28
+.ruler/agent-guide.md
+  s_c8c0ce2f824e4f::t_e9bb6ded93eaf1 79
+packages/e2e/tests/kalakriti/guardian-invite.spec.ts
+  s_c8c0ce2f824e4f::t_8edee2cfa3c4c4 58-61
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 44-46
+  s_c8c0ce2f824e4f::t_dc2e17af6fcc38 47-49
+  s_c8c0ce2f824e4f::t_04a0328c279618 71
+  s_c8c0ce2f824e4f::t_3311430d24ad95 1-43,50-57,62-70,72-78
+knip.json
+  s_c8c0ce2f824e4f::t_d9d8362ee07f90 29,32,36,38
+apps/web/src/router.tsx
+  s_c8c0ce2f824e4f::t_2f32757c60799a 22
+apps/web/src/lib/kalakriti-registration-release-surface.test.ts
+  s_c8c0ce2f824e4f::t_868584d00adb99 1-74
+packages/e2e/helpers/kalakriti-edition-creation.ts
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 46-48
+  s_c8c0ce2f824e4f::t_80f6a2907c4fe3 6
+  s_c8c0ce2f824e4f::t_db1349a9750e74 1-5,7-45,49-50
+packages/e2e/global-setup.ts
+  s_c8c0ce2f824e4f::t_13cee5aa7104e3 49-50,53-56
+  s_c8c0ce2f824e4f::t_edab46a93839d4 4
+  s_c8c0ce2f824e4f::t_a9ca21f970ab5d 94-105
+  s_c8c0ce2f824e4f::t_d3ab054abd549d 52
+packages/e2e/package.json
+  s_c8c0ce2f824e4f::t_3d5e0702184988 18
+docs/architecture/kalakriti-registration.md
+  s_c8c0ce2f824e4f::t_e9bb6ded93eaf1 1-63
+packages/e2e/pages/kalakriti-edition-page.ts
+  s_c8c0ce2f824e4f::t_27ff6a0a0cc55d 19,22,67,76-79,81-83,88
+  s_c8c0ce2f824e4f::t_1686bd26d73023 58-66,70-75,80,84-86,92-113
+  s_c8c0ce2f824e4f::t_db1349a9750e74 1-14,16-18,20,25-38,43-45,47-57,114
+  s_c8c0ce2f824e4f::t_8edee2cfa3c4c4 15,23,41-42,46
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 21,24,68-69
+  s_c8c0ce2f824e4f::t_04a0328c279618 87
+  s_c8c0ce2f824e4f::t_93af2e93f4a322 89-91
+  s_c8c0ce2f824e4f::t_cf525b0ba9a3d4 39-40
+packages/e2e/tests/kalakriti/center-registration-controls.spec.ts
+  s_c8c0ce2f824e4f::t_1166b61010bb21 130-140
+packages/db/src/schema/kalakriti.ts
+  s_c8c0ce2f824e4f::t_5029c98043d632 88-90
+packages/e2e/tests/kalakriti/competition-entry-registration.spec.ts
+  s_c8c0ce2f824e4f::t_8f80d65195bab9 266-311
+packages/e2e/helpers/kalakriti-guardian-invite.ts
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 59-61
+  s_c8c0ce2f824e4f::t_3311430d24ad95 1-58,62-63
+packages/e2e/tests/kalakriti/registration-release-authorization.spec.ts
+  s_c8c0ce2f824e4f::t_8edee2cfa3c4c4 103
+  s_c8c0ce2f824e4f::t_3d5e0702184988 1-25,29-53,55-59,61-64,82,85,90-102,104-133,138-151,153-188,211-216
+  s_c8c0ce2f824e4f::t_27ff6a0a0cc55d 65-81,83-84,86-89,134-137
+  s_c8c0ce2f824e4f::t_6d4ce97ae19875 189-194,208,210
+  s_c8c0ce2f824e4f::t_4d2018a14be018 195-207,209
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 26-28,54,60,152
+packages/e2e/helpers/kalakriti-release-races.ts
+  s_c8c0ce2f824e4f::t_a3a03646ec3c0b 41,43-72,74
+  s_c8c0ce2f824e4f::t_5840eab79d0abf 90-92,127,141,278-281
+  s_c8c0ce2f824e4f::t_6d4ce97ae19875 80,85,238,335,338,344,348
+  s_c8c0ce2f824e4f::t_0d2291e1a79ba4 1-40,42,73,75-79,81-84,86-89,93-126,128-140,142-237,239-277,282-334,336-337,339-343,345-347
+docs/architecture/e2e-testing.md
+  s_c8c0ce2f824e4f::t_e9bb6ded93eaf1 29-30,44
+packages/db/src/migrations/0059_dark_galactus.sql
+  s_c8c0ce2f824e4f::t_42fa6773045740 1
+packages/e2e/tests/kalakriti/volunteer-assignment.spec.ts
+  s_c8c0ce2f824e4f::t_2fa421efdb4a4e 8,44
+  s_c8c0ce2f824e4f::t_9ce11b6203afea 53
+  s_c8c0ce2f824e4f::t_81c167413f7d6b 15-23,29,36,40
+  s_c8c0ce2f824e4f::t_1686bd26d73023 1-7,9-14,24-28,30-35,37-39,41-43,45-52,54-58
+packages/db/src/migrations/meta/0059_snapshot.json
+  s_c8c0ce2f824e4f::t_42fa6773045740 1-8756
+bun.lock
+  s_c8c0ce2f824e4f::t_402db5b6ef7894 172,1729,2323,2579,3311-3312,3647-3648,3739-3740,4337-4339,4341,4467-4470,4823-4824,4849-4850
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "56bedb15a5206b2392f658dfec82332cb99037a3",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
