@@ -1,0 +1,62 @@
+packages/zero/src/mutators/__tests__/kalakriti-competition.test.ts
+  s_c8c0ce2f824e4f::t_beb89a56a00db3 606,610,636-643
+  s_c8c0ce2f824e4f::t_bf6ee56acdd164 644-645
+apps/web/src/functions/kalakriti-access.ts
+  s_c8c0ce2f824e4f::t_7ab7e71adc5b93 48,63
+  s_c8c0ce2f824e4f::t_6ecac7050af8ee 4-7
+apps/web/src/routes/api/kalakriti/$year/-audit.test.ts
+  s_c8c0ce2f824e4f::t_7deb41432a428b 22,82,115,176,179,191,196,214
+  s_c8c0ce2f824e4f::t_2140c3bb0258a8 38-60,65,71,78
+  s_c8c0ce2f824e4f::t_f6828de1e1d650 61-64,66-70,72-77
+apps/web/src/lib/server/kalakriti-audit.test.ts
+  s_c8c0ce2f824e4f::t_2140c3bb0258a8 6-9,14,16-18,20,27,47-68,70-93
+  s_c8c0ce2f824e4f::t_f6828de1e1d650 13,15,19,69
+  s_c8c0ce2f824e4f::t_3e1d267d9af70e 2,24-26,28-31,40-43,45-46,94-101,103-108,110-121,126-153,159-164
+  s_c8c0ce2f824e4f::t_7ab7e71adc5b93 1,32-38,102,122,154-158
+  s_c8c0ce2f824e4f::t_8ee27bd6c88721 109,123-125
+  s_c8c0ce2f824e4f::t_d6f448c5c1cad7 3-5,10-12,21-23,39,44
+apps/web/src/lib/server/kalakriti-audit.ts
+  s_c8c0ce2f824e4f::t_5e550bf80eece2 65,70,72-91
+  s_c8c0ce2f824e4f::t_9ff20721da50ef 136-139
+  s_c8c0ce2f824e4f::t_a181fcd6dc9dfa 92-115,142
+  s_c8c0ce2f824e4f::t_8ee27bd6c88721 3
+  s_c8c0ce2f824e4f::t_7ab7e71adc5b93 4
+  s_c8c0ce2f824e4f::t_b4482c337a8848 67,69,130
+  s_c8c0ce2f824e4f::t_9d6d74eaf2bd3c 17,66,126-127,129,132-134,152
+  s_c8c0ce2f824e4f::t_d6f448c5c1cad7 140
+  s_c8c0ce2f824e4f::t_a10e2d8c6d3c8a 71
+apps/web/src/routes/_app/kalakriti/$year/audit.tsx
+  s_c8c0ce2f824e4f::t_3835419118ce9c 186
+  s_c8c0ce2f824e4f::t_9d6d74eaf2bd3c 36,59,88-89,104,142,147
+packages/zero/src/mutators/kalakriti-competition.ts
+  s_c8c0ce2f824e4f::t_f2271844648aec 240-243,247-255,939-943,954-957,1157-1161,1173-1177
+  s_c8c0ce2f824e4f::t_55f4913bee31b7 244-246
+apps/web/src/components/kalakriti/audit-table.tsx
+  s_c8c0ce2f824e4f::t_3835419118ce9c 24-27,29-38,44,155-163,195,204,210
+  s_c8c0ce2f824e4f::t_7ab7e71adc5b93 47,69,82,97,121,140
+README.md
+  s_c8c0ce2f824e4f::t_73a9f78b39dcd7 44
+project-structure.md
+  s_c8c0ce2f824e4f::t_73a9f78b39dcd7 89,120,147
+apps/web/src/routes/api/kalakriti/$year/audit.ts
+  s_c8c0ce2f824e4f::t_b4482c337a8848 21-24
+  s_c8c0ce2f824e4f::t_6ecac7050af8ee 10-14,49-51
+  s_c8c0ce2f824e4f::t_9d6d74eaf2bd3c 26,36,60,98
+  s_c8c0ce2f824e4f::t_7ab7e71adc5b93 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bdc45fe132c995dd730cc95bd9e43866e0f0d6ff",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
