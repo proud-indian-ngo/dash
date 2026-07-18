@@ -9,7 +9,7 @@ import z from "zod";
 import type { Context } from "../context";
 import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
-import { assertCanManageKalakritiStudents } from "./kalakriti-registration-access";
+import { assertCanManageKalakritiCenterRegistration } from "./kalakriti-registration-access";
 import {
   getCenterForUpdate,
   getEditionAgeCategoriesForUpdate,
@@ -36,12 +36,26 @@ interface StudentTx extends LockableKalakritiTx {
       insert: ZeroMutationFn;
     };
     kalakritiEdition: { update: ZeroMutationFn };
+    kalakritiCompetitionEntry: { delete: ZeroMutationFn };
+    kalakritiEntryMember: { delete: ZeroMutationFn };
     kalakritiStudent: {
       delete: ZeroMutationFn;
       insert: ZeroMutationFn;
       update: ZeroMutationFn;
     };
   };
+}
+
+interface StudentEntryMembership {
+  entry?: {
+    id: string;
+    members: readonly { id: string }[];
+    session?: {
+      ageCategoryId: string;
+      competition?: { genderEligibility: "both" | "female" | "male" };
+    };
+  };
+  id: string;
 }
 
 const studentValuesSchema = z.object({
@@ -316,6 +330,47 @@ async function assertWithinQuota({
   }
 }
 
+async function loadStudentEntryMemberships(
+  tx: StudentTx,
+  studentId: string
+): Promise<readonly StudentEntryMembership[]> {
+  return (await tx.run(
+    zql.kalakritiEntryMember
+      .where("studentId", studentId)
+      .related("entry", (entry) =>
+        entry
+          .related("members")
+          .related("session", (session) => session.related("competition"))
+      )
+  )) as readonly StudentEntryMembership[];
+}
+
+function assertEntriesRemainEligible(
+  memberships: readonly StudentEntryMembership[],
+  values: { ageCategoryId: string; gender: "female" | "male" }
+): void {
+  for (const membership of memberships) {
+    const session = membership.entry?.session;
+    if (!session) {
+      throw new Error("Student Competition Entry configuration is incomplete");
+    }
+    if (session.ageCategoryId !== values.ageCategoryId) {
+      throw new Error(
+        "Student Age Category cannot be changed while it would invalidate a Competition Entry"
+      );
+    }
+    const genderEligibility = session.competition?.genderEligibility;
+    if (!genderEligibility) {
+      throw new Error("Student Competition Entry configuration is incomplete");
+    }
+    if (genderEligibility !== "both" && genderEligibility !== values.gender) {
+      throw new Error(
+        "Student gender cannot be changed while it would invalidate a Competition Entry"
+      );
+    }
+  }
+}
+
 async function lockRegistrationContext(
   tx: StudentTx,
   ctx: Context | undefined,
@@ -332,7 +387,7 @@ async function lockRegistrationContext(
   }
   assertRegistrationWritable(edition, center);
   assertRegistrationEditionComplete(edition);
-  const access = await assertCanManageKalakritiStudents(
+  const access = await assertCanManageKalakritiCenterRegistration(
     tx,
     ctx,
     edition.id,
@@ -473,6 +528,33 @@ export const kalakritiStudentMutators = {
       const credentials = (await tx.run(
         zql.kalakritiCredential.where("studentId", student.id)
       )) as Array<{ id: string }>;
+      const entryMemberships = await loadStudentEntryMemberships(
+        tx,
+        student.id
+      );
+      const entryIds = new Set<string>();
+      const entryMemberIds = new Set<string>();
+      for (const membership of entryMemberships) {
+        if (!membership.entry) {
+          throw new Error(
+            "Student Competition Entry configuration is incomplete"
+          );
+        }
+        entryIds.add(membership.entry.id);
+        for (const member of membership.entry.members) {
+          entryMemberIds.add(member.id);
+        }
+      }
+      await Promise.all(
+        [...entryMemberIds].map((id) =>
+          tx.mutate.kalakritiEntryMember.delete({ id })
+        )
+      );
+      await Promise.all(
+        [...entryIds].map((id) =>
+          tx.mutate.kalakritiCompetitionEntry.delete({ id })
+        )
+      );
       await Promise.all(
         credentials.map((credential) =>
           tx.mutate.kalakritiCredential.delete({ id: credential.id })
@@ -547,6 +629,14 @@ export const kalakritiStudentMutators = {
         excludeStudentId: student.id,
         gender: args.gender,
         tx,
+      });
+      const entryMemberships = await loadStudentEntryMemberships(
+        tx,
+        student.id
+      );
+      assertEntriesRemainEligible(entryMemberships, {
+        ageCategoryId: ageCategory.ageCategoryId,
+        gender: args.gender,
       });
 
       await tx.mutate.kalakritiStudent.update({

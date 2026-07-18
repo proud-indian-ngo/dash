@@ -63,6 +63,8 @@ function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
     deleteCredential: vi.fn(),
+    deleteEntry: vi.fn(),
+    deleteEntryMember: vi.fn(),
     deleteStudent: vi.fn(),
     insertAudit: vi.fn(),
     insertCredential: vi.fn(),
@@ -95,11 +97,13 @@ function createTx(results: unknown[] = []) {
       location: "server" as const,
       mutate: {
         kalakritiAuditEntry: { insert: spies.insertAudit },
+        kalakritiCompetitionEntry: { delete: spies.deleteEntry },
         kalakritiCredential: {
           delete: spies.deleteCredential,
           insert: spies.insertCredential,
         },
         kalakritiEdition: { update: spies.updateEdition },
+        kalakritiEntryMember: { delete: spies.deleteEntryMember },
         kalakritiStudent: {
           delete: spies.deleteStudent,
           insert: spies.insertStudent,
@@ -192,6 +196,7 @@ describe("kalakritiStudent commands", () => {
       [],
       quota,
       [],
+      [],
     ]);
     lockedResults.push([edition], [center], [junior]);
 
@@ -225,6 +230,8 @@ describe("kalakritiStudent commands", () => {
       { id: "liaison-assignment-1" },
       [],
       quota,
+      [],
+      [],
       [],
     ]);
     lockedResults.push([edition], [center], [junior]);
@@ -358,6 +365,8 @@ describe("kalakritiStudent commands", () => {
       [],
       quota,
       [],
+      [],
+      [],
     ]);
     lockedResults.push([edition], [center], [junior], [student]);
 
@@ -404,6 +413,7 @@ describe("kalakritiStudent commands", () => {
       { id: "liaison-assignment-1" },
       [],
       quota,
+      [],
       [],
     ]);
     lockedResults.push(
@@ -452,6 +462,7 @@ describe("kalakritiStudent commands", () => {
       [],
       quota,
       [],
+      [],
     ]);
     lockedResults.push(
       [edition],
@@ -493,6 +504,7 @@ describe("kalakritiStudent commands", () => {
         name: student.name,
       },
       [{ id: "credential-1" }],
+      [],
     ]);
     lockedResults.push([edition], [center], [junior], [student]);
 
@@ -510,5 +522,124 @@ describe("kalakritiStudent commands", () => {
         metadata: { humanId: student.humanId, name: student.name },
       })
     );
+  });
+
+  it("deletes the Student's Competition Entries before deleting the Student", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      {
+        centerId: center.id,
+        editionId: edition.id,
+        humanId: student.humanId,
+        name: student.name,
+      },
+      [{ id: "credential-1" }],
+      [
+        {
+          entry: {
+            id: "entry-1",
+            members: [{ id: "member-1" }, { id: "member-2" }],
+          },
+          id: "member-1",
+        },
+      ],
+    ]);
+    lockedResults.push([edition], [center], [junior], [student]);
+
+    await kalakritiStudentMutators.delete.fn({
+      args: { auditEntryId: "audit-3", now: 3000, studentId: student.id },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<typeof kalakritiStudentMutators.delete.fn>[0]);
+
+    expect(spies.deleteEntryMember).toHaveBeenCalledTimes(2);
+    expect(spies.deleteEntry).toHaveBeenCalledWith({ id: "entry-1" });
+    expect(spies.deleteStudent).toHaveBeenCalledWith({ id: student.id });
+  });
+
+  it("blocks Student changes that would invalidate Competition Entries", async () => {
+    const ageChange = createTx([
+      { centerId: center.id, editionId: edition.id },
+      [],
+      quota,
+      [],
+      [
+        {
+          entry: {
+            id: "entry-1",
+            members: [{ id: "member-1" }],
+            session: {
+              ageCategoryId: junior.id,
+              competition: { genderEligibility: "both" },
+            },
+          },
+          id: "member-1",
+        },
+      ],
+    ]);
+    ageChange.lockedResults.push(
+      [edition],
+      [center],
+      [junior, senior],
+      [student]
+    );
+
+    await expect(
+      kalakritiStudentMutators.update.fn({
+        args: {
+          ageCategoryOverrideId: senior.id,
+          ageCategoryOverrideReason: "School record review",
+          auditEntryId: "audit-age-change",
+          dateOfBirth: student.dateOfBirth,
+          duplicateConfirmed: false,
+          gender: student.gender,
+          name: student.name,
+          now: 2000,
+          studentId: student.id,
+        },
+        ctx: adminContext,
+        tx: ageChange.tx,
+      } as unknown as Parameters<typeof kalakritiStudentMutators.update.fn>[0])
+    ).rejects.toThrow("would invalidate a Competition Entry");
+    expect(ageChange.spies.updateStudent).not.toHaveBeenCalled();
+
+    const genderChange = createTx([
+      { centerId: center.id, editionId: edition.id },
+      [],
+      quota,
+      [],
+      [
+        {
+          entry: {
+            id: "entry-1",
+            members: [{ id: "member-1" }],
+            session: {
+              ageCategoryId: junior.id,
+              competition: { genderEligibility: "female" },
+            },
+          },
+          id: "member-1",
+        },
+      ],
+    ]);
+    genderChange.lockedResults.push([edition], [center], [junior], [student]);
+
+    await expect(
+      kalakritiStudentMutators.update.fn({
+        args: {
+          ageCategoryOverrideId: null,
+          ageCategoryOverrideReason: null,
+          auditEntryId: "audit-gender-change",
+          dateOfBirth: student.dateOfBirth,
+          duplicateConfirmed: false,
+          gender: "male",
+          name: student.name,
+          now: 2000,
+          studentId: student.id,
+        },
+        ctx: adminContext,
+        tx: genderChange.tx,
+      } as unknown as Parameters<typeof kalakritiStudentMutators.update.fn>[0])
+    ).rejects.toThrow("would invalidate a Competition Entry");
+    expect(genderChange.spies.updateStudent).not.toHaveBeenCalled();
   });
 });
