@@ -88,6 +88,27 @@ test.describe("Kalakriti Registration Release authorization", () => {
       }
     }
 
+    const categoryLeadCenterContext = await browser.newContext({
+      baseURL,
+      storageState: kalakritiActors.categoryLead.storageState,
+    });
+    const categoryLeadCenterPage = await categoryLeadCenterContext.newPage();
+    try {
+      await categoryLeadCenterPage.goto(`/kalakriti/${YEAR}/centers`);
+      await waitForZeroReady(categoryLeadCenterPage);
+      await expect(
+        categoryLeadCenterPage.getByRole("heading", { name: "Centers" })
+      ).toBeVisible();
+      await expect(
+        categoryLeadCenterPage.getByText("Assigned Center", { exact: true })
+      ).toHaveCount(0);
+      await expect(
+        categoryLeadCenterPage.getByText("Outside Center", { exact: true })
+      ).toHaveCount(0);
+    } finally {
+      await categoryLeadCenterContext.close();
+    }
+
     const unrelatedContext = await browser.newContext({
       baseURL,
       storageState: kalakritiActors.unrelatedVolunteer.storageState,
