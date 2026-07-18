@@ -15,13 +15,15 @@ import {
   kalakritiExternalIdentity,
   kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
-import { enqueue } from "@pi-dash/jobs/enqueue";
-import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import {
+  enqueueGuardianAccessNotification,
+  enqueueGuardianReactivationNotification,
+} from "@/lib/kalakriti-guardian-notifications";
 import {
   decideGuardianIdentity,
   shouldBlockExternalIdentity,
@@ -183,68 +185,6 @@ async function insertGuardianMembershipRecords(
     targetType: "edition_membership",
   });
   return membershipId;
-}
-
-function enqueueGuardianAccessNotification({
-  editionName,
-  membershipId,
-  reusedIdentity,
-  userId,
-  year,
-}: {
-  editionName: string;
-  membershipId: string;
-  reusedIdentity: boolean;
-  userId: string;
-  year: number;
-}) {
-  withFireAndForgetLog(
-    {
-      editionName,
-      handler: "inviteGuardian:notifyAccess",
-      membershipId,
-      reusedIdentity,
-      userId,
-      year,
-    },
-    async () => {
-      await enqueue("notify-kalakriti-guardian-access", {
-        editionName,
-        membershipId,
-        reusedIdentity,
-        userId,
-        year,
-      });
-    }
-  );
-}
-
-function enqueueGuardianReactivationNotification({
-  editionId,
-  membershipId,
-  userId,
-}: {
-  editionId: string;
-  membershipId: string;
-  userId: string;
-}) {
-  withFireAndForgetLog(
-    {
-      editionId,
-      handler: "inviteGuardian:notifyReactivation",
-      membershipId,
-      userId,
-    },
-    async () => {
-      await enqueue(
-        "notify-kalakriti-guardian-reactivated",
-        { editionId, membershipId, userId },
-        {
-          singletonKey: `kalakriti-guardian-reactivated-${editionId}-${membershipId}`,
-        }
-      );
-    }
-  );
 }
 
 type GuardianInviteData = z.infer<typeof guardianInviteSchema>;

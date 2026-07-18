@@ -9,7 +9,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
-  NOTIFICATION_CHANNELS,
+  getTopicChannels,
   type NotificationChannel,
   TOPIC_CATALOG,
 } from "@pi-dash/notifications/topics";
@@ -119,7 +119,7 @@ export function NotificationsSection() {
   const topicsWithPrefs = visibleTopics.map((meta) => {
     const pref = prefMap.get(meta.id);
     return {
-      channels: meta.channels ?? NOTIFICATION_CHANNELS,
+      channels: getTopicChannels(meta.id),
       description: meta.description,
       emailEnabled: pref?.emailEnabled ?? true,
       group: meta.group,

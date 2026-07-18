@@ -113,6 +113,7 @@ function pushRegistrationNotificationTasks(
     args.targetLifecycle === "registration_open"
       ? "notify-kalakriti-registration-open"
       : "notify-kalakriti-registration-closed";
+  const lifecycleSingletonKey = `kalakriti-registration-${editionId}-${transitionId}`;
   ctx?.asyncTasks?.push({
     fn: async () => {
       const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -120,7 +121,7 @@ function pushRegistrationNotificationTasks(
         queueName,
         { editionId, transitionId },
         {
-          singletonKey: `kalakriti-registration-${editionId}-${transitionId}`,
+          singletonKey: lifecycleSingletonKey,
           traceId: ctx.traceId,
         }
       );
@@ -128,6 +129,8 @@ function pushRegistrationNotificationTasks(
     meta: {
       editionId,
       mutator: "transitionKalakritiEdition",
+      queueName,
+      singletonKey: lifecycleSingletonKey,
       targetLifecycle: args.targetLifecycle,
       transitionId,
     },
@@ -136,6 +139,10 @@ function pushRegistrationNotificationTasks(
   if (args.targetLifecycle !== "registration_open") {
     return;
   }
+  const reminderSingletonKey = `kalakriti-registration-reminder-${editionId}-${plannedRegistrationCloseAt}`;
+  const startAfter = new Date(
+    plannedRegistrationCloseAt - 24 * 60 * 60 * 1000
+  ).toISOString();
   ctx?.asyncTasks?.push({
     fn: async () => {
       const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -143,10 +150,8 @@ function pushRegistrationNotificationTasks(
         "remind-kalakriti-registration-close",
         { editionId, plannedRegistrationCloseAt },
         {
-          singletonKey: `kalakriti-registration-reminder-${editionId}-${plannedRegistrationCloseAt}`,
-          startAfter: new Date(
-            plannedRegistrationCloseAt - 24 * 60 * 60 * 1000
-          ).toISOString(),
+          singletonKey: reminderSingletonKey,
+          startAfter,
           traceId: ctx.traceId,
         }
       );
@@ -155,6 +160,9 @@ function pushRegistrationNotificationTasks(
       editionId,
       mutator: "transitionKalakritiEdition",
       plannedRegistrationCloseAt,
+      queueName: "remind-kalakriti-registration-close",
+      singletonKey: reminderSingletonKey,
+      startAfter,
     },
   });
 }

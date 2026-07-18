@@ -47,6 +47,7 @@ export interface LockedAgeCategory {
   maxTotalCompetitions: number;
   minimumAge: number;
   name: string;
+  sortOrder: number;
 }
 
 export interface LockedCompetitionSession {
@@ -256,6 +257,7 @@ export async function getAgeCategoryForUpdate(
       maxTotalCompetitions: kalakritiAgeCategory.maxTotalCompetitions,
       minimumAge: kalakritiAgeCategory.minimumAge,
       name: kalakritiAgeCategory.name,
+      sortOrder: kalakritiAgeCategory.sortOrder,
     })
     .from(kalakritiAgeCategory)
     .where(eq(kalakritiAgeCategory.id, ageCategoryId))
@@ -287,6 +289,7 @@ export async function getEditionAgeCategoriesForUpdate(
       maxTotalCompetitions: kalakritiAgeCategory.maxTotalCompetitions,
       minimumAge: kalakritiAgeCategory.minimumAge,
       name: kalakritiAgeCategory.name,
+      sortOrder: kalakritiAgeCategory.sortOrder,
     })
     .from(kalakritiAgeCategory)
     .where(eq(kalakritiAgeCategory.editionId, editionId))

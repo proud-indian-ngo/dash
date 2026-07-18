@@ -32,3 +32,5 @@ Kalakriti lifecycle and schedule commands enqueue post-commit jobs with
 singleton keys derived from the Edition and transition or schedule revision.
 Opening registration separately schedules the 24-hour planned-close reminder;
 the reminder handler rechecks the Edition lifecycle and never closes registration.
+Published Session, Competition label, Venue label, and Age Category label/order
+changes enqueue the same affected-recipient schedule job.

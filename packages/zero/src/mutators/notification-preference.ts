@@ -1,4 +1,8 @@
-import { TOPIC_CATALOG } from "@pi-dash/notifications/topics";
+import {
+  type NotificationChannel,
+  TOPIC_CATALOG,
+  topicSupportsChannel,
+} from "@pi-dash/notifications/topics";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import "../context";
@@ -37,10 +41,20 @@ function channelDefaults(channel: string, enabled: boolean) {
   };
 }
 
+function assertTopicSupportsChannel(
+  topicId: string,
+  channel: NotificationChannel
+) {
+  if (!topicSupportsChannel(topicId, channel)) {
+    throw new Error(`Topic "${topicId}" does not support ${channel}`);
+  }
+}
+
 export const notificationPreferenceMutators = {
   adminUpsert: defineMutator(adminUpsertSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "users.edit");
+    assertTopicSupportsChannel(args.topicId, args.channel);
 
     if (!args.enabled && REQUIRED_TOPIC_IDS.has(args.topicId)) {
       throw new Error(
@@ -72,6 +86,7 @@ export const notificationPreferenceMutators = {
   upsert: defineMutator(upsertSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
+    assertTopicSupportsChannel(args.topicId, args.channel);
 
     if (!args.enabled && REQUIRED_TOPIC_IDS.has(args.topicId)) {
       throw new Error(

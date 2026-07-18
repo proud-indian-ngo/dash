@@ -18,6 +18,10 @@ import {
   getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
+import {
+  getAgeCategoryScheduleImpact,
+  pushKalakritiScheduleChangedTask,
+} from "./kalakriti-schedule-notification";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -308,7 +312,11 @@ export const kalakritiEligibilityMutators = {
       if (!categorySnapshot) {
         throw new Error("Age Category not found");
       }
-      await lockConfigurableEdition(tx, ctx, categorySnapshot.editionId);
+      const edition = await lockConfigurableEdition(
+        tx,
+        ctx,
+        categorySnapshot.editionId
+      );
       const category = await getAgeCategoryForUpdate(tx, args.ageCategoryId);
       if (!category || category.editionId !== categorySnapshot.editionId) {
         throw new Error("Age Category not found");
@@ -318,6 +326,9 @@ export const kalakritiEligibilityMutators = {
         category.editionId
       );
       const normalized = normalizeKalakritiAgeCategoryName(args.name);
+      const publicScheduleChanged =
+        normalized.name !== category.name ||
+        args.sortOrder !== category.sortOrder;
       assertNoOverlap([
         ...categories.filter((candidate) => candidate.id !== category.id),
         {
@@ -354,6 +365,14 @@ export const kalakritiEligibilityMutators = {
         targetId: category.id,
         targetType: "age_category",
       });
+      if (edition.lifecycle !== "draft" && publicScheduleChanged) {
+        const impact = await getAgeCategoryScheduleImpact(tx, category.id);
+        pushKalakritiScheduleChangedTask(tx, ctx, {
+          ...impact,
+          editionId: category.editionId,
+          revision: args.auditEntryId,
+        });
+      }
     }
   ),
 };
