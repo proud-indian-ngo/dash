@@ -9,10 +9,10 @@ const helperPath = path.resolve(
   "../../helpers/kalakriti-public-schedule.ts"
 );
 
-async function fixture<T>(action: string, email?: string): Promise<T> {
+async function fixture<T>(action: string, argument?: string): Promise<T> {
   const { stdout } = await execFileAsync(
     "bun",
-    ["run", helperPath, action, ...(email ? [email] : [])],
+    ["run", helperPath, action, ...(argument ? [argument] : [])],
     { env: process.env }
   );
   return JSON.parse(stdout.trim()) as T;
@@ -92,10 +92,33 @@ test.describe("Kalakriti public schedule", () => {
         404
       );
 
-      await fixture("archive");
+      await fixture("set-lifecycle", "registration_locked");
+      const lockedSchedule = await request.get(
+        `/api/kalakriti/${year}/schedule`
+      );
+      expect(lockedSchedule.status()).toBe(200);
+      expect(Object.keys((await lockedSchedule.json()).edition).sort()).toEqual(
+        ["eventDate", "name", "timezone", "year"]
+      );
+
+      await fixture("set-lifecycle", "live");
+      const liveSchedule = await request.get(`/api/kalakriti/${year}/schedule`);
+      expect(liveSchedule.status()).toBe(200);
+      expect(Object.keys((await liveSchedule.json()).edition).sort()).toEqual([
+        "eventDate",
+        "name",
+        "timezone",
+        "year",
+      ]);
+
+      await fixture("set-lifecycle", "archived");
+      const archivedSchedule = await request.get(
+        `/api/kalakriti/${year}/schedule`
+      );
+      expect(archivedSchedule.status()).toBe(200);
       expect(
-        (await request.get(`/api/kalakriti/${year}/schedule`)).status()
-      ).toBe(200);
+        Object.keys((await archivedSchedule.json()).edition).sort()
+      ).toEqual(["eventDate", "name", "timezone", "year"]);
     } finally {
       await fixture("cleanup");
     }
