@@ -27,3 +27,8 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 ## Idempotency Rule
 
 **Never use `Date.now()` in notification idempotency keys**. Pass deterministic timestamp from the mutator.
+
+Kalakriti lifecycle and schedule commands enqueue post-commit jobs with
+singleton keys derived from the Edition and transition or schedule revision.
+Opening registration separately schedules the 24-hour planned-close reminder;
+the reminder handler rechecks the Edition lifecycle and never closes registration.

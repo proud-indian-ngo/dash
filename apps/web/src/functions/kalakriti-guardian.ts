@@ -219,6 +219,34 @@ function enqueueGuardianAccessNotification({
   );
 }
 
+function enqueueGuardianReactivationNotification({
+  editionId,
+  membershipId,
+  userId,
+}: {
+  editionId: string;
+  membershipId: string;
+  userId: string;
+}) {
+  withFireAndForgetLog(
+    {
+      editionId,
+      handler: "inviteGuardian:notifyReactivation",
+      membershipId,
+      userId,
+    },
+    async () => {
+      await enqueue(
+        "notify-kalakriti-guardian-reactivated",
+        { editionId, membershipId, userId },
+        {
+          singletonKey: `kalakriti-guardian-reactivated-${editionId}-${membershipId}`,
+        }
+      );
+    }
+  );
+}
+
 type GuardianInviteData = z.infer<typeof guardianInviteSchema>;
 type IdentityDecision = ReturnType<typeof decideGuardianIdentity>;
 
@@ -302,12 +330,10 @@ async function handleExistingGuardianIdentity({
       });
       return createdMembershipId;
     });
-    enqueueGuardianAccessNotification({
-      editionName: edition.name,
+    enqueueGuardianReactivationNotification({
+      editionId: data.editionId,
       membershipId,
-      reusedIdentity: true,
       userId: existing.id,
-      year: edition.year,
     });
     return { membershipId, status: "reactivated" as const };
   }

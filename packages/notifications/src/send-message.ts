@@ -16,10 +16,11 @@ import {
   getChannelPreferences,
   getUserEmail,
 } from "./preferences";
-import type { Topic } from "./topics";
+import type { NotificationChannel, Topic } from "./topics";
 
-interface SendMessageOptions {
+export interface SendMessageOptions {
   body: string;
+  channels?: readonly NotificationChannel[];
   clickAction?: string;
   emailHtml?: string;
   idempotencyKey: string;
@@ -53,6 +54,7 @@ export async function sendMessage({
   clickAction,
   imageUrl,
   topic,
+  channels,
 }: SendMessageOptions): Promise<SendMessageResult> {
   if (await isNotificationsDisabled()) {
     const log = createRequestLogger();
@@ -81,20 +83,21 @@ export async function sendMessage({
     getUserEmail(to),
   ]);
 
-  const inboxPromise = prefs.inboxEnabled
-    ? insertNotification({
-        body,
-        clickAction,
-        idempotencyKey: `${idempotencyKey}-inbox`,
-        imageUrl,
-        title,
-        topicId: topic,
-        userId: to,
-      })
-    : false;
+  const inboxPromise =
+    (channels?.includes("inbox") ?? true) && prefs.inboxEnabled
+      ? insertNotification({
+          body,
+          clickAction,
+          idempotencyKey: `${idempotencyKey}-inbox`,
+          imageUrl,
+          title,
+          topicId: topic,
+          userId: to,
+        })
+      : false;
 
   const emailPromise =
-    prefs.emailEnabled && email
+    (channels?.includes("email") ?? true) && prefs.emailEnabled && email
       ? sendNotificationEmail({
           body,
           emailHtml,
@@ -104,6 +107,9 @@ export async function sendMessage({
       : false;
 
   const whatsappPromise = (async (): Promise<boolean> => {
+    if (!(channels?.includes("whatsapp") ?? true)) {
+      return false;
+    }
     try {
       const [phone, topicEnabled] = await Promise.all([
         getUserPhone(to),
