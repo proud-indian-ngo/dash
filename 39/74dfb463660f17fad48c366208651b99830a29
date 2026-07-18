@@ -1,0 +1,48 @@
+apps/web/src/lib/server/kalakriti-registration-dashboard.ts
+  s_c8c0ce2f824e4f::t_117c6b8ae41f6f 402-424,435
+  s_c8c0ce2f824e4f::t_23551b77388779 607
+  s_c8c0ce2f824e4f::t_2fa213fdad8241 197,199,256
+  s_c8c0ce2f824e4f::t_72f4b124082eb6 1-19,21-41,43-113,115-165,169-178,188-196,198,200-220,223-255,257-264,268-290,294-346,348-360,365-368,370-376,379-401,425-434,436-440,442-483,488-497,499-596,598-606,608-609
+  s_c8c0ce2f824e4f::t_6a633817ec7491 597
+  s_c8c0ce2f824e4f::t_f35a5d28fde3f0 42,166-168,179-187,221-222,441
+  s_c8c0ce2f824e4f::t_9851cfb51c8a6e 114
+  s_c8c0ce2f824e4f::t_80647108e17d17 20,291-293,347,361-364,369,377-378,484-487,498
+  s_c8c0ce2f824e4f::t_0b2ddccbbc9aad 265-267
+apps/web/src/functions/kalakriti-registration-dashboard.ts
+  s_c8c0ce2f824e4f::t_80647108e17d17 4,41,50-52,56-57
+  s_c8c0ce2f824e4f::t_d4b75847bcdb36 1-3,5-40,42-49,53-55,58-59
+README.md
+  s_c8c0ce2f824e4f::t_d4b75847bcdb36 44
+apps/web/src/lib/kalakriti-registration-dashboard-policy.ts
+  s_c8c0ce2f824e4f::t_5ca407c927ab65 1-12,21,23-40,57,70-83,88
+  s_c8c0ce2f824e4f::t_80647108e17d17 13-20,22,41-56,58-69,84-87
+apps/web/src/components/kalakriti/registration-dashboard.tsx
+  s_c8c0ce2f824e4f::t_2fa213fdad8241 41-52,211
+  s_c8c0ce2f824e4f::t_80647108e17d17 91,111
+  s_c8c0ce2f824e4f::t_d4b75847bcdb36 1-40,53-90,92-110,112-210,212-271
+apps/web/src/lib/server/kalakriti-registration-dashboard.test.ts
+  s_c8c0ce2f824e4f::t_f35a5d28fde3f0 26-27,57,64
+  s_c8c0ce2f824e4f::t_d998985e511cd3 3-25,28-35,37-40,72-83,87-98,137-148,206
+  s_c8c0ce2f824e4f::t_3f8812560d8f22 1-2,36
+  s_c8c0ce2f824e4f::t_0b2ddccbbc9aad 41-56,58-63,65-71,84-86,99-136,149-205,207-224
+apps/web/src/routes/_app/kalakriti/$year/index.tsx
+  s_c8c0ce2f824e4f::t_d4b75847bcdb36 13,16,37-40,44,118
+apps/web/src/lib/kalakriti-registration-dashboard-policy.test.ts
+  s_c8c0ce2f824e4f::t_5ca407c927ab65 1-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3974dfb463660f17fad48c366208651b99830a29",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
