@@ -18,6 +18,9 @@ export const kalakritiCompetitionQueries = {
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
     }
+    query = query.whereExists("edition", (edition) =>
+      edition.where("lifecycle", "!=", "archived")
+    );
     query = query.where(({ or, exists }) =>
       or(
         exists("edition", (edition) =>
@@ -56,6 +59,9 @@ export const kalakritiCompetitionQueries = {
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
     }
+    query = query.whereExists("edition", (edition) =>
+      edition.where("lifecycle", "!=", "archived")
+    );
     query = query.where(({ or, exists }) =>
       or(
         exists("edition", (edition) =>
@@ -99,6 +105,9 @@ export const kalakritiCompetitionQueries = {
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
     }
+    query = query.whereExists("edition", (edition) =>
+      edition.where("lifecycle", "!=", "archived")
+    );
     query = query.where(({ or, exists }) =>
       or(
         exists("edition", (edition) =>
@@ -144,20 +153,41 @@ export const kalakritiCompetitionQueries = {
       return query.where("id", NO_ACCESS_ID);
     }
     query = query.whereExists("edition", (edition) =>
-      edition.whereExists("memberships", (membership) =>
-        membership
-          .where("userId", ctx.userId)
-          .where("state", "active")
-          .whereExists("assignments", (assignment) =>
-            assignment.where(({ or, cmp }) =>
-              or(
-                cmp("responsibility", "edition_admin"),
-                cmp("responsibility", "overall_events_lead"),
-                cmp("responsibility", "competition_category_lead"),
-                cmp("responsibility", "volunteer_coordinator")
+      edition.where("lifecycle", "!=", "archived")
+    );
+    query = query.where(({ or, exists }) =>
+      or(
+        exists("edition", (edition) =>
+          edition.whereExists("memberships", (membership) =>
+            membership
+              .where("userId", ctx.userId)
+              .where("state", "active")
+              .whereExists("assignments", (assignment) =>
+                assignment.where(({ or: assignmentOr, cmp }) =>
+                  assignmentOr(
+                    cmp("responsibility", "edition_admin"),
+                    cmp("responsibility", "overall_events_lead"),
+                    cmp("responsibility", "volunteer_coordinator")
+                  )
+                )
+              )
+          )
+        ),
+        exists("sessions", (session) =>
+          session.whereExists("competition", (competition) =>
+            competition.whereExists("category", (category) =>
+              category.whereExists("assignments", (assignment) =>
+                assignment
+                  .where("responsibility", "competition_category_lead")
+                  .whereExists("membership", (membership) =>
+                    membership
+                      .where("userId", ctx.userId)
+                      .where("state", "active")
+                  )
               )
             )
           )
+        )
       )
     );
     return query.orderBy("name", "asc");

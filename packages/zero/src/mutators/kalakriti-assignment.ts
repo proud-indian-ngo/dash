@@ -181,6 +181,30 @@ interface AssignableVolunteer {
   role: string | null;
 }
 
+interface AssignmentEdition {
+  lifecycle: string;
+  teamEventId: string;
+}
+
+async function getAssignmentEdition(
+  tx: AssignmentTx,
+  editionId: string
+): Promise<AssignmentEdition> {
+  const edition = (await tx.run(
+    zql.kalakritiEdition.where("id", editionId).one()
+  )) as AssignmentEdition | undefined;
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  if (!edition.lifecycle) {
+    throw new Error("Edition lifecycle unavailable");
+  }
+  if (edition.lifecycle === "archived") {
+    throw new Error("Archived Editions cannot change assignments");
+  }
+  return edition;
+}
+
 interface AssignmentCompetitionScope {
   editionId: string;
   retiredAt: number | null;
@@ -271,12 +295,7 @@ async function assignVolunteerResponsibility(
   );
   assertIsLoggedIn(ctx);
 
-  const edition = (await tx.run(
-    zql.kalakritiEdition.where("id", args.editionId).one()
-  )) as { teamEventId: string } | undefined;
-  if (!edition) {
-    throw new Error("Edition not found");
-  }
+  const edition = await getAssignmentEdition(tx, args.editionId);
   await assertAssignmentCenter(tx, args.editionId, args.centerId);
   await assertAssignmentCompetitionScope(
     tx,
@@ -497,9 +516,7 @@ export const kalakritiAssignmentMutators = {
           .where("id", assignment.membershipId)
           .one()
       );
-      const edition = await tx.run(
-        zql.kalakritiEdition.where("id", assignment.editionId).one()
-      );
+      const edition = await getAssignmentEdition(tx, assignment.editionId);
       if (!(membership?.userId && edition)) {
         throw new Error("Assignment membership not found");
       }

@@ -19,6 +19,26 @@ describe("kalakritiCompetition queries", () => {
     );
     expect(ast).toContain('"value":"competition_category_lead"');
     expect(ast).toContain('"value":"category-lead-1"');
+    expect(ast).toContain('"name":"lifecycle"');
+    expect(ast).toContain('"value":"archived"');
+  });
+
+  it("scopes Category Lead Venue reads through assigned Category Sessions", () => {
+    const ast = queryAst(
+      kalakritiCompetitionQueries.venues.fn({
+        args: { editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "category-lead-1",
+        },
+      })
+    );
+    expect(ast).toContain('"table":"kalakritiCompetitionSession"');
+    expect(ast).toContain('"table":"kalakritiCompetition"');
+    expect(ast).toContain('"table":"kalakritiCompetitionCategory"');
+    expect(ast).toContain('"value":"competition_category_lead"');
+    expect(ast).toContain('"value":"category-lead-1"');
   });
 
   it("returns a never-match query without Kalakriti access", () => {

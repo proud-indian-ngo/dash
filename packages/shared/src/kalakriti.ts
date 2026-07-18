@@ -88,7 +88,7 @@ export function canManageKalakritiResponsibility(
   );
 }
 
-export function normalizeKalakritiCenterName(name: string): {
+function normalizeKalakritiName(name: string): {
   name: string;
   normalizedName: string;
 } {
@@ -97,6 +97,13 @@ export function normalizeKalakritiCenterName(name: string): {
     name: displayName,
     normalizedName: displayName.toLocaleLowerCase("en-IN"),
   };
+}
+
+export function normalizeKalakritiCenterName(name: string): {
+  name: string;
+  normalizedName: string;
+} {
+  return normalizeKalakritiName(name);
 }
 
 export interface KalakritiAgeCategoryRange {
@@ -191,11 +198,7 @@ export function normalizeKalakritiAgeCategoryName(name: string): {
   name: string;
   normalizedName: string;
 } {
-  const displayName = name.normalize("NFKC").trim().replace(/\s+/g, " ");
-  return {
-    name: displayName,
-    normalizedName: displayName.toLocaleLowerCase("en-IN"),
-  };
+  return normalizeKalakritiName(name);
 }
 
 export function requireKalakritiAgeCategoryOverrideReason(
@@ -218,11 +221,7 @@ export function normalizeKalakritiConfigurationName(name: string): {
   name: string;
   normalizedName: string;
 } {
-  const displayName = name.normalize("NFKC").trim().replace(/\s+/g, " ");
-  return {
-    name: displayName,
-    normalizedName: displayName.toLocaleLowerCase("en-IN"),
-  };
+  return normalizeKalakritiName(name);
 }
 
 export function hasValidKalakritiGroupRules(

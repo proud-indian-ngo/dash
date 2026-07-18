@@ -35,6 +35,16 @@ const FIXTURES = {
   },
 } as const;
 
+const VOLUNTEER_SCOPE = {
+  assignedCompetitionId: "019f0000-0000-7000-8000-00000000c207",
+  assignedSessionId: "019f0000-0000-7000-8000-00000000c209",
+  assignedVenueId: "019f0000-0000-7000-8000-00000000c208",
+  unassignedCategoryId: "019f0000-0000-7000-8000-00000000c210",
+  unassignedCompetitionId: "019f0000-0000-7000-8000-00000000c211",
+  unassignedSessionId: "019f0000-0000-7000-8000-00000000c213",
+  unassignedVenueId: "019f0000-0000-7000-8000-00000000c212",
+} as const;
+
 type FixtureKind = keyof typeof FIXTURES;
 
 async function cleanup(kind: FixtureKind): Promise<void> {
@@ -135,6 +145,94 @@ async function setup(kind: FixtureKind, actorEmail: string) {
     updatedAt: now,
   });
   if (kind === "volunteer") {
+    await db.insert(kalakritiCompetitionCategory).values({
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixture.editionId,
+      id: VOLUNTEER_SCOPE.unassignedCategoryId,
+      name: "Visual Arts",
+      normalizedName: "visual arts",
+      sortOrder: 1,
+      updatedAt: now,
+    });
+    await db.insert(kalakritiCompetition).values([
+      {
+        competitionCategoryId: fixture.categoryId,
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        genderEligibility: "both",
+        id: VOLUNTEER_SCOPE.assignedCompetitionId,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        name: "Solo Dance",
+        normalizedName: "solo dance",
+        participationMode: "individual",
+        updatedAt: now,
+      },
+      {
+        competitionCategoryId: VOLUNTEER_SCOPE.unassignedCategoryId,
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        genderEligibility: "both",
+        id: VOLUNTEER_SCOPE.unassignedCompetitionId,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        name: "Solo Painting",
+        normalizedName: "solo painting",
+        participationMode: "individual",
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(kalakritiVenue).values([
+      {
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        id: VOLUNTEER_SCOPE.assignedVenueId,
+        name: "Main Stage",
+        normalizedName: "main stage",
+        updatedAt: now,
+      },
+      {
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        id: VOLUNTEER_SCOPE.unassignedVenueId,
+        name: "Art Hall",
+        normalizedName: "art hall",
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(kalakritiCompetitionSession).values([
+      {
+        ageCategoryId: fixture.ageCategoryId,
+        capacity: 30,
+        competitionId: VOLUNTEER_SCOPE.assignedCompetitionId,
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        endAt: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
+        id: VOLUNTEER_SCOPE.assignedSessionId,
+        startAt: new Date(`${fixture.year}-11-21T03:30:00.000Z`),
+        updatedAt: now,
+        venueId: VOLUNTEER_SCOPE.assignedVenueId,
+      },
+      {
+        ageCategoryId: fixture.ageCategoryId,
+        capacity: 20,
+        competitionId: VOLUNTEER_SCOPE.unassignedCompetitionId,
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        endAt: new Date(`${fixture.year}-11-21T05:30:00.000Z`),
+        id: VOLUNTEER_SCOPE.unassignedSessionId,
+        startAt: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
+        updatedAt: now,
+        venueId: VOLUNTEER_SCOPE.unassignedVenueId,
+      },
+    ]);
     await db.insert(kalakritiEditionMembership).values({
       createdAt: now,
       createdBy: actor.id,

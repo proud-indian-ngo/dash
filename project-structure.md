@@ -84,6 +84,7 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
+| `routes/_app/kalakriti/$year/competitions.tsx` | Edition Competition catalog, Venues, and scoped schedule; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
