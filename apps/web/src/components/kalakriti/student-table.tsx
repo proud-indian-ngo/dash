@@ -13,7 +13,6 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import type { KalakritiStudentRow } from "./student-form-dialog";
 
@@ -91,127 +90,124 @@ export function StudentTable({
   onEdit,
   onRegister,
 }: StudentTableProps) {
-  const columns = useMemo<ColumnDef<KalakritiStudentRow>[]>(
-    () => [
-      {
-        accessorFn: (row) => row.humanId,
-        cell: ({ row }) => (
-          <span className="font-mono text-sm">{row.original.humanId}</span>
-        ),
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="ID" visibility={true} />
-        ),
-        id: "humanId",
-        meta: {
-          headerTitle: "ID",
-          skeleton: <Skeleton className="h-5 w-24" />,
-        },
-        size: 130,
+  const columns: ColumnDef<KalakritiStudentRow>[] = [
+    {
+      accessorFn: (row) => row.humanId,
+      cell: ({ row }) => (
+        <span className="font-mono text-sm">{row.original.humanId}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="ID" visibility={true} />
+      ),
+      id: "humanId",
+      meta: {
+        headerTitle: "ID",
+        skeleton: <Skeleton className="h-5 w-24" />,
       },
-      {
-        accessorFn: (row) => row.name,
-        cell: ({ row }) => (
-          <span className="font-medium text-sm">{row.original.name}</span>
-        ),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Student"
-            visibility={true}
-          />
-        ),
-        id: "name",
-        meta: {
-          headerTitle: "Student",
-          skeleton: <Skeleton className="h-5 w-40" />,
-        },
-        size: 230,
+      size: 130,
+    },
+    {
+      accessorFn: (row) => row.name,
+      cell: ({ row }) => (
+        <span className="font-medium text-sm">{row.original.name}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Student"
+          visibility={true}
+        />
+      ),
+      id: "name",
+      meta: {
+        headerTitle: "Student",
+        skeleton: <Skeleton className="h-5 w-40" />,
       },
-      {
-        accessorFn: (row) => row.dateOfBirth,
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {format(new Date(row.original.dateOfBirth), "dd MMM yyyy")}
-          </span>
-        ),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Date of birth"
-            visibility={true}
-          />
-        ),
-        id: "dateOfBirth",
-        meta: {
-          headerTitle: "Date of birth",
-          skeleton: <Skeleton className="h-5 w-28" />,
-        },
-        size: 155,
+      size: 230,
+    },
+    {
+      accessorFn: (row) => row.dateOfBirth,
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {format(new Date(row.original.dateOfBirth), "dd MMM yyyy")}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Date of birth"
+          visibility={true}
+        />
+      ),
+      id: "dateOfBirth",
+      meta: {
+        headerTitle: "Date of birth",
+        skeleton: <Skeleton className="h-5 w-28" />,
       },
-      {
-        accessorFn: (row) => row.gender,
-        cell: ({ row }) => (
-          <span className="text-sm capitalize">{row.original.gender}</span>
-        ),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Gender"
-            visibility={true}
-          />
-        ),
-        id: "gender",
-        meta: {
-          headerTitle: "Gender",
-          skeleton: <Skeleton className="h-5 w-16" />,
-        },
-        size: 110,
+      size: 155,
+    },
+    {
+      accessorFn: (row) => row.gender,
+      cell: ({ row }) => (
+        <span className="text-sm capitalize">{row.original.gender}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Gender"
+          visibility={true}
+        />
+      ),
+      id: "gender",
+      meta: {
+        headerTitle: "Gender",
+        skeleton: <Skeleton className="h-5 w-16" />,
       },
-      {
-        accessorFn: (row) => row.ageCategory?.name ?? "",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {row.original.ageCategory?.name ?? "Unassigned"}
-          </span>
-        ),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Age Category"
-            visibility={true}
-          />
-        ),
-        id: "ageCategory",
-        meta: {
-          headerTitle: "Age Category",
-          skeleton: <Skeleton className="h-5 w-28" />,
-        },
-        size: 160,
+      size: 110,
+    },
+    {
+      accessorFn: (row) => row.ageCategory?.name ?? "",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.ageCategory?.name ?? "Unassigned"}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Age Category"
+          visibility={true}
+        />
+      ),
+      id: "ageCategory",
+      meta: {
+        headerTitle: "Age Category",
+        skeleton: <Skeleton className="h-5 w-28" />,
       },
-      ...(canManage
-        ? [
-            {
-              cell: ({ row }: { row: { original: KalakritiStudentRow } }) => (
-                <StudentRowActions
-                  onDelete={onDelete}
-                  onEdit={onEdit}
-                  student={row.original}
-                />
-              ),
-              enableHiding: false,
-              header: () => null,
-              id: "actions",
-              meta: {
-                headerTitle: "",
-                skeleton: <Skeleton className="size-7" />,
-              },
-              size: 48,
-            } satisfies ColumnDef<KalakritiStudentRow>,
-          ]
-        : []),
-    ],
-    [canManage, onDelete, onEdit]
-  );
+      size: 160,
+    },
+    ...(canManage
+      ? [
+          {
+            cell: ({ row }: { row: { original: KalakritiStudentRow } }) => (
+              <StudentRowActions
+                onDelete={onDelete}
+                onEdit={onEdit}
+                student={row.original}
+              />
+            ),
+            enableHiding: false,
+            header: () => null,
+            id: "actions",
+            meta: {
+              headerTitle: "",
+              skeleton: <Skeleton className="size-7" />,
+            },
+            size: 48,
+          } satisfies ColumnDef<KalakritiStudentRow>,
+        ]
+      : []),
+  ];
 
   return (
     <DataTableWrapper
