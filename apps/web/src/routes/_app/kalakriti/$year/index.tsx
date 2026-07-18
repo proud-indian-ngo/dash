@@ -10,8 +10,10 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
 import { EditionLifecycleCard } from "@/components/kalakriti/edition-lifecycle-card";
+import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
 import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
 import { useApp } from "@/context/app-context";
+import { getKalakritiRegistrationDashboard } from "@/functions/kalakriti-registration-dashboard";
 
 const editionTimestampFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -32,9 +34,14 @@ const editionDateFormatter = new Intl.DateTimeFormat("en-IN", {
 
 export const Route = createFileRoute("/_app/kalakriti/$year/")({
   component: KalakritiEditionOverview,
+  loader: ({ params }) =>
+    getKalakritiRegistrationDashboard({
+      data: { year: Number(params.year) },
+    }),
 });
 
 function KalakritiEditionOverview() {
+  const dashboard = Route.useLoaderData();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
   const { hasPermission } = useApp();
@@ -108,6 +115,7 @@ function KalakritiEditionOverview() {
         canManage={canManageLifecycle}
         editionId={edition.id}
       />
+      <RegistrationDashboard projections={dashboard?.projections ?? []} />
       {canManageLifecycle ? (
         <EditionCloneCard
           editionId={edition.id}
