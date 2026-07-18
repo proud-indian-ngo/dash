@@ -6,10 +6,12 @@ import { zql } from "../schema";
 import {
   assertCanManageKalakritiConfiguration,
   assertKalakritiEditionConfigurable,
+  assertKalakritiEditionStructurallyConfigurable,
 } from "./kalakriti-config-access";
 import {
   getCenterForUpdate,
   getEditionCentersForUpdate,
+  getEditionForUpdate,
   getEditionMembershipForUpdate,
   getGuardianCenterForUpdate,
   type LockableKalakritiTx,
@@ -40,13 +42,22 @@ async function assertEditionConfigurable(
   tx: CenterTx,
   editionId: string
 ): Promise<void> {
-  const edition = (await tx.run(
-    zql.kalakritiEdition.where("id", editionId).one()
-  )) as { lifecycle: string } | undefined;
+  const edition = await getEditionForUpdate(tx, editionId);
   if (!edition) {
     throw new Error("Edition not found");
   }
   assertKalakritiEditionConfigurable(edition.lifecycle);
+}
+
+async function assertEditionStructurallyConfigurable(
+  tx: CenterTx,
+  editionId: string
+): Promise<void> {
+  const edition = await getEditionForUpdate(tx, editionId);
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
 }
 
 async function requireLockedCenter(tx: CenterTx, centerId: string) {
@@ -193,7 +204,7 @@ export const kalakritiCenterMutators = {
     kalakritiCenterCreateSchema,
     async ({ tx, ctx, args }) => {
       await assertCanManageKalakritiConfiguration(tx, ctx, args.editionId);
-      await assertEditionConfigurable(tx, args.editionId);
+      await assertEditionStructurallyConfigurable(tx, args.editionId);
       assertIsLoggedIn(ctx);
       const normalized = normalizeKalakritiCenterName(args.name);
 
@@ -229,7 +240,7 @@ export const kalakritiCenterMutators = {
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
       await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
-      await assertEditionConfigurable(tx, center.editionId);
+      await assertEditionStructurallyConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
       const [guardianCenter, assignment, quota] = await Promise.all([
         tx.run(zql.kalakritiGuardianCenter.where("centerId", center.id).one()),
@@ -365,7 +376,7 @@ export const kalakritiCenterMutators = {
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
       await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
-      await assertEditionConfigurable(tx, center.editionId);
+      await assertEditionStructurallyConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
       if (center.retiredAt !== null) {
         throw new Error("Center is already retired");
@@ -457,7 +468,7 @@ export const kalakritiCenterMutators = {
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
       await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
-      await assertEditionConfigurable(tx, center.editionId);
+      await assertEditionStructurallyConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
       if (center.retiredAt !== null) {
         throw new Error("Retired Centers cannot be edited");

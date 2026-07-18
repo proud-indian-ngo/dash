@@ -28,6 +28,7 @@
         "helpers/kalakriti-competitions.ts",
         "helpers/kalakriti-eligibility.ts",
         "helpers/kalakriti-guardian-race.ts",
+        "helpers/kalakriti-lifecycle.ts",
         "helpers/seed-dev-data.ts",
         "shard-by-duration.ts"
       ],

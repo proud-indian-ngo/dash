@@ -25,6 +25,67 @@ export const Route = createFileRoute("/_app/kalakriti/$year/centers")({
   component: KalakritiCentersPage,
 });
 
+const CENTER_STRUCTURE_LOCKED_LIFECYCLES = new Set([
+  "archived",
+  "live",
+  "registration_locked",
+]);
+const CENTER_CONTROLS_LOCKED_LIFECYCLES = new Set(["archived", "live"]);
+
+function CenterPageActions({
+  canConfigureCenters,
+  canManageRegistrationControls,
+  hasOpenRegistration,
+  onCreate,
+  onLockAll,
+}: {
+  canConfigureCenters: boolean;
+  canManageRegistrationControls: boolean;
+  hasOpenRegistration: boolean;
+  onCreate: () => void;
+  onLockAll: () => void;
+}) {
+  if (!(canManageRegistrationControls || canConfigureCenters)) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {canManageRegistrationControls ? (
+        <Button
+          disabled={!hasOpenRegistration}
+          onClick={onLockAll}
+          variant="outline"
+        >
+          {hasOpenRegistration
+            ? "Lock all registrations"
+            : "All registrations locked"}
+        </Button>
+      ) : null}
+      {canConfigureCenters ? (
+        <Button onClick={onCreate}>Add Center</Button>
+      ) : null}
+    </div>
+  );
+}
+
+function emptyStateDescription({
+  canConfigureCenters,
+  canManageCenters,
+  centerStructureLocked,
+}: {
+  canConfigureCenters: boolean;
+  canManageCenters: boolean;
+  centerStructureLocked: boolean;
+}): string {
+  if (canConfigureCenters) {
+    return "Add the first Center for this Edition.";
+  }
+  if (canManageCenters && centerStructureLocked) {
+    return "Center configuration is locked for this Edition.";
+  }
+  return "You have not been assigned to a Center.";
+}
+
 function KalakritiCentersPage() {
   const zero = useZero();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
@@ -35,9 +96,15 @@ function KalakritiCentersPage() {
   const canManageGuardians = canManageCenters;
   const canManageLiaisons =
     canManageCenters || responsibilities.has("volunteer_coordinator");
-  const centerConfigurationLocked =
-    edition.lifecycle === "live" || edition.lifecycle === "archived";
-  const canConfigureCenters = canManageCenters && !centerConfigurationLocked;
+  const centerStructureLocked = CENTER_STRUCTURE_LOCKED_LIFECYCLES.has(
+    edition.lifecycle
+  );
+  const registrationControlsLocked = CENTER_CONTROLS_LOCKED_LIFECYCLES.has(
+    edition.lifecycle
+  );
+  const canConfigureCenters = canManageCenters && !centerStructureLocked;
+  const canManageRegistrationControls =
+    canManageCenters && !registrationControlsLocked;
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
@@ -208,12 +275,11 @@ function KalakritiCentersPage() {
       center.studentRegistrationEnabled ||
       center.competitionEntryRegistrationEnabled
   );
-  let emptyStateDescription = "You have not been assigned to a Center.";
-  if (canConfigureCenters) {
-    emptyStateDescription = "Add the first Center for this Edition.";
-  } else if (canManageCenters && centerConfigurationLocked) {
-    emptyStateDescription = "Center configuration is locked for this Edition.";
-  }
+  const emptyDescription = emptyStateDescription({
+    canConfigureCenters,
+    canManageCenters,
+    centerStructureLocked,
+  });
 
   return (
     <div className="space-y-4 pt-6">
@@ -225,27 +291,20 @@ function KalakritiCentersPage() {
             Edition.
           </p>
         </div>
-        {canConfigureCenters ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={!hasOpenRegistration}
-              onClick={lockAllAction.trigger}
-              variant="outline"
-            >
-              {hasOpenRegistration
-                ? "Lock all registrations"
-                : "All registrations locked"}
-            </Button>
-            <Button onClick={handleCreate}>Add Center</Button>
-          </div>
-        ) : null}
+        <CenterPageActions
+          canConfigureCenters={canConfigureCenters}
+          canManageRegistrationControls={canManageRegistrationControls}
+          hasOpenRegistration={hasOpenRegistration}
+          onCreate={handleCreate}
+          onLockAll={lockAllAction.trigger}
+        />
       </div>
 
-      {canManageCenters && centerConfigurationLocked ? (
+      {canManageCenters && centerStructureLocked ? (
         <p className="text-muted-foreground text-sm">
-          Center configuration is locked while this Edition is{" "}
-          {edition.lifecycle}. Guardian and Liaison assignments remain
-          available.
+          Center structure is locked while this Edition is {edition.lifecycle}.
+          Assignments remain available; registration controls remain available
+          until the Edition goes live.
         </p>
       ) : null}
 
@@ -253,7 +312,7 @@ function KalakritiCentersPage() {
         <div className="border border-dashed px-4 py-12 text-center">
           <p className="font-medium">No Centers available</p>
           <p className="mt-1 text-muted-foreground text-sm">
-            {emptyStateDescription}
+            {emptyDescription}
           </p>
         </div>
       ) : (
@@ -274,9 +333,6 @@ function KalakritiCentersPage() {
           );
           return (
             <CenterCard
-              canManageCenters={canConfigureCenters}
-              canManageGuardians={canManageGuardians}
-              canManageLiaisons={canManageLiaisons}
               center={center}
               editionId={edition.id}
               guardianAssignments={guardianRows.filter(
@@ -301,6 +357,12 @@ function KalakritiCentersPage() {
               onRegistrationControls={setControlsCenter}
               onRetire={retireAction.trigger}
               onRetryVolunteers={handleVolunteerRetry}
+              permissions={{
+                manageGuardians: canManageGuardians,
+                manageLiaisons: canManageLiaisons,
+                manageRegistrationControls: canManageRegistrationControls,
+                manageStructure: canConfigureCenters,
+              }}
               volunteerOptions={volunteerOptions}
               volunteerOptionsError={volunteerOptionsError}
             />

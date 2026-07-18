@@ -105,12 +105,14 @@ function ActionButtons({
 
 function CompetitionRow({
   canManage,
+  canManageCancellations,
   competition,
   onDelete,
   onEdit,
   onSetState,
 }: {
   canManage: boolean;
+  canManageCancellations: boolean;
   competition: CompetitionView;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (competition: CompetitionFormValue) => void;
@@ -165,16 +167,18 @@ function CompetitionRow({
             {competition.maximumGroupSize}
           </p>
         </div>
-        {canManage ? (
+        {canManage || canManageCancellations ? (
           <div className="flex flex-wrap gap-1">
-            <Button
-              aria-label={`Edit ${competition.name} Competition`}
-              onClick={handleEdit}
-              size="sm"
-              variant="outline"
-            >
-              Edit
-            </Button>
+            {canManage ? (
+              <Button
+                aria-label={`Edit ${competition.name} Competition`}
+                onClick={handleEdit}
+                size="sm"
+                variant="outline"
+              >
+                Edit
+              </Button>
+            ) : null}
             <Button
               aria-label={`${competition.cancelledAt === null ? "Cancel" : "Restore"} ${competition.name} Competition`}
               onClick={handleCancel}
@@ -183,22 +187,26 @@ function CompetitionRow({
             >
               {competition.cancelledAt === null ? "Cancel" : "Restore"}
             </Button>
-            <Button
-              aria-label={`${competition.retiredAt === null ? "Retire" : "Restore"} ${competition.name} Competition`}
-              onClick={handleRetire}
-              size="sm"
-              variant="ghost"
-            >
-              {competition.retiredAt === null ? "Retire" : "Restore"}
-            </Button>
-            <Button
-              aria-label={`Delete ${competition.name} Competition`}
-              onClick={handleDelete}
-              size="sm"
-              variant="ghost"
-            >
-              Delete
-            </Button>
+            {canManage ? (
+              <>
+                <Button
+                  aria-label={`${competition.retiredAt === null ? "Retire" : "Restore"} ${competition.name} Competition`}
+                  onClick={handleRetire}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {competition.retiredAt === null ? "Retire" : "Restore"}
+                </Button>
+                <Button
+                  aria-label={`Delete ${competition.name} Competition`}
+                  onClick={handleDelete}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Delete
+                </Button>
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -208,6 +216,7 @@ function CompetitionRow({
 
 export function CompetitionCatalogSection({
   canManage,
+  canManageCancellations,
   categories,
   competitions,
   onAddCategory,
@@ -218,6 +227,7 @@ export function CompetitionCatalogSection({
   onSetState,
 }: {
   canManage: boolean;
+  canManageCancellations: boolean;
   categories: readonly CompetitionCategoryView[];
   competitions: readonly CompetitionView[];
   onAddCategory: () => void;
@@ -301,6 +311,7 @@ export function CompetitionCatalogSection({
                   .map((competition) => (
                     <CompetitionRow
                       canManage={canManage}
+                      canManageCancellations={canManageCancellations}
                       competition={competition}
                       key={competition.id}
                       onDelete={onDelete}
@@ -454,6 +465,7 @@ export function ScheduleSection({
   onEdit,
   onSetState,
   sessions,
+  structuralLocked,
   timeZone,
   venueNames,
 }: {
@@ -465,6 +477,7 @@ export function ScheduleSection({
   onEdit: (session: CompetitionSessionFormValue) => void;
   onSetState: (payload: ConfigurationStatePayload) => void;
   sessions: readonly CompetitionSessionFormValue[];
+  structuralLocked: boolean;
   timeZone: string;
   venueNames: ReadonlyMap<string, string>;
 }) {
@@ -487,7 +500,9 @@ export function ScheduleSection({
             Sessions cannot overlap in the same Venue.
           </p>
         </div>
-        {canManage ? <Button onClick={onAdd}>Add Session</Button> : null}
+        {canManage && !structuralLocked ? (
+          <Button onClick={onAdd}>Add Session</Button>
+        ) : null}
       </div>
       <div className="space-y-2">
         {sessions.map((session) => (
@@ -507,6 +522,7 @@ export function ScheduleSection({
             onEdit={onEdit}
             onSetState={onSetState}
             session={session}
+            structuralLocked={structuralLocked}
             venueName={venueNames.get(session.venueId) ?? "Unknown Venue"}
           />
         ))}
@@ -529,6 +545,7 @@ function SessionRow({
   onEdit,
   onSetState,
   session,
+  structuralLocked,
   venueName,
 }: {
   ageCategoryName: string;
@@ -539,6 +556,7 @@ function SessionRow({
   onEdit: (session: CompetitionSessionFormValue) => void;
   onSetState: (payload: ConfigurationStatePayload) => void;
   session: CompetitionSessionFormValue;
+  structuralLocked: boolean;
   venueName: string;
 }) {
   const label = `${competitionName}, ${ageCategoryName}`;
@@ -591,14 +609,16 @@ function SessionRow({
           >
             {session.cancelledAt === null ? "Cancel" : "Restore"}
           </Button>
-          <Button
-            aria-label={`Delete ${label} Session`}
-            onClick={handleDelete}
-            size="sm"
-            variant="ghost"
-          >
-            Delete
-          </Button>
+          {structuralLocked ? null : (
+            <Button
+              aria-label={`Delete ${label} Session`}
+              onClick={handleDelete}
+              size="sm"
+              variant="ghost"
+            >
+              Delete
+            </Button>
+          )}
         </div>
       ) : null}
     </section>

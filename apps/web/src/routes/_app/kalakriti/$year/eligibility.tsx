@@ -61,7 +61,9 @@ function KalakritiEligibilityPage() {
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
   const configurationLocked =
-    edition.lifecycle === "live" || edition.lifecycle === "archived";
+    edition.lifecycle === "registration_locked" ||
+    edition.lifecycle === "live" ||
+    edition.lifecycle === "archived";
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] =
     useState<AgeCategoryFormValue | null>(null);
@@ -199,8 +201,8 @@ function KalakritiEligibilityPage() {
 
       {configurationLocked ? (
         <p className="text-muted-foreground text-sm">
-          Eligibility configuration is locked while this Edition is{" "}
-          {edition.lifecycle}.
+          Age Categories and Center quotas are locked while registration is
+          locked or this Edition is {edition.lifecycle}.
         </p>
       ) : null}
 

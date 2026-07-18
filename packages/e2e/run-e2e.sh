@@ -146,6 +146,8 @@ echo "Seeding test users..."
 # Export env overrides for the test web server and zero-cache
 export DATABASE_URL="$TEST_DB_URL"
 export ZERO_UPSTREAM_DB="$TEST_DB_URL"
+export ZERO_CVR_DB="$TEST_DB_URL"
+export ZERO_CHANGE_DB="$TEST_DB_URL"
 export ZERO_REPLICA_FILE="$REPLICA_FILE"
 export VITE_ZERO_URL="http://localhost:$TEST_ZERO_PORT"
 export ZERO_MUTATE_URL="http://localhost:$TEST_WEB_PORT/api/zero/mutate"

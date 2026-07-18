@@ -112,6 +112,33 @@ describe("kalakritiEligibility commands", () => {
     );
   });
 
+  it("rejects eligibility configuration after registration is locked", async () => {
+    const { lockedResults, spies, tx } = createTx();
+    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
+
+    await expect(
+      kalakritiEligibilityMutators.createAgeCategory.fn({
+        args: {
+          ageCategoryId: "category-2",
+          auditEntryId: "audit-2",
+          editionId: edition.id,
+          maxCompetitionsPerCategory: 1,
+          maximumAge: 12,
+          maxTotalCompetitions: 2,
+          minimumAge: 11,
+          name: "Senior",
+          now: 1,
+          sortOrder: 1,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEligibilityMutators.createAgeCategory.fn
+      >[0])
+    ).rejects.toThrow("Structural configuration");
+    expect(spies.insertAgeCategory).not.toHaveBeenCalled();
+  });
+
   it("rejects inclusive range overlap before writing", async () => {
     const { lockedResults, spies, tx } = createTx();
     lockedResults.push([edition], [category]);

@@ -11,6 +11,7 @@ import { zql } from "../schema";
 import {
   assertCanManageKalakritiCompetitionConfiguration,
   assertKalakritiEditionConfigurable,
+  assertKalakritiEditionStructurallyConfigurable,
 } from "./kalakriti-config-access";
 import {
   getEditionForUpdate,
@@ -158,6 +159,21 @@ async function lockCompetitionEdition(
   }
   await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
   assertKalakritiEditionConfigurable(edition.lifecycle);
+  assertIsLoggedIn(ctx);
+  return edition;
+}
+
+async function lockStructurallyConfigurableCompetitionEdition(
+  tx: CompetitionTx,
+  ctx: Context | undefined,
+  editionId: string
+) {
+  const edition = await getEditionForUpdate(tx, editionId);
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
+  assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
   assertIsLoggedIn(ctx);
   return edition;
 }
@@ -313,7 +329,11 @@ export const kalakritiCompetitionMutators = {
   createCategory: defineMutator(
     kalakritiCompetitionCategoryCreateSchema,
     async ({ tx, ctx, args }) => {
-      await lockCompetitionEdition(tx, ctx, args.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        args.editionId
+      );
       const normalized = normalizeKalakritiConfigurationName(args.name);
       await tx.mutate.kalakritiCompetitionCategory.insert({
         createdAt: args.now,
@@ -342,7 +362,11 @@ export const kalakritiCompetitionMutators = {
   createCompetition: defineMutator(
     kalakritiCompetitionCreateSchema,
     async ({ tx, ctx, args }) => {
-      await lockCompetitionEdition(tx, ctx, args.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        args.editionId
+      );
       const category = await getCategory(tx, args.competitionCategoryId);
       requireSameEdition(category, args.editionId, "Competition Category");
       if (category?.retiredAt !== null) {
@@ -384,7 +408,11 @@ export const kalakritiCompetitionMutators = {
   createSession: defineMutator(
     kalakritiCompetitionSessionCreateSchema,
     async ({ tx, ctx, args }) => {
-      const edition = await lockCompetitionEdition(tx, ctx, args.editionId);
+      const edition = await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        args.editionId
+      );
       await validateSessionValues(tx, edition, args);
       await tx.mutate.kalakritiCompetitionSession.insert({
         ageCategoryId: args.ageCategoryId,
@@ -420,7 +448,11 @@ export const kalakritiCompetitionMutators = {
   createVenue: defineMutator(
     kalakritiVenueCreateSchema,
     async ({ tx, ctx, args }) => {
-      await lockCompetitionEdition(tx, ctx, args.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        args.editionId
+      );
       const normalized = normalizeKalakritiConfigurationName(args.name);
       await tx.mutate.kalakritiVenue.insert({
         createdAt: args.now,
@@ -452,7 +484,11 @@ export const kalakritiCompetitionMutators = {
       if (!category) {
         throw new Error("Competition Category not found");
       }
-      await lockCompetitionEdition(tx, ctx, category.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        category.editionId
+      );
       const [competition, assignment] = await Promise.all([
         tx.run(
           zql.kalakritiCompetition
@@ -491,7 +527,11 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      await lockCompetitionEdition(tx, ctx, competition.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        competition.editionId
+      );
       const [session, assignment] = await Promise.all([
         tx.run(
           zql.kalakritiCompetitionSession
@@ -526,7 +566,11 @@ export const kalakritiCompetitionMutators = {
       if (!session) {
         throw new Error("Competition Session not found");
       }
-      await lockCompetitionEdition(tx, ctx, session.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        session.editionId
+      );
       await tx.mutate.kalakritiCompetitionSession.delete({ id: session.id });
       await insertAudit(tx, ctx, {
         action: "deleted",
@@ -547,7 +591,11 @@ export const kalakritiCompetitionMutators = {
       if (!venue) {
         throw new Error("Venue not found");
       }
-      await lockCompetitionEdition(tx, ctx, venue.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        venue.editionId
+      );
       const session = await tx.run(
         zql.kalakritiCompetitionSession.where("venueId", venue.id).one()
       );
@@ -575,7 +623,11 @@ export const kalakritiCompetitionMutators = {
       if (!category) {
         throw new Error("Competition Category not found");
       }
-      await lockCompetitionEdition(tx, ctx, category.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        category.editionId
+      );
       await tx.mutate.kalakritiCompetitionCategory.update({
         id: category.id,
         retiredAt: args.enabled ? args.now : null,
@@ -625,7 +677,11 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      await lockCompetitionEdition(tx, ctx, competition.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        competition.editionId
+      );
       await tx.mutate.kalakritiCompetition.update({
         id: competition.id,
         retiredAt: args.enabled ? args.now : null,
@@ -685,7 +741,11 @@ export const kalakritiCompetitionMutators = {
       if (!venue) {
         throw new Error("Venue not found");
       }
-      await lockCompetitionEdition(tx, ctx, venue.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        venue.editionId
+      );
       await tx.mutate.kalakritiVenue.update({
         id: venue.id,
         retiredAt: args.enabled ? args.now : null,
@@ -710,7 +770,11 @@ export const kalakritiCompetitionMutators = {
       if (!category) {
         throw new Error("Competition Category not found");
       }
-      await lockCompetitionEdition(tx, ctx, category.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        category.editionId
+      );
       const normalized = normalizeKalakritiConfigurationName(args.name);
       await tx.mutate.kalakritiCompetitionCategory.update({
         id: category.id,
@@ -739,7 +803,11 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      await lockCompetitionEdition(tx, ctx, competition.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        competition.editionId
+      );
       const category = await getCategory(tx, args.competitionCategoryId);
       requireSameEdition(
         category,
@@ -782,6 +850,16 @@ export const kalakritiCompetitionMutators = {
         throw new Error("Competition Session not found");
       }
       const edition = await lockCompetitionEdition(tx, ctx, session.editionId);
+      if (
+        edition.lifecycle === "registration_locked" &&
+        (args.competitionId !== session.competitionId ||
+          args.ageCategoryId !== session.ageCategoryId ||
+          args.capacity !== session.capacity)
+      ) {
+        throw new Error(
+          "Only Session time and Venue can be changed after registration is locked"
+        );
+      }
       await validateSessionValues(tx, edition, args);
       await tx.mutate.kalakritiCompetitionSession.update({
         ageCategoryId: args.ageCategoryId,
@@ -812,7 +890,11 @@ export const kalakritiCompetitionMutators = {
       if (!venue) {
         throw new Error("Venue not found");
       }
-      await lockCompetitionEdition(tx, ctx, venue.editionId);
+      await lockStructurallyConfigurableCompetitionEdition(
+        tx,
+        ctx,
+        venue.editionId
+      );
       const normalized = normalizeKalakritiConfigurationName(args.name);
       await tx.mutate.kalakritiVenue.update({
         id: venue.id,
