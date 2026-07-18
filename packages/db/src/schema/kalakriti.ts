@@ -85,6 +85,9 @@ export const kalakritiEdition = pgTable(
   (table) => [
     uniqueIndex("kalakriti_edition_year_uidx").on(table.year),
     uniqueIndex("kalakriti_edition_teamEventId_uidx").on(table.teamEventId),
+    uniqueIndex("kalakriti_edition_single_live_uidx")
+      .on(table.lifecycle)
+      .where(sql`${table.lifecycle} = 'live'`),
     check(
       "kalakriti_edition_year_chk",
       sql`${table.year} BETWEEN 2000 AND 2200`
