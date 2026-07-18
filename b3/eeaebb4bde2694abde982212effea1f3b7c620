@@ -1,0 +1,26 @@
+apps/web/src/components/kalakriti/student-table.tsx
+  s_c8c0ce2f824e4f::t_01241481793399 93-105,107-124,126-145,147-164,166-185,187-209
+  s_c8c0ce2f824e4f::t_a857f9b81cbc57 210
+apps/web/src/routes/_app/kalakriti/$year/students.tsx
+  s_c8c0ce2f824e4f::t_6642e2dd1bb965 70-73,189-194
+  s_c8c0ce2f824e4f::t_cc3b2dbff15b2f 44-46,48,53,109-111
+  s_c8c0ce2f824e4f::t_01241481793399 103,113,118-122,163
+  s_c8c0ce2f824e4f::t_9c3bba6cb62c7b 13,107-108
+  s_c8c0ce2f824e4f::t_06f001ddba2d86 39-42,49-52,54-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b3eeaebb4bde2694abde982212effea1f3b7c620",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
