@@ -19,6 +19,36 @@ async function openNotificationSettings(page: import("@playwright/test").Page) {
 }
 
 test.describe("Notification preferences settings", () => {
+  test("shows Kalakriti Registration and Schedule with only supported channels", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name === "unoriented_volunteer",
+      "This role does not have Kalakriti access"
+    );
+    const dialog = await openNotificationSettings(page);
+
+    await expect(dialog.getByText("Kalakriti", { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Registration in-app" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Registration WhatsApp" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Schedule in-app" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Schedule WhatsApp" })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Registration email" })
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByRole("switch", { name: "Kalakriti Schedule email" })
+    ).toHaveCount(0);
+  });
+
   test("shows notification topic toggles with in-app, email, and WhatsApp switches", async ({
     page,
   }) => {

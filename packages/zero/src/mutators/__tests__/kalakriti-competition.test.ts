@@ -324,6 +324,10 @@ describe("kalakritiCompetition commands", () => {
     const nextVenue = { ...venue, id: "venue-2", name: "Second Hall" };
     const nextStartAt = Date.parse("2027-11-21T06:30:00.000Z");
     const nextEndAt = Date.parse("2027-11-21T07:30:00.000Z");
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
     const { lockedResults, spies, tx } = createTx([
       session,
       [],
@@ -331,6 +335,7 @@ describe("kalakritiCompetition commands", () => {
       { editionId: edition.id, id: "age-1" },
       nextVenue,
       [],
+      [{ centerId: "center-1" }, { centerId: "center-1" }],
     ]);
     lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
 
@@ -344,7 +349,7 @@ describe("kalakritiCompetition commands", () => {
         startAt: nextStartAt,
         venueId: nextVenue.id,
       },
-      ctx: adminContext,
+      ctx: { ...adminContext, asyncTasks },
       tx,
     } as unknown as Parameters<
       typeof kalakritiCompetitionMutators.updateSession.fn
@@ -367,10 +372,19 @@ describe("kalakritiCompetition commands", () => {
         targetType: "competition_session",
       })
     );
+    expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.meta).toEqual(
+      expect.objectContaining({
+        centerIds: ["center-1"],
+        competitionIds: [competition.id],
+        editionId: edition.id,
+        revision: "audit-1",
+      })
+    );
   });
 
   it("allows Competition cancellation after registration is locked", async () => {
-    const { lockedResults, spies, tx } = createTx([competition]);
+    const { lockedResults, spies, tx } = createTx([competition, []]);
     lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
 
     await kalakritiCompetitionMutators.setCompetitionCancelled.fn({
@@ -504,6 +518,7 @@ describe("kalakritiCompetition commands", () => {
           venueId: venue.id,
         },
       ],
+      [],
     ]);
     lockedResults.push([edition]);
 

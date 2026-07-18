@@ -536,6 +536,82 @@ describe("Kalakriti Edition registration readiness", () => {
     }
   );
 
+  it("enqueues lifecycle delivery and a separate deterministic close reminder after opening", async () => {
+    const currentEdition = {
+      eventDate: "2028-11-19",
+      id: "edition-1",
+      lifecycle: "draft",
+      timezone: "Asia/Kolkata",
+    };
+    const select = vi.fn(() => {
+      const query = {
+        for: vi.fn(async () => [currentEdition]),
+        from: vi.fn(),
+        where: vi.fn(),
+      };
+      query.from.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      return query;
+    });
+    const results = [
+      {
+        ...readySnapshot.edition,
+        id: currentEdition.id,
+        lifecycle: currentEdition.lifecycle,
+        timezone: currentEdition.timezone,
+      },
+      readySnapshot.centers,
+      readySnapshot.ageCategories,
+      readySnapshot.quotas,
+      readySnapshot.competitionCategories,
+      readySnapshot.competitions,
+      readySnapshot.sessions,
+      readySnapshot.venues,
+    ];
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+    const tx = {
+      dbTransaction: { wrappedTransaction: { select } },
+      location: "server" as const,
+      mutate: {
+        kalakritiAuditEntry: { insert: vi.fn() },
+        kalakritiEdition: { update: vi.fn() },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+    const args = {
+      auditEntryId: "transition-1",
+      confirmed: true as const,
+      editionId: currentEdition.id,
+      now: 1,
+      targetLifecycle: "registration_open" as const,
+    };
+
+    await kalakritiEditionMutators.transition.fn({
+      args,
+      ctx: { ...adminContext, asyncTasks, traceId: "trace-1" },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.transition.fn
+    >[0]);
+
+    expect(asyncTasks).toHaveLength(2);
+    expect(asyncTasks.map(({ meta }) => meta)).toEqual([
+      expect.objectContaining({
+        editionId: currentEdition.id,
+        targetLifecycle: "registration_open",
+        transitionId: args.auditEntryId,
+      }),
+      expect.objectContaining({
+        editionId: currentEdition.id,
+        plannedRegistrationCloseAt:
+          readySnapshot.edition.plannedRegistrationCloseAt,
+      }),
+    ]);
+  });
+
   it("clones only active structural Competition configuration", async () => {
     const edition = {
       eventDate: "2028-11-19",
