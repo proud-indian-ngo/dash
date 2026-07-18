@@ -1,0 +1,43 @@
+packages/e2e/helpers/kalakriti-release-races.ts
+  s_c8c0ce2f824e4f::t_8dc97b9ea067da 17,255-260
+packages/e2e/playwright.config.ts
+  s_c8c0ce2f824e4f::t_b709e4efeb3ecd 80,83-91
+  s_c8c0ce2f824e4f::t_157ce0c2805a99 92
+docs/architecture/e2e-testing.md
+  s_c8c0ce2f824e4f::t_b709e4efeb3ecd 29,33
+  s_c8c0ce2f824e4f::t_06cd103316e5d8 10,15
+project-structure.md
+  s_c8c0ce2f824e4f::t_248687dd3d255a 314-315
+packages/e2e/tests/kalakriti/release-database-races.spec.ts
+  s_c8c0ce2f824e4f::t_b709e4efeb3ecd 25,50
+README.md
+  s_c8c0ce2f824e4f::t_06cd103316e5d8 87
+  s_c8c0ce2f824e4f::t_248687dd3d255a 293,297-298
+packages/e2e/helpers/kalakriti-release-fixture.ts
+  s_c8c0ce2f824e4f::t_cc8a2d88f2117e 2-5,7,64-65,94,100-124,187,192-197,199
+packages/e2e/tests/kalakriti/public-schedule.spec.ts
+  s_c8c0ce2f824e4f::t_b709e4efeb3ecd 29
+apps/web/src/lib/kalakriti-registration-release-surface.test.ts
+  s_c8c0ce2f824e4f::t_8dc97b9ea067da 7-26,28-38,74-96,99-143
+  s_c8c0ce2f824e4f::t_ea0d162c10a9e0 27
+  s_c8c0ce2f824e4f::t_dc3ceef0a99945 73,98
+packages/e2e/fixtures/kalakriti-actors.ts
+  s_c8c0ce2f824e4f::t_b709e4efeb3ecd 4-15,18-29,33-44,48-54,56,60-61,63-65,67,71-82,86-97,101-112
+  s_c8c0ce2f824e4f::t_dc3ceef0a99945 55,62,66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0823436d64162f8f423725d791c77a7b522577c4",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
