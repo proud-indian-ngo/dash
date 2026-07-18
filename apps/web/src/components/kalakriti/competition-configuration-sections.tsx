@@ -33,6 +33,7 @@ export interface ConfigurationDeletePayload {
 }
 
 export interface ConfigurationStatePayload {
+  action: "Cancel" | "Restore" | "Retire";
   enabled: boolean;
   id: string;
   kind:
@@ -58,6 +59,7 @@ function ActionButtons({
   const handleEdit = useEventCallback(() => onEdit(category));
   const handleRetire = useEventCallback(() =>
     onSetState({
+      action: category.retiredAt === null ? "Retire" : "Restore",
       enabled: category.retiredAt === null,
       id: category.id,
       kind: "category_retired",
@@ -117,6 +119,7 @@ function CompetitionRow({
   const handleEdit = useEventCallback(() => onEdit(competition));
   const handleCancel = useEventCallback(() =>
     onSetState({
+      action: competition.cancelledAt === null ? "Cancel" : "Restore",
       enabled: competition.cancelledAt === null,
       id: competition.id,
       kind: "competition_cancelled",
@@ -125,6 +128,7 @@ function CompetitionRow({
   );
   const handleRetire = useEventCallback(() =>
     onSetState({
+      action: competition.retiredAt === null ? "Retire" : "Restore",
       enabled: competition.retiredAt === null,
       id: competition.id,
       kind: "competition_retired",
@@ -389,6 +393,7 @@ function VenueCard({
   const handleEdit = useEventCallback(() => onEdit(venue));
   const handleRetire = useEventCallback(() =>
     onSetState({
+      action: venue.retiredAt === null ? "Retire" : "Restore",
       enabled: venue.retiredAt === null,
       id: venue.id,
       kind: "venue_retired",
@@ -540,6 +545,7 @@ function SessionRow({
   const handleEdit = useEventCallback(() => onEdit(session));
   const handleCancel = useEventCallback(() =>
     onSetState({
+      action: session.cancelledAt === null ? "Cancel" : "Restore",
       enabled: session.cancelledAt === null,
       id: session.id,
       kind: "session_cancelled",

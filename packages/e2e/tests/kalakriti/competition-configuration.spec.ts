@@ -90,13 +90,50 @@ test("keeps a Competition Category Lead read-only", async ({
     await competitions.goto(year);
     await waitForZeroReady(page);
     await expect(
-      page.getByText("Performing Arts", { exact: true })
+      page.getByLabel("Performing Arts Competition Category", { exact: true })
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Add Competition" })
+      page.getByLabel("Solo Dance Competition", { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Main Stage Venue", { exact: true })
+    ).toBeVisible();
+    await expect(competitions.session("Solo Dance", "Junior")).toBeVisible();
+
+    await expect(
+      page.getByLabel("Visual Arts Competition Category", { exact: true })
     ).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Add Venue" })).toHaveCount(
+    await expect(
+      page.getByLabel("Solo Painting Competition", { exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByLabel("Art Hall Venue", { exact: true })
+    ).toHaveCount(0);
+    await expect(competitions.session("Solo Painting", "Junior")).toHaveCount(
       0
+    );
+
+    await Promise.all(
+      [
+        "Add Category",
+        "Add Competition",
+        "Add Venue",
+        "Add Session",
+        "Edit Solo Dance Competition",
+        "Cancel Solo Dance Competition",
+        "Retire Solo Dance Competition",
+        "Delete Solo Dance Competition",
+        "Edit Main Stage Venue",
+        "Retire Main Stage Venue",
+        "Delete Main Stage Venue",
+        "Edit Solo Dance, Junior Session",
+        "Cancel Solo Dance, Junior Session",
+        "Delete Solo Dance, Junior Session",
+      ].map((action) =>
+        expect(
+          page.getByRole("button", { exact: true, name: action })
+        ).toHaveCount(0)
+      )
     );
   } finally {
     await fixture("cleanup", "volunteer");

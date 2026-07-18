@@ -21,6 +21,25 @@ describe("kalakritiEligibility queries", () => {
     expect(ast).toContain('"value":"edition-admin-1"');
   });
 
+  it("scopes Category Lead Age Categories through assigned Category Sessions", () => {
+    const ast = queryAst(
+      kalakritiEligibilityQueries.ageCategories.fn({
+        args: { editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "category-lead-1",
+        },
+      })
+    );
+    expect(ast).toContain('"name":"lifecycle"');
+    expect(ast).toContain('"value":"archived"');
+    expect(ast).toContain('"table":"kalakritiCompetitionSession"');
+    expect(ast).toContain('"table":"kalakritiCompetitionCategory"');
+    expect(ast).toContain('"value":"competition_category_lead"');
+    expect(ast).toContain('"value":"category-lead-1"');
+  });
+
   it("returns a never-match query without Kalakriti access", () => {
     const ast = queryAst(
       kalakritiEligibilityQueries.quotas.fn({

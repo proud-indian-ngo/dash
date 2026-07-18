@@ -39,6 +39,9 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
   beforeLoad: ({ context }) => {
     const access = context.kalakritiEditionAccess;
+    if (access.edition.lifecycle === "archived" && !access.isGlobalAdmin) {
+      throw notFound();
+    }
     const canView =
       access.isGlobalAdmin ||
       access.membership?.responsibilities.some(
@@ -410,13 +413,13 @@ function KalakritiCompetitionsPage() {
         title="Delete configuration?"
       />
       <ConfirmDialog
-        confirmLabel="Confirm change"
-        description={`Change the state of ${stateAction.payload?.name ?? "this configuration"}?`}
+        confirmLabel={`Confirm ${(stateAction.payload?.action ?? "change").toLowerCase()}`}
+        description={`This will ${(stateAction.payload?.action ?? "change").toLowerCase()} ${stateAction.payload?.name ?? "this configuration"}.`}
         loading={stateAction.isLoading}
         onConfirm={stateAction.confirm}
         onOpenChange={closeStateDialog}
         open={stateAction.isOpen}
-        title="Change configuration state?"
+        title={`${stateAction.payload?.action ?? "Change"} ${stateAction.payload?.name ?? "configuration"}?`}
       />
     </div>
   );

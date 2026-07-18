@@ -1,5 +1,9 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
+import {
+  KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
+  KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
+  KALAKRITI_RESPONSIBILITY_LABELS,
+} from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -16,9 +20,8 @@ import type { PickerUser } from "@/functions/users-for-picker";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const scopedResponsibilities = [
-  "competition_category_lead",
-  "competition_coordinator",
-  "competition_volunteer",
+  ...KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
+  ...KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
 ] as const;
 type ScopedResponsibility = (typeof scopedResponsibilities)[number];
 
