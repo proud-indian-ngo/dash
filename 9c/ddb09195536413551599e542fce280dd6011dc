@@ -1,0 +1,57 @@
+packages/zero/src/mutators/__tests__/kalakriti-edition.test.ts
+  s_c8c0ce2f824e4f::t_a7d3278ce10d24 8,51,66,211-219,221-283,285-300,304-320,322-335
+  s_c8c0ce2f824e4f::t_56878f90d31e6d 220,284,301-303,321
+  s_c8c0ce2f824e4f::t_59ccf9561a8653 336-337
+packages/zero/src/mutators/kalakriti-edition.ts
+  s_c8c0ce2f824e4f::t_b7b9fc9f9eae32 30,48-58,83-89,91-105,490
+  s_c8c0ce2f824e4f::t_56878f90d31e6d 90,624-688
+  s_c8c0ce2f824e4f::t_4a8fc7d14486f5 689-690
+apps/web/src/lib/kalakriti-edition-metadata.test.ts
+  s_c8c0ce2f824e4f::t_7d43c5214581c8 13
+  s_c8c0ce2f824e4f::t_72ec32fc4d26cb 1-12,14-25
+apps/web/src/lib/kalakriti-edition-metadata.ts
+  s_c8c0ce2f824e4f::t_09fd664b92cda2 1-52,54-71
+  s_c8c0ce2f824e4f::t_482bcc92941d23 53
+apps/web/src/routes/_app/kalakriti/$year/index.tsx
+  s_c8c0ce2f824e4f::t_cb1a13172e3c0e 13,59-61,66-69
+  s_c8c0ce2f824e4f::t_482bcc92941d23 65
+packages/e2e/helpers/kalakriti-edition-creation.ts
+  s_c8c0ce2f824e4f::t_72ec32fc4d26cb 22-31
+  s_c8c0ce2f824e4f::t_7d43c5214581c8 37-38,40,42,45-46
+packages/e2e/tests/kalakriti/edition-creation.spec.ts
+  s_c8c0ce2f824e4f::t_72ec32fc4d26cb 21,34-37,39-40,42,44,47,52-56,58-59
+apps/web/src/components/form/date-field.tsx
+  s_c8c0ce2f824e4f::t_a2c3b2f4d8e54f 77-78,81
+  s_c8c0ce2f824e4f::t_78a477d5fed0ab 63,72,80,84
+  s_c8c0ce2f824e4f::t_ac6f8c99fe255e 79
+apps/web/src/lib/kalakriti-registration-release-surface.test.ts
+  s_c8c0ce2f824e4f::t_a8f6a0bf0c83ef 132
+packages/e2e/pages/kalakriti-edition-page.ts
+  s_c8c0ce2f824e4f::t_72ec32fc4d26cb 66-72,76-90,92-94
+  s_c8c0ce2f824e4f::t_7d43c5214581c8 91
+  s_c8c0ce2f824e4f::t_131c5ad478c896 73-75
+apps/web/src/routes/_app/kalakriti/new.tsx
+  s_c8c0ce2f824e4f::t_482bcc92941d23 33-34
+  s_c8c0ce2f824e4f::t_09fd664b92cda2 16-22,28,32,35
+apps/web/src/components/kalakriti/edition-metadata-dialog.tsx
+  s_c8c0ce2f824e4f::t_482bcc92941d23 30
+  s_c8c0ce2f824e4f::t_cb1a13172e3c0e 1-29,31-159,161-163,165-185
+  s_c8c0ce2f824e4f::t_689fdaf5898461 160
+  s_c8c0ce2f824e4f::t_40f8a0643d8d45 164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9cddb09195536413551599e542fce280dd6011dc",
+  "prompts": {},
+  "sessions": {
+    "s_c8c0ce2f824e4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6fd5-f7b0-7d22-9e6a-fdb4a1c9a732",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Somasundaram Ayyappan <1802828+somus@users.noreply.github.com>"
+    }
+  }
+}
