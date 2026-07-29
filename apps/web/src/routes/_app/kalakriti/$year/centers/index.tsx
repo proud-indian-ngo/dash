@@ -20,19 +20,26 @@ export const Route = createFileRoute("/_app/kalakriti/$year/centers/")({
   component: KalakritiCentersPage,
 });
 
+const CENTER_STRUCTURE_LOCKED_LIFECYCLES = new Set([
+  "archived",
+  "live",
+  "registration_locked",
+]);
+const CENTER_CONTROLS_LOCKED_LIFECYCLES = new Set(["archived", "live"]);
+
 function getEmptyStateDescription({
   canConfigureCenters,
   canManageCenters,
-  centerConfigurationLocked,
+  centerStructureLocked,
 }: {
   canConfigureCenters: boolean;
   canManageCenters: boolean;
-  centerConfigurationLocked: boolean;
+  centerStructureLocked: boolean;
 }) {
   if (canConfigureCenters) {
     return "Add the first Center for this Edition.";
   }
-  if (canManageCenters && centerConfigurationLocked) {
+  if (canManageCenters && centerStructureLocked) {
     return "Center configuration is locked for this Edition.";
   }
   return "You have not been assigned to a Center.";
@@ -50,9 +57,15 @@ function KalakritiCentersPage() {
   const canManageGuardians = canManageCenters;
   const canManageLiaisons =
     canManageCenters || responsibilities.has("volunteer_coordinator");
-  const centerConfigurationLocked =
-    edition.lifecycle === "live" || edition.lifecycle === "archived";
-  const canConfigureCenters = canManageCenters && !centerConfigurationLocked;
+  const centerStructureLocked = CENTER_STRUCTURE_LOCKED_LIFECYCLES.has(
+    edition.lifecycle
+  );
+  const registrationControlsLocked = CENTER_CONTROLS_LOCKED_LIFECYCLES.has(
+    edition.lifecycle
+  );
+  const canConfigureCenters = canManageCenters && !centerStructureLocked;
+  const canManageRegistrationControls =
+    canManageCenters && !registrationControlsLocked;
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
@@ -185,22 +198,27 @@ function KalakritiCentersPage() {
   const emptyStateDescription = getEmptyStateDescription({
     canConfigureCenters,
     canManageCenters,
-    centerConfigurationLocked,
+    centerStructureLocked,
   });
-  const toolbarActions = canConfigureCenters ? (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        disabled={!hasOpenRegistration}
-        onClick={lockAllAction.trigger}
-        variant="outline"
-      >
-        {hasOpenRegistration
-          ? "Lock all registrations"
-          : "All registrations locked"}
-      </Button>
-      <Button onClick={handleCreate}>Add Center</Button>
-    </div>
-  ) : null;
+  const toolbarActions =
+    canConfigureCenters || canManageRegistrationControls ? (
+      <div className="flex flex-wrap gap-2">
+        {canManageRegistrationControls ? (
+          <Button
+            disabled={!hasOpenRegistration}
+            onClick={lockAllAction.trigger}
+            variant="outline"
+          >
+            {hasOpenRegistration
+              ? "Lock all registrations"
+              : "All registrations locked"}
+          </Button>
+        ) : null}
+        {canConfigureCenters ? (
+          <Button onClick={handleCreate}>Add Center</Button>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -212,16 +230,17 @@ function KalakritiCentersPage() {
         </p>
       </div>
 
-      {canManageCenters && centerConfigurationLocked ? (
+      {canManageCenters && centerStructureLocked ? (
         <p className="text-muted-foreground text-sm">
-          Center configuration is locked while this Edition is{" "}
-          {edition.lifecycle}. Guardian and Liaison assignments remain
-          available.
+          Center structure is locked while this Edition is {edition.lifecycle}.
+          Assignments remain available; registration controls remain available
+          until the Edition goes live.
         </p>
       ) : null}
 
       <CentersTable
         canConfigureCenters={canConfigureCenters}
+        canManageRegistrationControls={canManageRegistrationControls}
         data={centerRows}
         emptyMessage={`No Centers available. ${emptyStateDescription}`}
         isLoading={isLoading}

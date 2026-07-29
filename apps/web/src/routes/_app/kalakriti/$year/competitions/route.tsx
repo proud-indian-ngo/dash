@@ -23,15 +23,19 @@ export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
       access.isGlobalAdmin ||
       responsibilities.includes("edition_admin") ||
       responsibilities.includes("overall_events_lead");
-    const configurationLocked =
+    const fullyLocked =
       access.edition.lifecycle === "live" ||
       access.edition.lifecycle === "archived";
+    const structuralLocked =
+      access.edition.lifecycle === "registration_locked" || fullyLocked;
 
     return {
       kalakritiCompetitionAccess: {
         actorCanManage,
-        canManage: actorCanManage && !configurationLocked,
-        configurationLocked,
+        canManage: actorCanManage && !structuralLocked,
+        canManageCancellations: actorCanManage && !fullyLocked,
+        configurationLocked: structuralLocked,
+        structuralLocked,
       },
     };
   },

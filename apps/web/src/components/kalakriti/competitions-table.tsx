@@ -30,14 +30,16 @@ const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
 function RowActions({
-  canManage,
+  canManageCancellations,
+  canManageStructure,
   competition,
   onDelete,
   onEdit,
   onSetState,
   onView,
 }: {
-  canManage: boolean;
+  canManageCancellations: boolean;
+  canManageStructure: boolean;
   competition: CompetitionTableRow;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (competition: CompetitionTableRow) => void;
@@ -98,23 +100,31 @@ function RowActions({
       />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canManage ? (
+        {canManageCancellations || canManageStructure ? (
           <>
-            <DropdownMenuItem onClick={handleEdit}>
-              Edit Competition
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleCancel}>
-              {competition.cancelledAt === null ? "Cancel" : "Restore"}{" "}
-              Competition
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleRetire}>
-              {competition.retiredAt === null ? "Retire" : "Restore"}{" "}
-              Competition
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete Competition
-            </DropdownMenuItem>
+            {canManageStructure ? (
+              <DropdownMenuItem onClick={handleEdit}>
+                Edit Competition
+              </DropdownMenuItem>
+            ) : null}
+            {canManageCancellations ? (
+              <DropdownMenuItem onClick={handleCancel}>
+                {competition.cancelledAt === null ? "Cancel" : "Restore"}{" "}
+                Competition
+              </DropdownMenuItem>
+            ) : null}
+            {canManageStructure ? (
+              <>
+                <DropdownMenuItem onClick={handleRetire}>
+                  {competition.retiredAt === null ? "Retire" : "Restore"}{" "}
+                  Competition
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDelete} variant="destructive">
+                  Delete Competition
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </>
         ) : null}
       </DropdownMenuContent>
@@ -143,7 +153,8 @@ function searchCompetition(
 }
 
 export function CompetitionsTable({
-  canManage,
+  canManageCancellations,
+  canManageStructure,
   data,
   isLoading,
   onDelete,
@@ -152,7 +163,8 @@ export function CompetitionsTable({
   onView,
   toolbarActions,
 }: {
-  canManage: boolean;
+  canManageCancellations: boolean;
+  canManageStructure: boolean;
   data: CompetitionTableRow[];
   isLoading: boolean;
   onDelete: (payload: ConfigurationDeletePayload) => void;
@@ -271,7 +283,8 @@ export function CompetitionsTable({
     {
       cell: ({ row }) => (
         <RowActions
-          canManage={canManage}
+          canManageCancellations={canManageCancellations}
+          canManageStructure={canManageStructure}
           competition={row.original}
           onDelete={onDelete}
           onEdit={onEdit}

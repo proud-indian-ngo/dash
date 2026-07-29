@@ -45,6 +45,7 @@ function RegistrationStatus({ enabled }: { enabled: boolean }) {
 
 function RowActions({
   canConfigureCenters,
+  canManageRegistrationControls,
   center,
   onDelete,
   onEdit,
@@ -53,6 +54,7 @@ function RowActions({
   onView,
 }: {
   canConfigureCenters: boolean;
+  canManageRegistrationControls: boolean;
   center: CenterTableRow;
   onDelete: (center: CenterListItem) => void;
   onEdit: (center: CenterListItem) => void;
@@ -95,23 +97,33 @@ function RowActions({
       />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canConfigureCenters ? (
+        {canConfigureCenters || canManageRegistrationControls ? (
           <>
             <DropdownMenuSeparator />
             {isRetired ? null : (
               <>
-                <DropdownMenuItem onClick={handleRegistrationControls}>
-                  Registration controls
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleRetire}>
-                  Retire
-                </DropdownMenuItem>
+                {canManageRegistrationControls ? (
+                  <DropdownMenuItem onClick={handleRegistrationControls}>
+                    Registration controls
+                  </DropdownMenuItem>
+                ) : null}
+                {canConfigureCenters ? (
+                  <>
+                    <DropdownMenuItem onClick={handleEdit}>
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleRetire}>
+                      Retire
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </>
             )}
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete
-            </DropdownMenuItem>
+            {canConfigureCenters ? (
+              <DropdownMenuItem onClick={handleDelete} variant="destructive">
+                Delete
+              </DropdownMenuItem>
+            ) : null}
           </>
         ) : null}
       </DropdownMenuContent>
@@ -130,6 +142,7 @@ function searchCenter(row: CenterTableRow, query: string): boolean {
 
 export function CentersTable({
   canConfigureCenters,
+  canManageRegistrationControls,
   data,
   emptyMessage,
   isLoading,
@@ -141,6 +154,7 @@ export function CentersTable({
   toolbarActions,
 }: {
   canConfigureCenters: boolean;
+  canManageRegistrationControls: boolean;
   data: CenterTableRow[];
   emptyMessage: string;
   isLoading: boolean;
@@ -261,6 +275,7 @@ export function CentersTable({
       cell: ({ row }) => (
         <RowActions
           canConfigureCenters={canConfigureCenters}
+          canManageRegistrationControls={canManageRegistrationControls}
           center={row.original}
           onDelete={onDelete}
           onEdit={onEdit}

@@ -13,6 +13,7 @@ import {
 
 interface ConfirmDialogProps {
   cancelLabel?: string;
+  confirmDisabled?: boolean;
   confirmLabel: string;
   description: ReactNode;
   loading?: boolean;
@@ -26,6 +27,7 @@ interface ConfirmDialogProps {
 
 export function ConfirmDialog({
   cancelLabel = "Cancel",
+  confirmDisabled = false,
   confirmLabel,
   description,
   loading = false,
@@ -52,7 +54,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={loading}
+            disabled={loading || confirmDisabled}
             onClick={onConfirm}
             variant={variant}
           >

@@ -24,6 +24,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export function CompetitionSessionDetailSheet({
+  canDelete,
   canManage,
   onDelete,
   onEdit,
@@ -33,6 +34,7 @@ export function CompetitionSessionDetailSheet({
   session,
   timeZone,
 }: {
+  canDelete: boolean;
   canManage: boolean;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (session: ScheduleTableRow) => void;
@@ -114,15 +116,21 @@ export function CompetitionSessionDetailSheet({
             </div>
           </div>
 
-          {canManage ? (
+          {canManage || canDelete ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
-              <Button onClick={handleEdit}>Edit Session</Button>
-              <Button onClick={handleCancel} variant="outline">
-                {session.cancelledAt === null ? "Cancel" : "Restore"}
-              </Button>
-              <Button onClick={handleDelete} variant="destructive">
-                Delete
-              </Button>
+              {canManage ? (
+                <>
+                  <Button onClick={handleEdit}>Edit Session</Button>
+                  <Button onClick={handleCancel} variant="outline">
+                    {session.cancelledAt === null ? "Cancel" : "Restore"}
+                  </Button>
+                </>
+              ) : null}
+              {canDelete ? (
+                <Button onClick={handleDelete} variant="destructive">
+                  Delete
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>

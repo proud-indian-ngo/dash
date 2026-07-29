@@ -33,7 +33,12 @@ export const Route = createFileRoute(
 function CompetitionSchedulePage() {
   const zero = useZero();
   const {
-    kalakritiCompetitionAccess: { actorCanManage, canManage },
+    kalakritiCompetitionAccess: {
+      actorCanManage,
+      canManage,
+      canManageCancellations,
+      structuralLocked,
+    },
     kalakritiEditionAccess: { edition },
   } = Route.useRouteContext();
   const [sessions, sessionResult] = useQuery(
@@ -199,7 +204,8 @@ function CompetitionSchedulePage() {
       </div>
 
       <CompetitionSessionsTable
-        canManage={canManage}
+        canDelete={canManage}
+        canManage={canManageCancellations}
         data={rows}
         isLoading={isLoading}
         onDelete={handleDelete}
@@ -222,7 +228,8 @@ function CompetitionSchedulePage() {
       />
 
       <CompetitionSessionDetailSheet
-        canManage={canManage}
+        canDelete={canManage}
+        canManage={canManageCancellations}
         onDelete={handleDelete}
         onEdit={handleEdit}
         onOpenChange={handleSheetChange}
@@ -240,6 +247,7 @@ function CompetitionSchedulePage() {
         open={sessionDialogOpen}
         session={editingSession}
         sessions={sessionViews}
+        structuralLocked={structuralLocked}
         timeZone={edition.timezone}
         venues={dialogOptions.venues}
       />

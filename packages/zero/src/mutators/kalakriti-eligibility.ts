@@ -9,7 +9,7 @@ import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
 import {
   assertCanManageKalakritiConfiguration,
-  assertKalakritiEditionConfigurable,
+  assertKalakritiEditionStructurallyConfigurable,
 } from "./kalakriti-config-access";
 import {
   getAgeCategoryForUpdate,
@@ -85,7 +85,7 @@ async function lockConfigurableEdition(
     throw new Error("Edition not found");
   }
   await assertCanManageKalakritiConfiguration(tx, ctx, editionId);
-  assertKalakritiEditionConfigurable(edition.lifecycle);
+  assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
   assertIsLoggedIn(ctx);
   return edition;
 }
