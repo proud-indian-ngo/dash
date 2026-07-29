@@ -50,7 +50,7 @@ function EntryRowActions({
         render={
           <Button
             aria-label={`Actions for ${studentName}`}
-            className="size-7"
+            className="mx-auto size-7"
             data-testid="row-actions"
             size="icon"
             type="button"
@@ -77,6 +77,8 @@ interface EntryTableProps {
   canRegister: boolean;
   canRemove: boolean;
   data: KalakritiEntryRow[];
+  emptyMessage?: string;
+  hideCompetition?: boolean;
   isLoading: boolean;
   onRegister: () => void;
   onRemove: (entry: KalakritiEntryRow) => void;
@@ -90,6 +92,8 @@ export function EntryTable({
   canRegister,
   canRemove,
   data,
+  emptyMessage = "No Competition Entries have been registered for this Center.",
+  hideCompetition = false,
   isLoading,
   onRegister,
   onRemove,
@@ -137,25 +141,31 @@ export function EntryTable({
       },
       size: 210,
     },
-    {
-      accessorFn: (row) => row.session.competition.name,
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.session.competition.name}</span>
-      ),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Competition"
-          visibility={true}
-        />
-      ),
-      id: "competition",
-      meta: {
-        headerTitle: "Competition",
-        skeleton: <Skeleton className="h-5 w-32" />,
-      },
-      size: 190,
-    },
+    ...(hideCompetition
+      ? []
+      : [
+          {
+            accessorFn: (row) => row.session.competition.name,
+            cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
+              <span className="text-sm">
+                {row.original.session.competition.name}
+              </span>
+            ),
+            header: ({ column }) => (
+              <DataGridColumnHeader
+                column={column}
+                title="Competition"
+                visibility={true}
+              />
+            ),
+            id: "competition",
+            meta: {
+              headerTitle: "Competition",
+              skeleton: <Skeleton className="h-5 w-32" />,
+            },
+            size: 190,
+          } satisfies ColumnDef<KalakritiEntryRow>,
+        ]),
     {
       accessorFn: (row) => row.session.ageCategory.name,
       cell: ({ row }) => (
@@ -217,14 +227,19 @@ export function EntryTable({
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
               <EntryRowActions entry={row.original} onRemove={onRemove} />
             ),
+            enableColumnOrdering: false,
             enableHiding: false,
+            enableResizing: false,
+            enableSorting: false,
             header: () => null,
             id: "actions",
             meta: {
+              cellClassName: "text-center",
               headerTitle: "",
-              skeleton: <Skeleton className="size-7" />,
+              skeleton: <Skeleton className="mx-auto size-7" />,
+              stopRowClick: true,
             },
-            size: 48,
+            size: 52,
           } satisfies ColumnDef<KalakritiEntryRow>,
         ]
       : []),
@@ -234,7 +249,7 @@ export function EntryTable({
     <DataTableWrapper
       columns={columns}
       data={data}
-      emptyMessage="No Competition Entries have been registered for this Center."
+      emptyMessage={emptyMessage}
       getRowId={getEntryRowId}
       isLoading={isLoading}
       searchFn={searchEntries}

@@ -110,6 +110,36 @@ describe("Kalakriti navigation", () => {
     ).toEqual(["Dashboard", "Overview", "Centers", "Entries"]);
   });
 
+  it("adds active Sessions as nested Entry navigation", () => {
+    const entriesItem = buildKalakritiNavGroups({
+      canViewEntries: true,
+      entrySessions: [
+        {
+          id: "session-1",
+          title: "Solo Dance · Junior · All Students",
+        },
+        {
+          id: "session-2",
+          title: "Drawing · Senior · Female Students",
+        },
+      ],
+      year: 2026,
+    })
+      .flatMap((group) => group.items)
+      .find((item) => item.title === "Entries");
+
+    expect(entriesItem?.subItems).toEqual([
+      {
+        title: "Solo Dance · Junior · All Students",
+        url: "/kalakriti/2026/entries/session-1",
+      },
+      {
+        title: "Drawing · Senior · Female Students",
+        url: "/kalakriti/2026/entries/session-2",
+      },
+    ]);
+  });
+
   it("adds Competition configuration pages as nested navigation", () => {
     const competitionItem = buildKalakritiNavGroups({
       canViewCompetitions: true,

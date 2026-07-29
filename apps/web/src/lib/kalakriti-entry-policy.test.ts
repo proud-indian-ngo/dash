@@ -4,6 +4,7 @@ import {
   canRemoveKalakritiEntries,
   getEntryRegistrationAvailability,
   getIndividualEntryValidationError,
+  selectEligibleStudentsForSession,
   selectKalakritiEntryCenters,
 } from "./kalakriti-entry-policy";
 
@@ -166,6 +167,51 @@ describe("Kalakriti Entry policy", () => {
         },
       })
     ).toEqual([{ id: "center-2" }]);
+  });
+
+  it("selects only Students eligible for a Session", () => {
+    const session = {
+      ageCategory: { name: "Junior" },
+      ageCategoryId: "junior",
+      capacity: 5,
+      competition: {
+        category: { name: "Performing Arts" },
+        competitionCategoryId: "performing-arts",
+        genderEligibility: "female" as const,
+        participationMode: "individual" as const,
+      },
+      endAt: 200,
+      entries: [],
+      id: "session-1",
+      startAt: 100,
+    };
+    const studentDefaults = {
+      ageCategory: {
+        maxCompetitionsPerCategory: 2,
+        maxTotalCompetitions: 4,
+      },
+      ageCategoryId: "junior",
+      gender: "female" as const,
+    };
+    const eligible = { ...studentDefaults, id: "eligible" };
+    const wrongAgeCategory = {
+      ...studentDefaults,
+      ageCategoryId: "senior",
+      id: "wrong-age-category",
+    };
+    const wrongGender = {
+      ...studentDefaults,
+      gender: "male" as const,
+      id: "wrong-gender",
+    };
+
+    expect(
+      selectEligibleStudentsForSession({
+        entries: [],
+        session,
+        students: [eligible, wrongAgeCategory, wrongGender],
+      })
+    ).toEqual([eligible]);
   });
 
   it("distinguishes closed and incomplete registration states", () => {

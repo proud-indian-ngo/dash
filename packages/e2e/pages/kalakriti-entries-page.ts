@@ -12,7 +12,14 @@ export class KalakritiEntriesPage {
     await this.page.goto(`/kalakriti/${year}/entries`);
     await waitForZeroReady(this.page);
     await expect(
-      this.page.getByRole("heading", { name: "Competition Entries" })
+      this.page.getByRole("heading", { exact: true, name: "Entries" })
+    ).toBeVisible();
+    await this.page
+      .getByRole("link", { exact: true, name: "Solo Dance" })
+      .first()
+      .click();
+    await expect(
+      this.page.getByRole("heading", { name: "Solo Dance" })
     ).toBeVisible();
   }
 
@@ -29,12 +36,10 @@ export class KalakritiEntriesPage {
   }
 
   async fillEntry(dialog: Locator, studentName: string): Promise<void> {
-    await dialog.getByLabel("Student").click();
+    await dialog.getByLabel("Student").fill(studentName);
     await this.page
       .getByRole("option", { name: new RegExp(studentName) })
       .click();
-    await dialog.getByLabel("Competition Session").click();
-    await this.page.getByRole("option", { name: /Solo Dance/ }).click();
   }
 
   async register(studentName: string): Promise<void> {

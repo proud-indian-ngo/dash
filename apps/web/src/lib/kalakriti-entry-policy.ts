@@ -98,6 +98,23 @@ export function getIndividualEntryValidationError({
   return null;
 }
 
+export function selectEligibleStudentsForSession<
+  TStudent extends EntryValidationStudent,
+>({
+  entries,
+  session,
+  students,
+}: {
+  entries: readonly EntryValidationEntry[];
+  session: EntryValidationSession;
+  students: readonly TStudent[];
+}): TStudent[] {
+  return students.filter(
+    (student) =>
+      getIndividualEntryValidationError({ entries, session, student }) === null
+  );
+}
+
 export function canRemoveKalakritiEntries({
   centerEnabled,
   lifecycle,

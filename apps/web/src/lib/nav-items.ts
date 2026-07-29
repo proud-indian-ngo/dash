@@ -135,6 +135,7 @@ export function buildKalakritiNavGroups({
   canViewEntries = false,
   canViewStudents = false,
   centers = [],
+  entrySessions = [],
   year,
 }: {
   canManageEligibility?: boolean;
@@ -143,6 +144,7 @@ export function buildKalakritiNavGroups({
   canViewEntries?: boolean;
   canViewStudents?: boolean;
   centers?: readonly { id: string; name: string }[];
+  entrySessions?: readonly { id: string; title: string }[];
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
@@ -182,10 +184,15 @@ export function buildKalakritiNavGroups({
   }
 
   if (year && canViewEntries) {
+    const entriesPath = `/kalakriti/${year}/entries`;
     editionItems.push({
       icon: TaskDaily02Icon,
+      subItems: entrySessions.map((session) => ({
+        title: session.title,
+        url: `${entriesPath}/${session.id}`,
+      })),
       title: "Entries",
-      url: `/kalakriti/${year}/entries`,
+      url: entriesPath,
     });
   }
 
