@@ -9,13 +9,15 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@pi-dash/design-system/components/ui/sidebar";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useState } from "react";
 import { useActivePath } from "@/hooks/use-active-path";
 import type { NavGroup } from "@/lib/nav-items";
 
@@ -34,12 +36,21 @@ function NavMenuItem({
   activePath: string;
   item: NavItem;
 }) {
+  const { pathname } = useLocation();
+  const isActive = activePath === item.url;
+  const [submenuOpen, setSubmenuOpen] = useState(isActive);
+
   return (
-    <Collapsible className="group/collapsible" open={activePath === item.url}>
+    <Collapsible
+      className="group/collapsible"
+      onOpenChange={setSubmenuOpen}
+      open={submenuOpen}
+    >
       <SidebarMenuItem>
         <SidebarMenuButton
-          aria-current={activePath === item.url ? "page" : undefined}
-          isActive={activePath === item.url}
+          aria-current={pathname === item.url ? "page" : undefined}
+          className={item.subItems ? "pr-8" : undefined}
+          isActive={isActive}
           render={<Link to={item.url} />}
           tooltip={item.title}
         >
@@ -53,26 +64,33 @@ function NavMenuItem({
             <CollapsibleTrigger
               aria-label={`Toggle ${item.title} submenu`}
               render={
-                <button className="ml-auto" type="button">
+                <SidebarMenuAction type="button">
                   <HugeiconsIcon
                     className="transition-transform duration-200 group-data-open/collapsible:rotate-90"
                     icon={ArrowRight01Icon}
                     strokeWidth={2}
                   />
-                </button>
+                </SidebarMenuAction>
               }
             />
             <CollapsibleContent>
-              <SidebarMenuSub>
-                {item.subItems
-                  .filter((s) => !s.isHidden)
-                  .map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton render={<Link to={subItem.url} />}>
+              <SidebarMenuSub className="mt-1">
+                {item.subItems.map((subItem) =>
+                  subItem.isHidden ? null : (
+                    <SidebarMenuSubItem key={subItem.url}>
+                      <SidebarMenuSubButton
+                        aria-current={
+                          pathname === subItem.url ? "page" : undefined
+                        }
+                        className="data-active:font-medium"
+                        isActive={pathname === subItem.url}
+                        render={<Link to={subItem.url} />}
+                      >
                         {subItem.title}
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
-                  ))}
+                  )
+                )}
               </SidebarMenuSub>
             </CollapsibleContent>
           </>
@@ -99,7 +117,7 @@ export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
               <NavMenuItem
                 activePath={activePath}
                 item={item}
-                key={item.title}
+                key={`${item.url}:${activePath === item.url}`}
               />
             ))}
           </SidebarMenu>

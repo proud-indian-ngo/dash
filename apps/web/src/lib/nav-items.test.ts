@@ -43,6 +43,30 @@ describe("Kalakriti navigation", () => {
     ]);
   });
 
+  it("adds visible Centers as nested navigation", () => {
+    const groups = buildKalakritiNavGroups({
+      centers: [
+        { id: "center-1", name: "Asha Center" },
+        { id: "center-2", name: "Bala Center" },
+      ],
+      year: 2026,
+    });
+    const centersItem = groups
+      .flatMap((group) => group.items)
+      .find((item) => item.title === "Centers");
+
+    expect(centersItem?.subItems).toEqual([
+      {
+        title: "Asha Center",
+        url: "/kalakriti/2026/centers/center-1",
+      },
+      {
+        title: "Bala Center",
+        url: "/kalakriti/2026/centers/center-2",
+      },
+    ]);
+  });
+
   it("hides Guardians from users who cannot manage them", () => {
     expect(
       buildKalakritiNavGroups({ year: 2026 }).flatMap((group) =>

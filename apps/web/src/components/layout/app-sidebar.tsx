@@ -38,6 +38,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }),
     { enabled: canViewKalakriti && Boolean(activeEdition) }
   );
+  const [centers] = useQuery(
+    queries.kalakritiCenter.visible({
+      editionId: activeEdition?.id ?? "",
+    }),
+    { enabled: canViewKalakriti && Boolean(activeEdition) }
+  );
   const canManageGuardians =
     hasPermission("kalakriti.admin") ||
     membership?.assignments.some(
@@ -45,6 +51,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ) === true;
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageGuardians,
+    centers,
     year: activeEdition?.year,
   });
 

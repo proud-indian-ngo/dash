@@ -130,9 +130,11 @@ const kalakritiNavItem: NavItem = {
 
 export function buildKalakritiNavGroups({
   canManageGuardians = false,
+  centers = [],
   year,
 }: {
   canManageGuardians?: boolean;
+  centers?: readonly { id: string; name: string }[];
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
@@ -146,6 +148,10 @@ export function buildKalakritiNavGroups({
   if (year) {
     editionItems.push({
       icon: UserGroupIcon,
+      subItems: centers.map((center) => ({
+        title: center.name,
+        url: `/kalakriti/${year}/centers/${center.id}`,
+      })),
       title: "Centers",
       url: `/kalakriti/${year}/centers`,
     });
