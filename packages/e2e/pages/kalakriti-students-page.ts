@@ -43,6 +43,23 @@ export class KalakritiStudentsPage {
     }
   ) {
     await dialog.getByLabel("Student name").fill(name);
+    await this.selectBirthDate(dialog, { birthDay, birthMonth, birthYear });
+    await dialog.getByLabel("Gender").click();
+    await this.page.getByRole("option", { exact: true, name: gender }).click();
+  }
+
+  async selectBirthDate(
+    dialog: Locator,
+    {
+      birthDay,
+      birthMonth,
+      birthYear,
+    }: {
+      birthDay: string;
+      birthMonth: string;
+      birthYear: string;
+    }
+  ) {
     await dialog.getByRole("button", { name: "Date of birth" }).click();
     const calendar = this.page.locator('[data-slot="calendar"]');
     await expect(calendar).toBeVisible();
@@ -58,8 +75,8 @@ export class KalakritiStudentsPage {
         name: new RegExp(`${fullMonth}\\s+${Number(birthDay)}`),
       })
       .click();
-    await dialog.getByLabel("Gender").click();
-    await this.page.getByRole("option", { exact: true, name: gender }).click();
+    await this.page.keyboard.press("Escape");
+    await expect(calendar).toBeHidden();
   }
 
   async register(name: string) {

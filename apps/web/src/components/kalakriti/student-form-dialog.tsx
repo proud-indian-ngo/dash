@@ -25,7 +25,10 @@ import type {
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 
 export interface KalakritiStudentRow {
   ageCategory?: { name: string } | null;
@@ -66,6 +69,10 @@ const studentFormSchema = z.object({
   name: z.string().trim().min(2, "Enter at least two characters").max(160),
 });
 const DERIVED_AGE_CATEGORY = "__derived__";
+const AGE_CATEGORY_ERRORS = [
+  "Date of birth cannot be after the Edition age cutoff",
+  "Date of birth does not match an Age Category",
+] as const;
 
 interface StudentSubmissionValues {
   ageCategoryOverrideId: string;
@@ -80,6 +87,14 @@ function datesMatch(date: Date, timestamp: number): boolean {
   return (
     format(date, "yyyy-MM-dd") === format(new Date(timestamp), "yyyy-MM-dd")
   );
+}
+
+function getStudentSubmissionError(error: unknown, fallback: string): string {
+  const serverMessage = getMutationResultErrorMessage(error, "");
+  const ageCategoryError = AGE_CATEGORY_ERRORS.find((message) =>
+    serverMessage.includes(message)
+  );
+  return ageCategoryError ?? fallback;
 }
 
 function studentMutationValues(value: StudentSubmissionValues) {
@@ -169,6 +184,7 @@ function StudentForm({
   student,
 }: Omit<StudentFormDialogProps, "open">) {
   const zero = useZero();
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [today, setToday] = useState<Date>();
   const isEditing = student !== null && student !== undefined;
 
@@ -227,15 +243,22 @@ function StudentForm({
         studentId: existingStudent.id,
       })
     ).server;
+    const errorMessage = getStudentSubmissionError(
+      result.type === "error" ? result.error : undefined,
+      "Failed to update Student"
+    );
     handleMutationResult(result, {
       entityId: existingStudent.id,
-      errorMsg: "Failed to update Student",
+      errorMsg: errorMessage,
       mutation: "kalakritiStudent.update",
+      showErrorToast: false,
       successMsg: "Student updated",
     });
-    if (result.type !== "error") {
-      onOpenChange(false);
+    if (result.type === "error") {
+      setSubmissionError(errorMessage);
+      return;
     }
+    onOpenChange(false);
   };
   const submitStudentCreate = async (value: StudentSubmissionValues) => {
     const result = await zero.mutate(
@@ -250,15 +273,22 @@ function StudentForm({
         studentId: uuidv7(),
       })
     ).server;
+    const errorMessage = getStudentSubmissionError(
+      result.type === "error" ? result.error : undefined,
+      "Failed to register Student"
+    );
     handleMutationResult(result, {
       entityId: centerId,
-      errorMsg: "Failed to register Student",
+      errorMsg: errorMessage,
       mutation: "kalakritiStudent.create",
+      showErrorToast: false,
       successMsg: "Student registered",
     });
-    if (result.type !== "error") {
-      onOpenChange(false);
+    if (result.type === "error") {
+      setSubmissionError(errorMessage);
+      return;
     }
+    onOpenChange(false);
   };
   const form = useForm({
     defaultValues: {
@@ -273,6 +303,7 @@ function StudentForm({
       name: student?.name ?? "",
     },
     onSubmit: async ({ value }) => {
+      setSubmissionError(null);
       if (
         !(
           value.dateOfBirth &&
@@ -308,7 +339,7 @@ function StudentForm({
   ];
 
   return (
-    <FormLayout form={form} showSubmitError>
+    <FormLayout form={form} showSubmitError submitError={submissionError}>
       <InputField autoFocus isRequired label="Student name" name="name" />
       <div className="grid gap-4 sm:grid-cols-2">
         <DateField

@@ -196,14 +196,19 @@ export function StudentTable({
                 student={row.original}
               />
             ),
+            enableColumnOrdering: false,
             enableHiding: false,
+            enableResizing: false,
+            enableSorting: false,
             header: () => null,
             id: "actions",
             meta: {
+              cellClassName: "text-center",
               headerTitle: "",
               skeleton: <Skeleton className="size-7" />,
+              stopRowClick: true,
             },
-            size: 48,
+            size: 52,
           } satisfies ColumnDef<KalakritiStudentRow>,
         ]
       : []),

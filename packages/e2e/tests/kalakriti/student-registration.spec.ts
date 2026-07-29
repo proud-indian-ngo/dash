@@ -70,7 +70,30 @@ test.describe("Kalakriti Student registration", () => {
 
     try {
       await studentsPage.goto(setup.year);
-      await studentsPage.register("Ananya Rao");
+      const registrationDialog = await studentsPage.openRegistrationForm();
+      await studentsPage.fillStudent(registrationDialog, {
+        birthYear: "2010",
+        name: "Ananya Rao",
+      });
+      await registrationDialog
+        .getByRole("button", { name: "Register Student" })
+        .click();
+      await expect(
+        registrationDialog
+          .getByRole("alert")
+          .getByText("Date of birth does not match an Age Category", {
+            exact: true,
+          })
+      ).toBeVisible();
+      await studentsPage.selectBirthDate(registrationDialog, {
+        birthDay: "15",
+        birthMonth: "Jun",
+        birthYear: "2018",
+      });
+      await registrationDialog
+        .getByRole("button", { name: "Register Student" })
+        .click();
+      await expect(registrationDialog).toBeHidden();
       await expect(
         page.getByText("Student registered", { exact: true }).last()
       ).toBeVisible();

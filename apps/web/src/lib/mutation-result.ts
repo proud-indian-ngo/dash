@@ -5,7 +5,30 @@ interface MutationResultOptions {
   entityId: string;
   errorMsg: string;
   mutation: string;
+  showErrorToast?: boolean;
   successMsg?: string;
+}
+
+export function getMutationResultErrorMessage(
+  error: unknown,
+  fallback: string
+): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string" && error) {
+    return error;
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message
+  ) {
+    return error.message;
+  }
+  return fallback;
 }
 
 /**
@@ -14,19 +37,24 @@ interface MutationResultOptions {
  */
 export function handleMutationResult(
   result: { error?: unknown; type: string },
-  { mutation, entityId, successMsg, errorMsg }: MutationResultOptions
+  {
+    mutation,
+    entityId,
+    successMsg,
+    errorMsg,
+    showErrorToast = true,
+  }: MutationResultOptions
 ) {
   if (result.type === "error") {
     log.error({
       component: "mutation",
       entityId,
-      error:
-        result.error instanceof Error
-          ? result.error.message
-          : String(result.error ?? "unknown"),
+      error: getMutationResultErrorMessage(result.error, "unknown"),
       mutation,
     });
-    toast.error(errorMsg);
+    if (showErrorToast) {
+      toast.error(errorMsg);
+    }
   } else if (successMsg) {
     toast.success(successMsg);
   }
