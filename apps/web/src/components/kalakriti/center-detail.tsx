@@ -162,9 +162,9 @@ export function CenterDetail({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display font-semibold text-2xl">
+            <h1 className="font-display font-semibold text-2xl">
               {center.name}
-            </h2>
+            </h1>
             <Badge variant={isRetired ? "outline" : "secondary"}>
               {isRetired ? "Retired" : "Active"}
             </Badge>

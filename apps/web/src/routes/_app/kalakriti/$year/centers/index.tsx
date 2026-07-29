@@ -203,9 +203,9 @@ function KalakritiCentersPage() {
   ) : null;
 
   return (
-    <div className="space-y-4 pt-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="font-display font-semibold text-2xl">Centers</h2>
+        <h1 className="font-display font-semibold text-2xl">Centers</h1>
         <p className="mt-1 text-muted-foreground text-sm">
           Registration access and operational assignments are scoped to this
           Edition.

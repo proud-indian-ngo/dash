@@ -1,11 +1,4 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  createFileRoute,
-  Link,
-  notFound,
-  Outlet,
-} from "@tanstack/react-router";
+import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 export const Route = createFileRoute("/_app/kalakriti/$year")({
@@ -26,35 +19,8 @@ export const Route = createFileRoute("/_app/kalakriti/$year")({
 });
 
 function KalakritiEditionLayout() {
-  const { kalakritiEditionAccess: access } = Route.useRouteContext();
-  const { edition } = access;
-
   return (
     <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display font-semibold text-3xl tracking-tight">
-              {edition.name}
-            </h1>
-            <Badge className="capitalize" variant="outline">
-              {edition.lifecycle.replaceAll("_", " ")}
-            </Badge>
-          </div>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Edition workspace for {edition.year}
-            {access.isGlobalAdmin
-              ? " · Global administrator access"
-              : ` · ${access.membership?.kind === "guardian" ? "Guardian" : "Volunteer"} access`}
-          </p>
-        </div>
-        {access.isGlobalAdmin ? (
-          <Button nativeButton={false} render={<Link to="/kalakriti/new" />}>
-            Create Edition
-          </Button>
-        ) : null}
-      </div>
-
       <Outlet />
     </div>
   );

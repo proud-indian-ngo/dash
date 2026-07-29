@@ -170,10 +170,18 @@ export function buildKalakritiNavGroups({
   }
 
   if (year && canViewCompetitions) {
+    const competitionPath = `/kalakriti/${year}/competitions`;
     editionItems.push({
       icon: Calendar03Icon,
+      subItems: [
+        { title: "Overview", url: competitionPath },
+        { title: "Categories", url: `${competitionPath}/categories` },
+        { title: "Competitions", url: `${competitionPath}/catalog` },
+        { title: "Venues", url: `${competitionPath}/venues` },
+        { title: "Schedule", url: `${competitionPath}/schedule` },
+      ],
       title: "Competitions",
-      url: `/kalakriti/${year}/competitions`,
+      url: competitionPath,
     });
   }
 

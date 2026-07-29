@@ -42,10 +42,43 @@ test("configures the Competition catalog and rejects an invalid schedule", async
   try {
     await competitions.goto(year);
     await waitForZeroReady(page);
+    await expect(
+      page.getByRole("heading", { name: "Competition overview" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { exact: true, name: `Kalakriti ${year}` })
+    ).toHaveCount(0);
+
+    await page.goto(`/kalakriti/${year}`);
+    await expect(
+      page.getByRole("heading", { exact: true, name: `Kalakriti ${year}` })
+    ).toBeVisible();
+
+    await competitions.gotoCategories(year);
+    await competitions.category("Performing Arts").click();
+    await expect(
+      page.getByRole("dialog", { name: "Performing Arts" })
+    ).toContainText("Competitions");
+    await page.keyboard.press("Escape");
+
+    await competitions.gotoCatalog(year);
     await competitions.addCompetition("Solo Dance");
     await competitions.addCompetition("Solo Music");
-    await competitions.addVenue("Main Stage");
+    await competitions.competition("Solo Dance").click();
+    await expect(
+      page.getByRole("dialog", { name: "Solo Dance" })
+    ).toContainText("Performing Arts");
+    await page.keyboard.press("Escape");
 
+    await competitions.gotoVenues(year);
+    await competitions.addVenue("Main Stage");
+    await competitions.venue("Main Stage").click();
+    await expect(
+      page.getByRole("dialog", { name: "Main Stage" })
+    ).toContainText("Scheduled Sessions");
+    await page.keyboard.press("Escape");
+
+    await competitions.gotoSchedule(year);
     await page.getByRole("button", { name: "Add Session" }).click();
     await page
       .getByRole("dialog", { name: "Add Competition Session" })
@@ -55,6 +88,11 @@ test("configures the Competition catalog and rejects an invalid schedule", async
       "Main Stage"
     );
     await expect(page.getByText("Competition Session created")).toBeVisible();
+    await competitions.session("Solo Dance", "Junior").click();
+    await expect(
+      page.getByRole("dialog", { name: "Solo Dance" })
+    ).toContainText("Entry capacity");
+    await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "Add Session" }).click();
     const invalidScheduleDialog = page.getByRole("dialog", {
@@ -87,53 +125,36 @@ test("keeps a Competition Category Lead read-only", async ({
   const competitions = new KalakritiCompetitionsPage(page);
 
   try {
-    await competitions.goto(year);
+    await competitions.gotoCategories(year);
     await waitForZeroReady(page);
+    await expect(competitions.category("Performing Arts")).toBeVisible();
+    await expect(competitions.category("Visual Arts")).toHaveCount(0);
     await expect(
-      page.getByLabel("Performing Arts Competition Category", { exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByLabel("Solo Dance Competition", { exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByLabel("Main Stage Venue", { exact: true })
-    ).toBeVisible();
-    await expect(competitions.session("Solo Dance", "Junior")).toBeVisible();
+      page.getByRole("button", { name: "Add Category" })
+    ).toHaveCount(0);
 
+    await competitions.gotoCatalog(year);
+    await expect(competitions.competition("Solo Dance")).toBeVisible();
+
+    await expect(competitions.competition("Solo Painting")).toHaveCount(0);
     await expect(
-      page.getByLabel("Visual Arts Competition Category", { exact: true })
+      page.getByRole("button", { name: "Add Competition" })
     ).toHaveCount(0);
-    await expect(
-      page.getByLabel("Solo Painting Competition", { exact: true })
-    ).toHaveCount(0);
-    await expect(
-      page.getByLabel("Art Hall Venue", { exact: true })
-    ).toHaveCount(0);
-    await expect(competitions.session("Solo Painting", "Junior")).toHaveCount(
+
+    await competitions.gotoVenues(year);
+    await expect(competitions.venue("Main Stage")).toBeVisible();
+    await expect(competitions.venue("Art Hall")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add Venue" })).toHaveCount(
       0
     );
 
-    await Promise.all(
-      [
-        "Add Category",
-        "Add Competition",
-        "Add Venue",
-        "Add Session",
-        "Edit Solo Dance Competition",
-        "Cancel Solo Dance Competition",
-        "Retire Solo Dance Competition",
-        "Delete Solo Dance Competition",
-        "Edit Main Stage Venue",
-        "Retire Main Stage Venue",
-        "Delete Main Stage Venue",
-        "Edit Solo Dance, Junior Session",
-        "Cancel Solo Dance, Junior Session",
-        "Delete Solo Dance, Junior Session",
-      ].map((action) =>
-        expect(
-          page.getByRole("button", { exact: true, name: action })
-        ).toHaveCount(0)
-      )
+    await competitions.gotoSchedule(year);
+    await expect(competitions.session("Solo Dance", "Junior")).toBeVisible();
+    await expect(competitions.session("Solo Painting", "Junior")).toHaveCount(
+      0
+    );
+    await expect(page.getByRole("button", { name: "Add Session" })).toHaveCount(
+      0
     );
   } finally {
     await fixture("cleanup", "volunteer");

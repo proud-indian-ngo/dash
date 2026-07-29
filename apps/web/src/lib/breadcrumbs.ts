@@ -73,7 +73,23 @@ function buildKalakritiBreadcrumbs(
   } else if (section === "eligibility") {
     items.push({ path: `${editionPath}/eligibility`, title: "Eligibility" });
   } else if (section === "competitions") {
-    items.push({ path: `${editionPath}/competitions`, title: "Competitions" });
+    const competitionsPath = `${editionPath}/competitions`;
+    items.push({ path: competitionsPath, title: "Competitions" });
+    if (entityId) {
+      const subsectionTitles: Record<string, string> = {
+        catalog: "Catalog",
+        categories: "Categories",
+        schedule: "Schedule",
+        venues: "Venues",
+      };
+      const title = subsectionTitles[entityId];
+      if (title) {
+        items.push({
+          path: `${competitionsPath}/${entityId}`,
+          title,
+        });
+      }
+    }
   }
 
   return items;

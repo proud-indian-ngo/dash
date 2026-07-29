@@ -150,9 +150,9 @@ function KalakritiCenterDetailPage() {
     return (
       <div className="space-y-4 py-12 text-center">
         <div>
-          <h2 className="font-display font-semibold text-xl">
+          <h1 className="font-display font-semibold text-xl">
             Center not found
-          </h2>
+          </h1>
           <p className="mt-1 text-muted-foreground text-sm">
             This Center does not exist or is not available to your account.
           </p>

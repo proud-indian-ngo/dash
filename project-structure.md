@@ -79,12 +79,17 @@ All paths are relative to project root.
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
 | `routes/_app/kalakriti/route.tsx` | Kalakriti layout (`kalakriti.view` permission guard) |
 | `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
-| `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped layout and exact-year access guard |
-| `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace |
+| `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped container and exact-year access guard |
+| `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
-| `routes/_app/kalakriti/$year/competitions.tsx` | Edition Competition catalog, Venues, and scoped schedule; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
+| `routes/_app/kalakriti/$year/competitions/route.tsx` | Competition workspace access guard; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
+| `routes/_app/kalakriti/$year/competitions/index.tsx` | Category, Competition, Venue, and Schedule summary |
+| `routes/_app/kalakriti/$year/competitions/categories.tsx` | Competition Category table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/catalog.tsx` | Competition table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/venues.tsx` | Venue table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/schedule.tsx` | Competition Session table and detail sheet |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |

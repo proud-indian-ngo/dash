@@ -25,9 +25,38 @@ export class KalakritiCompetitionsPage {
     await this.page.goto(`/kalakriti/${year}/competitions`);
   }
 
+  async gotoCatalog(year: number) {
+    await this.page.goto(`/kalakriti/${year}/competitions/catalog`);
+  }
+
+  async gotoCategories(year: number) {
+    await this.page.goto(`/kalakriti/${year}/competitions/categories`);
+  }
+
+  async gotoSchedule(year: number) {
+    await this.page.goto(`/kalakriti/${year}/competitions/schedule`);
+  }
+
+  async gotoVenues(year: number) {
+    await this.page.goto(`/kalakriti/${year}/competitions/venues`);
+  }
+
+  competition(name: string) {
+    return this.page.getByRole("row").filter({ hasText: name });
+  }
+
+  category(name: string) {
+    return this.page.getByRole("row").filter({ hasText: name });
+  }
+
   session(competition: string, ageCategory: string) {
-    return this.page.getByLabel(`${competition}, ${ageCategory} Session`, {
-      exact: true,
-    });
+    return this.page
+      .getByRole("row")
+      .filter({ hasText: competition })
+      .filter({ hasText: ageCategory });
+  }
+
+  venue(name: string) {
+    return this.page.getByRole("row").filter({ hasText: name });
   }
 }

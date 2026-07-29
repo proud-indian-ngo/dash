@@ -60,6 +60,31 @@ describe("breadcrumbs", () => {
     ]);
   });
 
+  it("builds breadcrumbs for Competition configuration pages", () => {
+    expect(
+      buildBreadcrumbs(navItems, "/kalakriti/2027/competitions/venues")
+    ).toEqual([
+      { path: "/kalakriti", title: "Kalakriti" },
+      { path: "/kalakriti/2027", title: "2027 Edition" },
+      { path: "/kalakriti/2027/competitions", title: "Competitions" },
+      { path: "/kalakriti/2027/competitions/venues", title: "Venues" },
+    ]);
+  });
+
+  it("builds breadcrumbs for Competition Categories", () => {
+    expect(
+      buildBreadcrumbs(navItems, "/kalakriti/2027/competitions/categories")
+    ).toEqual([
+      { path: "/kalakriti", title: "Kalakriti" },
+      { path: "/kalakriti/2027", title: "2027 Edition" },
+      { path: "/kalakriti/2027/competitions", title: "Competitions" },
+      {
+        path: "/kalakriti/2027/competitions/categories",
+        title: "Categories",
+      },
+    ]);
+  });
+
   it("extracts a Center detail route", () => {
     expect(getKalakritiCenterRoute("/kalakriti/2027/centers/center-1")).toEqual(
       { centerId: "center-1", year: 2027 }

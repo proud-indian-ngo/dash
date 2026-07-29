@@ -88,6 +88,29 @@ describe("Kalakriti navigation", () => {
     ).toEqual(["Dashboard", "Overview", "Centers", "Competitions"]);
   });
 
+  it("adds Competition configuration pages as nested navigation", () => {
+    const competitionItem = buildKalakritiNavGroups({
+      canViewCompetitions: true,
+      year: 2026,
+    })
+      .flatMap((group) => group.items)
+      .find((item) => item.title === "Competitions");
+
+    expect(competitionItem?.subItems).toEqual([
+      { title: "Overview", url: "/kalakriti/2026/competitions" },
+      {
+        title: "Categories",
+        url: "/kalakriti/2026/competitions/categories",
+      },
+      {
+        title: "Competitions",
+        url: "/kalakriti/2026/competitions/catalog",
+      },
+      { title: "Venues", url: "/kalakriti/2026/competitions/venues" },
+      { title: "Schedule", url: "/kalakriti/2026/competitions/schedule" },
+    ]);
+  });
+
   it("keeps external Guardians in Kalakriti navigation", () => {
     expect(shouldUseKalakritiNav("/", "external_user")).toBe(true);
     expect(shouldUseKalakritiNav("/settings", "external_user")).toBe(true);

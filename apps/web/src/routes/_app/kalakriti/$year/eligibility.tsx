@@ -103,7 +103,7 @@ function KalakritiEligibilityPage() {
 
   if (categoryResult.type === "error") {
     return (
-      <div className="space-y-3 pt-6" role="alert">
+      <div className="space-y-3" role="alert">
         <p className="font-medium">
           Eligibility configuration could not be loaded.
         </p>
@@ -122,10 +122,10 @@ function KalakritiEligibilityPage() {
     categoryRows.length === 0 && categoryResult.type !== "complete";
 
   return (
-    <div className="space-y-6 pt-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="font-display font-semibold text-2xl">Eligibility</h2>
+          <h1 className="font-display font-semibold text-2xl">Eligibility</h1>
           <p className="mt-1 text-muted-foreground text-sm">
             Configure inclusive age ranges, shared Student limits for every
             Center, and Competition limits. Ages are calculated on{" "}
