@@ -29,26 +29,4 @@ export const kalakritiEligibilityQueries = {
     );
     return query.orderBy("sortOrder", "asc");
   }),
-  quotas: defineQuery(editionInput, ({ args, ctx }) => {
-    let query = zql.kalakritiCenterAgeQuota.where("editionId", args.editionId);
-    if (ctx !== null && can(ctx, "kalakriti.admin")) {
-      return query.orderBy("createdAt", "asc");
-    }
-    if (!(ctx && can(ctx, "kalakriti.view"))) {
-      return query.where("id", NO_ACCESS_ID);
-    }
-    query = query.whereExists("edition", (edition) =>
-      edition
-        .where("id", args.editionId)
-        .whereExists("memberships", (membership) =>
-          membership
-            .where("userId", ctx.userId)
-            .where("state", "active")
-            .whereExists("assignments", (assignment) =>
-              assignment.where("responsibility", "edition_admin")
-            )
-        )
-    );
-    return query.orderBy("createdAt", "asc");
-  }),
 };

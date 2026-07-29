@@ -2,7 +2,6 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiCenter,
-  kalakritiCenterAgeQuota,
   kalakritiEdition,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
@@ -14,9 +13,6 @@ const CENTER_ID = "019f0000-0000-7000-8000-00000000e803";
 const YEAR = 2196;
 
 async function cleanup(): Promise<void> {
-  await db
-    .delete(kalakritiCenterAgeQuota)
-    .where(eq(kalakritiCenterAgeQuota.editionId, EDITION_ID));
   await db.delete(kalakritiEdition).where(eq(kalakritiEdition.id, EDITION_ID));
   await db.delete(teamEvent).where(eq(teamEvent.id, EVENT_ID));
 }

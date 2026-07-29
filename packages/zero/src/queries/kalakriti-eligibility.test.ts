@@ -23,7 +23,7 @@ describe("kalakritiEligibility queries", () => {
 
   it("returns a never-match query without Kalakriti access", () => {
     const ast = queryAst(
-      kalakritiEligibilityQueries.quotas.fn({
+      kalakritiEligibilityQueries.ageCategories.fn({
         args: { editionId: "edition-1" },
         ctx: { permissions: [], role: "volunteer", userId: "ordinary-1" },
       })

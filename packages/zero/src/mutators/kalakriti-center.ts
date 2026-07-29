@@ -231,14 +231,13 @@ export const kalakritiCenterMutators = {
       await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
       await assertEditionConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
-      const [guardianCenter, assignment, quota] = await Promise.all([
+      const [guardianCenter, assignment] = await Promise.all([
         tx.run(zql.kalakritiGuardianCenter.where("centerId", center.id).one()),
         tx.run(zql.kalakritiAssignment.where("centerId", center.id).one()),
-        tx.run(zql.kalakritiCenterAgeQuota.where("centerId", center.id).one()),
       ]);
-      if (guardianCenter || assignment || quota) {
+      if (guardianCenter || assignment) {
         throw new Error(
-          "Center has dependent assignments or quotas and cannot be deleted"
+          "Center has dependent assignments and cannot be deleted"
         );
       }
 

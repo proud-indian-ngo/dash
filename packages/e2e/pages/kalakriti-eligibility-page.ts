@@ -8,10 +8,12 @@ export class KalakritiEligibilityPage {
   }
 
   ageCategory(name: string) {
-    return this.page.getByLabel(`${name} Age Category`, { exact: true });
+    return this.page.getByRole("row").filter({ hasText: name });
   }
 
   async addAgeCategory(values: {
+    femaleStudentLimit: number;
+    maleStudentLimit: number;
     maximumAge: number;
     minimumAge: number;
     name: string;
@@ -23,6 +25,12 @@ export class KalakritiEligibilityPage {
     await dialog.getByLabel("Minimum age").fill(String(values.minimumAge));
     await dialog.getByLabel("Maximum age").fill(String(values.maximumAge));
     await dialog.getByLabel("Display order").fill(String(values.order));
+    await dialog
+      .getByRole("spinbutton", { name: /^Male Students per Center/ })
+      .fill(String(values.maleStudentLimit));
+    await dialog
+      .getByRole("spinbutton", { name: /^Female Students per Center/ })
+      .fill(String(values.femaleStudentLimit));
     await dialog.getByRole("button", { name: "Create Category" }).click();
   }
 
@@ -30,27 +38,15 @@ export class KalakritiEligibilityPage {
     await this.page.goto(`/kalakriti/${year}/eligibility`);
   }
 
-  async setQuota(
-    categoryName: string,
-    centerName: string,
-    male: number,
-    female: number
-  ) {
-    const card = this.ageCategory(categoryName);
-    await card
-      .getByRole("button", {
-        name: `Set ${categoryName} quota for ${centerName}`,
-      })
-      .click();
-    const dialog = this.page.getByRole("dialog", {
-      name: "Center Student quota",
-    });
+  async editStudentLimits(categoryName: string, male: number, female: number) {
+    await this.ageCategory(categoryName).click();
+    const dialog = this.page.getByRole("dialog", { name: "Edit Age Category" });
     await dialog
-      .getByRole("spinbutton", { name: /^Male Student limit$/ })
+      .getByRole("spinbutton", { name: /^Male Students per Center/ })
       .fill(String(male));
     await dialog
-      .getByRole("spinbutton", { name: /^Female Student limit$/ })
+      .getByRole("spinbutton", { name: /^Female Students per Center/ })
       .fill(String(female));
-    await dialog.getByRole("button", { name: "Save Quota" }).click();
+    await dialog.getByRole("button", { name: "Save Category" }).click();
   }
 }

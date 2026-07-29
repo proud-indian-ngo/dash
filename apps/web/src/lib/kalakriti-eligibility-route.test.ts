@@ -6,13 +6,9 @@ vi.mock("@pi-dash/design-system/components/ui/button", () => ({
 vi.mock("@/components/kalakriti/age-category-form-dialog", () => ({
   AgeCategoryFormDialog: () => null,
 }));
-vi.mock("@/components/kalakriti/center-age-quota-dialog", () => ({
-  CenterAgeQuotaDialog: () => null,
+vi.mock("@/components/kalakriti/age-categories-table", () => ({
+  AgeCategoriesTable: () => null,
 }));
-vi.mock("@/components/kalakriti/eligibility-category-card", () => ({
-  EligibilityCategoryCard: () => null,
-}));
-vi.mock("@/components/loader", () => ({ Loader: () => null }));
 vi.mock("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));

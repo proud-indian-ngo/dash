@@ -13,7 +13,6 @@ import {
 } from "./kalakriti-config-access";
 import {
   getAgeCategoryForUpdate,
-  getCenterForUpdate,
   getEditionAgeCategoriesForUpdate,
   getEditionForUpdate,
   type LockableKalakritiTx,
@@ -33,16 +32,13 @@ interface EligibilityTx extends LockableKalakritiTx {
       update: ZeroMutationFn;
     };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
-    kalakritiCenterAgeQuota: {
-      delete: ZeroMutationFn;
-      insert: ZeroMutationFn;
-      update: ZeroMutationFn;
-    };
   };
 }
 
 const ageCategoryValuesSchema = z
   .object({
+    femaleStudentLimit: z.number().int().min(0),
+    maleStudentLimit: z.number().int().min(0),
     maxCompetitionsPerCategory: z.number().int().min(1),
     maximumAge: z.number().int().min(0).max(100),
     maxTotalCompetitions: z.number().int().min(1),
@@ -77,17 +73,6 @@ export const kalakritiEligibilityDeleteSchema = z.object({
   auditEntryId: z.string(),
   id: z.string(),
   now: z.number(),
-});
-
-export const kalakritiCenterAgeQuotaSetSchema = z.object({
-  ageCategoryId: z.string(),
-  auditEntryId: z.string(),
-  centerId: z.string(),
-  editionId: z.string(),
-  femaleStudentLimit: z.number().int().min(0),
-  maleStudentLimit: z.number().int().min(0),
-  now: z.number(),
-  quotaId: z.string(),
 });
 
 async function lockConfigurableEdition(
@@ -145,7 +130,9 @@ export const kalakritiEligibilityMutators = {
         createdAt: args.now,
         createdBy: ctx.userId,
         editionId: args.editionId,
+        femaleStudentLimit: args.femaleStudentLimit,
         id: args.ageCategoryId,
+        maleStudentLimit: args.maleStudentLimit,
         maxCompetitionsPerCategory: args.maxCompetitionsPerCategory,
         maximumAge: args.maximumAge,
         maxTotalCompetitions: args.maxTotalCompetitions,
@@ -163,6 +150,8 @@ export const kalakritiEligibilityMutators = {
         editionId: args.editionId,
         id: args.auditEntryId,
         metadata: {
+          femaleStudentLimit: args.femaleStudentLimit,
+          maleStudentLimit: args.maleStudentLimit,
           maximumAge: args.maximumAge,
           minimumAge: args.minimumAge,
           name: normalized.name,
@@ -188,12 +177,6 @@ export const kalakritiEligibilityMutators = {
       if (!category || category.editionId !== categorySnapshot.editionId) {
         throw new Error("Age Category not found");
       }
-      const quota = await tx.run(
-        zql.kalakritiCenterAgeQuota.where("ageCategoryId", category.id).one()
-      );
-      if (quota) {
-        throw new Error("Age Category has Center quotas and cannot be deleted");
-      }
       await tx.mutate.kalakritiAgeCategory.delete({ id: category.id });
       await tx.mutate.kalakritiAuditEntry.insert({
         action: "deleted",
@@ -206,95 +189,6 @@ export const kalakritiEligibilityMutators = {
         reason: null,
         targetId: category.id,
         targetType: "age_category",
-      });
-    }
-  ),
-
-  deleteQuota: defineMutator(
-    kalakritiEligibilityDeleteSchema,
-    async ({ tx, ctx, args }) => {
-      const quota = (await tx.run(
-        zql.kalakritiCenterAgeQuota.where("id", args.id).one()
-      )) as { editionId: string } | undefined;
-      if (!quota) {
-        throw new Error("Center quota not found");
-      }
-      await lockConfigurableEdition(tx, ctx, quota.editionId);
-      const currentQuota = await tx.run(
-        zql.kalakritiCenterAgeQuota.where("id", args.id).one()
-      );
-      if (!currentQuota) {
-        throw new Error("Center quota not found");
-      }
-      await tx.mutate.kalakritiCenterAgeQuota.delete({ id: args.id });
-      await tx.mutate.kalakritiAuditEntry.insert({
-        action: "deleted",
-        actorUserId: ctx.userId,
-        createdAt: args.now,
-        domain: "center_age_quota_configuration",
-        editionId: quota.editionId,
-        id: args.auditEntryId,
-        metadata: null,
-        reason: null,
-        targetId: args.id,
-        targetType: "center_age_quota",
-      });
-    }
-  ),
-
-  setQuota: defineMutator(
-    kalakritiCenterAgeQuotaSetSchema,
-    async ({ tx, ctx, args }) => {
-      await lockConfigurableEdition(tx, ctx, args.editionId);
-      const center = await getCenterForUpdate(tx, args.centerId);
-      const ageCategory = await getAgeCategoryForUpdate(tx, args.ageCategoryId);
-      if (!(center && center.editionId === args.editionId)) {
-        throw new Error("Center not found in this Edition");
-      }
-      if (!(ageCategory && ageCategory.editionId === args.editionId)) {
-        throw new Error("Age Category not found in this Edition");
-      }
-      const existing = (await tx.run(
-        zql.kalakritiCenterAgeQuota
-          .where("centerId", args.centerId)
-          .where("ageCategoryId", args.ageCategoryId)
-          .one()
-      )) as { id: string } | undefined;
-      const quotaId = existing ? existing.id : args.quotaId;
-      const values = {
-        femaleStudentLimit: args.femaleStudentLimit,
-        id: quotaId,
-        maleStudentLimit: args.maleStudentLimit,
-        updatedAt: args.now,
-      };
-      if (existing) {
-        await tx.mutate.kalakritiCenterAgeQuota.update(values);
-      } else {
-        await tx.mutate.kalakritiCenterAgeQuota.insert({
-          ...values,
-          ageCategoryId: args.ageCategoryId,
-          centerId: args.centerId,
-          createdAt: args.now,
-          createdBy: ctx.userId,
-          editionId: args.editionId,
-        });
-      }
-      await tx.mutate.kalakritiAuditEntry.insert({
-        action: existing ? "updated" : "created",
-        actorUserId: ctx.userId,
-        createdAt: args.now,
-        domain: "center_age_quota_configuration",
-        editionId: args.editionId,
-        id: args.auditEntryId,
-        metadata: {
-          ageCategoryId: args.ageCategoryId,
-          centerId: args.centerId,
-          femaleStudentLimit: args.femaleStudentLimit,
-          maleStudentLimit: args.maleStudentLimit,
-        },
-        reason: null,
-        targetId: quotaId,
-        targetType: "center_age_quota",
       });
     }
   ),
@@ -328,7 +222,9 @@ export const kalakritiEligibilityMutators = {
         },
       ]);
       await tx.mutate.kalakritiAgeCategory.update({
+        femaleStudentLimit: args.femaleStudentLimit,
         id: category.id,
+        maleStudentLimit: args.maleStudentLimit,
         maxCompetitionsPerCategory: args.maxCompetitionsPerCategory,
         maximumAge: args.maximumAge,
         maxTotalCompetitions: args.maxTotalCompetitions,
@@ -346,6 +242,8 @@ export const kalakritiEligibilityMutators = {
         editionId: category.editionId,
         id: args.auditEntryId,
         metadata: {
+          femaleStudentLimit: args.femaleStudentLimit,
+          maleStudentLimit: args.maleStudentLimit,
           maximumAge: args.maximumAge,
           minimumAge: args.minimumAge,
           name: normalized.name,

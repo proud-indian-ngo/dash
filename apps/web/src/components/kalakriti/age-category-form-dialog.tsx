@@ -20,6 +20,8 @@ import { handleMutationResult } from "@/lib/mutation-result";
 
 const ageCategoryValuesSchema = z
   .object({
+    femaleStudentLimit: z.number().int().min(0),
+    maleStudentLimit: z.number().int().min(0),
     maxCompetitionsPerCategory: z.number().int().min(1),
     maximumAge: z.number().int().min(0).max(100),
     maxTotalCompetitions: z.number().int().min(1),
@@ -40,7 +42,9 @@ const ageCategoryValuesSchema = z
   );
 
 export interface AgeCategoryFormValue {
+  femaleStudentLimit: number;
   id: string;
+  maleStudentLimit: number;
   maxCompetitionsPerCategory: number;
   maximumAge: number;
   maxTotalCompetitions: number;
@@ -97,6 +101,8 @@ function AgeCategoryForm({
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const form = useForm({
     defaultValues: {
+      femaleStudentLimit: category?.femaleStudentLimit ?? 20,
+      maleStudentLimit: category?.maleStudentLimit ?? 20,
       maxCompetitionsPerCategory: category?.maxCompetitionsPerCategory ?? 1,
       maximumAge: category?.maximumAge ?? 10,
       maxTotalCompetitions: category?.maxTotalCompetitions ?? 2,
@@ -168,6 +174,22 @@ function AgeCategoryForm({
           isRequired
           label="Display order"
           name="sortOrder"
+          type="number"
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <InputField
+          description="Maximum male Students allowed at every Center."
+          isRequired
+          label="Male Students per Center"
+          name="maleStudentLimit"
+          type="number"
+        />
+        <InputField
+          description="Maximum female Students allowed at every Center."
+          isRequired
+          label="Female Students per Center"
+          name="femaleStudentLimit"
           type="number"
         />
       </div>

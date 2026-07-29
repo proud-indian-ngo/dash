@@ -19,7 +19,7 @@ async function fixture<T>(action: string, argument?: string): Promise<T> {
   return JSON.parse(stdout.trim()) as T;
 }
 
-test("configures Age Categories and protected Center quotas", async ({
+test("configures Age Categories with shared Center limits", async ({
   page,
   superAdminEmail,
 }, testInfo) => {
@@ -34,12 +34,16 @@ test("configures Age Categories and protected Center quotas", async ({
     await eligibility.goto(year);
     await waitForZeroReady(page);
     await eligibility.addAgeCategory({
+      femaleStudentLimit: 25,
+      maleStudentLimit: 20,
       maximumAge: 10,
       minimumAge: 6,
       name: "Junior",
       order: 0,
     });
-    await expect(eligibility.ageCategory("Junior")).toContainText("Ages 6-10");
+    await expect(eligibility.ageCategory("Junior")).toContainText("6-10 years");
+    await expect(eligibility.ageCategory("Junior")).toContainText("20");
+    await expect(eligibility.ageCategory("Junior")).toContainText("25");
 
     await page.getByRole("button", { name: "Add Age Category" }).click();
     const overlapDialog = page.getByRole("dialog", {
@@ -55,46 +59,12 @@ test("configures Age Categories and protected Center quotas", async ({
     ).toBeDisabled();
     await overlapDialog.getByRole("button", { name: "Cancel" }).click();
 
-    await eligibility.setQuota("Junior", "Jayanagar", 20, 25);
-    await expect(eligibility.ageCategory("Junior")).toContainText(
-      "Male 20 · Female 25"
-    );
+    await eligibility.editStudentLimits("Junior", 30, 35);
+    await expect(eligibility.ageCategory("Junior")).toContainText("30");
+    await expect(eligibility.ageCategory("Junior")).toContainText("35");
 
-    await eligibility
-      .ageCategory("Junior")
-      .getByRole("button", {
-        name: "Delete Junior Age Category",
-      })
-      .click();
-    await page
-      .getByRole("alertdialog", { name: "Delete Age Category?" })
-      .getByRole("button", { name: "Delete Age Category" })
-      .click();
-    await expect(
-      page.getByText("Age Category has quotas or could not be deleted")
-    ).toBeVisible();
-    await expect(eligibility.ageCategory("Junior")).toBeVisible();
-    await page
-      .getByRole("alertdialog", { name: "Delete Age Category?" })
-      .getByRole("button", { name: "Cancel" })
-      .click();
-
-    await eligibility
-      .ageCategory("Junior")
-      .getByRole("button", {
-        name: "Remove Junior quota for Jayanagar",
-      })
-      .click();
-    await page
-      .getByRole("alertdialog", { name: "Remove Center quota?" })
-      .getByRole("button", { name: "Remove Quota" })
-      .click();
-    await eligibility
-      .ageCategory("Junior")
-      .getByRole("button", {
-        name: "Delete Junior Age Category",
-      })
-      .click();
+    await eligibility.ageCategory("Junior").getByTestId("row-actions").click();
+    await page.getByRole("menuitem", { name: "Delete Category" }).click();
     await page
       .getByRole("alertdialog", { name: "Delete Age Category?" })
       .getByRole("button", { name: "Delete Age Category" })

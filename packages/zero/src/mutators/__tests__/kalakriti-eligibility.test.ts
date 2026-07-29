@@ -15,25 +15,14 @@ const category = {
   minimumAge: 6,
   name: "Junior",
 };
-const center = {
-  competitionEntryRegistrationEnabled: false,
-  editionId: "edition-1",
-  id: "center-1",
-  retiredAt: null,
-  studentRegistrationEnabled: false,
-};
-
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
     deleteAgeCategory: vi.fn(),
-    deleteQuota: vi.fn(),
     insertAgeCategory: vi.fn(),
     insertAudit: vi.fn(),
-    insertQuota: vi.fn(),
     lockRows: vi.fn(),
     updateAgeCategory: vi.fn(),
-    updateQuota: vi.fn(),
   };
   const select = vi.fn(() => {
     const query = {
@@ -64,11 +53,6 @@ function createTx(results: unknown[] = []) {
           update: spies.updateAgeCategory,
         },
         kalakritiAuditEntry: { insert: spies.insertAudit },
-        kalakritiCenterAgeQuota: {
-          delete: spies.deleteQuota,
-          insert: spies.insertQuota,
-          update: spies.updateQuota,
-        },
       },
       run: vi.fn(async () => results.shift()),
     },
@@ -85,6 +69,8 @@ describe("kalakritiEligibility commands", () => {
         ageCategoryId: "category-1",
         auditEntryId: "audit-1",
         editionId: "edition-1",
+        femaleStudentLimit: 20,
+        maleStudentLimit: 20,
         maxCompetitionsPerCategory: 1,
         maximumAge: 10,
         maxTotalCompetitions: 2,
@@ -100,7 +86,12 @@ describe("kalakritiEligibility commands", () => {
     >[0]);
 
     expect(spies.insertAgeCategory).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Junior", normalizedName: "junior" })
+      expect.objectContaining({
+        femaleStudentLimit: 20,
+        maleStudentLimit: 20,
+        name: "Junior",
+        normalizedName: "junior",
+      })
     );
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({ domain: "age_category_configuration" })
@@ -117,6 +108,8 @@ describe("kalakritiEligibility commands", () => {
           ageCategoryId: "category-2",
           auditEntryId: "audit-2",
           editionId: "edition-1",
+          femaleStudentLimit: 20,
+          maleStudentLimit: 20,
           maxCompetitionsPerCategory: 1,
           maximumAge: 12,
           maxTotalCompetitions: 2,
@@ -134,54 +127,6 @@ describe("kalakritiEligibility commands", () => {
     expect(spies.insertAgeCategory).not.toHaveBeenCalled();
   });
 
-  it("rejects a quota whose Center belongs to another Edition", async () => {
-    const { lockedResults, spies, tx } = createTx();
-    lockedResults.push(
-      [edition],
-      [{ ...center, editionId: "edition-2" }],
-      [category]
-    );
-
-    await expect(
-      kalakritiEligibilityMutators.setQuota.fn({
-        args: {
-          ageCategoryId: "category-1",
-          auditEntryId: "audit-1",
-          centerId: "center-1",
-          editionId: "edition-1",
-          femaleStudentLimit: 20,
-          maleStudentLimit: 20,
-          now: 1,
-          quotaId: "quota-1",
-        },
-        ctx: adminContext,
-        tx,
-      } as unknown as Parameters<
-        typeof kalakritiEligibilityMutators.setQuota.fn
-      >[0])
-    ).rejects.toThrow("Center not found in this Edition");
-    expect(spies.insertQuota).not.toHaveBeenCalled();
-  });
-
-  it("protects an Age Category referenced by a quota", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      { editionId: "edition-1" },
-      { id: "quota-1" },
-    ]);
-    lockedResults.push([edition], [category]);
-
-    await expect(
-      kalakritiEligibilityMutators.deleteAgeCategory.fn({
-        args: { auditEntryId: "audit-1", id: "category-1", now: 1 },
-        ctx: adminContext,
-        tx,
-      } as unknown as Parameters<
-        typeof kalakritiEligibilityMutators.deleteAgeCategory.fn
-      >[0])
-    ).rejects.toThrow("has Center quotas");
-    expect(spies.deleteAgeCategory).not.toHaveBeenCalled();
-  });
-
   it("allows an Edition Administrator to create an Age Category", async () => {
     const { lockedResults, spies, tx } = createTx([
       { id: "membership-1" },
@@ -194,6 +139,8 @@ describe("kalakritiEligibility commands", () => {
         ageCategoryId: "category-2",
         auditEntryId: "audit-2",
         editionId: "edition-1",
+        femaleStudentLimit: 24,
+        maleStudentLimit: 24,
         maxCompetitionsPerCategory: 1,
         maximumAge: 15,
         maxTotalCompetitions: 2,
@@ -225,6 +172,8 @@ describe("kalakritiEligibility commands", () => {
           ageCategoryId: "category-2",
           auditEntryId: "audit-2",
           editionId: "edition-1",
+          femaleStudentLimit: 24,
+          maleStudentLimit: 24,
           maxCompetitionsPerCategory: 1,
           maximumAge: 15,
           maxTotalCompetitions: 2,
@@ -258,6 +207,8 @@ describe("kalakritiEligibility commands", () => {
             ageCategoryId: "category-2",
             auditEntryId: "audit-2",
             editionId: "edition-1",
+            femaleStudentLimit: 24,
+            maleStudentLimit: 24,
             maxCompetitionsPerCategory: 1,
             maximumAge: 15,
             maxTotalCompetitions: 2,
@@ -284,6 +235,8 @@ describe("kalakritiEligibility commands", () => {
       args: {
         ageCategoryId: category.id,
         auditEntryId: "audit-1",
+        femaleStudentLimit: 25,
+        maleStudentLimit: 20,
         maxCompetitionsPerCategory: 2,
         maximumAge: 11,
         maxTotalCompetitions: 3,
@@ -300,7 +253,9 @@ describe("kalakritiEligibility commands", () => {
 
     expect(spies.updateAgeCategory).toHaveBeenCalledWith(
       expect.objectContaining({
+        femaleStudentLimit: 25,
         id: category.id,
+        maleStudentLimit: 20,
         maximumAge: 11,
         name: "Junior Plus",
       })
@@ -326,6 +281,8 @@ describe("kalakritiEligibility commands", () => {
         args: {
           ageCategoryId: category.id,
           auditEntryId: "audit-1",
+          femaleStudentLimit: 20,
+          maleStudentLimit: 20,
           maxCompetitionsPerCategory: 1,
           maximumAge: 12,
           maxTotalCompetitions: 2,
@@ -341,37 +298,5 @@ describe("kalakritiEligibility commands", () => {
       >[0])
     ).rejects.toThrow("Age ranges overlap");
     expect(spies.updateAgeCategory).not.toHaveBeenCalled();
-  });
-
-  it("updates an existing Center quota and records the audit action", async () => {
-    const { lockedResults, spies, tx } = createTx([{ id: "quota-1" }]);
-    lockedResults.push([edition], [center], [category]);
-
-    await kalakritiEligibilityMutators.setQuota.fn({
-      args: {
-        ageCategoryId: category.id,
-        auditEntryId: "audit-1",
-        centerId: center.id,
-        editionId: edition.id,
-        femaleStudentLimit: 25,
-        maleStudentLimit: 20,
-        now: 2,
-        quotaId: "ignored-new-id",
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiEligibilityMutators.setQuota.fn
-    >[0]);
-
-    expect(spies.updateQuota).toHaveBeenCalledWith({
-      femaleStudentLimit: 25,
-      id: "quota-1",
-      maleStudentLimit: 20,
-      updatedAt: 2,
-    });
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "updated", targetId: "quota-1" })
-    );
   });
 });
