@@ -208,7 +208,15 @@ describe("kalakritiEdition.create", () => {
 
 describe("Kalakriti Edition registration readiness", () => {
   const readySnapshot = {
-    ageCategories: [{ id: "age-1", maximumAge: 12, minimumAge: 8 }],
+    ageCategories: [
+      {
+        femaleStudentLimit: 20,
+        id: "age-1",
+        maleStudentLimit: 20,
+        maximumAge: 12,
+        minimumAge: 8,
+      },
+    ],
     centers: [{ id: "center-1", retiredAt: null }],
     competitionCategories: [{ id: "category-1", retiredAt: null }],
     competitions: [
@@ -226,7 +234,6 @@ describe("Kalakriti Edition registration readiness", () => {
       plannedRegistrationCloseAt: Date.UTC(2028, 9, 31),
       timezone: "Asia/Kolkata",
     },
-    quotas: [{ ageCategoryId: "age-1", centerId: "center-1" }],
     sessions: [
       {
         ageCategoryId: "age-1",
@@ -242,7 +249,7 @@ describe("Kalakriti Edition registration readiness", () => {
     venues: [{ id: "venue-1", retiredAt: null }],
   };
 
-  it("returns stable blockers for a missing quota and invalid Session", () => {
+  it("returns stable blockers for missing limits and an invalid Session", () => {
     const session = readySnapshot.sessions.at(0);
     if (!session) {
       throw new Error("Ready snapshot requires a Session");
@@ -250,10 +257,14 @@ describe("Kalakriti Edition registration readiness", () => {
     expect(
       getKalakritiRegistrationReadiness({
         ...readySnapshot,
-        quotas: [],
+        ageCategories: readySnapshot.ageCategories.map((category) => ({
+          ...category,
+          femaleStudentLimit: 0,
+          maleStudentLimit: 0,
+        })),
         sessions: [{ ...session, capacity: 0 }],
       }).map((blocker) => blocker.code)
-    ).toEqual(["missing_center_age_quotas", "invalid_active_sessions"]);
+    ).toEqual(["missing_student_limits", "invalid_active_sessions"]);
   });
 
   it.each([
@@ -272,11 +283,27 @@ describe("Kalakriti Edition registration readiness", () => {
         ...readySnapshot,
         ageCategories: [
           ...readySnapshot.ageCategories,
-          { id: "age-2", maximumAge: 15, minimumAge: 12 },
+          {
+            femaleStudentLimit: 20,
+            id: "age-2",
+            maleStudentLimit: 20,
+            maximumAge: 15,
+            minimumAge: 12,
+          },
         ],
       }),
     ],
-    ["missing_center_age_quotas", () => ({ ...readySnapshot, quotas: [] })],
+    [
+      "missing_student_limits",
+      () => ({
+        ...readySnapshot,
+        ageCategories: readySnapshot.ageCategories.map((category) => ({
+          ...category,
+          femaleStudentLimit: 0,
+          maleStudentLimit: 0,
+        })),
+      }),
+    ],
     [
       "no_active_competitions",
       () => ({
@@ -513,7 +540,6 @@ describe("Kalakriti Edition registration readiness", () => {
         [],
         [],
         [],
-        [],
       ]);
 
       await expect(
@@ -543,7 +569,9 @@ describe("Kalakriti Edition registration readiness", () => {
       timezone: "Asia/Kolkata",
     };
     const ageCategory = {
+      femaleStudentLimit: 20,
       id: "age-active",
+      maleStudentLimit: 20,
       maxCompetitionsPerCategory: 2,
       maximumAge: 12,
       maxTotalCompetitions: 4,
@@ -627,6 +655,12 @@ describe("Kalakriti Edition registration readiness", () => {
     >[0]);
 
     expect(spies.insertCompetitionCategory).toHaveBeenCalledOnce();
+    expect(spies.insertAgeCategory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        femaleStudentLimit: 20,
+        maleStudentLimit: 20,
+      })
+    );
     expect(spies.insertCompetition).toHaveBeenCalledOnce();
     expect(spies.insertCompetition).toHaveBeenCalledWith(
       expect.objectContaining({

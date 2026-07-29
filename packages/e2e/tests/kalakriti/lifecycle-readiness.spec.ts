@@ -68,18 +68,25 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Eligibility" }).click();
+    await page.goto(`/kalakriti/${years.cloneTargetYear}/eligibility`);
     await expect(
       page.getByText("Source Junior", { exact: true })
     ).toBeVisible();
-    await page.getByRole("button", { name: "Competitions" }).click();
+    await page.goto(
+      `/kalakriti/${years.cloneTargetYear}/competitions/categories`
+    );
     await expect(page.getByText("Source Arts", { exact: true })).toBeVisible();
+    await page.goto(`/kalakriti/${years.cloneTargetYear}/competitions/catalog`);
     await expect(page.getByText("Source Dance", { exact: true })).toBeVisible();
+    await page.goto(`/kalakriti/${years.cloneTargetYear}/competitions/venues`);
     await expect(page.getByText("Source Stage", { exact: true })).toBeVisible();
+    await page.goto(
+      `/kalakriti/${years.cloneTargetYear}/competitions/schedule`
+    );
     await expect(
       page.getByText("No Competition Sessions scheduled.")
     ).toBeVisible();
-    await page.getByRole("button", { name: "Centers" }).click();
+    await page.goto(`/kalakriti/${years.cloneTargetYear}/centers`);
     await expect(page.getByText("No Centers available")).toBeVisible();
 
     await page.goto(`/kalakriti/${years.readyYear}`);
@@ -103,13 +110,13 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Competitions" }).click();
+    await page.goto(`/kalakriti/${years.readyYear}/competitions/catalog`);
     await expect(
       page.getByRole("button", { name: "Add Competition" })
     ).toHaveCount(0);
-    await page
-      .getByRole("button", { name: "Edit Solo Dance, Junior Session" })
-      .click();
+    await page.goto(`/kalakriti/${years.readyYear}/competitions/schedule`);
+    await page.getByText("Solo Dance", { exact: true }).click();
+    await page.getByRole("button", { name: "Edit Session" }).click();
     const sessionDialog = page.getByRole("dialog", {
       name: "Edit Competition Session",
     });
@@ -119,7 +126,7 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     await expect(sessionDialog.getByLabel("Venue")).toBeEnabled();
     await sessionDialog.getByRole("button", { name: "Cancel" }).click();
 
-    await page.getByRole("button", { name: "Overview" }).click();
+    await page.goto(`/kalakriti/${years.readyYear}`);
     await page.getByRole("button", { name: "Open registration" }).click();
     const reopenDialog = page.getByRole("alertdialog", {
       name: "Open registration?",
@@ -144,7 +151,7 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     await page.reload();
     await waitForZeroReady(page);
     await expect(
-      page.getByText("Every active Center and Age Category needs a quota")
+      page.getByText("Every Age Category needs a Student limit")
     ).toBeVisible();
     await expect(
       page.getByText("Complete these before reopening registration")

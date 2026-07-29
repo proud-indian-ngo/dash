@@ -4,7 +4,7 @@ export interface KalakritiRegistrationReadinessBlocker {
     | "no_active_centers"
     | "missing_age_categories"
     | "overlapping_age_categories"
-    | "missing_center_age_quotas"
+    | "missing_student_limits"
     | "no_active_competitions"
     | "competition_missing_session"
     | "no_active_venues"
@@ -14,7 +14,9 @@ export interface KalakritiRegistrationReadinessBlocker {
 
 export interface KalakritiRegistrationReadinessSnapshot {
   ageCategories: readonly {
+    femaleStudentLimit: number;
     id: string;
+    maleStudentLimit: number;
     maximumAge: number;
     minimumAge: number;
   }[];
@@ -33,7 +35,6 @@ export interface KalakritiRegistrationReadinessSnapshot {
     plannedRegistrationCloseAt: number;
     timezone: string | null;
   };
-  quotas: readonly { ageCategoryId: string; centerId: string }[];
   sessions: readonly {
     ageCategoryId: string;
     cancelledAt: number | null;
@@ -122,19 +123,14 @@ export function getKalakritiRegistrationReadiness(
     });
   }
 
-  const quotaKeys = new Set(
-    snapshot.quotas.map((quota) => `${quota.centerId}:${quota.ageCategoryId}`)
-  );
   if (
-    centers.some((center) =>
-      ageCategories.some(
-        (category) => !quotaKeys.has(`${center.id}:${category.id}`)
-      )
+    ageCategories.some(
+      (category) => category.maleStudentLimit + category.femaleStudentLimit <= 0
     )
   ) {
     blockers.push({
-      code: "missing_center_age_quotas",
-      message: "Every active Center and Age Category needs a quota",
+      code: "missing_student_limits",
+      message: "Every Age Category needs a Student limit",
     });
   }
 

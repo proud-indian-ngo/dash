@@ -3,7 +3,6 @@ import {
   kalakritiAgeCategory,
   kalakritiAuditEntry,
   kalakritiCenter,
-  kalakritiCenterAgeQuota,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
   kalakritiCompetitionSession,
@@ -26,7 +25,6 @@ const fixtures = {
     competitionId: "019f0000-0000-7000-8000-00000000a206",
     editionId: "019f0000-0000-7000-8000-00000000a201",
     eventId: "019f0000-0000-7000-8000-00000000a202",
-    quotaId: "019f0000-0000-7000-8000-00000000a207",
     sessionId: "019f0000-0000-7000-8000-00000000a208",
     venueId: "019f0000-0000-7000-8000-00000000a209",
     year: 2189,
@@ -51,9 +49,6 @@ async function cleanup() {
   await db
     .delete(kalakritiCompetitionSession)
     .where(inArray(kalakritiCompetitionSession.editionId, editionIds));
-  await db
-    .delete(kalakritiCenterAgeQuota)
-    .where(inArray(kalakritiCenterAgeQuota.editionId, editionIds));
   await db
     .delete(kalakritiCompetition)
     .where(inArray(kalakritiCompetition.editionId, editionIds));
@@ -151,7 +146,9 @@ async function setup(actorEmail: string) {
       createdAt: now,
       createdBy: actor.id,
       editionId: fixtures.ready.editionId,
+      femaleStudentLimit: 20,
       id: fixtures.ready.ageCategoryId,
+      maleStudentLimit: 20,
       maxCompetitionsPerCategory: 2,
       maximumAge: 12,
       maxTotalCompetitions: 4,
@@ -165,7 +162,9 @@ async function setup(actorEmail: string) {
       createdAt: now,
       createdBy: actor.id,
       editionId: fixtures.source.editionId,
+      femaleStudentLimit: 20,
       id: fixtures.source.ageCategoryId,
+      maleStudentLimit: 20,
       maxCompetitionsPerCategory: 3,
       maximumAge: 15,
       maxTotalCompetitions: 5,
@@ -176,17 +175,6 @@ async function setup(actorEmail: string) {
       updatedAt: now,
     },
   ]);
-  await db.insert(kalakritiCenterAgeQuota).values({
-    ageCategoryId: fixtures.ready.ageCategoryId,
-    centerId: fixtures.ready.centerId,
-    createdAt: now,
-    createdBy: actor.id,
-    editionId: fixtures.ready.editionId,
-    femaleStudentLimit: 20,
-    id: fixtures.ready.quotaId,
-    maleStudentLimit: 20,
-    updatedAt: now,
-  });
   await db.insert(kalakritiCompetitionCategory).values([
     {
       createdAt: now,
@@ -297,8 +285,9 @@ async function setup(actorEmail: string) {
 
 async function invalidateReadyEdition() {
   await db
-    .delete(kalakritiCenterAgeQuota)
-    .where(inArray(kalakritiCenterAgeQuota.id, [fixtures.ready.quotaId]));
+    .update(kalakritiAgeCategory)
+    .set({ femaleStudentLimit: 0, maleStudentLimit: 0 })
+    .where(inArray(kalakritiAgeCategory.id, [fixtures.ready.ageCategoryId]));
   return { invalidated: true };
 }
 

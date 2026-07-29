@@ -106,7 +106,6 @@ async function getReadinessSnapshot(
     edition,
     centers,
     ageCategories,
-    quotas,
     competitionCategories,
     competitions,
     sessions,
@@ -115,7 +114,6 @@ async function getReadinessSnapshot(
     tx.run(zql.kalakritiEdition.where("id", editionId).one()),
     tx.run(zql.kalakritiCenter.where("editionId", editionId)),
     tx.run(zql.kalakritiAgeCategory.where("editionId", editionId)),
-    tx.run(zql.kalakritiCenterAgeQuota.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetitionCategory.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetition.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetitionSession.where("editionId", editionId)),
@@ -133,7 +131,6 @@ async function getReadinessSnapshot(
     competitions:
       competitions as KalakritiRegistrationReadinessSnapshot["competitions"],
     edition: edition as KalakritiRegistrationReadinessSnapshot["edition"],
-    quotas: quotas as KalakritiRegistrationReadinessSnapshot["quotas"],
     sessions: sessions as KalakritiRegistrationReadinessSnapshot["sessions"],
     venues: venues as KalakritiRegistrationReadinessSnapshot["venues"],
   };
@@ -280,7 +277,9 @@ export const kalakritiEditionMutators = {
             createdAt: args.now,
             createdBy: ctx.userId,
             editionId: args.targetEditionId,
+            femaleStudentLimit: row.femaleStudentLimit,
             id: getMappedId(ageMap, row.id, "Age Category"),
+            maleStudentLimit: row.maleStudentLimit,
             maxCompetitionsPerCategory: row.maxCompetitionsPerCategory,
             maximumAge: row.maximumAge,
             maxTotalCompetitions: row.maxTotalCompetitions,

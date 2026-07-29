@@ -60,7 +60,7 @@ function configurationAccessibleEdition(
 
 function withReadinessSnapshot(q: typeof zql.kalakritiEdition) {
   return q
-    .related("centers", (center) => center.related("quotas"))
+    .related("centers")
     .related("ageCategories")
     .related("competitionCategories")
     .related("competitions")

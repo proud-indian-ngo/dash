@@ -177,12 +177,15 @@ export function EditionLifecycleCard({
   const lifecycle = snapshot?.lifecycle as RegistrationLifecycle | undefined;
   const blockers = snapshot
     ? getKalakritiRegistrationReadiness({
-        ageCategories: snapshot.ageCategories,
+        ageCategories: snapshot.ageCategories.map((category) => ({
+          ...category,
+          femaleStudentLimit: category.femaleStudentLimit ?? 0,
+          maleStudentLimit: category.maleStudentLimit ?? 0,
+        })),
         centers: snapshot.centers,
         competitionCategories: snapshot.competitionCategories,
         competitions: snapshot.competitions,
         edition: snapshot,
-        quotas: snapshot.centers.flatMap((center) => center.quotas),
         sessions: snapshot.competitionSessions,
         venues: snapshot.venues,
       })
