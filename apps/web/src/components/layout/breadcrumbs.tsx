@@ -6,56 +6,31 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@pi-dash/design-system/components/ui/breadcrumb";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Fragment } from "react";
-import type { NavItem } from "@/components/layout/nav-main";
 import { useApp } from "@/context/app-context";
-
-function buildNavItemsMap(items: NavItem[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const item of items) {
-    map[item.url] = item.title;
-    if (item.subItems) {
-      Object.assign(map, buildNavItemsMap(item.subItems));
-    }
-  }
-  return map;
-}
-
-function resolveTitle(
-  navItemsMap: Record<string, string>,
-  path: string
-): string | undefined {
-  if (navItemsMap[path]) {
-    return navItemsMap[path];
-  }
-  // Replace last segment with $id for dynamic route matching
-  const segments = path.split("/");
-  segments[segments.length - 1] = "$id";
-  const patternPath = segments.join("/");
-  return navItemsMap[patternPath];
-}
+import { buildBreadcrumbs, getKalakritiCenterRoute } from "@/lib/breadcrumbs";
 
 export function Breadcrumbs() {
-  const { navItems } = useApp();
-  const navItemsMap = buildNavItemsMap(navItems);
+  const { hasPermission, navItems } = useApp();
   const { pathname } = useLocation();
-  const pathnames = pathname.split("/").slice(1);
-
-  const breadcrumbItems =
-    pathname === "/"
-      ? []
-      : pathnames.reduce<{ path: string; title: string }[]>(
-          (acc, _segment, index) => {
-            const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
-            const title = resolveTitle(navItemsMap, currentPath);
-            if (title) {
-              acc.push({ path: currentPath, title });
-            }
-            return acc;
-          },
-          []
-        );
+  const centerRoute = getKalakritiCenterRoute(pathname);
+  const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
+    enabled: hasPermission("kalakriti.view") && centerRoute !== undefined,
+  });
+  const edition = editions.find(
+    (candidate) => candidate.year === centerRoute?.year
+  );
+  const [centers] = useQuery(
+    queries.kalakritiCenter.visible({ editionId: edition?.id ?? "" }),
+    { enabled: centerRoute !== undefined && Boolean(edition) }
+  );
+  const centerName = centers.find(
+    (center) => center.id === centerRoute?.centerId
+  )?.name;
+  const breadcrumbItems = buildBreadcrumbs(navItems, pathname, { centerName });
 
   return (
     <Breadcrumb>

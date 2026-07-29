@@ -37,9 +37,26 @@ function createTx(
   location: "client" | "server" = "server"
 ) {
   const spies = createMutationSpies();
+  const lockedCenters: unknown[][] = [
+    [{ editionId: "edition-1", id: "center-1", retiredAt: null }],
+  ];
+  const lockForUpdate = vi.fn(async () => lockedCenters.shift() ?? []);
+  const select = vi.fn(() => {
+    const query = {
+      for: lockForUpdate,
+      from: vi.fn(),
+      where: vi.fn(),
+    };
+    query.from.mockReturnValue(query);
+    query.where.mockReturnValue(query);
+    return query;
+  });
   return {
+    lockedCenters,
+    lockForUpdate,
     spies,
     tx: {
+      dbTransaction: { wrappedTransaction: { select } },
       location,
       mutate: {
         kalakritiAssignment: {
@@ -240,6 +257,145 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     ).rejects.toThrow("Volunteer does not have Kalakriti access");
     expect(spies.insertAssignment).not.toHaveBeenCalled();
     expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+});
+
+describe("kalakritiAssignment.assignLiaison", () => {
+  it("lets a Volunteer Coordinator assign one volunteer to a Center", async () => {
+    const { lockForUpdate, tx, spies } = createTx([
+      { id: "actor-membership" },
+      [{ responsibility: "volunteer_coordinator" }],
+      { id: "edition-1", teamEventId: "event-1" },
+      {
+        email: "liaison@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Liaison One",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignLiaison.fn({
+      args: {
+        assignmentId: "liaison-assignment-1",
+        auditEntryId: "audit-1",
+        centerId: "center-1",
+        editionId: "edition-1",
+        makePrimary: false,
+        membershipId: "liaison-membership-1",
+        now: 1_700_000_000_000,
+        teamEventMemberId: "event-member-1",
+        userId: "volunteer-1",
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "coordinator-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignLiaison.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        centerId: "center-1",
+        responsibility: "liaison",
+      })
+    );
+    expect(spies.insertMembership).toHaveBeenCalledOnce();
+    expect(spies.insertEventMember).toHaveBeenCalledOnce();
+    expect(lockForUpdate).toHaveBeenCalledWith("update");
+  });
+
+  it("allows the same Liaison on another Center but rejects a duplicate scope", async () => {
+    const volunteer = {
+      email: "liaison@example.com",
+      id: "volunteer-1",
+      isActive: true,
+      name: "Liaison One",
+      phone: null,
+      role: "volunteer",
+    };
+    const existingAssignment = {
+      centerId: "center-1",
+      id: "liaison-assignment-1",
+      isPrimary: true,
+      responsibility: "liaison",
+    };
+    const { lockedCenters, spies, tx } = createTx([
+      { id: "edition-1", teamEventId: "event-1" },
+      volunteer,
+      undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
+      { id: "liaison-membership-1", kind: "volunteer", state: "active" },
+      [existingAssignment],
+      { id: "event-member-1" },
+    ]);
+    lockedCenters.splice(0, 1, [
+      { editionId: "edition-1", id: "center-2", retiredAt: null },
+    ]);
+
+    await kalakritiAssignmentMutators.assignLiaison.fn({
+      args: {
+        assignmentId: "liaison-assignment-2",
+        auditEntryId: "audit-2",
+        centerId: "center-2",
+        editionId: "edition-1",
+        makePrimary: false,
+        membershipId: "unused-membership",
+        now: 1_700_000_000_001,
+        teamEventMemberId: "unused-event-member",
+        userId: "volunteer-1",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignLiaison.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({ centerId: "center-2" })
+    );
+
+    const duplicate = createTx([
+      { id: "edition-1", teamEventId: "event-1" },
+      volunteer,
+      undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
+      { id: "liaison-membership-1", kind: "volunteer", state: "active" },
+      [{ ...existingAssignment, centerId: "center-2" }],
+    ]);
+    duplicate.lockedCenters.splice(0, 1, [
+      { editionId: "edition-1", id: "center-2", retiredAt: null },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.assignLiaison.fn({
+        args: {
+          assignmentId: "liaison-assignment-3",
+          auditEntryId: "audit-3",
+          centerId: "center-2",
+          editionId: "edition-1",
+          makePrimary: false,
+          membershipId: "unused-membership",
+          now: 1_700_000_000_002,
+          teamEventMemberId: "unused-event-member",
+          userId: "volunteer-1",
+        },
+        ctx: adminContext,
+        tx: duplicate.tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignLiaison.fn
+      >[0])
+    ).rejects.toThrow("already has this scoped responsibility");
+    expect(duplicate.spies.insertAssignment).not.toHaveBeenCalled();
   });
 });
 

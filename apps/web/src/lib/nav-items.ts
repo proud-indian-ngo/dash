@@ -128,16 +128,48 @@ const kalakritiNavItem: NavItem = {
   url: "/kalakriti",
 };
 
-const kalakritiEditionNavItem: NavItem = {
-  icon: Calendar03Icon,
-  title: "Edition",
-  url: "/kalakriti",
-};
+export function buildKalakritiNavGroups({
+  canManageGuardians = false,
+  centers = [],
+  year,
+}: {
+  canManageGuardians?: boolean;
+  centers?: readonly { id: string; name: string }[];
+  year?: number;
+} = {}): NavGroup[] {
+  const editionItems: NavItem[] = [
+    {
+      icon: Calendar03Icon,
+      title: year ? "Overview" : "Edition",
+      url: year ? `/kalakriti/${year}` : "/kalakriti",
+    },
+  ];
 
-export const kalakritiNavGroups: NavGroup[] = [
-  { items: [homeNavItem] },
-  { items: [kalakritiEditionNavItem], label: "Kalakriti" },
-];
+  if (year) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      subItems: centers.map((center) => ({
+        title: center.name,
+        url: `/kalakriti/${year}/centers/${center.id}`,
+      })),
+      title: "Centers",
+      url: `/kalakriti/${year}/centers`,
+    });
+  }
+
+  if (year && canManageGuardians) {
+    editionItems.push({
+      icon: UserIcon,
+      title: "Guardians",
+      url: `/kalakriti/${year}/guardians`,
+    });
+  }
+
+  return [
+    { items: [homeNavItem] },
+    { items: editionItems, label: "Kalakriti" },
+  ];
+}
 
 export function isKalakritiPath(pathname: string): boolean {
   return pathname === "/kalakriti" || pathname.startsWith("/kalakriti/");

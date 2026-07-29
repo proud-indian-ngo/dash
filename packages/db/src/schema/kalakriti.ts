@@ -133,6 +133,44 @@ export const kalakritiEditionMembership = pgTable(
   ]
 );
 
+export const kalakritiCenter = pgTable(
+  "kalakriti_center",
+  {
+    competitionEntryRegistrationEnabled: boolean(
+      "competition_entry_registration_enabled"
+    )
+      .default(false)
+      .notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    retiredAt: timestamp("retired_at"),
+    studentRegistrationEnabled: boolean("student_registration_enabled")
+      .default(false)
+      .notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_center_editionId_normalizedName_uidx").on(
+      table.editionId,
+      table.normalizedName
+    ),
+    unique("kalakriti_center_editionId_id_uq").on(table.editionId, table.id),
+    index("kalakriti_center_editionId_idx").on(table.editionId),
+    check(
+      "kalakriti_center_normalizedName_chk",
+      sql`length(${table.normalizedName}) > 0`
+    ),
+  ]
+);
+
 export const kalakritiAssignment = pgTable(
   "kalakriti_assignment",
   {
@@ -181,6 +219,11 @@ export const kalakritiAssignment = pgTable(
       ],
       name: "kalakriti_assignment_edition_membership_fk",
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.editionId, table.centerId],
+      foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
+      name: "kalakriti_assignment_edition_center_fk",
+    }).onDelete("restrict"),
     check(
       "kalakriti_assignment_scope_chk",
       sql`
@@ -202,6 +245,45 @@ export const kalakritiAssignment = pgTable(
           AND ${table.competitionId} IS NOT NULL)
       `
     ),
+  ]
+);
+
+export const kalakritiGuardianCenter = pgTable(
+  "kalakriti_guardian_center",
+  {
+    centerId: uuid("center_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    membershipId: uuid("membership_id").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_guardian_center_membershipId_centerId_uidx").on(
+      table.membershipId,
+      table.centerId
+    ),
+    index("kalakriti_guardian_center_editionId_centerId_idx").on(
+      table.editionId,
+      table.centerId
+    ),
+    foreignKey({
+      columns: [table.editionId, table.membershipId],
+      foreignColumns: [
+        kalakritiEditionMembership.editionId,
+        kalakritiEditionMembership.id,
+      ],
+      name: "kalakriti_guardian_center_edition_membership_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.editionId, table.centerId],
+      foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
+      name: "kalakriti_guardian_center_edition_center_fk",
+    }).onDelete("restrict"),
   ]
 );
 
@@ -236,6 +318,7 @@ export const kalakritiEditionRelations = relations(
   ({ many, one }) => ({
     assignments: many(kalakritiAssignment),
     auditEntries: many(kalakritiAuditEntry),
+    centers: many(kalakritiCenter),
     creator: one(user, {
       fields: [kalakritiEdition.createdBy],
       references: [user.id],
@@ -256,6 +339,7 @@ export const kalakritiEditionMembershipRelations = relations(
       fields: [kalakritiEditionMembership.editionId],
       references: [kalakritiEdition.id],
     }),
+    guardianCenters: many(kalakritiGuardianCenter),
     user: one(user, {
       fields: [kalakritiEditionMembership.userId],
       references: [user.id],
@@ -266,12 +350,46 @@ export const kalakritiEditionMembershipRelations = relations(
 export const kalakritiAssignmentRelations = relations(
   kalakritiAssignment,
   ({ one }) => ({
+    center: one(kalakritiCenter, {
+      fields: [kalakritiAssignment.centerId],
+      references: [kalakritiCenter.id],
+    }),
     edition: one(kalakritiEdition, {
       fields: [kalakritiAssignment.editionId],
       references: [kalakritiEdition.id],
     }),
     membership: one(kalakritiEditionMembership, {
       fields: [kalakritiAssignment.membershipId],
+      references: [kalakritiEditionMembership.id],
+    }),
+  })
+);
+
+export const kalakritiCenterRelations = relations(
+  kalakritiCenter,
+  ({ many, one }) => ({
+    assignments: many(kalakritiAssignment),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiCenter.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    guardianCenters: many(kalakritiGuardianCenter),
+  })
+);
+
+export const kalakritiGuardianCenterRelations = relations(
+  kalakritiGuardianCenter,
+  ({ one }) => ({
+    center: one(kalakritiCenter, {
+      fields: [kalakritiGuardianCenter.centerId],
+      references: [kalakritiCenter.id],
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiGuardianCenter.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    membership: one(kalakritiEditionMembership, {
+      fields: [kalakritiGuardianCenter.membershipId],
       references: [kalakritiEditionMembership.id],
     }),
   })

@@ -63,6 +63,8 @@ import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/th
 import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/original.$id'
 import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
 import { Route as AppKalakritiYearGuardiansRouteImport } from './routes/_app/kalakriti/$year/guardians'
+import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
+import { Route as AppKalakritiYearCentersIdRouteImport } from './routes/_app/kalakriti/$year/centers/$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -333,6 +335,18 @@ const AppKalakritiYearGuardiansRoute =
     path: '/guardians',
     getParentRoute: () => AppKalakritiYearRouteRoute,
   } as any)
+const AppKalakritiYearCentersIndexRoute =
+  AppKalakritiYearCentersIndexRouteImport.update({
+    id: '/centers/',
+    path: '/centers/',
+    getParentRoute: () => AppKalakritiYearRouteRoute,
+  } as any)
+const AppKalakritiYearCentersIdRoute =
+  AppKalakritiYearCentersIdRouteImport.update({
+    id: '/centers/$id',
+    path: '/centers/$id',
+    getParentRoute: () => AppKalakritiYearRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -387,6 +401,8 @@ export interface FileRoutesByFullPath {
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/kalakriti/$year/centers/$id': typeof AppKalakritiYearCentersIdRoute
+  '/kalakriti/$year/centers/': typeof AppKalakritiYearCentersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -433,6 +449,8 @@ export interface FileRoutesByTo {
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
+  '/kalakriti/$year/centers/$id': typeof AppKalakritiYearCentersIdRoute
+  '/kalakriti/$year/centers': typeof AppKalakritiYearCentersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -490,6 +508,8 @@ export interface FileRoutesById {
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/_app/kalakriti/$year/centers/$id': typeof AppKalakritiYearCentersIdRoute
+  '/_app/kalakriti/$year/centers/': typeof AppKalakritiYearCentersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -546,6 +566,8 @@ export interface FileRouteTypes {
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year/'
     | '/settings/roles/'
+    | '/kalakriti/$year/centers/$id'
+    | '/kalakriti/$year/centers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -592,6 +614,8 @@ export interface FileRouteTypes {
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year'
     | '/settings/roles'
+    | '/kalakriti/$year/centers/$id'
+    | '/kalakriti/$year/centers'
   id:
     | '__root__'
     | '/_app'
@@ -648,6 +672,8 @@ export interface FileRouteTypes {
     | '/api/media/event-photo/$id'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
+    | '/_app/kalakriti/$year/centers/$id'
+    | '/_app/kalakriti/$year/centers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1049,6 +1075,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKalakritiYearGuardiansRouteImport
       parentRoute: typeof AppKalakritiYearRouteRoute
     }
+    '/_app/kalakriti/$year/centers/': {
+      id: '/_app/kalakriti/$year/centers/'
+      path: '/centers'
+      fullPath: '/kalakriti/$year/centers/'
+      preLoaderRoute: typeof AppKalakritiYearCentersIndexRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
+    }
+    '/_app/kalakriti/$year/centers/$id': {
+      id: '/_app/kalakriti/$year/centers/$id'
+      path: '/centers/$id'
+      fullPath: '/kalakriti/$year/centers/$id'
+      preLoaderRoute: typeof AppKalakritiYearCentersIdRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
+    }
   }
 }
 
@@ -1069,11 +1109,15 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
 interface AppKalakritiYearRouteRouteChildren {
   AppKalakritiYearGuardiansRoute: typeof AppKalakritiYearGuardiansRoute
   AppKalakritiYearIndexRoute: typeof AppKalakritiYearIndexRoute
+  AppKalakritiYearCentersIdRoute: typeof AppKalakritiYearCentersIdRoute
+  AppKalakritiYearCentersIndexRoute: typeof AppKalakritiYearCentersIndexRoute
 }
 
 const AppKalakritiYearRouteRouteChildren: AppKalakritiYearRouteRouteChildren = {
   AppKalakritiYearGuardiansRoute: AppKalakritiYearGuardiansRoute,
   AppKalakritiYearIndexRoute: AppKalakritiYearIndexRoute,
+  AppKalakritiYearCentersIdRoute: AppKalakritiYearCentersIdRoute,
+  AppKalakritiYearCentersIndexRoute: AppKalakritiYearCentersIndexRoute,
 }
 
 const AppKalakritiYearRouteRouteWithChildren =

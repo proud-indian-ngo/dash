@@ -1,21 +1,21 @@
 import { useLocation } from "@tanstack/react-router";
-import { useApp } from "@/context/app-context";
 
-export const useActivePath = () => {
+export function resolveActivePath(
+  pathname: string,
+  paths: readonly string[]
+): string {
+  return (
+    paths
+      .filter(
+        (path) =>
+          pathname === path || (path !== "/" && pathname.startsWith(`${path}/`))
+      )
+      .sort((left, right) => right.length - left.length)[0] ?? ""
+  );
+}
+
+export const useActivePath = (paths: readonly string[]) => {
   const { pathname } = useLocation();
-  const { navItems } = useApp();
-  let activePath = "";
 
-  if (pathname === "/") {
-    return "/";
-  }
-
-  for (const navItem of navItems) {
-    if (pathname.startsWith(navItem.url) && navItem.url !== "/") {
-      activePath = navItem.url;
-      break;
-    }
-  }
-
-  return activePath;
+  return resolveActivePath(pathname, paths);
 };
