@@ -7,25 +7,34 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
+import { useLocation } from "@tanstack/react-router";
 import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
+import { isKalakritiPath, kalakritiNavGroups } from "@/lib/nav-items";
 import { NavMainGrouped } from "./nav-main";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, navGroups } = useApp();
+  const { pathname } = useLocation();
   const canViewKalakriti = hasPermission("kalakriti.view");
   const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
     enabled: canViewKalakriti,
   });
   const showKalakriti = hasPermission("kalakriti.admin") || editions.length > 0;
-  const visibleNavGroups = showKalakriti
-    ? navGroups
-    : navGroups.flatMap((group) => {
+  let visibleNavGroups = kalakritiNavGroups;
+
+  if (!isKalakritiPath(pathname)) {
+    visibleNavGroups = navGroups;
+
+    if (!showKalakriti) {
+      visibleNavGroups = navGroups.flatMap((group) => {
         const items = group.items.filter((item) => item.title !== "Kalakriti");
         return items.length > 0 ? [{ ...group, items }] : [];
       });
+    }
+  }
 
   return (
     <Sidebar collapsible="icon" {...props}>

@@ -128,6 +128,21 @@ const kalakritiNavItem: NavItem = {
   url: "/kalakriti",
 };
 
+const kalakritiEditionNavItem: NavItem = {
+  icon: Calendar03Icon,
+  title: "Edition",
+  url: "/kalakriti",
+};
+
+export const kalakritiNavGroups: NavGroup[] = [
+  { items: [homeNavItem] },
+  { items: [kalakritiEditionNavItem], label: "Kalakriti" },
+];
+
+export function isKalakritiPath(pathname: string): boolean {
+  return pathname === "/kalakriti" || pathname.startsWith("/kalakriti/");
+}
+
 function has(permissions: string[], id: string): boolean {
   return permissions.includes(id);
 }
