@@ -11,10 +11,7 @@ const NO_ACCESS_ID = "00000000-0000-0000-0000-000000000000";
 
 export const kalakritiStudentQueries = {
   ageCategoriesByCenter: defineQuery(centerInput, ({ args, ctx }) => {
-    const query = zql.kalakritiAgeCategory.where(
-      "editionId",
-      args.editionId
-    );
+    const query = zql.kalakritiAgeCategory.where("editionId", args.editionId);
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("sortOrder", "asc");
     }

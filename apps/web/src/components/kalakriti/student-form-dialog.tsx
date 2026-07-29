@@ -12,7 +12,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { CustomField } from "@/components/form/custom-field";
@@ -169,7 +169,13 @@ function StudentForm({
   student,
 }: Omit<StudentFormDialogProps, "open">) {
   const zero = useZero();
+  const [today, setToday] = useState<Date>();
   const isEditing = student !== null && student !== undefined;
+
+  useEffect(() => {
+    setToday(new Date());
+  }, []);
+
   const validationSchema = studentFormSchema.superRefine((value, context) => {
     if (
       value.ageCategoryOverrideId !== DERIVED_AGE_CATEGORY &&
@@ -308,7 +314,7 @@ function StudentForm({
         <DateField
           isRequired
           label="Date of birth"
-          maxDate={new Date()}
+          maxDate={today}
           name="dateOfBirth"
         />
         <SelectField

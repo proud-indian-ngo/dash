@@ -97,13 +97,7 @@ describe("Kalakriti Student policy", () => {
     ["registration_open", true, false, 1, "open"],
   ] as const)(
     "reports the authoritative registration availability",
-    (
-      lifecycle,
-      centerEnabled,
-      referenceDataLoading,
-      ageCategoryCount,
-      expected
-    ) => {
+    (lifecycle, centerEnabled, referenceDataLoading, ageCategoryCount, expected) => {
       expect(
         getStudentRegistrationAvailability({
           ageCategoryCount,

@@ -288,10 +288,7 @@ describe("kalakritiStudent commands", () => {
   });
 
   it("rejects a registration when the shared gender limit is full", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      [],
-      [{ id: "existing-1" }],
-    ]);
+    const { lockedResults, spies, tx } = createTx([[], [{ id: "existing-1" }]]);
     lockedResults.push(
       [edition],
       [center],
