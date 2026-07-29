@@ -439,6 +439,7 @@ export const kalakritiEditionMutators = {
         id: args.editionId,
         lifecycle: "draft",
         name: args.name,
+        nextStudentSequence: 1,
         plannedRegistrationCloseAt: args.plannedRegistrationCloseAt,
         runnerUpPoints: 5,
         teamEventId: args.teamEventId,

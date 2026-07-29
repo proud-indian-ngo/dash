@@ -59,10 +59,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           "competition_category_lead",
         ].includes(assignment.responsibility)
       ) === true);
+  const canViewStudents =
+    hasPermission("kalakriti.admin") ||
+    membership?.kind === "guardian" ||
+    membership?.assignments.some((assignment) =>
+      ["edition_admin", "liaison"].includes(assignment.responsibility)
+    ) === true;
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
     canViewCompetitions,
+    canViewStudents,
     centers,
     year: activeEdition?.year,
   });

@@ -9,6 +9,7 @@ interface FormLayoutProps
   children: ReactNode;
   form: FormInstance;
   showSubmitError?: boolean;
+  submitError?: string | null;
 }
 
 const getSubmitErrorMessage = (form: FormInstance): string | undefined => {
@@ -48,11 +49,11 @@ export function FormLayout({
   className = "space-y-4",
   form,
   showSubmitError = false,
+  submitError,
   ...props
 }: FormLayoutProps) {
-  const submitErrorMessage = showSubmitError
-    ? getSubmitErrorMessage(form)
-    : null;
+  const submitErrorMessage =
+    submitError ?? (showSubmitError ? getSubmitErrorMessage(form) : null);
   const stableOnSubmit0 = useEventCallback(
     (event: { preventDefault: () => void; stopPropagation: () => void }) => {
       event.preventDefault();
