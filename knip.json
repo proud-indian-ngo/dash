@@ -25,6 +25,7 @@
       "ignoreFiles": ["global-setup.ts"],
       "entry": [
         "helpers/kalakriti-centers.ts",
+        "helpers/kalakriti-competitions.ts",
         "helpers/kalakriti-eligibility.ts",
         "helpers/kalakriti-guardian-race.ts",
         "helpers/seed-dev-data.ts",

@@ -80,9 +80,34 @@ function createTx(
 }
 
 describe("kalakritiAssignment.assignVolunteer", () => {
+  it("rejects assignments in an archived Edition", async () => {
+    const { tx, spies } = createTx([
+      {
+        id: "edition-1",
+        lifecycle: "archived",
+        teamEventId: "event-1",
+      },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.assignVolunteer.fn({
+        args: assignArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignVolunteer.fn
+      >[0])
+    ).rejects.toThrow("Archived Editions cannot change assignments");
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+
   it("defers a missing picker user row to the authoritative server run", async () => {
     const { tx, spies } = createTx(
-      [{ id: "edition-1", teamEventId: "event-1" }, undefined],
+      [
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        undefined,
+      ],
       "client"
     );
 
@@ -100,7 +125,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
 
   it("creates membership, assignment, and linked event member together", async () => {
     const { tx, spies } = createTx([
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
         email: "volunteer@example.com",
         id: "volunteer-1",
@@ -149,7 +174,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
 
   it("does not duplicate the linked event member for another role", async () => {
     const { tx, spies } = createTx([
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
         email: "volunteer@example.com",
         id: "volunteer-1",
@@ -213,7 +238,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
 
   it("rejects an external identity at the authoritative boundary", async () => {
     const { tx, spies } = createTx([
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
         id: "volunteer-1",
         isActive: true,
@@ -236,7 +261,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
 
   it("rejects a volunteer whose role lacks Kalakriti access", async () => {
     const { tx, spies } = createTx([
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
         id: "volunteer-1",
         isActive: true,
@@ -265,7 +290,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
     const { lockForUpdate, tx, spies } = createTx([
       { id: "actor-membership" },
       [{ responsibility: "volunteer_coordinator" }],
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
         email: "liaison@example.com",
         id: "volunteer-1",
@@ -330,7 +355,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
       responsibility: "liaison",
     };
     const { lockedCenters, spies, tx } = createTx([
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       volunteer,
       undefined,
       { permissionId: "kalakriti.view", roleId: "volunteer" },
@@ -365,7 +390,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
     );
 
     const duplicate = createTx([
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       volunteer,
       undefined,
       { permissionId: "kalakriti.view", roleId: "volunteer" },
@@ -399,7 +424,125 @@ describe("kalakritiAssignment.assignLiaison", () => {
   });
 });
 
+describe("Kalakriti Competition assignments", () => {
+  it("lets a Volunteer Coordinator assign a Category Lead", async () => {
+    const { tx, spies } = createTx([
+      { id: "actor-membership" },
+      [{ responsibility: "volunteer_coordinator" }],
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      { editionId: "edition-1", id: "category-1", retiredAt: null },
+      {
+        email: "lead@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Category Lead",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      { permissionId: "kalakriti.view", roleId: "volunteer" },
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignCompetitionCategoryLead.fn({
+      args: {
+        assignmentId: "assignment-category-1",
+        auditEntryId: "audit-category-1",
+        competitionCategoryId: "category-1",
+        editionId: "edition-1",
+        makePrimary: false,
+        membershipId: "membership-category-1",
+        now: 1_700_000_000_000,
+        responsibility: "competition_category_lead",
+        teamEventMemberId: "event-member-category-1",
+        userId: "volunteer-1",
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "coordinator-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignCompetitionCategoryLead.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        competitionCategoryId: "category-1",
+        competitionId: null,
+        responsibility: "competition_category_lead",
+      })
+    );
+  });
+
+  it("rejects a Competition assignment outside the Edition", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      { editionId: "edition-2", id: "competition-1", retiredAt: null },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.assignCompetitionMember.fn({
+        args: {
+          assignmentId: "assignment-competition-1",
+          auditEntryId: "audit-competition-1",
+          competitionId: "competition-1",
+          editionId: "edition-1",
+          makePrimary: false,
+          membershipId: "membership-competition-1",
+          now: 1_700_000_000_000,
+          responsibility: "competition_coordinator",
+          teamEventMemberId: "event-member-competition-1",
+          userId: "volunteer-1",
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignCompetitionMember.fn
+      >[0])
+    ).rejects.toThrow("Competition not found in this Edition");
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+  });
+});
+
 describe("kalakritiAssignment.remove", () => {
+  it("rejects removals in an archived Edition", async () => {
+    const { tx, spies } = createTx([
+      {
+        editionId: "edition-1",
+        id: "assignment-1",
+        isPrimary: true,
+        membershipId: "membership-1",
+        responsibility: "edition_admin",
+      },
+      { id: "membership-1", userId: "volunteer-1" },
+      {
+        id: "edition-1",
+        lifecycle: "archived",
+        teamEventId: "event-1",
+      },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.remove.fn({
+        args: {
+          assignmentId: "assignment-1",
+          auditEntryId: "audit-1",
+          now: 1_700_000_000_000,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.remove.fn
+      >[0])
+    ).rejects.toThrow("Archived Editions cannot change assignments");
+    expect(spies.deleteAssignment).not.toHaveBeenCalled();
+    expect(spies.updateMembership).not.toHaveBeenCalled();
+  });
+
   it("keeps membership and event roster when another assignment remains", async () => {
     const { tx, spies } = createTx([
       {
@@ -410,7 +553,7 @@ describe("kalakritiAssignment.remove", () => {
         responsibility: "overall_events_lead",
       },
       { id: "membership-1", userId: "volunteer-1" },
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       [
         { id: "assignment-1", isPrimary: false },
         { id: "assignment-2", isPrimary: true },
@@ -444,7 +587,7 @@ describe("kalakritiAssignment.remove", () => {
         responsibility: "edition_admin",
       },
       { id: "membership-1", userId: "volunteer-1" },
-      { id: "edition-1", teamEventId: "event-1" },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       [{ id: "assignment-1", isPrimary: true }],
       { id: "event-member-1" },
     ]);

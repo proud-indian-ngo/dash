@@ -12,6 +12,7 @@ import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
 import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
 import { kalakritiCenterQueries } from "./queries/kalakriti-center";
+import { kalakritiCompetitionQueries } from "./queries/kalakriti-competition";
 import { kalakritiEditionQueries } from "./queries/kalakriti-edition";
 import { kalakritiEligibilityQueries } from "./queries/kalakriti-eligibility";
 import { kalakritiGuardianQueries } from "./queries/kalakriti-guardian";
@@ -39,6 +40,7 @@ export const queries = defineQueries({
   expenseCategory: expenseCategoryQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
   kalakritiCenter: kalakritiCenterQueries,
+  kalakritiCompetition: kalakritiCompetitionQueries,
   kalakritiEdition: kalakritiEditionQueries,
   kalakritiEligibility: kalakritiEligibilityQueries,
   kalakritiGuardian: kalakritiGuardianQueries,

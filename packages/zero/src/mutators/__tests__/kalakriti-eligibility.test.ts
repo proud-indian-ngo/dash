@@ -7,7 +7,12 @@ const adminContext = {
   userId: "admin-1",
 };
 
-const edition = { id: "edition-1", lifecycle: "draft" };
+const edition = {
+  eventDate: "2027-11-21",
+  id: "edition-1",
+  lifecycle: "draft",
+  timezone: "Asia/Kolkata",
+};
 const category = {
   editionId: "edition-1",
   id: "category-1",

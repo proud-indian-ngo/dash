@@ -10,7 +10,7 @@ interface BreadcrumbOptions {
 }
 
 const KALAKRITI_EDITION_PATH =
-  /^\/kalakriti\/(\d{4})(?:\/(centers|eligibility|guardians)(?:\/([^/]+))?)?$/;
+  /^\/kalakriti\/(\d{4})(?:\/(centers|competitions|eligibility|guardians)(?:\/([^/]+))?)?$/;
 
 function buildNavItemsMap(items: NavItem[]): Record<string, string> {
   const map: Record<string, string> = {};
@@ -72,6 +72,24 @@ function buildKalakritiBreadcrumbs(
     items.push({ path: `${editionPath}/guardians`, title: "Guardians" });
   } else if (section === "eligibility") {
     items.push({ path: `${editionPath}/eligibility`, title: "Eligibility" });
+  } else if (section === "competitions") {
+    const competitionsPath = `${editionPath}/competitions`;
+    items.push({ path: competitionsPath, title: "Competitions" });
+    if (entityId) {
+      const subsectionTitles: Record<string, string> = {
+        catalog: "Catalog",
+        categories: "Categories",
+        schedule: "Schedule",
+        venues: "Venues",
+      };
+      const title = subsectionTitles[entityId];
+      if (title) {
+        items.push({
+          path: `${competitionsPath}/${entityId}`,
+          title,
+        });
+      }
+    }
   }
 
   return items;

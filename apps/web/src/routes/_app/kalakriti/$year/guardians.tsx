@@ -166,9 +166,9 @@ function KalakritiGuardiansPage() {
   }
 
   return (
-    <div className="space-y-4 pt-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="font-display font-semibold text-2xl">Guardians</h2>
+        <h1 className="font-display font-semibold text-2xl">Guardians</h1>
         <p className="mt-1 text-muted-foreground text-sm">
           Manage login access for this Edition. Archived external accounts
           remain dormant until an administrator reuses their verified email in a
