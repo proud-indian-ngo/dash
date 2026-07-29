@@ -120,6 +120,11 @@ export const kalakritiEditionMembership = pgTable(
       table.editionId,
       table.userId
     ),
+    uniqueIndex("kalakriti_membership_active_guardian_userId_uidx")
+      .on(table.userId)
+      .where(
+        sql`${table.kind} = 'guardian' AND ${table.state} = 'active' AND ${table.userId} IS NOT NULL`
+      ),
     unique("kalakriti_membership_editionId_id_uq").on(
       table.editionId,
       table.id

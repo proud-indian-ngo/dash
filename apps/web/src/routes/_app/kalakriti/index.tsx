@@ -1,42 +1,24 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { queries } from "@pi-dash/zero/queries";
-import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { Loader } from "@/components/loader";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useApp } from "@/context/app-context";
+import { getCurrentKalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 export const Route = createFileRoute("/_app/kalakriti/")({
-  component: KalakritiIndexRoute,
-});
-
-function KalakritiIndexRoute() {
-  const [editions, result] = useQuery(queries.kalakritiEdition.accessible());
-  const navigate = useNavigate();
-  const { hasPermission } = useApp();
-
-  useEffect(() => {
-    const latest = editions.at(0);
-    if (latest) {
-      navigate({
-        params: { year: latest.year },
+  beforeLoad: async () => {
+    const access = await getCurrentKalakritiEditionAccess();
+    if (access) {
+      throw redirect({
+        params: { year: String(access.edition.year) },
         replace: true,
         to: "/kalakriti/$year",
       });
     }
-  }, [editions, navigate]);
+  },
+  component: KalakritiIndexRoute,
+});
 
-  if (result.type !== "complete") {
-    return (
-      <div className="flex min-h-48 items-center justify-center">
-        <Loader />
-      </div>
-    );
-  }
-
-  if (editions.length > 0) {
-    return null;
-  }
+function KalakritiIndexRoute() {
+  const { hasPermission } = useApp();
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-10 sm:px-4">

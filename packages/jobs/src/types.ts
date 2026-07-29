@@ -383,6 +383,13 @@ export interface NotifyUserDeactivatedPayload {
 export interface NotifyUserReactivatedPayload {
   userId: string;
 }
+export interface NotifyKalakritiGuardianAccessPayload {
+  editionName: string;
+  membershipId: string;
+  reusedIdentity: boolean;
+  userId: string;
+  year: number;
+}
 
 // User Sync
 export interface SyncWhatsAppStatusPayload {
@@ -527,6 +534,7 @@ export interface JobPayloads {
   "notify-event-update-rejected": NotifyEventUpdateRejectedPayload;
   "notify-event-updated": NotifyEventUpdatedPayload;
   "notify-event-volunteer-left": NotifyEventVolunteerLeftPayload;
+  "notify-kalakriti-guardian-access": NotifyKalakritiGuardianAccessPayload;
   "notify-password-reset": NotifyPasswordResetPayload;
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;

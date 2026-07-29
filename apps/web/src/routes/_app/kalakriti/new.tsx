@@ -112,7 +112,7 @@ function NewKalakritiEditionRoute() {
         successMsg: `Kalakriti ${year} created`,
       });
       if (res.type !== "error") {
-        navigate({ params: { year }, to: "/kalakriti/$year" });
+        navigate({ params: { year: String(year) }, to: "/kalakriti/$year" });
       }
     },
     validators: {

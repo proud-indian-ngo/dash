@@ -54,6 +54,7 @@ import {
   handleNotifyUsersAddedToEvent,
 } from "./notify-team-event";
 import {
+  handleNotifyKalakritiGuardianAccess,
   handleNotifyPasswordReset,
   handleNotifyRoleChanged,
   handleNotifyUserBanned,
@@ -272,6 +273,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
   );
 
   await boss.work("notify-role-changed", NOTIFY_POLL, handleNotifyRoleChanged);
+  await boss.work(
+    "notify-kalakriti-guardian-access",
+    NOTIFY_POLL,
+    handleNotifyKalakritiGuardianAccess
+  );
   await boss.work("notify-user-welcome", NOTIFY_POLL, handleNotifyUserWelcome);
   await boss.work("notify-user-banned", NOTIFY_POLL, handleNotifyUserBanned);
   await boss.work(
