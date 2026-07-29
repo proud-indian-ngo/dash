@@ -1,5 +1,7 @@
+import { KALAKRITI_EDITION_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
 import { relations, sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   foreignKey,
@@ -32,10 +34,10 @@ export const kalakritiMembershipStateEnum = pgEnum(
   ["active", "archived"]
 );
 
-export const kalakritiResponsibilityEnum = pgEnum("kalakriti_responsibility", [
-  "edition_admin",
-  "overall_events_lead",
-]);
+export const kalakritiResponsibilityEnum = pgEnum(
+  "kalakriti_responsibility",
+  KALAKRITI_EDITION_RESPONSIBILITIES
+);
 
 export const kalakritiEdition = pgTable(
   "kalakriti_edition",
@@ -129,6 +131,9 @@ export const kalakritiEditionMembership = pgTable(
 export const kalakritiAssignment = pgTable(
   "kalakriti_assignment",
   {
+    centerId: uuid("center_id"),
+    competitionCategoryId: uuid("competition_category_id"),
+    competitionId: uuid("competition_id"),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
       .notNull()
@@ -137,14 +142,28 @@ export const kalakritiAssignment = pgTable(
       .notNull()
       .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
     id: uuid("id").primaryKey(),
+    isPrimary: boolean("is_primary").default(false).notNull(),
     membershipId: uuid("membership_id").notNull(),
     responsibility: kalakritiResponsibilityEnum("responsibility").notNull(),
   },
   (table) => [
-    uniqueIndex("kalakriti_assignment_membership_responsibility_uidx").on(
-      table.membershipId,
-      table.responsibility
-    ),
+    uniqueIndex("kalakriti_assignment_edition_scope_uidx")
+      .on(table.membershipId, table.responsibility)
+      .where(
+        sql`${table.centerId} IS NULL AND ${table.competitionCategoryId} IS NULL AND ${table.competitionId} IS NULL`
+      ),
+    uniqueIndex("kalakriti_assignment_center_scope_uidx")
+      .on(table.membershipId, table.responsibility, table.centerId)
+      .where(sql`${table.centerId} IS NOT NULL`),
+    uniqueIndex("kalakriti_assignment_category_scope_uidx")
+      .on(table.membershipId, table.responsibility, table.competitionCategoryId)
+      .where(sql`${table.competitionCategoryId} IS NOT NULL`),
+    uniqueIndex("kalakriti_assignment_competition_scope_uidx")
+      .on(table.membershipId, table.responsibility, table.competitionId)
+      .where(sql`${table.competitionId} IS NOT NULL`),
+    uniqueIndex("kalakriti_assignment_primary_uidx")
+      .on(table.membershipId)
+      .where(sql`${table.isPrimary} = true`),
     uniqueIndex("kalakriti_assignment_overall_events_lead_uidx")
       .on(table.editionId)
       .where(sql`${table.responsibility} = 'overall_events_lead'`),
@@ -157,6 +176,27 @@ export const kalakritiAssignment = pgTable(
       ],
       name: "kalakriti_assignment_edition_membership_fk",
     }).onDelete("cascade"),
+    check(
+      "kalakriti_assignment_scope_chk",
+      sql`
+        (${table.responsibility}::text IN ('edition_admin', 'volunteer_coordinator', 'overall_events_lead', 'food_lead', 'food_member', 'transport_lead', 'logistics_lead', 'logistics_member', 'awards_lead', 'awards_member', 'venue_lead', 'venue_member', 'hospitality_lead', 'hospitality_member', 'media_member', 'fundraising_member')
+          AND ${table.centerId} IS NULL
+          AND ${table.competitionCategoryId} IS NULL
+          AND ${table.competitionId} IS NULL)
+        OR (${table.responsibility}::text IN ('liaison', 'transport_coordinator')
+          AND ${table.centerId} IS NOT NULL
+          AND ${table.competitionCategoryId} IS NULL
+          AND ${table.competitionId} IS NULL)
+        OR (${table.responsibility}::text = 'competition_category_lead'
+          AND ${table.centerId} IS NULL
+          AND ${table.competitionCategoryId} IS NOT NULL
+          AND ${table.competitionId} IS NULL)
+        OR (${table.responsibility}::text IN ('competition_coordinator', 'competition_volunteer')
+          AND ${table.centerId} IS NULL
+          AND ${table.competitionCategoryId} IS NULL
+          AND ${table.competitionId} IS NOT NULL)
+      `
+    ),
   ]
 );
 
