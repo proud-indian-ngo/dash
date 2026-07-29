@@ -44,13 +44,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }),
     { enabled: canViewKalakriti && Boolean(activeEdition) }
   );
-  const canManageGuardians =
+  const canManageEdition =
     hasPermission("kalakriti.admin") ||
     membership?.assignments.some(
       (assignment) => assignment.responsibility === "edition_admin"
     ) === true;
   let visibleNavGroups = buildKalakritiNavGroups({
-    canManageGuardians,
+    canManageEligibility: canManageEdition,
+    canManageGuardians: canManageEdition,
     centers,
     year: activeEdition?.year,
   });

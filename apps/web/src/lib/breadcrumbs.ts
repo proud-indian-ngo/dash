@@ -10,7 +10,7 @@ interface BreadcrumbOptions {
 }
 
 const KALAKRITI_EDITION_PATH =
-  /^\/kalakriti\/(\d{4})(?:\/(centers|guardians)(?:\/([^/]+))?)?$/;
+  /^\/kalakriti\/(\d{4})(?:\/(centers|eligibility|guardians)(?:\/([^/]+))?)?$/;
 
 function buildNavItemsMap(items: NavItem[]): Record<string, string> {
   const map: Record<string, string> = {};
@@ -70,6 +70,8 @@ function buildKalakritiBreadcrumbs(
     }
   } else if (section === "guardians") {
     items.push({ path: `${editionPath}/guardians`, title: "Guardians" });
+  } else if (section === "eligibility") {
+    items.push({ path: `${editionPath}/eligibility`, title: "Eligibility" });
   }
 
   return items;

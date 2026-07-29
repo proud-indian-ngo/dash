@@ -157,7 +157,7 @@ A Student stores only Edition, Center, name, date of birth, `male` or `female`, 
 
 Age Category is calculated using the Edition's age cutoff date. Administrators may override the category with a mandatory reason and audit entry. Age ranges may intentionally contain gaps, but they cannot overlap.
 
-Per Center and Age Category, administrators configure maximum male and female Students. The Registration command enforces the matching quota before inserting or changing a Student.
+For each Age Category, administrators configure maximum male and female Students per Center. Every Center uses the same limits, and the Registration command enforces them before inserting or changing a Student.
 
 Potential duplicates are detected using Center, normalized name, and date of birth. They produce a warning that requires administrator confirmation, not a database uniqueness failure.
 
@@ -253,7 +253,7 @@ This interface hides readiness calculations, the one-live-Edition rule, `teamEve
 
 ### Registration
 
-Owns Students, quotas, Competition Entries, and all cross-record registration invariants.
+Owns Students, shared Student limits, Competition Entries, and all cross-record registration invariants.
 
 ```ts
 registerStudent(input)
@@ -335,8 +335,7 @@ Do not use a generic `scopeType/scopeId` pair without foreign keys. Nullable typ
 | Table | Purpose and key constraints |
 | --- | --- |
 | `kalakriti_center` | Edition-owned Center with independent Student and Competition Entry registration controls. Unique normalized name within the Edition. |
-| `kalakriti_age_category` | Edition-owned inclusive age range, sort order, and per-Student Competition limits. Exclusion or command checks prevent overlapping ranges. |
-| `kalakriti_center_age_quota` | Unique `(centerId, ageCategoryId)` male and female Student limits. Both parents must belong to the same Edition. |
+| `kalakriti_age_category` | Edition-owned inclusive age range, sort order, shared male and female Student limits per Center, and per-Student Competition limits. Exclusion or command checks prevent overlapping ranges. |
 | `kalakriti_competition_category` | Edition-owned category, ordering, and retirement state. |
 | `kalakriti_competition` | Competition definition, participation mode, gender eligibility, group rules, and cancellation state. |
 | `kalakriti_venue` | Edition-owned room or performance location with retirement state. |
@@ -520,7 +519,7 @@ Exit criteria:
 This is the first public production milestone.
 
 1. Build Center management, Guardian and Liaison Center assignment, independent Center controls, and bulk lock.
-2. Build Age Categories, cutoff derivation, gender quotas, limits, override audit, and duplicate warnings.
+2. Build Age Categories, cutoff derivation, shared gender limits, Competition limits, override audit, and duplicate warnings.
 3. Build Competition Categories, Competitions, group rules, Venues, Competition Sessions, capacities, cancellation, and protected deletion behavior.
 4. Build Student create, edit, hard delete, dependency blocking, generated yearly IDs, and automatic Credential creation.
 5. Build individual and group Competition Entry commands with all limits, eligibility, same-Center, capacity, duplicate-session, and schedule-conflict checks.
@@ -533,7 +532,7 @@ Release acceptance criteria:
 
 - An administrator can move a ready Edition from `draft` to `registration_open` and later lock it.
 - A Guardian or Liaison can manage Students and Entries only for assigned Centers and only when the relevant Center control and lifecycle permit it.
-- Quotas, capacities, gender, Age Category, per-Student counts, group membership, and time conflicts remain correct under concurrent submissions.
+- Student limits, capacities, gender, Age Category, per-Student counts, group membership, and time conflicts remain correct under concurrent submissions.
 - Closing one Center does not close another; bulk lock closes both controls everywhere; every reopen is explicit and audited.
 - Public schedule access reveals no staffing, contacts, Student names, Scoresheets, or submission photos.
 - CSV import is unavailable; scoped export returns no out-of-scope rows.
@@ -598,7 +597,7 @@ Test through the deep command interfaces, not private rule helpers or table-shap
 - one-live-Edition concurrency;
 - cross-Edition reference and authorization rejection;
 - central volunteer and external Guardian identity paths;
-- quota and capacity races using authoritative Postgres transactions;
+- Student-limit and capacity races using authoritative Postgres transactions;
 - Age Category boundaries, gaps, overrides, and mutation invalidation;
 - group-size, same-Center, duplicate-session, and schedule-conflict invariants;
 - idempotent operation replay and correction authorization;

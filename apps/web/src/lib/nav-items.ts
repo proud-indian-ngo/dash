@@ -129,10 +129,12 @@ const kalakritiNavItem: NavItem = {
 };
 
 export function buildKalakritiNavGroups({
+  canManageEligibility = false,
   canManageGuardians = false,
   centers = [],
   year,
 }: {
+  canManageEligibility?: boolean;
   canManageGuardians?: boolean;
   centers?: readonly { id: string; name: string }[];
   year?: number;
@@ -154,6 +156,14 @@ export function buildKalakritiNavGroups({
       })),
       title: "Centers",
       url: `/kalakriti/${year}/centers`,
+    });
+  }
+
+  if (year && canManageEligibility) {
+    editionItems.push({
+      icon: TaskDaily02Icon,
+      title: "Eligibility",
+      url: `/kalakriti/${year}/eligibility`,
     });
   }
 

@@ -35,7 +35,7 @@ flowchart TD
   T02 --> T05["KRR-005 Guardian identity lifecycle"]
   T03 --> T06["KRR-006 Edition route shell"]
   T06 --> T07["KRR-007 Centers and registration controls"]
-  T06 --> T08["KRR-008 Age categories and quotas"]
+  T06 --> T08["KRR-008 Age categories and Student limits"]
   T08 --> T09["KRR-009 Competition configuration and schedule"]
   T04 --> T10["KRR-010 Lifecycle readiness and cloning"]
   T05 --> T10
@@ -301,7 +301,7 @@ bun run check:types
 bun run test:unit
 ```
 
-## KRR-008: Configure Age Categories, limits, and Center quotas
+## KRR-008: Configure Age Categories and limits
 
 **Outcome:** Administrators can define yearly eligibility rules that deterministically classify Students and constrain Center registration.
 
@@ -309,20 +309,20 @@ bun run test:unit
 
 **Scope:**
 
-- Add `kalakriti_age_category` and `kalakriti_center_age_quota`.
+- Add `kalakriti_age_category`.
 - Store inclusive age ranges, ordering, maximum total Competitions per Student, and maximum Competitions per Competition Category.
-- Add per-Center, per-Age-Category male and female Student limits.
+- Add per-Age-Category male and female Student limits shared by every Center.
 - Allow intentional gaps while rejecting overlapping age ranges.
 - Implement a pure Age Category derivation function using the Edition cutoff date.
 - Add administrative override metadata and mandatory reason support for later Student commands.
-- Protect referenced Age Categories and quota parents from deletion.
+- Protect referenced Age Categories from deletion.
 
 **Acceptance:**
 
 - Boundary dates classify deterministically in `Asia/Kolkata`.
 - Overlapping ranges fail before registration can open.
 - Gaps are allowed and produce a clear ineligible result.
-- Quotas cannot reference a Center or Age Category from another Edition.
+- Every Center uses the same male and female Student limits for an Age Category.
 
 **Verify:**
 
@@ -384,7 +384,7 @@ bun run test:unit
 
 **Acceptance:**
 
-- Registration cannot open with missing dates, Centers, valid Age Categories, quotas, Competition rules, Sessions, or Venues.
+- Registration cannot open with missing dates, Centers, valid Age Categories and Student limits, Competition rules, Sessions, or Venues.
 - Reopening does not silently reopen individual Center controls.
 - Lifecycle and Center controls are both checked by registration commands.
 - Structural clone produces no person or participation rows.
@@ -408,7 +408,7 @@ bun run test:unit
 - Generate the human-readable yearly ID and one active opaque Credential automatically on Student creation.
 - Implement create, edit, and hard delete through the Registration command interface.
 - Derive Age Category from DOB and support administrator override with a reason and audit entry.
-- Enforce Center gender quotas transactionally.
+- Enforce the Age Category gender limits for each Center transactionally.
 - Warn on same-Center normalized name and DOB duplicates; require administrator confirmation for an exception.
 - Block DOB or gender changes that invalidate Entries.
 - Block deletion after any future operational, Result, or prize dependency exists; do not introduce withdrawn status.
@@ -582,7 +582,7 @@ bun run test:unit
 
 **Scope:**
 
-- Add Edition, Center, Age Category, Competition Category, Competition, capacity, and quota aggregate queries.
+- Add Edition, Center, Age Category, Competition Category, Competition, capacity, and Student-limit aggregate queries.
 - Build administrator, Center, Competition Category, and Competition dashboard projections.
 - Filter every aggregate in the authoritative query according to Assignment scope.
 - Keep public schedule aggregates separate from private registration totals.
@@ -640,7 +640,7 @@ bun run test:unit
 - Add Playwright fixtures and idempotent seed data for global admin, Edition admin, Volunteer Coordinator, Overall Events Lead, Category Lead, Guardian, Liaison, unrelated volunteer, and dormant external user.
 - Add E2E flows for Edition creation, linked event, assignments, Guardian invite and reuse, Center controls, Student registration, individual Entry, group Entry, public schedule, bulk lock, reopen, and registration lock.
 - Add direct URL and direct API authorization tests.
-- Add database concurrency tests for quotas, Session capacity, one-live invariant preparation, and duplicate membership or Entry races.
+- Add database concurrency tests for Student limits, Session capacity, one-live invariant preparation, and duplicate membership or Entry races.
 - Run privacy checks against public schedule and scoped exports.
 - Verify no route, navigation item, mutation, or query exposes Event-day, Results, Awards, or Inventory behavior.
 - Update README, project structure, and the relevant architecture chapters for the implemented subsystem boundaries.
