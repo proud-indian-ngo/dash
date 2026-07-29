@@ -28,12 +28,14 @@ import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
+import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as AppVendorPaymentsIndexRouteImport } from './routes/_app/vendor-payments/index'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
 import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbursements/index'
+import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
@@ -48,6 +50,8 @@ import { Route as AppVendorPaymentsIdRouteImport } from './routes/_app/vendor-pa
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
 import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
 import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimbursements/$id'
+import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new'
+import { Route as AppKalakritiYearRouteImport } from './routes/_app/kalakriti/$year'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
@@ -151,6 +155,11 @@ const AppReimbursementsRouteRoute = AppReimbursementsRouteRouteImport.update({
   path: '/reimbursements',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKalakritiRouteRoute = AppKalakritiRouteRouteImport.update({
+  id: '/kalakriti',
+  path: '/kalakriti',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
   id: '/events',
   path: '/events',
@@ -180,6 +189,11 @@ const AppReimbursementsIndexRoute = AppReimbursementsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppReimbursementsRouteRoute,
+} as any)
+const AppKalakritiIndexRoute = AppKalakritiIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppKalakritiRouteRoute,
 } as any)
 const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   id: '/',
@@ -251,6 +265,16 @@ const AppReimbursementsIdRoute = AppReimbursementsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppReimbursementsRouteRoute,
 } as any)
+const AppKalakritiNewRoute = AppKalakritiNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppKalakritiRouteRoute,
+} as any)
+const AppKalakritiYearRoute = AppKalakritiYearRouteImport.update({
+  id: '/$year',
+  path: '/$year',
+  getParentRoute: () => AppKalakritiRouteRoute,
+} as any)
 const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -300,6 +324,7 @@ const AppSettingsRolesRoleIdRoute = AppSettingsRolesRoleIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/events': typeof AppEventsRouteRouteWithChildren
+  '/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
@@ -318,6 +343,8 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
+  '/kalakriti/$year': typeof AppKalakritiYearRoute
+  '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
@@ -332,6 +359,7 @@ export interface FileRoutesByFullPath {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/events/': typeof AppEventsIndexRoute
+  '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
@@ -360,6 +388,8 @@ export interface FileRoutesByTo {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
+  '/kalakriti/$year': typeof AppKalakritiYearRoute
+  '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
   '/teams/$id': typeof AppTeamsIdRoute
@@ -374,6 +404,7 @@ export interface FileRoutesByTo {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/events': typeof AppEventsIndexRoute
+  '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
@@ -392,6 +423,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
+  '/_app/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
@@ -411,6 +443,8 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
+  '/_app/kalakriti/$year': typeof AppKalakritiYearRoute
+  '/_app/kalakriti/new': typeof AppKalakritiNewRoute
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
@@ -425,6 +459,7 @@ export interface FileRoutesById {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/_app/events/': typeof AppEventsIndexRoute
+  '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
@@ -443,6 +478,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/events'
+    | '/kalakriti'
     | '/reimbursements'
     | '/teams'
     | '/vendor-payments'
@@ -461,6 +497,8 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/settings/roles'
     | '/events/$id'
+    | '/kalakriti/$year'
+    | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
     | '/teams/$id'
@@ -475,6 +513,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/events/'
+    | '/kalakriti/'
     | '/reimbursements/'
     | '/teams/'
     | '/vendor-payments/'
@@ -503,6 +542,8 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/health'
     | '/events/$id'
+    | '/kalakriti/$year'
+    | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
     | '/teams/$id'
@@ -517,6 +558,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/events'
+    | '/kalakriti'
     | '/reimbursements'
     | '/teams'
     | '/vendor-payments'
@@ -534,6 +576,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/_app/events'
+    | '/_app/kalakriti'
     | '/_app/reimbursements'
     | '/_app/teams'
     | '/_app/vendor-payments'
@@ -553,6 +596,8 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/settings/roles'
     | '/_app/events/$id'
+    | '/_app/kalakriti/$year'
+    | '/_app/kalakriti/new'
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
     | '/_app/teams/$id'
@@ -567,6 +612,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/_app/events/'
+    | '/_app/kalakriti/'
     | '/_app/reimbursements/'
     | '/_app/teams/'
     | '/_app/vendor-payments/'
@@ -735,6 +781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReimbursementsRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/kalakriti': {
+      id: '/_app/kalakriti'
+      path: '/kalakriti'
+      fullPath: '/kalakriti'
+      preLoaderRoute: typeof AppKalakritiRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/events': {
       id: '/_app/events'
       path: '/events'
@@ -776,6 +829,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/reimbursements/'
       preLoaderRoute: typeof AppReimbursementsIndexRouteImport
       parentRoute: typeof AppReimbursementsRouteRoute
+    }
+    '/_app/kalakriti/': {
+      id: '/_app/kalakriti/'
+      path: '/'
+      fullPath: '/kalakriti/'
+      preLoaderRoute: typeof AppKalakritiIndexRouteImport
+      parentRoute: typeof AppKalakritiRouteRoute
     }
     '/_app/events/': {
       id: '/_app/events/'
@@ -875,6 +935,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReimbursementsIdRouteImport
       parentRoute: typeof AppReimbursementsRouteRoute
     }
+    '/_app/kalakriti/new': {
+      id: '/_app/kalakriti/new'
+      path: '/new'
+      fullPath: '/kalakriti/new'
+      preLoaderRoute: typeof AppKalakritiNewRouteImport
+      parentRoute: typeof AppKalakritiRouteRoute
+    }
+    '/_app/kalakriti/$year': {
+      id: '/_app/kalakriti/$year'
+      path: '/$year'
+      fullPath: '/kalakriti/$year'
+      preLoaderRoute: typeof AppKalakritiYearRouteImport
+      parentRoute: typeof AppKalakritiRouteRoute
+    }
     '/_app/events/$id': {
       id: '/_app/events/$id'
       path: '/$id'
@@ -955,6 +1029,21 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
 
+interface AppKalakritiRouteRouteChildren {
+  AppKalakritiYearRoute: typeof AppKalakritiYearRoute
+  AppKalakritiNewRoute: typeof AppKalakritiNewRoute
+  AppKalakritiIndexRoute: typeof AppKalakritiIndexRoute
+}
+
+const AppKalakritiRouteRouteChildren: AppKalakritiRouteRouteChildren = {
+  AppKalakritiYearRoute: AppKalakritiYearRoute,
+  AppKalakritiNewRoute: AppKalakritiNewRoute,
+  AppKalakritiIndexRoute: AppKalakritiIndexRoute,
+}
+
+const AppKalakritiRouteRouteWithChildren =
+  AppKalakritiRouteRoute._addFileChildren(AppKalakritiRouteRouteChildren)
+
 interface AppReimbursementsRouteRouteChildren {
   AppReimbursementsIdRoute: typeof AppReimbursementsIdRoute
   AppReimbursementsNewRoute: typeof AppReimbursementsNewRoute
@@ -1034,6 +1123,7 @@ const AppSettingsRolesRouteRouteWithChildren =
 
 interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
+  AppKalakritiRouteRoute: typeof AppKalakritiRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
@@ -1049,6 +1139,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
+  AppKalakritiRouteRoute: AppKalakritiRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,

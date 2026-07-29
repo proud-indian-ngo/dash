@@ -17,6 +17,10 @@ import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { getUserAdminWhatsappSyncPlan } from "@/functions/user-admin-whatsapp";
+import {
+  assertGenericRoleAssignment,
+  assertGenericUserManagement,
+} from "@/lib/technical-role-policy";
 import { authMiddleware } from "@/middleware/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -157,11 +161,25 @@ const setBanState = async ({
   });
 };
 
+async function assertGenericUserTarget(userId: string): Promise<void> {
+  const target = await db
+    .select({ role: user.role })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+    .then((rows) => rows[0]);
+  if (!target) {
+    throw new Error("User not found");
+  }
+  assertGenericUserManagement(target.role);
+}
+
 export const createUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(createUserSchema)
   .handler(async ({ context, data }) => {
     await ensurePermission(context, "users.create");
+    assertGenericRoleAssignment(data.role);
 
     const normalizedEmail = data.email.toLowerCase();
     const created = await auth.api.createUser({
@@ -253,6 +271,10 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
       throw new Error("User not found");
     }
     const previousRole = currentUser.role;
+    assertGenericUserManagement(previousRole);
+    if (data.role) {
+      assertGenericRoleAssignment(data.role);
+    }
 
     const normalizedEmail = data.email.toLowerCase();
     await auth.api.adminUpdateUser({
@@ -354,6 +376,7 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
   .validator(setUserPasswordSchema)
   .handler(async ({ context, data }) => {
     await ensurePermission(context, "users.set_password");
+    await assertGenericUserTarget(data.userId);
 
     await auth.api.setUserPassword({
       body: {
@@ -382,6 +405,7 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
     if (authed.session.user.id === data.userId) {
       throw new Error("You cannot delete your own account");
     }
+    await assertGenericUserTarget(data.userId);
 
     // Called directly (not enqueued) — user must exist when notification is sent,
     // but is deleted immediately after.
@@ -439,6 +463,7 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
     if (authed.session.user.id === data.userId && data.banned) {
       throw new Error("You cannot ban your own account");
     }
+    await assertGenericUserTarget(data.userId);
 
     await setBanState({
       banExpires: data.banExpires,

@@ -88,7 +88,7 @@ export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
   return (
     <>
       {groups.map((group) => (
-        <SidebarGroup key={group.label}>
+        <SidebarGroup key={group.label ?? "primary"}>
           {group.label ? (
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
           ) : null}

@@ -3,7 +3,7 @@ import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -57,7 +57,8 @@ export const getUsersForPicker = createServerFn({ method: "GET" })
           name: user.name,
           role: user.role,
         })
-        .from(user);
+        .from(user)
+        .where(ne(user.role, "external_user"));
 
       return rows;
     } catch (error) {

@@ -122,6 +122,9 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
     if (!event) {
       return { error: "Event not found" } as const;
     }
+    if (event.managementDomain === "kalakriti") {
+      return { error: "Manage this event from Kalakriti" } as const;
+    }
 
     log.set({ eventName: event.name, teamId: event.teamId });
 

@@ -3,6 +3,7 @@ import {
   ADMIN_TIER_ROLES,
   isAssignablePermissionId,
   PERMISSION_IDS,
+  TECHNICAL_ROLE_IDS,
 } from "@pi-dash/db/permissions";
 import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
@@ -13,7 +14,7 @@ import {
 } from "@pi-dash/db/schema/permission";
 import { logErrorAndRethrow } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
-import { eq, sql } from "drizzle-orm";
+import { eq, notInArray, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
@@ -48,6 +49,7 @@ export const getRoles = createServerFn({ method: "GET" })
           )`,
         })
         .from(role)
+        .where(notInArray(role.id, [...TECHNICAL_ROLE_IDS]))
         .orderBy(role.name);
 
       return roles;
@@ -71,6 +73,7 @@ export const getRoleOptions = createServerFn({ method: "GET" })
       return await db
         .select({ id: role.id, name: role.name })
         .from(role)
+        .where(notInArray(role.id, [...TECHNICAL_ROLE_IDS]))
         .orderBy(role.name);
     } catch (error) {
       const log = createRequestLogger();
@@ -92,6 +95,9 @@ export const getRoleById = createServerFn({ method: "GET" })
   .validator(getRoleByIdSchema)
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
+    if (TECHNICAL_ROLE_IDS.has(data.roleId)) {
+      throw new Error("Role not found");
+    }
 
     try {
       const [found] = await db
@@ -288,7 +294,10 @@ export const updateRole = createServerFn({ method: "POST" })
         throw new Error("Role not found");
       }
 
-      if (found.isSystem && ADMIN_TIER_ROLES.has(found.id)) {
+      if (
+        found.isSystem &&
+        (ADMIN_TIER_ROLES.has(found.id) || TECHNICAL_ROLE_IDS.has(found.id))
+      ) {
         throw new Error("Cannot modify a system role");
       }
 

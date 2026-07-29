@@ -14,6 +14,7 @@ import {
 } from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   buildUpdateFields,
   cancelSeriesAll,
@@ -278,6 +279,7 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
@@ -373,6 +375,7 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
@@ -469,6 +472,7 @@ export const teamEventMutators = {
       if (!existing) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.id);
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", existing.teamId)
@@ -553,6 +557,7 @@ export const teamEventMutators = {
       if (!existing) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.id);
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", existing.teamId)
@@ -730,6 +735,8 @@ export const teamEventMutators = {
         throw new Error("Event not found");
       }
 
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
+
       const teamMembership = await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
@@ -823,6 +830,7 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
       // Attendance tracked post-start; retroactive leaves mangle records.
       if (event.startTime <= args.now) {
         throw new Error("Cannot leave event that has already started");
@@ -921,6 +929,7 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
       if (event.startTime > args.now) {
         throw new Error("Cannot mark attendance before event starts");
       }
@@ -969,6 +978,7 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
       if (event.startTime > args.now) {
         throw new Error("Cannot mark attendance before event starts");
       }
@@ -1017,6 +1027,7 @@ export const teamEventMutators = {
       if (!series) {
         throw new Error("Series not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.seriesId);
       if (!series.recurrenceRule) {
         throw new Error("Event is not a recurring series");
       }
@@ -1060,6 +1071,7 @@ export const teamEventMutators = {
         inheritVolunteers: series.inheritVolunteers,
         isPublic: series.isPublic,
         location: series.location,
+        managementDomain: series.managementDomain,
         name: series.name,
         originalDate: args.originalDate,
         postRsvpPoll: series.postRsvpPoll,
@@ -1105,6 +1117,7 @@ export const teamEventMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
@@ -1205,6 +1218,7 @@ export const teamEventMutators = {
       if (!existing) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.id);
       const effectiveStart = args.startTime ?? existing.startTime;
       const effectiveEnd = args.endTime;
       if (
@@ -1324,6 +1338,7 @@ export const teamEventMutators = {
       if (!existing) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.id);
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", existing.teamId)

@@ -7,6 +7,7 @@ import {
 } from "../permissions";
 import type { EventImmichAlbum, EventPhoto, TeamEvent } from "../schema";
 import { zql } from "../schema";
+import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 
 const MUTATOR_NAME = "eventImmichAlbum.deleteAlbum";
 
@@ -29,6 +30,7 @@ export const eventImmichAlbumMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      await assertEventNotManagedByKalakriti(tx, args.eventId);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember
