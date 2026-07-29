@@ -55,7 +55,7 @@ export function GuardianCenterAssignmentForm({
 
   return (
     <FormLayout
-      className="flex flex-col gap-3 sm:flex-row sm:items-end"
+      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
       form={form}
     >
       <SelectField
@@ -68,10 +68,11 @@ export function GuardianCenterAssignmentForm({
           value: guardian.id,
         }))}
         placeholder="Select Guardian"
-        triggerClassName="w-full sm:w-64"
+        triggerClassName="w-full"
       />
       <FormActions
         disabled={guardians.length === 0}
+        submitClassName="w-full sm:w-auto"
         submitLabel="Assign Guardian"
         submittingLabel="Assigning..."
       />
@@ -163,7 +164,7 @@ export function LiaisonCenterAssignmentForm({
 
   return (
     <FormLayout
-      className="flex flex-col gap-3 sm:flex-row sm:items-end"
+      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
       form={form}
     >
       <CustomField<string[]>
@@ -182,6 +183,7 @@ export function LiaisonCenterAssignmentForm({
         )}
       </CustomField>
       <FormActions
+        submitClassName="w-full sm:w-auto"
         submitLabel="Assign Liaison"
         submittingLabel="Assigning..."
       />

@@ -83,7 +83,9 @@ function NavMenuItem({
 }
 
 export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
-  const activePath = useActivePath();
+  const activePath = useActivePath(
+    groups.flatMap((group) => group.items.map((item) => item.url))
+  );
 
   return (
     <>

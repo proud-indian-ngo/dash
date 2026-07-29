@@ -12,8 +12,13 @@ import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
-import { kalakritiNavGroups, shouldUseKalakritiNav } from "@/lib/nav-items";
+import {
+  buildKalakritiNavGroups,
+  shouldUseKalakritiNav,
+} from "@/lib/nav-items";
 import { NavMainGrouped } from "./nav-main";
+
+const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, navGroups, user } = useApp();
@@ -23,7 +28,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     enabled: canViewKalakriti,
   });
   const showKalakriti = hasPermission("kalakriti.admin") || editions.length > 0;
-  let visibleNavGroups = kalakritiNavGroups;
+  const routeYear = pathname.match(KALAKRITI_YEAR_PATH)?.[1];
+  const activeEdition =
+    editions.find((edition) => edition.year === Number(routeYear)) ??
+    editions[0];
+  const [membership] = useQuery(
+    queries.kalakritiAssignment.myAccess({
+      editionId: activeEdition?.id ?? "",
+    }),
+    { enabled: canViewKalakriti && Boolean(activeEdition) }
+  );
+  const canManageGuardians =
+    hasPermission("kalakriti.admin") ||
+    membership?.assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    ) === true;
+  let visibleNavGroups = buildKalakritiNavGroups({
+    canManageGuardians,
+    year: activeEdition?.year,
+  });
 
   if (!shouldUseKalakritiNav(pathname, user.role)) {
     visibleNavGroups = navGroups;

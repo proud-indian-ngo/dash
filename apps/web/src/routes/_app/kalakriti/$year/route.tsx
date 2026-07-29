@@ -28,9 +28,6 @@ export const Route = createFileRoute("/_app/kalakriti/$year")({
 function KalakritiEditionLayout() {
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
-  const canManageGuardians =
-    access.isGlobalAdmin ||
-    access.membership?.responsibilities.includes("edition_admin");
 
   return (
     <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">
@@ -57,54 +54,6 @@ function KalakritiEditionLayout() {
           </Button>
         ) : null}
       </div>
-
-      <nav
-        aria-label="Kalakriti Edition"
-        className="mt-6 flex gap-2 border-b pb-3"
-      >
-        <Button
-          nativeButton={false}
-          render={
-            <Link
-              activeOptions={{ exact: true }}
-              params={{ year: String(edition.year) }}
-              to="/kalakriti/$year"
-            />
-          }
-          size="sm"
-          variant="ghost"
-        >
-          Overview
-        </Button>
-        <Button
-          nativeButton={false}
-          render={
-            <Link
-              params={{ year: String(edition.year) }}
-              to="/kalakriti/$year/centers"
-            />
-          }
-          size="sm"
-          variant="ghost"
-        >
-          Centers
-        </Button>
-        {canManageGuardians ? (
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                params={{ year: String(edition.year) }}
-                to="/kalakriti/$year/guardians"
-              />
-            }
-            size="sm"
-            variant="ghost"
-          >
-            Guardians
-          </Button>
-        ) : null}
-      </nav>
 
       <Outlet />
     </div>

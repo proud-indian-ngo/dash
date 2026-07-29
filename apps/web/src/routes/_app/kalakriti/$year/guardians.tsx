@@ -1,11 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -13,15 +6,15 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
+import { GuardianDetailSheet } from "@/components/kalakriti/guardian-detail-sheet";
 import {
   GuardianInviteDialog,
   type GuardianInviteValues,
 } from "@/components/kalakriti/guardian-invite-dialog";
 import {
-  GuardianRoster,
   type GuardianRosterItem,
-} from "@/components/kalakriti/guardian-roster";
-import { Loader } from "@/components/loader";
+  GuardiansTable,
+} from "@/components/kalakriti/guardians-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   archiveKalakritiGuardian,
@@ -52,6 +45,9 @@ function KalakritiGuardiansPage() {
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [selectedGuardianId, setSelectedGuardianId] = useState<string | null>(
+    null
+  );
   const [guardians, rosterResult] = useQuery(
     queries.kalakritiGuardian.roster({ editionId: edition.id })
   );
@@ -122,6 +118,22 @@ function KalakritiGuardiansPage() {
     }
   );
   const handleInviteOpen = useEventCallback(() => setInviteOpen(true));
+  const handleViewGuardian = useEventCallback(
+    (guardian: GuardianRosterItem) => {
+      setSelectedGuardianId(guardian.id);
+    }
+  );
+  const handleArchiveGuardian = useEventCallback(
+    (guardian: GuardianRosterItem) => {
+      setSelectedGuardianId(null);
+      archiveAction.trigger(guardian);
+    }
+  );
+  const handleGuardianSheetOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setSelectedGuardianId(null);
+    }
+  });
   const handleArchiveOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       archiveAction.cancel();
@@ -133,27 +145,17 @@ function KalakritiGuardiansPage() {
     }
   });
 
-  let rosterContent = (
-    <div
-      aria-label="Loading Guardians"
-      className="flex min-h-32 items-center justify-center"
-      role="status"
-    >
-      <Loader />
-    </div>
-  );
-  if (rosterResult.type === "complete") {
-    rosterContent = (
-      <GuardianRoster
-        guardians={guardians.map((guardian) => ({
-          ...guardian,
-          state: guardian.state ?? "active",
-        }))}
-        onArchive={archiveAction.trigger}
-      />
-    );
-  } else if (rosterResult.type === "error") {
-    rosterContent = (
+  const guardianRows: GuardianRosterItem[] = guardians.map((guardian) => ({
+    ...guardian,
+    state: guardian.state ?? "active",
+  }));
+  const selectedGuardian =
+    guardianRows.find((guardian) => guardian.id === selectedGuardianId) ?? null;
+  const isLoading =
+    guardianRows.length === 0 && rosterResult.type !== "complete";
+
+  if (guardianRows.length === 0 && rosterResult.type === "error") {
+    return (
       <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
         <p role="alert">Guardians could not be loaded.</p>
         <Button onClick={rosterResult.retry} type="button" variant="outline">
@@ -164,21 +166,32 @@ function KalakritiGuardiansPage() {
   }
 
   return (
-    <div className="pt-6">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
-          <div>
-            <CardTitle>Guardians</CardTitle>
-            <CardDescription className="mt-1">
-              Manage login access for this Edition. Archived external accounts
-              remain dormant until an administrator reuses their verified email
-              in a later Edition.
-            </CardDescription>
-          </div>
+    <div className="space-y-4 pt-6">
+      <div>
+        <h2 className="font-display font-semibold text-2xl">Guardians</h2>
+        <p className="mt-1 text-muted-foreground text-sm">
+          Manage login access for this Edition. Archived external accounts
+          remain dormant until an administrator reuses their verified email in a
+          later Edition.
+        </p>
+      </div>
+
+      <GuardiansTable
+        data={guardianRows}
+        isLoading={isLoading}
+        onArchive={handleArchiveGuardian}
+        onView={handleViewGuardian}
+        toolbarActions={
           <Button onClick={handleInviteOpen}>Invite Guardian</Button>
-        </CardHeader>
-        <CardContent>{rosterContent}</CardContent>
-      </Card>
+        }
+      />
+
+      <GuardianDetailSheet
+        guardian={selectedGuardian}
+        onArchive={handleArchiveGuardian}
+        onOpenChange={handleGuardianSheetOpenChange}
+        open={selectedGuardian !== null}
+      />
 
       <GuardianInviteDialog
         editionId={edition.id}
