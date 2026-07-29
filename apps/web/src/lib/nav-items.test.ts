@@ -32,6 +32,7 @@ describe("Kalakriti navigation", () => {
       buildKalakritiNavGroups({
         canManageEligibility: true,
         canManageGuardians: true,
+        canViewCompetitions: true,
         year: 2026,
       }).flatMap((group) =>
         group.items.map(({ title, url }) => ({ title, url }))
@@ -41,6 +42,7 @@ describe("Kalakriti navigation", () => {
       { title: "Overview", url: "/kalakriti/2026" },
       { title: "Centers", url: "/kalakriti/2026/centers" },
       { title: "Eligibility", url: "/kalakriti/2026/eligibility" },
+      { title: "Competitions", url: "/kalakriti/2026/competitions" },
       { title: "Guardians", url: "/kalakriti/2026/guardians" },
     ]);
   });
@@ -75,6 +77,15 @@ describe("Kalakriti navigation", () => {
         group.items.map(({ title }) => title)
       )
     ).toEqual(["Dashboard", "Overview", "Centers"]);
+  });
+
+  it("shows Competitions independently of Edition management", () => {
+    expect(
+      buildKalakritiNavGroups({
+        canViewCompetitions: true,
+        year: 2026,
+      }).flatMap((group) => group.items.map(({ title }) => title))
+    ).toEqual(["Dashboard", "Overview", "Centers", "Competitions"]);
   });
 
   it("keeps external Guardians in Kalakriti navigation", () => {

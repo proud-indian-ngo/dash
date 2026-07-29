@@ -131,11 +131,13 @@ const kalakritiNavItem: NavItem = {
 export function buildKalakritiNavGroups({
   canManageEligibility = false,
   canManageGuardians = false,
+  canViewCompetitions = false,
   centers = [],
   year,
 }: {
   canManageEligibility?: boolean;
   canManageGuardians?: boolean;
+  canViewCompetitions?: boolean;
   centers?: readonly { id: string; name: string }[];
   year?: number;
 } = {}): NavGroup[] {
@@ -164,6 +166,14 @@ export function buildKalakritiNavGroups({
       icon: TaskDaily02Icon,
       title: "Eligibility",
       url: `/kalakriti/${year}/eligibility`,
+    });
+  }
+
+  if (year && canViewCompetitions) {
+    editionItems.push({
+      icon: Calendar03Icon,
+      title: "Competitions",
+      url: `/kalakriti/${year}/competitions`,
     });
   }
 

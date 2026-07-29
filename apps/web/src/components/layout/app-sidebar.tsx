@@ -49,9 +49,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     membership?.assignments.some(
       (assignment) => assignment.responsibility === "edition_admin"
     ) === true;
+  const canViewCompetitions =
+    hasPermission("kalakriti.admin") ||
+    (activeEdition?.lifecycle !== "archived" &&
+      membership?.assignments.some((assignment) =>
+        [
+          "edition_admin",
+          "overall_events_lead",
+          "competition_category_lead",
+        ].includes(assignment.responsibility)
+      ) === true);
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
+    canViewCompetitions,
     centers,
     year: activeEdition?.year,
   });

@@ -52,6 +52,14 @@ describe("breadcrumbs", () => {
     ]);
   });
 
+  it("builds breadcrumbs for Kalakriti Competitions", () => {
+    expect(buildBreadcrumbs(navItems, "/kalakriti/2027/competitions")).toEqual([
+      { path: "/kalakriti", title: "Kalakriti" },
+      { path: "/kalakriti/2027", title: "2027 Edition" },
+      { path: "/kalakriti/2027/competitions", title: "Competitions" },
+    ]);
+  });
+
   it("extracts a Center detail route", () => {
     expect(getKalakritiCenterRoute("/kalakriti/2027/centers/center-1")).toEqual(
       { centerId: "center-1", year: 2027 }
