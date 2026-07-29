@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isKalakritiPath, kalakritiNavGroups } from "./nav-items";
+import {
+  isKalakritiPath,
+  kalakritiNavGroups,
+  shouldUseKalakritiNav,
+} from "./nav-items";
 
 describe("Kalakriti navigation", () => {
   it.each([
@@ -21,5 +25,15 @@ describe("Kalakriti navigation", () => {
       { title: "Dashboard", url: "/" },
       { title: "Edition", url: "/kalakriti" },
     ]);
+  });
+
+  it("keeps external Guardians in Kalakriti navigation", () => {
+    expect(shouldUseKalakritiNav("/", "external_user")).toBe(true);
+    expect(shouldUseKalakritiNav("/settings", "external_user")).toBe(true);
+  });
+
+  it("uses route-based navigation for organization users", () => {
+    expect(shouldUseKalakritiNav("/", "volunteer")).toBe(false);
+    expect(shouldUseKalakritiNav("/kalakriti/2026", "volunteer")).toBe(true);
   });
 });

@@ -143,6 +143,13 @@ export function isKalakritiPath(pathname: string): boolean {
   return pathname === "/kalakriti" || pathname.startsWith("/kalakriti/");
 }
 
+export function shouldUseKalakritiNav(
+  pathname: string,
+  role?: string | null
+): boolean {
+  return role === "external_user" || isKalakritiPath(pathname);
+}
+
 function has(permissions: string[], id: string): boolean {
   return permissions.includes(id);
 }

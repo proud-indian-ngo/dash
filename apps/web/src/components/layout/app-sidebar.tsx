@@ -12,11 +12,11 @@ import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
-import { isKalakritiPath, kalakritiNavGroups } from "@/lib/nav-items";
+import { kalakritiNavGroups, shouldUseKalakritiNav } from "@/lib/nav-items";
 import { NavMainGrouped } from "./nav-main";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { hasPermission, navGroups } = useApp();
+  const { hasPermission, navGroups, user } = useApp();
   const { pathname } = useLocation();
   const canViewKalakriti = hasPermission("kalakriti.view");
   const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
@@ -25,7 +25,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const showKalakriti = hasPermission("kalakriti.admin") || editions.length > 0;
   let visibleNavGroups = kalakritiNavGroups;
 
-  if (!isKalakritiPath(pathname)) {
+  if (!shouldUseKalakritiNav(pathname, user.role)) {
     visibleNavGroups = navGroups;
 
     if (!showKalakriti) {
