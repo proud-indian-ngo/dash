@@ -68,11 +68,25 @@ function KalakritiEditionOverview() {
               : ` · ${access.membership?.kind === "guardian" ? "Guardian" : "Volunteer"} access`}
           </p>
         </div>
-        {access.isGlobalAdmin ? (
-          <Button nativeButton={false} render={<Link to="/kalakriti/new" />}>
-            Create Edition
+        <div className="flex flex-wrap gap-2">
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                params={{ year: String(edition.year) }}
+                to="/kalakriti/$year/schedule"
+              />
+            }
+            variant="outline"
+          >
+            View schedule
           </Button>
-        ) : null}
+          {access.isGlobalAdmin ? (
+            <Button nativeButton={false} render={<Link to="/kalakriti/new" />}>
+              Create Edition
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -94,6 +94,7 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/students.tsx` | Center-scoped Student registration, editing, and read-only lifecycle state |
 | `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Center-scoped Session summary and per-Session individual and group Competition Entry registration with live eligibility, limit, overlap, and capacity validation |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
+| `routes/kalakriti/$year/schedule.tsx` | Public Competition schedule for open, locked, live, and archived Editions with signup, volunteer-interest, and Edition dashboard calls to action |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
 | `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
@@ -121,6 +122,7 @@ All paths are relative to project root.
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
 | `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
+| `routes/api/kalakriti/$year/schedule.ts` | Public lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
 | `routes/api/jobs/stats.ts` | Queue size stats API |
 | `routes/api/jobs/$id.ts` | Job detail API |

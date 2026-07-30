@@ -47,6 +47,7 @@ function createEditionCommandTx(results: unknown[]) {
     insertCompetitionCategory: vi.fn(),
     insertVenue: vi.fn(),
     updateEdition: vi.fn(),
+    updateEvent: vi.fn(),
   };
   return {
     spies,
@@ -61,7 +62,7 @@ function createEditionCommandTx(results: unknown[]) {
         },
         kalakritiEdition: { insert: vi.fn(), update: spies.updateEdition },
         kalakritiVenue: { insert: spies.insertVenue },
-        teamEvent: { insert: vi.fn() },
+        teamEvent: { insert: vi.fn(), update: spies.updateEvent },
       },
       run: vi.fn(async () => results.shift()),
     },
@@ -561,6 +562,51 @@ describe("Kalakriti Edition registration readiness", () => {
       expect(spies.insertAudit).not.toHaveBeenCalled();
     }
   );
+
+  it("publishes the linked event when registration opens", async () => {
+    const currentEdition = {
+      eventDate: "2028-11-19",
+      id: "edition-1",
+      lifecycle: "draft",
+      teamEventId: "event-1",
+      timezone: "Asia/Kolkata",
+    };
+    const { spies, tx } = createEditionCommandTx([
+      currentEdition,
+      {
+        ...readySnapshot.edition,
+        id: currentEdition.id,
+        lifecycle: currentEdition.lifecycle,
+        teamEventId: currentEdition.teamEventId,
+      },
+      readySnapshot.centers,
+      readySnapshot.ageCategories,
+      readySnapshot.competitionCategories,
+      readySnapshot.competitions,
+      readySnapshot.sessions,
+      readySnapshot.venues,
+    ]);
+
+    await kalakritiEditionMutators.transition.fn({
+      args: {
+        auditEntryId: "audit",
+        confirmed: true,
+        editionId: currentEdition.id,
+        now: 1,
+        targetLifecycle: "registration_open",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.transition.fn
+    >[0]);
+
+    expect(spies.updateEvent).toHaveBeenCalledWith({
+      id: "event-1",
+      isPublic: true,
+      updatedAt: 1,
+    });
+  });
 
   it("clones only active structural Competition configuration", async () => {
     const edition = {

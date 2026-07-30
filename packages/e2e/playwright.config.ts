@@ -77,7 +77,7 @@ export default defineConfig({
     },
     {
       name: "unauthenticated",
-      testMatch: /auth\//,
+      testMatch: [/auth\//, /kalakriti\/public-schedule\.spec\.ts/],
       use: { ...devices["Desktop Chrome"] },
     },
   ],

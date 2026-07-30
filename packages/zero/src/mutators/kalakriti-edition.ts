@@ -27,7 +27,7 @@ interface EditionTx extends LockableKalakritiTx {
     kalakritiCompetitionCategory: { insert: ZeroMutationFn };
     kalakritiEdition: { insert: ZeroMutationFn; update: ZeroMutationFn };
     kalakritiVenue: { insert: ZeroMutationFn };
-    teamEvent: { insert: ZeroMutationFn };
+    teamEvent: { insert: ZeroMutationFn; update: ZeroMutationFn };
   };
 }
 
@@ -508,6 +508,11 @@ export const kalakritiEditionMutators = {
       await (tx as EditionTx).mutate.kalakritiEdition.update({
         id: args.editionId,
         lifecycle: args.targetLifecycle,
+        updatedAt: args.now,
+      });
+      await (tx as EditionTx).mutate.teamEvent.update({
+        id: edition.teamEventId,
+        isPublic: true,
         updatedAt: args.now,
       });
       await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({

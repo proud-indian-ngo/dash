@@ -108,14 +108,58 @@ describe("event interest status transitions", () => {
   });
 });
 
-describe("Kalakriti event protection", () => {
-  const context = {
-    permissions: ["events.manage_interest"],
-    role: "admin",
-    userId: "admin-1",
-  };
+describe("Kalakriti event interest", () => {
+  it("accepts interest in a public Kalakriti event", async () => {
+    const insertInterest = vi.fn();
+    const results = [
+      {
+        id: "event-1",
+        isPublic: true,
+        managementDomain: "kalakriti",
+        name: "Kalakriti",
+        startTime: 1_800_000_000_000,
+        teamId: "team-1",
+      },
+      undefined,
+      undefined,
+      undefined,
+    ];
+    const tx = {
+      location: "client",
+      mutate: {
+        eventInterest: { insert: insertInterest },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
 
-  it("rejects interest approval before changing the linked event roster", async () => {
+    await eventInterestMutators.create.fn({
+      args: {
+        eventId: "event-1",
+        id: "interest-1",
+        message: "I would like to help",
+        now: 1_700_000_000_000,
+      },
+      ctx: {
+        permissions: ["events.view_own"],
+        role: "unoriented_volunteer",
+        userId: "volunteer-1",
+      },
+      tx,
+    } as unknown as Parameters<typeof eventInterestMutators.create.fn>[0]);
+
+    expect(insertInterest).toHaveBeenCalledWith({
+      createdAt: 1_700_000_000_000,
+      eventId: "event-1",
+      id: "interest-1",
+      message: "I would like to help",
+      reviewedAt: null,
+      reviewedBy: null,
+      status: "pending",
+      userId: "volunteer-1",
+    });
+  });
+
+  it("allows an interest manager to approve a Kalakriti request", async () => {
     const insertMember = vi.fn();
     const updateInterest = vi.fn();
     const results = [
@@ -125,11 +169,15 @@ describe("Kalakriti event protection", () => {
         status: "pending",
         userId: "volunteer-1",
       },
-      { id: "event-1", teamId: "team-1" },
-      { id: "event-1", managementDomain: "kalakriti" },
+      {
+        id: "event-1",
+        managementDomain: "kalakriti",
+        teamId: "team-1",
+      },
+      undefined,
     ];
     const tx = {
-      location: "server",
+      location: "client",
       mutate: {
         eventInterest: { update: updateInterest },
         teamEventMember: { insert: insertMember },
@@ -137,91 +185,27 @@ describe("Kalakriti event protection", () => {
       run: vi.fn(async () => results.shift()),
     };
 
-    await expect(
-      eventInterestMutators.approve.fn({
-        args: { id: "interest-1", now: 1_700_000_000_000 },
-        ctx: context,
-        tx,
-      } as unknown as Parameters<typeof eventInterestMutators.approve.fn>[0])
-    ).rejects.toThrow("Manage this event from Kalakriti");
-    expect(updateInterest).not.toHaveBeenCalled();
-    expect(insertMember).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    {
-      args: {
-        eventId: "event-1",
-        id: "interest-1",
-        now: 1_700_000_000_000,
-      },
-      name: "create",
-      results: [
-        {
-          id: "event-1",
-          isPublic: true,
-          name: "Kalakriti",
-          startTime: 1_800_000_000_000,
-          teamId: "team-1",
-        },
-        { id: "event-1", managementDomain: "kalakriti" },
-      ],
-    },
-    {
+    await eventInterestMutators.approve.fn({
       args: { id: "interest-1", now: 1_700_000_000_000 },
-      name: "reject",
-      results: [
-        {
-          eventId: "event-1",
-          id: "interest-1",
-          status: "pending",
-          userId: "admin-1",
-        },
-        { id: "event-1", teamId: "team-1" },
-        { id: "event-1", managementDomain: "kalakriti" },
-      ],
-    },
-    {
-      args: { id: "interest-1" },
-      name: "cancel",
-      results: [
-        {
-          eventId: "event-1",
-          id: "interest-1",
-          status: "pending",
-          userId: "admin-1",
-        },
-        { id: "event-1", managementDomain: "kalakriti" },
-      ],
-    },
-  ])("rejects $name for a Kalakriti-managed event", async (testCase) => {
-    const insertInterest = vi.fn();
-    const updateInterest = vi.fn();
-    const deleteInterest = vi.fn();
-    const results = [...testCase.results];
-    const tx = {
-      location: "server",
-      mutate: {
-        eventInterest: {
-          delete: deleteInterest,
-          insert: insertInterest,
-          update: updateInterest,
-        },
+      ctx: {
+        permissions: ["events.manage_interest"],
+        role: "admin",
+        userId: "admin-1",
       },
-      run: vi.fn(async () => results.shift()),
-    };
-    const mutator =
-      eventInterestMutators[testCase.name as "cancel" | "create" | "reject"];
+      tx,
+    } as unknown as Parameters<typeof eventInterestMutators.approve.fn>[0]);
 
-    await expect(
-      mutator.fn({
-        args: testCase.args,
-        ctx: context,
-        tx,
-      } as never)
-    ).rejects.toThrow("Manage this event from Kalakriti");
-    expect(insertInterest).not.toHaveBeenCalled();
-    expect(updateInterest).not.toHaveBeenCalled();
-    expect(deleteInterest).not.toHaveBeenCalled();
+    expect(updateInterest).toHaveBeenCalledWith({
+      id: "interest-1",
+      reviewedAt: 1_700_000_000_000,
+      reviewedBy: "admin-1",
+      status: "approved",
+    });
+    expect(insertMember).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: "event-1",
+        userId: "volunteer-1",
+      })
+    );
   });
 });
