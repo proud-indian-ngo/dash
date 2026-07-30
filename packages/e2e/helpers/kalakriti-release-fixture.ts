@@ -9,7 +9,6 @@ import {
   kalakritiAgeCategory,
   kalakritiAssignment,
   kalakritiCenter,
-  kalakritiCenterAgeQuota,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
   kalakritiCompetitionEntry,
@@ -153,9 +152,6 @@ async function cleanupEdition(
   await db
     .delete(kalakritiVenue)
     .where(eq(kalakritiVenue.editionId, editionId));
-  await db
-    .delete(kalakritiCenterAgeQuota)
-    .where(eq(kalakritiCenterAgeQuota.editionId, editionId));
   await db
     .delete(kalakritiAgeCategory)
     .where(eq(kalakritiAgeCategory.editionId, editionId));
@@ -311,7 +307,9 @@ export async function seedKalakritiReleaseFixture(
     createdAt: now,
     createdBy: globalAdminId,
     editionId: fixture.editionId,
+    femaleStudentLimit: 10,
     id: ageCategoryId,
+    maleStudentLimit: 10,
     maxCompetitionsPerCategory: 2,
     maximumAge: 12,
     maxTotalCompetitions: 3,
@@ -321,30 +319,6 @@ export async function seedKalakritiReleaseFixture(
     sortOrder: 0,
     updatedAt: now,
   });
-  await db.insert(kalakritiCenterAgeQuota).values([
-    {
-      ageCategoryId,
-      centerId: fixture.centerAssignedId,
-      createdAt: now,
-      createdBy: globalAdminId,
-      editionId: fixture.editionId,
-      femaleStudentLimit: 10,
-      id: `${prefix}1907`,
-      maleStudentLimit: 10,
-      updatedAt: now,
-    },
-    {
-      ageCategoryId,
-      centerId: fixture.centerOutsideId,
-      createdAt: now,
-      createdBy: globalAdminId,
-      editionId: fixture.editionId,
-      femaleStudentLimit: 10,
-      id: `${prefix}190a`,
-      maleStudentLimit: 10,
-      updatedAt: now,
-    },
-  ]);
   await db.insert(kalakritiCompetitionCategory).values({
     createdAt: now,
     createdBy: globalAdminId,
