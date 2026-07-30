@@ -42,7 +42,10 @@ vi.mock("@pi-dash/env/server", () => ({
 }));
 
 import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
-import { isWhatsAppTopicEnabled } from "@pi-dash/whatsapp/preferences";
+import {
+  getEnabledUserPhonesForTopic,
+  isWhatsAppTopicEnabled,
+} from "@pi-dash/whatsapp/preferences";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { sendNotificationEmail } from "./email";
 import { insertNotification } from "./inbox";
@@ -191,5 +194,68 @@ describe("sendMessage channel allowlist", () => {
 
     expect(result.channels.whatsapp).toBe(false);
     expect(sendWhatsAppMessage).not.toHaveBeenCalled();
+  });
+
+  it("keeps WhatsApp retry keys stable and separates recipients", async () => {
+    vi.mocked(getUserPhone).mockResolvedValue("919999999999");
+    vi.mocked(isWhatsAppTopicEnabled).mockResolvedValue(true);
+
+    await sendMessage({ ...baseMessage, channels: ["whatsapp"] });
+    await sendMessage({ ...baseMessage, channels: ["whatsapp"] });
+    await sendMessage({
+      ...baseMessage,
+      channels: ["whatsapp"],
+      to: "user-2",
+    });
+
+    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[0]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp-user-1",
+    });
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[1]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp-user-1",
+    });
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[2]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp-user-2",
+    });
+  });
+});
+
+describe("sendBulkMessage WhatsApp delivery keys", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isNotificationsDisabled).mockResolvedValue(false);
+    vi.mocked(getEnabledUserPhonesForTopic).mockResolvedValue(
+      new Map([
+        ["user-1", "911111111111"],
+        ["user-2", "922222222222"],
+      ])
+    );
+  });
+
+  it("keeps recipient-specific keys stable across retries", async () => {
+    const message = {
+      body: "b",
+      idempotencyKey: "k",
+      title: "t",
+      topic: TOPICS.ACCOUNT,
+      userIds: ["user-1", "user-2"],
+    };
+
+    const first = await sendBulkMessage(message);
+    const second = await sendBulkMessage(message);
+
+    expect(first.channels.whatsappRecipients).toBe(2);
+    expect(second.channels.whatsappRecipients).toBe(2);
+    expect(
+      vi
+        .mocked(sendWhatsAppMessage)
+        .mock.calls.map(([phone, , options]) => [phone, options])
+    ).toEqual([
+      ["911111111111", { idempotencyKey: "k-whatsapp-user-1" }],
+      ["922222222222", { idempotencyKey: "k-whatsapp-user-2" }],
+      ["911111111111", { idempotencyKey: "k-whatsapp-user-1" }],
+      ["922222222222", { idempotencyKey: "k-whatsapp-user-2" }],
+    ]);
   });
 });

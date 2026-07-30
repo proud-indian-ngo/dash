@@ -33,7 +33,7 @@ export const TOPIC_CATALOG: TopicMeta[] = [
   {
     channels: ["inbox", "whatsapp"],
     defaultEnabled: true,
-    description: "Registration opening, closing, and Guardian access updates.",
+    description: "Registration lifecycle and Guardian access updates.",
     group: "Kalakriti",
     id: TOPICS.KALAKRITI_REGISTRATION,
     name: "Registration",

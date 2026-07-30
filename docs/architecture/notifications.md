@@ -38,7 +38,7 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 3. Three parallel promises:
    - **Inbox**: `insertNotification()` to `notification` table (idempotent via unique `idempotencyKey`).
    - **Email**: `sendNotificationEmail()` via nodemailer with `List-Unsubscribe` header.
-   - **WhatsApp**: `sendWhatsAppMessage()` via GoWA gateway (unchanged).
+   - **WhatsApp**: `sendWhatsAppMessage()` via the GoWA gateway with a deterministic `Idempotency-Key` request header.
 4. Return `SendMessageResult` with per-channel success status.
 
 `TOPIC_CATALOG` owns each topic's supported-channel allowlist. Both preference
@@ -89,6 +89,13 @@ assigned volunteers can control those streams independently.
 3. `isWhatsAppTopicEnabled(userId, topicId)` — local DB pref.
 
 Any false → skip WhatsApp for that user.
+
+The notification layer derives a stable WhatsApp delivery key from the domain
+message key, recipient, and channel, then forwards it to the gateway as the
+bounded, ASCII-safe `Idempotency-Key` header. Inbox delivery is deduplicated
+locally. The upstream GoWA API does not currently guarantee atomic idempotency
+for text sends, so a retry after an ambiguous provider response remains
+at-least-once for WhatsApp.
 
 **Group ops**: `whatsapp-add-to-group`, `whatsapp-remove-from-group` jobs — idempotent, retry-safe. Used by RSVP poll vote handler and team-membership mutations.
 

@@ -1,4 +1,10 @@
-import { KALAKRITI_EDITION_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
+import {
+  KALAKRITI_EDITION_LIFECYCLES,
+  KALAKRITI_EDITION_RESPONSIBILITIES,
+  KALAKRITI_MEMBERSHIP_KINDS,
+  KALAKRITI_MEMBERSHIP_STATES,
+  KALAKRITI_TIMEZONE,
+} from "@pi-dash/shared/kalakriti";
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
@@ -21,17 +27,17 @@ import { teamEvent } from "./team-event";
 
 export const kalakritiEditionLifecycleEnum = pgEnum(
   "kalakriti_edition_lifecycle",
-  ["draft", "registration_open", "registration_locked", "live", "archived"]
+  KALAKRITI_EDITION_LIFECYCLES
 );
 
-export const kalakritiMembershipKindEnum = pgEnum("kalakriti_membership_kind", [
-  "volunteer",
-  "guardian",
-]);
+export const kalakritiMembershipKindEnum = pgEnum(
+  "kalakriti_membership_kind",
+  KALAKRITI_MEMBERSHIP_KINDS
+);
 
 export const kalakritiMembershipStateEnum = pgEnum(
   "kalakriti_membership_state",
-  ["active", "archived"]
+  KALAKRITI_MEMBERSHIP_STATES
 );
 
 export const kalakritiResponsibilityEnum = pgEnum(
@@ -77,7 +83,7 @@ export const kalakritiEdition = pgTable(
     teamEventId: uuid("team_event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "restrict" }),
-    timezone: text("timezone").default("Asia/Kolkata").notNull(),
+    timezone: text("timezone").default(KALAKRITI_TIMEZONE).notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     winnerPoints: integer("winner_points").default(10).notNull(),
     year: integer("year").notNull(),

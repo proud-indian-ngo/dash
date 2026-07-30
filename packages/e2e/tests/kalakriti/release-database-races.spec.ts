@@ -36,6 +36,20 @@ test("serializes live Edition, duplicate Membership, and duplicate Entry races",
       };
       live: { liveCount: number; successfulWrites: number };
       membership: { membershipCount: number; successfulWrites: number };
+      projections: Array<{
+        dashboard: {
+          entries: number;
+          participants: number;
+          registeredStudents: number;
+          students: number;
+        };
+        export: {
+          entries: number;
+          participants: number;
+          students: number;
+        };
+        kind: string;
+      }>;
     }>("run", superAdminEmail);
     expect(result.membership).toEqual({
       membershipCount: 1,
@@ -48,6 +62,38 @@ test("serializes live Edition, duplicate Membership, and duplicate Entry races",
     });
     expect(result.live.liveCount).toBe(1);
     expect(result.live.successfulWrites).toBe(1);
+    expect(result.projections).toEqual([
+      {
+        dashboard: expect.objectContaining({
+          entries: 2,
+          participants: 2,
+          registeredStudents: 2,
+          students: 3,
+        }),
+        export: { entries: 2, participants: 2, students: 3 },
+        kind: "edition",
+      },
+      {
+        dashboard: expect.objectContaining({
+          entries: 1,
+          participants: 1,
+          registeredStudents: 1,
+          students: 1,
+        }),
+        export: { entries: 1, participants: 1, students: 1 },
+        kind: "center",
+      },
+      ...["competition_category", "competition"].map((kind) => ({
+        dashboard: expect.objectContaining({
+          entries: 2,
+          participants: 2,
+          registeredStudents: 2,
+          students: 2,
+        }),
+        export: { entries: 2, participants: 2, students: 2 },
+        kind,
+      })),
+    ]);
   } finally {
     await fixture("cleanup");
   }

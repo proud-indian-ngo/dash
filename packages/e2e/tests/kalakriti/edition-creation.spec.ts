@@ -11,11 +11,51 @@ const helperPath = path.resolve(
 );
 const YEAR = 2094;
 
-async function fixture<T>(action: "cleanup" | "state") {
+type FixtureAction =
+  | "cleanup"
+  | "rollback-cleanup"
+  | "rollback-setup"
+  | "rollback-state"
+  | "state";
+
+async function fixture<T>(action: FixtureAction) {
   const { stdout } = await execFileAsync("bun", ["run", helperPath, action], {
     env: process.env,
   });
   return JSON.parse(stdout.trim()) as T;
+}
+
+function buildMutateBody(args: Record<string, unknown>) {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return {
+    clientGroupID: `e2e-kalakriti-rollback-cg-${suffix}`,
+    mutations: [
+      {
+        args: [args],
+        clientID: `e2e-kalakriti-rollback-${suffix}`,
+        id: 1,
+        name: "kalakritiEdition.create",
+        timestamp: Date.now(),
+        type: "custom" as const,
+      },
+    ],
+    pushVersion: 1,
+    requestID: `e2e-kalakriti-rollback-req-${suffix}`,
+    timestamp: Date.now(),
+  };
+}
+
+async function mutateEditionCreate(
+  page: import("@playwright/test").Page,
+  baseURL: string | undefined,
+  args: Record<string, unknown>
+) {
+  const response = await page.request.post(
+    `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+    { data: buildMutateBody(args) }
+  );
+  expect(response.ok()).toBe(true);
+  return response.json();
 }
 
 test("creates and updates an Edition with its protected linked event", async ({
@@ -62,5 +102,69 @@ test("creates and updates an Edition with its protected linked event", async ({
     expect(state.editionId).not.toBe(state.teamEventId);
   } finally {
     await fixture("cleanup");
+  }
+});
+
+test("rolls back both sides of failed Edition creation", async ({
+  baseURL,
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "super_admin",
+    "Super-admin Edition rollback flow"
+  );
+  const setup = await fixture<{
+    existingEditionId: string;
+    existingEventId: string;
+    failedEditionAuditId: string;
+    failedEditionEventId: string;
+    failedLinkedEventAuditId: string;
+    failedLinkedEventEditionId: string;
+    teamId: string;
+  }>("rollback-setup");
+  const now = Date.now();
+
+  try {
+    const linkedEventFailure = await mutateEditionCreate(page, baseURL, {
+      ageCutoffDate: "2193-06-30",
+      auditEntryId: setup.failedLinkedEventAuditId,
+      brandingKey: "kalakriti-2193",
+      editionId: setup.failedLinkedEventEditionId,
+      eventDate: "2193-11-21",
+      name: "Kalakriti 2193",
+      now,
+      plannedRegistrationCloseAt: Date.parse("2193-10-31T12:30:00.000Z"),
+      teamEventId: setup.existingEventId,
+      teamId: setup.teamId,
+      year: 2193,
+    });
+    expect(linkedEventFailure.mutations[0].result.error).toBe("app");
+
+    const editionFailure = await mutateEditionCreate(page, baseURL, {
+      ageCutoffDate: "2194-06-30",
+      auditEntryId: setup.failedEditionAuditId,
+      brandingKey: "kalakriti-2194",
+      editionId: setup.existingEditionId,
+      eventDate: "2194-11-21",
+      name: "Kalakriti 2194",
+      now,
+      plannedRegistrationCloseAt: Date.parse("2194-10-31T12:30:00.000Z"),
+      teamEventId: setup.failedEditionEventId,
+      teamId: setup.teamId,
+      year: 2194,
+    });
+    expect(editionFailure.mutations[0].result.error).toBe("app");
+
+    await expect(
+      fixture<{
+        failedEditionEventExists: boolean;
+        failedLinkedEventEditionExists: boolean;
+      }>("rollback-state")
+    ).resolves.toEqual({
+      failedEditionEventExists: false,
+      failedLinkedEventEditionExists: false,
+    });
+  } finally {
+    await fixture("rollback-cleanup");
   }
 });
