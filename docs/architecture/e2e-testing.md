@@ -7,12 +7,12 @@
 
 ```
 packages/e2e/
-├── .auth/              # storageState per role (admin.json, volunteer.json)
+├── .auth/              # storageState per shared role and active Kalakriti actor
 ├── fixtures/           # Custom Playwright fixtures
 ├── helpers/            # seed-dev-data.ts (31+ fns), seed-test-user.ts
 ├── pages/              # Page objects
 ├── tests/              # Specs by feature
-├── global-setup.ts     # Authenticates admin + volunteer, saves storageState
+├── global-setup.ts     # Authenticates shared roles + active Kalakriti actors
 ├── playwright.config.ts
 ├── duration-reporter.ts
 ├── shard-by-duration.ts
@@ -26,11 +26,11 @@ packages/e2e/
 `global-setup.ts` runs once per Playwright worker spin-up:
 
 1. Loads `.env.test` with `dotenv`.
-2. Logs in as admin + volunteer via UI (`/login` → fill → submit → wait for `/`).
-3. Saves `storageState` to `.auth/admin.json` + `.auth/volunteer.json`.
+2. Signs in the shared global roles and active Kalakriti release actors by posting credentials to `/api/auth/sign-in/email`, then navigates to the authenticated landing page.
+3. Saves one `storageState` file per active actor under `.auth/`. Dormant actors intentionally have no state.
 4. Tests reference the state via `test.use({ storageState: "..." })`.
 
-Response logging inside `authenticate()` hooks `page.on("response")` for `/api/auth/*` — helps debug CI auth failures.
+`authenticate()` logs each sign-in response status and URL directly, which helps debug CI auth failures before it retries.
 
 ## Seed Strategy
 
@@ -41,7 +41,7 @@ Response logging inside `authenticate()` hooks `page.on("response")` for `/api/a
 
 Functions are idempotent where possible (`onConflictDoNothing()`), return the inserted IDs. Never create stale data: each test relies on seed having run.
 
-`helpers/seed-test-user.ts` covers the two canonical users (admin + volunteer) plus additional role fixtures.
+`helpers/seed-test-user.ts` covers the canonical global users and invokes `helpers/kalakriti-release-fixture.ts` for the deterministic Registration Release role, cross-Edition, cross-Center, privacy, and race fixtures.
 
 **DB isolation**: `run-e2e.sh` bootstraps a separate Postgres via `packages/db/docker-compose.e2e*.yml`. Worktree-aware — port + DB name derived from `WORKTREE_ID` to avoid collision with dev DB.
 

@@ -127,6 +127,17 @@ test("manages independent Center registration and scoped Liaison access", async 
       page.getByRole("button", { name: "All registrations locked" })
     ).toBeDisabled();
 
+    await centers.configureRegistration("Basavanagudi", {
+      participation: false,
+      students: true,
+    });
+    await expect(centers.center("Basavanagudi")).toContainText(
+      "Students: Open"
+    );
+    await expect(centers.center("Indiranagar")).toContainText(
+      "Students: Closed"
+    );
+
     const assignedCenter = centers.center("Basavanagudi");
     await assignedCenter.getByRole("button", { name: "Retire" }).click();
     await page

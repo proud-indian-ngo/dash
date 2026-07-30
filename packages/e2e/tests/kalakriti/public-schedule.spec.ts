@@ -27,7 +27,7 @@ test.describe("Kalakriti public schedule", () => {
     request,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "unoriented_volunteer",
+      testInfo.project.name !== "kalakriti_release_invariants",
       "Public and authenticated schedule workflow"
     );
     const { draftYear, year } = await fixture<{
