@@ -32,6 +32,7 @@ describe("Kalakriti navigation", () => {
       buildKalakritiNavGroups({
         canManageEligibility: true,
         canManageGuardians: true,
+        canViewAudit: true,
         canViewCompetitions: true,
         canViewEntries: true,
         canViewStudents: true,
@@ -48,6 +49,7 @@ describe("Kalakriti navigation", () => {
       { title: "Entries", url: "/kalakriti/2026/entries" },
       { title: "Competitions", url: "/kalakriti/2026/competitions" },
       { title: "Guardians", url: "/kalakriti/2026/guardians" },
+      { title: "Audit", url: "/kalakriti/2026/audit" },
     ]);
   });
 
@@ -108,6 +110,15 @@ describe("Kalakriti navigation", () => {
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
     ).toEqual(["Dashboard", "Overview", "Centers", "Entries"]);
+  });
+
+  it("shows Audit only when the caller has an audit scope", () => {
+    expect(
+      buildKalakritiNavGroups({
+        canViewAudit: true,
+        year: 2026,
+      }).flatMap((group) => group.items.map(({ title }) => title))
+    ).toEqual(["Dashboard", "Overview", "Centers", "Audit"]);
   });
 
   it("adds active Sessions as nested Entry navigation", () => {

@@ -41,7 +41,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Requests | Unified view for reimbursement and advance payment requests — submit, review, approve/reject with line items and type filter |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
-| Kalakriti Editions | Create yearly Kalakriti workspaces with Edition-scoped access, persistent external identities, and a protected linked organization event |
+| Kalakriti Editions | Create yearly Kalakriti workspaces with Edition-scoped access, persistent external identities, registration workflows, and administrator or assigned-Lead audit trails |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |

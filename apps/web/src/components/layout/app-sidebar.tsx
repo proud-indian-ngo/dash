@@ -96,6 +96,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ["edition_admin", "liaison"].includes(assignment.responsibility)
     ) === true;
   const canViewEntries = canViewStudents;
+  const canViewAudit =
+    hasPermission("kalakriti.admin") ||
+    (activeEdition?.lifecycle !== "archived" &&
+      membership?.assignments.some(
+        (assignment) =>
+          assignment.responsibility === "edition_admin" ||
+          assignment.responsibility === "overall_events_lead" ||
+          assignment.responsibility === "volunteer_coordinator" ||
+          (assignment.responsibility === "competition_category_lead" &&
+            Boolean(assignment.competitionCategoryId))
+      ) === true);
   const [entrySessions] = useQuery(
     queries.kalakritiEntry.availableSessionsByCenter({
       centerId: centers[0]?.id ?? "",
@@ -113,6 +124,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
+    canViewAudit,
     canViewCompetitions,
     canViewEntries,
     canViewStudents,

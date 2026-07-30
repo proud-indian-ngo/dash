@@ -131,6 +131,7 @@ const kalakritiNavItem: NavItem = {
 export function buildKalakritiNavGroups({
   canManageEligibility = false,
   canManageGuardians = false,
+  canViewAudit = false,
   canViewCompetitions = false,
   canViewEntries = false,
   canViewStudents = false,
@@ -140,6 +141,7 @@ export function buildKalakritiNavGroups({
 }: {
   canManageEligibility?: boolean;
   canManageGuardians?: boolean;
+  canViewAudit?: boolean;
   canViewCompetitions?: boolean;
   canViewEntries?: boolean;
   canViewStudents?: boolean;
@@ -217,6 +219,14 @@ export function buildKalakritiNavGroups({
       icon: UserIcon,
       title: "Guardians",
       url: `/kalakriti/${year}/guardians`,
+    });
+  }
+
+  if (year && canViewAudit) {
+    editionItems.push({
+      icon: SecurityLockIcon,
+      title: "Audit",
+      url: `/kalakriti/${year}/audit`,
     });
   }
 
