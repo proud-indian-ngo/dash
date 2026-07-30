@@ -70,9 +70,10 @@ const studentFormSchema = z.object({
   name: z.string().trim().min(2, "Enter at least two characters").max(160),
 });
 const DERIVED_AGE_CATEGORY = "__derived__";
-const AGE_CATEGORY_ERRORS = [
+const STUDENT_SUBMISSION_ERRORS = [
   "Date of birth cannot be after the Edition age cutoff",
   "Date of birth does not match an Age Category",
+  "Student limit is full for this Age Category",
 ] as const;
 
 interface StudentSubmissionValues {
@@ -92,10 +93,10 @@ function datesMatch(date: Date, timestamp: number): boolean {
 
 function getStudentSubmissionError(error: unknown, fallback: string): string {
   const serverMessage = getMutationResultErrorMessage(error, "");
-  const ageCategoryError = AGE_CATEGORY_ERRORS.find((message) =>
+  const submissionError = STUDENT_SUBMISSION_ERRORS.find((message) =>
     serverMessage.includes(message)
   );
-  return ageCategoryError ?? fallback;
+  return submissionError ? serverMessage : fallback;
 }
 
 function studentMutationValues(value: StudentSubmissionValues) {

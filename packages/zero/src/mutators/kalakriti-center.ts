@@ -68,6 +68,27 @@ async function requireLockedCenter(tx: CenterTx, centerId: string) {
   return center;
 }
 
+async function assertParticipatingStudentsMeetMinimum(
+  tx: CenterTx,
+  centerId: string
+): Promise<void> {
+  const students = (await tx.run(
+    zql.kalakritiStudent.where("centerId", centerId).related("entryMemberships")
+  )) as Array<{
+    entryMemberships: readonly { id: string }[];
+    humanId: string;
+    name: string;
+  }>;
+  const incomplete = students.find(
+    (student) => student.entryMemberships.length === 1
+  );
+  if (incomplete) {
+    throw new Error(
+      `${incomplete.humanId} · ${incomplete.name} must be registered for at least 2 Competitions`
+    );
+  }
+}
+
 const centerNameSchema = z.string().trim().min(2).max(120);
 
 export const kalakritiCenterCreateSchema = z.object({
@@ -283,6 +304,12 @@ export const kalakritiCenterMutators = {
       if (enabledCenters.length === 0) {
         throw new Error("All Center registrations are already locked");
       }
+      for (const center of enabledCenters) {
+        if (center.competitionEntryRegistrationEnabled) {
+          // biome-ignore lint/performance/noAwaitInLoops: each Center is validated while its row lock is held
+          await assertParticipatingStudentsMeetMinimum(tx, center.id);
+        }
+      }
 
       await Promise.all(
         enabledCenters.map((center) =>
@@ -427,6 +454,12 @@ export const kalakritiCenterMutators = {
           args.competitionEntryRegistrationEnabled
       ) {
         throw new Error("Registration controls are unchanged");
+      }
+      if (
+        center.competitionEntryRegistrationEnabled &&
+        !args.competitionEntryRegistrationEnabled
+      ) {
+        await assertParticipatingStudentsMeetMinimum(tx, center.id);
       }
 
       await tx.mutate.kalakritiCenter.update({

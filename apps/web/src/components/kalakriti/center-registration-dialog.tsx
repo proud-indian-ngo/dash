@@ -15,7 +15,10 @@ import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 
 export interface CenterRegistrationState {
   competitionEntryRegistrationEnabled: boolean;
@@ -38,6 +41,7 @@ function RegistrationForm({
   onOpenChange: (open: boolean) => void;
 }) {
   const zero = useZero();
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const selectRegistrationValues = useEventCallback(
     (state: {
@@ -83,6 +87,7 @@ function RegistrationForm({
       studentRegistrationEnabled: center.studentRegistrationEnabled,
     },
     onSubmit: async ({ value }) => {
+      setSubmissionError(null);
       const result = await zero.mutate(
         mutators.kalakritiCenter.setRegistrationControls({
           auditEntryId: uuidv7(),
@@ -94,21 +99,28 @@ function RegistrationForm({
           studentRegistrationEnabled: value.studentRegistrationEnabled,
         })
       ).server;
+      const errorMessage = getMutationResultErrorMessage(
+        result.type === "error" ? result.error : undefined,
+        "Failed to update registration controls"
+      );
       handleMutationResult(result, {
         entityId: center.id,
-        errorMsg: "Failed to update registration controls",
+        errorMsg: errorMessage,
         mutation: "kalakritiCenter.setRegistrationControls",
+        showErrorToast: false,
         successMsg: "Registration controls updated",
       });
-      if (result.type !== "error") {
-        onOpenChange(false);
+      if (result.type === "error") {
+        setSubmissionError(errorMessage);
+        return;
       }
+      onOpenChange(false);
     },
     validators: { onChange: schema, onSubmit: schema },
   });
 
   return (
-    <FormLayout form={form}>
+    <FormLayout form={form} showSubmitError submitError={submissionError}>
       <CheckboxField
         description="Allows Guardians to add and edit students for this Center."
         label="Student registration"
