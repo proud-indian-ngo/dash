@@ -33,6 +33,7 @@ import {
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
 import {
+  getEntryStudentOptionEligibility,
   getGroupEntryValidationErrors,
   getIndividualEntryValidationError,
 } from "@/lib/kalakriti-entry-policy";
@@ -289,12 +290,12 @@ function StudentCombobox({
   description,
   label,
   maximum,
-  students,
+  options,
 }: {
   description: string;
   label: string;
   maximum: number;
-  students: readonly KalakritiEntryStudent[];
+  options: readonly StudentComboboxOption[];
 }) {
   const form = useResolvedForm(undefined, "StudentCombobox");
 
@@ -309,7 +310,7 @@ function StudentCombobox({
         <StudentComboboxControl
           field={field}
           maximum={maximum}
-          students={students}
+          options={options}
           submitted={form.state.submissionAttempts > 0}
         />
       )}
@@ -317,29 +318,36 @@ function StudentCombobox({
   );
 }
 
+interface StudentComboboxOption {
+  disabledReason: string | null;
+  student: KalakritiEntryStudent;
+}
+
 function StudentComboboxControl({
   field,
   maximum,
-  students,
+  options,
   submitted,
 }: {
   field: FormFieldApi<string[]>;
   maximum: number;
-  students: readonly KalakritiEntryStudent[];
+  options: readonly StudentComboboxOption[];
   submitted: boolean;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const anchorRef = useComboboxAnchor();
-  const studentMap = new Map(students.map((student) => [student.id, student]));
+  const studentMap = new Map(
+    options.map(({ student }) => [student.id, student])
+  );
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-  const filteredStudents = normalizedQuery
-    ? students.filter((student) =>
+  const filteredOptions = normalizedQuery
+    ? options.filter(({ student }) =>
         [student.humanId, student.name, student.ageCategory.name]
           .join(" ")
           .toLocaleLowerCase()
           .includes(normalizedQuery)
       )
-    : students;
+    : options;
   const handleValueChange = useEventCallback((studentIds: string[]) =>
     field.handleChange(studentIds.slice(0, maximum))
   );
@@ -367,20 +375,32 @@ function StudentComboboxControl({
           placeholder={
             field.state.value.length >= maximum
               ? `Maximum ${maximum} selected`
-              : "Search eligible Students..."
+              : "Search Students..."
           }
         />
       </ComboboxChips>
       <ComboboxContent anchor={anchorRef}>
         <ComboboxList>
-          {filteredStudents.map((student) => (
-            <ComboboxItem key={student.id} value={student.id}>
-              {student.humanId} · {student.name} · {student.ageCategory.name}
+          {filteredOptions.map(({ disabledReason, student }) => (
+            <ComboboxItem
+              disabled={disabledReason !== null}
+              key={student.id}
+              value={student.id}
+            >
+              <div className="min-w-0">
+                <div>
+                  {student.humanId} · {student.name} ·{" "}
+                  {student.ageCategory.name}
+                </div>
+                {disabledReason ? (
+                  <div className="text-muted-foreground">{disabledReason}</div>
+                ) : null}
+              </div>
             </ComboboxItem>
           ))}
-          {filteredStudents.length === 0 ? (
+          {filteredOptions.length === 0 ? (
             <div className="py-2 text-center text-muted-foreground text-xs">
-              No eligible Students found.
+              No matching Students found.
             </div>
           ) : null}
         </ComboboxList>
@@ -588,6 +608,28 @@ function EntryForm({
                 1,
                 (session?.capacity ?? 1) - (session?.entries.length ?? 0)
               );
+          const options = session
+            ? students.flatMap((student): StudentComboboxOption[] => {
+                const eligibility = getEntryStudentOptionEligibility({
+                  editingEntryId: entry?.id,
+                  entries,
+                  session,
+                  student,
+                });
+                if (eligibility.status === "hidden") {
+                  return [];
+                }
+                return [
+                  {
+                    disabledReason:
+                      eligibility.status === "disabled"
+                        ? eligibility.reason
+                        : null,
+                    student,
+                  },
+                ];
+              })
+            : [];
           return (
             <StudentCombobox
               description={
@@ -597,7 +639,7 @@ function EntryForm({
               }
               label={isGroup ? "Group members" : "Students"}
               maximum={maximum}
-              students={students}
+              options={options}
             />
           );
         }}

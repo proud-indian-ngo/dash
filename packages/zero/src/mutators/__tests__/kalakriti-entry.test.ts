@@ -690,6 +690,29 @@ describe("kalakritiEntry commands", () => {
     await expect(promise).rejects.toThrow("overlapping Session");
   });
 
+  it("allows a Session that starts when another Session ends", async () => {
+    const { promise, spies } = await createEntry({
+      existingMemberships: [
+        {
+          entry: {
+            session: {
+              competition: { competitionCategoryId: "other" },
+              endAt: session.startAt,
+              id: "adjacent-session",
+              startAt: session.startAt - 50,
+            },
+          },
+          entryId: "adjacent-entry",
+          id: "adjacent-member",
+          sessionId: "adjacent-session",
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(spies.insertEntry).toHaveBeenCalledTimes(1);
+  });
+
   it("removes an individual Entry only while registration remains writable", async () => {
     const { promise, spies } = removeEntry();
     await promise;

@@ -3,6 +3,7 @@ import {
   canAccessKalakritiEntries,
   canRemoveKalakritiEntries,
   getEntryRegistrationAvailability,
+  getEntryStudentOptionEligibility,
   getGroupEntryValidationErrors,
   getIndividualEntryValidationError,
   selectEligibleStudentsForSession,
@@ -309,6 +310,55 @@ describe("Kalakriti Entry policy", () => {
         entries: [],
         session,
         students: [eligible, wrongAgeCategory, wrongGender],
+      })
+    ).toEqual([eligible]);
+    expect(
+      getEntryStudentOptionEligibility({
+        entries: [],
+        session,
+        student: wrongAgeCategory,
+      })
+    ).toEqual({ status: "hidden" });
+    expect(
+      getEntryStudentOptionEligibility({
+        entries: [],
+        session,
+        student: wrongGender,
+      })
+    ).toEqual({ status: "hidden" });
+    expect(
+      getEntryStudentOptionEligibility({
+        entries: [
+          {
+            members: [{ studentId: eligible.id }],
+            session,
+            sessionId: session.id,
+          },
+        ],
+        session,
+        student: eligible,
+      })
+    ).toEqual({ status: "hidden" });
+    expect(
+      selectEligibleStudentsForSession({
+        entries: [
+          {
+            members: [{ studentId: eligible.id }],
+            session: {
+              ...session,
+              competition: {
+                ...session.competition,
+                competitionCategoryId: "other-category",
+              },
+              endAt: session.startAt,
+              id: "adjacent-session",
+              startAt: session.startAt - 60,
+            },
+            sessionId: "adjacent-session",
+          },
+        ],
+        session,
+        students: [eligible],
       })
     ).toEqual([eligible]);
   });

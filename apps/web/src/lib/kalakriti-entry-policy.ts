@@ -49,6 +49,11 @@ interface EntryValidationEntry {
   sessionId: string;
 }
 
+export type EntryStudentOptionEligibility =
+  | { status: "disabled"; reason: string }
+  | { status: "eligible" }
+  | { status: "hidden" };
+
 function getStudentEntryValidationError({
   entries,
   session,
@@ -94,6 +99,50 @@ function getStudentEntryValidationError({
     return "This Session overlaps another Entry for this Student";
   }
   return null;
+}
+
+export function getEntryStudentOptionEligibility({
+  editingEntryId,
+  entries,
+  session,
+  student,
+}: {
+  editingEntryId?: string;
+  entries: readonly EntryValidationEntry[];
+  session: EntryValidationSession;
+  student: EntryValidationStudent;
+}): EntryStudentOptionEligibility {
+  if (
+    student.ageCategoryId !== session.ageCategoryId ||
+    (session.competition.genderEligibility !== "both" &&
+      session.competition.genderEligibility !== student.gender)
+  ) {
+    return { status: "hidden" };
+  }
+  const otherEntries = editingEntryId
+    ? entries.filter((entry) => entry.id !== editingEntryId)
+    : entries;
+  if (
+    otherEntries.some(
+      (entry) =>
+        entry.sessionId === session.id &&
+        entry.members.some((member) => member.studentId === student.id)
+    )
+  ) {
+    return { status: "hidden" };
+  }
+  const sessionEntryCount = session.entries.filter(
+    (entry) => entry.id !== editingEntryId
+  ).length;
+  if (sessionEntryCount >= session.capacity) {
+    return { reason: "This Session is full", status: "disabled" };
+  }
+  const reason = getStudentEntryValidationError({
+    entries: otherEntries,
+    session,
+    student,
+  });
+  return reason ? { reason, status: "disabled" } : { status: "eligible" };
 }
 
 export function getIndividualEntryValidationError({
@@ -179,28 +228,14 @@ export function selectEligibleStudentsForSession<
   session: EntryValidationSession;
   students: readonly TStudent[];
 }): TStudent[] {
-  if (session.competition.participationMode === "group") {
-    const otherEntries = editingEntryId
-      ? entries.filter((entry) => entry.id !== editingEntryId)
-      : entries;
-    const sessionEntryCount = session.entries.filter(
-      (entry) => entry.id !== editingEntryId
-    ).length;
-    if (sessionEntryCount >= session.capacity) {
-      return [];
-    }
-    return students.filter(
-      (student) =>
-        getStudentEntryValidationError({
-          entries: otherEntries,
-          session,
-          student,
-        }) === null
-    );
-  }
   return students.filter(
     (student) =>
-      getIndividualEntryValidationError({ entries, session, student }) === null
+      getEntryStudentOptionEligibility({
+        editingEntryId,
+        entries,
+        session,
+        student,
+      }).status === "eligible"
   );
 }
 

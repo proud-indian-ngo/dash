@@ -31,7 +31,7 @@ import {
   canRemoveKalakritiEntries,
   type EntryRegistrationAvailability,
   getEntryRegistrationAvailability,
-  selectEligibleStudentsForSession,
+  getEntryStudentOptionEligibility,
   selectKalakritiEntryCenters,
 } from "@/lib/kalakriti-entry-policy";
 
@@ -163,7 +163,7 @@ function isSessionUnavailable(
   return session === undefined && sessionsResultType === "complete";
 }
 
-function getEligibleStudents({
+function countVisibleStudentOptions({
   editingEntryId,
   entries,
   session,
@@ -173,16 +173,19 @@ function getEligibleStudents({
   entries: readonly KalakritiEntryRow[];
   session?: KalakritiEntrySession;
   students: readonly KalakritiEntryStudent[];
-}): KalakritiEntryStudent[] {
+}): number {
   if (!session) {
-    return [];
+    return 0;
   }
-  return selectEligibleStudentsForSession({
-    editingEntryId,
-    entries,
-    session,
-    students,
-  });
+  return students.filter(
+    (student) =>
+      getEntryStudentOptionEligibility({
+        editingEntryId,
+        entries,
+        session,
+        student,
+      }).status !== "hidden"
+  ).length;
 }
 
 function SessionSummary({
@@ -332,7 +335,7 @@ function KalakritiSessionEntriesPage() {
   const sessionEntries = completeEntries.filter(
     (entry) => entry.sessionId === sessionId
   );
-  const eligibleStudents = getEligibleStudents({
+  const visibleStudentOptionCount = countVisibleStudentOptions({
     editingEntryId: editingEntry?.id,
     entries: completeEntries,
     session,
@@ -373,7 +376,7 @@ function KalakritiSessionEntriesPage() {
     lifecycle: edition.lifecycle,
     referenceDataLoading,
     sessionCount: session ? 1 : 0,
-    studentCount: eligibleStudents.length,
+    studentCount: visibleStudentOptionCount,
   });
   const registrationOpen = availability === "open";
   const removalEnabled = canRemoveKalakritiEntries({
@@ -458,7 +461,7 @@ function KalakritiSessionEntriesPage() {
           onOpenChange={handleCreateOpenChange}
           open={createOpen}
           sessions={[session]}
-          students={eligibleStudents}
+          students={completeStudents}
         />
       ) : null}
       <ConfirmDialog
