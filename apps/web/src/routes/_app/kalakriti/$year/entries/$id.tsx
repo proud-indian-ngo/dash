@@ -163,6 +163,28 @@ function isSessionUnavailable(
   return session === undefined && sessionsResultType === "complete";
 }
 
+function getEligibleStudents({
+  editingEntryId,
+  entries,
+  session,
+  students,
+}: {
+  editingEntryId?: string;
+  entries: readonly KalakritiEntryRow[];
+  session?: KalakritiEntrySession;
+  students: readonly KalakritiEntryStudent[];
+}): KalakritiEntryStudent[] {
+  if (!session) {
+    return [];
+  }
+  return selectEligibleStudentsForSession({
+    editingEntryId,
+    entries,
+    session,
+    students,
+  });
+}
+
 function SessionSummary({
   centerName,
   participantCount,
@@ -310,14 +332,12 @@ function KalakritiSessionEntriesPage() {
   const sessionEntries = completeEntries.filter(
     (entry) => entry.sessionId === sessionId
   );
-  const eligibleStudents = session
-    ? selectEligibleStudentsForSession({
-        editingEntryId: editingEntry?.id,
-        entries: completeEntries,
-        session,
-        students: completeStudents,
-      })
-    : [];
+  const eligibleStudents = getEligibleStudents({
+    editingEntryId: editingEntry?.id,
+    entries: completeEntries,
+    session,
+    students: completeStudents,
+  });
 
   if (isSessionUnavailable(session, sessionsResult.type)) {
     return (

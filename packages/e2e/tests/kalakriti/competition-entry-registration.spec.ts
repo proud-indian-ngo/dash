@@ -129,33 +129,26 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const entriesPage = new KalakritiEntriesPage(page);
 
     try {
-      await entriesPage.goto(year);
+      await entriesPage.goto(year, "Group Dance");
       const dialog = await entriesPage.openRegistrationForm();
-      await entriesPage.chooseGroupSession(dialog);
       await entriesPage.selectGroupMembers(dialog, ["Entry Student A"]);
       await dialog.getByLabel("Group members").blur();
       await expect(
         dialog.getByText("Select at least 2 Students for this group")
       ).toBeVisible();
       await expect(
-        dialog.getByRole("button", { name: "Register Entry" })
+        dialog.getByRole("button", { name: "Register Group" })
       ).toBeDisabled();
 
-      await entriesPage.selectGroupMembers(dialog, ["Entry Student D"]);
+      await dialog.getByLabel("Group members").fill("Entry Student D");
       await expect(
-        dialog.getByText(
-          `KAL-${year}-0004 · Entry Student D: This Competition is limited to female Students`
-        )
-      ).toBeVisible();
-      await expect(
-        dialog.getByRole("button", { name: "Register Entry" })
-      ).toBeDisabled();
-
-      await entriesPage.removeLastGroupMember(dialog);
+        page.getByRole("option", { name: /Entry Student D/ })
+      ).toHaveCount(0);
+      await dialog.getByLabel("Group members").fill("");
       await entriesPage.selectGroupMembers(dialog, ["Entry Student B"]);
-      await dialog.getByRole("button", { name: "Register Entry" }).click();
+      await dialog.getByRole("button", { name: "Register Group" }).click();
       await expect(
-        page.getByText("Competition Entry registered", { exact: true })
+        page.getByText("Competition group registered", { exact: true })
       ).toBeVisible();
       await expect(
         page.locator("#main").getByText("Entry Student A", { exact: true })
@@ -290,8 +283,8 @@ test.describe("Kalakriti Competition Entry registration", () => {
 
     try {
       await Promise.all([
-        firstEntriesPage.goto(year),
-        secondEntriesPage.goto(year),
+        firstEntriesPage.goto(year, "Group Dance"),
+        secondEntriesPage.goto(year, "Group Dance"),
       ]);
       const [firstDialog, secondDialog] = await Promise.all([
         firstEntriesPage.openRegistrationForm(),
@@ -308,8 +301,8 @@ test.describe("Kalakriti Competition Entry registration", () => {
         ]),
       ]);
       await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Entry" }).click(),
-        secondDialog.getByRole("button", { name: "Register Entry" }).click(),
+        firstDialog.getByRole("button", { name: "Register Group" }).click(),
+        secondDialog.getByRole("button", { name: "Register Group" }).click(),
       ]);
 
       const state = await waitForEntryCount("admin", 1);

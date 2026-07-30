@@ -254,8 +254,7 @@ export function EntryTable({
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
               <EntryRowActions
                 canEdit={
-                  canEdit &&
-                  activeSessionIds.includes(row.original.sessionId)
+                  canEdit && activeSessionIds.includes(row.original.sessionId)
                 }
                 entry={row.original}
                 onEdit={onEdit}

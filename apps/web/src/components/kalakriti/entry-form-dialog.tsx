@@ -107,6 +107,13 @@ interface EntryMutationResult {
   type: string;
 }
 
+interface EntryMutationMeta {
+  entityId: string;
+  errorMsg: string;
+  mutation: string;
+  successMsg: string;
+}
+
 function getMutationErrorMessage(result: EntryMutationResult): string | null {
   if (result.type !== "error") {
     return null;
@@ -123,6 +130,45 @@ function getMutationErrorMessage(result: EntryMutationResult): string | null {
     return result.error.message;
   }
   return null;
+}
+
+function getSubmitLabel(
+  entry: KalakritiEntryRow | undefined,
+  fixedSession: KalakritiEntrySession | undefined
+): string {
+  if (entry) {
+    return "Save Group";
+  }
+  if (!fixedSession) {
+    return "Register Entries";
+  }
+  if (fixedSession.competition.participationMode === "group") {
+    return "Register Group";
+  }
+  return "Register Entries";
+}
+
+function getDialogTitle(props: EntryFormDialogProps): string {
+  if (props.entry) {
+    return "Edit Competition Group";
+  }
+  if (!props.fixedSession) {
+    return "Register Competition Entries";
+  }
+  if (props.fixedSession.competition.participationMode === "group") {
+    return "Register Competition Group";
+  }
+  return "Register Competition Entries";
+}
+
+function getDialogDescription(props: EntryFormDialogProps): string {
+  if (props.entry) {
+    return "Update the Students in this group. The existing group remains unchanged if validation fails.";
+  }
+  if (props.fixedSession) {
+    return `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`;
+  }
+  return "Choose eligible Students and a Competition Session.";
 }
 
 function selectSessionId(state: {
@@ -146,6 +192,97 @@ function sessionOptionLabel(
     session.venue.name,
     `${remaining} ${remaining === 1 ? "place" : "places"} left`,
   ].join(" · ");
+}
+
+interface EntryValidationIssue {
+  message: string;
+  path: "sessionId" | "studentIds";
+}
+
+function getIndividualSelectionIssue({
+  entries,
+  fixedSession,
+  session,
+  students,
+}: {
+  entries: readonly KalakritiEntryRow[];
+  fixedSession?: KalakritiEntrySession;
+  session: KalakritiEntrySession;
+  students: readonly KalakritiEntryStudent[];
+}): EntryValidationIssue | null {
+  const remainingCapacity = session.capacity - session.entries.length;
+  if (students.length > remainingCapacity) {
+    return {
+      message: `This Session only has ${Math.max(0, remainingCapacity)} places left`,
+      path: "studentIds",
+    };
+  }
+  for (const student of students) {
+    const message = getIndividualEntryValidationError({
+      entries,
+      session,
+      student,
+    });
+    if (message) {
+      return {
+        message,
+        path: fixedSession ? "studentIds" : "sessionId",
+      };
+    }
+  }
+  return null;
+}
+
+function getEntryValidationIssues({
+  entries,
+  entry,
+  fixedSession,
+  sessionId,
+  sessions,
+  studentIds,
+  studentMap,
+}: {
+  entries: readonly KalakritiEntryRow[];
+  entry?: KalakritiEntryRow;
+  fixedSession?: KalakritiEntrySession;
+  sessionId: string;
+  sessions: readonly KalakritiEntrySession[];
+  studentIds: string[];
+  studentMap: ReadonlyMap<string, KalakritiEntryStudent>;
+}): EntryValidationIssue[] {
+  const session = sessions.find((candidate) => candidate.id === sessionId);
+  if (!session) {
+    return sessionId
+      ? [{ message: unavailableSessionMessage, path: "sessionId" }]
+      : [];
+  }
+  const selectedStudents = studentIds.flatMap((studentId) => {
+    const student = studentMap.get(studentId);
+    return student ? [student] : [];
+  });
+  if (selectedStudents.length !== studentIds.length) {
+    return [
+      {
+        message: "One or more selected Students are no longer available",
+        path: "studentIds",
+      },
+    ];
+  }
+  if (session.competition.participationMode === "group") {
+    return getGroupEntryValidationErrors({
+      editingEntryId: entry?.id,
+      entries,
+      session,
+      students: selectedStudents,
+    }).map((message) => ({ message, path: "studentIds" }));
+  }
+  const issue = getIndividualSelectionIssue({
+    entries,
+    fixedSession,
+    session,
+    students: selectedStudents,
+  });
+  return issue ? [issue] : [];
 }
 
 function StudentCombobox({
@@ -265,65 +402,20 @@ function EntryForm({
   const zero = useZero();
   const studentMap = new Map(students.map((student) => [student.id, student]));
   const validationSchema = entryFormSchema.superRefine((value, context) => {
-    const session = sessions.find(
-      (candidate) => candidate.id === value.sessionId
-    );
-    if (!session) {
-      if (value.sessionId) {
-        context.addIssue({
-          code: "custom",
-          message: unavailableSessionMessage,
-          path: ["sessionId"],
-        });
-      }
-      return;
-    }
-    const selectedStudents = value.studentIds.flatMap((studentId) => {
-      const student = studentMap.get(studentId);
-      return student ? [student] : [];
-    });
-    if (selectedStudents.length !== value.studentIds.length) {
+    for (const issue of getEntryValidationIssues({
+      entries,
+      entry,
+      fixedSession,
+      sessionId: value.sessionId,
+      sessions,
+      studentIds: value.studentIds,
+      studentMap,
+    })) {
       context.addIssue({
         code: "custom",
-        message: "One or more selected Students are no longer available",
-        path: ["studentIds"],
+        message: issue.message,
+        path: [issue.path],
       });
-      return;
-    }
-    if (session.competition.participationMode === "group") {
-      for (const message of getGroupEntryValidationErrors({
-        editingEntryId: entry?.id,
-        entries,
-        session,
-        students: selectedStudents,
-      })) {
-        context.addIssue({ code: "custom", message, path: ["studentIds"] });
-      }
-      return;
-    }
-    const remainingCapacity = session.capacity - session.entries.length;
-    if (value.studentIds.length > remainingCapacity) {
-      context.addIssue({
-        code: "custom",
-        message: `This Session only has ${Math.max(0, remainingCapacity)} places left`,
-        path: ["studentIds"],
-      });
-      return;
-    }
-    for (const student of selectedStudents) {
-      const message = getIndividualEntryValidationError({
-        entries,
-        session,
-        student,
-      });
-      if (message) {
-        context.addIssue({
-          code: "custom",
-          message,
-          path: [fixedSession ? "studentIds" : "sessionId"],
-        });
-        return;
-      }
     }
   });
   const form = useForm({
@@ -347,123 +439,126 @@ function EntryForm({
       }
       const now = Date.now();
       if (entry) {
-        const result = await zero.mutate(
-          mutators.kalakritiEntry.replaceGroupMembers({
-            auditEntryId: uuidv7(),
-            entryId: entry.id,
-            members: value.studentIds.map((studentId) => ({
-              memberId: uuidv7(),
-              studentId,
-            })),
-            now,
-          })
-        ).server;
-        const mutationErrorMessage = getMutationErrorMessage(result);
-        if (mutationErrorMessage) {
-          form.setFieldMeta("studentIds", (previous) => ({
-            ...previous,
-            errorMap: {
-              ...previous.errorMap,
-              onServer: { message: mutationErrorMessage },
-            },
-          }));
-        }
-        handleMutationResult(result, {
-          entityId: entry.id,
-          errorMsg:
-            mutationErrorMessage ?? "Failed to update Competition group",
-          mutation: "kalakritiEntry.replaceGroupMembers",
-          successMsg: "Competition group updated",
-        });
-        if (result.type !== "error") {
-          onOpenChange(false);
-        }
+        await submitGroupEdit(entry, value.studentIds, now);
         return;
       }
       if (session.competition.participationMode === "group") {
-        const result = await zero.mutate(
-          mutators.kalakritiEntry.createGroup({
-            auditEntryId: uuidv7(),
-            centerId,
-            editionId,
-            entryId: uuidv7(),
-            members: value.studentIds.map((studentId) => ({
-              memberId: uuidv7(),
-              studentId,
-            })),
-            now,
-            sessionId: value.sessionId,
-          })
-        ).server;
-        const mutationErrorMessage = getMutationErrorMessage(result);
-        if (mutationErrorMessage) {
-          form.setFieldMeta("studentIds", (previous) => ({
-            ...previous,
-            errorMap: {
-              ...previous.errorMap,
-              onServer: { message: mutationErrorMessage },
-            },
-          }));
-        }
-        handleMutationResult(result, {
-          entityId: value.sessionId,
-          errorMsg:
-            mutationErrorMessage ?? "Failed to register Competition group",
-          mutation: "kalakritiEntry.createGroup",
-          successMsg: "Competition group registered",
-        });
-        if (result.type !== "error") {
-          onOpenChange(false);
-        }
+        await submitGroup(value.sessionId, value.studentIds, now);
         return;
       }
-      const results = await Promise.all(
-        value.studentIds.map(
-          (studentId) =>
-            zero.mutate(
-              mutators.kalakritiEntry.createIndividual({
-                auditEntryId: uuidv7(),
-                centerId,
-                editionId,
-                entryId: uuidv7(),
-                memberId: uuidv7(),
-                now,
-                sessionId: value.sessionId,
-                studentId,
-              })
-            ).server
-        )
-      );
-      const failedResult = results.find((result) => result.type === "error");
-      const mutationErrorMessage = failedResult
-        ? getMutationErrorMessage(failedResult)
-        : null;
-      if (mutationErrorMessage) {
-        form.setFieldMeta("studentIds", (previous) => ({
-          ...previous,
-          errorMap: {
-            ...previous.errorMap,
-            onServer: { message: mutationErrorMessage },
-          },
-        }));
-      }
-      handleMutationResult(failedResult ?? { type: "complete" }, {
-        entityId: value.studentIds.join(","),
-        errorMsg:
-          mutationErrorMessage ??
-          "Some Competition Entries could not be registered",
-        mutation: "kalakritiEntry.createIndividual",
-        successMsg:
-          value.studentIds.length === 1
-            ? "Competition Entry registered"
-            : `${value.studentIds.length} Competition Entries registered`,
-      });
-      if (!failedResult) {
-        onOpenChange(false);
-      }
+      await submitIndividuals(value.sessionId, value.studentIds, now);
     },
     validators: { onChange: validationSchema, onSubmit: validationSchema },
   });
+
+  function finishMutation(
+    result: EntryMutationResult,
+    meta: EntryMutationMeta
+  ): void {
+    const mutationErrorMessage = getMutationErrorMessage(result);
+    if (mutationErrorMessage) {
+      form.setFieldMeta("studentIds", (previous) => ({
+        ...previous,
+        errorMap: {
+          ...previous.errorMap,
+          onServer: { message: mutationErrorMessage },
+        },
+      }));
+    }
+    handleMutationResult(result, {
+      ...meta,
+      errorMsg: mutationErrorMessage ?? meta.errorMsg,
+    });
+    if (result.type !== "error") {
+      onOpenChange(false);
+    }
+  }
+
+  async function submitGroupEdit(
+    currentEntry: KalakritiEntryRow,
+    studentIds: string[],
+    now: number
+  ): Promise<void> {
+    const result = await zero.mutate(
+      mutators.kalakritiEntry.replaceGroupMembers({
+        auditEntryId: uuidv7(),
+        entryId: currentEntry.id,
+        members: studentIds.map((studentId) => ({
+          memberId: uuidv7(),
+          studentId,
+        })),
+        now,
+      })
+    ).server;
+    finishMutation(result, {
+      entityId: currentEntry.id,
+      errorMsg: "Failed to update Competition group",
+      mutation: "kalakritiEntry.replaceGroupMembers",
+      successMsg: "Competition group updated",
+    });
+  }
+
+  async function submitGroup(
+    sessionId: string,
+    studentIds: string[],
+    now: number
+  ): Promise<void> {
+    const result = await zero.mutate(
+      mutators.kalakritiEntry.createGroup({
+        auditEntryId: uuidv7(),
+        centerId,
+        editionId,
+        entryId: uuidv7(),
+        members: studentIds.map((studentId) => ({
+          memberId: uuidv7(),
+          studentId,
+        })),
+        now,
+        sessionId,
+      })
+    ).server;
+    finishMutation(result, {
+      entityId: sessionId,
+      errorMsg: "Failed to register Competition group",
+      mutation: "kalakritiEntry.createGroup",
+      successMsg: "Competition group registered",
+    });
+  }
+
+  async function submitIndividuals(
+    sessionId: string,
+    studentIds: string[],
+    now: number
+  ): Promise<void> {
+    const results = await Promise.all(
+      studentIds.map(
+        (studentId) =>
+          zero.mutate(
+            mutators.kalakritiEntry.createIndividual({
+              auditEntryId: uuidv7(),
+              centerId,
+              editionId,
+              entryId: uuidv7(),
+              memberId: uuidv7(),
+              now,
+              sessionId,
+              studentId,
+            })
+          ).server
+      )
+    );
+    const failedResult = results.find((result) => result.type === "error");
+    finishMutation(failedResult ?? { type: "complete" }, {
+      entityId: studentIds.join(","),
+      errorMsg: "Some Competition Entries could not be registered",
+      mutation: "kalakritiEntry.createIndividual",
+      successMsg:
+        studentIds.length === 1
+          ? "Competition Entry registered"
+          : `${studentIds.length} Competition Entries registered`,
+    });
+  }
+
   const handleCancel = useEventCallback(() => onOpenChange(false));
 
   return (
@@ -486,8 +581,7 @@ function EntryForm({
           const session = sessions.find(
             (candidate) => candidate.id === sessionId
           );
-          const isGroup =
-            session?.competition.participationMode === "group";
+          const isGroup = session?.competition.participationMode === "group";
           const maximum = isGroup
             ? (session?.competition.maximumGroupSize ?? 1)
             : Math.max(
@@ -510,13 +604,7 @@ function EntryForm({
       </form.Subscribe>
       <FormActions
         onCancel={handleCancel}
-        submitLabel={
-          entry
-            ? "Save Group"
-            : fixedSession?.competition.participationMode === "group"
-              ? "Register Group"
-              : "Register Entries"
-        }
+        submitLabel={getSubmitLabel(entry, fixedSession)}
         submittingLabel={entry ? "Saving..." : "Registering..."}
       />
     </FormLayout>
@@ -536,20 +624,8 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
       <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {props.entry
-              ? "Edit Competition Group"
-              : props.fixedSession?.competition.participationMode === "group"
-                ? "Register Competition Group"
-                : "Register Competition Entries"}
-          </DialogTitle>
-          <DialogDescription>
-            {props.entry
-              ? "Update the Students in this group. The existing group remains unchanged if validation fails."
-              : props.fixedSession
-                ? `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`
-                : "Choose eligible Students and a Competition Session."}
-          </DialogDescription>
+          <DialogTitle>{getDialogTitle(props)}</DialogTitle>
+          <DialogDescription>{getDialogDescription(props)}</DialogDescription>
         </DialogHeader>
         <EntryForm key={formKey} {...props} />
       </DialogContent>
