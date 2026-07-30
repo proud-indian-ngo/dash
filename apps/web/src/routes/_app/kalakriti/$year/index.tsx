@@ -11,6 +11,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
 import { EditionLifecycleCard } from "@/components/kalakriti/edition-lifecycle-card";
+import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
 import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
 import { RegistrationExportCard } from "@/components/kalakriti/registration-export-card";
 import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
@@ -56,6 +57,9 @@ function KalakritiEditionOverview() {
     queries.teamEvent.byId({ id: edition.teamEventId }),
     { enabled: canViewLinkedEvent }
   );
+  const [editionDetails] = useQuery(
+    queries.kalakritiEdition.byYear({ year: edition.year })
+  );
 
   return (
     <div>
@@ -77,6 +81,9 @@ function KalakritiEditionOverview() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canManageLifecycle && editionDetails?.lifecycle === "draft" ? (
+            <EditionMetadataDialog edition={editionDetails} />
+          ) : null}
           <Button
             nativeButton={false}
             render={
