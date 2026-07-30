@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { NavItem } from "@/components/layout/nav-main";
-import { buildBreadcrumbs, getKalakritiCenterRoute } from "./breadcrumbs";
+import {
+  buildBreadcrumbs,
+  getKalakritiCenterRoute,
+  getKalakritiEntrySessionRoute,
+} from "./breadcrumbs";
 
 const navItems: NavItem[] = [
   { title: "Dashboard", url: "/" },
@@ -52,6 +56,22 @@ describe("breadcrumbs", () => {
     ]);
   });
 
+  it("builds breadcrumbs for an Entry Session", () => {
+    expect(
+      buildBreadcrumbs(navItems, "/kalakriti/2027/entries/session-1", {
+        sessionTitle: "Solo Dance · Junior",
+      })
+    ).toEqual([
+      { path: "/kalakriti", title: "Kalakriti" },
+      { path: "/kalakriti/2027", title: "2027 Edition" },
+      { path: "/kalakriti/2027/entries", title: "Entries" },
+      {
+        path: "/kalakriti/2027/entries/session-1",
+        title: "Solo Dance · Junior",
+      },
+    ]);
+  });
+
   it("builds breadcrumbs for Kalakriti Competitions", () => {
     expect(buildBreadcrumbs(navItems, "/kalakriti/2027/competitions")).toEqual([
       { path: "/kalakriti", title: "Kalakriti" },
@@ -90,5 +110,14 @@ describe("breadcrumbs", () => {
       { centerId: "center-1", year: 2027 }
     );
     expect(getKalakritiCenterRoute("/kalakriti/2027/centers")).toBeUndefined();
+  });
+
+  it("extracts an Entry Session route", () => {
+    expect(
+      getKalakritiEntrySessionRoute("/kalakriti/2027/entries/session-1")
+    ).toEqual({ sessionId: "session-1", year: 2027 });
+    expect(
+      getKalakritiEntrySessionRoute("/kalakriti/2027/entries")
+    ).toBeUndefined();
   });
 });

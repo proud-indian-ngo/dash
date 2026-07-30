@@ -7,10 +7,11 @@ export interface BreadcrumbEntry {
 
 interface BreadcrumbOptions {
   centerName?: string;
+  sessionTitle?: string;
 }
 
 const KALAKRITI_EDITION_PATH =
-  /^\/kalakriti\/(\d{4})(?:\/(centers|competitions|eligibility|guardians)(?:\/([^/]+))?)?$/;
+  /^\/kalakriti\/(\d{4})(?:\/(centers|competitions|eligibility|entries|guardians|students)(?:\/([^/]+))?)?$/;
 
 function buildNavItemsMap(items: NavItem[]): Record<string, string> {
   const map: Record<string, string> = {};
@@ -38,7 +39,7 @@ function resolveTitle(
 
 function buildKalakritiBreadcrumbs(
   pathname: string,
-  { centerName }: BreadcrumbOptions
+  { centerName, sessionTitle }: BreadcrumbOptions
 ): BreadcrumbEntry[] | undefined {
   if (pathname === "/kalakriti/new") {
     return [
@@ -72,6 +73,17 @@ function buildKalakritiBreadcrumbs(
     items.push({ path: `${editionPath}/guardians`, title: "Guardians" });
   } else if (section === "eligibility") {
     items.push({ path: `${editionPath}/eligibility`, title: "Eligibility" });
+  } else if (section === "entries") {
+    const entriesPath = `${editionPath}/entries`;
+    items.push({ path: entriesPath, title: "Entries" });
+    if (entityId) {
+      items.push({
+        path: `${entriesPath}/${entityId}`,
+        title: sessionTitle ?? "Session",
+      });
+    }
+  } else if (section === "students") {
+    items.push({ path: `${editionPath}/students`, title: "Students" });
   } else if (section === "competitions") {
     const competitionsPath = `${editionPath}/competitions`;
     items.push({ path: competitionsPath, title: "Competitions" });
@@ -93,6 +105,17 @@ function buildKalakritiBreadcrumbs(
   }
 
   return items;
+}
+
+export function getKalakritiEntrySessionRoute(
+  pathname: string
+): { sessionId: string; year: number } | undefined {
+  const match = pathname.match(KALAKRITI_EDITION_PATH);
+  if (match?.[2] !== "entries" || !match[3]) {
+    return;
+  }
+
+  return { sessionId: match[3], year: Number(match[1]) };
 }
 
 export function getKalakritiCenterRoute(

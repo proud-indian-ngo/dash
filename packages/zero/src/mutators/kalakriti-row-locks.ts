@@ -44,9 +44,23 @@ export interface LockedAgeCategory {
   femaleStudentLimit: number;
   id: string;
   maleStudentLimit: number;
+  maxCompetitionsPerCategory: number;
   maximumAge: number;
+  maxTotalCompetitions: number;
   minimumAge: number;
   name: string;
+}
+
+export interface LockedCompetitionSession {
+  ageCategoryId: string;
+  cancelledAt: number | null;
+  capacity: number;
+  competitionId: string;
+  editionId: string;
+  endAt: number;
+  id: string;
+  startAt: number;
+  venueId: string;
 }
 
 export interface LockedEditionMembership {
@@ -93,6 +107,14 @@ function normalizeTimestamp(
     return null;
   }
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
+
+function normalizeRequiredTimestamp(value: Date | number | string): number {
+  const normalized = normalizeTimestamp(value);
+  if (normalized === null || !Number.isFinite(normalized)) {
+    throw new Error("Timestamp is invalid");
+  }
+  return normalized;
 }
 
 function normalizeEdition(edition: {
@@ -232,7 +254,10 @@ export async function getAgeCategoryForUpdate(
       femaleStudentLimit: kalakritiAgeCategory.femaleStudentLimit,
       id: kalakritiAgeCategory.id,
       maleStudentLimit: kalakritiAgeCategory.maleStudentLimit,
+      maxCompetitionsPerCategory:
+        kalakritiAgeCategory.maxCompetitionsPerCategory,
       maximumAge: kalakritiAgeCategory.maximumAge,
+      maxTotalCompetitions: kalakritiAgeCategory.maxTotalCompetitions,
       minimumAge: kalakritiAgeCategory.minimumAge,
       name: kalakritiAgeCategory.name,
     })
@@ -262,7 +287,10 @@ export async function getEditionAgeCategoriesForUpdate(
       femaleStudentLimit: kalakritiAgeCategory.femaleStudentLimit,
       id: kalakritiAgeCategory.id,
       maleStudentLimit: kalakritiAgeCategory.maleStudentLimit,
+      maxCompetitionsPerCategory:
+        kalakritiAgeCategory.maxCompetitionsPerCategory,
       maximumAge: kalakritiAgeCategory.maximumAge,
+      maxTotalCompetitions: kalakritiAgeCategory.maxTotalCompetitions,
       minimumAge: kalakritiAgeCategory.minimumAge,
       name: kalakritiAgeCategory.name,
     })
@@ -403,6 +431,52 @@ export async function getStudentForUpdate(
         ageCategoryOverrideAt: normalizeTimestamp(
           student.ageCategoryOverrideAt
         ),
+      }
+    : undefined;
+}
+
+export async function getCompetitionSessionForUpdate(
+  tx: LockableKalakritiTx,
+  sessionId: string
+): Promise<LockedCompetitionSession | undefined> {
+  if (tx.location === "client") {
+    const session = (await tx.run(
+      zql.kalakritiCompetitionSession.where("id", sessionId).one()
+    )) as
+      | (Omit<LockedCompetitionSession, "cancelledAt" | "endAt" | "startAt"> & {
+          cancelledAt: number | null;
+          endAt: number;
+          startAt: number;
+        })
+      | undefined;
+    return session;
+  }
+
+  const [{ kalakritiCompetitionSession }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/kalakriti"),
+    import("drizzle-orm"),
+  ]);
+  const [session] = await requireServerTransaction(tx)
+    .select({
+      ageCategoryId: kalakritiCompetitionSession.ageCategoryId,
+      cancelledAt: kalakritiCompetitionSession.cancelledAt,
+      capacity: kalakritiCompetitionSession.capacity,
+      competitionId: kalakritiCompetitionSession.competitionId,
+      editionId: kalakritiCompetitionSession.editionId,
+      endAt: kalakritiCompetitionSession.endAt,
+      id: kalakritiCompetitionSession.id,
+      startAt: kalakritiCompetitionSession.startAt,
+      venueId: kalakritiCompetitionSession.venueId,
+    })
+    .from(kalakritiCompetitionSession)
+    .where(eq(kalakritiCompetitionSession.id, sessionId))
+    .for("update");
+  return session
+    ? {
+        ...session,
+        cancelledAt: normalizeTimestamp(session.cancelledAt),
+        endAt: normalizeRequiredTimestamp(session.endAt),
+        startAt: normalizeRequiredTimestamp(session.startAt),
       }
     : undefined;
 }
