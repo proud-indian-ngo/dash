@@ -1,7 +1,7 @@
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 import { describe, expect, it } from "vitest";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
-import { resolveKalakritiRegistrationDashboardScopes } from "./kalakriti-registration-dashboard-policy";
+import { resolveKalakritiRegistrationScopes } from "./kalakriti-registration-scope-policy";
 
 function access({
   assignments = [],
@@ -47,15 +47,13 @@ function assignment(
   };
 }
 
-describe("Kalakriti registration dashboard policy", () => {
-  it("gives global and Edition administrators one complete projection", () => {
+describe("Kalakriti registration scope policy", () => {
+  it("gives global and Edition administrators one complete scope", () => {
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
-        access({ isGlobalAdmin: true })
-      )
+      resolveKalakritiRegistrationScopes(access({ isGlobalAdmin: true }))
     ).toEqual([{ kind: "edition" }]);
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
+      resolveKalakritiRegistrationScopes(
         access({ assignments: [assignment("edition_admin")] })
       )
     ).toEqual([{ kind: "edition" }]);
@@ -63,7 +61,7 @@ describe("Kalakriti registration dashboard policy", () => {
 
   it("combines and deduplicates Guardian and Liaison Centers", () => {
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
+      resolveKalakritiRegistrationScopes(
         access({
           assignments: [
             assignment("liaison", { centerId: "center-2" }),
@@ -83,7 +81,7 @@ describe("Kalakriti registration dashboard policy", () => {
 
   it("keeps mixed category and competition assignments separate", () => {
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
+      resolveKalakritiRegistrationScopes(
         access({
           assignments: [
             assignment("competition_category_lead", {
@@ -106,20 +104,20 @@ describe("Kalakriti registration dashboard policy", () => {
 
   it("lets the Overall Events Lead see every category", () => {
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
+      resolveKalakritiRegistrationScopes(
         access({ assignments: [assignment("overall_events_lead")] })
       )
     ).toEqual([{ competitionCategoryIds: null, kind: "competition_category" }]);
   });
 
-  it("does not grant dashboards to unrelated roles or archived members", () => {
+  it("does not grant scopes to unrelated roles or archived members", () => {
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
+      resolveKalakritiRegistrationScopes(
         access({ assignments: [assignment("competition_volunteer")] })
       )
     ).toEqual([]);
     expect(
-      resolveKalakritiRegistrationDashboardScopes(
+      resolveKalakritiRegistrationScopes(
         access({
           assignments: [assignment("edition_admin")],
           lifecycle: "archived",

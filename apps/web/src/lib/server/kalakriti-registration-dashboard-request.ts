@@ -1,20 +1,13 @@
-import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
-import { resolveKalakritiRegistrationDashboardScopes } from "@/lib/kalakriti-registration-dashboard-policy";
+import type { resolveKalakritiRegistrationScopes } from "@/lib/kalakriti-registration-scope-policy";
 import type { KalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
+import type { resolveKalakritiRegistrationScope } from "@/lib/server/kalakriti-registration-scope";
 
 interface RegistrationDashboardDependencies {
   getProjections: (input: {
     editionId: string;
-    scopes: ReturnType<typeof resolveKalakritiRegistrationDashboardScopes>;
+    scopes: ReturnType<typeof resolveKalakritiRegistrationScopes>;
   }) => Promise<KalakritiRegistrationDashboardProjection[]>;
-  loadGuardianCenterIds: (
-    access: NonNullable<KalakritiEditionAccess>
-  ) => Promise<string[]>;
-  resolveAccess: (input: {
-    role: string;
-    userId: string;
-    year: number;
-  }) => Promise<KalakritiEditionAccess | null>;
+  resolveScope: typeof resolveKalakritiRegistrationScope;
 }
 
 export async function resolveKalakritiRegistrationDashboardRequest(
@@ -27,25 +20,13 @@ export async function resolveKalakritiRegistrationDashboardRequest(
   },
   dependencies: RegistrationDashboardDependencies
 ) {
-  if (!sessionUser) {
+  const resolved = await dependencies.resolveScope({ sessionUser, year });
+  if (!resolved) {
     return null;
   }
-  const access = await dependencies.resolveAccess({
-    role: sessionUser.role ?? "unoriented_volunteer",
-    userId: sessionUser.id,
-    year,
-  });
-  if (!access) {
-    return null;
-  }
-  const guardianCenterIds = await dependencies.loadGuardianCenterIds(access);
-  const scopes = resolveKalakritiRegistrationDashboardScopes(
-    access,
-    guardianCenterIds
-  );
   const projections = await dependencies.getProjections({
-    editionId: access.edition.id,
-    scopes,
+    editionId: resolved.editionId,
+    scopes: resolved.scopes,
   });
   return { projections };
 }

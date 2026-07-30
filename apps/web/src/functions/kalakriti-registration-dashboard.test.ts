@@ -1,8 +1,9 @@
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 import { describe, expect, it, vi } from "vitest";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
-import type { KalakritiRegistrationDashboardScope } from "@/lib/kalakriti-registration-dashboard-policy";
+import type { KalakritiRegistrationScope } from "@/lib/kalakriti-registration-scope-policy";
 import type { KalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
+import { resolveKalakritiRegistrationScope } from "@/lib/server/kalakriti-registration-scope";
 import { resolveKalakritiRegistrationDashboardRequest } from "../lib/server/kalakriti-registration-dashboard-request";
 
 vi.mock("@pi-dash/db", () => ({ db: { select: vi.fn() } }));
@@ -60,7 +61,7 @@ function access({
 }
 
 function projection(
-  scope: KalakritiRegistrationDashboardScope
+  scope: KalakritiRegistrationScope
 ): KalakritiRegistrationDashboardProjection {
   return {
     ageCategories: [],
@@ -81,17 +82,26 @@ function projection(
 }
 
 function dependencies(resolvedAccess: KalakritiEditionAccess | null) {
+  const loadGuardianCenterIds = vi.fn(async () => ["center-2", "center-1"]);
+  const resolveAccess = vi.fn(async () => resolvedAccess);
   return {
     getProjections: vi.fn(
       async ({
         scopes,
       }: {
         editionId: string;
-        scopes: readonly KalakritiRegistrationDashboardScope[];
+        scopes: readonly KalakritiRegistrationScope[];
       }) => scopes.map(projection)
     ),
-    loadGuardianCenterIds: vi.fn(async () => ["center-2", "center-1"]),
-    resolveAccess: vi.fn(async () => resolvedAccess),
+    loadGuardianCenterIds,
+    resolveAccess,
+    resolveScope: (
+      input: Parameters<typeof resolveKalakritiRegistrationScope>[0]
+    ) =>
+      resolveKalakritiRegistrationScope(input, {
+        loadGuardianCenterIds,
+        resolveAccess,
+      }),
   };
 }
 
