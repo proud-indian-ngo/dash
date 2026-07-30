@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -21,13 +21,14 @@ async function fixture<T>(action: string, argument?: string): Promise<T> {
 test.describe("Kalakriti public schedule", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("publishes the privacy-filtered schedule without authentication", async ({
+  test("shows the public schedule with viewer-specific actions", async ({
+    browser,
     page,
     request,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "unauthenticated",
-      "Unauthenticated public schedule workflow"
+      testInfo.project.name !== "unoriented_volunteer",
+      "Public and authenticated schedule workflow"
     );
     const { draftYear, year } = await fixture<{
       draftYear: number;
@@ -43,6 +44,7 @@ test.describe("Kalakriti public schedule", () => {
       const body = await apiResponse.json();
       expect(Object.keys(body.edition).sort()).toEqual([
         "eventDate",
+        "eventId",
         "name",
         "timezone",
         "year",
@@ -72,6 +74,61 @@ test.describe("Kalakriti public schedule", () => {
       await expect(page.getByText("Painting", { exact: true })).toBeVisible();
       await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
       await expect(page.getByText("Art Room", { exact: false })).toHaveCount(2);
+      await expect(
+        page.getByRole("button", { name: "Show interest" })
+      ).toBeVisible();
+
+      const { origin } = new URL(page.url());
+      const publicContext = await browser.newContext({
+        baseURL: origin,
+        storageState: { cookies: [], origins: [] },
+      });
+      const publicPage = await publicContext.newPage();
+      try {
+        const publicApiResponse = await publicContext.request.get(
+          `/api/kalakriti/${year}/schedule`
+        );
+        expect(publicApiResponse.status()).toBe(200);
+        await publicPage.goto(`/kalakriti/${year}/schedule`);
+        await expect(
+          publicPage.getByRole("button", { name: "Sign up" })
+        ).toBeVisible();
+        await expect(
+          publicPage.getByRole("button", { name: "Log in" })
+        ).toBeVisible();
+      } finally {
+        await publicContext.close();
+      }
+
+      await page.getByRole("button", { name: "Show interest" }).click();
+      await expect(page).toHaveURL(`/events/${body.edition.eventId}`);
+      await waitForZeroReady(page);
+      await page.getByRole("button", { name: "Show Interest" }).click();
+      await expect(
+        page.getByRole("heading", {
+          name: `Show Interest: Kalakriti ${year}`,
+        })
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Submit Interest" }).click();
+      await expect(page.getByText("Interest Pending")).toBeVisible();
+      await page.goto(`/kalakriti/${year}/schedule`);
+
+      const adminContext = await browser.newContext({
+        baseURL: origin,
+        storageState: path.resolve(
+          import.meta.dirname,
+          "../../.auth/super_admin.json"
+        ),
+      });
+      const adminPage = await adminContext.newPage();
+      try {
+        await adminPage.goto(`/kalakriti/${year}/schedule`);
+        await expect(
+          adminPage.getByRole("button", { name: "Go to dashboard" })
+        ).toBeVisible();
+      } finally {
+        await adminContext.close();
+      }
 
       await fixture("update-venue");
       const updatedResponse = await request.get(
@@ -98,7 +155,7 @@ test.describe("Kalakriti public schedule", () => {
       );
       expect(lockedSchedule.status()).toBe(200);
       expect(Object.keys((await lockedSchedule.json()).edition).sort()).toEqual(
-        ["eventDate", "name", "timezone", "year"]
+        ["eventDate", "eventId", "name", "timezone", "year"]
       );
 
       await fixture("set-lifecycle", "live");
@@ -106,6 +163,7 @@ test.describe("Kalakriti public schedule", () => {
       expect(liveSchedule.status()).toBe(200);
       expect(Object.keys((await liveSchedule.json()).edition).sort()).toEqual([
         "eventDate",
+        "eventId",
         "name",
         "timezone",
         "year",
@@ -118,7 +176,7 @@ test.describe("Kalakriti public schedule", () => {
       expect(archivedSchedule.status()).toBe(200);
       expect(
         Object.keys((await archivedSchedule.json()).edition).sort()
-      ).toEqual(["eventDate", "name", "timezone", "year"]);
+      ).toEqual(["eventDate", "eventId", "name", "timezone", "year"]);
     } finally {
       await fixture("cleanup");
     }

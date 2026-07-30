@@ -101,7 +101,7 @@ async function setup(email?: string) {
       createdBy: actor.id,
       description: "Kalakriti public schedule E2E fixture",
       id: FIXTURE.eventId,
-      isPublic: false,
+      isPublic: true,
       managementDomain: "kalakriti",
       name: `Kalakriti ${FIXTURE.year}`,
       startTime: new Date(`${FIXTURE.year}-11-21T03:30:00.000Z`),

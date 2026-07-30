@@ -21,6 +21,7 @@ export async function getKalakritiPublicSchedule(year: number) {
       eventDate: kalakritiEdition.eventDate,
       id: kalakritiEdition.id,
       name: kalakritiEdition.name,
+      teamEventId: kalakritiEdition.teamEventId,
       timezone: kalakritiEdition.timezone,
       year: kalakritiEdition.year,
     })
@@ -79,6 +80,7 @@ export async function getKalakritiPublicSchedule(year: number) {
   return {
     edition: {
       eventDate: edition.eventDate,
+      eventId: edition.teamEventId,
       name: edition.name,
       timezone: edition.timezone,
       year: edition.year,

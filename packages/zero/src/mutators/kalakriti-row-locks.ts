@@ -28,6 +28,7 @@ export interface LockedEdition {
   eventDate: string;
   id: string;
   lifecycle: string;
+  teamEventId: string;
   timezone: string;
 }
 
@@ -122,6 +123,7 @@ function normalizeEdition(edition: {
   eventDate: Date | number | string;
   id: string;
   lifecycle: string;
+  teamEventId: string;
   nextStudentSequence?: number;
   timezone: string;
   year?: number;
@@ -143,6 +145,7 @@ function normalizeEdition(edition: {
     id: edition.id,
     lifecycle: edition.lifecycle,
     ...nextStudentSequence,
+    teamEventId: edition.teamEventId,
     timezone: edition.timezone,
     ...year,
   };
@@ -209,6 +212,7 @@ export async function getEditionForUpdate(
       | (Omit<LockableEdition, "ageCutoffDate" | "eventDate"> & {
           ageCutoffDate?: Date | number | string;
           eventDate: Date | number | string;
+          teamEventId: string;
         })
       | undefined;
     return edition ? normalizeEdition(edition) : undefined;
@@ -225,6 +229,7 @@ export async function getEditionForUpdate(
       id: kalakritiEdition.id,
       lifecycle: kalakritiEdition.lifecycle,
       nextStudentSequence: kalakritiEdition.nextStudentSequence,
+      teamEventId: kalakritiEdition.teamEventId,
       timezone: kalakritiEdition.timezone,
       year: kalakritiEdition.year,
     })

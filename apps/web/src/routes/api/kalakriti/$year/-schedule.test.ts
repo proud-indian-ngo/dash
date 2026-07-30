@@ -13,6 +13,7 @@ import {
 const publicSchedule = {
   edition: {
     eventDate: "2027-01-24",
+    eventId: "public-event-id",
     id: "private-edition-id",
     lifecycle: "registration_open",
     name: "Kalakriti 2027",
@@ -57,6 +58,7 @@ describe("handlePublicScheduleRequest", () => {
     await expect(response.json()).resolves.toEqual({
       edition: {
         eventDate: "2027-01-24",
+        eventId: "public-event-id",
         name: "Kalakriti 2027",
         timezone: "Asia/Kolkata",
         year: 2027,

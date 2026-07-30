@@ -1,8 +1,11 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack dynamic route parameters use $ in filenames.
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getKalakritiPublicSchedule } from "@/functions/kalakriti-public-schedule";
+import { getCachedAuth } from "@/lib/auth-cache";
 import {
   type KalakritiPublicSchedule,
   kalakritiPublicScheduleYearSchema,
@@ -10,6 +13,7 @@ import {
 
 export const Route = createFileRoute("/kalakriti/$year/schedule")({
   beforeLoad: async ({ params }) => {
+    const { session } = await getCachedAuth();
     const year = kalakritiPublicScheduleYearSchema.safeParse(params.year);
     if (!year.success) {
       throw notFound();
@@ -19,7 +23,16 @@ export const Route = createFileRoute("/kalakriti/$year/schedule")({
     if (!schedule) {
       throw notFound();
     }
-    return { publicSchedule: schedule };
+    const access = session
+      ? await getKalakritiEditionAccess({ data: { year: year.data } })
+      : null;
+    return {
+      publicSchedule: schedule,
+      scheduleViewer: {
+        hasKalakritiAccess: Boolean(access),
+        isAuthenticated: Boolean(session),
+      },
+    };
   },
   component: PublicSchedulePage,
   head: () => ({
@@ -55,24 +68,32 @@ function formatTime(timestamp: number, timezone: string) {
 }
 
 function PublicSchedulePage() {
-  const { publicSchedule: schedule } = Route.useRouteContext();
+  const { publicSchedule: schedule, scheduleViewer } = Route.useRouteContext();
   const { edition, sessions } = schedule;
 
   return (
     <main className="min-h-svh bg-background text-foreground">
       <header className="border-b bg-muted/30">
-        <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
-          <p className="font-medium text-muted-foreground text-sm uppercase tracking-[0.16em]">
-            Public schedule
-          </p>
-          <h1 className="mt-3 text-balance font-semibold text-3xl tracking-tight sm:text-4xl">
-            {edition.name}
-          </h1>
-          <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-            <time dateTime={edition.eventDate}>
-              {formatEventDate(edition.eventDate)}
-            </time>
-          </p>
+        <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="font-medium text-muted-foreground text-sm uppercase tracking-[0.16em]">
+              Public schedule
+            </p>
+            <h1 className="mt-3 text-balance font-semibold text-3xl tracking-tight sm:text-4xl">
+              {edition.name}
+            </h1>
+            <p className="mt-3 text-base text-muted-foreground sm:text-lg">
+              <time dateTime={edition.eventDate}>
+                {formatEventDate(edition.eventDate)}
+              </time>
+            </p>
+          </div>
+          <ScheduleAction
+            eventId={edition.eventId}
+            hasKalakritiAccess={scheduleViewer.hasKalakritiAccess}
+            isAuthenticated={scheduleViewer.isAuthenticated}
+            year={edition.year}
+          />
         </div>
       </header>
 
@@ -118,6 +139,60 @@ function PublicSchedulePage() {
         )}
       </section>
     </main>
+  );
+}
+
+function ScheduleAction({
+  eventId,
+  hasKalakritiAccess,
+  isAuthenticated,
+  year,
+}: {
+  eventId: string;
+  hasKalakritiAccess: boolean;
+  isAuthenticated: boolean;
+  year: number;
+}) {
+  if (hasKalakritiAccess) {
+    return (
+      <Button
+        nativeButton={false}
+        render={<Link params={{ year: String(year) }} to="/kalakriti/$year" />}
+      >
+        Go to dashboard
+      </Button>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <Button
+        nativeButton={false}
+        render={<Link params={{ id: eventId }} to="/events/$id" />}
+      >
+        Show interest
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2 md:items-end">
+      <p className="max-w-xs text-muted-foreground text-sm md:text-right">
+        Want to help at Kalakriti? Create an account to show your interest.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button nativeButton={false} render={<Link to="/register" />}>
+          Sign up
+        </Button>
+        <Button
+          nativeButton={false}
+          render={<Link to="/login" />}
+          variant="outline"
+        >
+          Log in
+        </Button>
+      </div>
+    </div>
   );
 }
 

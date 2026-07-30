@@ -48,7 +48,12 @@ function protectKalakritiEventAccess(
   if (!isManagedByKalakriti) {
     return access;
   }
-  return protectedKalakritiEventAccess;
+  return {
+    ...protectedKalakritiEventAccess,
+    canManageInterest: access.canManageInterest,
+    isMember: access.isMember,
+    isTeamMember: access.isTeamMember,
+  };
 }
 
 function selectManagerInterests<T>(

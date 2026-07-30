@@ -9,6 +9,7 @@ export const kalakritiPublicScheduleYearSchema = z.coerce
 export const kalakritiPublicScheduleSchema = z.object({
   edition: z.object({
     eventDate: z.iso.date(),
+    eventId: z.string(),
     name: z.string(),
     timezone: z.string(),
     year: z.number().int(),

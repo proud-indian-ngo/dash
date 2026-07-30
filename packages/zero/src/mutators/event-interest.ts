@@ -9,7 +9,6 @@ import {
 } from "../permissions";
 import type { EventInterest, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
-import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 
 export const eventInterestMutators = {
   approve: defineMutator(
@@ -33,8 +32,6 @@ export const eventInterestMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      await assertEventNotManagedByKalakriti(tx, interest.eventId);
-
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
@@ -128,8 +125,6 @@ export const eventInterestMutators = {
       if (interest.status !== "pending") {
         throw new Error("Only pending interests can be cancelled");
       }
-      await assertEventNotManagedByKalakriti(tx, interest.eventId);
-
       await tx.mutate.eventInterest.delete({ id: args.id });
     }
   ),
@@ -149,7 +144,6 @@ export const eventInterestMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      await assertEventNotManagedByKalakriti(tx, args.eventId);
       if (!event.isPublic) {
         throw new Error("Event is not public");
       }
@@ -268,8 +262,6 @@ export const eventInterestMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      await assertEventNotManagedByKalakriti(tx, interest.eventId);
-
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
