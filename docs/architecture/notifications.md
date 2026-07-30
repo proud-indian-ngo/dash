@@ -41,6 +41,11 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
    - **WhatsApp**: `sendWhatsAppMessage()` via GoWA gateway (unchanged).
 4. Return `SendMessageResult` with per-channel success status.
 
+`TOPIC_CATALOG` owns each topic's supported-channel allowlist. Both preference
+editors and the preference mutators enforce that contract, and domain senders
+consume the same lookup. Kalakriti registration and schedule messages use inbox
+and WhatsApp while still honoring each recipient's topic preferences.
+
 ### In-App Inbox
 
 - **Storage**: `notification` table (id, userId, topicId, title, body, clickAction, imageUrl, read, archived, idempotencyKey, createdAt).
@@ -61,11 +66,14 @@ GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks 
 
 Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (inbox + email + WhatsApp) in `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: all channels enabled (no row = enabled).
 
+Kalakriti has separate Registration and Schedule topics so Guardians and
+assigned volunteers can control those streams independently.
+
 **Storage model**: DB is sole source of truth. Preferences checked at send-time for all channels. No external sync needed.
 
 **UI**: Users manage prefs via settings (`NotificationsSection`). Admins edit any user (`UserNotificationsForm`). Both use Zero queries/mutators — no server fns.
 
-**Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled (server-side guard).
+**Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled, and unsupported topic/channel pairs are rejected server-side.
 
 ## WhatsApp Gateway (GoWA)
 

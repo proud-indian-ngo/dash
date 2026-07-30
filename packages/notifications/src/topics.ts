@@ -1,11 +1,16 @@
 import type { PermissionId } from "@pi-dash/db/permissions";
 
+export const NOTIFICATION_CHANNELS = ["inbox", "email", "whatsapp"] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
 export const TOPICS = {
   ACCOUNT: "Account Notifications",
   EVENTS_FEEDBACK: "Events - Feedback",
   EVENTS_INTEREST: "Events - Interest",
   EVENTS_PHOTOS: "Events - Photos",
   EVENTS_SCHEDULE: "Events - Schedule",
+  KALAKRITI_REGISTRATION: "Kalakriti - Registration",
+  KALAKRITI_SCHEDULE: "Kalakriti - Schedule",
   REQUESTS_STATUS: "Requests - Approvals & Rejections",
   REQUESTS_SUBMISSIONS: "Requests - New Submissions",
   TEAMS: "Teams",
@@ -14,6 +19,7 @@ export const TOPICS = {
 export type Topic = (typeof TOPICS)[keyof typeof TOPICS];
 
 export interface TopicMeta {
+  channels?: readonly NotificationChannel[];
   defaultEnabled: boolean;
   description: string;
   group: string;
@@ -24,6 +30,26 @@ export interface TopicMeta {
 }
 
 export const TOPIC_CATALOG: TopicMeta[] = [
+  {
+    channels: ["inbox", "whatsapp"],
+    defaultEnabled: true,
+    description: "Registration opening, closing, and Guardian access updates.",
+    group: "Kalakriti",
+    id: TOPICS.KALAKRITI_REGISTRATION,
+    name: "Registration",
+    required: false,
+    requiredPermission: "kalakriti.view",
+  },
+  {
+    channels: ["inbox", "whatsapp"],
+    defaultEnabled: true,
+    description: "Changes to the public competition schedule.",
+    group: "Kalakriti",
+    id: TOPICS.KALAKRITI_SCHEDULE,
+    name: "Schedule",
+    required: false,
+    requiredPermission: "kalakriti.view",
+  },
   {
     defaultEnabled: true,
     description: "Welcome messages, role changes, and account status updates.",
@@ -99,3 +125,24 @@ export const TOPIC_CATALOG: TopicMeta[] = [
     requiredPermission: "events.view_own",
   },
 ];
+
+const TOPIC_CHANNELS: ReadonlyMap<string, readonly NotificationChannel[]> =
+  new Map(
+    TOPIC_CATALOG.map((topic) => [
+      topic.id,
+      topic.channels ?? NOTIFICATION_CHANNELS,
+    ])
+  );
+
+export function getTopicChannels(
+  topicId: string
+): readonly NotificationChannel[] {
+  return TOPIC_CHANNELS.get(topicId) ?? NOTIFICATION_CHANNELS;
+}
+
+export function topicSupportsChannel(
+  topicId: string,
+  channel: NotificationChannel
+): boolean {
+  return getTopicChannels(topicId).includes(channel);
+}

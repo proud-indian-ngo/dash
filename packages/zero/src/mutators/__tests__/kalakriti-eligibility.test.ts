@@ -15,10 +15,15 @@ const edition = {
 };
 const category = {
   editionId: "edition-1",
+  femaleStudentLimit: 20,
   id: "category-1",
+  maleStudentLimit: 20,
+  maxCompetitionsPerCategory: 2,
   maximumAge: 10,
+  maxTotalCompetitions: 3,
   minimumAge: 6,
   name: "Junior",
+  sortOrder: 0,
 };
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
@@ -294,6 +299,54 @@ describe("kalakritiEligibility commands", () => {
     );
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "updated" })
+    );
+  });
+
+  it("notifies affected users when a published Age Category label changes", async () => {
+    const centerId = "center-1";
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+    const { lockedResults, tx } = createTx([
+      { editionId: edition.id },
+      [{ competitionId: "competition-1" }],
+      [{ centerId }],
+    ]);
+    lockedResults.push(
+      [{ ...edition, lifecycle: "registration_open" }],
+      [category],
+      [category]
+    );
+
+    await kalakritiEligibilityMutators.updateAgeCategory.fn({
+      args: {
+        ageCategoryId: category.id,
+        auditEntryId: "age-name-audit",
+        femaleStudentLimit: category.femaleStudentLimit,
+        maleStudentLimit: category.maleStudentLimit,
+        maxCompetitionsPerCategory: category.maxCompetitionsPerCategory,
+        maximumAge: category.maximumAge,
+        maxTotalCompetitions: category.maxTotalCompetitions,
+        minimumAge: category.minimumAge,
+        name: "Junior Group",
+        now: 2,
+        sortOrder: category.sortOrder,
+      },
+      ctx: { ...adminContext, asyncTasks },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEligibilityMutators.updateAgeCategory.fn
+    >[0]);
+
+    expect(asyncTasks).toHaveLength(1);
+    expect(asyncTasks[0]?.meta).toEqual(
+      expect.objectContaining({
+        centerIds: [centerId],
+        competitionIds: ["competition-1"],
+        editionId: edition.id,
+        revision: "age-name-audit",
+      })
     );
   });
 
