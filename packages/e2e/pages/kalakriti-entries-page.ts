@@ -29,23 +29,34 @@ export class KalakritiEntriesPage {
       .getByRole("button", { name: "Register Entry" })
       .click();
     const dialog = this.page.getByRole("dialog", {
-      name: "Register Competition Entry",
+      name: "Register Competition Entries",
     });
     await expect(dialog).toBeVisible();
     return dialog;
   }
 
   async fillEntry(dialog: Locator, studentName: string): Promise<void> {
-    await dialog.getByLabel("Student").fill(studentName);
-    await this.page
-      .getByRole("option", { name: new RegExp(studentName) })
-      .click();
+    await this.fillEntries(dialog, [studentName]);
+  }
+
+  async fillEntries(dialog: Locator, studentNames: string[]): Promise<void> {
+    for (const studentName of studentNames) {
+      // biome-ignore lint/performance/noAwaitInLoops: each selection updates the same combobox before the next search
+      await dialog.getByLabel("Students").fill(studentName);
+      await this.page
+        .getByRole("option", { name: new RegExp(studentName) })
+        .click();
+    }
   }
 
   async register(studentName: string): Promise<void> {
+    await this.registerMany([studentName]);
+  }
+
+  async registerMany(studentNames: string[]): Promise<void> {
     const dialog = await this.openRegistrationForm();
-    await this.fillEntry(dialog, studentName);
-    await dialog.getByRole("button", { name: "Register Entry" }).click();
+    await this.fillEntries(dialog, studentNames);
+    await dialog.getByRole("button", { name: "Register Entries" }).click();
     await expect(dialog).toBeHidden();
   }
 }

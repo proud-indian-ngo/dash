@@ -1,10 +1,12 @@
 import {
   Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
   ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
   ComboboxItem,
   ComboboxList,
+  useComboboxAnchor,
 } from "@pi-dash/design-system/components/ui/combobox";
 import {
   Dialog,
@@ -89,7 +91,7 @@ interface EntryFormDialogProps {
 
 const entryFormSchema = z.object({
   sessionId: z.string().min(1, "Choose a Competition Session"),
-  studentId: z.string().min(1, "Choose a Student"),
+  studentIds: z.array(z.string()).min(1, "Choose at least one Student"),
 });
 
 function sessionOptionLabel(
@@ -112,24 +114,13 @@ function StudentCombobox({
   students: readonly KalakritiEntryStudent[];
 }) {
   const form = useResolvedForm(undefined, "StudentCombobox");
-  const studentIds = students.map((student) => student.id);
-  const studentLabels = new Map(
-    students.map((student) => [
-      student.id,
-      `${student.humanId} · ${student.name} · ${student.ageCategory.name}`,
-    ])
-  );
-  const itemToStringLabel = useEventCallback(
-    (studentId: string) => studentLabels.get(studentId) ?? studentId
-  );
 
   return (
-    <CustomField<string> isRequired label="Student" name="studentId">
+    <CustomField<string[]> isRequired label="Students" name="studentIds">
       {(field) => (
         <StudentComboboxControl
           field={field}
-          itemToStringLabel={itemToStringLabel}
-          studentIds={studentIds}
+          students={students}
           submitted={form.state.submissionAttempts > 0}
         />
       )}
@@ -139,44 +130,64 @@ function StudentCombobox({
 
 function StudentComboboxControl({
   field,
-  itemToStringLabel,
-  studentIds,
+  students,
   submitted,
 }: {
-  field: FormFieldApi<string>;
-  itemToStringLabel: (studentId: string) => string;
-  studentIds: string[];
+  field: FormFieldApi<string[]>;
+  students: readonly KalakritiEntryStudent[];
   submitted: boolean;
 }) {
-  const handleValueChange = useEventCallback((studentId: string | null) =>
-    field.handleChange(studentId ?? "")
+  const [searchQuery, setSearchQuery] = useState("");
+  const anchorRef = useComboboxAnchor();
+  const studentMap = new Map(students.map((student) => [student.id, student]));
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+  const filteredStudents = normalizedQuery
+    ? students.filter((student) =>
+        [student.humanId, student.name, student.ageCategory.name]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(normalizedQuery)
+      )
+    : students;
+  const handleValueChange = useEventCallback((studentIds: string[]) =>
+    field.handleChange(studentIds)
   );
 
   return (
     <Combobox
-      items={studentIds}
-      itemToStringLabel={itemToStringLabel}
+      filter={null}
+      inputValue={searchQuery}
+      multiple
+      onInputValueChange={setSearchQuery}
       onValueChange={handleValueChange}
       value={field.state.value}
     >
-      <ComboboxInput
-        {...fieldErrorProps(field, submitted)}
-        aria-required="true"
-        className="w-full"
-        id={field.name}
-        onBlur={field.handleBlur}
-        placeholder="Search eligible Students..."
-        showClear={Boolean(field.state.value)}
-      />
-      <ComboboxContent>
+      <ComboboxChips {...fieldErrorProps(field, submitted)} ref={anchorRef}>
+        {field.state.value.map((studentId) => (
+          <ComboboxChip key={studentId}>
+            {studentMap.get(studentId)?.name ?? studentId}
+          </ComboboxChip>
+        ))}
+        <ComboboxChipsInput
+          aria-required="true"
+          id={field.name}
+          onBlur={field.handleBlur}
+          placeholder="Search eligible Students..."
+        />
+      </ComboboxChips>
+      <ComboboxContent anchor={anchorRef}>
         <ComboboxList>
-          {(studentId) => (
-            <ComboboxItem key={studentId} value={studentId}>
-              {itemToStringLabel(studentId)}
+          {filteredStudents.map((student) => (
+            <ComboboxItem key={student.id} value={student.id}>
+              {student.humanId} · {student.name} · {student.ageCategory.name}
             </ComboboxItem>
-          )}
+          ))}
+          {filteredStudents.length === 0 ? (
+            <div className="py-2 text-center text-muted-foreground text-xs">
+              No eligible Students found.
+            </div>
+          ) : null}
         </ComboboxList>
-        <ComboboxEmpty>No eligible Students found.</ComboboxEmpty>
       </ComboboxContent>
     </Combobox>
   );
@@ -192,54 +203,78 @@ function EntryForm({
   students,
 }: Omit<EntryFormDialogProps, "open">) {
   const zero = useZero();
+  const studentMap = new Map(students.map((student) => [student.id, student]));
   const validationSchema = entryFormSchema.superRefine((value, context) => {
-    const student = students.find(
-      (candidate) => candidate.id === value.studentId
-    );
     const session = sessions.find(
       (candidate) => candidate.id === value.sessionId
     );
-    if (!(student && session)) {
+    if (!session) {
       return;
     }
-    const message = getIndividualEntryValidationError({
-      entries,
-      session,
-      student,
-    });
-    if (message) {
+    const remainingCapacity = session.capacity - session.entries.length;
+    if (value.studentIds.length > remainingCapacity) {
       context.addIssue({
         code: "custom",
-        message,
-        path: [fixedSession ? "studentId" : "sessionId"],
+        message: `This Session only has ${Math.max(0, remainingCapacity)} places left`,
+        path: ["studentIds"],
       });
+      return;
+    }
+    for (const studentId of value.studentIds) {
+      const student = studentMap.get(studentId);
+      if (!student) {
+        continue;
+      }
+      const message = getIndividualEntryValidationError({
+        entries,
+        session,
+        student,
+      });
+      if (message) {
+        context.addIssue({
+          code: "custom",
+          message,
+          path: [fixedSession ? "studentIds" : "sessionId"],
+        });
+        return;
+      }
     }
   });
   const form = useForm({
     defaultValues: {
       sessionId: fixedSession?.id ?? "",
-      studentId: "",
+      studentIds: [] as string[],
     },
     onSubmit: async ({ value }) => {
-      const result = await zero.mutate(
-        mutators.kalakritiEntry.createIndividual({
-          auditEntryId: uuidv7(),
-          centerId,
-          editionId,
-          entryId: uuidv7(),
-          memberId: uuidv7(),
-          now: Date.now(),
-          sessionId: value.sessionId,
-          studentId: value.studentId,
-        })
-      ).server;
-      handleMutationResult(result, {
-        entityId: value.studentId,
-        errorMsg: "Failed to register Competition Entry",
+      const now = Date.now();
+      const results = await Promise.all(
+        value.studentIds.map(
+          (studentId) =>
+            zero.mutate(
+              mutators.kalakritiEntry.createIndividual({
+                auditEntryId: uuidv7(),
+                centerId,
+                editionId,
+                entryId: uuidv7(),
+                memberId: uuidv7(),
+                now,
+                sessionId: value.sessionId,
+                studentId,
+              })
+            ).server
+        )
+      );
+      const failedResult = results.find((result) => result.type === "error");
+      handleMutationResult(failedResult ?? { type: "complete" }, {
+        entityId: value.studentIds.join(","),
+        errorMsg: "Some Competition Entries could not be registered",
         mutation: "kalakritiEntry.createIndividual",
-        successMsg: "Competition Entry registered",
+        successMsg:
+          value.studentIds.length === 1
+            ? "Competition Entry registered"
+            : `${value.studentIds.length} Competition Entries registered`,
       });
-      if (result.type !== "error") {
+      if (!failedResult) {
         onOpenChange(false);
       }
     },
@@ -265,8 +300,8 @@ function EntryForm({
       )}
       <FormActions
         onCancel={handleCancel}
-        submitLabel="Register Entry"
-        submittingLabel="Registering..."
+        submitLabel="Register Entries"
+        submittingLabel="Registering Entries..."
       />
     </FormLayout>
   );
@@ -285,11 +320,11 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
       <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Register Competition Entry</DialogTitle>
+          <DialogTitle>Register Competition Entries</DialogTitle>
           <DialogDescription>
             {props.fixedSession
-              ? `Register one Student for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`
-              : "Choose one Student and an eligible individual Competition Session."}
+              ? `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`
+              : "Choose eligible Students and an individual Competition Session."}
           </DialogDescription>
         </DialogHeader>
         <EntryForm key={formKey} {...props} />

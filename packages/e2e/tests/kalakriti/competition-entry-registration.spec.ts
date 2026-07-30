@@ -75,22 +75,28 @@ test.describe("Kalakriti Competition Entry registration", () => {
 
     try {
       await entriesPage.goto(year);
-      await entriesPage.register("Entry Student A");
+      await entriesPage.registerMany(["Entry Student A", "Entry Student B"]);
       await expect(
-        page.getByText("Competition Entry registered", { exact: true })
+        page.getByText("2 Competition Entries registered", { exact: true })
       ).toBeVisible();
       await expect(
         page.getByText("Entry Student A", { exact: true })
       ).toBeVisible();
+      await expect(
+        page.getByText("Entry Student B", { exact: true })
+      ).toBeVisible();
 
-      await page
-        .getByRole("button", { name: "Actions for Entry Student A" })
-        .click();
-      await page.getByRole("menuitem", { name: "Remove Entry" }).click();
-      await page
-        .getByRole("alertdialog", { name: "Remove Competition Entry?" })
-        .getByRole("button", { name: "Remove Entry" })
-        .click();
+      for (const studentName of ["Entry Student A", "Entry Student B"]) {
+        // biome-ignore lint/performance/noAwaitInLoops: each removal closes the shared confirmation dialog before the next row action
+        await page
+          .getByRole("button", { name: `Actions for ${studentName}` })
+          .click();
+        await page.getByRole("menuitem", { name: "Remove Entry" }).click();
+        await page
+          .getByRole("alertdialog", { name: "Remove Competition Entry?" })
+          .getByRole("button", { name: "Remove Entry" })
+          .click();
+      }
       await expect(
         page.getByText("Competition Entry removed", { exact: true })
       ).toBeVisible();
@@ -137,8 +143,8 @@ test.describe("Kalakriti Competition Entry registration", () => {
         secondEntriesPage.fillEntry(secondDialog, "Entry Student B"),
       ]);
       await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Entry" }).click(),
-        secondDialog.getByRole("button", { name: "Register Entry" }).click(),
+        firstDialog.getByRole("button", { name: "Register Entries" }).click(),
+        secondDialog.getByRole("button", { name: "Register Entries" }).click(),
       ]);
 
       const state = await waitForEntryCount("admin", 1);
