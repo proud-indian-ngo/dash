@@ -27,6 +27,7 @@ interface EntryTx extends LockableKalakritiTx {
     kalakritiCompetitionEntry: {
       delete: ZeroMutationFn;
       insert: ZeroMutationFn;
+      update: ZeroMutationFn;
     };
     kalakritiEntryMember: {
       delete: ZeroMutationFn;
@@ -40,6 +41,8 @@ interface CompetitionConfiguration {
   competitionCategoryId: string;
   genderEligibility: "both" | "female" | "male";
   id: string;
+  maximumGroupSize: number;
+  minimumGroupSize: number;
   participationMode: "group" | "individual";
   retiredAt: number | null;
 }
@@ -72,6 +75,28 @@ export const entryCreateSchema = z.object({
 export const entryRemoveSchema = z.object({
   auditEntryId: z.string(),
   entryId: z.string(),
+  now: z.number(),
+});
+
+const entryGroupMemberSchema = z.object({
+  memberId: z.string(),
+  studentId: z.string(),
+});
+
+export const entryCreateGroupSchema = z.object({
+  auditEntryId: z.string(),
+  centerId: z.string(),
+  editionId: z.string(),
+  entryId: z.string(),
+  members: z.array(entryGroupMemberSchema),
+  now: z.number(),
+  sessionId: z.string(),
+});
+
+export const entryReplaceGroupMembersSchema = z.object({
+  auditEntryId: z.string(),
+  entryId: z.string(),
+  members: z.array(entryGroupMemberSchema),
   now: z.number(),
 });
 
@@ -123,7 +148,8 @@ async function lockEntryContext(
 
 async function loadCompetitionConfiguration(
   tx: EntryTx,
-  session: LockedCompetitionSession
+  session: LockedCompetitionSession,
+  participationMode: CompetitionConfiguration["participationMode"]
 ): Promise<CompetitionConfiguration> {
   const competition = (await tx.run(
     zql.kalakritiCompetition.where("id", session.competitionId).one()
@@ -149,10 +175,145 @@ async function loadCompetitionConfiguration(
   ) {
     throw new Error("Competition Session is not active");
   }
-  if (competition.participationMode !== "individual") {
-    throw new Error("This Competition requires a group Entry");
+  if (competition.participationMode !== participationMode) {
+    throw new Error(
+      participationMode === "group"
+        ? "This Competition requires an individual Entry"
+        : "This Competition requires a group Entry"
+    );
   }
   return competition;
+}
+
+function assertUniqueGroupMembers(
+  members: readonly { memberId: string; studentId: string }[],
+  competition: CompetitionConfiguration
+): void {
+  if (
+    members.length < competition.minimumGroupSize ||
+    members.length > competition.maximumGroupSize
+  ) {
+    throw new Error("Group Entry size is outside the configured limits");
+  }
+  if (
+    new Set(members.map((member) => member.memberId)).size !== members.length
+  ) {
+    throw new Error("Group Entry member IDs must be unique");
+  }
+  if (
+    new Set(members.map((member) => member.studentId)).size !== members.length
+  ) {
+    throw new Error("Group Entry students must be unique");
+  }
+}
+
+function groupMemberLabel(student: LockedStudent): string {
+  return `${student.humanId} · ${student.name}`;
+}
+
+function assertGroupMemberEligibility(
+  student: LockedStudent,
+  session: LockedCompetitionSession,
+  competition: CompetitionConfiguration
+): void {
+  const label = groupMemberLabel(student);
+  if (student.ageCategoryId !== session.ageCategoryId) {
+    throw new Error(
+      `${label}: Student is not eligible for this Session's Age Category`
+    );
+  }
+  if (
+    competition.genderEligibility !== "both" &&
+    competition.genderEligibility !== student.gender
+  ) {
+    throw new Error(
+      `${label}: Student is not eligible for this Competition's gender rule`
+    );
+  }
+}
+
+async function lockAndValidateGroupMembers(
+  tx: EntryTx,
+  members: readonly { memberId: string; studentId: string }[],
+  editionId: string,
+  centerId: string,
+  session: LockedCompetitionSession,
+  competition: CompetitionConfiguration,
+  excludedEntryId?: string
+): Promise<void> {
+  const students: LockedStudent[] = [];
+  for (const studentId of [
+    ...members.map((member) => member.studentId),
+  ].sort()) {
+    // biome-ignore lint/performance/noAwaitInLoops: stable row-lock order prevents deadlocks for overlapping groups
+    const student = await getStudentForUpdate(tx, studentId);
+    if (
+      !student ||
+      student.editionId !== editionId ||
+      student.centerId !== centerId
+    ) {
+      throw new Error("Student not found in this Center and Edition");
+    }
+    students.push(student);
+  }
+
+  const ageCategory = await getAgeCategoryForUpdate(tx, session.ageCategoryId);
+  if (!ageCategory || ageCategory.editionId !== editionId) {
+    throw new Error("Student Age Category not found in this Edition");
+  }
+  for (const student of students) {
+    assertGroupMemberEligibility(student, session, competition);
+  }
+  const membershipGroups = (await Promise.all(
+    students.map((student) =>
+      tx.run(
+        zql.kalakritiEntryMember
+          .where("studentId", student.id)
+          .related("entry", (entry) =>
+            entry.related("session", (registeredSession) =>
+              registeredSession.related("competition")
+            )
+          )
+      )
+    )
+  )) as ExistingEntryMembership[][];
+  for (const [index, memberships] of membershipGroups.entries()) {
+    const student = students[index];
+    if (!student) {
+      throw new Error("Group Entry member could not be validated");
+    }
+    const label = groupMemberLabel(student);
+    const relevantMemberships = excludedEntryId
+      ? memberships.filter(
+          (membership) => membership.entryId !== excludedEntryId
+        )
+      : memberships;
+    if (
+      relevantMemberships.some(
+        (membership) => membership.sessionId === session.id
+      )
+    ) {
+      throw new Error(
+        `${label}: Student is already registered for this Session`
+      );
+    }
+    if (relevantMemberships.length >= ageCategory.maxTotalCompetitions) {
+      throw new Error(
+        `${label}: Student has reached the total Competition limit`
+      );
+    }
+    const categoryEntryCount = relevantMemberships.filter(
+      ({ entry }) =>
+        entry?.session?.competition?.competitionCategoryId ===
+        competition.competitionCategoryId
+    ).length;
+    if (categoryEntryCount >= ageCategory.maxCompetitionsPerCategory) {
+      throw new Error(
+        `${label}: Student has reached the Competition Category limit`
+      );
+    }
+    assertNoScheduleConflict(relevantMemberships, session, label);
+  }
 }
 
 function assertStudentEligibility(
@@ -175,7 +336,8 @@ function assertStudentEligibility(
 
 function assertNoScheduleConflict(
   existingMemberships: readonly ExistingEntryMembership[],
-  session: LockedCompetitionSession
+  session: LockedCompetitionSession,
+  studentLabel?: string
 ): void {
   const conflict = existingMemberships.find(({ entry }) => {
     const existingSession = entry?.session;
@@ -186,10 +348,15 @@ function assertNoScheduleConflict(
     );
   });
   if (conflict) {
-    throw new Error("Student is already registered in an overlapping Session");
+    throw new Error(
+      studentLabel
+        ? `${studentLabel}: Student is already registered in an overlapping Session`
+        : "Student is already registered in an overlapping Session"
+    );
   }
 }
 
+// biome-ignore assist/source/useSortedKeys: retain the established command order, then append group commands
 export const kalakritiEntryMutators = {
   createIndividual: defineMutator(
     entryCreateSchema,
@@ -223,7 +390,11 @@ export const kalakritiEntryMutators = {
       if (!ageCategory || ageCategory.editionId !== edition.id) {
         throw new Error("Student Age Category not found in this Edition");
       }
-      const competition = await loadCompetitionConfiguration(tx, session);
+      const competition = await loadCompetitionConfiguration(
+        tx,
+        session,
+        "individual"
+      );
       assertStudentEligibility(student, session, competition);
 
       const [sessionEntries, existingMemberships] = await Promise.all([
@@ -304,6 +475,195 @@ export const kalakritiEntryMutators = {
     }
   ),
 
+  createGroup: defineMutator(
+    entryCreateGroupSchema,
+    async ({ tx, ctx, args }) => {
+      const { center, edition } = await lockEntryContext(
+        tx,
+        ctx,
+        args.editionId,
+        args.centerId
+      );
+      const session = await getCompetitionSessionForUpdate(tx, args.sessionId);
+      if (
+        !session ||
+        session.editionId !== edition.id ||
+        session.cancelledAt !== null
+      ) {
+        throw new Error("Competition Session is not active in this Edition");
+      }
+      const competition = await loadCompetitionConfiguration(
+        tx,
+        session,
+        "group"
+      );
+      assertUniqueGroupMembers(args.members, competition);
+      await lockAndValidateGroupMembers(
+        tx,
+        args.members,
+        edition.id,
+        center.id,
+        session,
+        competition
+      );
+      const sessionEntries = (await tx.run(
+        zql.kalakritiCompetitionEntry.where("sessionId", session.id)
+      )) as Array<{ id: string }>;
+      if (sessionEntries.length >= session.capacity) {
+        throw new Error("Competition Session capacity is full");
+      }
+
+      await tx.mutate.kalakritiCompetitionEntry.insert({
+        centerId: center.id,
+        createdAt: args.now,
+        createdBy: ctx.userId,
+        editionId: edition.id,
+        id: args.entryId,
+        participationMode: "group",
+        sessionId: session.id,
+        updatedAt: args.now,
+        updatedBy: ctx.userId,
+      });
+      await Promise.all(
+        args.members.map((member) =>
+          tx.mutate.kalakritiEntryMember.insert({
+            centerId: center.id,
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: edition.id,
+            entryId: args.entryId,
+            id: member.memberId,
+            sessionId: session.id,
+            studentId: member.studentId,
+          })
+        )
+      );
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "created",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "entry_registration",
+        editionId: edition.id,
+        id: args.auditEntryId,
+        metadata: {
+          centerId: center.id,
+          competitionId: competition.id,
+          sessionId: session.id,
+          studentIds: args.members.map((member) => member.studentId),
+        },
+        reason: null,
+        targetId: args.entryId,
+        targetType: "competition_entry",
+      });
+    }
+  ),
+
+  replaceGroupMembers: defineMutator(
+    entryReplaceGroupMembersSchema,
+    async ({ tx, ctx, args }) => {
+      const snapshot = (await tx.run(
+        zql.kalakritiCompetitionEntry
+          .where("id", args.entryId)
+          .related("members")
+          .one()
+      )) as
+        | {
+            centerId: string;
+            editionId: string;
+            members: readonly { id: string; studentId: string }[];
+            participationMode: "group" | "individual";
+            sessionId: string;
+          }
+        | undefined;
+      if (!snapshot) {
+        throw new Error("Competition Entry not found");
+      }
+      const { center, edition } = await lockEntryContext(
+        tx,
+        ctx,
+        snapshot.editionId,
+        snapshot.centerId
+      );
+      const session = await getCompetitionSessionForUpdate(
+        tx,
+        snapshot.sessionId
+      );
+      if (
+        !session ||
+        session.editionId !== edition.id ||
+        session.cancelledAt !== null
+      ) {
+        throw new Error("Competition Entry not found in this Edition");
+      }
+      const entry = (await tx.run(
+        zql.kalakritiCompetitionEntry
+          .where("id", args.entryId)
+          .related("members")
+          .one()
+      )) as typeof snapshot;
+      if (entry?.participationMode !== "group") {
+        throw new Error("Group Competition Entry not found");
+      }
+      const competition = await loadCompetitionConfiguration(
+        tx,
+        session,
+        "group"
+      );
+      assertUniqueGroupMembers(args.members, competition);
+      await lockAndValidateGroupMembers(
+        tx,
+        args.members,
+        edition.id,
+        center.id,
+        session,
+        competition,
+        args.entryId
+      );
+
+      await Promise.all(
+        entry.members.map((member) =>
+          tx.mutate.kalakritiEntryMember.delete({ id: member.id })
+        )
+      );
+      await Promise.all(
+        args.members.map((member) =>
+          tx.mutate.kalakritiEntryMember.insert({
+            centerId: center.id,
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: edition.id,
+            entryId: args.entryId,
+            id: member.memberId,
+            sessionId: session.id,
+            studentId: member.studentId,
+          })
+        )
+      );
+      await tx.mutate.kalakritiCompetitionEntry.update({
+        id: args.entryId,
+        updatedAt: args.now,
+        updatedBy: ctx.userId,
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "updated",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "entry_registration",
+        editionId: edition.id,
+        id: args.auditEntryId,
+        metadata: {
+          centerId: center.id,
+          newStudentIds: args.members.map((member) => member.studentId),
+          oldStudentIds: entry.members.map((member) => member.studentId),
+          sessionId: session.id,
+        },
+        reason: null,
+        targetId: args.entryId,
+        targetType: "competition_entry",
+      });
+    }
+  ),
+
   remove: defineMutator(entryRemoveSchema, async ({ tx, ctx, args }) => {
     const snapshot = (await tx.run(
       zql.kalakritiCompetitionEntry
@@ -341,8 +701,8 @@ export const kalakritiEntryMutators = {
         .related("members")
         .one()
     )) as typeof snapshot;
-    if (entry?.participationMode !== "individual") {
-      throw new Error("Individual Competition Entry not found");
+    if (!entry) {
+      throw new Error("Competition Entry not found");
     }
     await Promise.all(
       entry.members.map((member) =>

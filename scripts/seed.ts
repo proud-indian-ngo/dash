@@ -893,7 +893,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       femaleStudentLimit: 20,
       id: ID.kalakritiAgeCategory,
       maleStudentLimit: 20,
-      maxCompetitionsPerCategory: 1,
+      maxCompetitionsPerCategory: 2,
       maximumAge: 10,
       maxTotalCompetitions: 2,
       minimumAge: 6,
@@ -906,7 +906,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       set: {
         femaleStudentLimit: 20,
         maleStudentLimit: 20,
-        maxCompetitionsPerCategory: 1,
+        maxCompetitionsPerCategory: 2,
         maximumAge: 10,
         maxTotalCompetitions: 2,
         minimumAge: 6,

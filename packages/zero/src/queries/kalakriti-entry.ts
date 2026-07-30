@@ -17,7 +17,6 @@ export const kalakritiEntryQueries = {
       .whereExists("competition", (competition) =>
         competition
           .where("cancelledAt", "IS", null)
-          .where("participationMode", "individual")
           .where("retiredAt", "IS", null)
           .whereExists("category", (category) =>
             category.where("retiredAt", "IS", null)

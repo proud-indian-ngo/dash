@@ -8,18 +8,18 @@ export class KalakritiEntriesPage {
     this.page = page;
   }
 
-  async goto(year: number) {
+  async goto(year: number, competitionName = "Solo Dance") {
     await this.page.goto(`/kalakriti/${year}/entries`);
     await waitForZeroReady(this.page);
     await expect(
       this.page.getByRole("heading", { exact: true, name: "Entries" })
     ).toBeVisible();
     await this.page
-      .getByRole("link", { exact: true, name: "Solo Dance" })
+      .getByRole("link", { exact: true, name: competitionName })
       .first()
       .click();
     await expect(
-      this.page.getByRole("heading", { name: "Solo Dance" })
+      this.page.getByRole("heading", { name: competitionName })
     ).toBeVisible();
   }
 
@@ -29,7 +29,7 @@ export class KalakritiEntriesPage {
       .getByRole("button", { name: "Register Entry" })
       .click();
     const dialog = this.page.getByRole("dialog", {
-      name: "Register Competition Entries",
+      name: /Register Competition (Entries|Group)/,
     });
     await expect(dialog).toBeVisible();
     return dialog;
@@ -47,6 +47,32 @@ export class KalakritiEntriesPage {
         .getByRole("option", { name: new RegExp(studentName) })
         .click();
     }
+  }
+
+  async selectGroupMembers(
+    dialog: Locator,
+    studentNames: readonly string[]
+  ): Promise<void> {
+    const studentInput = dialog.getByLabel("Group members");
+    for (const studentName of studentNames) {
+      // biome-ignore lint/performance/noAwaitInLoops: each selection updates the Combobox before the next Student can be selected
+      await studentInput.click();
+      await this.page
+        .getByRole("option", { name: new RegExp(studentName) })
+        .click();
+    }
+    await studentInput.press("Escape");
+  }
+
+  async fillGroup(
+    dialog: Locator,
+    studentNames: readonly string[]
+  ): Promise<void> {
+    await this.selectGroupMembers(dialog, studentNames);
+  }
+
+  async removeLastGroupMember(dialog: Locator): Promise<void> {
+    await dialog.getByLabel("Group members").press("Backspace");
   }
 
   async register(studentName: string): Promise<void> {

@@ -92,7 +92,7 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/competitions/schedule.tsx` | Competition Session table and detail sheet |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
 | `routes/_app/kalakriti/$year/students.tsx` | Center-scoped Student registration, editing, and read-only lifecycle state |
-| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Center-scoped Session summary and per-Session individual Competition Entry registration with live eligibility, limit, overlap, and capacity validation |
+| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Center-scoped Session summary and per-Session individual and group Competition Entry registration with live eligibility, limit, overlap, and capacity validation |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |

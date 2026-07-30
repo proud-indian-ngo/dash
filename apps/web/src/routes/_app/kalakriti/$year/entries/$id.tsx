@@ -31,7 +31,7 @@ import {
   canRemoveKalakritiEntries,
   type EntryRegistrationAvailability,
   getEntryRegistrationAvailability,
-  selectEligibleStudentsForSession,
+  getEntryStudentOptionEligibility,
   selectKalakritiEntryCenters,
 } from "@/lib/kalakriti-entry-policy";
 
@@ -163,13 +163,38 @@ function isSessionUnavailable(
   return session === undefined && sessionsResultType === "complete";
 }
 
+function countVisibleStudentOptions({
+  editingEntryId,
+  entries,
+  session,
+  students,
+}: {
+  editingEntryId?: string;
+  entries: readonly KalakritiEntryRow[];
+  session?: KalakritiEntrySession;
+  students: readonly KalakritiEntryStudent[];
+}): number {
+  if (!session) {
+    return 0;
+  }
+  return students.filter(
+    (student) =>
+      getEntryStudentOptionEligibility({
+        editingEntryId,
+        entries,
+        session,
+        student,
+      }).status !== "hidden"
+  ).length;
+}
+
 function SessionSummary({
   centerName,
-  entryCount,
+  participantCount,
   session,
 }: {
   centerName?: string;
-  entryCount: number;
+  participantCount: number;
   session?: KalakritiEntrySession;
 }) {
   return (
@@ -181,8 +206,8 @@ function SessionSummary({
         {session?.competition.name ?? "Loading Session"}
       </h2>
       <p className="mt-1 text-muted-foreground text-sm">
-        {entryCount} {entryCount === 1 ? "Student" : "Students"} registered for{" "}
-        {centerName}.
+        {participantCount} {participantCount === 1 ? "Student" : "Students"}{" "}
+        registered for {centerName}.
       </p>
       {session ? (
         <p className="mt-2 text-muted-foreground text-sm">
@@ -208,6 +233,9 @@ function KalakritiSessionEntriesPage() {
   const { center: selectedCenterId } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<KalakritiEntryRow | null>(
+    null
+  );
   const [centers, centersResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
@@ -252,8 +280,20 @@ function KalakritiSessionEntriesPage() {
       search: { center: value ?? undefined },
     });
   });
-  const handleCreateOpenChange = useEventCallback(setCreateOpen);
-  const handleRegister = useEventCallback(() => setCreateOpen(true));
+  const handleCreateOpenChange = useEventCallback((open: boolean) => {
+    setCreateOpen(open);
+    if (!open) {
+      setEditingEntry(null);
+    }
+  });
+  const handleRegister = useEventCallback(() => {
+    setEditingEntry(null);
+    setCreateOpen(true);
+  });
+  const handleEdit = useEventCallback((entry: KalakritiEntryRow) => {
+    setEditingEntry(entry);
+    setCreateOpen(true);
+  });
   const handleRemoveOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       removeAction.cancel();
@@ -295,13 +335,12 @@ function KalakritiSessionEntriesPage() {
   const sessionEntries = completeEntries.filter(
     (entry) => entry.sessionId === sessionId
   );
-  const eligibleStudents = session
-    ? selectEligibleStudentsForSession({
-        entries: completeEntries,
-        session,
-        students: completeStudents,
-      })
-    : [];
+  const visibleStudentOptionCount = countVisibleStudentOptions({
+    editingEntryId: editingEntry?.id,
+    entries: completeEntries,
+    session,
+    students: completeStudents,
+  });
 
   if (isSessionUnavailable(session, sessionsResult.type)) {
     return (
@@ -325,7 +364,7 @@ function KalakritiSessionEntriesPage() {
             Session unavailable
           </h2>
           <p className="mt-1 text-muted-foreground text-sm">
-            This individual Competition Session is no longer active.
+            This Competition Session is no longer active.
           </p>
         </div>
       </div>
@@ -337,7 +376,7 @@ function KalakritiSessionEntriesPage() {
     lifecycle: edition.lifecycle,
     referenceDataLoading,
     sessionCount: session ? 1 : 0,
-    studentCount: eligibleStudents.length,
+    studentCount: visibleStudentOptionCount,
   });
   const registrationOpen = availability === "open";
   const removalEnabled = canRemoveKalakritiEntries({
@@ -363,7 +402,10 @@ function KalakritiSessionEntriesPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SessionSummary
           centerName={selectedCenter?.name}
-          entryCount={sessionEntries.length}
+          participantCount={sessionEntries.reduce(
+            (count, entry) => count + entry.members.length,
+            0
+          )}
           session={session}
         />
         <div className="min-w-52">
@@ -395,12 +437,17 @@ function KalakritiSessionEntriesPage() {
         </p>
       )}
       <EntryTable
+        activeSessionIds={completeSessions.map(
+          (activeSession) => activeSession.id
+        )}
+        canEdit={removalEnabled}
         canRegister={registrationOpen}
         canRemove={removalEnabled}
         data={sessionEntries}
-        emptyMessage="No Students have been registered for this Session."
+        emptyMessage="No Entries have been registered for this Session."
         hideCompetition
         isLoading={entriesLoading}
+        onEdit={handleEdit}
         onRegister={handleRegister}
         onRemove={removeAction.trigger}
       />
@@ -409,16 +456,21 @@ function KalakritiSessionEntriesPage() {
           centerId={centerId}
           editionId={edition.id}
           entries={completeEntries}
+          entry={editingEntry ?? undefined}
           fixedSession={session}
           onOpenChange={handleCreateOpenChange}
           open={createOpen}
           sessions={[session]}
-          students={eligibleStudents}
+          students={completeStudents}
         />
       ) : null}
       <ConfirmDialog
         confirmLabel="Remove Entry"
-        description="This removes the Student from this Competition Session."
+        description={
+          removeAction.payload?.participationMode === "group"
+            ? `This removes the group and all ${removeAction.payload.members.length} Students from this Competition Session.`
+            : "This removes the Student from this Competition Session."
+        }
         loading={removeAction.isLoading}
         onConfirm={removeAction.confirm}
         onOpenChange={handleRemoveOpenChange}
