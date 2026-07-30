@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/kalakriti/$year")({
 
 function KalakritiEditionLayout() {
   return (
-    <div className="app-container mx-auto w-full max-w-5xl px-2 py-6 sm:px-4">
+    <div className="app-container mx-auto w-full max-w-7xl px-2 py-6 sm:px-4">
       <Outlet />
     </div>
   );
