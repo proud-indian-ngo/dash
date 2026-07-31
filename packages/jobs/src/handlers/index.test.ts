@@ -2,6 +2,7 @@ import type { PgBoss } from "pg-boss";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@pi-dash/env/server", () => ({ env: {} }));
 vi.mock("bun", () => ({ S3Client: class S3Client {} }));
 
 import { registerHandlers } from "./index";

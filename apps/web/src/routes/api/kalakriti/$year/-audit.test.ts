@@ -2,6 +2,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
+vi.mock("@/lib/server/kalakriti-audit", () => ({
+  getKalakritiAuditPage: vi.fn(),
+}));
+vi.mock("@/lib/server/kalakriti-edition-access", () => ({
+  resolveKalakritiEditionAccess: vi.fn(),
+}));
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { type AuditHandlerDeps, handleKalakritiAuditRequest } from "./audit";
