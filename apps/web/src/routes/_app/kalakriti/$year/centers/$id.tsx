@@ -111,22 +111,32 @@ function KalakritiCenterDetailPage() {
         ),
       }
     : null;
-  const guardianRows: CenterPersonAssignment[] = guardianAssignments
-    .filter((item) => item.centerId === id)
-    .map((item) => ({
-      centerId: item.centerId,
-      id: item.id,
-      membershipId: item.membershipId,
-      name: item.membership?.snapshotName ?? "Unknown Guardian",
-    }));
-  const liaisonRows: CenterPersonAssignment[] = liaisonAssignments
-    .filter((item) => item.centerId === id)
-    .map((item) => ({
-      centerId: item.centerId ?? "",
-      id: item.id,
-      membershipId: item.membershipId,
-      name: item.membership?.snapshotName ?? "Unknown Liaison",
-    }));
+  const guardianRows: CenterPersonAssignment[] = guardianAssignments.flatMap(
+    (item) =>
+      item.centerId === id
+        ? [
+            {
+              centerId: item.centerId,
+              id: item.id,
+              membershipId: item.membershipId,
+              name: item.membership?.snapshotName ?? "Unknown Guardian",
+            },
+          ]
+        : []
+  );
+  const liaisonRows: CenterPersonAssignment[] = liaisonAssignments.flatMap(
+    (item) =>
+      item.centerId === id
+        ? [
+            {
+              centerId: item.centerId ?? "",
+              id: item.id,
+              membershipId: item.membershipId,
+              name: item.membership?.snapshotName ?? "Unknown Liaison",
+            },
+          ]
+        : []
+  );
   const assignedGuardianIds = new Set(
     guardianRows.map((item) => item.membershipId)
   );
@@ -173,11 +183,13 @@ function KalakritiCenterDetailPage() {
 
   return (
     <CenterDetail
-      canConfigureCenters={canConfigureCenters}
-      canManageCenters={canManageCenters}
-      canManageGuardians={canManageGuardians}
-      canManageLiaisons={canManageLiaisons}
-      canManageRegistrationControls={canManageRegistrationControls}
+      capabilities={{
+        configureCenters: canConfigureCenters,
+        manageCenters: canManageCenters,
+        manageGuardians: canManageGuardians,
+        manageLiaisons: canManageLiaisons,
+        manageRegistrationControls: canManageRegistrationControls,
+      }}
       center={center}
       configurationLocked={structuralLocked}
       editionId={edition.id}

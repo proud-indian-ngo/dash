@@ -86,16 +86,18 @@ function EntryRowActions({
 
 interface EntryTableProps {
   activeSessionIds: readonly string[];
-  canEdit: boolean;
-  canRegister: boolean;
-  canRemove: boolean;
   data: KalakritiEntryRow[];
   emptyMessage?: string;
-  hideCompetition?: boolean;
   isLoading: boolean;
   onEdit: (entry: KalakritiEntryRow) => void;
   onRegister: () => void;
   onRemove: (entry: KalakritiEntryRow) => void;
+  permissions: {
+    edit: boolean;
+    register: boolean;
+    remove: boolean;
+  };
+  variant?: "center" | "session";
 }
 
 function getEntryRowId(entry: KalakritiEntryRow): string {
@@ -104,17 +106,16 @@ function getEntryRowId(entry: KalakritiEntryRow): string {
 
 export function EntryTable({
   activeSessionIds,
-  canEdit,
-  canRegister,
-  canRemove,
   data,
   emptyMessage = "No Competition Entries have been registered for this Center.",
-  hideCompetition = false,
   isLoading,
   onEdit,
   onRegister,
   onRemove,
+  permissions,
+  variant = "center",
 }: EntryTableProps) {
+  const { edit, register, remove } = permissions;
   const columns: ColumnDef<KalakritiEntryRow>[] = [
     {
       accessorFn: (row) =>
@@ -168,7 +169,7 @@ export function EntryTable({
       },
       size: 210,
     },
-    ...(hideCompetition
+    ...(variant === "session"
       ? []
       : [
           {
@@ -248,13 +249,13 @@ export function EntryTable({
       },
       size: 160,
     },
-    ...(canRemove
+    ...(remove
       ? [
           {
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
               <EntryRowActions
                 canEdit={
-                  canEdit && activeSessionIds.includes(row.original.sessionId)
+                  edit && activeSessionIds.includes(row.original.sessionId)
                 }
                 entry={row.original}
                 onEdit={onEdit}
@@ -296,9 +297,7 @@ export function EntryTable({
         columnsVisibility: true,
       }}
       toolbarActions={
-        canRegister ? (
-          <Button onClick={onRegister}>Register Entry</Button>
-        ) : null
+        register ? <Button onClick={onRegister}>Register Entry</Button> : null
       }
     />
   );

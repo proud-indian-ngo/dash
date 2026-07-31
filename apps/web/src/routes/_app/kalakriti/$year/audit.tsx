@@ -108,11 +108,27 @@ function KalakritiAuditPage({
     }
     snapshotVersionRef.current = null;
     let cancelled = false;
-    setPagination({ pageIndex: 0 }).then(() => {
-      if (!cancelled) {
-        setIsViewReady(true);
+    const resetPagination = async () => {
+      try {
+        await setPagination({ pageIndex: 0 });
+        if (!cancelled) {
+          setIsViewReady(true);
+        }
+      } catch (caughtError) {
+        if (!cancelled) {
+          log.error({
+            action: "resetPagination",
+            component: "KalakritiAuditPage",
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : String(caughtError),
+          });
+          setError("Audit entries could not be loaded.");
+        }
       }
-    });
+    };
+    resetPagination();
     return () => {
       cancelled = true;
     };
@@ -142,14 +158,15 @@ function KalakritiAuditPage({
     if (snapshotVersionRef.current) {
       params.set("snapshotVersion", snapshotVersionRef.current);
     }
-    fetch(`/api/kalakriti/${access.edition.year}/audit?${params.toString()}`)
-      .then(async (response) => {
+    const loadAudit = async () => {
+      try {
+        const response = await fetch(
+          `/api/kalakriti/${access.edition.year}/audit?${params.toString()}`
+        );
         if (!response.ok) {
           throw new Error(`Audit request failed with ${response.status}`);
         }
-        return (await response.json()) as AuditResponse;
-      })
-      .then((result) => {
+        const result = (await response.json()) as AuditResponse;
         if (cancelled) {
           return;
         }
@@ -158,8 +175,7 @@ function KalakritiAuditPage({
         snapshotVersionRef.current = result.snapshotVersion;
         setError(null);
         setResolvedRequestKey(requestKey);
-      })
-      .catch((caughtError: unknown) => {
+      } catch (caughtError) {
         if (cancelled) {
           return;
         }
@@ -177,7 +193,9 @@ function KalakritiAuditPage({
         setTotal(0);
         setError("Audit entries could not be loaded.");
         setResolvedRequestKey(requestKey);
-      });
+      }
+    };
+    loadAudit();
     return () => {
       cancelled = true;
     };

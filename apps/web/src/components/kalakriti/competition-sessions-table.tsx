@@ -13,7 +13,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import type {
   ConfigurationDeletePayload,
@@ -148,11 +148,15 @@ export function CompetitionSessionsTable({
   timeZone: string;
   toolbarActions?: ReactNode;
 }) {
-  const formatter = new Intl.DateTimeFormat("en-IN", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone,
-  });
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-IN", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone,
+      }),
+    [timeZone]
+  );
   const columns: ColumnDef<ScheduleTableRow>[] = [
     {
       accessorKey: "competitionName",

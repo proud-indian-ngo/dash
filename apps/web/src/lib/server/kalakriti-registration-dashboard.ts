@@ -224,28 +224,29 @@ export function assembleKalakritiRegistrationDashboardProjection(
     };
   });
 
-  const ageCategories = rows.ages
-    .filter(
-      (age) =>
-        scope.kind === "edition" ||
-        scope.kind === "center" ||
-        rows.sessions.some((session) => session.ageCategoryId === age.id)
-    )
-    .map((age) => {
-      const sessions = rows.sessions.filter(
-        (session) => session.ageCategoryId === age.id
-      );
-      const sessionIds = new Set(sessions.map(({ id }) => id));
-      const entries = rows.entries.filter((entry) =>
-        sessionIds.has(entry.sessionId)
-      );
-      const students = rows.students.filter(
-        (student) => student.ageCategoryId === age.id
-      );
-      const participant = rows.participants.find(
-        (item) => item.ageCategoryId === age.id
-      );
-      return {
+  const ageCategories = rows.ages.flatMap((age) => {
+    if (
+      scope.kind !== "edition" &&
+      scope.kind !== "center" &&
+      !rows.sessions.some((session) => session.ageCategoryId === age.id)
+    ) {
+      return [];
+    }
+    const sessions = rows.sessions.filter(
+      (session) => session.ageCategoryId === age.id
+    );
+    const sessionIds = new Set(sessions.map(({ id }) => id));
+    const entries = rows.entries.filter((entry) =>
+      sessionIds.has(entry.sessionId)
+    );
+    const students = rows.students.filter(
+      (student) => student.ageCategoryId === age.id
+    );
+    const participant = rows.participants.find(
+      (item) => item.ageCategoryId === age.id
+    );
+    return [
+      {
         capacity: capacityVisible
           ? sum(activeSessions(sessions), (session) => session.capacity)
           : null,
@@ -269,8 +270,9 @@ export function assembleKalakritiRegistrationDashboardProjection(
         students:
           participant?.registeredStudents ??
           sum(students, (student) => student.students),
-      };
-    });
+      },
+    ];
+  });
 
   const perCenterStudentLimit = sum(
     rows.ages,

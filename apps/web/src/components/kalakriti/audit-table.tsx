@@ -2,7 +2,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { formatAuditLabel } from "@/lib/kalakriti-audit-policy";
 
@@ -21,21 +21,10 @@ export interface KalakritiAuditRow {
 
 const TEXT_SKELETON = <Skeleton className="h-4 w-24" />;
 const BADGE_SKELETON = <Skeleton className="h-5 w-24" />;
-const AUDIT_COLUMNS_BY_TIME_ZONE = new Map<
-  string,
-  ColumnDef<KalakritiAuditRow>[]
->();
 
-function createColumns(timeZone: string): ColumnDef<KalakritiAuditRow>[] {
-  const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    timeZone,
-    timeZoneName: "short",
-    year: "numeric",
-  });
+function createColumns(
+  dateTimeFormatter: Intl.DateTimeFormat
+): ColumnDef<KalakritiAuditRow>[] {
   return [
     {
       accessorFn: (row) => row.createdAt,
@@ -152,16 +141,6 @@ function createColumns(timeZone: string): ColumnDef<KalakritiAuditRow>[] {
   ];
 }
 
-function getAuditColumns(timeZone: string) {
-  const cached = AUDIT_COLUMNS_BY_TIME_ZONE.get(timeZone);
-  if (cached) {
-    return cached;
-  }
-  const columns = createColumns(timeZone);
-  AUDIT_COLUMNS_BY_TIME_ZONE.set(timeZone, columns);
-  return columns;
-}
-
 function searchAuditRow(row: KalakritiAuditRow, query: string) {
   const normalized = query.trim().toLowerCase();
   return (
@@ -205,9 +184,22 @@ export function KalakritiAuditTable({
   toolbarActions: ReactNode;
   toolbarFilters: ReactNode;
 }) {
+  const columns = useMemo(() => {
+    const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      month: "short",
+      timeZone,
+      timeZoneName: "short",
+      year: "numeric",
+    });
+    return createColumns(dateTimeFormatter);
+  }, [timeZone]);
+
   return (
     <DataTableWrapper
-      columns={getAuditColumns(timeZone)}
+      columns={columns}
       data={rows}
       defaultPageSize={25}
       emptyMessage="No audit entries found for this scope."

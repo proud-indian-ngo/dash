@@ -130,10 +130,14 @@ function deriveSeriesParent(
   }
 }
 
+// biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
 export const Route = createFileRoute("/_app/events/$id")({
-  component: EventDetailRouteComponent,
-  head: () => ({
-    meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
+  validateSearch: z.object({
+    occDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
   }),
   loader: ({ context, params }) => {
     context.zero?.preload(queries.teamEvent.byId({ id: params.id }));
@@ -152,13 +156,10 @@ export const Route = createFileRoute("/_app/events/$id")({
       queries.eventImmichAlbum.byEvent({ eventId: params.id })
     );
   },
-  validateSearch: z.object({
-    occDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
-    tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
+  head: () => ({
+    meta: [{ title: `Event Details | ${env.VITE_APP_NAME}` }],
   }),
+  component: EventDetailRouteComponent,
 });
 
 function EventDetailRouteComponent() {

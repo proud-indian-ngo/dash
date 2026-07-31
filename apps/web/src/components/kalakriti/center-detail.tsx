@@ -52,11 +52,7 @@ function RegistrationAccess({
 }
 
 export function CenterDetail({
-  canConfigureCenters,
-  canManageCenters,
-  canManageGuardians,
-  canManageLiaisons,
-  canManageRegistrationControls,
+  capabilities,
   center,
   configurationLocked,
   editionId,
@@ -70,11 +66,13 @@ export function CenterDetail({
   volunteerOptionsError,
   year,
 }: {
-  canConfigureCenters: boolean;
-  canManageCenters: boolean;
-  canManageGuardians: boolean;
-  canManageLiaisons: boolean;
-  canManageRegistrationControls: boolean;
+  capabilities: {
+    configureCenters: boolean;
+    manageCenters: boolean;
+    manageGuardians: boolean;
+    manageLiaisons: boolean;
+    manageRegistrationControls: boolean;
+  };
   center: CenterListItem;
   configurationLocked: boolean;
   editionId: string;
@@ -88,6 +86,13 @@ export function CenterDetail({
   volunteerOptionsError: boolean;
   year: string;
 }) {
+  const {
+    configureCenters,
+    manageCenters,
+    manageGuardians,
+    manageLiaisons,
+    manageRegistrationControls,
+  } = capabilities;
   const zero = useZero();
   const [editOpen, setEditOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
@@ -176,11 +181,11 @@ export function CenterDetail({
           </p>
         </div>
 
-        {canConfigureCenters || canManageRegistrationControls ? (
+        {configureCenters || manageRegistrationControls ? (
           <div className="flex flex-wrap gap-2">
             {isRetired ? null : (
               <>
-                {canManageRegistrationControls ? (
+                {manageRegistrationControls ? (
                   <Button
                     onClick={handleControls}
                     size="sm"
@@ -190,7 +195,7 @@ export function CenterDetail({
                     Registration controls
                   </Button>
                 ) : null}
-                {canConfigureCenters ? (
+                {configureCenters ? (
                   <>
                     <Button
                       onClick={handleEdit}
@@ -217,7 +222,7 @@ export function CenterDetail({
                 ) : null}
               </>
             )}
-            {canConfigureCenters ? (
+            {configureCenters ? (
               <Button
                 onClick={handleDelete}
                 size="sm"
@@ -236,7 +241,7 @@ export function CenterDetail({
         ) : null}
       </div>
 
-      {canManageCenters && configurationLocked ? (
+      {manageCenters && configurationLocked ? (
         <p className="border-primary border-l-2 pl-4 text-muted-foreground text-sm">
           Center configuration is locked while this Edition is{" "}
           {editionLifecycle}. Assignments remain available; registration
@@ -266,7 +271,7 @@ export function CenterDetail({
         </CardContent>
       </Card>
 
-      {canManageGuardians || canManageLiaisons ? (
+      {manageGuardians || manageLiaisons ? (
         <div className="space-y-4">
           <div>
             <h3 className="font-display font-semibold text-xl">Assignments</h3>
@@ -276,8 +281,8 @@ export function CenterDetail({
           </div>
           <CenterAssignments
             allowNewAssignments={!isRetired}
-            canManageGuardians={canManageGuardians}
-            canManageLiaisons={canManageLiaisons}
+            canManageGuardians={manageGuardians}
+            canManageLiaisons={manageLiaisons}
             centerId={center.id}
             editionId={editionId}
             guardianAssignments={guardianAssignments}

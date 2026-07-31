@@ -440,16 +440,18 @@ function KalakritiSessionEntriesPage() {
         activeSessionIds={completeSessions.map(
           (activeSession) => activeSession.id
         )}
-        canEdit={removalEnabled}
-        canRegister={registrationOpen}
-        canRemove={removalEnabled}
         data={sessionEntries}
         emptyMessage="No Entries have been registered for this Session."
-        hideCompetition
         isLoading={entriesLoading}
         onEdit={handleEdit}
         onRegister={handleRegister}
         onRemove={removeAction.trigger}
+        permissions={{
+          edit: removalEnabled,
+          register: registrationOpen,
+          remove: removalEnabled,
+        }}
+        variant="session"
       />
       {centerId && session ? (
         <EntryFormDialog

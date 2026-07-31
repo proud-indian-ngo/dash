@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useMemo } from "react";
 import type {
   ConfigurationDeletePayload,
   ConfigurationStatePayload,
@@ -44,11 +45,15 @@ export function CompetitionSessionDetailSheet({
   session: ScheduleTableRow | null;
   timeZone: string;
 }) {
-  const formatter = new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  });
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone,
+      }),
+    [timeZone]
+  );
   const label = session
     ? `${session.competitionName}, ${session.ageCategoryName}`
     : "";

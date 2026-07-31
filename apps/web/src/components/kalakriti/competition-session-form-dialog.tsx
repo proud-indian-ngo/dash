@@ -10,7 +10,7 @@ import { validateKalakritiSessionSchedule } from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
@@ -21,28 +21,26 @@ import { handleMutationResult } from "@/lib/mutation-result";
 
 const DATE_TIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 
-function dateTimeParts(timestamp: number, timeZone: string) {
+function dateTimeParts(timestamp: number, formatter: Intl.DateTimeFormat) {
   return Object.fromEntries(
-    new Intl.DateTimeFormat("en-CA", {
-      day: "2-digit",
-      hour: "2-digit",
-      hourCycle: "h23",
-      minute: "2-digit",
-      month: "2-digit",
-      timeZone,
-      year: "numeric",
-    })
+    formatter
       .formatToParts(new Date(timestamp))
       .map((part) => [part.type, part.value])
   );
 }
 
-function formatEditionDateTime(timestamp: number, timeZone: string): string {
-  const parts = dateTimeParts(timestamp, timeZone);
+function formatEditionDateTime(
+  timestamp: number,
+  formatter: Intl.DateTimeFormat
+): string {
+  const parts = dateTimeParts(timestamp, formatter);
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
-function parseEditionDateTime(value: string, timeZone: string): number {
+function parseEditionDateTime(
+  value: string,
+  formatter: Intl.DateTimeFormat
+): number {
   const match = DATE_TIME_LOCAL_PATTERN.exec(value);
   if (!match) {
     return Number.NaN;
@@ -54,7 +52,7 @@ function parseEditionDateTime(value: string, timeZone: string): number {
     Number(match[4]),
     Number(match[5])
   );
-  const zonedGuess = dateTimeParts(guess, timeZone);
+  const zonedGuess = dateTimeParts(guess, formatter);
   const offset =
     Date.UTC(
       Number(zonedGuess.year),
@@ -87,7 +85,8 @@ function createSessionSchema(
   eventDate: string,
   timeZone: string,
   sessionId: string,
-  sessions: readonly CompetitionSessionFormValue[]
+  sessions: readonly CompetitionSessionFormValue[],
+  formatter: Intl.DateTimeFormat
 ) {
   return z
     .object({
@@ -102,9 +101,9 @@ function createSessionSchema(
       const validation = validateKalakritiSessionSchedule(
         {
           cancelledAt: null,
-          endAt: parseEditionDateTime(value.endAt, timeZone),
+          endAt: parseEditionDateTime(value.endAt, formatter),
           id: sessionId,
-          startAt: parseEditionDateTime(value.startAt, timeZone),
+          startAt: parseEditionDateTime(value.startAt, formatter),
           venueId: value.venueId,
         },
         eventDate,
@@ -161,6 +160,19 @@ function SessionForm({
 }) {
   const zero = useZero();
   const sessionId = session ? session.id : uuidv7();
+  const dateTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-CA", {
+        day: "2-digit",
+        hour: "2-digit",
+        hourCycle: "h23",
+        minute: "2-digit",
+        month: "2-digit",
+        timeZone,
+        year: "numeric",
+      }),
+    [timeZone]
+  );
   const categoryOptions = availableOptions(
     ageCategories,
     session?.ageCategoryId
@@ -174,7 +186,8 @@ function SessionForm({
     eventDate,
     timeZone,
     sessionId,
-    sessions
+    sessions,
+    dateTimeFormatter
   );
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const form = useForm({
@@ -183,10 +196,10 @@ function SessionForm({
       capacity: session ? session.capacity : 20,
       competitionId: session?.competitionId || competitionOptions[0]?.id || "",
       endAt: session
-        ? formatEditionDateTime(session.endAt, timeZone)
+        ? formatEditionDateTime(session.endAt, dateTimeFormatter)
         : `${eventDate}T10:00`,
       startAt: session
-        ? formatEditionDateTime(session.startAt, timeZone)
+        ? formatEditionDateTime(session.startAt, dateTimeFormatter)
         : `${eventDate}T09:00`,
       venueId: session?.venueId || venueOptions[0]?.id || "",
     },
@@ -194,10 +207,10 @@ function SessionForm({
       const common = {
         ...value,
         auditEntryId: uuidv7(),
-        endAt: parseEditionDateTime(value.endAt, timeZone),
+        endAt: parseEditionDateTime(value.endAt, dateTimeFormatter),
         now: Date.now(),
         sessionId,
-        startAt: parseEditionDateTime(value.startAt, timeZone),
+        startAt: parseEditionDateTime(value.startAt, dateTimeFormatter),
       };
       const result = session
         ? await zero.mutate(mutators.kalakritiCompetition.updateSession(common))
