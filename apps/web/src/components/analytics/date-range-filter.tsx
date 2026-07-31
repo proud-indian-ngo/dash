@@ -44,7 +44,7 @@ function formatRangeLabel(fromStr: string, toStr: string, includeYear = false) {
   return `${format(from, "MMM d")} \u2013 ${format(to, toFormat)}`;
 }
 
-export function DateRangeFilter() {
+export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
   const [params, setParams] = useQueryStates(dateRangeSearchParams);
   const [customRange, setCustomRange] = useState<RangeSelection | undefined>(
     () => {
@@ -63,6 +63,7 @@ export function DateRangeFilter() {
     if (!value) {
       return;
     }
+    onChange?.();
     if (value === "custom") {
       setParams({ from: params.from, range: "custom", to: params.to });
       return;
@@ -74,6 +75,7 @@ export function DateRangeFilter() {
     (range: RangeSelection | undefined) => {
       setCustomRange(range);
       if (range?.from && range?.to) {
+        onChange?.();
         setParams({
           from: format(range.from, ISO_DATE),
           range: "custom",

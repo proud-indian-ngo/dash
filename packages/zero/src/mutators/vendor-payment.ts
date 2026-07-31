@@ -18,13 +18,42 @@ import {
   assertEntityExists,
   assertPending,
   assertVendorUsable,
-  buildAttachmentInsert,
+  buildClaimedAttachmentInsert,
   buildHistoryInsert,
+  claimUploadedR2ObjectKey,
+  createR2ClaimOptions,
   deleteAllRelations,
+  enqueueDeleteR2Object,
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
-import { recalculateParentStatus } from "./vendor-payment-transaction";
+import {
+  recalculateParentStatus,
+  transactionAttachmentKeyPrefixes,
+} from "./vendor-payment-transaction";
+
+const UUID_SEGMENT_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function legacyAttachmentKeyPrefix(key: string): string | undefined {
+  const segments = key.split("/");
+  const attachmentsIndex = segments.indexOf("attachments");
+  const legacyEntityId = segments[attachmentsIndex + 1];
+  return legacyEntityId && UUID_SEGMENT_PATTERN.test(legacyEntityId)
+    ? `attachments/${legacyEntityId}/`
+    : undefined;
+}
+
+const vendorPaymentAttachmentKeyPrefixes = (id: string, key?: string) => {
+  const prefixes = [`attachments/vendor-payments/${id}/`, `attachments/${id}/`];
+  const legacyPrefix = key ? legacyAttachmentKeyPrefix(key) : undefined;
+  return legacyPrefix ? [...prefixes, legacyPrefix] : prefixes;
+};
+
+const vendorPaymentApprovalKeyPrefixes = (id: string) => [
+  `approval-screenshots/vendor-payments/${id}/approval-screenshots/`,
+  `approval-screenshots/${id}/`,
+];
 
 const createSchema = z.object({
   attachments: z.array(attachmentSchema),
@@ -52,9 +81,36 @@ export const vendorPaymentMutators = {
       assertPending(entity, "vendor payment", "approved", canEditAnyStatus);
 
       const now = Date.now();
+      const requestedApprovalScreenshotKey =
+        args.approvalScreenshotKey ?? entity.approvalScreenshotKey ?? undefined;
+      const approvalScreenshotKey = requestedApprovalScreenshotKey
+        ? claimUploadedR2ObjectKey(
+            requestedApprovalScreenshotKey,
+            createR2ClaimOptions(ctx, tx.location, {
+              durablePrefix: `vendor-payments/${args.id}/approval-screenshots`,
+              existingObjectKeys: entity.approvalScreenshotKey
+                ? new Set([entity.approvalScreenshotKey])
+                : undefined,
+              subfolder: "approval-screenshots",
+            })
+          )
+        : undefined;
+
+      if (
+        entity.approvalScreenshotKey &&
+        entity.approvalScreenshotKey !== approvalScreenshotKey
+      ) {
+        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+          keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
+          meta: {
+            mutator: "vendorPayment.approve:replaceApprovalScreenshot",
+            vendorPaymentId: args.id,
+          },
+        });
+      }
 
       await tx.mutate.vendorPayment.update({
-        approvalScreenshotKey: args.approvalScreenshotKey,
+        approvalScreenshotKey,
         id: args.id,
         rejectionReason: null,
         reviewedAt: now,
@@ -198,6 +254,7 @@ export const vendorPaymentMutators = {
   ),
   create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
+    assertHasPermission(ctx, "requests.create");
     const { userId } = ctx;
 
     const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
@@ -246,7 +303,11 @@ export const vendorPaymentMutators = {
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
-      }
+      },
+      createR2ClaimOptions(ctx, tx.location, {
+        durablePrefix: `vendor-payments/${args.id}/quotation`,
+        subfolder: "attachments",
+      })
     );
 
     if (tx.location === "server") {
@@ -285,12 +346,27 @@ export const vendorPaymentMutators = {
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
+        meta: {
+          mutator: "vendorPayment.delete:approvalScreenshot",
+          vendorPaymentId: args.id,
+        },
+      });
 
       await deleteAllRelations({
         deleteAttachment: (data) =>
           tx.mutate.vendorPaymentAttachment.delete(data),
         deleteHistory: (data) => tx.mutate.vendorPaymentHistory.delete(data),
         deleteLineItem: (data) => tx.mutate.vendorPaymentLineItem.delete(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),
+            meta: {
+              mutator: "vendorPayment.delete",
+              vendorPaymentId: args.id,
+            },
+          }),
         queryAttachments: () =>
           tx.run(zql.vendorPaymentAttachment.where("vendorPaymentId", args.id)),
         queryHistory: () =>
@@ -298,6 +374,33 @@ export const vendorPaymentMutators = {
         queryLineItems: () =>
           tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
       });
+
+      const transactions = await tx.run(
+        zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+      );
+      const transactionAttachments = await Promise.all(
+        transactions.map(async (transaction) => ({
+          attachments: await tx.run(
+            zql.vendorPaymentTransactionAttachment.where(
+              "vendorPaymentTransactionId",
+              transaction.id
+            )
+          ),
+          transactionId: transaction.id,
+        }))
+      );
+      for (const { attachments, transactionId } of transactionAttachments) {
+        for (const attachment of attachments) {
+          enqueueDeleteR2Object(ctx, tx.location, attachment.objectKey, {
+            keyPrefixes: transactionAttachmentKeyPrefixes(transactionId),
+            meta: {
+              mutator: "vendorPayment.delete:transactionAttachment",
+              transactionId,
+              vendorPaymentId: args.id,
+            },
+          });
+        }
+      }
 
       await tx.mutate.vendorPayment.delete({ id: args.id });
     }
@@ -314,7 +417,6 @@ export const vendorPaymentMutators = {
       assertPending(entity, "vendor payment", "rejected", canEditAnyStatus);
 
       const now = Date.now();
-
       await tx.mutate.vendorPayment.update({
         id: args.id,
         rejectionReason: args.reason,
@@ -510,6 +612,13 @@ export const vendorPaymentMutators = {
       }
 
       const now = Date.now();
+      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
+        keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
+        meta: {
+          mutator: "vendorPayment.resetToPending",
+          vendorPaymentId: args.id,
+        },
+      });
 
       await tx.mutate.vendorPayment.update({
         approvalScreenshotKey: null,
@@ -569,8 +678,30 @@ export const vendorPaymentMutators = {
           .where("vendorPaymentId", args.id)
           .where("purpose", "invoice")
       );
+      const existingInvoiceObjectKeys = new Set(
+        existingInvoiceAtts
+          .map((attachment) => attachment.objectKey)
+          .filter((key): key is string => Boolean(key))
+      );
+      const retainedInvoiceObjectKeys = new Set(
+        args.attachments
+          .filter((attachment) => attachment.type === "file")
+          .map((attachment) => attachment.objectKey)
+      );
       await Promise.all(
         existingInvoiceAtts.map(async (att) => {
+          if (att.objectKey && !retainedInvoiceObjectKeys.has(att.objectKey)) {
+            enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
+              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(
+                args.id,
+                att.objectKey
+              ),
+              meta: {
+                mutator: "vendorPayment.submitInvoice",
+                vendorPaymentId: args.id,
+              },
+            });
+          }
           await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
         })
       );
@@ -578,7 +709,15 @@ export const vendorPaymentMutators = {
       await Promise.all(
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentAttachment.insert({
-            ...buildAttachmentInsert(att, now),
+            ...buildClaimedAttachmentInsert(
+              att,
+              now,
+              createR2ClaimOptions(ctx, tx.location, {
+                durablePrefix: `vendor-payments/${args.id}/invoice`,
+                existingObjectKeys: existingInvoiceObjectKeys,
+                subfolder: "attachments",
+              })
+            ),
             purpose: "invoice",
             vendorPaymentId: args.id,
           });
@@ -680,6 +819,14 @@ export const vendorPaymentMutators = {
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
         insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        onDeleteAttachmentObjectKey: (key) =>
+          enqueueDeleteR2Object(ctx, tx.location, key, {
+            keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),
+            meta: {
+              mutator: "vendorPayment.update",
+              vendorPaymentId: args.id,
+            },
+          }),
         queryAttachments: () =>
           tx.run(
             zql.vendorPaymentAttachment
@@ -688,7 +835,11 @@ export const vendorPaymentMutators = {
           ),
         queryLineItems: () =>
           tx.run(zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)),
-      }
+      },
+      createR2ClaimOptions(ctx, tx.location, {
+        durablePrefix: `vendor-payments/${args.id}/quotation`,
+        subfolder: "attachments",
+      })
     );
 
     // Recalculate payment status when admin edits line items on a non-pending VP
@@ -748,15 +899,45 @@ export const vendorPaymentMutators = {
           .where("vendorPaymentId", args.id)
           .where("purpose", "invoice")
       );
+      const existingObjectKeys = new Set(
+        existingAtts
+          .map((attachment) => attachment.objectKey)
+          .filter((key): key is string => Boolean(key))
+      );
+      const retainedObjectKeys = new Set(
+        args.attachments
+          .filter((attachment) => attachment.type === "file")
+          .map((attachment) => attachment.objectKey)
+      );
       await Promise.all(
         existingAtts.map(async (att) => {
+          if (att.objectKey && !retainedObjectKeys.has(att.objectKey)) {
+            enqueueDeleteR2Object(ctx, tx.location, att.objectKey, {
+              keyPrefixes: vendorPaymentAttachmentKeyPrefixes(
+                args.id,
+                att.objectKey
+              ),
+              meta: {
+                mutator: "vendorPayment.updateInvoice",
+                vendorPaymentId: args.id,
+              },
+            });
+          }
           await tx.mutate.vendorPaymentAttachment.delete({ id: att.id });
         })
       );
       await Promise.all(
         args.attachments.map(async (att) => {
           await tx.mutate.vendorPaymentAttachment.insert({
-            ...buildAttachmentInsert(att, now),
+            ...buildClaimedAttachmentInsert(
+              att,
+              now,
+              createR2ClaimOptions(ctx, tx.location, {
+                durablePrefix: `vendor-payments/${args.id}/invoice`,
+                existingObjectKeys,
+                subfolder: "attachments",
+              })
+            ),
             purpose: "invoice",
             vendorPaymentId: args.id,
           });

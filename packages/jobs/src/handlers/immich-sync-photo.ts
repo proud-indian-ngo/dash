@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
-import type { ImmichSyncPhotoPayload } from "../enqueue";
+import { enqueue, type ImmichSyncPhotoPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
 
@@ -100,7 +100,7 @@ function emitLog(event: string, extra: Record<string, unknown>) {
   log.emit();
 }
 
-async function processImmichSync(data: ImmichSyncPhotoPayload) {
+export async function processImmichSync(data: ImmichSyncPhotoPayload) {
   const { photoId, eventId, eventName, r2Key } = data;
 
   const immichUrl = env.IMMICH_INTERNAL_URL ?? env.VITE_IMMICH_URL;
@@ -197,11 +197,15 @@ async function processImmichSync(data: ImmichSyncPhotoPayload) {
     .set({ r2Key: null })
     .where(eq(eventPhoto.id, photoId));
 
-  // Clean up R2 object — best-effort, don't throw
+  // Clean up R2 object through the reference-safe deletion boundary.
   try {
-    await s3.delete(r2Key);
+    await enqueue(
+      "delete-r2-object",
+      { mode: "if-unreferenced", r2Key },
+      { startAfter: "30 seconds" }
+    );
   } catch (error) {
-    emitLog("r2_cleanup_failed", {
+    emitLog("r2_cleanup_enqueue_failed", {
       error: error instanceof Error ? error.message : String(error),
       photoId,
       r2Key,

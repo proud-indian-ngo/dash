@@ -1,32 +1,30 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { EditorProps } from "@pi-dash/editor/editor";
 import { PlateEditor as BaseEditor } from "@pi-dash/editor/editor";
-import { env } from "@pi-dash/env/web";
 import type { AllowedImageMimeType } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { toast } from "sonner";
-import { getPresignedUploadUrl } from "@/functions/attachments";
-
-const TRAILING_SLASH = /\/$/;
-function getCdnUrl(key: string): string {
-  return `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
-}
+import { getEventEditorUploadUrl } from "@/functions/attachments";
 
 interface PlateEditorProps extends Omit<EditorProps, "onImageUpload"> {
+  allowImageUpload?: boolean;
   entityId: string;
 }
 
-export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
+export function PlateEditor({
+  allowImageUpload = true,
+  entityId,
+  ...props
+}: PlateEditorProps) {
   const onImageUpload = useEventCallback(
     async (file: File): Promise<{ url: string } | undefined> => {
       try {
-        const { key, presignedUrl } = await getPresignedUploadUrl({
+        const { presignedUrl, url } = await getEventEditorUploadUrl({
           data: {
-            entityId,
+            eventId: entityId,
             fileName: file.name,
             fileSize: file.size,
             mimeType: file.type as AllowedImageMimeType,
-            subfolder: "updates",
           },
         });
 
@@ -42,7 +40,7 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
           );
         }
 
-        return { url: getCdnUrl(key) };
+        return { url };
       } catch (error) {
         log.error({
           action: "imageUpload",
@@ -55,5 +53,10 @@ export function PlateEditor({ entityId, ...props }: PlateEditorProps) {
     }
   );
 
-  return <BaseEditor {...props} onImageUpload={onImageUpload} />;
+  return (
+    <BaseEditor
+      {...props}
+      onImageUpload={allowImageUpload ? onImageUpload : undefined}
+    />
+  );
 }

@@ -12,7 +12,7 @@ import type {
 } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
 import { addHours, startOfHour } from "date-fns";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import z from "zod";
 import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -88,11 +88,6 @@ export function ScheduleMessageFormDialog({
   const isEdit = !!initialValues;
   const [formKey, setFormKey] = useState(0);
   const [sendNow, setSendNow] = useState(false);
-  const entityId = useMemo(
-    () => initialValues?.id ?? "scheduled-message-draft",
-    [initialValues?.id]
-  );
-
   const formSchema = sendNow ? sendNowFormSchema : scheduledFormSchema;
 
   const form = useForm({
@@ -201,7 +196,6 @@ export function ScheduleMessageFormDialog({
         <form.Field name="attachments">
           {(field) => (
             <MediaUpload
-              entityId={entityId}
               onChange={field.handleChange}
               value={field.state.value}
             />

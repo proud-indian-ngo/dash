@@ -3,6 +3,12 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import {
+  ALLOWED_IMAGE_TYPES,
+  type AllowedImageMimeType,
+  MAX_AVATAR_IMAGE_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
+import { parseAvatarMediaKey } from "@pi-dash/shared/media-url";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
 import { useRef, useState } from "react";
@@ -17,18 +23,9 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   deleteProfilePicture,
   getProfilePictureUploadUrl,
-  MAX_AVATAR_FILE_SIZE_BYTES,
 } from "@/functions/attachments";
 import { authClient } from "@/lib/auth-client";
 import { type ProfileFormValues, profileSchema } from "./profile-schema";
-
-const TRAILING_SLASH = /\/$/;
-const ALLOWED_AVATAR_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-]);
 
 const genderOptions: SelectOption[] = [
   { label: "Male", value: "male" },
@@ -52,23 +49,19 @@ function AvatarUpload() {
       // Reset input so the same file can be re-selected
       e.target.value = "";
 
-      if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type)) {
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
         toast.error("Please select a JPG, PNG, GIF, or WebP image");
         return;
       }
-      if (file.size > MAX_AVATAR_FILE_SIZE_BYTES) {
+      if (file.size > MAX_AVATAR_IMAGE_SIZE_BYTES) {
         toast.error("Image must be under 5 MB");
         return;
       }
 
       setUploading(true);
       try {
-        const mimeType = file.type as
-          | "image/gif"
-          | "image/jpeg"
-          | "image/png"
-          | "image/webp";
-        const { presignedUrl, key } = await getProfilePictureUploadUrl({
+        const mimeType = file.type as AllowedImageMimeType;
+        const { presignedUrl, key, url } = await getProfilePictureUploadUrl({
           data: {
             fileName: file.name,
             fileSize: file.size,
@@ -86,8 +79,7 @@ function AvatarUpload() {
           return;
         }
 
-        const cdnUrl = `${env.VITE_CDN_URL.replace(TRAILING_SLASH, "")}/${key}`;
-        const { error } = await authClient.updateUser({ image: cdnUrl });
+        const { error } = await authClient.updateUser({ image: url });
         if (error) {
           toast.error(error.message);
           deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
@@ -137,9 +129,11 @@ function AvatarUpload() {
       }
 
       // Best-effort R2 cleanup after DB is cleared
-      const cdnBase = env.VITE_CDN_URL.replace(TRAILING_SLASH, "");
-      if (imageUrl.startsWith(cdnBase)) {
-        const key = imageUrl.slice(cdnBase.length + 1);
+      const key = parseAvatarMediaKey(imageUrl, {
+        legacyCdnUrl: env.VITE_CDN_URL,
+        userId: user.id,
+      });
+      if (key) {
         deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
           log.error({
             action: "cleanupR2AfterRemove",

@@ -194,7 +194,6 @@ function TransactionFormContent({
       <CustomField<Attachment[]> label="Attachments" name="attachments">
         {(field) => (
           <AttachmentsSection
-            entityId={entityId}
             fileDownloadKind="vendorPaymentTransactionAttachment"
             onChange={field.handleChange}
             value={field.state.value ?? []}

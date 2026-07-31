@@ -7,7 +7,8 @@ import {
 } from "../permissions";
 import type { EventImmichAlbum, EventPhoto, TeamEvent } from "../schema";
 import { zql } from "../schema";
-import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
+import { assertEventRowNotManagedByKalakriti } from "./kalakriti-event-guard";
+import { enqueueDeleteR2Object } from "./submission-helpers";
 
 const MUTATOR_NAME = "eventImmichAlbum.deleteAlbum";
 
@@ -30,7 +31,7 @@ export const eventImmichAlbumMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-      await assertEventNotManagedByKalakriti(tx, args.eventId);
+      assertEventRowNotManagedByKalakriti(event);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember
@@ -58,17 +59,12 @@ export const eventImmichAlbumMutators = {
       if (tx.location === "server") {
         for (const photo of photos) {
           if (photo.r2Key) {
-            const { r2Key } = photo;
-            ctx.asyncTasks?.push({
-              fn: async () => {
-                const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                await enqueue(
-                  "delete-r2-object",
-                  { r2Key },
-                  { traceId: ctx.traceId }
-                );
+            enqueueDeleteR2Object(ctx, tx.location, photo.r2Key, {
+              keyPrefixes: [`photos/${photo.eventId}/`],
+              meta: {
+                mutator: `${MUTATOR_NAME}:r2`,
+                photoId: photo.id,
               },
-              meta: { mutator: MUTATOR_NAME, photoId: photo.id },
             });
           }
 

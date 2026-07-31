@@ -20,7 +20,8 @@
     "db:down": "docker compose down",
     "whatsapp:start": "bun --env-file=../../.env --env-file=../../.env.worktree run docker compose up -d whatsapp",
     "whatsapp:stop": "docker compose stop whatsapp",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",

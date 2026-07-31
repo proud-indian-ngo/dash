@@ -1,4 +1,6 @@
 import { db } from "@pi-dash/db";
+import { env } from "@pi-dash/env/server";
+import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { parseTraceparent } from "@pi-dash/observability/trace-context";
 import type { AsyncTask } from "@pi-dash/zero/context";
@@ -9,7 +11,18 @@ import { handleMutateRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
+import {
+  buildAuditActor,
+  resolveZeroAuditSummary,
+  runZeroAuditedMutation,
+} from "@/lib/audit";
+import { copyR2Object } from "@/lib/r2-upload-claim";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  isSuccessfulMutationResult,
+  runMutationTasksInOrder,
+  runMutationTasksSettled,
+} from "@/lib/zero-mutate-tasks";
 
 const dbProvider = zeroDrizzle(schema, db);
 
@@ -24,9 +37,9 @@ export const Route = createFileRoute("/api/zero/mutate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { session, error } = await requireSession(request);
-        if (error) {
-          return error;
+        const { session, error: authError } = await requireSession(request);
+        if (authError) {
+          return authError;
         }
 
         const rl = checkRateLimit(`mutate:${session.user.id}`, 100);
@@ -37,38 +50,101 @@ export const Route = createFileRoute("/api/zero/mutate")({
         const traceId = parseTraceparent(
           request.headers.get("traceparent")
         )?.traceId;
-        const { permissions, role, userId } =
-          await buildSessionContext(session);
+        const [{ permissions, role, userId }, actor] = await Promise.all([
+          buildSessionContext(session),
+          buildAuditActor(session),
+        ]);
         const asyncTasks: AsyncTask[] = [];
-        const ctx = { asyncTasks, permissions, role, traceId, userId };
+        const baseContext = {
+          copyR2Object,
+          enqueue,
+          permissions,
+          r2KeyPrefix: env.R2_KEY_PREFIX,
+          role,
+          traceId,
+          userId,
+        };
 
-        const result = await handleMutateRequest({
-          dbProvider,
-          handler: async (transact) =>
-            await transact(async (tx, name, args) => {
-              const mutator = mustGetMutator(mutators, name);
-              return await mutator.fn({ args, ctx, tx });
-            }),
-          request,
-          userID: userId,
-        });
-
-        // Fire-and-forget: enqueue jobs after commit without blocking the response.
-        // pg-boss handles persistence and retries from here.
-        for (const [i, task] of asyncTasks.entries()) {
-          withFireAndForgetLog(
-            {
-              ...task.meta,
-              handler: "mutate",
-              taskIndex: i,
-              userId,
-              ...(traceId ? { traceId } : {}),
+        try {
+          const result = await handleMutateRequest({
+            dbProvider,
+            handler: async (transact) => {
+              const beforeCommitTasks: AsyncTask[] = [];
+              const mutationAsyncTasks: AsyncTask[] = [];
+              const rollbackTasks: AsyncTask[] = [];
+              try {
+                const mutationResult = await transact(
+                  async (tx, name, args) => {
+                    const mutator = mustGetMutator(mutators, name);
+                    const ctx = {
+                      ...baseContext,
+                      asyncTasks: mutationAsyncTasks,
+                      beforeCommitTasks,
+                      lockR2Object: async (r2Key: string) => {
+                        await tx.dbTransaction.query(
+                          "SELECT pg_advisory_xact_lock_shared(hashtextextended($1, 0))",
+                          [r2Key]
+                        );
+                      },
+                      lockR2ObjectForClaim: async (r2Key: string) => {
+                        await tx.dbTransaction.query(
+                          "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                          [r2Key]
+                        );
+                      },
+                      rollbackTasks,
+                    };
+                    const summary = await resolveZeroAuditSummary(
+                      name,
+                      args,
+                      userId
+                    );
+                    const auditOptions = {
+                      action: name,
+                      actor,
+                      metadata: summary.metadata,
+                      target: summary.target,
+                      traceId,
+                    };
+                    await runZeroAuditedMutation(
+                      auditOptions,
+                      async () => {
+                        await mutator.fn({ args, ctx, tx });
+                        await runMutationTasksInOrder(beforeCommitTasks);
+                      },
+                      (entry) => tx.mutate.auditLog.insert(entry)
+                    );
+                  }
+                );
+                if (isSuccessfulMutationResult(mutationResult)) {
+                  asyncTasks.push(...mutationAsyncTasks);
+                } else {
+                  asyncTasks.push(...rollbackTasks);
+                }
+                return mutationResult;
+              } catch (mutationError) {
+                asyncTasks.push(...rollbackTasks);
+                throw mutationError;
+              }
             },
-            () => task.fn()
-          );
+            request,
+            userID: userId,
+          });
+          return Response.json(result);
+        } finally {
+          if (asyncTasks.length > 0) {
+            withFireAndForgetLog(
+              {
+                handler: "mutate",
+                mutators: asyncTasks.map((task) => task.meta.mutator),
+                taskCount: asyncTasks.length,
+                userId,
+                ...(traceId ? { traceId } : {}),
+              },
+              () => runMutationTasksSettled(asyncTasks)
+            );
+          }
         }
-
-        return Response.json(result);
       },
     },
   },

@@ -15,11 +15,11 @@ describe("Kalakriti generic event write protection", () => {
     const results = [
       {
         id: "event-1",
+        managementDomain: "kalakriti",
         name: "Kalakriti",
         startTime: 1_600_000_000_000,
         teamId: "team-1",
       },
-      { id: "event-1", managementDomain: "kalakriti" },
     ];
     const tx = {
       location: "server",
@@ -51,8 +51,11 @@ describe("Kalakriti generic event write protection", () => {
         status: "approved",
         uploadedBy: "volunteer-1",
       },
-      { id: "event-1", teamId: "team-1" },
-      { id: "event-1", managementDomain: "kalakriti" },
+      {
+        id: "event-1",
+        managementDomain: "kalakriti",
+        teamId: "team-1",
+      },
     ];
     const tx = {
       location: "server",
@@ -75,8 +78,11 @@ describe("Kalakriti generic event write protection", () => {
     const deletePhoto = vi.fn();
     const results = [
       { eventId: "event-1", id: "album-1", immichAlbumId: "immich-1" },
-      { id: "event-1", teamId: "team-1" },
-      { id: "event-1", managementDomain: "kalakriti" },
+      {
+        id: "event-1",
+        managementDomain: "kalakriti",
+        teamId: "team-1",
+      },
     ];
     const tx = {
       location: "server",

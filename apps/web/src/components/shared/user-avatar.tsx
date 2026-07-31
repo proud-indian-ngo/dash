@@ -20,6 +20,7 @@ interface UserAvatarProps {
     name: string;
     email?: null | string;
     gender?: null | string;
+    id?: string;
     image?: null | string;
   };
 }

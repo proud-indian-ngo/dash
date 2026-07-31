@@ -243,8 +243,7 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
   }
 }
 
-const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {
-  findRecord,
+export const defaultR2ObjectAccessDeps: R2ObjectAccessDeps = {
   isEventMember: async (eventId, userId) => {
     const member = await db.query.teamEventMember.findFirst({
       where: and(
@@ -271,4 +270,9 @@ const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {
     return !!member;
   },
   resolvePermissions,
+};
+
+const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {
+  ...defaultR2ObjectAccessDeps,
+  findRecord,
 };

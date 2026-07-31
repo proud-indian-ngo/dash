@@ -9,39 +9,41 @@ import {
   useFileUpload,
 } from "@pi-dash/design-system/hooks/use-file-upload";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
+import { MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  type AllowedMimeType,
-  getPresignedUploadUrl,
+  deleteTemporaryUpload,
+  getScheduledMessageUploadUrl,
 } from "@/functions/attachments";
 
 const MAX_MEDIA_FILES = 5;
-const MAX_MEDIA_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+const MAX_MEDIA_FILE_SIZE = MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES;
 // useFileUpload accept="*" skips client-side type validation (HEIC compat).
-// Server-side presigned URL validates against ALLOWED_MIME_TYPES.
+// The signer validates the MIME shape and enforces the scheduled-file limit.
 const MEDIA_ACCEPT = "*";
 
 async function uploadSingleFile(
   file: File,
-  entityId: string,
-  getUploadUrl: ReturnType<typeof useServerFn<typeof getPresignedUploadUrl>>
+  getUploadUrl: ReturnType<
+    typeof useServerFn<typeof getScheduledMessageUploadUrl>
+  >
 ): Promise<MediaAttachment> {
+  const mimeType = file.type || "application/octet-stream";
   const { presignedUrl, key } = await getUploadUrl({
     data: {
-      entityId,
       fileName: file.name,
       fileSize: file.size,
-      mimeType: file.type as AllowedMimeType,
-      subfolder: "scheduled-messages",
+      mimeType,
     },
   });
 
   const response = await fetch(presignedUrl, {
     body: file,
-    headers: { "Content-Type": file.type || "application/octet-stream" },
+    headers: { "Content-Type": mimeType },
     method: "PUT",
   });
 
@@ -49,7 +51,7 @@ async function uploadSingleFile(
     throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
   }
 
-  return { fileName: file.name, mimeType: file.type, r2Key: key };
+  return { fileName: file.name, mimeType, r2Key: key };
 }
 
 export interface MediaAttachment {
@@ -59,7 +61,6 @@ export interface MediaAttachment {
 }
 
 interface MediaUploadProps {
-  entityId: string;
   onChange: (attachments: MediaAttachment[]) => void;
   value: MediaAttachment[];
 }
@@ -71,7 +72,7 @@ function MediaAttachmentRow({
 }: {
   attachment: MediaAttachment;
   index: number;
-  onRemove: (index: number) => void;
+  onRemove: (index: number) => Promise<void>;
 }) {
   const handleRemove = useEventCallback(() => onRemove(index));
 
@@ -96,8 +97,9 @@ function MediaAttachmentRow({
   );
 }
 
-export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
-  const getUploadUrl = useServerFn(getPresignedUploadUrl);
+export function MediaUpload({ onChange, value }: MediaUploadProps) {
+  const getUploadUrl = useServerFn(getScheduledMessageUploadUrl);
+  const deleteUpload = useServerFn(deleteTemporaryUpload);
   const [isUploading, setIsUploading] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -121,11 +123,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
       await Promise.all(
         filesToUpload.map(async (file) => {
           try {
-            const attachment = await uploadSingleFile(
-              file,
-              entityId,
-              getUploadUrl
-            );
+            const attachment = await uploadSingleFile(file, getUploadUrl);
             uploaded.push(attachment);
           } catch (error) {
             log.error({
@@ -150,7 +148,7 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
 
       setIsUploading(false);
     },
-    [entityId, getUploadUrl, onChange]
+    [getUploadUrl, onChange]
   );
 
   const [{ isDragging }, uploadActions] = useFileUpload({
@@ -178,8 +176,21 @@ export function MediaUpload({ entityId, onChange, value }: MediaUploadProps) {
     },
   });
 
-  const removeAttachment = useEventCallback((index: number) => {
-    onChange(value.filter((_, i) => i !== index));
+  const removeAttachment = useEventCallback(async (index: number) => {
+    try {
+      const attachment = value[index];
+      if (attachment && isTemporaryR2Key(attachment.r2Key)) {
+        await deleteUpload({ data: { key: attachment.r2Key } });
+      }
+      onChange(value.filter((_, i) => i !== index));
+    } catch (error) {
+      log.error({
+        action: "removeAttachment",
+        component: "MediaUpload",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error("Failed to remove attachment");
+    }
   });
 
   return (

@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
+import { Route as ApiAuditLogRouteImport } from './routes/api/audit-log'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
@@ -23,6 +24,7 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppVendorsRouteRouteImport } from './routes/_app/vendors/route'
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
@@ -41,6 +43,7 @@ import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$y
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
+import { Route as ApiMediaEventUpdateRouteImport } from './routes/api/media/event-update'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
@@ -58,6 +61,7 @@ import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakri
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
 import { Route as AppKalakritiYearIndexRouteImport } from './routes/_app/kalakriti/$year/index'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
+import { Route as ApiMediaAvatarUserIdRouteImport } from './routes/api/media/avatar.$userId'
 import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
 import { Route as ApiKalakritiYearRegistrationExportRouteImport } from './routes/api/kalakriti/$year/registration-export'
 import { Route as ApiKalakritiYearAuditRouteImport } from './routes/api/kalakriti/$year/audit'
@@ -105,6 +109,11 @@ const ApiAvatarRoute = ApiAvatarRouteImport.update({
   path: '/api/avatar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuditLogRoute = ApiAuditLogRouteImport.update({
+  id: '/api/audit-log',
+  path: '/api/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
@@ -148,6 +157,11 @@ const AppJobsRoute = AppJobsRouteImport.update({
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditLogRoute = AppAuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
@@ -240,6 +254,11 @@ const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   path: '/api/whatsapp/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaEventUpdateRoute = ApiMediaEventUpdateRouteImport.update({
+  id: '/api/media/event-update',
+  path: '/api/media/event-update',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLogIngestRoute = ApiLogIngestRouteImport.update({
   id: '/api/log/ingest',
   path: '/api/log/ingest',
@@ -323,6 +342,11 @@ const AppKalakritiYearIndexRoute = AppKalakritiYearIndexRouteImport.update({
 const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   id: '/api/media/event-photo/$id',
   path: '/api/media/event-photo/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaAvatarUserIdRoute = ApiMediaAvatarUserIdRouteImport.update({
+  id: '/api/media/avatar/$userId',
+  path: '/api/media/avatar/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiKalakritiYearScheduleRoute =
@@ -465,6 +489,7 @@ export interface FileRoutesByFullPath {
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/analytics': typeof AppAnalyticsRoute
+  '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -474,6 +499,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof AuthRegisterRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
@@ -490,6 +516,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -515,6 +542,7 @@ export interface FileRoutesByFullPath {
   '/api/kalakriti/$year/audit': typeof ApiKalakritiYearAuditRoute
   '/api/kalakriti/$year/registration-export': typeof ApiKalakritiYearRegistrationExportRoute
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
+  '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -531,6 +559,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/analytics': typeof AppAnalyticsRoute
+  '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -540,6 +569,7 @@ export interface FileRoutesByTo {
   '/register': typeof AuthRegisterRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
@@ -554,6 +584,7 @@ export interface FileRoutesByTo {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -577,6 +608,7 @@ export interface FileRoutesByTo {
   '/api/kalakriti/$year/audit': typeof ApiKalakritiYearAuditRoute
   '/api/kalakriti/$year/registration-export': typeof ApiKalakritiYearRegistrationExportRoute
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
+  '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
@@ -601,6 +633,7 @@ export interface FileRoutesById {
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/_app/analytics': typeof AppAnalyticsRoute
+  '/_app/audit-log': typeof AppAuditLogRoute
   '/_app/export': typeof AppExportRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/scheduled-messages': typeof AppScheduledMessagesRoute
@@ -610,6 +643,7 @@ export interface FileRoutesById {
   '/_auth/register': typeof AuthRegisterRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
+  '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
@@ -627,6 +661,7 @@ export interface FileRoutesById {
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
+  '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -652,6 +687,7 @@ export interface FileRoutesById {
   '/api/kalakriti/$year/audit': typeof ApiKalakritiYearAuditRoute
   '/api/kalakriti/$year/registration-export': typeof ApiKalakritiYearRegistrationExportRoute
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
+  '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -676,6 +712,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/analytics'
+    | '/audit-log'
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
@@ -685,6 +722,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/verify-email'
+    | '/api/audit-log'
     | '/api/avatar'
     | '/api/health'
     | '/kalakriti/$year'
@@ -701,6 +739,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/media/event-update'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -726,6 +765,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/audit'
     | '/api/kalakriti/$year/registration-export'
     | '/api/kalakriti/$year/schedule'
+    | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year/'
     | '/settings/roles/'
@@ -742,6 +782,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analytics'
+    | '/audit-log'
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
@@ -751,6 +792,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/verify-email'
+    | '/api/audit-log'
     | '/api/avatar'
     | '/api/health'
     | '/events/$id'
@@ -765,6 +807,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/media/event-update'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -788,6 +831,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/audit'
     | '/api/kalakriti/$year/registration-export'
     | '/api/kalakriti/$year/schedule'
+    | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
     | '/kalakriti/$year'
     | '/settings/roles'
@@ -811,6 +855,7 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments'
     | '/_app/vendors'
     | '/_app/analytics'
+    | '/_app/audit-log'
     | '/_app/export'
     | '/_app/jobs'
     | '/_app/scheduled-messages'
@@ -820,6 +865,7 @@ export interface FileRouteTypes {
     | '/_auth/register'
     | '/_auth/reset-password'
     | '/_auth/verify-email'
+    | '/api/audit-log'
     | '/api/avatar'
     | '/api/health'
     | '/_app/'
@@ -837,6 +883,7 @@ export interface FileRouteTypes {
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
+    | '/api/media/event-update'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -862,6 +909,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/audit'
     | '/api/kalakriti/$year/registration-export'
     | '/api/kalakriti/$year/schedule'
+    | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
@@ -879,6 +927,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
@@ -886,6 +935,7 @@ export interface RootRouteChildren {
   ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
   ApiJobsStatsRoute: typeof ApiJobsStatsRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
+  ApiMediaEventUpdateRoute: typeof ApiMediaEventUpdateRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
@@ -896,6 +946,7 @@ export interface RootRouteChildren {
   ApiKalakritiYearAuditRoute: typeof ApiKalakritiYearAuditRoute
   ApiKalakritiYearRegistrationExportRoute: typeof ApiKalakritiYearRegistrationExportRoute
   ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
+  ApiMediaAvatarUserIdRoute: typeof ApiMediaAvatarUserIdRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
 }
 
@@ -934,6 +985,13 @@ declare module '@tanstack/react-router' {
       path: '/api/avatar'
       fullPath: '/api/avatar'
       preLoaderRoute: typeof ApiAvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/audit-log': {
+      id: '/api/audit-log'
+      path: '/api/audit-log'
+      fullPath: '/api/audit-log'
+      preLoaderRoute: typeof ApiAuditLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth/verify-email': {
@@ -997,6 +1055,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof AppExportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/audit-log': {
+      id: '/_app/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AppAuditLogRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/analytics': {
@@ -1125,6 +1190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/media/event-update': {
+      id: '/api/media/event-update'
+      path: '/api/media/event-update'
+      fullPath: '/api/media/event-update'
+      preLoaderRoute: typeof ApiMediaEventUpdateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/log/ingest': {
       id: '/api/log/ingest'
       path: '/api/log/ingest'
@@ -1242,6 +1314,13 @@ declare module '@tanstack/react-router' {
       path: '/api/media/event-photo/$id'
       fullPath: '/api/media/event-photo/$id'
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media/avatar/$userId': {
+      id: '/api/media/avatar/$userId'
+      path: '/api/media/avatar/$userId'
+      fullPath: '/api/media/avatar/$userId'
+      preLoaderRoute: typeof ApiMediaAvatarUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/kalakriti/$year/schedule': {
@@ -1595,6 +1674,7 @@ interface AppRouteChildren {
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
   AppAnalyticsRoute: typeof AppAnalyticsRoute
+  AppAuditLogRoute: typeof AppAuditLogRoute
   AppExportRoute: typeof AppExportRoute
   AppJobsRoute: typeof AppJobsRoute
   AppScheduledMessagesRoute: typeof AppScheduledMessagesRoute
@@ -1611,6 +1691,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
   AppAnalyticsRoute: AppAnalyticsRoute,
+  AppAuditLogRoute: AppAuditLogRoute,
   AppExportRoute: AppExportRoute,
   AppJobsRoute: AppJobsRoute,
   AppScheduledMessagesRoute: AppScheduledMessagesRoute,
@@ -1656,6 +1737,7 @@ const ApiJobsIdRouteWithChildren = ApiJobsIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
@@ -1663,6 +1745,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsIdRoute: ApiJobsIdRouteWithChildren,
   ApiJobsStatsRoute: ApiJobsStatsRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
+  ApiMediaEventUpdateRoute: ApiMediaEventUpdateRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
@@ -1674,6 +1757,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKalakritiYearRegistrationExportRoute:
     ApiKalakritiYearRegistrationExportRoute,
   ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
+  ApiMediaAvatarUserIdRoute: ApiMediaAvatarUserIdRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
 }
 export const routeTree = rootRouteImport

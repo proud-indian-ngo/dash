@@ -1,6 +1,7 @@
 // biome-ignore lint/performance/noBarrelFile: intentional
 export * from "./advance-payment";
 export * from "./app-config";
+export * from "./audit-log";
 export * from "./auth";
 export * from "./bank-account";
 export * from "./event-feedback";

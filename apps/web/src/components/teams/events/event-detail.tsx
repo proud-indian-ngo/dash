@@ -213,6 +213,7 @@ interface EventDetailProps {
   canManageInterest: boolean;
   canManagePhotos: boolean;
   canManageVolunteers: boolean;
+  canUploadUpdateImages: boolean;
   event: EventRow;
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
@@ -461,6 +462,7 @@ interface EventTabsProps {
   canManage: boolean;
   canManageFeedback: boolean;
   canManagePhotos: boolean;
+  canUploadUpdateImages: boolean;
   event: EventRow;
   feedback: readonly { id: string }[];
   feedbackDeadlinePassed: boolean;
@@ -480,6 +482,7 @@ function EventTabs({
   canManage,
   canManageFeedback,
   canManagePhotos,
+  canUploadUpdateImages,
   event,
   feedback,
   feedbackDeadlinePassed,
@@ -540,6 +543,7 @@ function EventTabs({
           approvedUpdates={approvedUpdates}
           canApproveUpdates={canApproveUpdates}
           canManage={canManage}
+          canUploadImages={canUploadUpdateImages}
           eventId={event.id}
           isMember={isMember}
           pendingUpdates={pendingUpdates}
@@ -769,6 +773,7 @@ export function EventDetail({
   canManageFeedback,
   canManageInterest,
   canManagePhotos,
+  canUploadUpdateImages,
   canManageVolunteers: canManageVolunteersProp,
   event,
   interests,
@@ -1094,6 +1099,7 @@ export function EventDetail({
               canManage={canManage}
               canManageFeedback={canManageFeedback}
               canManagePhotos={canManagePhotos}
+              canUploadUpdateImages={canUploadUpdateImages}
               event={event}
               feedback={feedback}
               feedbackDeadlinePassed={feedbackDeadlinePassed}

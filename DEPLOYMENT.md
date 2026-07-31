@@ -53,12 +53,31 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | Bucket name |
 | `R2_KEY_PREFIX` | Key prefix for uploads |
-| `VITE_CDN_URL` | Public CDN URL for serving uploaded files |
+| `VITE_CDN_URL` | Historical public CDN URL used to recognize legacy R2 media references |
 
-Protected request attachments and event photos do not use `VITE_CDN_URL`.
-Keep the bucket/CDN public during the staged migration while avatar and editor
-assets still depend on it. Disable public bucket access only after those
-remaining asset families move behind authenticated delivery.
+Protected uploads use current-user temp keys and are claimed to durable keys by
+their owning database mutation. Before deployment, configure 24-hour Cloudflare
+R2 expiry rules for
+`<R2_KEY_PREFIX>/{attachments,approval-screenshots,photos,scheduled-messages}/tmp/`.
+
+Private-storage cutover order:
+
+1. Configure the protected temp-key lifecycle rules.
+2. Deploy authenticated reads and transactional claims.
+3. Run `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` and review the
+   changed, skipped, and malformed counts.
+4. Repair every row listed in each table's `malformedIds`.
+5. Apply with `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url> --apply`.
+6. Rerun the dry-run until `totals.changed` and `totals.malformed` are both `0`.
+7. Verify request attachments, approval proofs, scheduled media, event photos,
+   avatars, and event editor media through authenticated application routes.
+8. Disable the R2 public development URL and public CDN route.
+9. In a follow-up, deploy code that removes `VITE_CDN_URL` usage and its schema
+   requirement while the variable is still configured. Remove the runtime
+   variable only after that deployment succeeds.
+
+Do not remove `VITE_CDN_URL` before the backfill and public-access cutover;
+legacy rows still use it for canonicalization during migration.
 
 ### Voucher Organization
 
@@ -230,7 +249,10 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] `COOKIE_DOMAIN` set if using cross-subdomain cookies
 - [ ] SMTP configured for email verification and password reset
 - [ ] R2 bucket created and credentials set
-- [ ] `VITE_CDN_URL` points to your R2 public access or CDN
+- [ ] R2 lifecycle expires protected `tmp` objects after 24 hours
+- [ ] `VITE_CDN_URL` matches the historical CDN origin until cutover is complete
+- [ ] Private media backfill has zero changed/malformed rows
+- [ ] R2 public bucket/CDN access is disabled after authenticated-read verification
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 

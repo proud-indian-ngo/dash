@@ -23,6 +23,7 @@ interface EventAccess {
   canManageInterest: boolean;
   canManagePhotos: boolean;
   canManageVolunteers: boolean;
+  canUploadUpdateImages: boolean;
   isMember: boolean;
   isTeamMember: boolean;
 }
@@ -37,6 +38,7 @@ const protectedKalakritiEventAccess: EventAccess = {
   canManageInterest: false,
   canManagePhotos: false,
   canManageVolunteers: false,
+  canUploadUpdateImages: false,
   isMember: false,
   isTeamMember: false,
 };
@@ -130,6 +132,13 @@ function deriveSeriesParent(
   }
 }
 
+function hasUpdateImageUploadAccess(
+  hasPermission: ReturnType<typeof useApp>["hasPermission"],
+  isLead: boolean
+): boolean {
+  return isLead || hasPermission("event_updates.create");
+}
+
 // biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
 export const Route = createFileRoute("/_app/events/$id")({
   validateSearch: z.object({
@@ -196,6 +205,10 @@ function EventDetailRouteComponent() {
   const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
   const canManagePhotos = hasPermission("events.manage_photos") || isLead;
   const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
+  const canUploadUpdateImages = hasUpdateImageUploadAccess(
+    hasPermission,
+    isLead
+  );
   const canManageInterest = hasPermission("events.manage_interest") || isLead;
 
   const [myInterests] = useQuery(
@@ -245,6 +258,7 @@ function EventDetailRouteComponent() {
       canManageInterest,
       canManagePhotos,
       canManageVolunteers: canManage,
+      canUploadUpdateImages,
       isMember,
       isTeamMember,
     },
@@ -266,6 +280,7 @@ function EventDetailRouteComponent() {
         canManageInterest={access.canManageInterest}
         canManagePhotos={access.canManagePhotos}
         canManageVolunteers={access.canManageVolunteers}
+        canUploadUpdateImages={access.canUploadUpdateImages}
         event={displayEvent}
         interests={
           interests as readonly (EventInterest & {

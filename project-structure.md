@@ -14,6 +14,7 @@ All paths are relative to project root.
 | `bun run db:generate` | Generate Drizzle types |
 | `bun run db:push` | Push schema changes to database |
 | `bun run db:migrate` | Run pending migrations |
+| `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run legacy avatar/editor media backfill; add `--apply` only after reviewing the report |
 | `bun run zero:generate` | Regenerate Zero schema |
 | `bun run zero:analyze` | Analyze configured Zero named queries against a Zero cache |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
@@ -108,6 +109,7 @@ All paths are relative to project root.
 | `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
 | `routes/_app/analytics.tsx` | Analytics dashboard with charts (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
+| `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration |
@@ -126,11 +128,14 @@ All paths are relative to project root.
 | `routes/api/kalakriti/$year/schedule.ts` | Public lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
 | `routes/api/kalakriti/$year/audit.ts` | Authenticated Edition/domain-scoped Kalakriti audit API with privacy-safe metadata |
 | `routes/api/kalakriti/$year/registration-export.ts` | Authenticated assignment-scoped Student and Competition Entry CSV archive download |
+| `routes/api/media/avatar.$userId.ts` | Authorized avatar signed redirect matched to the current persisted image |
+| `routes/api/media/event-update.ts` | Authorized event editor-media signed redirect matched to persisted Plate content |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
 | `routes/api/jobs/stats.ts` | Queue size stats API |
 | `routes/api/jobs/$id.ts` | Job detail API |
 | `routes/api/jobs/$id/cancel.ts` | Cancel job API |
 | `routes/api/jobs/$id/retry.ts` | Retry failed job API |
+| `routes/api/audit-log.ts` | Permissioned audit ledger query API (server pagination and filters) |
 | `routes/api/attachments/download.ts` | Authorized attachment download proxy |
 
 All route paths above are prefixed with `apps/web/src/`.
@@ -146,6 +151,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 |---|---|
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
+| `components/audit/` | audit-log table, row detail sheet, and API response types |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
@@ -184,11 +190,13 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/get-session.ts` | Authenticated user session |
 | `functions/get-permissions.ts` | Resolve permissions for current user's role |
 | `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
-| `functions/attachments.ts` | R2 presigned upload URL, delete asset, avatar upload/delete |
+| `functions/attachments.ts` | Surface-specific temp attachment signing (including owner/approver invoice scope) plus dedicated avatar and event editor-media upload/delete functions |
 | `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
 | `functions/export-csv.ts` | CSV data export server function |
 | `functions/immich-upload.ts` | Immich photo upload server function |
 | `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
+| `functions/admin-actions.ts` | Audited maintenance and job triggers |
+| `functions/event-poll.ts` | Audited event RSVP poll command |
 
 All function paths above are prefixed with `apps/web/src/`.
 
@@ -197,6 +205,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | File | Purpose |
 |---|---|
 | `lib/api-auth.ts` | API route auth helpers |
+| `lib/audit.ts` | Audit actor snapshots, sanitized mutation summaries, and audited-action runners |
 | `lib/auth-client.ts` | Better-auth client with admin plugin |
 | `lib/avatar.ts` | Avatar URL builder (DiceBear) |
 | `lib/validators.ts` | Shared Zod schemas |
@@ -287,6 +296,15 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `eventReminderSent` | `packages/db/src/schema/event-reminder.ts` |
 | `scheduledMessage` | `packages/db/src/schema/scheduled-message.ts` |
 | `scheduledMessageRecipient` | `packages/db/src/schema/scheduled-message.ts` |
+| `auditLog` | `packages/db/src/schema/audit-log.ts` |
+
+## Audit Ledger
+
+- `audit_log.view` is granted to `super_admin` by default and may be assigned to custom roles through the existing role permission UI. The API enforces the permission independently of the page guard.
+- Zero mutation successes insert their audit row in the mutation transaction. Zero denials and failures use a separate final insert because a thrown mutation rolls back its transaction.
+- Non-Zero actions insert `pending` before execution and finalize it once. Initial audit write failure blocks execution; finalization failure after an external effect leaves the row pending and returns an audit-finalization error.
+- Audit metadata is an explicit sanitized summary. Raw request values, errors, free text, contact and banking data, file contents, URLs, object keys, IP addresses, and user agents are not persisted.
+- Migration `0061_jittery_random.sql` must be applied before deploying the application code. Recording begins at deployment; there is no historical backfill, retention cleanup, or product update/delete path for finalized rows.
 
 ## Notifications
 
@@ -298,7 +316,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
 - **Preferences**: Per-topic, per-channel (inbox + email + WhatsApp) toggles stored in `notification_topic_preference` table. Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. All preferences checked at send-time from DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
-- **CDN**: `VITE_CDN_URL` (required in `packages/env/src/server.ts`) serves public avatar and editor media. Protected attachments and event photos use authenticated application routes.
+- **Legacy CDN**: `VITE_CDN_URL` identifies historical media references during migration. Current attachments, event photos, avatars, and editor media use authenticated application routes.
 - **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`.
 - **Retention**: `cleanup-notifications` pg-boss cron (daily 2 AM IST) deletes archived >90 days, read >180 days.
 - DO: Add new notification types in `packages/notifications/src/send/`.
@@ -419,20 +437,35 @@ Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. 
 
 ### File Upload Flow
 
-R2 subfolders: `attachments`, `avatars`, `photos`, `updates`.
+Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
+`scheduled-messages`. Dedicated avatar/editor signers use `avatars` and
+`updates`.
 
-1. Client calls `getPresignedUploadUrl` server function → gets signed S3 PUT URL
-2. Client uploads directly to R2 via presigned URL
-3. Object key stored in attachment record
-4. Download via `routes/api/attachments/download.ts` endpoint
+1. Client calls a surface-specific signer. Protected attachment, approval,
+   photo, and scheduled-message uploads receive a current-user temp key.
+2. Client uploads directly to R2 through the signed PUT URL.
+3. The owning Zero mutator validates and copies a protected temp object to a
+   parent-scoped durable key before committing the database row.
+4. The durable row stores an exact object key or canonical authenticated media
+   URL; a raw key is never authorization.
+5. Temp-source and replaced-object deletion are queued after commit.
+6. Reads use `routes/api/attachments/download.ts`,
+   `routes/api/media/event-photo.$id.ts`,
+   `routes/api/media/avatar.$userId.ts`, or
+   `routes/api/media/event-update.ts`.
 
-Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` (ownership-scoped to `avatars/{userId}/`).
+Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` and
+are scoped to `avatars/{userId}/`. Event editor uploads use
+`getEventEditorUploadUrl` and require update permission or team-lead
+access. Run `r2:migrate-media-urls` in dry-run mode, repair all reported
+malformed rows, apply the backfill, and confirm a zero-change/zero-malformed
+dry-run before disabling public R2/CDN access.
 
 ### Notification Flow
 
 1. Zero mutator performs data change (e.g., approve reimbursement)
 2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
-3. `routes/api/zero/mutate.ts` awaits async tasks after mutation completes
+3. `routes/api/zero/mutate.ts` awaits `beforeCommitTasks` inside the transaction, then starts `asyncTasks` as logged fire-and-forget work after commit
 4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via nodemailer
 5. Client-side inbox synced in real-time via Zero
 

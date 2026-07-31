@@ -3,8 +3,14 @@ import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import "../context";
+import type { Context } from "../context";
 import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
+import {
+  claimUploadedR2ObjectKey,
+  createR2ClaimOptions,
+  enqueueDeleteR2Object,
+} from "./submission-helpers";
 
 async function markRecipientFailed(recipientRowId: string, error: unknown) {
   const { db } = await import("@pi-dash/db");
@@ -33,6 +39,34 @@ const attachmentSchema = z.object({
   mimeType: z.string(),
   r2Key: z.string(),
 });
+
+type ScheduledMessageAttachment = z.infer<typeof attachmentSchema>;
+
+const scheduledMessageAttachmentKeyPrefixes = (messageId: string) => [
+  `scheduled-messages/${messageId}/`,
+  "scheduled-messages/scheduled-message-draft/",
+];
+
+function claimScheduledMessageAttachments(
+  attachments: readonly ScheduledMessageAttachment[] | undefined,
+  messageId: string,
+  ctx: Context,
+  txLocation: string,
+  existingObjectKeys?: ReadonlySet<string>
+): ScheduledMessageAttachment[] | undefined {
+  return attachments?.map((attachment) => ({
+    ...attachment,
+    r2Key: claimUploadedR2ObjectKey(
+      attachment.r2Key,
+      createR2ClaimOptions(ctx, txLocation, {
+        durablePrefix: messageId,
+        existingObjectKeys,
+        mimeType: attachment.mimeType,
+        subfolder: "scheduled-messages",
+      })
+    ),
+  }));
+}
 
 export const scheduledMessageMutators = {
   cancel: defineMutator(
@@ -82,8 +116,14 @@ export const scheduledMessageMutators = {
       assertHasPermission(ctx, "messages.schedule");
 
       const now = Date.now();
+      const attachments = claimScheduledMessageAttachments(
+        args.attachments,
+        args.id,
+        ctx,
+        tx.location
+      );
       await tx.mutate.scheduledMessage.insert({
-        attachments: args.attachments,
+        attachments,
         createdAt: now,
         createdBy: ctx.userId,
         id: args.id,
@@ -116,7 +156,6 @@ export const scheduledMessageMutators = {
         const enqueuedAt = now;
         const scheduledMessageId = args.id;
         const { message } = args;
-        const { attachments } = args;
         const { scheduledAt } = args;
 
         for (const row of recipientRows) {
@@ -149,7 +188,7 @@ export const scheduledMessageMutators = {
                 await enqueue(
                   "send-scheduled-whatsapp",
                   {
-                    attachments: attachments ?? undefined,
+                    attachments,
                     enqueuedAt,
                     message,
                     recipientRowId: row.id,
@@ -194,6 +233,16 @@ export const scheduledMessageMutators = {
       );
       if (recipients.some((r) => r.status === "pending")) {
         throw new Error("Cancel before deleting");
+      }
+
+      for (const attachment of existing.attachments ?? []) {
+        enqueueDeleteR2Object(ctx, tx.location, attachment.r2Key, {
+          keyPrefixes: scheduledMessageAttachmentKeyPrefixes(args.id),
+          meta: {
+            mutator: "scheduledMessage.delete",
+            scheduledMessageId: args.id,
+          },
+        });
       }
 
       // CASCADE will delete recipient rows
@@ -327,6 +376,30 @@ export const scheduledMessageMutators = {
       }
 
       const now = Date.now();
+      const existingObjectKeys = new Set(
+        (existing.attachments ?? []).map((attachment) => attachment.r2Key)
+      );
+      const attachments = claimScheduledMessageAttachments(
+        args.attachments,
+        args.id,
+        ctx,
+        tx.location,
+        existingObjectKeys
+      );
+      const retainedObjectKeys = new Set(
+        (attachments ?? []).map((attachment) => attachment.r2Key)
+      );
+      for (const attachment of existing.attachments ?? []) {
+        if (!retainedObjectKeys.has(attachment.r2Key)) {
+          enqueueDeleteR2Object(ctx, tx.location, attachment.r2Key, {
+            keyPrefixes: scheduledMessageAttachmentKeyPrefixes(args.id),
+            meta: {
+              mutator: "scheduledMessage.update",
+              scheduledMessageId: args.id,
+            },
+          });
+        }
+      }
 
       // Delete old recipient rows
       await Promise.all(
@@ -336,7 +409,7 @@ export const scheduledMessageMutators = {
       );
 
       await tx.mutate.scheduledMessage.update({
-        attachments: args.attachments,
+        attachments,
         id: args.id,
         message: args.message,
         scheduledAt: args.scheduledAt,
@@ -368,7 +441,6 @@ export const scheduledMessageMutators = {
         const enqueuedAt = now;
         const scheduledMessageId = args.id;
         const { message } = args;
-        const { attachments } = args;
         const { scheduledAt } = args;
 
         for (const row of recipientRows) {
@@ -401,7 +473,7 @@ export const scheduledMessageMutators = {
                 await enqueue(
                   "send-scheduled-whatsapp",
                   {
-                    attachments: attachments ?? undefined,
+                    attachments,
                     enqueuedAt,
                     message,
                     recipientRowId: row.id,

@@ -191,9 +191,7 @@ export function VendorPaymentInvoiceSection({
       mutation: "vendorPayment.approveInvoice",
       successMsg: "Invoice approved",
     });
-    if (res.type !== "error") {
-      setInvoiceApproveOpen(false);
-    }
+    return res.type !== "error";
   });
 
   const handleRejectInvoice = useEventCallback(async (reason: string) => {

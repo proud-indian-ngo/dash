@@ -7,6 +7,7 @@
  *
  * Seeded tables:
  *   user, account (auto-created by auth.api.createUser), notificationTopicPreference,
+ *   auditLog,
  *   role, permission, rolePermission (via syncPermissions),
  *   appConfig, whatsappGroup,
  *   team, teamMember, teamEvent, teamEventMember, eventRsvpPoll, eventRsvpVote,
@@ -31,6 +32,7 @@ import {
   advancePaymentLineItem,
 } from "@pi-dash/db/schema/advance-payment";
 import { appConfig } from "@pi-dash/db/schema/app-config";
+import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
 import {
@@ -121,6 +123,10 @@ function hashPollOption(option: string): string {
   return createHash("sha256").update(option).digest("hex");
 }
 
+function plateTextContent(text: string): string {
+  return JSON.stringify([{ children: [{ text }], type: "p" }]);
+}
+
 // ── Deterministic IDs ────────────────────────────────────────────────────────
 
 const ID = {
@@ -132,6 +138,7 @@ const ID = {
   advH03: "019d52c2-7261-7dce-b0ee-e24ccaf3bcb2",
   advLi01: "019d52c2-7261-7dce-b0ee-e247832746fc",
   advLi02: "019d52c2-7261-7dce-b0ee-e248ba3fa109",
+  audit01: "019d52c2-7261-7dce-b0ee-e20000000001",
   // Bank accounts
   ba01: "019d52c2-7261-7dce-b0ee-e22c3629534f",
   ba02: "019d52c2-7261-7dce-b0ee-e22de4d2f683",
@@ -398,6 +405,27 @@ async function seedUsers(): Promise<Map<string, string>> {
 
   log(`${userMap.size} users ready`);
   return userMap;
+}
+
+async function seedAuditLog(userMap: Map<string, string>): Promise<void> {
+  log("Seeding audit log...");
+  const actorUserId = getUser(userMap, "admin@pi-dash.dev");
+  await db
+    .insert(auditLog)
+    .values({
+      action: "seed.completed",
+      actorName: "Dev Admin",
+      actorRole: "super_admin",
+      actorUserId,
+      attemptedAt: now,
+      completedAt: now,
+      id: ID.audit01,
+      metadata: { source: "development_seed" },
+      outcome: "success",
+      targetType: "system",
+    })
+    .onConflictDoNothing();
+  log("1 audit entry ready");
 }
 
 // ── 2. Expense Categories ────────────────────────────────────────────────────
@@ -1198,8 +1226,9 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(eventFeedback)
     .values({
-      content:
-        "Great session! The kids were very engaged. Could use more art supplies next time.",
+      content: plateTextContent(
+        "Great session! The kids were very engaged. Could use more art supplies next time."
+      ),
       createdAt: past(5),
       eventId: ID.evTeaching,
       id: ID.efTeaching,
@@ -1299,8 +1328,9 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(eventUpdate)
     .values({
-      content:
-        "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets.",
+      content: plateTextContent(
+        "Meeting minutes: discussed Q2 goals, budget allocation, and volunteer recruitment targets."
+      ),
       createdAt: past(13),
       createdBy: adminId,
       eventId: ID.evPlanning,
@@ -1314,8 +1344,9 @@ async function seedEventExtras(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(eventUpdate)
     .values({
-      content:
-        "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM.",
+      content: plateTextContent(
+        "Reminder: please bring water bottles and sunscreen. We'll meet at the park entrance at 8 AM."
+      ),
       createdAt: past(1),
       createdBy: adminId,
       eventId: ID.evOutreach,
@@ -2238,6 +2269,7 @@ async function main(): Promise<void> {
   log("Permissions synced");
 
   const userMap = await seedUsers();
+  await seedAuditLog(userMap);
   await seedCategories();
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();

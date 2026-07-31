@@ -1,3 +1,9 @@
+import { env } from "@pi-dash/env/web";
+import {
+  buildAvatarMediaUrl,
+  parseAvatarMediaKey,
+} from "@pi-dash/shared/media-url";
+
 type AvatarGender = null | string | undefined;
 
 const normalizeGender = (
@@ -16,8 +22,20 @@ const normalizeGender = (
 export const resolveAvatarSrc = (user: {
   email?: null | string;
   gender?: AvatarGender;
+  id?: string;
   image?: null | string;
-}): string | undefined => user.image || buildAvatarUrl(user.email, user.gender);
+}): string | undefined => {
+  if (user.image && user.id) {
+    const key = parseAvatarMediaKey(user.image, {
+      legacyCdnUrl: env.VITE_CDN_URL,
+      userId: user.id,
+    });
+    if (key) {
+      return buildAvatarMediaUrl(user.id, key);
+    }
+  }
+  return user.image || buildAvatarUrl(user.email, user.gender);
+};
 
 export const buildAvatarUrl = (
   email?: null | string,

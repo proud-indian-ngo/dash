@@ -220,7 +220,6 @@ function ReimbursementFormInner({
               bankAccountsStatus={bankAccountsStatus}
               categoryList={categoryList}
               disableBankAccountSelection={disableBankAccountSelection}
-              entityId={entityId}
               eventOptions={filteredOptions}
               form={form}
               isEdit={isEdit}

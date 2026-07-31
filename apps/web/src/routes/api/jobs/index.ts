@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type SQL, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
+import { classifyAuditResponse, runSessionAuditedAction } from "@/lib/audit";
 
 export const Route = createFileRoute("/api/jobs/")({
   server: {
@@ -120,12 +121,6 @@ export const Route = createFileRoute("/api/jobs/")({
           return error;
         }
 
-        try {
-          await assertServerPermission(session, "jobs.manage");
-        } catch {
-          return Response.json({ error: "Forbidden" }, { status: 403 });
-        }
-
         let body: {
           queue: string;
           data: object;
@@ -151,27 +146,45 @@ export const Route = createFileRoute("/api/jobs/")({
           );
         }
 
-        try {
-          const jobId = await enqueue(
-            body.queue as JobName,
-            body.data as never,
-            body.options
-          );
+        return await runSessionAuditedAction(
+          session,
+          request.headers,
+          {
+            action: "job.create",
+            metadata: { queue: body.queue },
+            target: { type: "job" },
+          },
+          async () => {
+            try {
+              await assertServerPermission(session, "jobs.manage");
+            } catch {
+              return Response.json({ error: "Forbidden" }, { status: 403 });
+            }
 
-          return Response.json({ id: jobId }, { status: 201 });
-        } catch (err) {
-          const log = createRequestLogger({
-            method: "POST",
-            path: "/api/jobs",
-          });
-          log.set({ queue: body.queue, userId: session.user.id });
-          log.error(err instanceof Error ? err : String(err));
-          log.emit();
-          return Response.json(
-            { error: "Failed to create job" },
-            { status: 500 }
-          );
-        }
+            try {
+              const jobId = await enqueue(
+                body.queue as JobName,
+                body.data as never,
+                body.options
+              );
+
+              return Response.json({ id: jobId }, { status: 201 });
+            } catch (err) {
+              const log = createRequestLogger({
+                method: "POST",
+                path: "/api/jobs",
+              });
+              log.set({ queue: body.queue, userId: session.user.id });
+              log.error(err instanceof Error ? err : String(err));
+              log.emit();
+              return Response.json(
+                { error: "Failed to create job" },
+                { status: 500 }
+              );
+            }
+          },
+          classifyAuditResponse
+        );
       },
     },
   },
