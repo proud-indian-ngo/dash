@@ -3,6 +3,13 @@ import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
+vi.mock("@/lib/server/kalakriti-registration-export", () => ({
+  getKalakritiRegistrationExport: vi.fn(),
+}));
+vi.mock("@/lib/server/kalakriti-registration-scope", () => ({
+  resolveKalakritiRegistrationScope: vi.fn(),
+}));
 
 import { buildKalakritiRegistrationCsvArchive } from "@/lib/kalakriti-registration-export";
 import {
