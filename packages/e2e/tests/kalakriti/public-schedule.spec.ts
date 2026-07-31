@@ -145,7 +145,7 @@ test.describe("Kalakriti public schedule", () => {
       expect(
         (await request.get(`/api/kalakriti/${draftYear}/schedule`)).status()
       ).toBe(404);
-      expect((await request.get("/api/kalakriti/2189/schedule")).status()).toBe(
+      expect((await request.get("/api/kalakriti/2200/schedule")).status()).toBe(
         404
       );
 
@@ -178,6 +178,7 @@ test.describe("Kalakriti public schedule", () => {
         Object.keys((await archivedSchedule.json()).edition).sort()
       ).toEqual(["eventDate", "eventId", "name", "timezone", "year"]);
     } finally {
+      await page.goto("about:blank");
       await fixture("cleanup");
     }
   });

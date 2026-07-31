@@ -160,6 +160,7 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
       page.getByRole("button", { name: "Open registration" })
     ).toBeDisabled();
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup");
   }
 });

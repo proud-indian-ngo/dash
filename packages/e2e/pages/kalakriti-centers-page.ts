@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { waitForZeroReady } from "../fixtures/test";
 
 export class KalakritiCentersPage {
   private readonly page: Page;
@@ -8,17 +9,45 @@ export class KalakritiCentersPage {
   }
 
   center(name: string): Locator {
-    return this.page.getByLabel(`${name} Center`);
+    return this.page
+      .getByRole("row")
+      .filter({ has: this.page.getByText(name, { exact: true }) });
+  }
+
+  async openDetails(name: string): Promise<Locator> {
+    await this.openRowAction(name, "View details");
+    const main = this.page.locator("#main");
+    await expect(
+      main.getByRole("heading", { exact: true, name })
+    ).toBeVisible();
+    return main;
+  }
+
+  async openRowAction(name: string, action: string): Promise<void> {
+    await this.center(name)
+      .getByRole("button", { name: `Actions for ${name}` })
+      .click();
+    await this.page
+      .getByRole("menuitem", { exact: true, name: action })
+      .click();
+  }
+
+  studentRegistration(name: string): Locator {
+    return this.center(name).getByRole("cell").nth(2);
+  }
+
+  participationRegistration(name: string): Locator {
+    return this.center(name).getByRole("cell").nth(3);
   }
 
   async goto(year: number) {
-    await this.page.goto(`/kalakriti/${year}/centers`);
-    await expect(
-      this.page.getByRole("heading", { name: `Kalakriti ${year}` })
-    ).toBeVisible();
-    await expect(
-      this.page.getByRole("heading", { name: "Centers" })
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(async () => {
+      await this.page.goto(`/kalakriti/${year}/centers`);
+      await waitForZeroReady(this.page, 10_000);
+      await expect(
+        this.page.getByRole("heading", { exact: true, name: "Centers" })
+      ).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 45_000 });
   }
 
   async addCenter(name: string) {
@@ -33,9 +62,7 @@ export class KalakritiCentersPage {
     name: string,
     options: { participation: boolean; students: boolean }
   ) {
-    await this.center(name)
-      .getByRole("button", { name: "Registration controls" })
-      .click();
+    await this.openRowAction(name, "Registration controls");
     const dialog = this.page.getByRole("dialog", {
       name: "Registration controls",
     });
@@ -61,31 +88,39 @@ export class KalakritiCentersPage {
   }
 
   async assignLiaison(centerName: string, volunteerName: string) {
-    const card = this.center(centerName);
-    const picker = card.getByPlaceholder("Search central volunteers...");
+    const detail = await this.openDetails(centerName);
+    const picker = detail.getByPlaceholder("Search central volunteers...");
     await picker.fill(volunteerName);
     await this.page
       .getByRole("option", { name: new RegExp(volunteerName) })
       .click();
-    await card.getByRole("button", { name: "Assign Liaison" }).click();
+    await detail.getByRole("button", { name: "Assign Liaison" }).click();
     await expect(
-      card
+      detail
         .getByRole("list", { name: "Liaisons" })
         .getByText(volunteerName, { exact: true })
+    ).toBeVisible();
+    await detail.getByRole("link", { name: "Back to Centers" }).click();
+    await expect(
+      this.page.getByRole("heading", { exact: true, name: "Centers" })
     ).toBeVisible();
   }
 
   async assignGuardian(centerName: string, guardianName: string) {
-    const card = this.center(centerName);
-    await card.getByRole("combobox", { name: "Guardian" }).click();
+    const detail = await this.openDetails(centerName);
+    await detail.getByRole("combobox", { name: "Guardian" }).click();
     await this.page
       .getByRole("option", { exact: true, name: guardianName })
       .click();
-    await card.getByRole("button", { name: "Assign Guardian" }).click();
+    await detail.getByRole("button", { name: "Assign Guardian" }).click();
     await expect(
-      card
+      detail
         .getByRole("list", { name: "Guardians" })
         .getByText(guardianName, { exact: true })
+    ).toBeVisible();
+    await detail.getByRole("link", { name: "Back to Centers" }).click();
+    await expect(
+      this.page.getByRole("heading", { exact: true, name: "Centers" })
     ).toBeVisible();
   }
 }

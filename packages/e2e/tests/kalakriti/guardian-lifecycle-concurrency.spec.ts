@@ -147,6 +147,7 @@ test("serializes concurrent Guardian reactivation and archival", async ({
       });
   } finally {
     await otherPage.close();
+    await page.goto("about:blank");
     await runRaceHelper("cleanup");
   }
 });
@@ -177,6 +178,7 @@ test("archives a Guardian membership after its central user is deleted", async (
       )
       .toEqual({ state: "archived", userId: null });
   } finally {
+    await page.goto("about:blank");
     await runRaceHelper("cleanup");
   }
 });

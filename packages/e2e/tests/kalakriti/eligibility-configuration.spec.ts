@@ -71,6 +71,7 @@ test("configures Age Categories with shared Center limits", async ({
       .click();
     await expect(eligibility.ageCategory("Junior")).toHaveCount(0);
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup");
   }
 });

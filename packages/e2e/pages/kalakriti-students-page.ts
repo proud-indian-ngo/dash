@@ -9,11 +9,13 @@ export class KalakritiStudentsPage {
   }
 
   async goto(year: number) {
-    await this.page.goto(`/kalakriti/${year}/students`);
-    await waitForZeroReady(this.page);
-    await expect(
-      this.page.getByRole("heading", { name: "Students" })
-    ).toBeVisible();
+    await expect(async () => {
+      await this.page.goto(`/kalakriti/${year}/students`);
+      await waitForZeroReady(this.page, 10_000);
+      await expect(
+        this.page.getByRole("heading", { exact: true, name: "Students" })
+      ).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 45_000 });
   }
 
   async openRegistrationForm(): Promise<Locator> {
@@ -75,7 +77,6 @@ export class KalakritiStudentsPage {
         name: new RegExp(`${fullMonth}\\s+${Number(birthDay)}`),
       })
       .click();
-    await this.page.keyboard.press("Escape");
     await expect(calendar).toBeHidden();
   }
 

@@ -65,14 +65,14 @@ test("manages independent Center registration and scoped Liaison access", async 
       participation: false,
       students: true,
     });
-    await expect(centers.center("Basavanagudi")).toContainText(
-      "Students: Open"
+    await expect(centers.studentRegistration("Basavanagudi")).toHaveText(
+      "Open"
     );
-    await expect(centers.center("Basavanagudi")).toContainText(
-      "Participation: Closed"
+    await expect(centers.participationRegistration("Basavanagudi")).toHaveText(
+      "Closed"
     );
-    await expect(centers.center("Indiranagar")).toContainText(
-      "Students: Closed"
+    await expect(centers.studentRegistration("Indiranagar")).toHaveText(
+      "Closed"
     );
 
     await centers.assignGuardian("Basavanagudi", guardianName);
@@ -120,8 +120,8 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Lock all Center registrations?" })
       .getByRole("button", { name: "Lock all registrations" })
       .click();
-    await expect(centers.center("Basavanagudi")).toContainText(
-      "Students: Closed"
+    await expect(centers.studentRegistration("Basavanagudi")).toHaveText(
+      "Closed"
     );
     await expect(
       page.getByRole("button", { name: "All registrations locked" })
@@ -131,14 +131,14 @@ test("manages independent Center registration and scoped Liaison access", async 
       participation: false,
       students: true,
     });
-    await expect(centers.center("Basavanagudi")).toContainText(
-      "Students: Open"
+    await expect(centers.studentRegistration("Basavanagudi")).toHaveText(
+      "Open"
     );
-    await expect(centers.center("Indiranagar")).toContainText(
-      "Students: Closed"
+    await expect(centers.studentRegistration("Indiranagar")).toHaveText(
+      "Closed"
     );
 
-    const assignedCenter = centers.center("Basavanagudi");
+    const assignedCenter = await centers.openDetails("Basavanagudi");
     await assignedCenter.getByRole("button", { name: "Retire" }).click();
     await page
       .getByRole("alertdialog", { name: "Retire Center?" })
@@ -166,17 +166,16 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Delete Center?" })
       .getByRole("button", { name: "Delete Center" })
       .click();
-    await expect(assignedCenter).toHaveCount(0);
+    await expect(centers.center("Basavanagudi")).toHaveCount(0);
 
     await centers.addCenter("Temporary Center");
-    const temporary = centers.center("Temporary Center");
-    await temporary.getByRole("button", { name: "Edit" }).click();
+    await centers.openRowAction("Temporary Center", "Edit");
     const editDialog = page.getByRole("dialog", { name: "Edit Center" });
     await editDialog
       .getByRole("textbox", { name: "Center name" })
       .fill("Retired Center");
     await editDialog.getByRole("button", { name: "Save Center" }).click();
-    const retired = centers.center("Retired Center");
+    const retired = await centers.openDetails("Retired Center");
     await retired.getByRole("button", { name: "Retire" }).click();
     await page
       .getByRole("alertdialog", { name: "Retire Center?" })
@@ -188,8 +187,9 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Delete Center?" })
       .getByRole("button", { name: "Delete Center" })
       .click();
-    await expect(retired).toHaveCount(0);
+    await expect(centers.center("Retired Center")).toHaveCount(0);
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup");
   }
 });

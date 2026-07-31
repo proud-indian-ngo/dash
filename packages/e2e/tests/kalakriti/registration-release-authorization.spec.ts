@@ -30,33 +30,39 @@ test.describe("Kalakriti Registration Release authorization", () => {
     const cases = [
       {
         actor: kalakritiActors.editionAdmin,
+        expectedHeading: `Kalakriti ${YEAR}`,
         expectedText: "Volunteer assignments",
         path: `/kalakriti/${YEAR}`,
       },
       {
         actor: kalakritiActors.volunteerCoordinator,
+        expectedHeading: `Kalakriti ${YEAR}`,
         expectedText: "Volunteer assignments",
         path: `/kalakriti/${YEAR}`,
       },
       {
         actor: kalakritiActors.overallEventsLead,
+        expectedHeading: "Competition Categories",
         expectedText: "Performing Arts",
-        path: `/kalakriti/${YEAR}/competitions`,
+        path: `/kalakriti/${YEAR}/competitions/categories`,
       },
       {
         actor: kalakritiActors.categoryLead,
+        expectedHeading: "Competition Categories",
         expectedText: "Performing Arts",
-        path: `/kalakriti/${YEAR}/competitions`,
+        path: `/kalakriti/${YEAR}/competitions/categories`,
       },
       {
         actor: kalakritiActors.guardian,
         excludedText: "Outside Student",
+        expectedHeading: "Students",
         expectedText: "Assigned Student",
         path: `/kalakriti/${YEAR}/students`,
       },
       {
         actor: kalakritiActors.liaison,
         excludedText: "Outside Student",
+        expectedHeading: "Students",
         expectedText: "Assigned Student",
         path: `/kalakriti/${YEAR}/students`,
       },
@@ -73,7 +79,10 @@ test.describe("Kalakriti Registration Release authorization", () => {
         await rolePage.goto(roleCase.path);
         await waitForZeroReady(rolePage);
         await expect(
-          rolePage.getByRole("heading", { name: `Kalakriti ${YEAR}` })
+          rolePage.getByRole("heading", {
+            exact: true,
+            name: roleCase.expectedHeading,
+          })
         ).toBeVisible();
         await expect(
           rolePage.getByText(roleCase.expectedText, { exact: true }).first()

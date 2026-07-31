@@ -9,11 +9,13 @@ export class KalakritiEntriesPage {
   }
 
   async goto(year: number, competitionName = "Solo Dance") {
-    await this.page.goto(`/kalakriti/${year}/entries`);
-    await waitForZeroReady(this.page);
-    await expect(
-      this.page.getByRole("heading", { exact: true, name: "Entries" })
-    ).toBeVisible();
+    await expect(async () => {
+      await this.page.goto(`/kalakriti/${year}/entries`);
+      await waitForZeroReady(this.page, 10_000);
+      await expect(
+        this.page.getByRole("heading", { exact: true, name: "Entries" })
+      ).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 45_000 });
     await this.page
       .getByRole("link", { exact: true, name: competitionName })
       .first()

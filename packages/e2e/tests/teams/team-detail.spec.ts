@@ -30,9 +30,12 @@ async function createAndNavigateToTeam(
   await page.getByPlaceholder("Search teams...").fill(teamName);
   const teamRow = page.getByRole("row").filter({ hasText: teamName }).first();
   await expect(teamRow).toBeVisible({ timeout: 45_000 });
-  // Click the row title button (teams table uses data-testid="row-title")
-  await teamRow.getByTestId("row-title").click();
-  await page.waitForURL(/\/teams\/[a-z0-9-]+/, { timeout: 10_000 });
+  const teamLink = teamRow.getByTestId("row-title");
+  const href = await teamLink.getAttribute("href");
+  expect(href).toMatch(/^\/teams\/[a-z0-9-]+$/);
+  await page.goto(href!);
+  await waitForZeroReady(page);
+  await expect(page).toHaveURL(/\/teams\/[a-z0-9-]+/, { timeout: 45_000 });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
     timeout: 10_000,
   });

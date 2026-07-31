@@ -172,6 +172,7 @@ test.describe("Kalakriti Student registration", () => {
         expect.arrayContaining(["created", "updated", "deleted"])
       );
     } finally {
+      await page.goto("about:blank");
       await fixture("cleanup");
     }
   });
@@ -216,6 +217,7 @@ test.describe("Kalakriti Student registration", () => {
       expect(state.nextStudentSequence).toBe(2);
     } finally {
       await secondPage.close();
+      await page.goto("about:blank");
       await fixture("cleanup");
     }
   });

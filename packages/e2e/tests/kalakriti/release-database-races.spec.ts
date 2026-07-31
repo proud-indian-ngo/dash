@@ -13,7 +13,7 @@ async function fixture<T>(action: "cleanup" | "run", actorEmail?: string) {
   const { stdout } = await execFileAsync(
     "bun",
     ["run", helperPath, action, ...(actorEmail ? [actorEmail] : [])],
-    { env: process.env }
+    { env: process.env, killSignal: "SIGKILL", timeout: 120_000 }
   );
   return JSON.parse(stdout.trim()) as T;
 }

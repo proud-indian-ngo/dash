@@ -53,6 +53,7 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
       membershipState: "archived",
     });
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup");
   }
 });

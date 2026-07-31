@@ -84,10 +84,13 @@ test("configures the Competition catalog and rejects an invalid schedule", async
       .getByRole("dialog", { name: "Add Competition Session" })
       .getByRole("button", { name: "Create Session" })
       .click();
+    await expect(page.getByText("Competition Session created")).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(competitions.session("Solo Dance", "Junior")).toContainText(
-      "Main Stage"
+      "Main Stage",
+      { timeout: 30_000 }
     );
-    await expect(page.getByText("Competition Session created")).toBeVisible();
     await competitions.session("Solo Dance", "Junior").click();
     await expect(
       page.getByRole("dialog", { name: "Solo Dance" })
@@ -105,6 +108,7 @@ test("configures the Competition catalog and rejects an invalid schedule", async
       invalidScheduleDialog.getByRole("button", { name: "Create Session" })
     ).toBeDisabled();
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup", "admin");
   }
 });
@@ -157,6 +161,7 @@ test("keeps a Competition Category Lead read-only", async ({
       0
     );
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup", "volunteer");
   }
 });

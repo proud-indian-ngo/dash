@@ -73,6 +73,7 @@ test("invites a new Guardian through the app and grants Edition login", async ({
       await guardianContext.close();
     }
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup");
   }
 });

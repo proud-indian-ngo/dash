@@ -101,6 +101,7 @@ test("creates and updates an Edition with its protected linked event", async ({
     });
     expect(state.editionId).not.toBe(state.teamEventId);
   } finally {
+    await page.goto("about:blank");
     await fixture("cleanup");
   }
 });

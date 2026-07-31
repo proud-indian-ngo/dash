@@ -14,7 +14,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { KalakritiRegistrationScope } from "../../../apps/web/src/lib/kalakriti-registration-scope-policy";
 import { getKalakritiRegistrationDashboardProjections } from "../../../apps/web/src/lib/server/kalakriti-registration-dashboard";
 import { getKalakritiRegistrationExport } from "../../../apps/web/src/lib/server/kalakriti-registration-export";
@@ -267,14 +267,20 @@ function successful(results: PromiseSettledResult<unknown>[]) {
 
 async function raceLiveEditions() {
   const results = await Promise.allSettled([
-    db
-      .update(kalakritiEdition)
-      .set({ lifecycle: "live", updatedAt: new Date() })
-      .where(eq(kalakritiEdition.id, IDS.editionA)),
-    db
-      .update(kalakritiEdition)
-      .set({ lifecycle: "live", updatedAt: new Date() })
-      .where(eq(kalakritiEdition.id, IDS.editionB)),
+    db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL lock_timeout = '10s'`);
+      return tx
+        .update(kalakritiEdition)
+        .set({ lifecycle: "live", updatedAt: new Date() })
+        .where(eq(kalakritiEdition.id, IDS.editionA));
+    }),
+    db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL lock_timeout = '10s'`);
+      return tx
+        .update(kalakritiEdition)
+        .set({ lifecycle: "live", updatedAt: new Date() })
+        .where(eq(kalakritiEdition.id, IDS.editionB));
+    }),
   ]);
   const live = await db
     .select({ id: kalakritiEdition.id })
@@ -301,7 +307,12 @@ async function raceMemberships(actorId: string) {
     userId: actorId,
   }));
   const results = await Promise.allSettled(
-    values.map((value) => db.insert(kalakritiEditionMembership).values(value))
+    values.map((value) =>
+      db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL lock_timeout = '10s'`);
+        return tx.insert(kalakritiEditionMembership).values(value);
+      })
+    )
   );
   const rows = await db
     .select({ id: kalakritiEditionMembership.id })
@@ -322,6 +333,7 @@ async function raceEntries(actorId: string) {
   const results = await Promise.allSettled(
     attempts.map(({ entryId, memberId }) =>
       db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL lock_timeout = '10s'`);
         await tx.insert(kalakritiCompetitionEntry).values({
           centerId: IDS.center,
           createdAt: now,
@@ -442,3 +454,4 @@ if (action === "cleanup") {
   throw new Error(`Unsupported release race action: ${action ?? ""}`);
 }
 process.stdout.write(`${JSON.stringify(output)}\n`);
+process.exit(0);

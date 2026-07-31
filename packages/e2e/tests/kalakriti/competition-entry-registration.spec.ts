@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
+import type { Locator } from "@playwright/test";
 import { expect, test } from "../../fixtures/test";
 import { KalakritiEntriesPage } from "../../pages/kalakriti-entries-page";
 
@@ -52,6 +53,24 @@ async function waitForEntryCount(
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`Timed out waiting for ${expected} Competition Entries`);
+}
+
+async function waitForSubmissionSettled(
+  dialog: Locator,
+  submitLabel: "Register Entries" | "Register Group"
+) {
+  await expect
+    .poll(async () => {
+      if (!(await dialog.isVisible())) {
+        return true;
+      }
+      return (
+        (await dialog
+          .getByRole("button", { exact: true, name: submitLabel })
+          .count()) === 1
+      );
+    })
+    .toBe(true);
 }
 
 test.describe("Kalakriti Competition Entry registration", () => {
@@ -107,6 +126,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
         expect.arrayContaining(["created", "deleted"])
       );
     } finally {
+      await page.goto("about:blank");
       await fixture("cleanup", "liaison");
     }
   });
@@ -213,6 +233,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
         expect.arrayContaining(["created", "updated", "deleted"])
       );
     } finally {
+      await page.goto("about:blank");
       await fixture("cleanup", "liaison");
     }
   });
@@ -253,11 +274,16 @@ test.describe("Kalakriti Competition Entry registration", () => {
         firstDialog.getByRole("button", { name: "Register Entries" }).click(),
         secondDialog.getByRole("button", { name: "Register Entries" }).click(),
       ]);
+      await Promise.all([
+        waitForSubmissionSettled(firstDialog, "Register Entries"),
+        waitForSubmissionSettled(secondDialog, "Register Entries"),
+      ]);
 
       const state = await waitForEntryCount("admin", 1);
       expect(state.entries).toHaveLength(1);
     } finally {
       await secondPage.close();
+      await page.goto("about:blank");
       await fixture("cleanup", "admin");
     }
   });
@@ -295,8 +321,12 @@ test.describe("Kalakriti Competition Entry registration", () => {
         secondEntriesPage.fillEntry(secondDialog, "Entry Student A"),
       ]);
       await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Entry" }).click(),
-        secondDialog.getByRole("button", { name: "Register Entry" }).click(),
+        firstDialog.getByRole("button", { name: "Register Entries" }).click(),
+        secondDialog.getByRole("button", { name: "Register Entries" }).click(),
+      ]);
+      await Promise.all([
+        waitForSubmissionSettled(firstDialog, "Register Entries"),
+        waitForSubmissionSettled(secondDialog, "Register Entries"),
       ]);
 
       const state = await waitForEntryCount("admin", 1);
@@ -304,6 +334,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
       expect(state.members).toHaveLength(1);
     } finally {
       await secondPage.close();
+      await page.goto("about:blank");
       await fixture("cleanup", "admin");
     }
   });
@@ -350,11 +381,16 @@ test.describe("Kalakriti Competition Entry registration", () => {
         firstDialog.getByRole("button", { name: "Register Group" }).click(),
         secondDialog.getByRole("button", { name: "Register Group" }).click(),
       ]);
+      await Promise.all([
+        waitForSubmissionSettled(firstDialog, "Register Group"),
+        waitForSubmissionSettled(secondDialog, "Register Group"),
+      ]);
 
       const state = await waitForEntryCount("admin", 1);
       expect(state.entries).toHaveLength(1);
     } finally {
       await secondPage.close();
+      await page.goto("about:blank");
       await fixture("cleanup", "admin");
     }
   });

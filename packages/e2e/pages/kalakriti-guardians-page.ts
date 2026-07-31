@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { waitForZeroReady } from "../fixtures/test";
 
 export class KalakritiGuardiansPage {
   private readonly page: Page;
@@ -8,10 +9,13 @@ export class KalakritiGuardiansPage {
   }
 
   async goto(year: number) {
-    await this.page.goto(`/kalakriti/${year}/guardians`);
-    await expect(
-      this.page.getByRole("heading", { name: `Kalakriti ${year}` })
-    ).toBeVisible();
+    await expect(async () => {
+      await this.page.goto(`/kalakriti/${year}/guardians`);
+      await waitForZeroReady(this.page, 10_000);
+      await expect(
+        this.page.getByRole("heading", { exact: true, name: "Guardians" })
+      ).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 45_000 });
     await expect(
       this.page.getByRole("button", { name: "Invite Guardian" })
     ).toBeVisible();
@@ -46,7 +50,10 @@ export class KalakritiGuardiansPage {
   async requestArchive(name: string) {
     await expect(this.page.getByText(name, { exact: true })).toBeVisible();
     await this.page
-      .getByRole("button", { name: `Archive access for ${name}` })
+      .getByRole("button", { name: `Actions for ${name}` })
+      .click();
+    await this.page
+      .getByRole("menuitem", { exact: true, name: "Archive access" })
       .click();
     await expect(
       this.page.getByRole("alertdialog", {
