@@ -30,7 +30,7 @@ const saveBlob = (blob: Blob, filename: string): void => {
 };
 
 const defaultDependencies: FinancialExportDownloadDependencies = {
-  fetch,
+  fetch: (input, init) => globalThis.fetch(input, init),
   now: () => new Date(),
   saveBlob,
 };
