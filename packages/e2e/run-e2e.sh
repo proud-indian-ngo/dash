@@ -72,7 +72,7 @@ services:
       POSTGRES_DB: pi-dash-test
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}
-    command: postgres -c wal_level=logical
+    command: postgres -c wal_level=logical -c max_connections=300
     ports:
       - "${TEST_DB_HOST_PORT}:5432"
     volumes:
