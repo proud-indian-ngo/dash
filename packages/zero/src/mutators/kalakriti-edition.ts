@@ -280,26 +280,21 @@ export const kalakritiEditionMutators = {
       if (target?.lifecycle !== "draft") {
         throw new Error("Target Edition must be a draft");
       }
-      const [
-        targetAgeCategories,
-        targetCategories,
-        targetCompetitions,
-        targetVenues,
-      ] = await Promise.all([
-        tx.run(
-          zql.kalakritiAgeCategory.where("editionId", args.targetEditionId)
-        ),
-        tx.run(
-          zql.kalakritiCompetitionCategory.where(
-            "editionId",
-            args.targetEditionId
-          )
-        ),
-        tx.run(
-          zql.kalakritiCompetition.where("editionId", args.targetEditionId)
-        ),
-        tx.run(zql.kalakritiVenue.where("editionId", args.targetEditionId)),
-      ]);
+      const targetAgeCategories = await tx.run(
+        zql.kalakritiAgeCategory.where("editionId", args.targetEditionId)
+      );
+      const targetCategories = await tx.run(
+        zql.kalakritiCompetitionCategory.where(
+          "editionId",
+          args.targetEditionId
+        )
+      );
+      const targetCompetitions = await tx.run(
+        zql.kalakritiCompetition.where("editionId", args.targetEditionId)
+      );
+      const targetVenues = await tx.run(
+        zql.kalakritiVenue.where("editionId", args.targetEditionId)
+      );
       if (
         [
           targetAgeCategories,
@@ -311,24 +306,23 @@ export const kalakritiEditionMutators = {
         throw new Error("Target Edition must have no structural configuration");
       }
 
-      const [ageCategories, categories, competitions, venues] =
-        await Promise.all([
-          tx.run(
-            zql.kalakritiAgeCategory.where("editionId", args.sourceEditionId)
-          ),
-          tx.run(
-            zql.kalakritiCompetitionCategory.where(
-              "editionId",
-              args.sourceEditionId
-            )
-          ),
-          tx.run(
-            zql.kalakritiCompetition
-              .where("editionId", args.sourceEditionId)
-              .related("divisions")
-          ),
-          tx.run(zql.kalakritiVenue.where("editionId", args.sourceEditionId)),
-        ]);
+      const ageCategories = await tx.run(
+        zql.kalakritiAgeCategory.where("editionId", args.sourceEditionId)
+      );
+      const categories = await tx.run(
+        zql.kalakritiCompetitionCategory.where(
+          "editionId",
+          args.sourceEditionId
+        )
+      );
+      const competitions = await tx.run(
+        zql.kalakritiCompetition
+          .where("editionId", args.sourceEditionId)
+          .related("divisions")
+      );
+      const venues = await tx.run(
+        zql.kalakritiVenue.where("editionId", args.sourceEditionId)
+      );
       assertExactMaps(
         args.ageCategoryIds,
         ageCategories.map((row) => row.id),
@@ -393,100 +387,91 @@ export const kalakritiEditionMutators = {
       const venueMap = new Map(
         args.venueIds.map((map) => [map.sourceId, map.targetId])
       );
-      await Promise.all(
-        ageCategories.map((row) =>
-          (tx as EditionTx).mutate.kalakritiAgeCategory.insert({
-            createdAt: args.now,
-            createdBy: ctx.userId,
-            editionId: args.targetEditionId,
-            femaleStudentLimit: row.femaleStudentLimit,
-            id: getMappedId(ageMap, row.id, "Age Category"),
-            maleStudentLimit: row.maleStudentLimit,
-            maxCompetitionsPerCategory: row.maxCompetitionsPerCategory,
-            maximumAge: row.maximumAge,
-            maxTotalCompetitions: row.maxTotalCompetitions,
-            minimumAge: row.minimumAge,
-            name: row.name,
-            normalizedName: row.normalizedName,
-            sortOrder: row.sortOrder,
-            updatedAt: args.now,
-          })
-        )
-      );
-      await Promise.all(
-        activeCategories.map((row) =>
-          (tx as EditionTx).mutate.kalakritiCompetitionCategory.insert({
-            createdAt: args.now,
-            createdBy: ctx.userId,
-            editionId: args.targetEditionId,
-            id: getMappedId(categoryMap, row.id, "Competition Category"),
-            name: row.name,
-            normalizedName: row.normalizedName,
-            retiredAt: null,
-            sortOrder: row.sortOrder,
-            updatedAt: args.now,
-          })
-        )
-      );
-      await Promise.all(
-        activeCompetitions.map((row) =>
-          (tx as EditionTx).mutate.kalakritiCompetition.insert({
-            cancelledAt: null,
-            competitionCategoryId: getMappedId(
-              categoryMap,
-              row.competitionCategoryId,
-              "Competition Category"
-            ),
-            createdAt: args.now,
-            createdBy: ctx.userId,
-            editionId: args.targetEditionId,
-            genderEligibility: row.genderEligibility,
-            id: getMappedId(competitionMap, row.id, "Competition"),
-            maximumGroupSize: row.maximumGroupSize,
-            minimumGroupSize: row.minimumGroupSize,
-            name: row.name,
-            normalizedName: row.normalizedName,
-            participationMode: row.participationMode,
-            retiredAt: null,
-            updatedAt: args.now,
-          })
-        )
-      );
-      await Promise.all(
-        activeDivisions.map((row) =>
-          (tx as EditionTx).mutate.kalakritiCompetitionDivision.insert({
-            ageCategoryId: getMappedId(
-              ageMap,
-              row.ageCategoryId,
-              "Age Category"
-            ),
-            competitionId: getMappedId(
-              competitionMap,
-              row.competitionId,
-              "Competition"
-            ),
-            createdAt: args.now,
-            createdBy: ctx.userId,
-            editionId: args.targetEditionId,
-            id: getMappedId(divisionMap, row.id, "Competition Division"),
-            updatedAt: args.now,
-          })
-        )
-      );
-      await Promise.all(
-        activeVenues.map((row) =>
-          (tx as EditionTx).mutate.kalakritiVenue.insert({
-            createdAt: args.now,
-            createdBy: ctx.userId,
-            editionId: args.targetEditionId,
-            id: getMappedId(venueMap, row.id, "Venue"),
-            name: row.name,
-            normalizedName: row.normalizedName,
-            retiredAt: null,
-            updatedAt: args.now,
-          })
-        )
-      );
+      for (const row of ageCategories) {
+        // biome-ignore lint/performance/noAwaitInLoops: transaction operations share one Bun SQL connection
+        await (tx as EditionTx).mutate.kalakritiAgeCategory.insert({
+          createdAt: args.now,
+          createdBy: ctx.userId,
+          editionId: args.targetEditionId,
+          femaleStudentLimit: row.femaleStudentLimit,
+          id: getMappedId(ageMap, row.id, "Age Category"),
+          maleStudentLimit: row.maleStudentLimit,
+          maxCompetitionsPerCategory: row.maxCompetitionsPerCategory,
+          maximumAge: row.maximumAge,
+          maxTotalCompetitions: row.maxTotalCompetitions,
+          minimumAge: row.minimumAge,
+          name: row.name,
+          normalizedName: row.normalizedName,
+          sortOrder: row.sortOrder,
+          updatedAt: args.now,
+        });
+      }
+      for (const row of activeCategories) {
+        // biome-ignore lint/performance/noAwaitInLoops: transaction operations share one Bun SQL connection
+        await (tx as EditionTx).mutate.kalakritiCompetitionCategory.insert({
+          createdAt: args.now,
+          createdBy: ctx.userId,
+          editionId: args.targetEditionId,
+          id: getMappedId(categoryMap, row.id, "Competition Category"),
+          name: row.name,
+          normalizedName: row.normalizedName,
+          retiredAt: null,
+          sortOrder: row.sortOrder,
+          updatedAt: args.now,
+        });
+      }
+      for (const row of activeCompetitions) {
+        // biome-ignore lint/performance/noAwaitInLoops: transaction operations share one Bun SQL connection
+        await (tx as EditionTx).mutate.kalakritiCompetition.insert({
+          cancelledAt: null,
+          competitionCategoryId: getMappedId(
+            categoryMap,
+            row.competitionCategoryId,
+            "Competition Category"
+          ),
+          createdAt: args.now,
+          createdBy: ctx.userId,
+          editionId: args.targetEditionId,
+          genderEligibility: row.genderEligibility,
+          id: getMappedId(competitionMap, row.id, "Competition"),
+          maximumGroupSize: row.maximumGroupSize,
+          minimumGroupSize: row.minimumGroupSize,
+          name: row.name,
+          normalizedName: row.normalizedName,
+          participationMode: row.participationMode,
+          retiredAt: null,
+          updatedAt: args.now,
+        });
+      }
+      for (const row of activeDivisions) {
+        // biome-ignore lint/performance/noAwaitInLoops: transaction operations share one Bun SQL connection
+        await (tx as EditionTx).mutate.kalakritiCompetitionDivision.insert({
+          ageCategoryId: getMappedId(ageMap, row.ageCategoryId, "Age Category"),
+          competitionId: getMappedId(
+            competitionMap,
+            row.competitionId,
+            "Competition"
+          ),
+          createdAt: args.now,
+          createdBy: ctx.userId,
+          editionId: args.targetEditionId,
+          id: getMappedId(divisionMap, row.id, "Competition Division"),
+          updatedAt: args.now,
+        });
+      }
+      for (const row of activeVenues) {
+        // biome-ignore lint/performance/noAwaitInLoops: transaction operations share one Bun SQL connection
+        await (tx as EditionTx).mutate.kalakritiVenue.insert({
+          createdAt: args.now,
+          createdBy: ctx.userId,
+          editionId: args.targetEditionId,
+          id: getMappedId(venueMap, row.id, "Venue"),
+          name: row.name,
+          normalizedName: row.normalizedName,
+          retiredAt: null,
+          updatedAt: args.now,
+        });
+      }
       await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
         action: "configuration_cloned",
         actorUserId: ctx.userId,
