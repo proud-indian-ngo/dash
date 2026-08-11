@@ -17,6 +17,7 @@ import { getFieldErrorState, useResolvedForm } from "./form-context";
 interface CustomFieldProps<TValue = unknown> {
   children: (field: FormFieldApi<TValue>) => ReactNode;
   className?: string;
+  controlId?: string;
   description?: ReactNode;
   form?: FormInstance;
   hideLabel?: boolean;
@@ -30,6 +31,7 @@ interface CustomFieldProps<TValue = unknown> {
 export function CustomField<TValue = unknown>({
   children,
   className,
+  controlId,
   description,
   form,
   hideLabel = false,
@@ -59,7 +61,7 @@ export function CustomField<TValue = unknown>({
           >
             <FieldLabel
               className={cn(hideLabel && "sr-only")}
-              htmlFor={typedField.name}
+              htmlFor={controlId ?? typedField.name}
             >
               {label}
               {isRequired ? (

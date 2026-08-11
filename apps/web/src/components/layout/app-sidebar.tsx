@@ -5,14 +5,144 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@pi-dash/design-system/components/ui/sidebar";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
+import { useLocation } from "@tanstack/react-router";
 import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
+import { KALAKRITI_GENDER_ELIGIBILITY_LABELS } from "@/lib/kalakriti-competition-labels";
+import {
+  buildKalakritiNavGroups,
+  shouldUseKalakritiNav,
+} from "@/lib/nav-items";
 import { NavMainGrouped } from "./nav-main";
 
+const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
+
+function getEntrySessions(
+  sessions: readonly {
+    ageCategory?: { name: string };
+    competition?: {
+      genderEligibility: "both" | "female" | "male";
+      id: string;
+      name: string;
+    };
+    id: string;
+  }[]
+): { id: string; title: string }[] {
+  return sessions.flatMap((session) =>
+    session.competition && session.ageCategory
+      ? [
+          {
+            id: session.id,
+            title: [
+              session.competition.name,
+              session.ageCategory.name,
+              KALAKRITI_GENDER_ELIGIBILITY_LABELS[
+                session.competition.genderEligibility
+              ],
+            ].join(" · "),
+          },
+        ]
+      : []
+  );
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { navGroups } = useApp();
+  const { hasPermission, navGroups, user } = useApp();
+  const { pathname } = useLocation();
+  const canViewKalakriti = hasPermission("kalakriti.view");
+  const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
+    enabled: canViewKalakriti,
+  });
+  const showKalakriti = hasPermission("kalakriti.admin") || editions.length > 0;
+  const routeYear = pathname.match(KALAKRITI_YEAR_PATH)?.[1];
+  const activeEdition =
+    editions.find((edition) => edition.year === Number(routeYear)) ??
+    editions[0];
+  const [membership] = useQuery(
+    queries.kalakritiAssignment.myAccess({
+      editionId: activeEdition?.id ?? "",
+    }),
+    { enabled: canViewKalakriti && Boolean(activeEdition) }
+  );
+  const [centers] = useQuery(
+    queries.kalakritiCenter.visible({
+      editionId: activeEdition?.id ?? "",
+    }),
+    { enabled: canViewKalakriti && Boolean(activeEdition) }
+  );
+  const canManageEdition =
+    hasPermission("kalakriti.admin") ||
+    membership?.assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    ) === true;
+  const canViewCompetitions =
+    hasPermission("kalakriti.admin") ||
+    (activeEdition?.lifecycle !== "archived" &&
+      membership?.assignments.some((assignment) =>
+        [
+          "edition_admin",
+          "overall_events_lead",
+          "competition_category_lead",
+        ].includes(assignment.responsibility)
+      ) === true);
+  const canViewStudents =
+    hasPermission("kalakriti.admin") ||
+    membership?.kind === "guardian" ||
+    membership?.assignments.some((assignment) =>
+      ["edition_admin", "liaison"].includes(assignment.responsibility)
+    ) === true;
+  const canViewEntries = canViewStudents;
+  const canViewAudit =
+    hasPermission("kalakriti.admin") ||
+    (activeEdition?.lifecycle !== "archived" &&
+      membership?.assignments.some(
+        (assignment) =>
+          assignment.responsibility === "edition_admin" ||
+          assignment.responsibility === "overall_events_lead" ||
+          assignment.responsibility === "volunteer_coordinator" ||
+          (assignment.responsibility === "competition_category_lead" &&
+            Boolean(assignment.competitionCategoryId))
+      ) === true);
+  const [entrySessions] = useQuery(
+    queries.kalakritiEntry.availableSessionsByCenter({
+      centerId: centers[0]?.id ?? "",
+      editionId: activeEdition?.id ?? "",
+    }),
+    {
+      enabled:
+        canViewKalakriti &&
+        canViewEntries &&
+        Boolean(activeEdition) &&
+        centers.length > 0,
+    }
+  );
+  const entrySessionItems = getEntrySessions(entrySessions);
+  let visibleNavGroups = buildKalakritiNavGroups({
+    canManageEligibility: canManageEdition,
+    canManageGuardians: canManageEdition,
+    canViewAudit,
+    canViewCompetitions,
+    canViewEntries,
+    canViewStudents,
+    centers,
+    entrySessions: entrySessionItems,
+    year: activeEdition?.year,
+  });
+
+  if (!shouldUseKalakritiNav(pathname, user.role)) {
+    visibleNavGroups = navGroups;
+
+    if (!showKalakriti) {
+      visibleNavGroups = navGroups.flatMap((group) => {
+        const items = group.items.filter((item) => item.title !== "Kalakriti");
+        return items.length > 0 ? [{ ...group, items }] : [];
+      });
+    }
+  }
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -20,7 +150,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMainGrouped groups={navGroups} />
+        <NavMainGrouped groups={visibleNavGroups} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

@@ -355,8 +355,85 @@
     {
       "idx": 50,
       "version": "7",
-      "when": 1784273677701,
-      "tag": "0050_needy_silver_fox",
+      "when": 1784295703233,
+      "tag": "0050_thick_eddie_brock",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1784299919051,
+      "tag": "0051_numerous_shadowcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1784311762428,
+      "tag": "0052_silent_puppet_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1784318285561,
+      "tag": "0053_rapid_blacklash",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1784324707879,
+      "tag": "0054_faithful_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785322532286,
+      "tag": "0055_reflective_shen",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785327266876,
+      "tag": "0056_goofy_tomorrow_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1785338293699,
+      "tag": "0057_redundant_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1785348740302,
+      "tag": "0058_crazy_starjammers",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1785416730272,
+      "tag": "0059_crazy_jazinda",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785422702048,
+      "tag": "0060_little_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785486365911,
+      "tag": "0061_jittery_random",
       "breakpoints": true
     }
   ]

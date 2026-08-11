@@ -383,6 +383,36 @@ export interface NotifyUserDeactivatedPayload {
 export interface NotifyUserReactivatedPayload {
   userId: string;
 }
+export interface NotifyKalakritiGuardianAccessPayload {
+  editionName: string;
+  membershipId: string;
+  reusedIdentity: boolean;
+  userId: string;
+  year: number;
+}
+
+export interface NotifyKalakritiRegistrationPayload {
+  editionId: string;
+  transitionId: string;
+}
+
+export interface RemindKalakritiRegistrationClosePayload {
+  editionId: string;
+  plannedRegistrationCloseAt: number;
+}
+
+export interface NotifyKalakritiScheduleChangedPayload {
+  centerIds: string[];
+  competitionIds: string[];
+  editionId: string;
+  revision: string;
+}
+
+export interface NotifyKalakritiGuardianReactivatedPayload {
+  editionId: string;
+  membershipId: string;
+  userId: string;
+}
 
 // User Sync
 export interface SyncWhatsAppStatusPayload {
@@ -528,6 +558,11 @@ export interface JobPayloads {
   "notify-event-update-rejected": NotifyEventUpdateRejectedPayload;
   "notify-event-updated": NotifyEventUpdatedPayload;
   "notify-event-volunteer-left": NotifyEventVolunteerLeftPayload;
+  "notify-kalakriti-guardian-access": NotifyKalakritiGuardianAccessPayload;
+  "notify-kalakriti-guardian-reactivated": NotifyKalakritiGuardianReactivatedPayload;
+  "notify-kalakriti-registration-closed": NotifyKalakritiRegistrationPayload;
+  "notify-kalakriti-registration-open": NotifyKalakritiRegistrationPayload;
+  "notify-kalakriti-schedule-changed": NotifyKalakritiScheduleChangedPayload;
   "notify-password-reset": NotifyPasswordResetPayload;
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;
@@ -563,6 +598,7 @@ export interface JobPayloads {
   "process-event-reminders": ProcessEventRemindersPayload;
   "process-post-event-reminders": ProcessPostEventRemindersPayload;
   "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
+  "remind-kalakriti-registration-close": RemindKalakritiRegistrationClosePayload;
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;

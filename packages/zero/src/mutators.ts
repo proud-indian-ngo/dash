@@ -8,6 +8,13 @@ import { eventInterestMutators } from "./mutators/event-interest";
 import { eventPhotoMutators } from "./mutators/event-photo";
 import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
+import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
+import { kalakritiCenterMutators } from "./mutators/kalakriti-center";
+import { kalakritiCompetitionMutators } from "./mutators/kalakriti-competition";
+import { kalakritiEditionMutators } from "./mutators/kalakriti-edition";
+import { kalakritiEligibilityMutators } from "./mutators/kalakriti-eligibility";
+import { kalakritiEntryMutators } from "./mutators/kalakriti-entry";
+import { kalakritiStudentMutators } from "./mutators/kalakriti-student";
 import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
 import { reimbursementMutators } from "./mutators/reimbursement";
@@ -29,6 +36,13 @@ export const mutators = defineMutators({
   eventPhoto: eventPhotoMutators,
   eventUpdate: eventUpdateMutators,
   expenseCategory: expenseCategoryMutators,
+  kalakritiAssignment: kalakritiAssignmentMutators,
+  kalakritiCenter: kalakritiCenterMutators,
+  kalakritiCompetition: kalakritiCompetitionMutators,
+  kalakritiEdition: kalakritiEditionMutators,
+  kalakritiEligibility: kalakritiEligibilityMutators,
+  kalakritiEntry: kalakritiEntryMutators,
+  kalakritiStudent: kalakritiStudentMutators,
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,
   reimbursement: reimbursementMutators,

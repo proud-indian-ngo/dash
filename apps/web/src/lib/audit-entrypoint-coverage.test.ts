@@ -20,6 +20,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  "archiveKalakritiGuardian",
   "exportCsvData",
   "exportVendorPaymentsCsv",
   "getEventEditorUploadUrl",
@@ -27,6 +28,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getProfilePictureUploadUrl",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
+  "inviteKalakritiGuardian",
 ];
 
 const CLASSIFIED_API_POST_FILES = [

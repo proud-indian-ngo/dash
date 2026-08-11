@@ -17,6 +17,12 @@ export function can(ctx: Context, permission: PermissionId): boolean {
   return ctx._permissionSet.has(permission);
 }
 
+export function isExternalUser(
+  ctx: Pick<Context, "role"> | null | undefined
+): boolean {
+  return ctx?.role === "external_user";
+}
+
 /** Assert the user is logged in AND has a specific permission. */
 export function assertHasPermission(
   ctx: Context | undefined,

@@ -25,6 +25,7 @@ Chapters intentionally sharded so loading stays cheap.
 | Env & Secrets | `env-and-secrets.md` | `packages/env`, `.env`, `.env.worktree`, `BETTER_AUTH_SECRET`, `createEnv`, worktree port auto-detect, `SKIP_VALIDATION`, `VITE_E2E` |
 | Caching & Rate Limit | `caching.md` | `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, `checkRateLimit`, 429 response, HMR-reset cache, `Retry-After` |
 | E2E Testing | `e2e-testing.md` | `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, `shard-by-duration`, `run-e2e.sh`, duration reporter |
+| Kalakriti Registration | `kalakriti-registration.md` | Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competitions, Students, Entries, lifecycle, public schedule, dashboards, audit, scoped exports |
 
 ## Load Rules
 

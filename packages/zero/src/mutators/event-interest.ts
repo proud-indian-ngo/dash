@@ -32,7 +32,6 @@ export const eventInterestMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)
@@ -126,7 +125,6 @@ export const eventInterestMutators = {
       if (interest.status !== "pending") {
         throw new Error("Only pending interests can be cancelled");
       }
-
       await tx.mutate.eventInterest.delete({ id: args.id });
     }
   ),
@@ -264,7 +262,6 @@ export const eventInterestMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
-
       const isTeamLead = !!(await tx.run(
         zql.teamMember
           .where("teamId", event.teamId)

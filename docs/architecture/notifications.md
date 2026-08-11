@@ -38,8 +38,13 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 3. Three parallel promises:
    - **Inbox**: `insertNotification()` to `notification` table (idempotent via unique `idempotencyKey`).
    - **Email**: `sendNotificationEmail()` via nodemailer with `List-Unsubscribe` header.
-   - **WhatsApp**: `sendWhatsAppMessage()` via GoWA gateway (unchanged).
+   - **WhatsApp**: `sendWhatsAppMessage()` via the GoWA gateway with a deterministic `Idempotency-Key` request header.
 4. Return `SendMessageResult` with per-channel success status.
+
+`TOPIC_CATALOG` owns each topic's supported-channel allowlist. Both preference
+editors and the preference mutators enforce that contract, and domain senders
+consume the same lookup. Kalakriti registration and schedule messages use inbox
+and WhatsApp while still honoring each recipient's topic preferences.
 
 ### In-App Inbox
 
@@ -61,11 +66,14 @@ GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks 
 
 Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (inbox + email + WhatsApp) in `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: all channels enabled (no row = enabled).
 
+Kalakriti has separate Registration and Schedule topics so Guardians and
+assigned volunteers can control those streams independently.
+
 **Storage model**: DB is sole source of truth. Preferences checked at send-time for all channels. No external sync needed.
 
 **UI**: Users manage prefs via settings (`NotificationsSection`). Admins edit any user (`UserNotificationsForm`). Both use Zero queries/mutators — no server fns.
 
-**Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled (server-side guard).
+**Mutators**: `notificationPreference.upsert` (self), `notificationPreference.adminUpsert` (admin, `users.edit` required). Required topics cannot be disabled, and unsupported topic/channel pairs are rejected server-side.
 
 ## WhatsApp Gateway (GoWA)
 
@@ -81,6 +89,13 @@ Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggl
 3. `isWhatsAppTopicEnabled(userId, topicId)` — local DB pref.
 
 Any false → skip WhatsApp for that user.
+
+The notification layer derives a stable WhatsApp delivery key from the domain
+message key, recipient, and channel, then forwards it to the gateway as the
+bounded, ASCII-safe `Idempotency-Key` header. Inbox delivery is deduplicated
+locally. The upstream GoWA API does not currently guarantee atomic idempotency
+for text sends, so a retry after an ambiguous provider response remains
+at-least-once for WhatsApp.
 
 **Group ops**: `whatsapp-add-to-group`, `whatsapp-remove-from-group` jobs — idempotent, retry-safe. Used by RSVP poll vote handler and team-membership mutations.
 

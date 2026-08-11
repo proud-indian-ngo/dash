@@ -8,6 +8,42 @@ interface WelcomeOptions {
   userId: string;
 }
 
+interface KalakritiGuardianAccessOptions {
+  editionName: string;
+  membershipId: string;
+  reusedIdentity: boolean;
+  userId: string;
+  year: number;
+}
+
+export async function notifyKalakritiGuardianAccess({
+  editionName,
+  membershipId,
+  reusedIdentity,
+  userId,
+  year,
+}: KalakritiGuardianAccessOptions): Promise<void> {
+  const path = `/kalakriti/${year}`;
+  const body = reusedIdentity
+    ? `Your Guardian access to ${editionName} is active. Your existing login credentials remain unchanged.`
+    : `Your Guardian access to ${editionName} is ready. Use the login credentials provided by your administrator.`;
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open Kalakriti",
+    ctaUrl: `${env.APP_URL}${path}`,
+    heading: `Guardian access for ${editionName}`,
+    paragraphs: [body],
+  });
+  await sendMessage({
+    body,
+    clickAction: path,
+    emailHtml,
+    idempotencyKey: `kalakriti-guardian-access-${membershipId}`,
+    title: `Guardian access for ${editionName}`,
+    to: userId,
+    topic: TOPICS.ACCOUNT,
+  });
+}
+
 interface RoleChangedOptions {
   newRole: string;
   userId: string;

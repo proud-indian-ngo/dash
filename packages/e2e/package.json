@@ -15,6 +15,7 @@
     "date-fns": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
+    "fflate": "catalog:",
     "uuidv7": "catalog:"
   },
   "devDependencies": {

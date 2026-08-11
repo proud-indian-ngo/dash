@@ -78,6 +78,25 @@ All paths are relative to project root.
 | `routes/_app/events/route.tsx` | Events layout |
 | `routes/_app/events/index.tsx` | Public events list |
 | `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
+| `routes/_app/kalakriti/route.tsx` | Kalakriti layout (`kalakriti.view` permission guard) |
+| `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
+| `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped container and exact-year access guard |
+| `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
+| `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
+| `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
+| `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
+| `routes/_app/kalakriti/$year/competitions/route.tsx` | Competition workspace access guard; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
+| `routes/_app/kalakriti/$year/competitions/index.tsx` | Category, Competition, Venue, and Schedule summary |
+| `routes/_app/kalakriti/$year/competitions/categories.tsx` | Competition Category table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/catalog.tsx` | Competition table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/venues.tsx` | Venue table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/schedule.tsx` | Competition Session table and detail sheet |
+| `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
+| `routes/_app/kalakriti/$year/students.tsx` | Center-scoped Student registration, editing, and read-only lifecycle state |
+| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Center-scoped Session summary and per-Session individual and group Competition Entry registration with live eligibility, limit, overlap, and capacity validation |
+| `routes/_app/kalakriti/$year/audit.tsx` | Edition-wide administrator and assignment-scoped Lead audit trail with stable pagination |
+| `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
+| `routes/kalakriti/$year/schedule.tsx` | Public Competition schedule for open, locked, live, and archived Editions with signup, volunteer-interest, and Edition dashboard calls to action |
 | `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
 | `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
 | `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
@@ -106,6 +125,9 @@ All paths are relative to project root.
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
 | `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
+| `routes/api/kalakriti/$year/schedule.ts` | Public lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
+| `routes/api/kalakriti/$year/audit.ts` | Authenticated Edition/domain-scoped Kalakriti audit API with privacy-safe metadata |
+| `routes/api/kalakriti/$year/registration-export.ts` | Authenticated assignment-scoped Student and Competition Entry CSV archive download |
 | `routes/api/media/avatar.$userId.ts` | Authorized avatar signed redirect matched to the current persisted image |
 | `routes/api/media/event-update.ts` | Authorized event editor-media signed redirect matched to persisted Plate content |
 | `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
@@ -117,6 +139,11 @@ All paths are relative to project root.
 | `routes/api/attachments/download.ts` | Authorized attachment download proxy |
 
 All route paths above are prefixed with `apps/web/src/`.
+
+External Kalakriti accounts use the technical `external_user` role. They land
+on their active Edition, are excluded from central volunteer pickers and admin
+user management, and cannot query organization-wide Zero data. The linked
+pi-dash event remains read-only outside the Kalakriti module.
 
 ### Components
 
@@ -131,6 +158,7 @@ All route paths above are prefixed with `apps/web/src/`.
 | `components/shared/` | user-avatar, user-picker, confirm-dialog |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
+| `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu |
 | `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
@@ -198,6 +226,8 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/s3.ts` | S3/R2 client utilities |
 | `lib/rate-limit.ts` | Rate limiting helpers |
 | `lib/csv-export.ts` | CSV export utilities |
+| `lib/kalakriti-registration-export.ts` | Allowlisted Kalakriti registration CSV and ZIP archive generation |
+| `lib/kalakriti-registration-scope-policy.ts` | Canonical assignment-to-registration-scope policy for dashboards and exports |
 | `lib/client-logger.ts` | Client-side logging |
 
 All lib paths above are prefixed with `apps/web/src/`.
@@ -213,13 +243,13 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/shared/` | Client-safe constants and types shared across packages (e.g., `cityValues`, `attachmentTypeValues`, `historyActionValues`, `event-reminders` presets/formatting, `rrule-expand` series expansion) — no heavy dependencies |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback), `src/send-message.ts` (core send/bulk send), `src/inbox.ts` (DB insert), `src/email.ts` (nodemailer send), `src/topics.ts` (8 topics + `TOPIC_CATALOG`), `src/preferences.ts` (channel preference lookup), `src/helpers.ts` |
+| `packages/notifications/` | `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, Kalakriti registration, and Kalakriti schedule), `src/send-message.ts` (core send/bulk send), `src/inbox.ts` (DB insert), `src/email.ts` (nodemailer send), `src/topics.ts` (10 topics + `TOPIC_CATALOG`), `src/preferences.ts` (channel preference lookup), `src/helpers.ts` |
 | `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/handlers/r2.ts` (shared R2 S3 client), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory), `src/lib/` (shared utils: `reminder-sentinel.ts`, `materialize-occurrences.ts`, `rrule-expand.ts` re-export, `weekly-digest-utils.ts`). `send-scheduled-whatsapp` uses a dedicated dead letter queue (`dead-letter-scheduled-whatsapp`) to avoid hijacking the shared `dead-letter` queue. **Cron schedules**: `process-event-reminders` (every 15 min), `process-post-event-reminders` (hourly), `send-weekly-events-digest` (Monday 7 AM IST), plus existing schedules. **Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point (payload types + `enqueue()` only, no handler deps) used by mutators; `@pi-dash/jobs` (barrel) is for server-only code. |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/pdf/` | Server-side PDF generation using @react-pdf/renderer. First template: NGO cash voucher. `src/voucher.ts` (cash voucher PDF builder), `assets/` (logo, signature) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
-| `packages/zero/` | `src/queries/` (user, bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-photo, event-update, event-interest, event-feedback, app-config, whatsapp-group, scheduled-message), `src/mutators/` (bank-account, expense-category, reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, team, team-event, event-interest, event-photo, event-update, event-feedback, app-config, whatsapp-group, scheduled-message, submission-helpers), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion — exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs: auth, authorization, users, roles, reimbursements, teams, events, dashboard, sidebar, settings), `pages/` (Page Object Model: list-page, request-form-page, approval-detail-page, reimbursement-page), `fixtures/` (auth fixtures with console error monitoring), `helpers/` (seed scripts), `global-setup.ts`, `run-e2e.sh` |
+| `packages/zero/` | `src/queries/` (core dashboard domains plus Kalakriti Editions, Centers, eligibility, Competitions, Guardians, students, entries, assignments, schedules, and audit), `src/mutators/` (core dashboard domains plus Kalakriti Edition configuration, access assignments, registration, schedules, notifications, and audit-producing commands), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion, exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/e2e/` | `tests/` (feature specs including the Kalakriti registration and release gates), `pages/` (Page Object Models including Kalakriti Editions, Centers, Students, Competitions, and schedules), `fixtures/` (auth and multi-actor Kalakriti fixtures with console error monitoring), `helpers/` (idempotent seeds and DB-state probes), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
 
@@ -274,7 +304,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - Zero mutation successes insert their audit row in the mutation transaction. Zero denials and failures use a separate final insert because a thrown mutation rolls back its transaction.
 - Non-Zero actions insert `pending` before execution and finalize it once. Initial audit write failure blocks execution; finalization failure after an external effect leaves the row pending and returns an audit-finalization error.
 - Audit metadata is an explicit sanitized summary. Raw request values, errors, free text, contact and banking data, file contents, URLs, object keys, IP addresses, and user agents are not persisted.
-- Migration `0050_needy_silver_fox.sql` must be applied before deploying the application code. Recording begins at deployment; there is no historical backfill, retention cleanup, or product update/delete path for finalized rows.
+- Migration `0061_jittery_random.sql` must be applied before deploying the application code. Recording begins at deployment; there is no historical backfill, retention cleanup, or product update/delete path for finalized rows.
 
 ## Notifications
 
@@ -306,18 +336,18 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `reimbursements/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
 - **Running tests**: `cd packages/e2e && bash run-e2e.sh` — spins up a test DB (port 5433), seeds data, starts zero-cache, runs Playwright, then cleans up. Pass test file paths as args for targeted runs (e.g., `bash run-e2e.sh tests/reimbursements/reimbursement-delete.spec.ts`).
 - **Timeout**: Global timeout is 45s. Use `test.slow()` (triples to 135s) for multi-step CRUD tests.
-- **Projects**: Three Playwright projects — `admin` (authenticated as admin), `volunteer` (authenticated as volunteer), `unauthenticated` (no auth, for login/forgot-password tests).
-- **Auth state**: Global setup (`packages/e2e/global-setup.ts`) logs in both test users and saves storage state to `packages/e2e/.auth/`. Feature tests reuse these sessions.
-- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for custom fixtures (`adminEmail`, `volunteerEmail`, `consoleErrors`). The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests.
-- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. Use `RequestPage` for request feature tests — it composes `ListPage`, `RequestFormPage`, and `ApprovalDetailPage`, parameterized by type (`"reimbursement"` or `"advance_payment"`). New feature test suites should follow this pattern.
+- **Projects**: Setup plus seven browser projects — `super_admin`, `admin`, `finance_admin`, `volunteer`, `unoriented_volunteer`, `unauthenticated`, and the one-worker `kalakriti_release_invariants` project for public schedule privacy and singleton live-Edition races.
+- **Auth state**: Global setup (`packages/e2e/global-setup.ts`) signs in the standard users and the active Kalakriti role actors, then saves their storage states to `packages/e2e/.auth/`. Feature tests reuse these sessions; the deliberately dormant external actor has no saved session.
+- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `consoleErrors` fixture auto-captures uncaught browser errors as test annotations (visible in the Playwright HTML report). Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
+- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via direct API calls to `/api/zero/mutate`.
 - **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
-- **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates test users, expense categories, and bank accounts for E2E tests.
+- **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
 - **Env**: Test credentials live in `packages/e2e/.env.test`. Do not commit real credentials.
 - DO: Add E2E tests for new major features covering the happy path and key error states.
 - DO: Place tests in the appropriate feature subdirectory under `packages/e2e/tests/`.
-- DO: Use page objects from `packages/e2e/pages/` for reimbursement, advance-payment, and user tests.
+- DO: Use page objects from `packages/e2e/pages/` for multi-step user flows.
 - DO: Test both admin and volunteer perspectives when the feature is role-gated.
 - DO NOT: Write E2E tests for trivial UI changes or refactors.
 - DO NOT: Place API authorization tests in `tests/auth/` — use `tests/authorization/` to avoid the volunteer project's `testIgnore: /auth\//` filter.

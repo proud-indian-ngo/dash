@@ -41,6 +41,16 @@ vi.mock("@pi-dash/env/server", () => ({
   env: { APP_NAME: "test", APP_URL: "http://test" },
 }));
 
+import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
+import {
+  getEnabledUserPhonesForTopic,
+  isWhatsAppTopicEnabled,
+} from "@pi-dash/whatsapp/preferences";
+import { getUserPhone } from "@pi-dash/whatsapp/users";
+import { sendNotificationEmail } from "./email";
+import { insertNotification } from "./inbox";
+import { isNotificationsDisabled } from "./kill-switch";
+import { getChannelPreferences } from "./preferences";
 import { captureSends, sendBulkMessage, sendMessage } from "./send-message";
 import { TOPICS } from "./topics";
 
@@ -115,5 +125,137 @@ describe("captureSends", () => {
     });
     expect(outer).toHaveLength(1);
     expect(outer[0]?.kind === "message" && outer[0].result.to).toBe("outer");
+  });
+});
+
+describe("sendMessage channel allowlist", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isNotificationsDisabled).mockResolvedValue(false);
+    vi.mocked(getChannelPreferences).mockResolvedValue({
+      emailEnabled: true,
+      inboxEnabled: true,
+      whatsappEnabled: true,
+    });
+  });
+
+  it("sends only allowed channels", async () => {
+    const result = await sendMessage({
+      ...baseMessage,
+      channels: ["inbox"],
+    });
+
+    expect(result.channels).toEqual({
+      emailQueued: false,
+      inboxQueued: true,
+      whatsapp: false,
+    });
+    expect(insertNotification).toHaveBeenCalledOnce();
+    expect(sendNotificationEmail).not.toHaveBeenCalled();
+  });
+
+  it("reuses the same inbox key when a delivery is retried", async () => {
+    await sendMessage({ ...baseMessage, channels: ["inbox"] });
+    await sendMessage({ ...baseMessage, channels: ["inbox"] });
+
+    expect(insertNotification).toHaveBeenCalledTimes(2);
+    expect(
+      vi.mocked(insertNotification).mock.calls[0]?.[0].idempotencyKey
+    ).toBe("k-inbox");
+    expect(
+      vi.mocked(insertNotification).mock.calls[1]?.[0].idempotencyKey
+    ).toBe("k-inbox");
+  });
+
+  it("honors preferences for allowed channels", async () => {
+    vi.mocked(getChannelPreferences).mockResolvedValue({
+      emailEnabled: true,
+      inboxEnabled: false,
+      whatsappEnabled: true,
+    });
+
+    const result = await sendMessage({
+      ...baseMessage,
+      channels: ["inbox"],
+    });
+
+    expect(result.channels.inboxQueued).toBe(false);
+    expect(insertNotification).not.toHaveBeenCalled();
+  });
+
+  it("honors the WhatsApp topic preference for an allowed channel", async () => {
+    vi.mocked(getUserPhone).mockResolvedValue("919999999999");
+    vi.mocked(isWhatsAppTopicEnabled).mockResolvedValue(false);
+
+    const result = await sendMessage({
+      ...baseMessage,
+      channels: ["whatsapp"],
+    });
+
+    expect(result.channels.whatsapp).toBe(false);
+    expect(sendWhatsAppMessage).not.toHaveBeenCalled();
+  });
+
+  it("keeps WhatsApp retry keys stable and separates recipients", async () => {
+    vi.mocked(getUserPhone).mockResolvedValue("919999999999");
+    vi.mocked(isWhatsAppTopicEnabled).mockResolvedValue(true);
+
+    await sendMessage({ ...baseMessage, channels: ["whatsapp"] });
+    await sendMessage({ ...baseMessage, channels: ["whatsapp"] });
+    await sendMessage({
+      ...baseMessage,
+      channels: ["whatsapp"],
+      to: "user-2",
+    });
+
+    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[0]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp-user-1",
+    });
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[1]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp-user-1",
+    });
+    expect(vi.mocked(sendWhatsAppMessage).mock.calls[2]?.[2]).toEqual({
+      idempotencyKey: "k-whatsapp-user-2",
+    });
+  });
+});
+
+describe("sendBulkMessage WhatsApp delivery keys", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isNotificationsDisabled).mockResolvedValue(false);
+    vi.mocked(getEnabledUserPhonesForTopic).mockResolvedValue(
+      new Map([
+        ["user-1", "911111111111"],
+        ["user-2", "922222222222"],
+      ])
+    );
+  });
+
+  it("keeps recipient-specific keys stable across retries", async () => {
+    const message = {
+      body: "b",
+      idempotencyKey: "k",
+      title: "t",
+      topic: TOPICS.ACCOUNT,
+      userIds: ["user-1", "user-2"],
+    };
+
+    const first = await sendBulkMessage(message);
+    const second = await sendBulkMessage(message);
+
+    expect(first.channels.whatsappRecipients).toBe(2);
+    expect(second.channels.whatsappRecipients).toBe(2);
+    expect(
+      vi
+        .mocked(sendWhatsAppMessage)
+        .mock.calls.map(([phone, , options]) => [phone, options])
+    ).toEqual([
+      ["911111111111", { idempotencyKey: "k-whatsapp-user-1" }],
+      ["922222222222", { idempotencyKey: "k-whatsapp-user-2" }],
+      ["911111111111", { idempotencyKey: "k-whatsapp-user-1" }],
+      ["922222222222", { idempotencyKey: "k-whatsapp-user-2" }],
+    ]);
   });
 });

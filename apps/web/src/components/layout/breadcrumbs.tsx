@@ -6,56 +6,67 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@pi-dash/design-system/components/ui/breadcrumb";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Fragment } from "react";
-import type { NavItem } from "@/components/layout/nav-main";
 import { useApp } from "@/context/app-context";
-
-function buildNavItemsMap(items: NavItem[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const item of items) {
-    map[item.url] = item.title;
-    if (item.subItems) {
-      Object.assign(map, buildNavItemsMap(item.subItems));
-    }
-  }
-  return map;
-}
-
-function resolveTitle(
-  navItemsMap: Record<string, string>,
-  path: string
-): string | undefined {
-  if (navItemsMap[path]) {
-    return navItemsMap[path];
-  }
-  // Replace last segment with $id for dynamic route matching
-  const segments = path.split("/");
-  segments[segments.length - 1] = "$id";
-  const patternPath = segments.join("/");
-  return navItemsMap[patternPath];
-}
+import {
+  buildBreadcrumbs,
+  getKalakritiCenterRoute,
+  getKalakritiEntrySessionRoute,
+} from "@/lib/breadcrumbs";
 
 export function Breadcrumbs() {
-  const { navItems } = useApp();
-  const navItemsMap = buildNavItemsMap(navItems);
-  const { pathname } = useLocation();
-  const pathnames = pathname.split("/").slice(1);
-
-  const breadcrumbItems =
-    pathname === "/"
-      ? []
-      : pathnames.reduce<{ path: string; title: string }[]>(
-          (acc, _segment, index) => {
-            const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
-            const title = resolveTitle(navItemsMap, currentPath);
-            if (title) {
-              acc.push({ path: currentPath, title });
-            }
-            return acc;
-          },
-          []
-        );
+  const { hasPermission, navItems } = useApp();
+  const { pathname, searchStr } = useLocation();
+  const centerRoute = getKalakritiCenterRoute(pathname);
+  const entrySessionRoute = getKalakritiEntrySessionRoute(pathname);
+  const routeYear = (centerRoute ?? entrySessionRoute)?.year;
+  const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
+    enabled: hasPermission("kalakriti.view") && routeYear !== undefined,
+  });
+  const edition = editions.find((candidate) => candidate.year === routeYear);
+  const [centers] = useQuery(
+    queries.kalakritiCenter.visible({ editionId: edition?.id ?? "" }),
+    {
+      enabled:
+        (centerRoute !== undefined || entrySessionRoute !== undefined) &&
+        Boolean(edition),
+    }
+  );
+  const centerName = centers.find(
+    (center) => center.id === centerRoute?.centerId
+  )?.name;
+  const requestedCenterId = new URLSearchParams(searchStr).get("center");
+  const entryCenterId = centers.some(
+    (center) => center.id === requestedCenterId
+  )
+    ? requestedCenterId
+    : centers[0]?.id;
+  const [sessions] = useQuery(
+    queries.kalakritiEntry.availableSessionsByCenter({
+      centerId: entryCenterId ?? "",
+      editionId: edition?.id ?? "",
+    }),
+    {
+      enabled:
+        entrySessionRoute !== undefined &&
+        Boolean(edition) &&
+        Boolean(entryCenterId),
+    }
+  );
+  const breadcrumbSession = sessions.find(
+    (session) => session.id === entrySessionRoute?.sessionId
+  );
+  const sessionTitle =
+    breadcrumbSession?.competition && breadcrumbSession.ageCategory
+      ? `${breadcrumbSession.competition.name} · ${breadcrumbSession.ageCategory.name}`
+      : undefined;
+  const breadcrumbItems = buildBreadcrumbs(navItems, pathname, {
+    centerName,
+    sessionTitle,
+  });
 
   return (
     <Breadcrumb>

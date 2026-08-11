@@ -7,6 +7,7 @@ import {
 } from "../permissions";
 import type { EventImmichAlbum, EventPhoto, TeamEvent } from "../schema";
 import { zql } from "../schema";
+import { assertEventRowNotManagedByKalakriti } from "./kalakriti-event-guard";
 import { enqueueDeleteR2Object } from "./submission-helpers";
 
 const MUTATOR_NAME = "eventImmichAlbum.deleteAlbum";
@@ -30,6 +31,7 @@ export const eventImmichAlbumMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember

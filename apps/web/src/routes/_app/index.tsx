@@ -19,7 +19,7 @@ import {
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQueryStates } from "nuqs";
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { MyTeams } from "@/components/dashboard/my-teams";
@@ -38,11 +38,13 @@ import { formatINR } from "@/lib/form-schemas";
 import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
 
+// biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
 export const Route = createFileRoute("/_app/")({
-  component: DashboardHome,
-  head: () => ({
-    meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],
-  }),
+  beforeLoad: ({ context }) => {
+    if (context.session.user.role === "external_user") {
+      throw redirect({ to: "/kalakriti" });
+    }
+  },
   loader: ({ context }) => {
     context.zero?.preload(queries.reimbursement.all());
     context.zero?.preload(queries.advancePayment.all());
@@ -53,6 +55,10 @@ export const Route = createFileRoute("/_app/")({
     context.zero?.preload(queries.vendorPayment.all());
     context.zero?.preload(queries.eventInterest.byCurrentUser());
   },
+  head: () => ({
+    meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],
+  }),
+  component: DashboardHome,
 });
 
 interface DashboardStatsInput {

@@ -1,5 +1,7 @@
 import { strToU8, zipSync } from "fflate";
 
+const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
 export interface CsvFile {
   filename: string;
   headers: string[];
@@ -12,19 +14,12 @@ export interface DownloadArtifact {
 }
 
 function escapeCsvValue(raw: string): string {
-  // Prevent CSV injection: prefix formula-triggering characters with a tab
-  const firstChar = raw.charAt(0);
-  const value =
-    firstChar === "=" ||
-    firstChar === "+" ||
-    firstChar === "-" ||
-    firstChar === "@"
-      ? `\t${raw}`
-      : raw;
+  const value = CSV_FORMULA_PREFIX.test(raw) ? `'${raw}` : raw;
   if (
     value.includes(",") ||
     value.includes('"') ||
     value.includes("\n") ||
+    value.includes("\r") ||
     value.includes("\t")
   ) {
     return `"${value.replace(/"/g, '""')}"`;

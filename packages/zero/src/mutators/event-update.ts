@@ -9,6 +9,10 @@ import {
 } from "../permissions";
 import type { EventUpdate, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import {
+  assertEventNotManagedByKalakriti,
+  assertEventRowNotManagedByKalakriti,
+} from "./kalakriti-event-guard";
 
 export const eventUpdateMutators = {
   approve: defineMutator(
@@ -32,6 +36,7 @@ export const eventUpdateMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember
@@ -135,6 +140,7 @@ export const eventUpdateMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       if (event.startTime > args.now) {
         throw new Error("Cannot post updates before event starts");
@@ -266,6 +272,7 @@ export const eventUpdateMutators = {
       if (!existing) {
         throw new Error("Update not found");
       }
+      await assertEventNotManagedByKalakriti(tx, existing.eventId);
 
       // Allow author to delete their own pending or rejected updates
       const isOwnPendingOrRejected =
@@ -310,6 +317,7 @@ export const eventUpdateMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember
@@ -368,6 +376,13 @@ export const eventUpdateMutators = {
       if (!existing) {
         throw new Error("Update not found");
       }
+      const event = (await tx.run(
+        zql.teamEvent.where("id", existing.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      assertEventRowNotManagedByKalakriti(event);
 
       if (existing.status === "rejected") {
         throw new Error("Cannot edit a rejected update");
@@ -394,12 +409,6 @@ export const eventUpdateMutators = {
 
       let canAddImages = can(ctx, "event_updates.create");
       if (!canAddImages) {
-        const event = (await tx.run(
-          zql.teamEvent.where("id", existing.eventId).one()
-        )) as TeamEvent | undefined;
-        if (!event) {
-          throw new Error("Event not found");
-        }
         canAddImages = !!(await tx.run(
           zql.teamMember
             .where("teamId", event.teamId)

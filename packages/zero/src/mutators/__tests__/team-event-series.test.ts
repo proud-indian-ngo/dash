@@ -50,6 +50,7 @@ const SERIES_BASE = {
   inheritVolunteers: false,
   isPublic: false,
   location: "Office",
+  managementDomain: null,
   name: "Weekly Meeting",
   originalDate: null,
   postEventNudgesEnabled: true,

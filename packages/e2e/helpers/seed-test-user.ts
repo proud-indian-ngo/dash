@@ -31,6 +31,7 @@ import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
+import { seedKalakritiReleaseFixture } from "./kalakriti-release-fixture";
 
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../.env.test"),
@@ -1036,6 +1037,7 @@ async function seed(): Promise<void> {
     superAdminUserId,
     volunteerUserId
   );
+  await seedKalakritiReleaseFixture(superAdminUserId, teamId);
   await ensureZeroQueryAuthorizationFixtures(superAdminUserId, volunteerUserId);
   await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
   await ensureAuditLogEntry(superAdminUserId);

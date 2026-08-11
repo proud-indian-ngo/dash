@@ -3,6 +3,7 @@ export const NOTIFICATION_GROUP_ORDER = [
   "Requests",
   "Teams",
   "Events",
+  "Kalakriti",
 ];
 
 export function groupBy<T>(

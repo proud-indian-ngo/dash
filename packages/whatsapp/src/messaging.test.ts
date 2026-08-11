@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -19,7 +20,7 @@ vi.mock("./client", () => ({
   getWhatsAppHeaders: () => ({}),
 }));
 
-import { sendWhatsAppMedia } from "./messaging";
+import { sendWhatsAppMedia, sendWhatsAppMessage } from "./messaging";
 
 const signedUrl =
   "https://account.r2.cloudflarestorage.com/bucket/agenda.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=secret";
@@ -29,6 +30,29 @@ const loggedText = (): string =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("sendWhatsAppMessage", () => {
+  it("forwards a deterministic ASCII-safe delivery key to the gateway", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null));
+    vi.stubGlobal("fetch", fetch);
+    const deliveryKey = `kalakriti-नाम-${"x".repeat(500)}-whatsapp-user-1`;
+
+    await sendWhatsAppMessage("919999999999", "Hello", {
+      idempotencyKey: deliveryKey,
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://whatsapp.example.test/send/message",
+      expect.objectContaining({
+        headers: {
+          "Idempotency-Key": createHash("sha256")
+            .update(deliveryKey)
+            .digest("hex"),
+        },
+      })
+    );
+  });
 });
 
 describe("sendWhatsAppMedia", () => {

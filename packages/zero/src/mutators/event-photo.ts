@@ -8,6 +8,7 @@ import {
 } from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import { assertEventRowNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   claimUploadedR2ObjectKey,
   createR2ClaimOptions,
@@ -36,6 +37,7 @@ export const eventPhotoMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember
@@ -131,6 +133,7 @@ export const eventPhotoMutators = {
           if (!event) {
             return;
           }
+          assertEventRowNotManagedByKalakriti(event);
 
           const isTeamLead = !!(await tx.run(
             zql.teamMember
@@ -229,6 +232,7 @@ export const eventPhotoMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       // Allow uploader to delete their own pending photos
       const isOwnPending =
@@ -294,6 +298,7 @@ export const eventPhotoMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       const isTeamLead = !!(await tx.run(
         zql.teamMember
@@ -373,6 +378,7 @@ export const eventPhotoMutators = {
       if (!event) {
         throw new Error("Event not found");
       }
+      assertEventRowNotManagedByKalakriti(event);
 
       if (event.startTime > args.now) {
         throw new Error("Cannot upload photos before event starts");

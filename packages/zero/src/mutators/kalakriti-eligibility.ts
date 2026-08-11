@@ -1,0 +1,276 @@
+import {
+  findKalakritiAgeCategoryOverlap,
+  normalizeKalakritiAgeCategoryName,
+} from "@pi-dash/shared/kalakriti";
+import { defineMutator } from "@rocicorp/zero";
+import z from "zod";
+import type { Context } from "../context";
+import { assertIsLoggedIn } from "../permissions";
+import { zql } from "../schema";
+import {
+  assertCanManageKalakritiConfiguration,
+  assertKalakritiEditionStructurallyConfigurable,
+} from "./kalakriti-config-access";
+import {
+  getAgeCategoryForUpdate,
+  getEditionAgeCategoriesForUpdate,
+  getEditionForUpdate,
+  type LockableKalakritiTx,
+} from "./kalakriti-row-locks";
+import {
+  getAgeCategoryScheduleImpact,
+  pushKalakritiScheduleChangedTask,
+} from "./kalakriti-schedule-notification";
+
+abstract class BivariantZeroMutation {
+  abstract bivarianceHack(args: unknown): Promise<void>;
+}
+
+type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
+
+interface EligibilityTx extends LockableKalakritiTx {
+  mutate: {
+    kalakritiAgeCategory: {
+      delete: ZeroMutationFn;
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
+    };
+    kalakritiAuditEntry: { insert: ZeroMutationFn };
+  };
+}
+
+const ageCategoryValuesSchema = z
+  .object({
+    femaleStudentLimit: z.number().int().min(0),
+    maleStudentLimit: z.number().int().min(0),
+    maxCompetitionsPerCategory: z.number().int().min(1),
+    maximumAge: z.number().int().min(0).max(100),
+    maxTotalCompetitions: z.number().int().min(1),
+    minimumAge: z.number().int().min(0).max(100),
+    name: z.string().trim().min(2).max(120),
+    sortOrder: z.number().int().min(0),
+  })
+  .refine((value) => value.maximumAge >= value.minimumAge, {
+    message: "Maximum age must be at least the minimum age",
+  })
+  .refine(
+    (value) => value.maxCompetitionsPerCategory <= value.maxTotalCompetitions,
+    {
+      message: "Per-category Competition limit cannot exceed the total limit",
+    }
+  );
+
+export const kalakritiAgeCategoryCreateSchema = ageCategoryValuesSchema.extend({
+  ageCategoryId: z.string(),
+  auditEntryId: z.string(),
+  editionId: z.string(),
+  now: z.number(),
+});
+
+export const kalakritiAgeCategoryUpdateSchema = ageCategoryValuesSchema.extend({
+  ageCategoryId: z.string(),
+  auditEntryId: z.string(),
+  now: z.number(),
+});
+
+export const kalakritiEligibilityDeleteSchema = z.object({
+  auditEntryId: z.string(),
+  id: z.string(),
+  now: z.number(),
+});
+
+async function lockConfigurableEdition(
+  tx: EligibilityTx,
+  ctx: Context | undefined,
+  editionId: string
+) {
+  const edition = await getEditionForUpdate(tx, editionId);
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  await assertCanManageKalakritiConfiguration(tx, ctx, editionId);
+  assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
+  assertIsLoggedIn(ctx);
+  return edition;
+}
+
+function assertNoOverlap(
+  categories: readonly {
+    id: string;
+    maximumAge: number;
+    minimumAge: number;
+    name: string;
+  }[]
+): void {
+  const overlap = findKalakritiAgeCategoryOverlap(categories);
+  if (overlap) {
+    throw new Error(
+      `Age ranges overlap between ${overlap[0]} and ${overlap[1]}`
+    );
+  }
+}
+
+export const kalakritiEligibilityMutators = {
+  createAgeCategory: defineMutator(
+    kalakritiAgeCategoryCreateSchema,
+    async ({ tx, ctx, args }) => {
+      await lockConfigurableEdition(tx, ctx, args.editionId);
+      const categories = await getEditionAgeCategoriesForUpdate(
+        tx,
+        args.editionId
+      );
+      const normalized = normalizeKalakritiAgeCategoryName(args.name);
+      assertNoOverlap([
+        ...categories,
+        {
+          id: args.ageCategoryId,
+          maximumAge: args.maximumAge,
+          minimumAge: args.minimumAge,
+          name: normalized.name,
+        },
+      ]);
+
+      await tx.mutate.kalakritiAgeCategory.insert({
+        createdAt: args.now,
+        createdBy: ctx.userId,
+        editionId: args.editionId,
+        femaleStudentLimit: args.femaleStudentLimit,
+        id: args.ageCategoryId,
+        maleStudentLimit: args.maleStudentLimit,
+        maxCompetitionsPerCategory: args.maxCompetitionsPerCategory,
+        maximumAge: args.maximumAge,
+        maxTotalCompetitions: args.maxTotalCompetitions,
+        minimumAge: args.minimumAge,
+        name: normalized.name,
+        normalizedName: normalized.normalizedName,
+        sortOrder: args.sortOrder,
+        updatedAt: args.now,
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "created",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "age_category_configuration",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: {
+          femaleStudentLimit: args.femaleStudentLimit,
+          maleStudentLimit: args.maleStudentLimit,
+          maximumAge: args.maximumAge,
+          minimumAge: args.minimumAge,
+          name: normalized.name,
+        },
+        reason: null,
+        targetId: args.ageCategoryId,
+        targetType: "age_category",
+      });
+    }
+  ),
+
+  deleteAgeCategory: defineMutator(
+    kalakritiEligibilityDeleteSchema,
+    async ({ tx, ctx, args }) => {
+      const categorySnapshot = (await tx.run(
+        zql.kalakritiAgeCategory.where("id", args.id).one()
+      )) as { editionId: string } | undefined;
+      if (!categorySnapshot) {
+        throw new Error("Age Category not found");
+      }
+      await lockConfigurableEdition(tx, ctx, categorySnapshot.editionId);
+      const category = await getAgeCategoryForUpdate(tx, args.id);
+      if (!category || category.editionId !== categorySnapshot.editionId) {
+        throw new Error("Age Category not found");
+      }
+      await tx.mutate.kalakritiAgeCategory.delete({ id: category.id });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "deleted",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "age_category_configuration",
+        editionId: category.editionId,
+        id: args.auditEntryId,
+        metadata: { name: category.name },
+        reason: null,
+        targetId: category.id,
+        targetType: "age_category",
+      });
+    }
+  ),
+
+  updateAgeCategory: defineMutator(
+    kalakritiAgeCategoryUpdateSchema,
+    async ({ tx, ctx, args }) => {
+      const categorySnapshot = (await tx.run(
+        zql.kalakritiAgeCategory.where("id", args.ageCategoryId).one()
+      )) as { editionId: string } | undefined;
+      if (!categorySnapshot) {
+        throw new Error("Age Category not found");
+      }
+      const edition = await lockConfigurableEdition(
+        tx,
+        ctx,
+        categorySnapshot.editionId
+      );
+      const category = await getAgeCategoryForUpdate(tx, args.ageCategoryId);
+      if (!category || category.editionId !== categorySnapshot.editionId) {
+        throw new Error("Age Category not found");
+      }
+      const categories = await getEditionAgeCategoriesForUpdate(
+        tx,
+        category.editionId
+      );
+      const normalized = normalizeKalakritiAgeCategoryName(args.name);
+      const publicScheduleChanged =
+        normalized.name !== category.name ||
+        args.sortOrder !== category.sortOrder;
+      assertNoOverlap([
+        ...categories.filter((candidate) => candidate.id !== category.id),
+        {
+          id: category.id,
+          maximumAge: args.maximumAge,
+          minimumAge: args.minimumAge,
+          name: normalized.name,
+        },
+      ]);
+      await tx.mutate.kalakritiAgeCategory.update({
+        femaleStudentLimit: args.femaleStudentLimit,
+        id: category.id,
+        maleStudentLimit: args.maleStudentLimit,
+        maxCompetitionsPerCategory: args.maxCompetitionsPerCategory,
+        maximumAge: args.maximumAge,
+        maxTotalCompetitions: args.maxTotalCompetitions,
+        minimumAge: args.minimumAge,
+        name: normalized.name,
+        normalizedName: normalized.normalizedName,
+        sortOrder: args.sortOrder,
+        updatedAt: args.now,
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "updated",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "age_category_configuration",
+        editionId: category.editionId,
+        id: args.auditEntryId,
+        metadata: {
+          femaleStudentLimit: args.femaleStudentLimit,
+          maleStudentLimit: args.maleStudentLimit,
+          maximumAge: args.maximumAge,
+          minimumAge: args.minimumAge,
+          name: normalized.name,
+        },
+        reason: null,
+        targetId: category.id,
+        targetType: "age_category",
+      });
+      if (edition.lifecycle !== "draft" && publicScheduleChanged) {
+        const impact = await getAgeCategoryScheduleImpact(tx, category.id);
+        pushKalakritiScheduleChangedTask(tx, ctx, {
+          ...impact,
+          editionId: category.editionId,
+          revision: args.auditEntryId,
+        });
+      }
+    }
+  ),
+};

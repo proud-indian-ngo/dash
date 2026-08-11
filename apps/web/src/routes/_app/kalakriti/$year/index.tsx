@@ -1,0 +1,179 @@
+import { Badge } from "@pi-dash/design-system/components/ui/badge";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@pi-dash/design-system/components/ui/card";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
+import { EditionLifecycleCard } from "@/components/kalakriti/edition-lifecycle-card";
+import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
+import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
+import { RegistrationExportCard } from "@/components/kalakriti/registration-export-card";
+import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
+import { useApp } from "@/context/app-context";
+import { getKalakritiRegistrationDashboard } from "@/functions/kalakriti-registration-dashboard";
+
+const editionTimestampFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  month: "long",
+  timeZone: "Asia/Kolkata",
+  timeZoneName: "short",
+  year: "numeric",
+});
+
+const editionDateFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "long",
+  timeZone: "Asia/Kolkata",
+  year: "numeric",
+});
+
+export const Route = createFileRoute("/_app/kalakriti/$year/")({
+  component: KalakritiEditionOverview,
+  loader: ({ params }) =>
+    getKalakritiRegistrationDashboard({
+      data: { year: Number(params.year) },
+    }),
+});
+
+function KalakritiEditionOverview() {
+  const dashboard = Route.useLoaderData();
+  const { kalakritiEditionAccess: access } = Route.useRouteContext();
+  const { edition } = access;
+  const { hasPermission } = useApp();
+  const canViewLinkedEvent =
+    hasPermission("events.view_own") || hasPermission("events.view_all");
+  const canManageLifecycle =
+    access.isGlobalAdmin ||
+    access.membership?.responsibilities.includes("edition_admin") === true;
+  const [teamEvent] = useQuery(
+    queries.teamEvent.byId({ id: edition.teamEventId }),
+    { enabled: canViewLinkedEvent }
+  );
+  const [editionDetails] = useQuery(
+    queries.kalakritiEdition.byYear({ year: edition.year })
+  );
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display font-semibold text-3xl tracking-tight">
+              {edition.name}
+            </h1>
+            <Badge className="capitalize" variant="outline">
+              {edition.lifecycle.replaceAll("_", " ")}
+            </Badge>
+          </div>
+          <p className="mt-2 text-muted-foreground text-sm">
+            Edition workspace for {edition.year}
+            {access.isGlobalAdmin
+              ? " · Global administrator access"
+              : ` · ${access.membership?.kind === "guardian" ? "Guardian" : "Volunteer"} access`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canManageLifecycle && editionDetails?.lifecycle === "draft" ? (
+            <EditionMetadataDialog edition={editionDetails} />
+          ) : null}
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                params={{ year: String(edition.year) }}
+                to="/kalakriti/$year/schedule"
+              />
+            }
+            variant="outline"
+          >
+            View schedule
+          </Button>
+          {access.isGlobalAdmin ? (
+            <Button nativeButton={false} render={<Link to="/kalakriti/new" />}>
+              Create Edition
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Event date</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {editionDateFormatter.format(new Date(edition.eventDate))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Age cutoff</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {editionDateFormatter.format(new Date(edition.ageCutoffDate))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Registration closes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {editionTimestampFormatter.format(
+              new Date(edition.plannedRegistrationCloseAt)
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {canViewLinkedEvent && teamEvent ? (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Organization link</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">{teamEvent.team?.name}</p>
+              <p className="text-muted-foreground text-sm">
+                The event record is read-only outside Kalakriti.
+              </p>
+            </div>
+            <Button
+              nativeButton={false}
+              render={
+                <Link params={{ id: edition.teamEventId }} to="/events/$id" />
+              }
+              variant="outline"
+            >
+              View linked event
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <EditionLifecycleCard
+        canManage={canManageLifecycle}
+        editionId={edition.id}
+      />
+      <RegistrationDashboard projections={dashboard?.projections ?? []} />
+      {dashboard && dashboard.projections.length > 0 ? (
+        <RegistrationExportCard year={edition.year} />
+      ) : null}
+      {canManageLifecycle ? (
+        <EditionCloneCard
+          editionId={edition.id}
+          lifecycle={edition.lifecycle}
+        />
+      ) : null}
+
+      <VolunteerAssignmentsCard editionId={edition.id} />
+    </div>
+  );
+}

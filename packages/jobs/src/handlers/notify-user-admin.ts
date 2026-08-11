@@ -1,4 +1,5 @@
 import {
+  notifyKalakritiGuardianAccess,
   notifyPasswordReset,
   notifyRoleChanged,
   notifyUserBanned,
@@ -8,6 +9,7 @@ import {
   notifyUserWelcome,
 } from "@pi-dash/notifications/send/user";
 import type {
+  NotifyKalakritiGuardianAccessPayload,
   NotifyPasswordResetPayload,
   NotifyRoleChangedPayload,
   NotifyUserBannedPayload,
@@ -17,6 +19,12 @@ import type {
   NotifyUserWelcomePayload,
 } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
+
+export const handleNotifyKalakritiGuardianAccess =
+  createNotifyHandler<NotifyKalakritiGuardianAccessPayload>(
+    "notify-kalakriti-guardian-access",
+    async () => notifyKalakritiGuardianAccess
+  );
 
 export const handleNotifyRoleChanged =
   createNotifyHandler<NotifyRoleChangedPayload>(

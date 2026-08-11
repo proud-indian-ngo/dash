@@ -124,6 +124,135 @@ const eventsNavItem: NavItem = {
   url: "/events",
 };
 
+const kalakritiNavItem: NavItem = {
+  icon: Calendar03Icon,
+  subItems: [
+    { isHidden: true, title: "Edition", url: "/kalakriti/$year" },
+    { isHidden: true, title: "New Edition", url: "/kalakriti/new" },
+  ],
+  title: "Kalakriti",
+  url: "/kalakriti",
+};
+
+export function buildKalakritiNavGroups({
+  canManageEligibility = false,
+  canManageGuardians = false,
+  canViewAudit = false,
+  canViewCompetitions = false,
+  canViewEntries = false,
+  canViewStudents = false,
+  centers = [],
+  entrySessions = [],
+  year,
+}: {
+  canManageEligibility?: boolean;
+  canManageGuardians?: boolean;
+  canViewAudit?: boolean;
+  canViewCompetitions?: boolean;
+  canViewEntries?: boolean;
+  canViewStudents?: boolean;
+  centers?: readonly { id: string; name: string }[];
+  entrySessions?: readonly { id: string; title: string }[];
+  year?: number;
+} = {}): NavGroup[] {
+  const editionItems: NavItem[] = [
+    {
+      icon: Calendar03Icon,
+      title: year ? "Overview" : "Edition",
+      url: year ? `/kalakriti/${year}` : "/kalakriti",
+    },
+  ];
+
+  if (year) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      subItems: centers.map((center) => ({
+        title: center.name,
+        url: `/kalakriti/${year}/centers/${center.id}`,
+      })),
+      title: "Centers",
+      url: `/kalakriti/${year}/centers`,
+    });
+  }
+
+  if (year && canManageEligibility) {
+    editionItems.push({
+      icon: TaskDaily02Icon,
+      title: "Eligibility",
+      url: `/kalakriti/${year}/eligibility`,
+    });
+  }
+
+  if (year && canViewStudents) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      title: "Students",
+      url: `/kalakriti/${year}/students`,
+    });
+  }
+
+  if (year && canViewEntries) {
+    const entriesPath = `/kalakriti/${year}/entries`;
+    editionItems.push({
+      icon: TaskDaily02Icon,
+      subItems: entrySessions.map((session) => ({
+        title: session.title,
+        url: `${entriesPath}/${session.id}`,
+      })),
+      title: "Entries",
+      url: entriesPath,
+    });
+  }
+
+  if (year && canViewCompetitions) {
+    const competitionPath = `/kalakriti/${year}/competitions`;
+    editionItems.push({
+      icon: Calendar03Icon,
+      subItems: [
+        { title: "Overview", url: competitionPath },
+        { title: "Categories", url: `${competitionPath}/categories` },
+        { title: "Competitions", url: `${competitionPath}/catalog` },
+        { title: "Venues", url: `${competitionPath}/venues` },
+        { title: "Schedule", url: `${competitionPath}/schedule` },
+      ],
+      title: "Competitions",
+      url: competitionPath,
+    });
+  }
+
+  if (year && canManageGuardians) {
+    editionItems.push({
+      icon: UserIcon,
+      title: "Guardians",
+      url: `/kalakriti/${year}/guardians`,
+    });
+  }
+
+  if (year && canViewAudit) {
+    editionItems.push({
+      icon: SecurityLockIcon,
+      title: "Audit",
+      url: `/kalakriti/${year}/audit`,
+    });
+  }
+
+  return [
+    { items: [homeNavItem] },
+    { items: editionItems, label: "Kalakriti" },
+  ];
+}
+
+export function isKalakritiPath(pathname: string): boolean {
+  return pathname === "/kalakriti" || pathname.startsWith("/kalakriti/");
+}
+
+export function shouldUseKalakritiNav(
+  pathname: string,
+  role?: string | null
+): boolean {
+  return role === "external_user" || isKalakritiPath(pathname);
+}
+
 function has(permissions: string[], id: string): boolean {
   return permissions.includes(id);
 }
@@ -138,6 +267,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
 
   if (hasAny(permissions, "events.view_own", "events.view_all")) {
     items.push(eventsNavItem);
+  }
+  if (has(permissions, "kalakriti.view")) {
+    items.push(kalakritiNavItem);
   }
   if (hasAny(permissions, "requests.view_own", "requests.view_all")) {
     items.push(reimbursementsNavItem);
@@ -208,6 +340,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (hasEvents) {
     orgItems.push(eventsNavItem);
+  }
+  if (has(permissions, "kalakriti.view")) {
+    orgItems.push(kalakritiNavItem);
   }
   if (orgItems.length > 0) {
     groups.push({ items: orgItems, label: "Organization" });

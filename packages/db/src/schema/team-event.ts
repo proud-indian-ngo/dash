@@ -45,6 +45,7 @@ export const teamEvent = pgTable(
     inheritVolunteers: boolean("inherit_volunteers").default(false).notNull(),
     isPublic: boolean("is_public").default(false).notNull(),
     location: text("location"),
+    managementDomain: text("management_domain").$type<"kalakriti">(),
     name: text("name").notNull(),
     originalDate: text("original_date"),
     postEventNudgesEnabled: boolean("post_event_nudges_enabled")
@@ -98,6 +99,10 @@ export const teamEvent = pgTable(
     check(
       "team_event_end_after_start_chk",
       sql`end_time IS NULL OR end_time >= start_time`
+    ),
+    check(
+      "team_event_management_domain_chk",
+      sql`management_domain IS NULL OR management_domain = 'kalakriti'`
     ),
   ]
 );

@@ -45,6 +45,24 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import {
+  kalakritiAgeCategory,
+  kalakritiAssignment,
+  kalakritiAuditEntry,
+  kalakritiCenter,
+  kalakritiCompetition,
+  kalakritiCompetitionCategory,
+  kalakritiCompetitionEntry,
+  kalakritiCompetitionSession,
+  kalakritiCredential,
+  kalakritiEdition,
+  kalakritiEditionMembership,
+  kalakritiEntryMember,
+  kalakritiExternalIdentity,
+  kalakritiGuardianCenter,
+  kalakritiStudent,
+  kalakritiVenue,
+} from "@pi-dash/db/schema/kalakriti";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
   reimbursement,
@@ -57,7 +75,7 @@ import {
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
 import { team, teamMember } from "@pi-dash/db/schema/team";
-import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
   vendor,
   vendorPayment,
@@ -153,13 +171,31 @@ const ID = {
   ers02: "019d52c2-7261-7dce-b0ee-e261b2c3d4e5",
   euOutreach: "019d52c2-7261-7dce-b0ee-e223abc37f66",
   euPlanning: "019d52c2-7261-7dce-b0ee-e2221e6385fa",
+  // Events
+  evKalakriti: "019d52c2-7261-7dce-b0ee-e2143101d420",
   evKitchen: "019d52c2-7261-7dce-b0ee-e216e531c68d",
   evOutreach: "019d52c2-7261-7dce-b0ee-e217bda25bc8",
   evPlanning: "019d52c2-7261-7dce-b0ee-e2182d2e359e",
   evSupply: "019d52c2-7261-7dce-b0ee-e219e08de6fd",
-  // Events
   evTeaching: "019d52c2-7261-7dce-b0ee-e2143101d41f",
   evTeachingNext: "019d52c2-7261-7dce-b0ee-e215aeea8546",
+  kalakritiAgeCategory: "019d52c2-7261-7dce-b0ee-e206561715c8",
+  kalakritiAudit: "019d52c2-7261-7dce-b0ee-e206561715c4",
+  kalakritiCenter: "019d52c2-7261-7dce-b0ee-e206561715c6",
+  kalakritiCompetition: "019d52c2-7261-7dce-b0ee-e206561715cb",
+  kalakritiCompetitionCategory: "019d52c2-7261-7dce-b0ee-e206561715ca",
+  kalakritiCompetitionEntry: "019d52c2-7261-7dce-b0ee-e206561715d0",
+  kalakritiCompetitionSession: "019d52c2-7261-7dce-b0ee-e206561715cd",
+  kalakritiCredential: "019d52c2-7261-7dce-b0ee-e206561715cf",
+  kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
+  kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
+  kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
+  kalakritiEditionAdminMembership: "019d52c2-7261-7dce-b0ee-e206561715c1",
+  kalakritiEntryMember: "019d52c2-7261-7dce-b0ee-e206561715d1",
+  kalakritiGuardianCenter: "019d52c2-7261-7dce-b0ee-e206561715c7",
+  kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
+  kalakritiStudent: "019d52c2-7261-7dce-b0ee-e206561715ce",
+  kalakritiVenue: "019d52c2-7261-7dce-b0ee-e206561715cc",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
   // Reimbursements
@@ -314,6 +350,13 @@ const USERS: SeedUser[] = [
     password: "Newbie123!",
     phone: "+919876543216",
     role: "unoriented_volunteer",
+  },
+  {
+    email: "guardian@pi-dash.dev",
+    name: "Dev Guardian",
+    password: "Guardian123!",
+    phone: "+919876543218",
+    role: "external_user",
   },
 ];
 
@@ -750,6 +793,322 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
     })
   );
   log(`${events.length} events ready`);
+}
+
+async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
+  log("Seeding Kalakriti edition...");
+  const adminId = getUser(userMap, "admin@pi-dash.dev");
+  const editionAdminId = getUser(userMap, "volunteer1@pi-dash.dev");
+  const guardianId = getUser(userMap, "guardian@pi-dash.dev");
+  const eventDate = new Date("2027-11-21T00:00:00+05:30");
+
+  await db
+    .insert(teamEvent)
+    .values({
+      city: "bangalore",
+      createdAt: now,
+      createdBy: adminId,
+      description: "Technical event record managed by the Kalakriti module.",
+      id: ID.evKalakriti,
+      isPublic: false,
+      managementDomain: "kalakriti",
+      name: "Kalakriti 2027",
+      startTime: eventDate,
+      teamId: ID.teamEvents,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: { managementDomain: "kalakriti" },
+      target: teamEvent.id,
+    });
+
+  await db
+    .insert(kalakritiEdition)
+    .values({
+      ageCutoffDate: "2027-06-01",
+      brandingKey: "kalakriti-2027",
+      createdAt: now,
+      createdBy: adminId,
+      eventDate: "2027-11-21",
+      id: ID.kalakritiEdition,
+      lifecycle: "draft",
+      name: "Kalakriti 2027",
+      nextStudentSequence: 2,
+      plannedRegistrationCloseAt: new Date("2027-10-31T23:59:00+05:30"),
+      teamEventId: ID.evKalakriti,
+      updatedAt: now,
+      year: 2027,
+    })
+    .onConflictDoUpdate({
+      set: {
+        nextStudentSequence: sql`greatest(${kalakritiEdition.nextStudentSequence}, 2)`,
+      },
+      target: kalakritiEdition.id,
+    });
+
+  await db
+    .insert(kalakritiExternalIdentity)
+    .values({ createdAt: now, createdBy: adminId, userId: guardianId })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiEditionMembership)
+    .values([
+      {
+        createdAt: now,
+        createdBy: adminId,
+        editionId: ID.kalakritiEdition,
+        id: ID.kalakritiEditionAdminMembership,
+        kind: "volunteer",
+        snapshotEmail: "volunteer1@pi-dash.dev",
+        snapshotName: "Rahul Verma",
+        snapshotPhone: "+919876543212",
+        updatedAt: now,
+        userId: editionAdminId,
+      },
+      {
+        createdAt: now,
+        createdBy: adminId,
+        editionId: ID.kalakritiEdition,
+        id: ID.kalakritiGuardianMembership,
+        kind: "guardian",
+        snapshotEmail: "guardian@pi-dash.dev",
+        snapshotName: "Dev Guardian",
+        snapshotPhone: "+919876543218",
+        updatedAt: now,
+        userId: guardianId,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiAssignment)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiEditionAdminAssignment,
+      isPrimary: true,
+      membershipId: ID.kalakritiEditionAdminMembership,
+      responsibility: "edition_admin",
+    })
+    .onConflictDoUpdate({
+      set: { isPrimary: true },
+      target: kalakritiAssignment.id,
+    });
+
+  await db
+    .insert(kalakritiCenter)
+    .values({
+      competitionEntryRegistrationEnabled: false,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCenter,
+      name: "Jayanagar",
+      normalizedName: "jayanagar",
+      studentRegistrationEnabled: false,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiAgeCategory)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      femaleStudentLimit: 20,
+      id: ID.kalakritiAgeCategory,
+      maleStudentLimit: 20,
+      maxCompetitionsPerCategory: 2,
+      maximumAge: 10,
+      maxTotalCompetitions: 2,
+      minimumAge: 6,
+      name: "Junior",
+      normalizedName: "junior",
+      sortOrder: 0,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        femaleStudentLimit: 20,
+        maleStudentLimit: 20,
+        maxCompetitionsPerCategory: 2,
+        maximumAge: 10,
+        maxTotalCompetitions: 2,
+        minimumAge: 6,
+        name: "Junior",
+        normalizedName: "junior",
+        sortOrder: 0,
+        updatedAt: now,
+      },
+      target: kalakritiAgeCategory.id,
+    });
+
+  await db
+    .insert(kalakritiStudent)
+    .values({
+      ageCategoryId: ID.kalakritiAgeCategory,
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      dateOfBirth: "2019-04-12",
+      derivedAgeCategoryId: ID.kalakritiAgeCategory,
+      editionId: ID.kalakritiEdition,
+      gender: "female",
+      humanId: "KAL-2027-0001",
+      id: ID.kalakritiStudent,
+      name: "Aarohi Rao",
+      normalizedName: "aarohi rao",
+      updatedAt: now,
+      updatedBy: adminId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCredential)
+    .values({
+      createdAt: now,
+      editionId: ID.kalakritiEdition,
+      humanId: "KAL-2027-0001",
+      id: ID.kalakritiCredential,
+      issuedAt: now,
+      issuedBy: adminId,
+      studentId: ID.kalakritiStudent,
+      tokenHash: createHash("sha256")
+        .update("kalakriti-dev-student-credential")
+        .digest("hex"),
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionCategory)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCompetitionCategory,
+      name: "Performing Arts",
+      normalizedName: "performing arts",
+      sortOrder: 0,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetition)
+    .values({
+      competitionCategoryId: ID.kalakritiCompetitionCategory,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      genderEligibility: "both",
+      id: ID.kalakritiCompetition,
+      maximumGroupSize: 1,
+      minimumGroupSize: 1,
+      name: "Solo Dance",
+      normalizedName: "solo dance",
+      participationMode: "individual",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiVenue)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiVenue,
+      name: "Main Stage",
+      normalizedName: "main stage",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionSession)
+    .values({
+      ageCategoryId: ID.kalakritiAgeCategory,
+      capacity: 20,
+      competitionId: ID.kalakritiCompetition,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      endAt: new Date("2027-11-21T10:00:00+05:30"),
+      id: ID.kalakritiCompetitionSession,
+      startAt: new Date("2027-11-21T09:00:00+05:30"),
+      updatedAt: now,
+      venueId: ID.kalakritiVenue,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionEntry)
+    .values({
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCompetitionEntry,
+      participationMode: "individual",
+      sessionId: ID.kalakritiCompetitionSession,
+      updatedAt: now,
+      updatedBy: adminId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiEntryMember)
+    .values({
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      entryId: ID.kalakritiCompetitionEntry,
+      id: ID.kalakritiEntryMember,
+      sessionId: ID.kalakritiCompetitionSession,
+      studentId: ID.kalakritiStudent,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiGuardianCenter)
+    .values({
+      centerId: ID.kalakritiCenter,
+      createdAt: now,
+      createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiGuardianCenter,
+      membershipId: ID.kalakritiGuardianMembership,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(teamEventMember)
+    .values({
+      addedAt: now,
+      eventId: ID.evKalakriti,
+      id: ID.kalakritiEditionAdminEventMember,
+      userId: editionAdminId,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiAuditEntry)
+    .values({
+      action: "created",
+      actorUserId: adminId,
+      createdAt: now,
+      domain: "edition",
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiAudit,
+      targetId: ID.kalakritiEdition,
+      targetType: "edition",
+    })
+    .onConflictDoNothing();
+  log("Kalakriti 2027 ready");
 }
 
 async function seedEventRsvp(userMap: Map<string, string>): Promise<void> {
@@ -1916,6 +2275,7 @@ async function main(): Promise<void> {
   await seedWhatsappGroups();
   await seedTeams(userMap);
   await seedEvents(userMap);
+  await seedKalakriti(userMap);
   await seedEventRsvp(userMap);
   await seedEventExtras(userMap);
   await seedReimbursements(userMap);

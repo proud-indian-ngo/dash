@@ -10,6 +10,14 @@ import {
 } from "./queries/event-photo";
 import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
+import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
+import { kalakritiCenterQueries } from "./queries/kalakriti-center";
+import { kalakritiCompetitionQueries } from "./queries/kalakriti-competition";
+import { kalakritiEditionQueries } from "./queries/kalakriti-edition";
+import { kalakritiEligibilityQueries } from "./queries/kalakriti-eligibility";
+import { kalakritiEntryQueries } from "./queries/kalakriti-entry";
+import { kalakritiGuardianQueries } from "./queries/kalakriti-guardian";
+import { kalakritiStudentQueries } from "./queries/kalakriti-student";
 import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { reimbursementQueries } from "./queries/reimbursement";
@@ -32,6 +40,14 @@ export const queries = defineQueries({
   eventPhoto: eventPhotoQueries,
   eventUpdate: eventUpdateQueries,
   expenseCategory: expenseCategoryQueries,
+  kalakritiAssignment: kalakritiAssignmentQueries,
+  kalakritiCenter: kalakritiCenterQueries,
+  kalakritiCompetition: kalakritiCompetitionQueries,
+  kalakritiEdition: kalakritiEditionQueries,
+  kalakritiEligibility: kalakritiEligibilityQueries,
+  kalakritiEntry: kalakritiEntryQueries,
+  kalakritiGuardian: kalakritiGuardianQueries,
+  kalakritiStudent: kalakritiStudentQueries,
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   reimbursement: reimbursementQueries,
