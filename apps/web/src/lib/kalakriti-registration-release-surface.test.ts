@@ -95,7 +95,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEdition.configurationAccessible",
       "kalakritiEdition.readiness",
       "kalakritiEligibility.ageCategories",
-      "kalakritiEntry.availableSessionsByCenter",
+      "kalakritiEntry.availableDivisionsByCenter",
       "kalakritiEntry.visibleByCenter",
       "kalakritiGuardian.roster",
       "kalakritiStudent.ageCategoriesByCenter",

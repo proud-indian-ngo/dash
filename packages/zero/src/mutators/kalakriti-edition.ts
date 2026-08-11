@@ -26,6 +26,7 @@ interface EditionTx extends LockableKalakritiTx {
     kalakritiAuditEntry: { insert: ZeroMutationFn };
     kalakritiCompetition: { insert: ZeroMutationFn };
     kalakritiCompetitionCategory: { insert: ZeroMutationFn };
+    kalakritiCompetitionDivision: { insert: ZeroMutationFn };
     kalakritiEdition: { insert: ZeroMutationFn; update: ZeroMutationFn };
     kalakritiVenue: { insert: ZeroMutationFn };
     teamEvent: { insert: ZeroMutationFn; update: ZeroMutationFn };
@@ -75,6 +76,7 @@ export const kalakritiEditionCloneConfigurationSchema = z.object({
   competitionCategoryIds: cloneMapSchema,
   competitionIds: cloneMapSchema,
   confirmed: z.literal(true),
+  divisionIds: cloneMapSchema,
   now: z.number(),
   sourceEditionId: z.string(),
   targetEditionId: z.string(),
@@ -212,6 +214,7 @@ async function getReadinessSnapshot(
     ageCategories,
     competitionCategories,
     competitions,
+    divisions,
     sessions,
     venues,
   ] = await Promise.all([
@@ -220,6 +223,7 @@ async function getReadinessSnapshot(
     tx.run(zql.kalakritiAgeCategory.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetitionCategory.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetition.where("editionId", editionId)),
+    tx.run(zql.kalakritiCompetitionDivision.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetitionSession.where("editionId", editionId)),
     tx.run(zql.kalakritiVenue.where("editionId", editionId)),
   ]);
@@ -234,6 +238,7 @@ async function getReadinessSnapshot(
       competitionCategories as KalakritiRegistrationReadinessSnapshot["competitionCategories"],
     competitions:
       competitions as KalakritiRegistrationReadinessSnapshot["competitions"],
+    divisions: divisions as KalakritiRegistrationReadinessSnapshot["divisions"],
     edition: edition as KalakritiRegistrationReadinessSnapshot["edition"],
     sessions: sessions as KalakritiRegistrationReadinessSnapshot["sessions"],
     venues: venues as KalakritiRegistrationReadinessSnapshot["venues"],
@@ -318,7 +323,9 @@ export const kalakritiEditionMutators = {
             )
           ),
           tx.run(
-            zql.kalakritiCompetition.where("editionId", args.sourceEditionId)
+            zql.kalakritiCompetition
+              .where("editionId", args.sourceEditionId)
+              .related("divisions")
           ),
           tx.run(zql.kalakritiVenue.where("editionId", args.sourceEditionId)),
         ]);
@@ -338,6 +345,9 @@ export const kalakritiEditionMutators = {
           activeCategoryIds.has(row.competitionCategoryId)
       );
       const activeVenues = venues.filter((row) => row.retiredAt === null);
+      const activeDivisions = activeCompetitions.flatMap(
+        (competition) => competition.divisions
+      );
       if (
         ageCategories.length === 0 &&
         activeCategories.length === 0 &&
@@ -359,6 +369,11 @@ export const kalakritiEditionMutators = {
         "Competition"
       );
       assertExactMaps(
+        args.divisionIds,
+        activeDivisions.map((row) => row.id),
+        "Competition Division"
+      );
+      assertExactMaps(
         args.venueIds,
         activeVenues.map((row) => row.id),
         "Venue"
@@ -371,6 +386,9 @@ export const kalakritiEditionMutators = {
       );
       const competitionMap = new Map(
         args.competitionIds.map((map) => [map.sourceId, map.targetId])
+      );
+      const divisionMap = new Map(
+        args.divisionIds.map((map) => [map.sourceId, map.targetId])
       );
       const venueMap = new Map(
         args.venueIds.map((map) => [map.sourceId, map.targetId])
@@ -435,6 +453,28 @@ export const kalakritiEditionMutators = {
         )
       );
       await Promise.all(
+        activeDivisions.map((row) =>
+          (tx as EditionTx).mutate.kalakritiCompetitionDivision.insert({
+            ageCategoryId: getMappedId(
+              ageMap,
+              row.ageCategoryId,
+              "Age Category"
+            ),
+            capacity: row.capacity,
+            competitionId: getMappedId(
+              competitionMap,
+              row.competitionId,
+              "Competition"
+            ),
+            createdAt: args.now,
+            createdBy: ctx.userId,
+            editionId: args.targetEditionId,
+            id: getMappedId(divisionMap, row.id, "Competition Division"),
+            updatedAt: args.now,
+          })
+        )
+      );
+      await Promise.all(
         activeVenues.map((row) =>
           (tx as EditionTx).mutate.kalakritiVenue.insert({
             createdAt: args.now,
@@ -460,6 +500,7 @@ export const kalakritiEditionMutators = {
             ageCategories: ageCategories.length,
             competitionCategories: activeCategories.length,
             competitions: activeCompetitions.length,
+            divisions: activeDivisions.length,
             venues: activeVenues.length,
           },
           sourceEditionId: args.sourceEditionId,

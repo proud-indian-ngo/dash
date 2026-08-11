@@ -145,6 +145,9 @@ function searchCompetition(
     competition.categoryName,
     competition.participationMode,
     competition.genderEligibility,
+    competition.divisions
+      .map((division) => division.ageCategory?.name)
+      .join(" "),
     getCompetitionStatus(competition),
   ]
     .join(" ")
@@ -236,6 +239,24 @@ export function CompetitionsTable({
       ),
       meta: { headerTitle: "Eligibility", skeleton: SKELETON_VALUE },
       size: 130,
+    },
+    {
+      accessorFn: (competition) =>
+        competition.divisions
+          .flatMap((division) =>
+            division.ageCategory ? [division.ageCategory.name] : []
+          )
+          .join(", "),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Age Categories"
+          visibility={true}
+        />
+      ),
+      id: "ageCategories",
+      meta: { headerTitle: "Age Categories", skeleton: SKELETON_VALUE },
+      size: 190,
     },
     {
       accessorFn: (competition) =>

@@ -53,16 +53,12 @@ export interface LockedAgeCategory {
   sortOrder: number;
 }
 
-export interface LockedCompetitionSession {
+export interface LockedCompetitionDivision {
   ageCategoryId: string;
-  cancelledAt: number | null;
   capacity: number;
   competitionId: string;
   editionId: string;
-  endAt: number;
   id: string;
-  startAt: number;
-  venueId: string;
 }
 
 export interface LockedEditionMembership {
@@ -109,14 +105,6 @@ function normalizeTimestamp(
     return null;
   }
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
-}
-
-function normalizeRequiredTimestamp(value: Date | number | string): number {
-  const normalized = normalizeTimestamp(value);
-  if (normalized === null || !Number.isFinite(normalized)) {
-    throw new Error("Timestamp is invalid");
-  }
-  return normalized;
 }
 
 function normalizeEdition(edition: {
@@ -443,48 +431,30 @@ export async function getStudentForUpdate(
     : undefined;
 }
 
-export async function getCompetitionSessionForUpdate(
+export async function getCompetitionDivisionForUpdate(
   tx: LockableKalakritiTx,
-  sessionId: string
-): Promise<LockedCompetitionSession | undefined> {
+  divisionId: string
+): Promise<LockedCompetitionDivision | undefined> {
   if (tx.location === "client") {
-    const session = (await tx.run(
-      zql.kalakritiCompetitionSession.where("id", sessionId).one()
-    )) as
-      | (Omit<LockedCompetitionSession, "cancelledAt" | "endAt" | "startAt"> & {
-          cancelledAt: number | null;
-          endAt: number;
-          startAt: number;
-        })
-      | undefined;
-    return session;
+    return (await tx.run(
+      zql.kalakritiCompetitionDivision.where("id", divisionId).one()
+    )) as LockedCompetitionDivision | undefined;
   }
 
-  const [{ kalakritiCompetitionSession }, { eq }] = await Promise.all([
+  const [{ kalakritiCompetitionDivision }, { eq }] = await Promise.all([
     import("@pi-dash/db/schema/kalakriti"),
     import("drizzle-orm"),
   ]);
-  const [session] = await requireServerTransaction(tx)
+  const [division] = await requireServerTransaction(tx)
     .select({
-      ageCategoryId: kalakritiCompetitionSession.ageCategoryId,
-      cancelledAt: kalakritiCompetitionSession.cancelledAt,
-      capacity: kalakritiCompetitionSession.capacity,
-      competitionId: kalakritiCompetitionSession.competitionId,
-      editionId: kalakritiCompetitionSession.editionId,
-      endAt: kalakritiCompetitionSession.endAt,
-      id: kalakritiCompetitionSession.id,
-      startAt: kalakritiCompetitionSession.startAt,
-      venueId: kalakritiCompetitionSession.venueId,
+      ageCategoryId: kalakritiCompetitionDivision.ageCategoryId,
+      capacity: kalakritiCompetitionDivision.capacity,
+      competitionId: kalakritiCompetitionDivision.competitionId,
+      editionId: kalakritiCompetitionDivision.editionId,
+      id: kalakritiCompetitionDivision.id,
     })
-    .from(kalakritiCompetitionSession)
-    .where(eq(kalakritiCompetitionSession.id, sessionId))
+    .from(kalakritiCompetitionDivision)
+    .where(eq(kalakritiCompetitionDivision.id, divisionId))
     .for("update");
-  return session
-    ? {
-        ...session,
-        cancelledAt: normalizeTimestamp(session.cancelledAt),
-        endAt: normalizeRequiredTimestamp(session.endAt),
-        startAt: normalizeRequiredTimestamp(session.startAt),
-      }
-    : undefined;
+  return division;
 }

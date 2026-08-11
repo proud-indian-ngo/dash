@@ -28,7 +28,7 @@ Guardians use the technical `external_user` role and a persistent `kalakritiExte
 
 The Drizzle schema is grouped in `packages/db/src/schema/kalakriti.ts`. Registration commands and queries live under `packages/zero/src/mutators/kalakriti-*` and `packages/zero/src/queries/kalakriti-*`; pure registration rules remain in focused `packages/zero/src/kalakriti-*` modules.
 
-Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Session, Student, Entry, or Assignment from crossing Edition boundaries. PostgreSQL row locks serialize quota, Student-ID sequence, Session-capacity, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Session, one active Credential, and one live Edition invariants.
+Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Competition Division, Session, Student, Entry, or Assignment from crossing Edition boundaries. A Competition Division pairs one Competition with one Age Category and owns capacity, Entries, and future Result ranking; a Competition Session only assigns that Division a time and Venue. PostgreSQL row locks serialize quota, Student-ID sequence, Division-capacity, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Division, one Session per Division, one active Credential, and one live Edition invariants.
 
 The lifecycle edges exposed by this release are:
 

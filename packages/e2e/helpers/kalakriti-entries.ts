@@ -8,6 +8,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiCredential,
@@ -95,6 +96,9 @@ async function cleanup(kind: FixtureKind): Promise<void> {
   await db
     .delete(kalakritiCompetitionSession)
     .where(eq(kalakritiCompetitionSession.editionId, fixture.editionId));
+  await db
+    .delete(kalakritiCompetitionDivision)
+    .where(eq(kalakritiCompetitionDivision.editionId, fixture.editionId));
   await db
     .delete(kalakritiCompetition)
     .where(eq(kalakritiCompetition.editionId, fixture.editionId));
@@ -272,12 +276,32 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     normalizedName: "main stage",
     updatedAt: now,
   });
+  await db.insert(kalakritiCompetitionDivision).values([
+    {
+      ageCategoryId: fixture.ageCategoryId,
+      capacity,
+      competitionId: fixture.competitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixture.editionId,
+      id: fixture.sessionId,
+      updatedAt: now,
+    },
+    {
+      ageCategoryId: fixture.ageCategoryId,
+      capacity,
+      competitionId: fixture.groupCompetitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixture.editionId,
+      id: fixture.groupSessionId,
+      updatedAt: now,
+    },
+  ]);
   await db.insert(kalakritiCompetitionSession).values({
-    ageCategoryId: fixture.ageCategoryId,
-    capacity,
-    competitionId: fixture.competitionId,
     createdAt: now,
     createdBy: actor.id,
+    divisionId: fixture.sessionId,
     editionId: fixture.editionId,
     endAt: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
     id: fixture.sessionId,
@@ -286,11 +310,9 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     venueId: fixture.venueId,
   });
   await db.insert(kalakritiCompetitionSession).values({
-    ageCategoryId: fixture.ageCategoryId,
-    capacity,
-    competitionId: fixture.groupCompetitionId,
     createdAt: now,
     createdBy: actor.id,
+    divisionId: fixture.groupSessionId,
     editionId: fixture.editionId,
     endAt: new Date(`${fixture.year}-11-21T06:30:00.000Z`),
     id: fixture.groupSessionId,

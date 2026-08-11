@@ -6,6 +6,7 @@ export interface KalakritiRegistrationReadinessBlocker {
     | "overlapping_age_categories"
     | "missing_student_limits"
     | "no_active_competitions"
+    | "competition_missing_division"
     | "competition_missing_session"
     | "no_active_venues"
     | "invalid_active_sessions";
@@ -29,6 +30,12 @@ export interface KalakritiRegistrationReadinessSnapshot {
     id: string;
     retiredAt: number | null;
   }[];
+  divisions: readonly {
+    ageCategoryId: string;
+    capacity: number;
+    competitionId: string;
+    id: string;
+  }[];
   edition: {
     ageCutoffDate: number;
     eventDate: number;
@@ -36,10 +43,8 @@ export interface KalakritiRegistrationReadinessSnapshot {
     timezone: string | null;
   };
   sessions: readonly {
-    ageCategoryId: string;
     cancelledAt: number | null;
-    capacity: number;
-    competitionId: string;
+    divisionId: string;
     endAt: number;
     id: string;
     startAt: number;
@@ -169,17 +174,31 @@ export function getKalakritiRegistrationReadiness(
   const activeSessions = snapshot.sessions.filter(
     (session) => session.cancelledAt === null
   );
+  const activeCompetitionDivisions = snapshot.divisions.filter((division) =>
+    activeCompetitionIds.has(division.competitionId)
+  );
   if (
     activeCompetitions.some(
       (competition) =>
-        !activeSessions.some(
-          (session) => session.competitionId === competition.id
+        !activeCompetitionDivisions.some(
+          (division) => division.competitionId === competition.id
         )
     )
   ) {
     blockers.push({
+      code: "competition_missing_division",
+      message: "Every active Competition needs an Age Category Division",
+    });
+  }
+  if (
+    activeCompetitionDivisions.some(
+      (division) =>
+        !activeSessions.some((session) => session.divisionId === division.id)
+    )
+  ) {
+    blockers.push({
       code: "competition_missing_session",
-      message: "Every active Competition needs a Session",
+      message: "Every active Competition Division needs a Session",
     });
   }
 
@@ -189,16 +208,21 @@ export function getKalakritiRegistrationReadiness(
   const activeAgeCategoryIds = new Set(
     ageCategories.map((category) => category.id)
   );
+  const activeDivisions = new Map(
+    snapshot.divisions.map((division) => [division.id, division])
+  );
   if (
-    activeSessions.some(
-      (session) =>
+    activeSessions.some((session) => {
+      const division = activeDivisions.get(session.divisionId);
+      return (
         !(
-          activeCompetitionIds.has(session.competitionId) &&
-          activeAgeCategoryIds.has(session.ageCategoryId) &&
+          division &&
+          activeCompetitionIds.has(division.competitionId) &&
+          activeAgeCategoryIds.has(division.ageCategoryId) &&
           activeVenues.has(session.venueId) &&
-          Number.isInteger(session.capacity)
+          Number.isInteger(division.capacity)
         ) ||
-        session.capacity <= 0 ||
+        division.capacity <= 0 ||
         !Number.isFinite(session.startAt) ||
         !Number.isFinite(session.endAt) ||
         session.endAt <= session.startAt ||
@@ -206,12 +230,13 @@ export function getKalakritiRegistrationReadiness(
         !edition.timezone ||
         dateInTimeZone(session.startAt, edition.timezone) !== eventDate ||
         dateInTimeZone(session.endAt, edition.timezone) !== eventDate
-    )
+      );
+    })
   ) {
     blockers.push({
       code: "invalid_active_sessions",
       message:
-        "Active Sessions must have valid same-day times, capacity, and active references",
+        "Active Sessions must have valid same-day times and active Division and Venue references",
     });
   }
 

@@ -50,9 +50,6 @@ function CompetitionSchedulePage() {
   const [venues, venueResult] = useQuery(
     queries.kalakritiCompetition.venues({ editionId: edition.id })
   );
-  const [ageCategories, ageCategoryResult] = useQuery(
-    queries.kalakritiEligibility.ageCategories({ editionId: edition.id })
-  );
   const sessionViews = sessions as CompetitionSessionFormValue[];
   const competitionViews = competitions as CompetitionView[];
   const venueViews = venues as VenueView[];
@@ -60,20 +57,30 @@ function CompetitionSchedulePage() {
     competitionViews.map((competition) => [competition.id, competition.name])
   );
   const venueNames = new Map(venueViews.map((venue) => [venue.id, venue.name]));
-  const ageCategoryNames = new Map(
-    ageCategories.map((category) => [category.id, category.name])
+  const divisions = competitionViews.flatMap((competition) =>
+    competition.divisions.map((division) => ({
+      ...division,
+      competition,
+    }))
+  );
+  const divisionById = new Map(
+    divisions.map((division) => [division.id, division])
   );
   const rows: ScheduleTableRow[] = sessionViews.map((session) => ({
     ...session,
     ageCategoryName:
-      ageCategoryNames.get(session.ageCategoryId) ?? "Unknown Age Category",
+      divisionById.get(session.divisionId)?.ageCategory?.name ??
+      "Unknown Age Category",
+    capacity: divisionById.get(session.divisionId)?.capacity ?? 0,
     competitionName:
-      competitionNames.get(session.competitionId) ?? "Unknown Competition",
+      competitionNames.get(
+        divisionById.get(session.divisionId)?.competitionId ?? ""
+      ) ?? "Unknown Competition",
     venueName: venueNames.get(session.venueId) ?? "Unknown Venue",
   }));
   const isLoading =
     rows.length === 0 &&
-    [sessionResult, competitionResult, venueResult, ageCategoryResult].some(
+    [sessionResult, competitionResult, venueResult].some(
       (result) => result.type !== "complete"
     );
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
@@ -167,16 +174,13 @@ function CompetitionSchedulePage() {
     }
   });
   const dialogOptions = {
-    ageCategories: ageCategories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      unavailable: false,
-    })),
-    competitions: competitionViews.map((competition) => ({
-      id: competition.id,
-      name: competition.name,
+    divisions: divisions.map((division) => ({
+      id: division.id,
+      name: `${division.competition.name} · ${division.ageCategory?.name ?? "Unknown Age Category"}`,
       unavailable:
-        competition.retiredAt !== null || competition.cancelledAt !== null,
+        division.competition.retiredAt !== null ||
+        division.competition.cancelledAt !== null ||
+        sessionViews.some((session) => session.divisionId === division.id),
     })),
     venues: venueViews.map((venue) => ({
       id: venue.id,
@@ -186,8 +190,7 @@ function CompetitionSchedulePage() {
   };
   const canAdd =
     canManage &&
-    dialogOptions.ageCategories.length > 0 &&
-    dialogOptions.competitions.some((option) => !option.unavailable) &&
+    dialogOptions.divisions.some((option) => !option.unavailable) &&
     dialogOptions.venues.some((option) => !option.unavailable);
 
   return (
@@ -239,8 +242,7 @@ function CompetitionSchedulePage() {
         timeZone={edition.timezone}
       />
       <CompetitionSessionFormDialog
-        ageCategories={dialogOptions.ageCategories}
-        competitions={dialogOptions.competitions}
+        divisions={dialogOptions.divisions}
         editionId={edition.id}
         eventDate={edition.eventDate}
         onOpenChange={handleDialogChange}

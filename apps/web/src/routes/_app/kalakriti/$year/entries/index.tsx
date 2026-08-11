@@ -18,6 +18,10 @@ import {
   type EntrySessionRow,
   EntrySessionsTable,
 } from "@/components/kalakriti/entry-sessions-table";
+import {
+  buildKalakritiEntryRows,
+  buildKalakritiEntrySessions,
+} from "@/components/kalakriti/entry-view";
 import { Loader } from "@/components/loader";
 import { selectKalakritiEntryCenters } from "@/lib/kalakriti-entry-policy";
 
@@ -30,36 +34,6 @@ function retryFailedResult(result: { retry?: () => void; type: string }): void {
   if (result.type === "error") {
     result.retry?.();
   }
-}
-
-function hasCompleteSession<
-  T extends {
-    ageCategory?: unknown;
-    competition?: { category?: unknown };
-    venue?: unknown;
-  },
->(session: T): session is T & KalakritiEntrySession {
-  return Boolean(
-    session.ageCategory && session.competition?.category && session.venue
-  );
-}
-
-function hasCompleteEntry<
-  T extends {
-    members: readonly { student?: { ageCategory?: unknown } }[];
-    session?: {
-      ageCategory?: unknown;
-      competition?: { category?: unknown };
-      venue?: unknown;
-    };
-  },
->(entry: T): entry is T & KalakritiEntryRow {
-  return Boolean(
-    entry.session &&
-      hasCompleteSession(entry.session) &&
-      entry.members.length > 0 &&
-      entry.members.every((member) => member.student?.ageCategory !== undefined)
-  );
 }
 
 function buildSessionRows(
@@ -114,7 +88,7 @@ function KalakritiEntryEventsPage() {
     { enabled: centerId !== null }
   );
   const [sessions, sessionsResult] = useQuery(
-    queries.kalakritiEntry.availableSessionsByCenter(input),
+    queries.kalakritiEntry.availableDivisionsByCenter(input),
     { enabled: centerId !== null }
   );
   const handleCenterChange = useEventCallback((value: string | null) => {
@@ -176,8 +150,8 @@ function KalakritiEntryEventsPage() {
     centerId !== null &&
     sessions.length === 0 &&
     sessionsResult.type !== "complete";
-  const completeSessions = sessions.filter(hasCompleteSession);
-  const completeEntries = entries.filter(hasCompleteEntry);
+  const completeSessions = buildKalakritiEntrySessions(sessions);
+  const completeEntries = buildKalakritiEntryRows(entries, completeSessions);
   const sessionRows = buildSessionRows(completeSessions, completeEntries);
 
   return (

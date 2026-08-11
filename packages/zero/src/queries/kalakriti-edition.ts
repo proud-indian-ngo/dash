@@ -68,7 +68,8 @@ function withReadinessSnapshot(q: typeof zql.kalakritiEdition) {
     .related("centers")
     .related("ageCategories")
     .related("competitionCategories")
-    .related("competitions")
+    .related("competitions", (competition) => competition.related("divisions"))
+    .related("competitionDivisions")
     .related("competitionSessions")
     .related("venues");
 }
@@ -77,7 +78,7 @@ function withCloneSource(q: typeof zql.kalakritiEdition) {
   return q
     .related("ageCategories")
     .related("competitionCategories")
-    .related("competitions")
+    .related("competitions", (competition) => competition.related("divisions"))
     .related("venues");
 }
 

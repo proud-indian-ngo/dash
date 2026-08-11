@@ -120,9 +120,9 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     const sessionDialog = page.getByRole("dialog", {
       name: "Edit Competition Session",
     });
-    await expect(sessionDialog.getByLabel("Competition")).toBeDisabled();
-    await expect(sessionDialog.getByLabel("Age Category")).toBeDisabled();
-    await expect(sessionDialog.getByLabel("Entry capacity")).toBeDisabled();
+    await expect(
+      sessionDialog.getByLabel("Competition Division")
+    ).toBeDisabled();
     await expect(sessionDialog.getByLabel("Venue")).toBeEnabled();
     await sessionDialog.getByRole("button", { name: "Cancel" }).click();
 

@@ -7,11 +7,11 @@ import { assertCanManageKalakritiCenterRegistration } from "./kalakriti-registra
 import {
   getAgeCategoryForUpdate,
   getCenterForUpdate,
-  getCompetitionSessionForUpdate,
+  getCompetitionDivisionForUpdate,
   getEditionForUpdate,
   getStudentForUpdate,
   type LockableKalakritiTx,
-  type LockedCompetitionSession,
+  type LockedCompetitionDivision,
   type LockedStudent,
 } from "./kalakriti-row-locks";
 
@@ -48,27 +48,30 @@ interface CompetitionConfiguration {
 }
 
 interface ExistingEntryMembership {
+  divisionId: string;
   entry?: {
-    session?: {
+    division?: {
       competition?: { competitionCategoryId: string };
-      endAt: number;
-      id: string;
-      startAt: number;
+      sessions: readonly {
+        cancelledAt: number | null;
+        endAt: number;
+        id: string;
+        startAt: number;
+      }[];
     };
   };
   entryId: string;
   id: string;
-  sessionId: string;
 }
 
 export const entryCreateSchema = z.object({
   auditEntryId: z.string(),
   centerId: z.string(),
+  divisionId: z.string(),
   editionId: z.string(),
   entryId: z.string(),
   memberId: z.string(),
   now: z.number(),
-  sessionId: z.string(),
   studentId: z.string(),
 });
 
@@ -86,11 +89,11 @@ const entryGroupMemberSchema = z.object({
 export const entryCreateGroupSchema = z.object({
   auditEntryId: z.string(),
   centerId: z.string(),
+  divisionId: z.string(),
   editionId: z.string(),
   entryId: z.string(),
   members: z.array(entryGroupMemberSchema),
   now: z.number(),
-  sessionId: z.string(),
 });
 
 export const entryReplaceGroupMembersSchema = z.object({
@@ -148,32 +151,26 @@ async function lockEntryContext(
 
 async function loadCompetitionConfiguration(
   tx: EntryTx,
-  session: LockedCompetitionSession,
+  division: LockedCompetitionDivision,
   participationMode: CompetitionConfiguration["participationMode"]
 ): Promise<CompetitionConfiguration> {
   const competition = (await tx.run(
-    zql.kalakritiCompetition.where("id", session.competitionId).one()
+    zql.kalakritiCompetition.where("id", division.competitionId).one()
   )) as CompetitionConfiguration | undefined;
   if (!competition) {
     throw new Error("Competition not found in this Edition");
   }
-  const [category, venue] = await Promise.all([
-    tx.run(
-      zql.kalakritiCompetitionCategory
-        .where("id", competition.competitionCategoryId)
-        .one()
-    ),
-    tx.run(zql.kalakritiVenue.where("id", session.venueId).one()),
-  ]);
+  const category = await tx.run(
+    zql.kalakritiCompetitionCategory
+      .where("id", competition.competitionCategoryId)
+      .one()
+  );
   if (
     competition.cancelledAt !== null ||
     competition.retiredAt !== null ||
-    !(
-      category && (category as { retiredAt: number | null }).retiredAt === null
-    ) ||
-    !(venue && (venue as { retiredAt: number | null }).retiredAt === null)
+    !(category && (category as { retiredAt: number | null }).retiredAt === null)
   ) {
-    throw new Error("Competition Session is not active");
+    throw new Error("Competition Division is not active");
   }
   if (competition.participationMode !== participationMode) {
     throw new Error(
@@ -213,13 +210,13 @@ function groupMemberLabel(student: LockedStudent): string {
 
 function assertGroupMemberEligibility(
   student: LockedStudent,
-  session: LockedCompetitionSession,
+  division: LockedCompetitionDivision,
   competition: CompetitionConfiguration
 ): void {
   const label = groupMemberLabel(student);
-  if (student.ageCategoryId !== session.ageCategoryId) {
+  if (student.ageCategoryId !== division.ageCategoryId) {
     throw new Error(
-      `${label}: Student is not eligible for this Session's Age Category`
+      `${label}: Student is not eligible for this Division's Age Category`
     );
   }
   if (
@@ -237,7 +234,7 @@ async function lockAndValidateGroupMembers(
   members: readonly { memberId: string; studentId: string }[],
   editionId: string,
   centerId: string,
-  session: LockedCompetitionSession,
+  division: LockedCompetitionDivision,
   competition: CompetitionConfiguration,
   excludedEntryId?: string
 ): Promise<void> {
@@ -257,12 +254,12 @@ async function lockAndValidateGroupMembers(
     students.push(student);
   }
 
-  const ageCategory = await getAgeCategoryForUpdate(tx, session.ageCategoryId);
+  const ageCategory = await getAgeCategoryForUpdate(tx, division.ageCategoryId);
   if (!ageCategory || ageCategory.editionId !== editionId) {
     throw new Error("Student Age Category not found in this Edition");
   }
   for (const student of students) {
-    assertGroupMemberEligibility(student, session, competition);
+    assertGroupMemberEligibility(student, division, competition);
   }
   const membershipGroups = (await Promise.all(
     students.map((student) =>
@@ -270,13 +267,14 @@ async function lockAndValidateGroupMembers(
         zql.kalakritiEntryMember
           .where("studentId", student.id)
           .related("entry", (entry) =>
-            entry.related("session", (registeredSession) =>
-              registeredSession.related("competition")
+            entry.related("division", (registeredDivision) =>
+              registeredDivision.related("competition").related("sessions")
             )
           )
       )
     )
   )) as ExistingEntryMembership[][];
+  const divisionSessions = await getActiveDivisionSessions(tx, division.id);
   for (const [index, memberships] of membershipGroups.entries()) {
     const student = students[index];
     if (!student) {
@@ -290,11 +288,11 @@ async function lockAndValidateGroupMembers(
       : memberships;
     if (
       relevantMemberships.some(
-        (membership) => membership.sessionId === session.id
+        (membership) => membership.divisionId === division.id
       )
     ) {
       throw new Error(
-        `${label}: Student is already registered for this Session`
+        `${label}: Student is already registered for this Division`
       );
     }
     if (relevantMemberships.length >= ageCategory.maxTotalCompetitions) {
@@ -304,7 +302,7 @@ async function lockAndValidateGroupMembers(
     }
     const categoryEntryCount = relevantMemberships.filter(
       ({ entry }) =>
-        entry?.session?.competition?.competitionCategoryId ===
+        entry?.division?.competition?.competitionCategoryId ===
         competition.competitionCategoryId
     ).length;
     if (categoryEntryCount >= ageCategory.maxCompetitionsPerCategory) {
@@ -312,17 +310,17 @@ async function lockAndValidateGroupMembers(
         `${label}: Student has reached the Competition Category limit`
       );
     }
-    assertNoScheduleConflict(relevantMemberships, session, label);
+    assertNoScheduleConflict(relevantMemberships, divisionSessions, label);
   }
 }
 
 function assertStudentEligibility(
   student: LockedStudent,
-  session: LockedCompetitionSession,
+  division: LockedCompetitionDivision,
   competition: CompetitionConfiguration
 ): void {
-  if (student.ageCategoryId !== session.ageCategoryId) {
-    throw new Error("Student is not eligible for this Session's Age Category");
+  if (student.ageCategoryId !== division.ageCategoryId) {
+    throw new Error("Student is not eligible for this Division's Age Category");
   }
   if (
     competition.genderEligibility !== "both" &&
@@ -336,17 +334,19 @@ function assertStudentEligibility(
 
 function assertNoScheduleConflict(
   existingMemberships: readonly ExistingEntryMembership[],
-  session: LockedCompetitionSession,
+  divisionSessions: readonly { endAt: number; startAt: number }[],
   studentLabel?: string
 ): void {
-  const conflict = existingMemberships.find(({ entry }) => {
-    const existingSession = entry?.session;
-    return (
-      existingSession &&
-      existingSession.startAt < session.endAt &&
-      existingSession.endAt > session.startAt
-    );
-  });
+  const otherSessions = existingMemberships
+    .flatMap(({ entry }) => entry?.division?.sessions ?? [])
+    .filter((session) => session.cancelledAt === null);
+  const conflict = divisionSessions.some((session) =>
+    otherSessions.some(
+      (existingSession) =>
+        existingSession.startAt < session.endAt &&
+        existingSession.endAt > session.startAt
+    )
+  );
   if (conflict) {
     throw new Error(
       studentLabel
@@ -354,6 +354,26 @@ function assertNoScheduleConflict(
         : "Student is already registered in an overlapping Session"
     );
   }
+}
+
+async function getActiveDivisionSessions(tx: EntryTx, divisionId: string) {
+  const sessions = (await tx.run(
+    zql.kalakritiCompetitionSession
+      .where("divisionId", divisionId)
+      .where("cancelledAt", "IS", null)
+      .related("venue")
+  )) as readonly {
+    endAt: number;
+    startAt: number;
+    venue?: { retiredAt: number | null };
+  }[];
+  const activeSessions = sessions.filter(
+    (session) => session.venue?.retiredAt === null
+  );
+  if (activeSessions.length === 0) {
+    throw new Error("Competition Division is not active");
+  }
+  return activeSessions;
 }
 
 // biome-ignore assist/source/useSortedKeys: retain the established command order, then append group commands
@@ -367,13 +387,12 @@ export const kalakritiEntryMutators = {
         args.editionId,
         args.centerId
       );
-      const session = await getCompetitionSessionForUpdate(tx, args.sessionId);
-      if (
-        !session ||
-        session.editionId !== edition.id ||
-        session.cancelledAt !== null
-      ) {
-        throw new Error("Competition Session is not active in this Edition");
+      const division = await getCompetitionDivisionForUpdate(
+        tx,
+        args.divisionId
+      );
+      if (!division || division.editionId !== edition.id) {
+        throw new Error("Competition Division is not active in this Edition");
       }
       const student = await getStudentForUpdate(tx, args.studentId);
       if (
@@ -392,56 +411,58 @@ export const kalakritiEntryMutators = {
       }
       const competition = await loadCompetitionConfiguration(
         tx,
-        session,
+        division,
         "individual"
       );
-      assertStudentEligibility(student, session, competition);
+      assertStudentEligibility(student, division, competition);
 
-      const [sessionEntries, existingMemberships] = await Promise.all([
-        tx.run(
-          zql.kalakritiCompetitionEntry.where("sessionId", session.id)
-        ) as Promise<Array<{ id: string }>>,
-        tx.run(
-          zql.kalakritiEntryMember
-            .where("studentId", student.id)
-            .related("entry", (entry) =>
-              entry.related("session", (registeredSession) =>
-                registeredSession.related("competition")
+      const [divisionEntries, divisionSessions, existingMemberships] =
+        await Promise.all([
+          tx.run(
+            zql.kalakritiCompetitionEntry.where("divisionId", division.id)
+          ) as Promise<Array<{ id: string }>>,
+          getActiveDivisionSessions(tx, division.id),
+          tx.run(
+            zql.kalakritiEntryMember
+              .where("studentId", student.id)
+              .related("entry", (entry) =>
+                entry.related("division", (registeredDivision) =>
+                  registeredDivision.related("competition").related("sessions")
+                )
               )
-            )
-        ) as Promise<ExistingEntryMembership[]>,
-      ]);
+          ) as Promise<ExistingEntryMembership[]>,
+        ]);
       if (
         existingMemberships.some(
-          (membership) => membership.sessionId === session.id
+          (membership) => membership.divisionId === division.id
         )
       ) {
-        throw new Error("Student is already registered for this Session");
+        throw new Error("Student is already registered for this Division");
       }
-      if (sessionEntries.length >= session.capacity) {
-        throw new Error("Competition Session capacity is full");
+      if (divisionEntries.length >= division.capacity) {
+        throw new Error("Competition Division capacity is full");
       }
       if (existingMemberships.length >= ageCategory.maxTotalCompetitions) {
         throw new Error("Student has reached the total Competition limit");
       }
       const categoryEntryCount = existingMemberships.filter(
         ({ entry }) =>
-          entry?.session?.competition?.competitionCategoryId ===
+          entry?.division?.competition?.competitionCategoryId ===
           competition.competitionCategoryId
       ).length;
       if (categoryEntryCount >= ageCategory.maxCompetitionsPerCategory) {
         throw new Error("Student has reached the Competition Category limit");
       }
-      assertNoScheduleConflict(existingMemberships, session);
+      assertNoScheduleConflict(existingMemberships, divisionSessions);
 
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,
         createdBy: ctx.userId,
+        divisionId: division.id,
         editionId: edition.id,
         id: args.entryId,
         participationMode: "individual",
-        sessionId: session.id,
         updatedAt: args.now,
         updatedBy: ctx.userId,
       });
@@ -449,10 +470,10 @@ export const kalakritiEntryMutators = {
         centerId: center.id,
         createdAt: args.now,
         createdBy: ctx.userId,
+        divisionId: division.id,
         editionId: edition.id,
         entryId: args.entryId,
         id: args.memberId,
-        sessionId: session.id,
         studentId: student.id,
       });
       await tx.mutate.kalakritiAuditEntry.insert({
@@ -465,7 +486,7 @@ export const kalakritiEntryMutators = {
         metadata: {
           centerId: center.id,
           competitionId: competition.id,
-          sessionId: session.id,
+          divisionId: division.id,
           studentId: student.id,
         },
         reason: null,
@@ -484,17 +505,16 @@ export const kalakritiEntryMutators = {
         args.editionId,
         args.centerId
       );
-      const session = await getCompetitionSessionForUpdate(tx, args.sessionId);
-      if (
-        !session ||
-        session.editionId !== edition.id ||
-        session.cancelledAt !== null
-      ) {
-        throw new Error("Competition Session is not active in this Edition");
+      const division = await getCompetitionDivisionForUpdate(
+        tx,
+        args.divisionId
+      );
+      if (!division || division.editionId !== edition.id) {
+        throw new Error("Competition Division is not active in this Edition");
       }
       const competition = await loadCompetitionConfiguration(
         tx,
-        session,
+        division,
         "group"
       );
       assertUniqueGroupMembers(args.members, competition);
@@ -503,24 +523,24 @@ export const kalakritiEntryMutators = {
         args.members,
         edition.id,
         center.id,
-        session,
+        division,
         competition
       );
-      const sessionEntries = (await tx.run(
-        zql.kalakritiCompetitionEntry.where("sessionId", session.id)
+      const divisionEntries = (await tx.run(
+        zql.kalakritiCompetitionEntry.where("divisionId", division.id)
       )) as Array<{ id: string }>;
-      if (sessionEntries.length >= session.capacity) {
-        throw new Error("Competition Session capacity is full");
+      if (divisionEntries.length >= division.capacity) {
+        throw new Error("Competition Division capacity is full");
       }
 
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,
         createdBy: ctx.userId,
+        divisionId: division.id,
         editionId: edition.id,
         id: args.entryId,
         participationMode: "group",
-        sessionId: session.id,
         updatedAt: args.now,
         updatedBy: ctx.userId,
       });
@@ -530,10 +550,10 @@ export const kalakritiEntryMutators = {
             centerId: center.id,
             createdAt: args.now,
             createdBy: ctx.userId,
+            divisionId: division.id,
             editionId: edition.id,
             entryId: args.entryId,
             id: member.memberId,
-            sessionId: session.id,
             studentId: member.studentId,
           })
         )
@@ -548,7 +568,7 @@ export const kalakritiEntryMutators = {
         metadata: {
           centerId: center.id,
           competitionId: competition.id,
-          sessionId: session.id,
+          divisionId: division.id,
           studentIds: args.members.map((member) => member.studentId),
         },
         reason: null,
@@ -569,10 +589,10 @@ export const kalakritiEntryMutators = {
       )) as
         | {
             centerId: string;
+            divisionId: string;
             editionId: string;
             members: readonly { id: string; studentId: string }[];
             participationMode: "group" | "individual";
-            sessionId: string;
           }
         | undefined;
       if (!snapshot) {
@@ -584,15 +604,11 @@ export const kalakritiEntryMutators = {
         snapshot.editionId,
         snapshot.centerId
       );
-      const session = await getCompetitionSessionForUpdate(
+      const division = await getCompetitionDivisionForUpdate(
         tx,
-        snapshot.sessionId
+        snapshot.divisionId
       );
-      if (
-        !session ||
-        session.editionId !== edition.id ||
-        session.cancelledAt !== null
-      ) {
+      if (!division || division.editionId !== edition.id) {
         throw new Error("Competition Entry not found in this Edition");
       }
       const entry = (await tx.run(
@@ -606,7 +622,7 @@ export const kalakritiEntryMutators = {
       }
       const competition = await loadCompetitionConfiguration(
         tx,
-        session,
+        division,
         "group"
       );
       assertUniqueGroupMembers(args.members, competition);
@@ -615,7 +631,7 @@ export const kalakritiEntryMutators = {
         args.members,
         edition.id,
         center.id,
-        session,
+        division,
         competition,
         args.entryId
       );
@@ -631,10 +647,10 @@ export const kalakritiEntryMutators = {
             centerId: center.id,
             createdAt: args.now,
             createdBy: ctx.userId,
+            divisionId: division.id,
             editionId: edition.id,
             entryId: args.entryId,
             id: member.memberId,
-            sessionId: session.id,
             studentId: member.studentId,
           })
         )
@@ -653,9 +669,9 @@ export const kalakritiEntryMutators = {
         id: args.auditEntryId,
         metadata: {
           centerId: center.id,
+          divisionId: division.id,
           newStudentIds: args.members.map((member) => member.studentId),
           oldStudentIds: entry.members.map((member) => member.studentId),
-          sessionId: session.id,
         },
         reason: null,
         targetId: args.entryId,
@@ -673,10 +689,10 @@ export const kalakritiEntryMutators = {
     )) as
       | {
           centerId: string;
+          divisionId: string;
           editionId: string;
           members: readonly { id: string; studentId: string }[];
           participationMode: "group" | "individual";
-          sessionId: string;
         }
       | undefined;
     if (!snapshot) {
@@ -688,11 +704,11 @@ export const kalakritiEntryMutators = {
       snapshot.editionId,
       snapshot.centerId
     );
-    const session = await getCompetitionSessionForUpdate(
+    const division = await getCompetitionDivisionForUpdate(
       tx,
-      snapshot.sessionId
+      snapshot.divisionId
     );
-    if (!session || session.editionId !== edition.id) {
+    if (!division || division.editionId !== edition.id) {
       throw new Error("Competition Entry not found in this Edition");
     }
     const entry = (await tx.run(
@@ -719,7 +735,7 @@ export const kalakritiEntryMutators = {
       id: args.auditEntryId,
       metadata: {
         centerId: snapshot.centerId,
-        sessionId: snapshot.sessionId,
+        divisionId: snapshot.divisionId,
         studentIds: entry.members.map((member) => member.studentId),
       },
       reason: null,

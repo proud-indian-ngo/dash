@@ -51,6 +51,13 @@ function CompetitionOverviewPage() {
   const scheduledSessions = sessions.filter(
     (session) => session.cancelledAt === null
   );
+  const capacityByDivisionId = new Map(
+    competitions.flatMap((competition) =>
+      competition.divisions.map(
+        (division) => [division.id, division.capacity] as const
+      )
+    )
+  );
   const basePath = `/kalakriti/${edition.year}/competitions`;
 
   return (
@@ -92,7 +99,8 @@ function CompetitionOverviewPage() {
           },
           {
             description: `${scheduledSessions.reduce(
-              (capacity, session) => capacity + session.capacity,
+              (capacity, session) =>
+                capacity + (capacityByDivisionId.get(session.divisionId) ?? 0),
               0
             )} total Entry capacity`,
             href: `${basePath}/schedule`,

@@ -65,10 +65,8 @@ function parseEditionDateTime(
 }
 
 export interface CompetitionSessionFormValue {
-  ageCategoryId: string;
   cancelledAt: number | null;
-  capacity: number;
-  competitionId: string;
+  divisionId: string;
   endAt: number;
   id: string;
   startAt: number;
@@ -90,9 +88,7 @@ function createSessionSchema(
 ) {
   return z
     .object({
-      ageCategoryId: z.string().min(1, "Select an Age Category"),
-      capacity: z.number().int().min(1),
-      competitionId: z.string().min(1, "Select a Competition"),
+      divisionId: z.string().min(1, "Select a Competition Division"),
       endAt: z.string().regex(DATE_TIME_LOCAL_PATTERN, "Select an end time"),
       startAt: z.string().regex(DATE_TIME_LOCAL_PATTERN, "Select a start time"),
       venueId: z.string().min(1, "Select a Venue"),
@@ -136,8 +132,7 @@ function availableOptions(
 }
 
 function SessionForm({
-  ageCategories,
-  competitions,
+  divisions,
   editionId,
   eventDate,
   onOpenChange,
@@ -147,8 +142,7 @@ function SessionForm({
   timeZone,
   venues,
 }: {
-  ageCategories: readonly SessionOption[];
-  competitions: readonly SessionOption[];
+  divisions: readonly SessionOption[];
   editionId: string;
   eventDate: string;
   onOpenChange: (open: boolean) => void;
@@ -173,14 +167,7 @@ function SessionForm({
       }),
     [timeZone]
   );
-  const categoryOptions = availableOptions(
-    ageCategories,
-    session?.ageCategoryId
-  );
-  const competitionOptions = availableOptions(
-    competitions,
-    session?.competitionId
-  );
+  const divisionOptions = availableOptions(divisions, session?.divisionId);
   const venueOptions = availableOptions(venues, session?.venueId);
   const formSchema = createSessionSchema(
     eventDate,
@@ -192,9 +179,7 @@ function SessionForm({
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const form = useForm({
     defaultValues: {
-      ageCategoryId: session?.ageCategoryId || categoryOptions[0]?.id || "",
-      capacity: session ? session.capacity : 20,
-      competitionId: session?.competitionId || competitionOptions[0]?.id || "",
+      divisionId: session?.divisionId || divisionOptions[0]?.id || "",
       endAt: session
         ? formatEditionDateTime(session.endAt, dateTimeFormatter)
         : `${eventDate}T10:00`,
@@ -244,19 +229,9 @@ function SessionForm({
       <SelectField
         disabled={structuralLocked}
         isRequired
-        label="Competition"
-        name="competitionId"
-        options={competitionOptions.map((option) => ({
-          label: option.name,
-          value: option.id,
-        }))}
-      />
-      <SelectField
-        disabled={structuralLocked}
-        isRequired
-        label="Age Category"
-        name="ageCategoryId"
-        options={categoryOptions.map((option) => ({
+        label="Competition Division"
+        name="divisionId"
+        options={divisionOptions.map((option) => ({
           label: option.name,
           value: option.id,
         }))}
@@ -284,14 +259,6 @@ function SessionForm({
           type="datetime-local"
         />
       </div>
-      <InputField
-        description="Capacity counts Entries; a group Entry uses one place."
-        disabled={structuralLocked}
-        isRequired
-        label="Entry capacity"
-        name="capacity"
-        type="number"
-      />
       <FormActions
         onCancel={handleCancel}
         submitLabel={session ? "Save Session" : "Create Session"}
@@ -302,8 +269,7 @@ function SessionForm({
 }
 
 export function CompetitionSessionFormDialog({
-  ageCategories,
-  competitions,
+  divisions,
   editionId,
   eventDate,
   onOpenChange,
@@ -314,8 +280,7 @@ export function CompetitionSessionFormDialog({
   timeZone,
   venues,
 }: {
-  ageCategories: readonly SessionOption[];
-  competitions: readonly SessionOption[];
+  divisions: readonly SessionOption[];
   editionId: string;
   eventDate: string;
   onOpenChange: (open: boolean) => void;
@@ -342,13 +307,12 @@ export function CompetitionSessionFormDialog({
           </DialogTitle>
           <DialogDescription>
             {structuralLocked
-              ? "Competition, Age Category, and capacity are locked. Update the Session time or Venue, or cancel the Session."
-              : "Schedule one Competition and Age Category in an active Venue."}
+              ? "The Competition Division is locked. Update the Session time or Venue, or cancel the Session."
+              : "Schedule one Competition Division in an active Venue."}
           </DialogDescription>
         </DialogHeader>
         <SessionForm
-          ageCategories={ageCategories}
-          competitions={competitions}
+          divisions={divisions}
           editionId={editionId}
           eventDate={eventDate}
           key={formKey}

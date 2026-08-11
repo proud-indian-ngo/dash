@@ -3,6 +3,7 @@ import { db } from "..";
 import {
   kalakritiAgeCategory,
   kalakritiCompetition,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionSession,
   kalakritiEdition,
   kalakritiVenue,
@@ -50,17 +51,27 @@ export async function getKalakritiPublicSchedule(year: number) {
     })
     .from(kalakritiCompetitionSession)
     .innerJoin(
+      kalakritiCompetitionDivision,
+      and(
+        eq(kalakritiCompetitionDivision.editionId, edition.id),
+        eq(
+          kalakritiCompetitionDivision.id,
+          kalakritiCompetitionSession.divisionId
+        )
+      )
+    )
+    .innerJoin(
       kalakritiCompetition,
       and(
         eq(kalakritiCompetition.editionId, edition.id),
-        eq(kalakritiCompetition.id, kalakritiCompetitionSession.competitionId)
+        eq(kalakritiCompetition.id, kalakritiCompetitionDivision.competitionId)
       )
     )
     .innerJoin(
       kalakritiAgeCategory,
       and(
         eq(kalakritiAgeCategory.editionId, edition.id),
-        eq(kalakritiAgeCategory.id, kalakritiCompetitionSession.ageCategoryId)
+        eq(kalakritiAgeCategory.id, kalakritiCompetitionDivision.ageCategoryId)
       )
     )
     .innerJoin(

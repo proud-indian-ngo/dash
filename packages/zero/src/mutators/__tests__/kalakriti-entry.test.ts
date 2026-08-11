@@ -21,13 +21,18 @@ const center = {
 };
 const session = {
   ageCategoryId: "age-1",
-  cancelledAt: null as number | null,
   capacity: 2,
   competitionId: "competition-1",
   editionId: edition.id,
-  endAt: 200,
   id: "session-1",
+};
+const activeSession = {
+  cancelledAt: null as number | null,
+  divisionId: session.id,
+  endAt: 200,
+  id: "schedule-1",
   startAt: 100,
+  venue: { retiredAt: null },
   venueId: "venue-1",
 };
 const student = {
@@ -67,18 +72,52 @@ const competition = {
 const activeConfiguration = [
   competition,
   { id: "category-1", retiredAt: null },
-  { id: "venue-1", retiredAt: null },
 ];
 const createArgs = {
   auditEntryId: "audit-1",
   centerId: center.id,
+  divisionId: session.id,
   editionId: edition.id,
   entryId: "entry-1",
   memberId: "member-1",
   now: 1000,
-  sessionId: session.id,
   studentId: student.id,
 };
+
+function normalizeMembership(value: unknown): unknown {
+  if (!(value && typeof value === "object")) {
+    return value;
+  }
+  const membership = value as {
+    entry?: {
+      session?: {
+        competition?: { competitionCategoryId: string };
+        endAt?: number;
+        startAt?: number;
+      };
+    };
+    sessionId?: string;
+  };
+  const legacySession = membership.entry?.session;
+  return {
+    ...membership,
+    divisionId: membership.sessionId,
+    entry: legacySession
+      ? {
+          division: {
+            competition: legacySession.competition,
+            sessions: [
+              {
+                cancelledAt: null,
+                endAt: legacySession.endAt ?? 0,
+                startAt: legacySession.startAt ?? 0,
+              },
+            ],
+          },
+        }
+      : membership.entry,
+  };
+}
 
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
@@ -142,7 +181,7 @@ function createEntry({
   editionRow?: typeof edition;
   existingMemberships?: unknown[];
   sessionEntries?: unknown[];
-  sessionRow?: typeof session;
+  sessionRow?: typeof session & { cancelledAt?: number | null };
   studentRow?: typeof student;
   configuration?: unknown[];
 } = {}) {
@@ -150,7 +189,10 @@ function createEntry({
     ...accessResults,
     ...configuration,
     sessionEntries,
-    existingMemberships,
+    "cancelledAt" in sessionRow && sessionRow.cancelledAt !== null
+      ? []
+      : [activeSession],
+    existingMemberships.map(normalizeMembership),
   ]);
   lockedResults.push(
     [editionRow],
@@ -171,10 +213,10 @@ function createEntry({
 
 const entrySnapshot = {
   centerId: center.id,
+  divisionId: session.id,
   editionId: edition.id,
   members: [{ id: "member-1", studentId: student.id }],
   participationMode: "individual" as const,
-  sessionId: session.id,
 };
 
 function removeEntry({
@@ -232,11 +274,7 @@ const groupEntrySnapshot = {
 };
 
 function createGroup({
-  configuration = [
-    groupCompetition,
-    activeConfiguration[1],
-    activeConfiguration[2],
-  ],
+  configuration = [groupCompetition, activeConfiguration[1]],
   members = groupMembers,
   sessionEntries = [],
   studentRows = [student, secondStudent],
@@ -250,7 +288,10 @@ function createGroup({
 } = {}) {
   const { lockedResults, spies, tx } = createTx([
     ...configuration,
-    ...memberships,
+    ...memberships.map((rows) =>
+      Array.isArray(rows) ? rows.map(normalizeMembership) : rows
+    ),
+    [activeSession],
     sessionEntries,
   ]);
   lockedResults.push(
@@ -264,11 +305,11 @@ function createGroup({
     args: {
       auditEntryId: "audit-1",
       centerId: center.id,
+      divisionId: session.id,
       editionId: edition.id,
       entryId: "entry-1",
       members,
       now: 1000,
-      sessionId: session.id,
     },
     ctx,
     tx,
@@ -290,8 +331,10 @@ function replaceGroup({
     snapshot,
     groupCompetition,
     activeConfiguration[1],
-    activeConfiguration[2],
-    ...memberships,
+    ...memberships.map((rows) =>
+      Array.isArray(rows) ? rows.map(normalizeMembership) : rows
+    ),
+    [activeSession],
   ]);
   lockedResults.push(
     [edition],
@@ -319,9 +362,9 @@ describe("kalakritiEntry commands", () => {
     expect(spies.insertEntry).toHaveBeenCalledWith(
       expect.objectContaining({
         centerId: center.id,
+        divisionId: session.id,
         editionId: edition.id,
         participationMode: "individual",
-        sessionId: session.id,
       })
     );
     expect(spies.insertMember).toHaveBeenCalledWith(
@@ -411,7 +454,6 @@ describe("kalakritiEntry commands", () => {
       configuration: [
         { ...competition, genderEligibility: "male" },
         activeConfiguration[1],
-        activeConfiguration[2],
       ],
     });
     await expect(wrongGender.promise).rejects.toThrow("gender rule");
@@ -422,7 +464,6 @@ describe("kalakritiEntry commands", () => {
       configuration: [
         { ...competition, participationMode: "group" },
         activeConfiguration[1],
-        activeConfiguration[2],
       ],
     });
     await expect(promise).rejects.toThrow("requires a group Entry");
@@ -457,7 +498,6 @@ describe("kalakritiEntry commands", () => {
       configuration: [
         { ...groupCompetition, maximumGroupSize: 1 },
         activeConfiguration[1],
-        activeConfiguration[2],
       ],
     });
     await expect(aboveMaximum.promise).rejects.toThrow("configured limits");
@@ -496,14 +536,13 @@ describe("kalakritiEntry commands", () => {
       studentRows: [student, { ...secondStudent, ageCategoryId: "age-2" }],
     });
     await expect(wrongAgeCategory.promise).rejects.toThrow(
-      "KAL-2027-0002 · Bina Shah: Student is not eligible for this Session's Age Category"
+      "KAL-2027-0002 · Bina Shah: Student is not eligible for this Division's Age Category"
     );
 
     const ineligible = createGroup({
       configuration: [
         { ...groupCompetition, genderEligibility: "female" },
         activeConfiguration[1],
-        activeConfiguration[2],
       ],
       studentRows: [student, { ...secondStudent, gender: "male" }],
     });
@@ -535,7 +574,7 @@ describe("kalakritiEntry commands", () => {
       memberships: [[], [{ sessionId: session.id }]],
     });
     await expect(sameSession.promise).rejects.toThrow(
-      "KAL-2027-0002 · Bina Shah: Student is already registered for this Session"
+      "KAL-2027-0002 · Bina Shah: Student is already registered for this Division"
     );
 
     const atLimit = createGroup({
@@ -584,28 +623,15 @@ describe("kalakritiEntry commands", () => {
           configuration: [
             { ...competition, cancelledAt: 500 },
             activeConfiguration[1],
-            activeConfiguration[2],
           ],
         }),
       () =>
         createEntry({
-          configuration: [
-            competition,
-            { id: "category-1", retiredAt: 500 },
-            activeConfiguration[2],
-          ],
+          configuration: [competition, { id: "category-1", retiredAt: 500 }],
         }),
       () =>
         createEntry({
-          configuration: [
-            competition,
-            activeConfiguration[1],
-            { id: "venue-1", retiredAt: 500 },
-          ],
-        }),
-      () =>
-        createEntry({
-          configuration: [competition, undefined, activeConfiguration[2]],
+          configuration: [competition, undefined],
         }),
     ];
 
@@ -631,7 +657,7 @@ describe("kalakritiEntry commands", () => {
       existingMemberships: [{ sessionId: session.id }],
     });
     await expect(promise).rejects.toThrow(
-      "already registered for this Session"
+      "already registered for this Division"
     );
   });
 
@@ -697,9 +723,9 @@ describe("kalakritiEntry commands", () => {
           entry: {
             session: {
               competition: { competitionCategoryId: "other" },
-              endAt: session.startAt,
+              endAt: activeSession.startAt,
               id: "adjacent-session",
-              startAt: session.startAt - 50,
+              startAt: activeSession.startAt - 50,
             },
           },
           entryId: "adjacent-entry",

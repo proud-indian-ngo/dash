@@ -11,6 +11,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiEdition,
@@ -144,6 +145,9 @@ async function cleanupEdition(
   await db
     .delete(kalakritiCompetitionSession)
     .where(eq(kalakritiCompetitionSession.editionId, editionId));
+  await db
+    .delete(kalakritiCompetitionDivision)
+    .where(eq(kalakritiCompetitionDivision.editionId, editionId));
   await db
     .delete(kalakritiCompetition)
     .where(eq(kalakritiCompetition.editionId, editionId));
@@ -353,12 +357,20 @@ export async function seedKalakritiReleaseFixture(
     participationMode: "individual",
     updatedAt: now,
   });
-  await db.insert(kalakritiCompetitionSession).values({
+  await db.insert(kalakritiCompetitionDivision).values({
     ageCategoryId,
     capacity: 10,
     competitionId,
     createdAt: now,
     createdBy: globalAdminId,
+    editionId: fixture.editionId,
+    id: sessionId,
+    updatedAt: now,
+  });
+  await db.insert(kalakritiCompetitionSession).values({
+    createdAt: now,
+    createdBy: globalAdminId,
+    divisionId: sessionId,
     editionId: fixture.editionId,
     endAt: new Date("2186-11-21T05:30:00.000Z"),
     id: sessionId,
@@ -555,10 +567,10 @@ export async function seedKalakritiReleaseFixture(
       centerId: fixture.centerAssignedId,
       createdAt: now,
       createdBy: globalAdminId,
+      divisionId: sessionId,
       editionId: fixture.editionId,
       id: entryIds[0],
       participationMode: "individual",
-      sessionId,
       updatedAt: now,
       updatedBy: globalAdminId,
     },
@@ -566,10 +578,10 @@ export async function seedKalakritiReleaseFixture(
       centerId: fixture.centerOutsideId,
       createdAt: now,
       createdBy: globalAdminId,
+      divisionId: sessionId,
       editionId: fixture.editionId,
       id: entryIds[1],
       participationMode: "individual",
-      sessionId,
       updatedAt: now,
       updatedBy: globalAdminId,
     },
@@ -579,20 +591,20 @@ export async function seedKalakritiReleaseFixture(
       centerId: fixture.centerAssignedId,
       createdAt: now,
       createdBy: globalAdminId,
+      divisionId: sessionId,
       editionId: fixture.editionId,
       entryId: entryIds[0],
       id: `${prefix}1961`,
-      sessionId,
       studentId: studentIds[0],
     },
     {
       centerId: fixture.centerOutsideId,
       createdAt: now,
       createdBy: globalAdminId,
+      divisionId: sessionId,
       editionId: fixture.editionId,
       entryId: entryIds[1],
       id: `${prefix}1962`,
-      sessionId,
       studentId: studentIds[1],
     },
   ]);

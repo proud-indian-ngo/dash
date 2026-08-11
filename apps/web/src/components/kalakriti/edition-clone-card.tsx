@@ -241,6 +241,9 @@ export function EditionCloneCard({
           competitionCategoryIds: idMap(activeCompetitionCategories),
           competitionIds: idMap(activeCompetitions),
           confirmed: true,
+          divisionIds: idMap(
+            activeCompetitions.flatMap((competition) => competition.divisions)
+          ),
           now: Date.now(),
           sourceEditionId: source.id,
           targetEditionId: editionId,

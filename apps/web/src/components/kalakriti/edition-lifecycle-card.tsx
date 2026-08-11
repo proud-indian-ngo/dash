@@ -185,6 +185,7 @@ export function EditionLifecycleCard({
         centers: snapshot.centers,
         competitionCategories: snapshot.competitionCategories,
         competitions: snapshot.competitions,
+        divisions: snapshot.competitionDivisions,
         edition: snapshot,
         sessions: snapshot.competitionSessions,
         venues: snapshot.venues,

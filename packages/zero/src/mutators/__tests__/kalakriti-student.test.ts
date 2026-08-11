@@ -620,12 +620,12 @@ describe("kalakritiStudent commands", () => {
       [
         {
           entry: {
-            id: "entry-1",
-            members: [{ id: "member-1" }],
-            session: {
+            division: {
               ageCategoryId: junior.id,
               competition: { genderEligibility: "both" },
             },
+            id: "entry-1",
+            members: [{ id: "member-1" }],
           },
           id: "member-1",
         },
@@ -664,12 +664,12 @@ describe("kalakritiStudent commands", () => {
       [
         {
           entry: {
-            id: "entry-1",
-            members: [{ id: "member-1" }],
-            session: {
+            division: {
               ageCategoryId: junior.id,
               competition: { genderEligibility: "female" },
             },
+            id: "entry-1",
+            members: [{ id: "member-1" }],
           },
           id: "member-1",
         },

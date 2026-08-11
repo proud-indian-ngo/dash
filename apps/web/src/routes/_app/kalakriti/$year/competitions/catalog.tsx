@@ -47,6 +47,9 @@ function CompetitionCatalogPage() {
   const [competitions, competitionResult] = useQuery(
     queries.kalakritiCompetition.competitions({ editionId: edition.id })
   );
+  const [ageCategories, ageCategoryResult] = useQuery(
+    queries.kalakritiEligibility.ageCategories({ editionId: edition.id })
+  );
   const categoryViews = categories as CompetitionCategoryView[];
   const competitionViews = competitions as CompetitionView[];
   const categoryNames = new Map(
@@ -61,7 +64,8 @@ function CompetitionCatalogPage() {
   const isLoading =
     rows.length === 0 &&
     (categoryResult.type !== "complete" ||
-      competitionResult.type !== "complete");
+      competitionResult.type !== "complete" ||
+      ageCategoryResult.type !== "complete");
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<
     string | null
   >(null);
@@ -219,6 +223,7 @@ function CompetitionCatalogPage() {
         open={selectedCompetition !== null}
       />
       <CompetitionFormDialog
+        ageCategories={ageCategories}
         categories={categoryViews}
         competition={editingCompetition}
         editionId={edition.id}

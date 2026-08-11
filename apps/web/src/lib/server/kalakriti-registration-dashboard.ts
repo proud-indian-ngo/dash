@@ -4,6 +4,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiEntryMember,
@@ -471,14 +472,27 @@ async function loadKalakritiRegistrationDashboardProjection({
     competitionIds.length > 0
       ? await tx
           .select({
-            ageCategoryId: kalakritiCompetitionSession.ageCategoryId,
+            ageCategoryId: kalakritiCompetitionDivision.ageCategoryId,
             cancelled: sql<boolean>`${kalakritiCompetitionSession.cancelledAt} is not null`,
-            capacity: kalakritiCompetitionSession.capacity,
-            competitionId: kalakritiCompetitionSession.competitionId,
-            id: kalakritiCompetitionSession.id,
+            capacity: kalakritiCompetitionDivision.capacity,
+            competitionId: kalakritiCompetitionDivision.competitionId,
+            id: kalakritiCompetitionDivision.id,
             venueRetired: sql<boolean>`${kalakritiVenue.retiredAt} is not null`,
           })
-          .from(kalakritiCompetitionSession)
+          .from(kalakritiCompetitionDivision)
+          .innerJoin(
+            kalakritiCompetitionSession,
+            and(
+              eq(
+                kalakritiCompetitionSession.editionId,
+                kalakritiCompetitionDivision.editionId
+              ),
+              eq(
+                kalakritiCompetitionSession.divisionId,
+                kalakritiCompetitionDivision.id
+              )
+            )
+          )
           .innerJoin(
             kalakritiVenue,
             and(
@@ -492,7 +506,10 @@ async function loadKalakritiRegistrationDashboardProjection({
           .where(
             and(
               eq(kalakritiCompetitionSession.editionId, editionId),
-              inArray(kalakritiCompetitionSession.competitionId, competitionIds)
+              inArray(
+                kalakritiCompetitionDivision.competitionId,
+                competitionIds
+              )
             )
           )
       : [];
@@ -505,7 +522,7 @@ async function loadKalakritiRegistrationDashboardProjection({
             entries: countDistinct(kalakritiCompetitionEntry.id),
             participants:
               sql<number>`count(${kalakritiEntryMember.id})`.mapWith(Number),
-            sessionId: kalakritiCompetitionEntry.sessionId,
+            sessionId: kalakritiCompetitionEntry.divisionId,
           })
           .from(kalakritiCompetitionEntry)
           .leftJoin(
@@ -521,7 +538,7 @@ async function loadKalakritiRegistrationDashboardProjection({
           .where(
             and(
               eq(kalakritiCompetitionEntry.editionId, editionId),
-              inArray(kalakritiCompetitionEntry.sessionId, sessionIds),
+              inArray(kalakritiCompetitionEntry.divisionId, sessionIds),
               buildKalakritiRegistrationDashboardCenterCondition(
                 scope,
                 kalakritiCompetitionEntry.centerId
@@ -529,7 +546,7 @@ async function loadKalakritiRegistrationDashboardProjection({
             )
           )
           .groupBy(
-            kalakritiCompetitionEntry.sessionId,
+            kalakritiCompetitionEntry.divisionId,
             kalakritiCompetitionEntry.centerId
           )
       : [];
@@ -572,27 +589,30 @@ async function loadKalakritiRegistrationDashboardProjection({
     !showCenters && sessionIds.length > 0
       ? await tx
           .select({
-            ageCategoryId: kalakritiCompetitionSession.ageCategoryId,
+            ageCategoryId: kalakritiCompetitionDivision.ageCategoryId,
             registeredStudents: countDistinct(kalakritiEntryMember.studentId),
           })
           .from(kalakritiEntryMember)
           .innerJoin(
-            kalakritiCompetitionSession,
+            kalakritiCompetitionDivision,
             and(
               eq(
-                kalakritiCompetitionSession.editionId,
+                kalakritiCompetitionDivision.editionId,
                 kalakritiEntryMember.editionId
               ),
-              eq(kalakritiCompetitionSession.id, kalakritiEntryMember.sessionId)
+              eq(
+                kalakritiCompetitionDivision.id,
+                kalakritiEntryMember.divisionId
+              )
             )
           )
           .where(
             and(
               eq(kalakritiEntryMember.editionId, editionId),
-              inArray(kalakritiEntryMember.sessionId, sessionIds)
+              inArray(kalakritiEntryMember.divisionId, sessionIds)
             )
           )
-          .groupBy(kalakritiCompetitionSession.ageCategoryId)
+          .groupBy(kalakritiCompetitionDivision.ageCategoryId)
       : [];
   return assembleKalakritiRegistrationDashboardProjection(scope, {
     ages,

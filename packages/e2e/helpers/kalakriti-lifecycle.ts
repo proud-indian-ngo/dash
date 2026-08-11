@@ -5,6 +5,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionSession,
   kalakritiEdition,
   kalakritiVenue,
@@ -49,6 +50,9 @@ async function cleanup() {
   await db
     .delete(kalakritiCompetitionSession)
     .where(inArray(kalakritiCompetitionSession.editionId, editionIds));
+  await db
+    .delete(kalakritiCompetitionDivision)
+    .where(inArray(kalakritiCompetitionDivision.editionId, editionIds));
   await db
     .delete(kalakritiCompetition)
     .where(inArray(kalakritiCompetition.editionId, editionIds));
@@ -247,13 +251,33 @@ async function setup(actorEmail: string) {
       updatedAt: now,
     },
   ]);
-  await db.insert(kalakritiCompetitionSession).values([
+  await db.insert(kalakritiCompetitionDivision).values([
     {
       ageCategoryId: fixtures.ready.ageCategoryId,
       capacity: 30,
       competitionId: fixtures.ready.competitionId,
       createdAt: now,
       createdBy: actor.id,
+      editionId: fixtures.ready.editionId,
+      id: fixtures.ready.sessionId,
+      updatedAt: now,
+    },
+    {
+      ageCategoryId: fixtures.source.ageCategoryId,
+      capacity: 25,
+      competitionId: fixtures.source.competitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixtures.source.editionId,
+      id: fixtures.source.sessionId,
+      updatedAt: now,
+    },
+  ]);
+  await db.insert(kalakritiCompetitionSession).values([
+    {
+      createdAt: now,
+      createdBy: actor.id,
+      divisionId: fixtures.ready.sessionId,
       editionId: fixtures.ready.editionId,
       endAt: new Date(`${fixtures.ready.year}-11-21T05:30:00.000Z`),
       id: fixtures.ready.sessionId,
@@ -262,11 +286,9 @@ async function setup(actorEmail: string) {
       venueId: fixtures.ready.venueId,
     },
     {
-      ageCategoryId: fixtures.source.ageCategoryId,
-      capacity: 25,
-      competitionId: fixtures.source.competitionId,
       createdAt: now,
       createdBy: actor.id,
+      divisionId: fixtures.source.sessionId,
       editionId: fixtures.source.editionId,
       endAt: new Date(`${fixtures.source.year}-11-21T05:30:00.000Z`),
       id: fixtures.source.sessionId,

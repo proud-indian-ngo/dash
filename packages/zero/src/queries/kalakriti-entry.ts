@@ -10,10 +10,9 @@ const centerInput = z.object({
 const NO_ACCESS_ID = "00000000-0000-0000-0000-000000000000";
 
 export const kalakritiEntryQueries = {
-  availableSessionsByCenter: defineQuery(centerInput, ({ args, ctx }) => {
-    let query = zql.kalakritiCompetitionSession
+  availableDivisionsByCenter: defineQuery(centerInput, ({ args, ctx }) => {
+    let query = zql.kalakritiCompetitionDivision
       .where("editionId", args.editionId)
-      .where("cancelledAt", "IS", null)
       .whereExists("competition", (competition) =>
         competition
           .where("cancelledAt", "IS", null)
@@ -22,13 +21,17 @@ export const kalakritiEntryQueries = {
             category.where("retiredAt", "IS", null)
           )
       )
-      .whereExists("venue", (venue) => venue.where("retiredAt", "IS", null))
+      .whereExists("sessions", (session) =>
+        session
+          .where("cancelledAt", "IS", null)
+          .whereExists("venue", (venue) => venue.where("retiredAt", "IS", null))
+      )
       .related("ageCategory")
       .related("competition", (competition) => competition.related("category"))
       .related("entries")
-      .related("venue");
+      .related("sessions", (session) => session.related("venue"));
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
-      return query.orderBy("startAt", "asc");
+      return query.orderBy("createdAt", "asc");
     }
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
@@ -71,7 +74,7 @@ export const kalakritiEntryQueries = {
         )
       )
     );
-    return query.orderBy("startAt", "asc");
+    return query.orderBy("createdAt", "asc");
   }),
 
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) => {
@@ -81,13 +84,13 @@ export const kalakritiEntryQueries = {
       .related("members", (member) =>
         member.related("student", (student) => student.related("ageCategory"))
       )
-      .related("session", (session) =>
-        session
+      .related("division", (division) =>
+        division
           .related("ageCategory")
           .related("competition", (competition) =>
             competition.related("category")
           )
-          .related("venue")
+          .related("sessions", (session) => session.related("venue"))
       );
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("createdAt", "desc");

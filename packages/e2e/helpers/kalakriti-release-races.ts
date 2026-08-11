@@ -5,6 +5,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiEdition,
@@ -62,6 +63,9 @@ async function cleanup() {
   await db
     .delete(kalakritiCompetitionSession)
     .where(inArray(kalakritiCompetitionSession.editionId, editionIds));
+  await db
+    .delete(kalakritiCompetitionDivision)
+    .where(inArray(kalakritiCompetitionDivision.editionId, editionIds));
   await db
     .delete(kalakritiCompetition)
     .where(inArray(kalakritiCompetition.editionId, editionIds));
@@ -223,12 +227,20 @@ async function setup(email: string) {
     normalizedName: "release race venue",
     updatedAt: now,
   });
-  await db.insert(kalakritiCompetitionSession).values({
+  await db.insert(kalakritiCompetitionDivision).values({
     ageCategoryId: IDS.ageCategory,
     capacity: 2,
     competitionId: IDS.competition,
     createdAt: now,
     createdBy: actor.id,
+    editionId: IDS.editionA,
+    id: IDS.session,
+    updatedAt: now,
+  });
+  await db.insert(kalakritiCompetitionSession).values({
+    createdAt: now,
+    createdBy: actor.id,
+    divisionId: IDS.session,
     editionId: IDS.editionA,
     endAt: new Date(`${YEARS[0]}-11-20T05:30:00.000Z`),
     id: IDS.session,
@@ -338,10 +350,10 @@ async function raceEntries(actorId: string) {
           centerId: IDS.center,
           createdAt: now,
           createdBy: actorId,
+          divisionId: IDS.session,
           editionId: IDS.editionA,
           id: entryId,
           participationMode: "individual",
-          sessionId: IDS.session,
           updatedAt: now,
           updatedBy: actorId,
         });
@@ -349,10 +361,10 @@ async function raceEntries(actorId: string) {
           centerId: IDS.center,
           createdAt: now,
           createdBy: actorId,
+          divisionId: IDS.session,
           editionId: IDS.editionA,
           entryId,
           id: memberId,
-          sessionId: IDS.session,
           studentId: IDS.student,
         });
       })
@@ -381,10 +393,10 @@ async function addSecondCenterEntry(actorId: string) {
     centerId: IDS.centerB,
     createdAt: now,
     createdBy: actorId,
+    divisionId: IDS.session,
     editionId: IDS.editionA,
     id: IDS.entryC,
     participationMode: "individual",
-    sessionId: IDS.session,
     updatedAt: now,
     updatedBy: actorId,
   });
@@ -392,10 +404,10 @@ async function addSecondCenterEntry(actorId: string) {
     centerId: IDS.centerB,
     createdAt: now,
     createdBy: actorId,
+    divisionId: IDS.session,
     editionId: IDS.editionA,
     entryId: IDS.entryC,
     id: IDS.memberC,
-    sessionId: IDS.session,
     studentId: IDS.studentB,
   });
 }

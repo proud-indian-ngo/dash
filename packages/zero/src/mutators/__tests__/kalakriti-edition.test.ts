@@ -34,6 +34,7 @@ const emptyCloneArgs = {
   competitionCategoryIds: [],
   competitionIds: [],
   confirmed: true,
+  divisionIds: [],
   now: 1,
   sourceEditionId: "source",
   targetEditionId: "target",
@@ -46,6 +47,7 @@ function createEditionCommandTx(results: unknown[]) {
     insertAudit: vi.fn(),
     insertCompetition: vi.fn(),
     insertCompetitionCategory: vi.fn(),
+    insertCompetitionDivision: vi.fn(),
     insertVenue: vi.fn(),
     updateEdition: vi.fn(),
     updateEvent: vi.fn(),
@@ -60,6 +62,9 @@ function createEditionCommandTx(results: unknown[]) {
         kalakritiCompetition: { insert: spies.insertCompetition },
         kalakritiCompetitionCategory: {
           insert: spies.insertCompetitionCategory,
+        },
+        kalakritiCompetitionDivision: {
+          insert: spies.insertCompetitionDivision,
         },
         kalakritiEdition: { insert: vi.fn(), update: spies.updateEdition },
         kalakritiVenue: { insert: spies.insertVenue },
@@ -357,6 +362,14 @@ describe("Kalakriti Edition registration readiness", () => {
         retiredAt: null,
       },
     ],
+    divisions: [
+      {
+        ageCategoryId: "age-1",
+        capacity: 10,
+        competitionId: "competition-1",
+        id: "division-1",
+      },
+    ],
     edition: {
       ageCutoffDate: Date.UTC(2028, 5, 1),
       eventDate: Date.UTC(2028, 10, 19),
@@ -365,10 +378,8 @@ describe("Kalakriti Edition registration readiness", () => {
     },
     sessions: [
       {
-        ageCategoryId: "age-1",
         cancelledAt: null,
-        capacity: 10,
-        competitionId: "competition-1",
+        divisionId: "division-1",
         endAt: new Date("2028-11-19T11:00:00+05:30").getTime(),
         id: "session-1",
         startAt: new Date("2028-11-19T10:00:00+05:30").getTime(),
@@ -379,10 +390,6 @@ describe("Kalakriti Edition registration readiness", () => {
   };
 
   it("returns stable blockers for missing limits and an invalid Session", () => {
-    const session = readySnapshot.sessions.at(0);
-    if (!session) {
-      throw new Error("Ready snapshot requires a Session");
-    }
     expect(
       getKalakritiRegistrationReadiness({
         ...readySnapshot,
@@ -391,7 +398,10 @@ describe("Kalakriti Edition registration readiness", () => {
           femaleStudentLimit: 0,
           maleStudentLimit: 0,
         })),
-        sessions: [{ ...session, capacity: 0 }],
+        divisions: readySnapshot.divisions.map((division) => ({
+          ...division,
+          capacity: 0,
+        })),
       }).map((blocker) => blocker.code)
     ).toEqual(["missing_student_limits", "invalid_active_sessions"]);
   });
@@ -455,7 +465,7 @@ describe("Kalakriti Edition registration readiness", () => {
       "invalid_active_sessions",
       () => ({
         ...readySnapshot,
-        sessions: readySnapshot.sessions.map((row) => ({
+        divisions: readySnapshot.divisions.map((row) => ({
           ...row,
           capacity: 0,
         })),
@@ -473,6 +483,16 @@ describe("Kalakriti Edition registration readiness", () => {
     expect(getKalakritiRegistrationReadiness(readySnapshot)).toEqual([]);
   });
 
+  it("requires every active Competition to have a Division", () => {
+    expect(
+      getKalakritiRegistrationReadiness({
+        ...readySnapshot,
+        divisions: [],
+        sessions: [],
+      }).map((blocker) => blocker.code)
+    ).toContain("competition_missing_division");
+  });
+
   it("requires explicit confirmation for lifecycle and clone commands", () => {
     expect(
       kalakritiEditionTransitionSchema.safeParse({
@@ -488,6 +508,7 @@ describe("Kalakriti Edition registration readiness", () => {
         auditEntryId: "audit",
         competitionCategoryIds: [],
         competitionIds: [],
+        divisionIds: [],
         now: 1,
         sourceEditionId: "source",
         targetEditionId: "target",
@@ -605,6 +626,7 @@ describe("Kalakriti Edition registration readiness", () => {
           competitionCategoryIds: [],
           competitionIds: [],
           confirmed: true,
+          divisionIds: [],
           now: 1,
           sourceEditionId: "source",
           targetEditionId: "target",
@@ -669,6 +691,7 @@ describe("Kalakriti Edition registration readiness", () => {
         [],
         [],
         [],
+        [],
       ]);
 
       await expect(
@@ -711,6 +734,7 @@ describe("Kalakriti Edition registration readiness", () => {
       readySnapshot.ageCategories,
       readySnapshot.competitionCategories,
       readySnapshot.competitions,
+      readySnapshot.divisions,
       readySnapshot.sessions,
       readySnapshot.venues,
     ]);
@@ -765,6 +789,7 @@ describe("Kalakriti Edition registration readiness", () => {
       readySnapshot.ageCategories,
       readySnapshot.competitionCategories,
       readySnapshot.competitions,
+      readySnapshot.divisions,
       readySnapshot.sessions,
       readySnapshot.venues,
     ];
@@ -849,6 +874,7 @@ describe("Kalakriti Edition registration readiness", () => {
       readySnapshot.ageCategories,
       readySnapshot.competitionCategories,
       readySnapshot.competitions,
+      readySnapshot.divisions,
       readySnapshot.sessions,
       readySnapshot.venues,
     ];
@@ -926,6 +952,14 @@ describe("Kalakriti Edition registration readiness", () => {
     const activeCompetition = {
       cancelledAt: null,
       competitionCategoryId: activeCategory.id,
+      divisions: [
+        {
+          ageCategoryId: ageCategory.id,
+          capacity: 20,
+          competitionId: "competition-active",
+          id: "division-active",
+        },
+      ],
       genderEligibility: "both",
       id: "competition-active",
       maximumGroupSize: 1,
@@ -974,6 +1008,9 @@ describe("Kalakriti Edition registration readiness", () => {
           { sourceId: activeCompetition.id, targetId: "competition-target" },
         ],
         confirmed: true,
+        divisionIds: [
+          { sourceId: "division-active", targetId: "division-target" },
+        ],
         now: 1,
         sourceEditionId: "source",
         targetEditionId: "target",
@@ -993,6 +1030,7 @@ describe("Kalakriti Edition registration readiness", () => {
       })
     );
     expect(spies.insertCompetition).toHaveBeenCalledOnce();
+    expect(spies.insertCompetitionDivision).toHaveBeenCalledOnce();
     expect(spies.insertCompetition).toHaveBeenCalledWith(
       expect.objectContaining({
         cancelledAt: null,
@@ -1007,6 +1045,7 @@ describe("Kalakriti Edition registration readiness", () => {
             ageCategories: 1,
             competitionCategories: 1,
             competitions: 1,
+            divisions: 1,
             venues: 1,
           },
         }),
@@ -1042,6 +1081,7 @@ describe("Kalakriti Edition registration readiness", () => {
           competitionCategoryIds: [],
           competitionIds: [],
           confirmed: true,
+          divisionIds: [],
           now: 1,
           sourceEditionId: "source",
           targetEditionId: "target",
@@ -1081,6 +1121,7 @@ describe("Kalakriti Edition registration readiness", () => {
           competitionCategoryIds: [],
           competitionIds: [],
           confirmed: true,
+          divisionIds: [],
           now: 1,
           sourceEditionId: "source",
           targetEditionId: "target",

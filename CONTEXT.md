@@ -20,8 +20,12 @@ _Avoid_: Event category
 A contest definition containing its participation mode, gender eligibility, and group rules.
 _Avoid_: Event, activity
 
+**Competition Division**:
+An edition-owned Competition and Age Category pairing that owns capacity, Entries, and Result ranking.
+_Avoid_: Competition Session, event category
+
 **Competition Session**:
-The scheduled occurrence of a Competition for one Age Category, with a time, venue, and capacity.
+The scheduled time and Venue for one Competition Division.
 _Avoid_: Event slot, schedule event
 
 **Student**:
@@ -61,7 +65,7 @@ A central volunteer assigned yearly to one or more Centers to help manage regist
 _Avoid_: Guardian, center coordinator
 
 **Competition Entry**:
-A Center's registration in a Competition Session, containing either one Student or a same-Center group of Students.
+A Center's registration in a Competition Division, containing either one Student or a same-Center group of Students.
 _Avoid_: Participation, nomination
 
 **Entry Member**:
@@ -77,7 +81,7 @@ An idempotent event-day record such as pickup, check-in, meal service, attendanc
 _Avoid_: Toggle, scan state
 
 **Result**:
-The versioned winner and runner-up decision for a Competition Session, published only after approval.
+The versioned winner and runner-up decision for a Competition Division, published only after approval.
 _Avoid_: Score, judging sheet
 
 **Scoresheet Set**:

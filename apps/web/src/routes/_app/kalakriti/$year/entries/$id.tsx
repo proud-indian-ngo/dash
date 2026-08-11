@@ -23,6 +23,10 @@ import {
   type KalakritiEntryStudent,
 } from "@/components/kalakriti/entry-form-dialog";
 import { EntryTable } from "@/components/kalakriti/entry-table";
+import {
+  buildKalakritiEntryRows,
+  buildKalakritiEntrySessions,
+} from "@/components/kalakriti/entry-view";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -66,38 +70,6 @@ function hasCompleteStudent<T extends { ageCategory?: unknown }>(
   student: T
 ): student is T & KalakritiEntryStudent {
   return Boolean(student.ageCategory);
-}
-
-function hasCompleteSession<
-  T extends {
-    ageCategory?: unknown;
-    competition?: { category?: unknown };
-    venue?: unknown;
-  },
->(session: T): session is T & KalakritiEntrySession {
-  return Boolean(
-    session.ageCategory && session.competition?.category && session.venue
-  );
-}
-
-function hasCompleteEntry<
-  T extends {
-    members: readonly { student?: { ageCategory?: unknown } }[];
-    session?: {
-      ageCategory?: unknown;
-      competition?: { category?: unknown };
-      venue?: unknown;
-    };
-  },
->(entry: T): entry is T & KalakritiEntryRow {
-  return Boolean(
-    entry.session &&
-      hasCompleteSession(entry.session) &&
-      entry.members.length > 0 &&
-      entry.members.every(
-        (member) => member.student && hasCompleteStudent(member.student)
-      )
-  );
 }
 
 function getInitialState({
@@ -251,7 +223,7 @@ function KalakritiSessionEntriesPage() {
     { enabled: centerId !== null }
   );
   const [sessions, sessionsResult] = useQuery(
-    queries.kalakritiEntry.availableSessionsByCenter(input),
+    queries.kalakritiEntry.availableDivisionsByCenter(input),
     { enabled: centerId !== null }
   );
   const [students, studentsResult] = useQuery(
@@ -326,8 +298,8 @@ function KalakritiSessionEntriesPage() {
     centerId !== null &&
     ((sessions.length === 0 && sessionsResult.type !== "complete") ||
       (students.length === 0 && studentsResult.type !== "complete"));
-  const completeEntries = entries.filter(hasCompleteEntry);
-  const completeSessions = sessions.filter(hasCompleteSession);
+  const completeSessions = buildKalakritiEntrySessions(sessions);
+  const completeEntries = buildKalakritiEntryRows(entries, completeSessions);
   const completeStudents = students.filter(hasCompleteStudent);
   const session = completeSessions.find(
     (candidate) => candidate.id === sessionId

@@ -50,7 +50,7 @@ interface StudentEntryMembership {
   entry?: {
     id: string;
     members: readonly { id: string }[];
-    session?: {
+    division?: {
       ageCategoryId: string;
       competition?: { genderEligibility: "both" | "female" | "male" };
     };
@@ -341,7 +341,7 @@ async function loadStudentEntryMemberships(
       .related("entry", (entry) =>
         entry
           .related("members")
-          .related("session", (session) => session.related("competition"))
+          .related("division", (division) => division.related("competition"))
       )
   )) as readonly StudentEntryMembership[];
 }
@@ -351,16 +351,16 @@ function assertEntriesRemainEligible(
   values: { ageCategoryId: string; gender: "female" | "male" }
 ): void {
   for (const membership of memberships) {
-    const session = membership.entry?.session;
-    if (!session) {
+    const division = membership.entry?.division;
+    if (!division) {
       throw new Error("Student Competition Entry configuration is incomplete");
     }
-    if (session.ageCategoryId !== values.ageCategoryId) {
+    if (division.ageCategoryId !== values.ageCategoryId) {
       throw new Error(
         "Student Age Category cannot be changed while it would invalidate a Competition Entry"
       );
     }
-    const genderEligibility = session.competition?.genderEligibility;
+    const genderEligibility = division.competition?.genderEligibility;
     if (!genderEligibility) {
       throw new Error("Student Competition Entry configuration is incomplete");
     }

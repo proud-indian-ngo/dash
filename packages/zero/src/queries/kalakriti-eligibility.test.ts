@@ -34,7 +34,7 @@ describe("kalakritiEligibility queries", () => {
     );
     expect(ast).toContain('"name":"lifecycle"');
     expect(ast).toContain('"value":"archived"');
-    expect(ast).toContain('"table":"kalakritiCompetitionSession"');
+    expect(ast).toContain('"table":"kalakritiCompetitionDivision"');
     expect(ast).toContain('"table":"kalakritiCompetitionCategory"');
     expect(ast).toContain('"value":"competition_category_lead"');
     expect(ast).toContain('"value":"category-lead-1"');

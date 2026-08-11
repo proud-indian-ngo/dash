@@ -19,10 +19,14 @@ async function getImpact(
   const [sessions, entries] = (await Promise.all([
     tx.run(sessionsQuery),
     tx.run(entriesQuery),
-  ])) as [{ competitionId: string }[], { centerId: string }[]];
+  ])) as [{ division?: { competitionId: string } }[], { centerId: string }[]];
   return {
     centerIds: unique(entries.map(({ centerId }) => centerId)),
-    competitionIds: unique(sessions.map(({ competitionId }) => competitionId)),
+    competitionIds: unique(
+      sessions.flatMap(({ division }) =>
+        division ? [division.competitionId] : []
+      )
+    ),
   };
 }
 
@@ -32,9 +36,13 @@ export function getAgeCategoryScheduleImpact(
 ): Promise<ScheduleImpact> {
   return getImpact(
     tx,
-    zql.kalakritiCompetitionSession.where("ageCategoryId", ageCategoryId),
-    zql.kalakritiCompetitionEntry.whereExists("session", (session) =>
-      session.where("ageCategoryId", ageCategoryId)
+    zql.kalakritiCompetitionSession
+      .whereExists("division", (division) =>
+        division.where("ageCategoryId", ageCategoryId)
+      )
+      .related("division"),
+    zql.kalakritiCompetitionEntry.whereExists("division", (division) =>
+      division.where("ageCategoryId", ageCategoryId)
     )
   );
 }
@@ -44,9 +52,23 @@ export async function getCompetitionScheduleImpact(
   competitionId: string
 ): Promise<ScheduleImpact> {
   const entries = (await tx.run(
-    zql.kalakritiCompetitionEntry.whereExists("session", (session) =>
-      session.where("competitionId", competitionId)
+    zql.kalakritiCompetitionEntry.whereExists("division", (division) =>
+      division.where("competitionId", competitionId)
     )
+  )) as { centerId: string }[];
+  return {
+    centerIds: unique(entries.map(({ centerId }) => centerId)),
+    competitionIds: [competitionId],
+  };
+}
+
+export async function getDivisionScheduleImpact(
+  tx: LockableKalakritiTx,
+  divisionId: string,
+  competitionId: string
+): Promise<ScheduleImpact> {
+  const entries = (await tx.run(
+    zql.kalakritiCompetitionEntry.where("divisionId", divisionId)
   )) as { centerId: string }[];
   return {
     centerIds: unique(entries.map(({ centerId }) => centerId)),
@@ -60,7 +82,11 @@ export async function getSessionScheduleImpact(
   competitionId: string
 ): Promise<ScheduleImpact> {
   const entries = (await tx.run(
-    zql.kalakritiCompetitionEntry.where("sessionId", sessionId)
+    zql.kalakritiCompetitionEntry.whereExists("division", (division) =>
+      division.whereExists("sessions", (session) =>
+        session.where("id", sessionId)
+      )
+    )
   )) as { centerId: string }[];
   return {
     centerIds: unique(entries.map(({ centerId }) => centerId)),
@@ -74,9 +100,13 @@ export function getVenueScheduleImpact(
 ): Promise<ScheduleImpact> {
   return getImpact(
     tx,
-    zql.kalakritiCompetitionSession.where("venueId", venueId),
-    zql.kalakritiCompetitionEntry.whereExists("session", (session) =>
-      session.where("venueId", venueId)
+    zql.kalakritiCompetitionSession
+      .where("venueId", venueId)
+      .related("division"),
+    zql.kalakritiCompetitionEntry.whereExists("division", (division) =>
+      division.whereExists("sessions", (session) =>
+        session.where("venueId", venueId)
+      )
     )
   );
 }

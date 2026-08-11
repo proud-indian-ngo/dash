@@ -527,6 +527,7 @@ function EntryForm({
       mutators.kalakritiEntry.createGroup({
         auditEntryId: uuidv7(),
         centerId,
+        divisionId: sessionId,
         editionId,
         entryId: uuidv7(),
         members: studentIds.map((studentId) => ({
@@ -534,7 +535,6 @@ function EntryForm({
           studentId,
         })),
         now,
-        sessionId,
       })
     ).server;
     finishMutation(result, {
@@ -557,11 +557,11 @@ function EntryForm({
             mutators.kalakritiEntry.createIndividual({
               auditEntryId: uuidv7(),
               centerId,
+              divisionId: sessionId,
               editionId,
               entryId: uuidv7(),
               memberId: uuidv7(),
               now,
-              sessionId,
               studentId,
             })
           ).server
