@@ -71,7 +71,6 @@ function CompetitionSchedulePage() {
     ageCategoryName:
       divisionById.get(session.divisionId)?.ageCategory?.name ??
       "Unknown Age Category",
-    capacity: divisionById.get(session.divisionId)?.capacity ?? 0,
     competitionName:
       competitionNames.get(
         divisionById.get(session.divisionId)?.competitionId ?? ""

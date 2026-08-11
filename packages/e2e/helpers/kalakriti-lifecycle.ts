@@ -254,7 +254,6 @@ async function setup(actorEmail: string) {
   await db.insert(kalakritiCompetitionDivision).values([
     {
       ageCategoryId: fixtures.ready.ageCategoryId,
-      capacity: 30,
       competitionId: fixtures.ready.competitionId,
       createdAt: now,
       createdBy: actor.id,
@@ -264,7 +263,6 @@ async function setup(actorEmail: string) {
     },
     {
       ageCategoryId: fixtures.source.ageCategoryId,
-      capacity: 25,
       competitionId: fixtures.source.competitionId,
       createdAt: now,
       createdBy: actor.id,

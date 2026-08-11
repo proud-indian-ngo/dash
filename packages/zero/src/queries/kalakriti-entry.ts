@@ -28,7 +28,6 @@ export const kalakritiEntryQueries = {
       )
       .related("ageCategory")
       .related("competition", (competition) => competition.related("category"))
-      .related("entries")
       .related("sessions", (session) => session.related("venue"));
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("createdAt", "asc");

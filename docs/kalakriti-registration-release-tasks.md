@@ -344,7 +344,7 @@ bun run test:unit
 **Scope:**
 
 - Add Competition Category, Competition, Venue, and Competition Session schemas.
-- Support individual or group participation, `male`, `female`, or `both` eligibility, group size rules, capacity, cancellation, and retirement.
+- Support individual or group participation, `male`, `female`, or `both` eligibility, group size rules, cancellation, and retirement.
 - Restrict configuration and schedule edits to the Overall Events Lead or administrators.
 - Keep Category Leads read-only for configuration.
 - Require every Session to belong to one Age Category, fall on the Edition date, have valid start and end times, and use an active Venue.
@@ -354,7 +354,7 @@ bun run test:unit
 **Acceptance:**
 
 - Exactly one active Overall Events Lead controls configuration.
-- Invalid group rules and zero or negative capacities are rejected.
+- Invalid group rules are rejected.
 - A Venue cannot host overlapping Sessions.
 - A Competition with registrations will be cancellable, not deletable.
 
@@ -379,7 +379,7 @@ bun run test:unit
 - Allow `draft -> registration_open -> registration_locked` and explicit `registration_locked -> registration_open`.
 - Require confirmation for every transition.
 - On entering `registration_locked`, make Student and Entry commands fail regardless of stale client state.
-- Make Competition eligibility, capacity, Age Category, participation mode, and group rules immutable while locked.
+- Make Competition eligibility, Age Category, participation mode, and group rules immutable while locked.
 - Allow safe schedule time and Venue changes only when no registered Student conflict results.
 - Implement structural clone for Age Categories, limits, Competition Categories, Competition definitions, and Venues only.
 - Do not clone Centers, Sessions, people, assignments, registrations, files, operations, Results, or inventory.
@@ -442,17 +442,15 @@ bun run test:unit
 
 - Add `kalakriti_competition_entry` and `kalakriti_entry_member`.
 - Implement individual entry create and remove commands.
-- Enforce matching Edition, Center, Age Category, gender eligibility, active Session, capacity, per-Student total limit, per-category limit, and one Entry per Student per Session.
+- Enforce matching Edition, Center, Age Category, gender eligibility, active Session, per-Student total limit, per-category limit, and one Entry per Student per Session.
 - Reject overlapping Sessions for the same Student with no administrator override.
-- Enforce capacity transactionally under concurrent submissions.
 - Make Entry deletion follow lifecycle and operational-dependency rules.
 - Build the Center-scoped individual registration UI with actionable validation messages.
 
 **Acceptance:**
 
 - Valid Entries are active immediately.
-- Full capacity blocks registration and creates no waitlist.
-- A stale client cannot exceed capacity or bypass a lock.
+- A stale client cannot bypass a lock or eligibility rule.
 - Cross-Edition and cross-Center Student references fail.
 
 **Verify:**
@@ -466,7 +464,7 @@ bun run test:unit
 
 ## KRR-013: Deliver group Competition Entries
 
-**Outcome:** Authorized Center users can register same-Center groups while preserving all individual Student limits and one-capacity-unit group semantics.
+**Outcome:** Authorized Center users can register same-Center groups while preserving all individual Student limits.
 
 **Depends on:** KRR-012.
 
@@ -475,7 +473,6 @@ bun run test:unit
 - Add group Entry creation and membership-change commands on the existing Entry schema.
 - Enforce Competition group mode, minimum and maximum size, same Center, unique Students, and one Student occurrence per Session.
 - Apply gender, Age Category, count-limit, and schedule-conflict rules to every Entry Member.
-- Count one group Entry as one Session capacity unit.
 - Make group edits atomic so a failed member change leaves the prior group intact.
 - Build group composition UI that explains member-specific rejection reasons.
 
@@ -483,7 +480,7 @@ bun run test:unit
 
 - Mixed-Center groups are rejected.
 - A Student cannot appear in two Entries for the same Session.
-- Concurrent group submissions cannot exceed capacity.
+- Concurrent group submissions preserve Student limits and duplicate rules.
 - Removing members below the minimum is rejected without corrupting the Entry.
 
 **Verify:**
@@ -510,7 +507,7 @@ bun run test:unit
 
 **Acceptance:**
 
-- Student names, contact details, assignments, Judges, capacities, and internal notes never appear.
+- Student names, contact details, assignments, Judges, and internal notes never appear.
 - Unknown or non-publicly-ready Editions return a safe not-found state.
 - Schedule changes appear without a separate publish workflow.
 
@@ -578,13 +575,13 @@ bun run test:unit
 
 ## KRR-017: Add assignment-scoped registration dashboards
 
-**Outcome:** Administrators and assigned users can monitor registration capacity and progress without loading or leaking the complete Edition dataset.
+**Outcome:** Administrators and assigned users can monitor registration progress without loading or leaking the complete Edition dataset.
 
 **Depends on:** KRR-011, KRR-012, KRR-013, KRR-014.
 
 **Scope:**
 
-- Add Edition, Center, Age Category, Competition Category, Competition, capacity, and Student-limit aggregate queries.
+- Add Edition, Center, Age Category, Competition Category, Competition, Entry, participation, and Student-limit aggregate queries.
 - Build administrator, Center, Competition Category, and Competition dashboard projections.
 - Filter every aggregate in the authoritative query according to Assignment scope.
 - Keep public schedule aggregates separate from private registration totals.
@@ -642,7 +639,7 @@ bun run test:unit
 - Add Playwright fixtures and idempotent seed data for global admin, Edition admin, Volunteer Coordinator, Overall Events Lead, Category Lead, Guardian, Liaison, unrelated volunteer, and dormant external user.
 - Add E2E flows for Edition creation, linked event, assignments, Guardian invite and reuse, Center controls, Student registration, individual Entry, group Entry, public schedule, bulk lock, reopen, and registration lock.
 - Add direct URL and direct API authorization tests.
-- Add database concurrency tests for Student limits, Session capacity, one-live invariant preparation, and duplicate membership or Entry races.
+- Add database concurrency tests for Student limits, one-live invariant preparation, and duplicate membership or Entry races.
 - Run privacy checks against public schedule and scoped exports.
 - Verify no route, navigation item, mutation, or query exposes Event-day, Results, Awards, or Inventory behavior.
 - Update README, project structure, and the relevant architecture chapters for the implemented subsystem boundaries.

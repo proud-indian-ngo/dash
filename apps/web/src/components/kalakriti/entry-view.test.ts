@@ -7,7 +7,6 @@ import {
 const division = {
   ageCategory: { name: "Junior" },
   ageCategoryId: "age-1",
-  capacity: 10,
   competition: {
     category: { name: "Performing Arts" },
     competitionCategoryId: "category-1",

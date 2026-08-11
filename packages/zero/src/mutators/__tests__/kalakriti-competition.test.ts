@@ -36,7 +36,6 @@ const competition = {
 };
 const division = {
   ageCategoryId: "age-1",
-  capacity: 20,
   competitionId: competition.id,
   editionId: edition.id,
   id: "division-1",
@@ -217,9 +216,7 @@ describe("kalakritiCompetition commands", () => {
       auditEntryId: "audit-1",
       competitionCategoryId: category.id,
       competitionId: competition.id,
-      divisions: [
-        { ageCategoryId: "age-1", capacity: 20, divisionId: division.id },
-      ],
+      divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
       editionId: edition.id,
       genderEligibility: "both" as const,
       name: "Dance",
@@ -255,9 +252,7 @@ describe("kalakritiCompetition commands", () => {
           auditEntryId: "audit-1",
           competitionCategoryId: category.id,
           competitionId: competition.id,
-          divisions: [
-            { ageCategoryId: "age-1", capacity: 20, divisionId: division.id },
-          ],
+          divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
           editionId: edition.id,
           genderEligibility: "both",
           maximumGroupSize: 1,
@@ -288,7 +283,6 @@ describe("kalakritiCompetition commands", () => {
         divisions: [
           {
             ageCategoryId: ageCategory.id,
-            capacity: 20,
             divisionId: division.id,
           },
         ],
@@ -733,9 +727,7 @@ describe("kalakritiCompetition commands", () => {
         auditEntryId: "competition-name-audit",
         competitionCategoryId: competition.competitionCategoryId,
         competitionId: competition.id,
-        divisions: [
-          { ageCategoryId: "age-1", capacity: 20, divisionId: division.id },
-        ],
+        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
         genderEligibility: competition.genderEligibility,
         maximumGroupSize: competition.maximumGroupSize,
         minimumGroupSize: competition.minimumGroupSize,
@@ -791,9 +783,7 @@ describe("kalakritiCompetition commands", () => {
         auditEntryId: "audit-1",
         competitionCategoryId: nextCategory.id,
         competitionId: competition.id,
-        divisions: [
-          { ageCategoryId: "age-1", capacity: 20, divisionId: division.id },
-        ],
+        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
         genderEligibility: competition.genderEligibility,
         maximumGroupSize: competition.maximumGroupSize,
         minimumGroupSize: competition.minimumGroupSize,

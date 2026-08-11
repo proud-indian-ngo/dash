@@ -21,7 +21,6 @@ const center = {
 };
 const session = {
   ageCategoryId: "age-1",
-  capacity: 2,
   competitionId: "competition-1",
   editionId: edition.id,
   id: "session-1",
@@ -169,7 +168,6 @@ function createEntry({
   centerRow = center,
   editionRow = edition,
   existingMemberships = [],
-  sessionEntries = [],
   sessionRow = session,
   studentRow = student,
   configuration = activeConfiguration,
@@ -180,7 +178,6 @@ function createEntry({
   centerRow?: typeof center;
   editionRow?: typeof edition;
   existingMemberships?: unknown[];
-  sessionEntries?: unknown[];
   sessionRow?: typeof session & { cancelledAt?: number | null };
   studentRow?: typeof student;
   configuration?: unknown[];
@@ -188,7 +185,6 @@ function createEntry({
   const { lockedResults, spies, tx } = createTx([
     ...accessResults,
     ...configuration,
-    sessionEntries,
     "cancelledAt" in sessionRow && sessionRow.cancelledAt !== null
       ? []
       : [activeSession],
@@ -276,13 +272,11 @@ const groupEntrySnapshot = {
 function createGroup({
   configuration = [groupCompetition, activeConfiguration[1]],
   members = groupMembers,
-  sessionEntries = [],
   studentRows = [student, secondStudent],
   memberships = [[], []],
 }: {
   configuration?: unknown[];
   members?: Array<{ memberId: string; studentId: string }>;
-  sessionEntries?: unknown[];
   studentRows?: TestStudent[];
   memberships?: unknown[];
 } = {}) {
@@ -292,7 +286,6 @@ function createGroup({
       Array.isArray(rows) ? rows.map(normalizeMembership) : rows
     ),
     [activeSession],
-    sessionEntries,
   ]);
   lockedResults.push(
     [edition],
@@ -469,10 +462,8 @@ describe("kalakritiEntry commands", () => {
     await expect(promise).rejects.toThrow("requires a group Entry");
   });
 
-  it("creates a valid group Entry and counts it as one Session capacity unit", async () => {
-    const { promise, spies } = createGroup({
-      sessionEntries: [{ id: "entry-a" }],
-    });
+  it("creates a valid group Entry", async () => {
+    const { promise, spies } = createGroup();
     await promise;
 
     expect(spies.insertEntry).toHaveBeenCalledWith(
@@ -642,14 +633,6 @@ describe("kalakritiEntry commands", () => {
         expect(spies.insertEntry).not.toHaveBeenCalled();
       })
     );
-  });
-
-  it("enforces Session capacity without creating a waitlist", async () => {
-    const { promise, spies } = await createEntry({
-      sessionEntries: [{ id: "entry-a" }, { id: "entry-b" }],
-    });
-    await expect(promise).rejects.toThrow("capacity is full");
-    expect(spies.insertEntry).not.toHaveBeenCalled();
   });
 
   it("enforces one Entry per Student and Session", async () => {

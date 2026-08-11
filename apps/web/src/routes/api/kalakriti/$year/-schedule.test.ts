@@ -24,7 +24,6 @@ const publicSchedule = {
   sessions: [
     {
       ageCategory: "Juniors",
-      capacity: 25,
       competition: "Drawing",
       endAt: 1_800_001_800_000,
       internalNotes: "Private note",
@@ -89,7 +88,6 @@ describe("handlePublicScheduleRequest", () => {
       "Private note",
       "Private judge",
       "Private student",
-      "capacity",
       "plannedRegistrationCloseAt",
     ]) {
       expect(body).not.toContain(privateValue);

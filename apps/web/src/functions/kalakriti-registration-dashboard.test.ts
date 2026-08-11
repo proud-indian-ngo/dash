@@ -70,7 +70,6 @@ function projection(
     competitions: [],
     scope,
     totals: {
-      capacity: scope.kind === "center" ? null : 0,
       entries: 0,
       participants: 0,
       registeredStudents: 0,

@@ -53,7 +53,6 @@ interface CompetitionConfig {
 interface SessionAggregate {
   ageCategoryId: string;
   cancelled: boolean;
-  capacity: number;
   competitionId: string;
   id: string;
   venueRetired: boolean;
@@ -82,7 +81,6 @@ interface ParticipantAggregate {
 
 export interface KalakritiRegistrationDashboardProjection {
   ageCategories: Array<{
-    capacity: number | null;
     entries: number;
     femaleStudentLimit: number | null;
     femaleStudents: number | null;
@@ -104,7 +102,6 @@ export interface KalakritiRegistrationDashboardProjection {
     students: number;
   }>;
   competitionCategories: Array<{
-    capacity: number | null;
     competitions: number;
     entries: number;
     id: string;
@@ -112,7 +109,6 @@ export interface KalakritiRegistrationDashboardProjection {
     participants: number;
   }>;
   competitions: Array<{
-    capacity: number | null;
     cancelled: boolean;
     categoryName: string;
     entries: number;
@@ -124,7 +120,6 @@ export interface KalakritiRegistrationDashboardProjection {
   }>;
   scope: KalakritiRegistrationScope;
   totals: {
-    capacity: number | null;
     entries: number;
     participants: number;
     registeredStudents: number;
@@ -155,9 +150,6 @@ export function assembleKalakritiRegistrationDashboardProjection(
   const categoryById = new Map(
     rows.categories.map((category) => [category.id, category])
   );
-  const competitionById = new Map(
-    rows.competitions.map((competition) => [competition.id, competition])
-  );
   const sessionById = new Map(
     rows.sessions.map((session) => [session.id, session])
   );
@@ -166,20 +158,8 @@ export function assembleKalakritiRegistrationDashboardProjection(
       const session = sessionById.get(entry.sessionId);
       return session ? predicate(session) : false;
     });
-  const capacityVisible = scope.kind !== "center";
   const studentLimitsVisible =
     scope.kind === "edition" || scope.kind === "center";
-  const activeSessions = (sessions: SessionAggregate[]) =>
-    sessions.filter((session) => {
-      const competition = competitionById.get(session.competitionId);
-      return !(
-        session.cancelled ||
-        session.venueRetired ||
-        competition?.cancelled ||
-        competition?.categoryRetired ||
-        competition?.retired
-      );
-    });
 
   const competitions = rows.competitions.map((competition) => {
     const sessions = rows.sessions.filter(
@@ -190,9 +170,6 @@ export function assembleKalakritiRegistrationDashboardProjection(
     );
     return {
       cancelled: competition.cancelled,
-      capacity: capacityVisible
-        ? sum(activeSessions(sessions), (session) => session.capacity)
-        : null,
       categoryName:
         categoryById.get(competition.categoryId)?.name ?? "Unknown category",
       entries: sum(entries, (entry) => entry.entries),
@@ -211,12 +188,6 @@ export function assembleKalakritiRegistrationDashboardProjection(
     const ids = new Set(categoryCompetitions.map(({ id }) => id));
     const entries = entriesFor((session) => ids.has(session.competitionId));
     return {
-      capacity: capacityVisible
-        ? sum(
-            competitions.filter((item) => ids.has(item.id)),
-            (item) => item.capacity ?? 0
-          )
-        : null,
       competitions: categoryCompetitions.length,
       entries: sum(entries, (entry) => entry.entries),
       id: category.id,
@@ -248,9 +219,6 @@ export function assembleKalakritiRegistrationDashboardProjection(
     );
     return [
       {
-        capacity: capacityVisible
-          ? sum(activeSessions(sessions), (session) => session.capacity)
-          : null,
         entries: sum(entries, (entry) => entry.entries),
         femaleStudentLimit: studentLimitsVisible
           ? age.femaleStudentLimit
@@ -312,9 +280,6 @@ export function assembleKalakritiRegistrationDashboardProjection(
     competitions,
     scope,
     totals: {
-      capacity: capacityVisible
-        ? sum(competitions, (competition) => competition.capacity ?? 0)
-        : null,
       entries: sum(competitions, (competition) => competition.entries),
       participants: sum(
         competitions,
@@ -474,7 +439,6 @@ async function loadKalakritiRegistrationDashboardProjection({
           .select({
             ageCategoryId: kalakritiCompetitionDivision.ageCategoryId,
             cancelled: sql<boolean>`${kalakritiCompetitionSession.cancelledAt} is not null`,
-            capacity: kalakritiCompetitionDivision.capacity,
             competitionId: kalakritiCompetitionDivision.competitionId,
             id: kalakritiCompetitionDivision.id,
             venueRetired: sql<boolean>`${kalakritiVenue.retiredAt} is not null`,

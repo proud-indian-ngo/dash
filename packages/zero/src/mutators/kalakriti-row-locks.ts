@@ -55,7 +55,6 @@ export interface LockedAgeCategory {
 
 export interface LockedCompetitionDivision {
   ageCategoryId: string;
-  capacity: number;
   competitionId: string;
   editionId: string;
   id: string;
@@ -448,7 +447,6 @@ export async function getCompetitionDivisionForUpdate(
   const [division] = await requireServerTransaction(tx)
     .select({
       ageCategoryId: kalakritiCompetitionDivision.ageCategoryId,
-      capacity: kalakritiCompetitionDivision.capacity,
       competitionId: kalakritiCompetitionDivision.competitionId,
       editionId: kalakritiCompetitionDivision.editionId,
       id: kalakritiCompetitionDivision.id,

@@ -30,7 +30,6 @@ export interface VenueTableRow extends VenueView {
 
 export interface ScheduleTableRow extends CompetitionSessionFormValue {
   ageCategoryName: string;
-  capacity: number;
   competitionName: string;
   venueName: string;
 }

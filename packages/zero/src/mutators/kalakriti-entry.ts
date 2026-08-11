@@ -416,31 +416,24 @@ export const kalakritiEntryMutators = {
       );
       assertStudentEligibility(student, division, competition);
 
-      const [divisionEntries, divisionSessions, existingMemberships] =
-        await Promise.all([
-          tx.run(
-            zql.kalakritiCompetitionEntry.where("divisionId", division.id)
-          ) as Promise<Array<{ id: string }>>,
-          getActiveDivisionSessions(tx, division.id),
-          tx.run(
-            zql.kalakritiEntryMember
-              .where("studentId", student.id)
-              .related("entry", (entry) =>
-                entry.related("division", (registeredDivision) =>
-                  registeredDivision.related("competition").related("sessions")
-                )
+      const [divisionSessions, existingMemberships] = await Promise.all([
+        getActiveDivisionSessions(tx, division.id),
+        tx.run(
+          zql.kalakritiEntryMember
+            .where("studentId", student.id)
+            .related("entry", (entry) =>
+              entry.related("division", (registeredDivision) =>
+                registeredDivision.related("competition").related("sessions")
               )
-          ) as Promise<ExistingEntryMembership[]>,
-        ]);
+            )
+        ) as Promise<ExistingEntryMembership[]>,
+      ]);
       if (
         existingMemberships.some(
           (membership) => membership.divisionId === division.id
         )
       ) {
         throw new Error("Student is already registered for this Division");
-      }
-      if (divisionEntries.length >= division.capacity) {
-        throw new Error("Competition Division capacity is full");
       }
       if (existingMemberships.length >= ageCategory.maxTotalCompetitions) {
         throw new Error("Student has reached the total Competition limit");
@@ -526,13 +519,6 @@ export const kalakritiEntryMutators = {
         division,
         competition
       );
-      const divisionEntries = (await tx.run(
-        zql.kalakritiCompetitionEntry.where("divisionId", division.id)
-      )) as Array<{ id: string }>;
-      if (divisionEntries.length >= division.capacity) {
-        throw new Error("Competition Division capacity is full");
-      }
-
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,

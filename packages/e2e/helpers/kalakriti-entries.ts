@@ -126,7 +126,7 @@ async function cleanup(kind: FixtureKind): Promise<void> {
   await db.delete(teamEvent).where(eq(teamEvent.id, fixture.eventId));
 }
 
-async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
+async function setup(kind: FixtureKind, actorEmail: string) {
   const fixture = FIXTURES[kind];
   await cleanup(kind);
   const [actor, owningTeam] = await Promise.all([
@@ -279,7 +279,6 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
   await db.insert(kalakritiCompetitionDivision).values([
     {
       ageCategoryId: fixture.ageCategoryId,
-      capacity,
       competitionId: fixture.competitionId,
       createdAt: now,
       createdBy: actor.id,
@@ -289,7 +288,6 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     },
     {
       ageCategoryId: fixture.ageCategoryId,
-      capacity,
       competitionId: fixture.groupCompetitionId,
       createdAt: now,
       createdBy: actor.id,
@@ -368,7 +366,7 @@ async function readState(kind: FixtureKind) {
   return { audits, entries, members };
 }
 
-const [action, kindArgument, email, capacityArgument] = process.argv.slice(2);
+const [action, kindArgument, email] = process.argv.slice(2);
 const fixtureKind = kindArgument as FixtureKind;
 if (!(fixtureKind in FIXTURES)) {
   throw new Error(`Unsupported Entry fixture kind: ${kindArgument ?? ""}`);
@@ -376,7 +374,7 @@ if (!(fixtureKind in FIXTURES)) {
 
 let result: unknown;
 if (action === "setup" && email) {
-  result = await setup(fixtureKind, email, Number(capacityArgument ?? 2));
+  result = await setup(fixtureKind, email);
 } else if (action === "state") {
   result = await readState(fixtureKind);
 } else if (action === "cleanup") {

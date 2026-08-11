@@ -60,14 +60,6 @@ describe("Kalakriti Entry policy", () => {
       "This Competition is limited to male Students",
     ],
     [
-      "full Session",
-      {},
-      {},
-      [],
-      "This Session is full. Choose another Session.",
-      [{ id: "taken" }],
-    ],
-    [
       "duplicate Session",
       {},
       {},
@@ -97,7 +89,7 @@ describe("Kalakriti Entry policy", () => {
     ],
   ])(
     "returns an actionable message for a %s",
-    (_case, competitionOverrides, studentOverrides, existingEntries, expected, sessionEntries = []) => {
+    (_case, competitionOverrides, studentOverrides, existingEntries, expected) => {
       const student = {
         ageCategory: {
           maxCompetitionsPerCategory: 2,
@@ -114,7 +106,6 @@ describe("Kalakriti Entry policy", () => {
       const session = {
         ageCategory: { name: "Junior" },
         ageCategoryId: "age-1",
-        capacity: 1,
         competition: {
           category: { name: "Art" },
           competitionCategoryId: "category-1",
@@ -127,7 +118,7 @@ describe("Kalakriti Entry policy", () => {
           typeof getIndividualEntryValidationError
         >[0]["session"]["competition"],
         endAt: 200,
-        entries: sessionEntries,
+        entries: [],
         id: "session-1",
         startAt: 100,
       };
@@ -166,7 +157,6 @@ describe("Kalakriti Entry policy", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "age-1",
-      capacity: 10,
       competition: {
         category: { name: "Art" },
         competitionCategoryId: "category-1",
@@ -216,7 +206,6 @@ describe("Kalakriti Entry policy", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "age-1",
-      capacity: 2,
       competition: {
         category: { name: "Art" },
         competitionCategoryId: "category-1",
@@ -260,7 +249,7 @@ describe("Kalakriti Entry policy", () => {
     ]);
   });
 
-  it("excludes the edited group from capacity and Student limits", () => {
+  it("excludes the edited group from Student limits", () => {
     const student = {
       ageCategory: {
         maxCompetitionsPerCategory: 1,
@@ -275,7 +264,6 @@ describe("Kalakriti Entry policy", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "age-1",
-      capacity: 1,
       competition: {
         category: { name: "Art" },
         competitionCategoryId: "category-1",
@@ -330,7 +318,6 @@ describe("Kalakriti Entry policy", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "junior",
-      capacity: 5,
       competition: {
         category: { name: "Performing Arts" },
         competitionCategoryId: "performing-arts",

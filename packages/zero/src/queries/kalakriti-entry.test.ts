@@ -48,7 +48,6 @@ describe("kalakritiEntry queries", () => {
     expect(ast).toContain('"table":"kalakritiCompetitionCategory"');
     expect(ast).toContain('"table":"kalakritiAgeCategory"');
     expect(ast).toContain('"table":"kalakritiVenue"');
-    expect(ast).toContain('"table":"kalakritiCompetitionEntry"');
     expect(ast).not.toContain('"value":"individual"');
     expect(ast).not.toContain('"value":"group"');
   });

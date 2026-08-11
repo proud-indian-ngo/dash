@@ -365,7 +365,6 @@ describe("Kalakriti Edition registration readiness", () => {
     divisions: [
       {
         ageCategoryId: "age-1",
-        capacity: 10,
         competitionId: "competition-1",
         id: "division-1",
       },
@@ -398,9 +397,9 @@ describe("Kalakriti Edition registration readiness", () => {
           femaleStudentLimit: 0,
           maleStudentLimit: 0,
         })),
-        divisions: readySnapshot.divisions.map((division) => ({
-          ...division,
-          capacity: 0,
+        sessions: readySnapshot.sessions.map((session) => ({
+          ...session,
+          endAt: session.startAt,
         })),
       }).map((blocker) => blocker.code)
     ).toEqual(["missing_student_limits", "invalid_active_sessions"]);
@@ -465,9 +464,9 @@ describe("Kalakriti Edition registration readiness", () => {
       "invalid_active_sessions",
       () => ({
         ...readySnapshot,
-        divisions: readySnapshot.divisions.map((row) => ({
+        sessions: readySnapshot.sessions.map((row) => ({
           ...row,
-          capacity: 0,
+          endAt: row.startAt,
         })),
       }),
     ],
@@ -955,7 +954,6 @@ describe("Kalakriti Edition registration readiness", () => {
       divisions: [
         {
           ageCategoryId: ageCategory.id,
-          capacity: 20,
           competitionId: "competition-active",
           id: "division-active",
         },

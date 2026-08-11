@@ -491,7 +491,6 @@ export const kalakritiCompetitionDivision = pgTable(
   "kalakriti_competition_division",
   {
     ageCategoryId: uuid("age_category_id").notNull(),
-    capacity: integer("capacity").notNull(),
     competitionId: uuid("competition_id").notNull(),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
@@ -520,10 +519,6 @@ export const kalakritiCompetitionDivision = pgTable(
       foreignColumns: [kalakritiAgeCategory.editionId, kalakritiAgeCategory.id],
       name: "kalakriti_competition_division_edition_age_category_fk",
     }).onDelete("restrict"),
-    check(
-      "kalakriti_competition_division_capacity_chk",
-      sql`${table.capacity} > 0`
-    ),
   ]
 );
 

@@ -359,7 +359,6 @@ export async function seedKalakritiReleaseFixture(
   });
   await db.insert(kalakritiCompetitionDivision).values({
     ageCategoryId,
-    capacity: 10,
     competitionId,
     createdAt: now,
     createdBy: globalAdminId,

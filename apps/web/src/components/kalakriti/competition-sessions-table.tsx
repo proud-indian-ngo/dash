@@ -23,7 +23,6 @@ import type {
 
 const SKELETON_NAME = <Skeleton className="h-5 w-36" />;
 const SKELETON_VALUE = <Skeleton className="h-5 w-24" />;
-const SKELETON_COUNT = <Skeleton className="h-5 w-10" />;
 const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
@@ -216,18 +215,6 @@ export function CompetitionSessionsTable({
       ),
       meta: { headerTitle: "Venue", skeleton: SKELETON_VALUE },
       size: 170,
-    },
-    {
-      accessorKey: "capacity",
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Capacity"
-          visibility={true}
-        />
-      ),
-      meta: { headerTitle: "Capacity", skeleton: SKELETON_COUNT },
-      size: 100,
     },
     {
       accessorFn: (session) =>

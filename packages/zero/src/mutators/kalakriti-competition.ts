@@ -90,7 +90,6 @@ const competitionValuesSchema = namedConfigurationSchema
       .array(
         z.object({
           ageCategoryId: z.string(),
-          capacity: z.number().int().min(1),
           divisionId: z.string(),
         })
       )
@@ -408,7 +407,6 @@ async function getDivision(tx: CompetitionTx, id: string) {
   )) as
     | {
         ageCategoryId: string;
-        capacity: number;
         competitionId: string;
         editionId: string;
         id: string;
@@ -514,7 +512,6 @@ async function insertCompetitionDivisions(
     competitionId: string;
     divisions: readonly {
       ageCategoryId: string;
-      capacity: number;
       divisionId: string;
     }[];
     editionId: string;
@@ -526,7 +523,6 @@ async function insertCompetitionDivisions(
     values.divisions.map((division) =>
       tx.mutate.kalakritiCompetitionDivision.insert({
         ageCategoryId: division.ageCategoryId,
-        capacity: division.capacity,
         competitionId: values.competitionId,
         createdAt: values.now,
         createdBy: ctx.userId,
@@ -545,7 +541,6 @@ async function syncCompetitionDivisions(
     competitionId: string;
     divisions: readonly {
       ageCategoryId: string;
-      capacity: number;
       divisionId: string;
     }[];
     editionId: string;
@@ -560,7 +555,6 @@ async function syncCompetitionDivisions(
     )
   )) as readonly {
     ageCategoryId: string;
-    capacity: number;
     id: string;
   }[];
   const nextById = new Map(
@@ -593,21 +587,6 @@ async function syncCompetitionDivisions(
       }
       if (next.ageCategoryId !== division.ageCategoryId) {
         throw new Error("Competition Division Age Category cannot change");
-      }
-      if (next.capacity !== division.capacity) {
-        const entries = (await tx.run(
-          zql.kalakritiCompetitionEntry.where("divisionId", division.id)
-        )) as readonly unknown[];
-        if (next.capacity < entries.length) {
-          throw new Error(
-            "Division capacity cannot be lower than its Entry count"
-          );
-        }
-        await tx.mutate.kalakritiCompetitionDivision.update({
-          capacity: next.capacity,
-          id: division.id,
-          updatedAt: values.now,
-        });
       }
       nextById.delete(division.id);
     })

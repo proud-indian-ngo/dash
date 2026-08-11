@@ -144,21 +144,18 @@ function DashboardProjection({
   projection: KalakritiRegistrationDashboardProjection;
 }) {
   const heading = scopeHeading(projection.scope);
-  const { capacity } = projection.totals;
   const canViewStudentLimits = projection.totals.studentLimit !== null;
   const competitionCategoryColumns = [
     "Competition Category",
     "Competitions",
     "Entries",
     "Participations",
-    ...(capacity === null ? [] : ["Capacity"]),
   ];
   const competitionColumns = [
     "Competition",
     "Sessions",
     "Entries",
     "Participations",
-    ...(capacity === null ? [] : ["Capacity"]),
   ];
   return (
     <Card className="overflow-hidden">
@@ -187,17 +184,15 @@ function DashboardProjection({
               label: "Participations",
               value: projection.totals.participants,
             },
-            capacity === null
-              ? {
-                  description: "Across your assigned Centers",
-                  label: "Student limit",
-                  value: projection.totals.studentLimit ?? "Restricted",
-                }
-              : {
-                  description: "Across active Competition Sessions",
-                  label: "Entry capacity",
-                  value: capacity,
-                },
+            ...(projection.totals.studentLimit === null
+              ? []
+              : [
+                  {
+                    description: "Across your assigned Centers",
+                    label: "Student limit",
+                    value: projection.totals.studentLimit,
+                  },
+                ]),
           ]}
         />
 
@@ -238,7 +233,6 @@ function DashboardProjection({
                 "Registered",
                 "Entries",
                 "Participations",
-                ...(capacity === null ? [] : ["Capacity"]),
               ]}
               description="Registration and participation by age category."
               rows={projection.ageCategories.map((age) => [
@@ -247,7 +241,6 @@ function DashboardProjection({
                 age.registeredStudents,
                 age.entries,
                 age.participants,
-                ...(capacity === null ? [] : [age.capacity ?? 0]),
               ])}
               title="Age categories"
             />
@@ -292,7 +285,6 @@ function DashboardProjection({
                 category.competitions,
                 category.entries,
                 category.participants,
-                ...(capacity === null ? [] : [category.capacity ?? 0]),
               ])}
               title="Competition categories"
             />
@@ -305,7 +297,6 @@ function DashboardProjection({
                 competition.sessions,
                 competition.entries,
                 competition.participants,
-                ...(capacity === null ? [] : [competition.capacity ?? 0]),
               ])}
               title="Competitions"
             />

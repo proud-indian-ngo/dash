@@ -7,11 +7,9 @@ import type {
 interface EntryDivisionSource {
   ageCategory?: KalakritiEntrySession["ageCategory"];
   ageCategoryId: string;
-  capacity: number;
   competition?: Omit<KalakritiEntrySession["competition"], "category"> & {
     category?: KalakritiEntrySession["competition"]["category"];
   };
-  entries?: readonly { id: string }[];
   id: string;
   sessions: readonly {
     cancelledAt: number | null;
@@ -51,10 +49,8 @@ function buildKalakritiEntrySession(
   return {
     ageCategory,
     ageCategoryId: division.ageCategoryId,
-    capacity: division.capacity,
     competition: { ...competition, category },
     endAt: schedule.endAt,
-    entries: division.entries ?? [],
     id: division.id,
     scheduleActive: schedule.cancelledAt === null,
     startAt: schedule.startAt,

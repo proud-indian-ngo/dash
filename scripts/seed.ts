@@ -1032,7 +1032,6 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
     .insert(kalakritiCompetitionDivision)
     .values({
       ageCategoryId: ID.kalakritiAgeCategory,
-      capacity: 20,
       competitionId: ID.kalakritiCompetition,
       createdAt: now,
       createdBy: adminId,

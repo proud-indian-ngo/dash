@@ -212,7 +212,6 @@ async function setup(kind: FixtureKind, actorEmail: string) {
     await db.insert(kalakritiCompetitionDivision).values([
       {
         ageCategoryId: fixture.ageCategoryId,
-        capacity: 30,
         competitionId: VOLUNTEER_SCOPE.assignedCompetitionId,
         createdAt: now,
         createdBy: actor.id,
@@ -222,7 +221,6 @@ async function setup(kind: FixtureKind, actorEmail: string) {
       },
       {
         ageCategoryId: fixture.ageCategoryId,
-        capacity: 20,
         competitionId: VOLUNTEER_SCOPE.unassignedCompetitionId,
         createdAt: now,
         createdBy: actor.id,

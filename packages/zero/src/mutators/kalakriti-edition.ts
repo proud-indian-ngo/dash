@@ -460,7 +460,6 @@ export const kalakritiEditionMutators = {
               row.ageCategoryId,
               "Age Category"
             ),
-            capacity: row.capacity,
             competitionId: getMappedId(
               competitionMap,
               row.competitionId,

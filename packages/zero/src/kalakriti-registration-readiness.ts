@@ -32,7 +32,6 @@ export interface KalakritiRegistrationReadinessSnapshot {
   }[];
   divisions: readonly {
     ageCategoryId: string;
-    capacity: number;
     competitionId: string;
     id: string;
   }[];
@@ -220,11 +219,9 @@ export function getKalakritiRegistrationReadiness(
           activeCompetitionIds.has(division.competitionId) &&
           activeAgeCategoryIds.has(division.ageCategoryId) &&
           activeVenues.has(session.venueId) &&
-          Number.isInteger(division.capacity)
+          Number.isFinite(session.startAt) &&
+          Number.isFinite(session.endAt)
         ) ||
-        division.capacity <= 0 ||
-        !Number.isFinite(session.startAt) ||
-        !Number.isFinite(session.endAt) ||
         session.endAt <= session.startAt ||
         !eventDate ||
         !edition.timezone ||

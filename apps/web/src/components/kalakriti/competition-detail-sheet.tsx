@@ -130,15 +130,9 @@ export function CompetitionDetailSheet({
           <div className="grid gap-3">
             <h3 className="font-medium text-sm">Competition Divisions</h3>
             {competition.divisions.map((division) => (
-              <div
-                className="flex items-center justify-between gap-4 rounded-md border px-3 py-2"
-                key={division.id}
-              >
+              <div className="rounded-md border px-3 py-2" key={division.id}>
                 <span className="text-sm">
                   {division.ageCategory?.name ?? "Unknown Age Category"}
-                </span>
-                <span className="text-muted-foreground text-sm">
-                  {division.capacity} Entries
                 </span>
               </div>
             ))}

@@ -94,7 +94,7 @@ test("configures the Competition catalog and rejects an invalid schedule", async
     await competitions.session("Solo Dance", "Junior").click();
     await expect(
       page.getByRole("dialog", { name: "Solo Dance" })
-    ).toContainText("Entry capacity");
+    ).toContainText("Main Stage");
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "Add Session" }).click();

@@ -41,7 +41,6 @@ const competitionSchema = z
       .array(
         z.object({
           ageCategoryId: z.string(),
-          capacity: z.number().int().min(1),
           id: z.string(),
         })
       )
@@ -80,7 +79,6 @@ export interface CompetitionFormValue {
 export interface CompetitionDivisionFormValue {
   ageCategory?: { name: string };
   ageCategoryId: string;
-  capacity: number;
   competitionId?: string;
   id: string;
 }
@@ -141,7 +139,6 @@ function CompetitionForm({
         competitionId,
         divisions: value.divisions.map((division) => ({
           ageCategoryId: division.ageCategoryId,
-          capacity: division.capacity,
           divisionId: division.id,
         })),
         now: Date.now(),
@@ -172,9 +169,6 @@ function CompetitionForm({
     },
     validators: { onChange: competitionSchema, onSubmit: competitionSchema },
   });
-  const selectDivisions = useEventCallback(
-    (state: typeof form.state) => state.values.divisions
-  );
   return (
     <FormLayout form={form}>
       <InputField autoFocus isRequired label="Competition name" name="name" />
@@ -201,24 +195,6 @@ function CompetitionForm({
           />
         )}
       </CustomField>
-      <form.Subscribe selector={selectDivisions}>
-        {(divisions) =>
-          divisions.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {divisions.map((division, index) => (
-                <InputField
-                  description="Maximum Entries accepted for this Division."
-                  isRequired
-                  key={division.id}
-                  label={`${activeAgeCategories.find((category) => category.id === division.ageCategoryId)?.name ?? "Age Category"} capacity`}
-                  name={`divisions[${index}].capacity`}
-                  type="number"
-                />
-              ))}
-            </div>
-          ) : null
-        }
-      </form.Subscribe>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
           isRequired
@@ -292,7 +268,6 @@ function AgeCategoryDivisionPicker({
         (ageCategoryId) =>
           existing.get(ageCategoryId) ?? {
             ageCategoryId,
-            capacity: 100,
             id: uuidv7(),
           }
       )

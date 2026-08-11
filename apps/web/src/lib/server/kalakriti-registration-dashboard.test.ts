@@ -109,7 +109,6 @@ const rows = {
     {
       ageCategoryId: "age-1",
       cancelled: false,
-      capacity: 10,
       competitionId: "competition-1",
       id: "session-1",
       venueRetired: false,
@@ -117,7 +116,6 @@ const rows = {
     {
       ageCategoryId: "age-2",
       cancelled: true,
-      capacity: 20,
       competitionId: "competition-2",
       id: "session-2",
       venueRetired: false,
@@ -200,7 +198,6 @@ describe("Kalakriti registration dashboard aggregation", () => {
     );
 
     expect(projection.totals).toEqual({
-      capacity: 10,
       entries: 3,
       participants: 6,
       registeredStudents: 6,
@@ -214,7 +211,7 @@ describe("Kalakriti registration dashboard aggregation", () => {
     ]);
   });
 
-  it("does not expose Edition capacity from a Center projection", () => {
+  it("applies shared Student limits to a Center projection", () => {
     const centerRows = {
       ...rows,
       categories: rows.categories.slice(0, 1),
@@ -229,8 +226,6 @@ describe("Kalakriti registration dashboard aggregation", () => {
       centerRows
     );
 
-    expect(projection.totals.capacity).toBeNull();
-    expect(projection.competitions[0]?.capacity).toBeNull();
     expect(projection.centers).toEqual([
       expect.objectContaining({
         id: "center-1",
@@ -274,27 +269,6 @@ describe("Kalakriti registration dashboard aggregation", () => {
     expect(projection.totals.students).toBe(2);
   });
 
-  it("reports zero active capacity for retired Category and Venue Sessions", () => {
-    const projection = assembleKalakritiRegistrationDashboardProjection(
-      { kind: "edition" },
-      {
-        ...rows,
-        competitions: rows.competitions.map((competition, index) => ({
-          ...competition,
-          categoryRetired: index === 0,
-        })),
-        sessions: rows.sessions.map((session, index) => ({
-          ...session,
-          cancelled: false,
-          venueRetired: index === 1,
-        })),
-      }
-    );
-
-    expect(projection.totals.capacity).toBe(0);
-    expect(projection.totals.entries).toBe(3);
-  });
-
   it("returns an empty bounded projection for an empty Edition", () => {
     const projection = assembleKalakritiRegistrationDashboardProjection(
       { kind: "edition" },
@@ -317,7 +291,6 @@ describe("Kalakriti registration dashboard aggregation", () => {
         competitionCategories: [],
         competitions: [],
         totals: {
-          capacity: 0,
           entries: 0,
           participants: 0,
           registeredStudents: 0,
