@@ -39,6 +39,7 @@ interface EntryValidationSession {
   endAt: number;
   entries: readonly { id: string }[];
   id: string;
+  scheduleActive?: boolean;
   startAt: number;
 }
 
@@ -92,6 +93,7 @@ function getStudentEntryValidationError({
   if (
     existing.some(
       (entry) =>
+        entry.session.scheduleActive !== false &&
         entry.session.startAt < session.endAt &&
         entry.session.endAt > session.startAt
     )

@@ -11,7 +11,7 @@ interface EntryDivisionSource {
   competition?: Omit<KalakritiEntrySession["competition"], "category"> & {
     category?: KalakritiEntrySession["competition"]["category"];
   };
-  entries: readonly { id: string }[];
+  entries?: readonly { id: string }[];
   id: string;
   sessions: readonly {
     cancelledAt: number | null;
@@ -22,6 +22,7 @@ interface EntryDivisionSource {
 }
 
 interface EntrySource {
+  division?: EntryDivisionSource;
   divisionId: string;
   id: string;
   members: readonly {
@@ -33,32 +34,40 @@ interface EntrySource {
   participationMode: "group" | "individual";
 }
 
+function buildKalakritiEntrySession(
+  division: EntryDivisionSource,
+  includeCancelled: boolean
+): KalakritiEntrySession | null {
+  const { ageCategory, competition } = division;
+  const schedule = division.sessions.find(
+    (candidate) =>
+      (includeCancelled || candidate.cancelledAt === null) && candidate.venue
+  );
+  const category = competition?.category;
+  const venue = schedule?.venue;
+  if (!(ageCategory && competition && category && schedule && venue)) {
+    return null;
+  }
+  return {
+    ageCategory,
+    ageCategoryId: division.ageCategoryId,
+    capacity: division.capacity,
+    competition: { ...competition, category },
+    endAt: schedule.endAt,
+    entries: division.entries ?? [],
+    id: division.id,
+    scheduleActive: schedule.cancelledAt === null,
+    startAt: schedule.startAt,
+    venue,
+  };
+}
+
 export function buildKalakritiEntrySessions(
   divisions: readonly EntryDivisionSource[]
 ): KalakritiEntrySession[] {
   return divisions.flatMap((division) => {
-    const { ageCategory, competition } = division;
-    const schedule = division.sessions.find(
-      (candidate) => candidate.cancelledAt === null && candidate.venue
-    );
-    const category = competition?.category;
-    const venue = schedule?.venue;
-    if (!(ageCategory && competition && category && schedule && venue)) {
-      return [];
-    }
-    return [
-      {
-        ageCategory,
-        ageCategoryId: division.ageCategoryId,
-        capacity: division.capacity,
-        competition: { ...competition, category },
-        endAt: schedule.endAt,
-        entries: division.entries,
-        id: division.id,
-        startAt: schedule.startAt,
-        venue,
-      },
-    ];
+    const session = buildKalakritiEntrySession(division, false);
+    return session ? [session] : [];
   });
 }
 
@@ -70,7 +79,11 @@ export function buildKalakritiEntryRows(
     sessions.map((session) => [session.id, session])
   );
   return entries.flatMap((entry) => {
-    const session = sessionByDivisionId.get(entry.divisionId);
+    const session =
+      sessionByDivisionId.get(entry.divisionId) ??
+      (entry.division
+        ? buildKalakritiEntrySession(entry.division, true)
+        : null);
     const members = entry.members.flatMap((member) =>
       member.student?.ageCategory
         ? [

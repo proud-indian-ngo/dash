@@ -69,6 +69,7 @@ export interface KalakritiEntrySession {
   endAt: number;
   entries: readonly { id: string }[];
   id: string;
+  scheduleActive?: boolean;
   startAt: number;
   venue: { name: string };
 }

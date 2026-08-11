@@ -1134,4 +1134,68 @@ describe("kalakritiCompetition commands", () => {
     ).rejects.toThrow("overlapping Session");
     expect(spies.updateSession).not.toHaveBeenCalled();
   });
+
+  it("revalidates registered Student overlap before restoring a Session", async () => {
+    const cancelledSession = {
+      cancelledAt: 1,
+      divisionId: division.id,
+      editionId: edition.id,
+      endAt: Date.parse("2027-11-21T06:00:00.000Z"),
+      id: "session-cancelled",
+      startAt: Date.parse("2027-11-21T05:00:00.000Z"),
+      venueId: venue.id,
+    };
+    const { lockedResults, spies, tx } = createTx([
+      cancelledSession,
+      division,
+      competition,
+      division,
+      venue,
+      [],
+      competition,
+      [
+        {
+          members: [
+            {
+              student: {
+                entryMemberships: [
+                  {
+                    entry: {
+                      division: {
+                        sessions: [
+                          {
+                            cancelledAt: null,
+                            endAt: Date.parse("2027-11-21T06:30:00.000Z"),
+                            id: "session-active",
+                            startAt: Date.parse("2027-11-21T05:30:00.000Z"),
+                          },
+                        ],
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCompetitionMutators.setSessionCancelled.fn({
+        args: {
+          auditEntryId: "audit-restore",
+          enabled: false,
+          id: cancelledSession.id,
+          now: 2,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.setSessionCancelled.fn
+      >[0])
+    ).rejects.toThrow("overlap another Entry");
+    expect(spies.updateSession).not.toHaveBeenCalled();
+  });
 });

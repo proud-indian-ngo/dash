@@ -1104,6 +1104,12 @@ export const kalakritiCompetitionMutators = {
           startAt: session.startAt,
           venueId: session.venueId,
         });
+        await assertDivisionEntriesDoNotConflict(tx, {
+          divisionId: session.divisionId,
+          endAt: session.endAt,
+          excludedSessionId: session.id,
+          startAt: session.startAt,
+        });
       }
       const { centerIds } = await getSessionScheduleImpact(
         tx,
