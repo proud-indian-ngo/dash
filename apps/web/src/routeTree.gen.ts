@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiFinancialExportRouteImport } from './routes/api/financial-export'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
 import { Route as ApiAuditLogRouteImport } from './routes/api/audit-log'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
@@ -102,6 +103,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFinancialExportRoute = ApiFinancialExportRouteImport.update({
+  id: '/api/financial-export',
+  path: '/api/financial-export',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAvatarRoute = ApiAvatarRouteImport.update({
@@ -501,6 +507,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
@@ -571,6 +578,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -645,6 +653,7 @@ export interface FileRoutesById {
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/': typeof AppIndexRoute
   '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
@@ -724,6 +733,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/audit-log'
     | '/api/avatar'
+    | '/api/financial-export'
     | '/api/health'
     | '/kalakriti/$year'
     | '/settings/roles'
@@ -794,6 +804,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/audit-log'
     | '/api/avatar'
+    | '/api/financial-export'
     | '/api/health'
     | '/events/$id'
     | '/kalakriti/new'
@@ -867,6 +878,7 @@ export interface FileRouteTypes {
     | '/_auth/verify-email'
     | '/api/audit-log'
     | '/api/avatar'
+    | '/api/financial-export'
     | '/api/health'
     | '/_app/'
     | '/_app/kalakriti/$year'
@@ -929,6 +941,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
+  ApiFinancialExportRoute: typeof ApiFinancialExportRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -978,6 +991,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/financial-export': {
+      id: '/api/financial-export'
+      path: '/api/financial-export'
+      fullPath: '/api/financial-export'
+      preLoaderRoute: typeof ApiFinancialExportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/avatar': {
@@ -1739,6 +1759,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,
+  ApiFinancialExportRoute: ApiFinancialExportRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -418,7 +418,7 @@ async function ensureUpcomingEventReimbursement(
     eventId,
     expenseDate: "2026-01-15",
     id: SEED_UPCOMING_REIMBURSEMENT_ID,
-    status: "pending",
+    status: "approved",
     title: "E2E Upcoming Event Reimbursement",
     updatedAt: now,
     userId,

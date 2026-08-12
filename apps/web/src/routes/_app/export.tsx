@@ -11,20 +11,18 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
-import { type ExportRow, exportCsvData } from "@/functions/export-csv";
-import {
-  exportVendorPaymentsCsv,
-  type TransactionExportRow,
-  type VendorPaymentExportRow,
-  vendorPaymentStatusValues,
-} from "@/functions/export-vendor-payments-csv";
-import { type CsvFile, downloadCsvFiles } from "@/lib/csv-export";
 import { getErrorMessage } from "@/lib/errors";
-import { formatExportAttachmentLinks } from "@/lib/export-attachments";
+import {
+  type RequestExportStatus,
+  type RequestExportType,
+  requestExportStatusValues,
+  type VendorPaymentExportStatus,
+  vendorPaymentExportStatusValues,
+} from "@/lib/financial-export-contract";
+import { downloadFinancialExport } from "@/lib/financial-export-download";
 import { assertPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/export")({
@@ -48,8 +46,8 @@ const FY_OPTIONS = (() => {
   });
 })();
 
-const ALL_STATUSES = ["pending", "approved", "rejected"] as const;
-type Status = (typeof ALL_STATUSES)[number];
+const ALL_STATUSES = requestExportStatusValues;
+type Status = RequestExportStatus;
 
 const STATUS_LABELS: Record<Status, string> = {
   approved: "Approved",
@@ -57,8 +55,8 @@ const STATUS_LABELS: Record<Status, string> = {
   rejected: "Rejected",
 };
 
-const VP_STATUSES = vendorPaymentStatusValues;
-type VPStatus = (typeof VP_STATUSES)[number];
+const VP_STATUSES = vendorPaymentExportStatusValues;
+type VPStatus = VendorPaymentExportStatus;
 
 const VP_STATUS_LABELS: Record<VPStatus, string> = {
   approved: "Approved",
@@ -70,125 +68,12 @@ const VP_STATUS_LABELS: Record<VPStatus, string> = {
   rejected: "Rejected",
 };
 
-const REQUEST_CSV_HEADERS = [
-  "Type",
-  "Title",
-  "Created By",
-  "Email",
-  "Status",
-  "Total",
-  "City",
-  "Expense Date",
-  "Submitted At",
-  "Created At",
-  "Attachments",
-];
-
-const VP_CSV_HEADERS = [
-  "Title",
-  "Vendor",
-  "Invoice Number",
-  "Invoice Date",
-  "Created By",
-  "Email",
-  "Status",
-  "Total Amount",
-  "Paid Amount",
-  "Remaining",
-  "Submitted At",
-  "Created At",
-];
-
-const TX_CSV_HEADERS = [
-  "Vendor Payment",
-  "Amount",
-  "Description",
-  "Transaction Date",
-  "Payment Method",
-  "Reference",
-  "Status",
-  "Recorded By",
-];
-
-function requestRowToArray(row: ExportRow, origin: string): string[] {
-  return [
-    row.type,
-    row.title,
-    row.createdBy,
-    row.email,
-    row.status,
-    row.total,
-    row.city,
-    row.expenseDate,
-    row.submittedAt,
-    row.createdAt,
-    formatExportAttachmentLinks(row.attachments, origin),
-  ];
-}
-
-function vpRowToArray(row: VendorPaymentExportRow): string[] {
-  return [
-    row.title,
-    row.vendorName,
-    row.invoiceNumber,
-    row.invoiceDate,
-    row.createdBy,
-    row.email,
-    row.status,
-    row.totalAmount,
-    row.paidAmount,
-    row.remaining,
-    row.submittedAt,
-    row.createdAt,
-  ];
-}
-
-function txRowToArray(row: TransactionExportRow): string[] {
-  return [
-    row.vendorPaymentTitle,
-    row.amount,
-    row.description,
-    row.transactionDate,
-    row.paymentMethod,
-    row.paymentReference,
-    row.status,
-    row.recordedBy,
-  ];
-}
-
-function buildRequestFilename(
-  includeReimbursements: boolean,
-  includeAdvancePayments: boolean,
-  selectedStatuses: Set<Status>,
-  fyStartNum: number,
-  today: string
-): string {
-  const typeParts: string[] = [];
-  if (includeReimbursements) {
-    typeParts.push("reimbursements");
-  }
-  if (includeAdvancePayments) {
-    typeParts.push("advance-payments");
-  }
-
-  const statusPart =
-    selectedStatuses.size === ALL_STATUSES.length
-      ? "all-statuses"
-      : [...selectedStatuses].sort().join("-");
-
-  return `${typeParts.join("_")}_${statusPart}_FY${fyStartNum}-${String(fyStartNum + 1).slice(2)}_${today}.csv`;
-}
-
-function buildFyDateSuffix(fyStartNum: number, today: string): string {
-  return `FY${fyStartNum}-${String(fyStartNum + 1).slice(2)}_${today}`;
-}
-
 function toggleSetItem<T>(
   setter: Dispatch<SetStateAction<Set<T>>>,
   item: T
 ): void {
-  setter((prev) => {
-    const next = new Set(prev);
+  setter((previous) => {
+    const next = new Set(previous);
     if (next.has(item)) {
       next.delete(item);
     } else {
@@ -225,271 +110,120 @@ function StatusCheckbox<T extends string>({
   );
 }
 
-async function exportRequests(
-  runExport: ReturnType<typeof useServerFn<typeof exportCsvData>>,
-  opts: {
-    includeReimbursements: boolean;
-    includeAdvancePayments: boolean;
-    fyStartNum: number;
-    selectedStatuses: Set<Status>;
-    today: string;
-  }
-): Promise<{ file: CsvFile; label: string }> {
-  const types: ("reimbursement" | "advancePayment")[] = [];
-  if (opts.includeReimbursements) {
+const getRequestTypes = (
+  includeReimbursements: boolean,
+  includeAdvancePayments: boolean
+): RequestExportType[] => {
+  const types: RequestExportType[] = [];
+  if (includeReimbursements) {
     types.push("reimbursement");
   }
-  if (opts.includeAdvancePayments) {
+  if (includeAdvancePayments) {
     types.push("advancePayment");
   }
-  const statuses =
-    opts.selectedStatuses.size === ALL_STATUSES.length
-      ? undefined
-      : [...opts.selectedStatuses];
-  const result = await runExport({
-    data: { fyStart: opts.fyStartNum, statuses, types },
-  });
-  const filename = buildRequestFilename(
-    opts.includeReimbursements,
-    opts.includeAdvancePayments,
-    opts.selectedStatuses,
-    opts.fyStartNum,
-    opts.today
-  );
-  return {
-    file: {
-      filename,
-      headers: REQUEST_CSV_HEADERS,
-      rows: result.rows.map((row) =>
-        requestRowToArray(row, window.location.origin)
-      ),
-    },
-    label: `${result.rows.length} reimbursements`,
-  };
-}
+  return types;
+};
 
-async function exportVendorPayments(
-  runExport: ReturnType<typeof useServerFn<typeof exportVendorPaymentsCsv>>,
-  opts: {
-    fyStartNum: number;
-    selectedVPStatuses: Set<VPStatus>;
+const getSelectedValues = <T,>(values: Set<T>, allValues: readonly T[]) =>
+  values.size === allValues.length ? undefined : [...values];
+
+function getExportedLabels(
+  result: Awaited<ReturnType<typeof downloadFinancialExport>>,
+  options: {
+    hasRequestSelection: boolean;
     includeTransactions: boolean;
-    today: string;
+    includeVendorPayments: boolean;
   }
-): Promise<{ files: CsvFile[]; labels: string[] }> {
-  const statuses =
-    opts.selectedVPStatuses.size === VP_STATUSES.length
-      ? undefined
-      : [...opts.selectedVPStatuses];
-  const result = await runExport({
-    data: {
-      fyStart: opts.fyStartNum,
-      includeTransactions: opts.includeTransactions,
-      statuses,
-    },
-  });
-  const dateSuffix = buildFyDateSuffix(opts.fyStartNum, opts.today);
-  const files: CsvFile[] = [
-    {
-      filename: `vendor-payments_${dateSuffix}.csv`,
-      headers: VP_CSV_HEADERS,
-      rows: result.rows.map(vpRowToArray),
-    },
-  ];
-  const labels = [`${result.rows.length} vendor payments`];
-
-  if (opts.includeTransactions && result.transactionRows.length > 0) {
-    files.push({
-      filename: `vendor-payment-transactions_${dateSuffix}.csv`,
-      headers: TX_CSV_HEADERS,
-      rows: result.transactionRows.map(txRowToArray),
-    });
-    labels.push(`${result.transactionRows.length} transactions`);
+): string[] {
+  const labels: string[] = [];
+  if (options.hasRequestSelection) {
+    labels.push(`${result.requestCount} reimbursements`);
   }
-  return { files, labels };
-}
-
-function getDownloadError(
-  files: CsvFile[],
-  archiveFilename: string
-): string | null {
-  try {
-    downloadCsvFiles(files, archiveFilename);
-    return null;
-  } catch (caughtError) {
-    log.error({
-      action: "downloadCsvFiles",
-      caughtError:
-        caughtError instanceof Error
-          ? caughtError.message
-          : String(caughtError),
-      component: "ExportRoute",
-    });
-    return `Download: ${getErrorMessage(caughtError)}`;
+  if (options.includeVendorPayments) {
+    labels.push(`${result.vendorPaymentCount} vendor payments`);
   }
-}
-
-function showExportResults(
-  exported: string[],
-  errors: string[],
-  didDownload: boolean,
-  hasFiles: boolean
-): void {
-  if (didDownload && exported.length > 0) {
-    toast.success(`Exported ${exported.join(", ")}!`);
+  if (options.includeTransactions && result.transactionCount > 0) {
+    labels.push(`${result.transactionCount} transactions`);
   }
-  for (const error of errors) {
-    toast.error(error);
-  }
-  if (!(hasFiles || errors.length > 0)) {
-    toast.error("No data to export");
-  }
-}
-
-async function runAllExports(opts: {
-  hasRequestSelection: boolean;
-  includeVendorPayments: boolean;
-  runRequestExport: ReturnType<typeof useServerFn<typeof exportCsvData>>;
-  runVPExport: ReturnType<typeof useServerFn<typeof exportVendorPaymentsCsv>>;
-  includeReimbursements: boolean;
-  includeAdvancePayments: boolean;
-  fyStartNum: number;
-  selectedStatuses: Set<Status>;
-  selectedVPStatuses: Set<VPStatus>;
-  includeTransactions: boolean;
-  today: string;
-}): Promise<void> {
-  const exported: string[] = [];
-  const errors: string[] = [];
-  const files: CsvFile[] = [];
-
-  if (opts.hasRequestSelection) {
-    try {
-      const result = await exportRequests(opts.runRequestExport, {
-        fyStartNum: opts.fyStartNum,
-        includeAdvancePayments: opts.includeAdvancePayments,
-        includeReimbursements: opts.includeReimbursements,
-        selectedStatuses: opts.selectedStatuses,
-        today: opts.today,
-      });
-      exported.push(result.label);
-      files.push(result.file);
-    } catch (caughtError) {
-      log.error({
-        action: "exportRequests",
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "ExportRoute",
-      });
-      errors.push(`Reimbursements: ${getErrorMessage(caughtError)}`);
-    }
-  }
-
-  if (opts.includeVendorPayments) {
-    try {
-      const result = await exportVendorPayments(opts.runVPExport, {
-        fyStartNum: opts.fyStartNum,
-        includeTransactions: opts.includeTransactions,
-        selectedVPStatuses: opts.selectedVPStatuses,
-        today: opts.today,
-      });
-      exported.push(...result.labels);
-      files.push(...result.files);
-    } catch (caughtError) {
-      log.error({
-        action: "exportVendorPayments",
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "ExportRoute",
-      });
-      errors.push(`Vendor payments: ${getErrorMessage(caughtError)}`);
-    }
-  }
-
-  let didDownload = false;
-  if (files.length > 0) {
-    const downloadError = getDownloadError(
-      files,
-      `financial-exports_${buildFyDateSuffix(opts.fyStartNum, opts.today)}.zip`
-    );
-    if (downloadError) {
-      errors.push(downloadError);
-    } else {
-      didDownload = true;
-    }
-  }
-
-  showExportResults(exported, errors, didDownload, files.length > 0);
+  return labels;
 }
 
 function ExportRouteComponent() {
-  const runRequestExport = useServerFn(exportCsvData);
-  const runVPExport = useServerFn(exportVendorPaymentsCsv);
   const fyOptions = FY_OPTIONS;
-
   const [includeReimbursements, setIncludeReimbursements] = useState(true);
   const [includeAdvancePayments, setIncludeAdvancePayments] = useState(true);
   const [includeVendorPayments, setIncludeVendorPayments] = useState(false);
   const [includeTransactions, setIncludeTransactions] = useState(false);
   const [fyStart, setFyStart] = useState(String(fyOptions[0]?.value));
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Status>>(
-    new Set(ALL_STATUSES)
+    () => new Set(ALL_STATUSES)
   );
   const [selectedVPStatuses, setSelectedVPStatuses] = useState<Set<VPStatus>>(
-    new Set(VP_STATUSES)
+    () => new Set(VP_STATUSES)
   );
   const [isExporting, setIsExporting] = useState(false);
 
   const hasRequestSelection = includeReimbursements || includeAdvancePayments;
   const hasSelection = hasRequestSelection || includeVendorPayments;
-
   const hasValidStatuses =
     (hasRequestSelection ? selectedStatuses.size > 0 : true) &&
     (includeVendorPayments ? selectedVPStatuses.size > 0 : true);
 
-  const handleExport = useEventCallback(async () => {
+  const handleExport = useEventCallback(() => {
     if (!hasSelection) {
       return;
     }
     setIsExporting(true);
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const fyStartNum = Number(fyStart);
-      await runAllExports({
-        fyStartNum,
-        hasRequestSelection,
-        includeAdvancePayments,
+    return downloadFinancialExport({
+      fyStart: Number(fyStart),
+      includeTransactions,
+      includeVendorPayments,
+      requestStatuses: getSelectedValues(selectedStatuses, ALL_STATUSES),
+      requestTypes: getRequestTypes(
         includeReimbursements,
-        includeTransactions,
-        includeVendorPayments,
-        runRequestExport,
-        runVPExport,
-        selectedStatuses,
-        selectedVPStatuses,
-        today,
+        includeAdvancePayments
+      ),
+      vendorPaymentStatuses: getSelectedValues(selectedVPStatuses, VP_STATUSES),
+    })
+      .then((result) => {
+        const exported = getExportedLabels(result, {
+          hasRequestSelection,
+          includeTransactions,
+          includeVendorPayments,
+        });
+        toast.success(`Exported ${exported.join(", ")}!`);
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "downloadFinancialExport",
+          component: "ExportRoute",
+          error: error instanceof Error ? error.message : String(error),
+          fyStart,
+          includeAdvancePayments,
+          includeReimbursements,
+          includeTransactions,
+          includeVendorPayments,
+        });
+        toast.error(`Export: ${getErrorMessage(error)}`);
+      })
+      .finally(() => {
+        setIsExporting(false);
       });
-    } finally {
-      setIsExporting(false);
-    }
   });
-  const stableOnCheckedChange0 = useEventCallback((checked: boolean) =>
+  const handleReimbursementsChange = useEventCallback((checked: boolean) =>
     setIncludeReimbursements(checked === true)
   );
-  const stableOnCheckedChange1 = useEventCallback((checked: boolean) =>
+  const handleAdvancePaymentsChange = useEventCallback((checked: boolean) =>
     setIncludeAdvancePayments(checked === true)
   );
-  const stableOnCheckedChange2 = useEventCallback((checked: boolean) =>
+  const handleVendorPaymentsChange = useEventCallback((checked: boolean) =>
     setIncludeVendorPayments(checked === true)
   );
-  const stableOnCheckedChange3 = useEventCallback((checked: boolean) =>
+  const handleTransactionsChange = useEventCallback((checked: boolean) =>
     setIncludeTransactions(checked === true)
   );
-  const stableOnValueChange4 = useEventCallback(
-    (v: string | null) => v && setFyStart(v)
+  const handleFyChange = useEventCallback(
+    (value: string | null) => value && setFyStart(value)
   );
   const toggleRequestStatus = useEventCallback((status: Status) =>
     toggleSetItem(setSelectedStatuses, status)
@@ -504,8 +238,8 @@ function ExportRouteComponent() {
         Export Data
       </h1>
       <p className="mt-2 text-muted-foreground text-sm">
-        Export reimbursement, advance payment, and vendor payment data as CSV
-        for a financial year.
+        Export reimbursement, advance payment, and vendor payment data as a ZIP
+        containing CSV files and request attachments for a financial year.
       </p>
 
       <div className="mt-4 grid max-w-md gap-6">
@@ -515,7 +249,7 @@ function ExportRouteComponent() {
             <Checkbox
               checked={includeReimbursements}
               id="reimbursements"
-              onCheckedChange={stableOnCheckedChange0}
+              onCheckedChange={handleReimbursementsChange}
             />
             <Label htmlFor="reimbursements">Reimbursements</Label>
           </div>
@@ -523,7 +257,7 @@ function ExportRouteComponent() {
             <Checkbox
               checked={includeAdvancePayments}
               id="advance-payments"
-              onCheckedChange={stableOnCheckedChange1}
+              onCheckedChange={handleAdvancePaymentsChange}
             />
             <Label htmlFor="advance-payments">Advance Payments</Label>
           </div>
@@ -531,7 +265,7 @@ function ExportRouteComponent() {
             <Checkbox
               checked={includeVendorPayments}
               id="vendor-payments"
-              onCheckedChange={stableOnCheckedChange2}
+              onCheckedChange={handleVendorPaymentsChange}
             />
             <Label htmlFor="vendor-payments">Vendor Payments</Label>
           </div>
@@ -540,7 +274,7 @@ function ExportRouteComponent() {
               <Checkbox
                 checked={includeTransactions}
                 id="include-transactions"
-                onCheckedChange={stableOnCheckedChange3}
+                onCheckedChange={handleTransactionsChange}
               />
               <Label htmlFor="include-transactions">
                 Include transaction details (separate CSV)
@@ -587,14 +321,14 @@ function ExportRouteComponent() {
 
         <div className="grid gap-2">
           <Label htmlFor="fy-select">Financial Year</Label>
-          <Select onValueChange={stableOnValueChange4} value={fyStart}>
+          <Select onValueChange={handleFyChange} value={fyStart}>
             <SelectTrigger id="fy-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {fyOptions.map((opt) => (
-                <SelectItem key={opt.value} value={String(opt.value)}>
-                  {opt.label}
+              {fyOptions.map((option) => (
+                <SelectItem key={option.value} value={String(option.value)}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -606,7 +340,7 @@ function ExportRouteComponent() {
           onClick={handleExport}
           type="button"
         >
-          {isExporting ? "Exporting..." : "Export CSV"}
+          {isExporting ? "Exporting..." : "Export ZIP"}
         </Button>
       </div>
     </div>
