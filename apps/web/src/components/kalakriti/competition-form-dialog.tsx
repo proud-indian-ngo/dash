@@ -1,4 +1,14 @@
 import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  useComboboxAnchor,
+} from "@pi-dash/design-system/components/ui/combobox";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,7 +23,12 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
+import {
+  type FormFieldApi,
+  fieldErrorProps,
+} from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
@@ -22,6 +37,14 @@ import { handleMutationResult } from "@/lib/mutation-result";
 const competitionSchema = z
   .object({
     competitionCategoryId: z.string().min(1, "Select a Category"),
+    divisions: z
+      .array(
+        z.object({
+          ageCategoryId: z.string(),
+          id: z.string(),
+        })
+      )
+      .min(1, "Select at least one Age Category"),
     genderEligibility: z.enum(["male", "female", "both"]),
     maximumGroupSize: z.number().int().min(1).max(100),
     minimumGroupSize: z.number().int().min(1).max(100),
@@ -44,12 +67,25 @@ const competitionSchema = z
 
 export interface CompetitionFormValue {
   competitionCategoryId: string;
+  divisions: readonly CompetitionDivisionFormValue[];
   genderEligibility: "both" | "female" | "male";
   id: string;
   maximumGroupSize: number;
   minimumGroupSize: number;
   name: string;
   participationMode: "group" | "individual";
+}
+
+export interface CompetitionDivisionFormValue {
+  ageCategory?: { name: string };
+  ageCategoryId: string;
+  competitionId?: string;
+  id: string;
+}
+
+export interface AgeCategoryOption {
+  id: string;
+  name: string;
 }
 
 export interface CompetitionCategoryOption {
@@ -59,11 +95,13 @@ export interface CompetitionCategoryOption {
 }
 
 function CompetitionForm({
+  ageCategories,
   categories,
   competition,
   editionId,
   onOpenChange,
 }: {
+  ageCategories: readonly AgeCategoryOption[];
   categories: readonly CompetitionCategoryOption[];
   competition: CompetitionFormValue | null;
   editionId: string;
@@ -76,10 +114,13 @@ function CompetitionForm({
       category.id === competition?.competitionCategoryId
   );
   const handleCancel = useEventCallback(() => onOpenChange(false));
+  const activeAgeCategories = ageCategories;
   const form = useForm({
     defaultValues: {
       competitionCategoryId:
         competition?.competitionCategoryId || activeCategories[0]?.id || "",
+      divisions:
+        competition?.divisions.map((division) => ({ ...division })) ?? [],
       genderEligibility: competition
         ? competition.genderEligibility
         : ("both" as const),
@@ -96,6 +137,10 @@ function CompetitionForm({
         ...value,
         auditEntryId: uuidv7(),
         competitionId,
+        divisions: value.divisions.map((division) => ({
+          ageCategoryId: division.ageCategoryId,
+          divisionId: division.id,
+        })),
         now: Date.now(),
       };
       const result = competition
@@ -136,6 +181,20 @@ function CompetitionForm({
           value: category.id,
         }))}
       />
+      <CustomField<CompetitionDivisionFormValue[]>
+        description="Each selected Age Category is an independently ranked Competition Division."
+        isRequired
+        label="Age Categories"
+        name="divisions"
+      >
+        {(field) => (
+          <AgeCategoryDivisionPicker
+            field={field}
+            options={activeAgeCategories}
+            submitted={form.state.submissionAttempts > 0}
+          />
+        )}
+      </CustomField>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
           isRequired
@@ -182,13 +241,84 @@ function CompetitionForm({
   );
 }
 
+function AgeCategoryDivisionPicker({
+  field,
+  options,
+  submitted,
+}: {
+  field: FormFieldApi<CompetitionDivisionFormValue[]>;
+  options: readonly AgeCategoryOption[];
+  submitted: boolean;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const anchorRef = useComboboxAnchor();
+  const optionMap = new Map(options.map((option) => [option.id, option]));
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+  const filteredOptions = normalizedQuery
+    ? options.filter((option) =>
+        option.name.toLocaleLowerCase().includes(normalizedQuery)
+      )
+    : options;
+  const handleValueChange = useEventCallback((ageCategoryIds: string[]) => {
+    const existing = new Map(
+      field.state.value.map((division) => [division.ageCategoryId, division])
+    );
+    field.handleChange(
+      ageCategoryIds.map(
+        (ageCategoryId) =>
+          existing.get(ageCategoryId) ?? {
+            ageCategoryId,
+            id: uuidv7(),
+          }
+      )
+    );
+  });
+
+  return (
+    <Combobox
+      filter={null}
+      inputValue={searchQuery}
+      multiple
+      onInputValueChange={setSearchQuery}
+      onValueChange={handleValueChange}
+      value={field.state.value.map((division) => division.ageCategoryId)}
+    >
+      <ComboboxChips {...fieldErrorProps(field, submitted)} ref={anchorRef}>
+        {field.state.value.map((division) => (
+          <ComboboxChip key={division.id}>
+            {optionMap.get(division.ageCategoryId)?.name ??
+              division.ageCategoryId}
+          </ComboboxChip>
+        ))}
+        <ComboboxChipsInput
+          aria-required="true"
+          id={field.name}
+          onBlur={field.handleBlur}
+          placeholder="Search Age Categories..."
+        />
+      </ComboboxChips>
+      <ComboboxContent anchor={anchorRef}>
+        <ComboboxList>
+          {filteredOptions.map((option) => (
+            <ComboboxItem key={option.id} value={option.id}>
+              {option.name}
+            </ComboboxItem>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
 export function CompetitionFormDialog({
+  ageCategories,
   categories,
   competition,
   editionId,
   onOpenChange,
   open,
 }: {
+  ageCategories: readonly AgeCategoryOption[];
   categories: readonly CompetitionCategoryOption[];
   competition: CompetitionFormValue | null;
   editionId: string;
@@ -214,6 +344,7 @@ export function CompetitionFormDialog({
           </DialogDescription>
         </DialogHeader>
         <CompetitionForm
+          ageCategories={ageCategories}
           categories={categories}
           competition={competition}
           editionId={editionId}

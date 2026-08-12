@@ -108,7 +108,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             Boolean(assignment.competitionCategoryId))
       ) === true);
   const [entrySessions] = useQuery(
-    queries.kalakritiEntry.availableSessionsByCenter({
+    queries.kalakritiEntry.availableDivisionsByCenter({
       centerId: centers[0]?.id ?? "",
       editionId: activeEdition?.id ?? "",
     }),

@@ -57,7 +57,6 @@ test.describe("Kalakriti public schedule", () => {
         "status",
         "venue",
       ]);
-      expect(JSON.stringify(body)).not.toContain("capacity");
       expect(
         body.sessions.map(
           (session: { competition: string }) => session.competition

@@ -127,6 +127,17 @@ export function CompetitionDetailSheet({
             </div>
           </div>
 
+          <div className="grid gap-3">
+            <h3 className="font-medium text-sm">Competition Divisions</h3>
+            {competition.divisions.map((division) => (
+              <div className="rounded-md border px-3 py-2" key={division.id}>
+                <span className="text-sm">
+                  {division.ageCategory?.name ?? "Unknown Age Category"}
+                </span>
+              </div>
+            ))}
+          </div>
+
           {canManageCancellations || canManageStructure ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
               {canManageStructure ? (

@@ -4,6 +4,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiEntryMember,
@@ -149,13 +150,29 @@ function loadScopedEntryRows({
     })
     .from(kalakritiCompetitionEntry)
     .innerJoin(
+      kalakritiCompetitionDivision,
+      and(
+        eq(
+          kalakritiCompetitionDivision.editionId,
+          kalakritiCompetitionEntry.editionId
+        ),
+        eq(
+          kalakritiCompetitionDivision.id,
+          kalakritiCompetitionEntry.divisionId
+        )
+      )
+    )
+    .innerJoin(
       kalakritiCompetitionSession,
       and(
         eq(
           kalakritiCompetitionSession.editionId,
-          kalakritiCompetitionEntry.editionId
+          kalakritiCompetitionDivision.editionId
         ),
-        eq(kalakritiCompetitionSession.id, kalakritiCompetitionEntry.sessionId)
+        eq(
+          kalakritiCompetitionSession.divisionId,
+          kalakritiCompetitionDivision.id
+        )
       )
     )
     .innerJoin(
@@ -163,9 +180,9 @@ function loadScopedEntryRows({
       and(
         eq(
           kalakritiCompetition.editionId,
-          kalakritiCompetitionSession.editionId
+          kalakritiCompetitionDivision.editionId
         ),
-        eq(kalakritiCompetition.id, kalakritiCompetitionSession.competitionId)
+        eq(kalakritiCompetition.id, kalakritiCompetitionDivision.competitionId)
       )
     )
     .innerJoin(
@@ -193,9 +210,9 @@ function loadScopedEntryRows({
       and(
         eq(
           kalakritiAgeCategory.editionId,
-          kalakritiCompetitionSession.editionId
+          kalakritiCompetitionDivision.editionId
         ),
-        eq(kalakritiAgeCategory.id, kalakritiCompetitionSession.ageCategoryId)
+        eq(kalakritiAgeCategory.id, kalakritiCompetitionDivision.ageCategoryId)
       )
     )
     .innerJoin(

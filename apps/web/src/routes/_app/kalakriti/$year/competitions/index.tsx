@@ -91,10 +91,7 @@ function CompetitionOverviewPage() {
             value: venues.length,
           },
           {
-            description: `${scheduledSessions.reduce(
-              (capacity, session) => capacity + session.capacity,
-              0
-            )} total Entry capacity`,
+            description: "Active event-day schedule",
             href: `${basePath}/schedule`,
             icon: Calendar03Icon,
             label: "Scheduled Sessions",

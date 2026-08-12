@@ -19,6 +19,7 @@ import {
 } from "./kalakriti-row-locks";
 import {
   getCompetitionScheduleImpact,
+  getDivisionScheduleImpact,
   getSessionScheduleImpact,
   getVenueScheduleImpact,
   pushKalakritiScheduleChangedTask,
@@ -34,6 +35,11 @@ interface CompetitionTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAuditEntry: { insert: ZeroMutationFn };
     kalakritiCompetition: {
+      delete: ZeroMutationFn;
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
+    };
+    kalakritiCompetitionDivision: {
       delete: ZeroMutationFn;
       insert: ZeroMutationFn;
       update: ZeroMutationFn;
@@ -80,6 +86,20 @@ export const kalakritiCompetitionCategoryUpdateSchema =
 const competitionValuesSchema = namedConfigurationSchema
   .extend({
     competitionCategoryId: z.string(),
+    divisions: z
+      .array(
+        z.object({
+          ageCategoryId: z.string(),
+          divisionId: z.string(),
+        })
+      )
+      .min(1, "Select at least one Age Category")
+      .refine(
+        (divisions) =>
+          new Set(divisions.map((division) => division.ageCategoryId)).size ===
+          divisions.length,
+        "Age Categories must be unique"
+      ),
     genderEligibility: z.enum(["male", "female", "both"]),
     maximumGroupSize: z.number().int().min(1).max(100),
     minimumGroupSize: z.number().int().min(1).max(100),
@@ -122,9 +142,7 @@ export const kalakritiVenueUpdateSchema = namedConfigurationSchema.extend({
 });
 
 const sessionValuesSchema = z.object({
-  ageCategoryId: z.string(),
-  capacity: z.number().int().min(1),
-  competitionId: z.string(),
+  divisionId: z.string(),
   endAt: z.number().int(),
   startAt: z.number().int(),
   venueId: z.string(),
@@ -259,80 +277,105 @@ async function competitionHasEntries(
 ): Promise<boolean> {
   const entry = await tx.run(
     zql.kalakritiCompetitionEntry
-      .whereExists("session", (session) =>
-        session.where("competitionId", competitionId)
+      .whereExists("division", (division) =>
+        division.where("competitionId", competitionId)
       )
       .one()
   );
   return Boolean(entry);
 }
 
-interface SessionEntrySnapshot {
+interface DivisionEntrySnapshot {
   members: readonly {
     student?: {
       entryMemberships: readonly {
-        entry?: { session?: { endAt: number; id: string; startAt: number } };
+        entry?: {
+          division?: {
+            sessions: readonly {
+              cancelledAt: number | null;
+              endAt: number;
+              id: string;
+              startAt: number;
+            }[];
+          };
+        };
       }[];
     };
   }[];
 }
 
-async function assertSessionUpdatePreservesEntries(
+async function assertDivisionEntriesDoNotConflict(
   tx: CompetitionTx,
-  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
   values: {
-    ageCategoryId: string;
-    capacity: number;
-    competitionId: string;
+    divisionId: string;
     endAt: number;
+    excludedSessionId?: string;
     startAt: number;
   }
-): Promise<void> {
+): Promise<number> {
   const entries = (await tx.run(
     zql.kalakritiCompetitionEntry
-      .where("sessionId", session.id)
+      .where("divisionId", values.divisionId)
       .related("members", (member) =>
         member.related("student", (student) =>
           student.related("entryMemberships", (membership) =>
-            membership.related("entry", (entry) => entry.related("session"))
+            membership.related("entry", (entry) =>
+              entry.related("division", (division) =>
+                division.related("sessions", (session) =>
+                  session.where("cancelledAt", "IS", null)
+                )
+              )
+            )
           )
         )
       )
-  )) as readonly SessionEntrySnapshot[];
-  if (entries.length === 0) {
-    return;
-  }
-  if (values.capacity < entries.length) {
-    throw new Error("Session capacity cannot be lower than its Entry count");
-  }
-  if (
-    values.ageCategoryId !== session.ageCategoryId ||
-    values.competitionId !== session.competitionId
-  ) {
-    throw new Error(
-      "Session Competition and Age Category cannot change while Entries exist"
-    );
-  }
-  if (values.startAt === session.startAt && values.endAt === session.endAt) {
-    return;
-  }
+  )) as readonly DivisionEntrySnapshot[];
   const createsConflict = entries.some((entry) =>
     entry.members.some((member) =>
-      member.student?.entryMemberships.some(({ entry: otherEntry }) => {
-        const otherSession = otherEntry?.session;
-        return (
-          otherSession !== undefined &&
-          otherSession.id !== session.id &&
-          otherSession.startAt < values.endAt &&
-          otherSession.endAt > values.startAt
-        );
-      })
+      member.student?.entryMemberships.some(({ entry: otherEntry }) =>
+        otherEntry?.division?.sessions.some(
+          (otherSession) =>
+            otherSession.cancelledAt === null &&
+            otherSession.id !== values.excludedSessionId &&
+            otherSession.startAt < values.endAt &&
+            otherSession.endAt > values.startAt
+        )
+      )
     )
   );
   if (createsConflict) {
     throw new Error(
       "Session time would overlap another Entry for a registered Student"
     );
+  }
+  return entries.length;
+}
+
+async function assertSessionUpdatePreservesEntries(
+  tx: CompetitionTx,
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
+  values: {
+    divisionId: string;
+    endAt: number;
+    startAt: number;
+  }
+): Promise<void> {
+  const sourceEntryCount = await assertDivisionEntriesDoNotConflict(tx, {
+    divisionId: session.divisionId,
+    endAt: values.endAt,
+    excludedSessionId: session.id,
+    startAt: values.startAt,
+  });
+  if (sourceEntryCount > 0 && values.divisionId !== session.divisionId) {
+    throw new Error("Session Division cannot change while Entries exist");
+  }
+  if (values.divisionId !== session.divisionId) {
+    await assertDivisionEntriesDoNotConflict(tx, {
+      divisionId: values.divisionId,
+      endAt: values.endAt,
+      excludedSessionId: session.id,
+      startAt: values.startAt,
+    });
   }
 }
 
@@ -347,10 +390,8 @@ async function getSession(tx: CompetitionTx, id: string) {
     zql.kalakritiCompetitionSession.where("id", id).one()
   )) as
     | {
-        ageCategoryId: string;
         cancelledAt: number | null;
-        capacity: number;
-        competitionId: string;
+        divisionId: string;
         editionId: string;
         endAt: number;
         id: string;
@@ -360,11 +401,24 @@ async function getSession(tx: CompetitionTx, id: string) {
     | undefined;
 }
 
+async function getDivision(tx: CompetitionTx, id: string) {
+  return (await tx.run(
+    zql.kalakritiCompetitionDivision.where("id", id).one()
+  )) as
+    | {
+        ageCategoryId: string;
+        competitionId: string;
+        editionId: string;
+        id: string;
+      }
+    | undefined;
+}
+
 function requireSameEdition(
   entity: { editionId: string } | undefined,
   editionId: string,
   label: string
-) {
+): asserts entity is { editionId: string } {
   if (!entity || entity.editionId !== editionId) {
     throw new Error(`${label} not found in this Edition`);
   }
@@ -374,17 +428,15 @@ async function validateSessionValues(
   tx: CompetitionTx,
   edition: { eventDate: string; id: string; timezone: string },
   values: {
-    ageCategoryId: string;
-    competitionId: string;
+    divisionId: string;
     endAt: number;
     sessionId: string;
     startAt: number;
     venueId: string;
   }
 ) {
-  const [competition, ageCategory, venue, sessions] = await Promise.all([
-    getCompetition(tx, values.competitionId),
-    tx.run(zql.kalakritiAgeCategory.where("id", values.ageCategoryId).one()),
+  const [division, venue, sessions] = await Promise.all([
+    getDivision(tx, values.divisionId),
     getVenue(tx, values.venueId),
     tx.run(
       zql.kalakritiCompetitionSession.where("editionId", edition.id)
@@ -398,12 +450,11 @@ async function validateSessionValues(
       }>
     >,
   ]);
+  requireSameEdition(division, edition.id, "Competition Division");
+  const competition = division
+    ? await getCompetition(tx, division.competitionId)
+    : undefined;
   requireSameEdition(competition, edition.id, "Competition");
-  requireSameEdition(
-    ageCategory as { editionId: string } | undefined,
-    edition.id,
-    "Age Category"
-  );
   requireSameEdition(venue, edition.id, "Venue");
   if (competition?.retiredAt !== null || competition.cancelledAt !== null) {
     throw new Error("Competition is not active");
@@ -433,6 +484,118 @@ async function validateSessionValues(
     throw new Error("Session end time must be after its start time");
   }
   return competition;
+}
+
+async function validateDivisionAgeCategories(
+  tx: CompetitionTx,
+  editionId: string,
+  divisions: readonly { ageCategoryId: string }[]
+) {
+  const ageCategories = await Promise.all(
+    divisions.map((division) =>
+      tx.run(zql.kalakritiAgeCategory.where("id", division.ageCategoryId).one())
+    )
+  );
+  for (const ageCategory of ageCategories) {
+    requireSameEdition(
+      ageCategory as { editionId: string } | undefined,
+      editionId,
+      "Age Category"
+    );
+  }
+}
+
+async function insertCompetitionDivisions(
+  tx: CompetitionTx,
+  ctx: Context,
+  values: {
+    competitionId: string;
+    divisions: readonly {
+      ageCategoryId: string;
+      divisionId: string;
+    }[];
+    editionId: string;
+    now: number;
+  }
+) {
+  await validateDivisionAgeCategories(tx, values.editionId, values.divisions);
+  await Promise.all(
+    values.divisions.map((division) =>
+      tx.mutate.kalakritiCompetitionDivision.insert({
+        ageCategoryId: division.ageCategoryId,
+        competitionId: values.competitionId,
+        createdAt: values.now,
+        createdBy: ctx.userId,
+        editionId: values.editionId,
+        id: division.divisionId,
+        updatedAt: values.now,
+      })
+    )
+  );
+}
+
+async function syncCompetitionDivisions(
+  tx: CompetitionTx,
+  ctx: Context,
+  values: {
+    competitionId: string;
+    divisions: readonly {
+      ageCategoryId: string;
+      divisionId: string;
+    }[];
+    editionId: string;
+    now: number;
+  }
+) {
+  await validateDivisionAgeCategories(tx, values.editionId, values.divisions);
+  const existing = (await tx.run(
+    zql.kalakritiCompetitionDivision.where(
+      "competitionId",
+      values.competitionId
+    )
+  )) as readonly {
+    ageCategoryId: string;
+    id: string;
+  }[];
+  const nextById = new Map(
+    values.divisions.map((division) => [division.divisionId, division])
+  );
+
+  await Promise.all(
+    existing.map(async (division) => {
+      const next = nextById.get(division.id);
+      if (!next) {
+        const [entry, session] = await Promise.all([
+          tx.run(
+            zql.kalakritiCompetitionEntry.where("divisionId", division.id).one()
+          ),
+          tx.run(
+            zql.kalakritiCompetitionSession
+              .where("divisionId", division.id)
+              .one()
+          ),
+        ]);
+        if (entry || session) {
+          throw new Error(
+            "Age Category cannot be removed while its Division has Entries or a Session"
+          );
+        }
+        await tx.mutate.kalakritiCompetitionDivision.delete({
+          id: division.id,
+        });
+        return;
+      }
+      if (next.ageCategoryId !== division.ageCategoryId) {
+        throw new Error("Competition Division Age Category cannot change");
+      }
+      nextById.delete(division.id);
+    })
+  );
+
+  await insertCompetitionDivisions(tx, ctx, {
+    ...values,
+    divisions: [...nextById.values()],
+  });
 }
 
 export const kalakritiCompetitionMutators = {
@@ -502,12 +665,21 @@ export const kalakritiCompetitionMutators = {
         retiredAt: null,
         updatedAt: args.now,
       });
+      await insertCompetitionDivisions(tx, ctx, {
+        competitionId: args.competitionId,
+        divisions: args.divisions,
+        editionId: args.editionId,
+        now: args.now,
+      });
       await insertAudit(tx, ctx, {
         action: "created",
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: args.editionId,
         metadata: {
+          ageCategoryIds: args.divisions.map(
+            (division) => division.ageCategoryId
+          ),
           competitionCategoryId: args.competitionCategoryId,
           name: normalized.name,
         },
@@ -527,13 +699,16 @@ export const kalakritiCompetitionMutators = {
         args.editionId
       );
       const competition = await validateSessionValues(tx, edition, args);
+      await assertDivisionEntriesDoNotConflict(tx, {
+        divisionId: args.divisionId,
+        endAt: args.endAt,
+        startAt: args.startAt,
+      });
       await tx.mutate.kalakritiCompetitionSession.insert({
-        ageCategoryId: args.ageCategoryId,
         cancelledAt: null,
-        capacity: args.capacity,
-        competitionId: args.competitionId,
         createdAt: args.now,
         createdBy: ctx.userId,
+        divisionId: args.divisionId,
         editionId: args.editionId,
         endAt: args.endAt,
         id: args.sessionId,
@@ -547,9 +722,9 @@ export const kalakritiCompetitionMutators = {
         domain: "schedule_configuration",
         editionId: args.editionId,
         metadata: {
-          ageCategoryId: args.ageCategoryId,
           competitionCategoryId: competition?.competitionCategoryId,
-          competitionId: args.competitionId,
+          competitionId: competition?.id,
+          divisionId: args.divisionId,
           venueId: args.venueId,
         },
         now: args.now,
@@ -557,9 +732,13 @@ export const kalakritiCompetitionMutators = {
         targetType: "competition_session",
       });
       if (edition.lifecycle !== "draft") {
+        const impact = await getDivisionScheduleImpact(
+          tx,
+          args.divisionId,
+          competition.id
+        );
         pushKalakritiScheduleChangedTask(tx, ctx, {
-          centerIds: [],
-          competitionIds: [args.competitionId],
+          ...impact,
           editionId: args.editionId,
           revision: args.auditEntryId,
         });
@@ -657,17 +836,20 @@ export const kalakritiCompetitionMutators = {
         ctx,
         competition.editionId
       );
-      const [session, assignment] = await Promise.all([
+      const [hasEntries, session, assignment] = await Promise.all([
+        competitionHasEntries(tx, competition.id),
         tx.run(
           zql.kalakritiCompetitionSession
-            .where("competitionId", competition.id)
+            .whereExists("division", (division) =>
+              division.where("competitionId", competition.id)
+            )
             .one()
         ),
         tx.run(
           zql.kalakritiAssignment.where("competitionId", competition.id).one()
         ),
       ]);
-      if (session || assignment) {
+      if (hasEntries || session || assignment) {
         throw new Error("Competition is referenced and cannot be deleted");
       }
       await tx.mutate.kalakritiCompetition.delete({ id: competition.id });
@@ -700,15 +882,25 @@ export const kalakritiCompetitionMutators = {
         session.editionId
       );
       const entry = await tx.run(
-        zql.kalakritiCompetitionEntry.where("sessionId", session.id).one()
+        zql.kalakritiCompetitionEntry
+          .where("divisionId", session.divisionId)
+          .one()
       );
       if (entry) {
-        throw new Error(
-          "Competition Session has Entries and cannot be deleted"
-        );
+        throw new Error("Session has Entries and cannot be deleted");
       }
       await tx.mutate.kalakritiCompetitionSession.delete({ id: session.id });
-      const competition = await getCompetition(tx, session.competitionId);
+      const division = await getDivision(tx, session.divisionId);
+      const competition = division
+        ? await getCompetition(tx, division.competitionId)
+        : undefined;
+      const impact = competition
+        ? await getDivisionScheduleImpact(
+            tx,
+            session.divisionId,
+            competition.id
+          )
+        : { centerIds: [], competitionIds: [] };
       await insertAudit(tx, ctx, {
         action: "deleted",
         auditEntryId: args.auditEntryId,
@@ -716,7 +908,8 @@ export const kalakritiCompetitionMutators = {
         editionId: session.editionId,
         metadata: {
           competitionCategoryId: competition?.competitionCategoryId,
-          competitionId: session.competitionId,
+          competitionId: competition?.id,
+          divisionId: session.divisionId,
         },
         now: args.now,
         targetId: session.id,
@@ -724,8 +917,7 @@ export const kalakritiCompetitionMutators = {
       });
       if (edition.lifecycle !== "draft") {
         pushKalakritiScheduleChangedTask(tx, ctx, {
-          centerIds: [],
-          competitionIds: [session.competitionId],
+          ...impact,
           editionId: session.editionId,
           revision: args.auditEntryId,
         });
@@ -879,22 +1071,30 @@ export const kalakritiCompetitionMutators = {
         throw new Error("Competition Session not found");
       }
       const edition = await lockCompetitionEdition(tx, ctx, session.editionId);
+      const division = await getDivision(tx, session.divisionId);
+      requireSameEdition(division, session.editionId, "Competition Division");
+      const competition = await getCompetition(tx, division.competitionId);
+      requireSameEdition(competition, session.editionId, "Competition");
       if (!args.enabled) {
         await validateSessionValues(tx, edition, {
-          ageCategoryId: session.ageCategoryId,
-          competitionId: session.competitionId,
+          divisionId: session.divisionId,
           endAt: session.endAt,
           sessionId: session.id,
           startAt: session.startAt,
           venueId: session.venueId,
         });
+        await assertDivisionEntriesDoNotConflict(tx, {
+          divisionId: session.divisionId,
+          endAt: session.endAt,
+          excludedSessionId: session.id,
+          startAt: session.startAt,
+        });
       }
       const { centerIds } = await getSessionScheduleImpact(
         tx,
         session.id,
-        session.competitionId
+        competition.id
       );
-      const competition = await getCompetition(tx, session.competitionId);
       await tx.mutate.kalakritiCompetitionSession.update({
         cancelledAt: args.enabled ? args.now : null,
         id: session.id,
@@ -907,7 +1107,8 @@ export const kalakritiCompetitionMutators = {
         editionId: session.editionId,
         metadata: {
           competitionCategoryId: competition?.competitionCategoryId,
-          competitionId: session.competitionId,
+          competitionId: competition?.id,
+          divisionId: session.divisionId,
         },
         now: args.now,
         targetId: session.id,
@@ -916,7 +1117,7 @@ export const kalakritiCompetitionMutators = {
       if (edition.lifecycle !== "draft") {
         pushKalakritiScheduleChangedTask(tx, ctx, {
           centerIds,
-          competitionIds: [session.competitionId],
+          competitionIds: competition ? [competition.id] : [],
           editionId: session.editionId,
           revision: args.auditEntryId,
         });
@@ -1044,12 +1245,21 @@ export const kalakritiCompetitionMutators = {
         participationMode: args.participationMode,
         updatedAt: args.now,
       });
+      await syncCompetitionDivisions(tx, ctx, {
+        competitionId: competition.id,
+        divisions: args.divisions,
+        editionId: competition.editionId,
+        now: args.now,
+      });
       await insertAudit(tx, ctx, {
         action: "updated",
         auditEntryId: args.auditEntryId,
         domain: "competition_configuration",
         editionId: competition.editionId,
         metadata: {
+          ageCategoryIds: args.divisions.map(
+            (division) => division.ageCategoryId
+          ),
           competitionCategoryId: args.competitionCategoryId,
           competitionCategoryIds: [
             competition.competitionCategoryId,
@@ -1082,29 +1292,37 @@ export const kalakritiCompetitionMutators = {
       const edition = await lockCompetitionEdition(tx, ctx, session.editionId);
       if (
         edition.lifecycle === "registration_locked" &&
-        (args.competitionId !== session.competitionId ||
-          args.ageCategoryId !== session.ageCategoryId ||
-          args.capacity !== session.capacity)
+        args.divisionId !== session.divisionId
       ) {
         throw new Error(
-          "Only Session time and Venue can be changed after registration is locked"
+          "Session Division cannot change after registration is locked"
         );
       }
       await assertSessionUpdatePreservesEntries(tx, session, args);
       const nextCompetition = await validateSessionValues(tx, edition, args);
-      const previousCompetition =
-        session.competitionId === args.competitionId
-          ? nextCompetition
-          : await getCompetition(tx, session.competitionId);
+      const previousDivision = await getDivision(tx, session.divisionId);
+      requireSameEdition(
+        previousDivision,
+        session.editionId,
+        "Competition Division"
+      );
+      const previousCompetition = await getCompetition(
+        tx,
+        previousDivision.competitionId
+      );
+      requireSameEdition(previousCompetition, session.editionId, "Competition");
       const { centerIds } = await getSessionScheduleImpact(
         tx,
         session.id,
-        session.competitionId
+        previousCompetition.id
+      );
+      const nextImpact = await getDivisionScheduleImpact(
+        tx,
+        args.divisionId,
+        nextCompetition.id
       );
       await tx.mutate.kalakritiCompetitionSession.update({
-        ageCategoryId: args.ageCategoryId,
-        capacity: args.capacity,
-        competitionId: args.competitionId,
+        divisionId: args.divisionId,
         endAt: args.endAt,
         id: session.id,
         startAt: args.startAt,
@@ -1122,8 +1340,11 @@ export const kalakritiCompetitionMutators = {
             previousCompetition?.competitionCategoryId,
             nextCompetition?.competitionCategoryId,
           ].filter((id): id is string => Boolean(id)),
-          competitionId: args.competitionId,
-          competitionIds: [session.competitionId, args.competitionId],
+          competitionId: nextCompetition?.id,
+          competitionIds: [previousCompetition?.id, nextCompetition?.id].filter(
+            (id): id is string => Boolean(id)
+          ),
+          divisionId: args.divisionId,
         },
         now: args.now,
         targetId: session.id,
@@ -1131,8 +1352,10 @@ export const kalakritiCompetitionMutators = {
       });
       if (edition.lifecycle !== "draft") {
         pushKalakritiScheduleChangedTask(tx, ctx, {
-          centerIds,
-          competitionIds: [session.competitionId, args.competitionId],
+          centerIds: [...centerIds, ...nextImpact.centerIds],
+          competitionIds: [previousCompetition?.id, nextCompetition?.id].filter(
+            (id): id is string => Boolean(id)
+          ),
           editionId: session.editionId,
           revision: args.auditEntryId,
         });

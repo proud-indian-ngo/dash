@@ -4,6 +4,7 @@ import {
   kalakritiAgeCategory,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionSession,
   kalakritiEdition,
   kalakritiVenue,
@@ -32,6 +33,14 @@ async function cleanup() {
     .delete(kalakritiCompetitionSession)
     .where(
       inArray(kalakritiCompetitionSession.editionId, [
+        FIXTURE.editionId,
+        FIXTURE.draftEditionId,
+      ])
+    );
+  await db
+    .delete(kalakritiCompetitionDivision)
+    .where(
+      inArray(kalakritiCompetitionDivision.editionId, [
         FIXTURE.editionId,
         FIXTURE.draftEditionId,
       ])
@@ -220,13 +229,31 @@ async function setup(email?: string) {
     normalizedName: "art room",
     updatedAt: now,
   });
-  await db.insert(kalakritiCompetitionSession).values([
+  await db.insert(kalakritiCompetitionDivision).values([
     {
       ageCategoryId: FIXTURE.ageCategoryId,
-      capacity: 25,
       competitionId: FIXTURE.competitionId,
       createdAt: now,
       createdBy: actor.id,
+      editionId: FIXTURE.editionId,
+      id: FIXTURE.sessionId,
+      updatedAt: now,
+    },
+    {
+      ageCategoryId: FIXTURE.ageCategoryId,
+      competitionId: FIXTURE.cancelledCompetitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: FIXTURE.editionId,
+      id: FIXTURE.cancelledSessionId,
+      updatedAt: now,
+    },
+  ]);
+  await db.insert(kalakritiCompetitionSession).values([
+    {
+      createdAt: now,
+      createdBy: actor.id,
+      divisionId: FIXTURE.sessionId,
       editionId: FIXTURE.editionId,
       endAt: new Date(`${FIXTURE.year}-11-21T05:30:00.000Z`),
       id: FIXTURE.sessionId,
@@ -235,11 +262,9 @@ async function setup(email?: string) {
       venueId: FIXTURE.venueId,
     },
     {
-      ageCategoryId: FIXTURE.ageCategoryId,
-      capacity: 30,
-      competitionId: FIXTURE.cancelledCompetitionId,
       createdAt: now,
       createdBy: actor.id,
+      divisionId: FIXTURE.cancelledSessionId,
       editionId: FIXTURE.editionId,
       endAt: new Date(`${FIXTURE.year}-11-21T07:00:00.000Z`),
       id: FIXTURE.cancelledSessionId,

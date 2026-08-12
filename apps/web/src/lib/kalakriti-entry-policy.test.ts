@@ -60,14 +60,6 @@ describe("Kalakriti Entry policy", () => {
       "This Competition is limited to male Students",
     ],
     [
-      "full Session",
-      {},
-      {},
-      [],
-      "This Session is full. Choose another Session.",
-      [{ id: "taken" }],
-    ],
-    [
       "duplicate Session",
       {},
       {},
@@ -97,7 +89,7 @@ describe("Kalakriti Entry policy", () => {
     ],
   ])(
     "returns an actionable message for a %s",
-    (_case, competitionOverrides, studentOverrides, existingEntries, expected, sessionEntries = []) => {
+    (_case, competitionOverrides, studentOverrides, existingEntries, expected) => {
       const student = {
         ageCategory: {
           maxCompetitionsPerCategory: 2,
@@ -114,7 +106,6 @@ describe("Kalakriti Entry policy", () => {
       const session = {
         ageCategory: { name: "Junior" },
         ageCategoryId: "age-1",
-        capacity: 1,
         competition: {
           category: { name: "Art" },
           competitionCategoryId: "category-1",
@@ -127,7 +118,7 @@ describe("Kalakriti Entry policy", () => {
           typeof getIndividualEntryValidationError
         >[0]["session"]["competition"],
         endAt: 200,
-        entries: sessionEntries,
+        entries: [],
         id: "session-1",
         startAt: 100,
       };
@@ -153,11 +144,68 @@ describe("Kalakriti Entry policy", () => {
     }
   );
 
+  it("counts inactive Entries for limits without treating them as schedule conflicts", () => {
+    const student = {
+      ageCategory: {
+        maxCompetitionsPerCategory: 2,
+        maxTotalCompetitions: 2,
+      },
+      ageCategoryId: "age-1",
+      gender: "female" as const,
+      id: "student-1",
+    };
+    const session = {
+      ageCategory: { name: "Junior" },
+      ageCategoryId: "age-1",
+      competition: {
+        category: { name: "Art" },
+        competitionCategoryId: "category-1",
+        genderEligibility: "both" as const,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        participationMode: "individual" as const,
+      },
+      endAt: 200,
+      entries: [],
+      id: "session-1",
+      startAt: 100,
+    };
+    const entries = [
+      {
+        members: [{ studentId: student.id }],
+        session: {
+          ...session,
+          endAt: 150,
+          id: "inactive-session",
+          scheduleActive: false,
+          startAt: 50,
+        },
+        sessionId: "inactive-division",
+      },
+    ];
+
+    expect(
+      getIndividualEntryValidationError({ entries, session, student })
+    ).toBeNull();
+    expect(
+      getIndividualEntryValidationError({
+        entries,
+        session,
+        student: {
+          ...student,
+          ageCategory: {
+            ...student.ageCategory,
+            maxTotalCompetitions: 1,
+          },
+        },
+      })
+    ).toBe("This Student has reached the total Competition limit");
+  });
+
   it("returns member-specific group validation errors", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "age-1",
-      capacity: 2,
       competition: {
         category: { name: "Art" },
         competitionCategoryId: "category-1",
@@ -201,7 +249,7 @@ describe("Kalakriti Entry policy", () => {
     ]);
   });
 
-  it("excludes the edited group from capacity and Student limits", () => {
+  it("excludes the edited group from Student limits", () => {
     const student = {
       ageCategory: {
         maxCompetitionsPerCategory: 1,
@@ -216,7 +264,6 @@ describe("Kalakriti Entry policy", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "age-1",
-      capacity: 1,
       competition: {
         category: { name: "Art" },
         competitionCategoryId: "category-1",
@@ -271,7 +318,6 @@ describe("Kalakriti Entry policy", () => {
     const session = {
       ageCategory: { name: "Junior" },
       ageCategoryId: "junior",
-      capacity: 5,
       competition: {
         category: { name: "Performing Arts" },
         competitionCategoryId: "performing-arts",

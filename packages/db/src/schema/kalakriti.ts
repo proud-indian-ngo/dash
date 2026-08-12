@@ -487,6 +487,41 @@ export const kalakritiCompetition = pgTable(
   ]
 );
 
+export const kalakritiCompetitionDivision = pgTable(
+  "kalakriti_competition_division",
+  {
+    ageCategoryId: uuid("age_category_id").notNull(),
+    competitionId: uuid("competition_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    editionId: uuid("edition_id").notNull(),
+    id: uuid("id").primaryKey(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex(
+      "kalakriti_competition_division_competitionId_ageCategoryId_uidx"
+    ).on(table.competitionId, table.ageCategoryId),
+    unique("kalakriti_competition_division_editionId_id_uq").on(
+      table.editionId,
+      table.id
+    ),
+    index("kalakriti_competition_division_editionId_idx").on(table.editionId),
+    foreignKey({
+      columns: [table.editionId, table.competitionId],
+      foreignColumns: [kalakritiCompetition.editionId, kalakritiCompetition.id],
+      name: "kalakriti_competition_division_edition_competition_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.editionId, table.ageCategoryId],
+      foreignColumns: [kalakritiAgeCategory.editionId, kalakritiAgeCategory.id],
+      name: "kalakriti_competition_division_edition_age_category_fk",
+    }).onDelete("restrict"),
+  ]
+);
+
 export const kalakritiVenue = pgTable(
   "kalakriti_venue",
   {
@@ -520,14 +555,12 @@ export const kalakritiVenue = pgTable(
 export const kalakritiCompetitionSession = pgTable(
   "kalakriti_competition_session",
   {
-    ageCategoryId: uuid("age_category_id").notNull(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
-    capacity: integer("capacity").notNull(),
-    competitionId: uuid("competition_id").notNull(),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
+    divisionId: uuid("division_id").notNull(),
     editionId: uuid("edition_id").notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     id: uuid("id").primaryKey(),
@@ -536,9 +569,9 @@ export const kalakritiCompetitionSession = pgTable(
     venueId: uuid("venue_id").notNull(),
   },
   (table) => [
-    uniqueIndex(
-      "kalakriti_competition_session_competitionId_ageCategoryId_uidx"
-    ).on(table.competitionId, table.ageCategoryId),
+    uniqueIndex("kalakriti_competition_session_divisionId_uidx").on(
+      table.divisionId
+    ),
     unique("kalakriti_competition_session_editionId_id_uq").on(
       table.editionId,
       table.id
@@ -552,24 +585,18 @@ export const kalakritiCompetitionSession = pgTable(
       table.startAt
     ),
     foreignKey({
-      columns: [table.editionId, table.competitionId],
-      foreignColumns: [kalakritiCompetition.editionId, kalakritiCompetition.id],
-      name: "kalakriti_competition_session_edition_competition_fk",
-    }).onDelete("restrict"),
-    foreignKey({
-      columns: [table.editionId, table.ageCategoryId],
-      foreignColumns: [kalakritiAgeCategory.editionId, kalakritiAgeCategory.id],
-      name: "kalakriti_competition_session_edition_age_category_fk",
+      columns: [table.editionId, table.divisionId],
+      foreignColumns: [
+        kalakritiCompetitionDivision.editionId,
+        kalakritiCompetitionDivision.id,
+      ],
+      name: "kalakriti_competition_session_edition_division_fk",
     }).onDelete("restrict"),
     foreignKey({
       columns: [table.editionId, table.venueId],
       foreignColumns: [kalakritiVenue.editionId, kalakritiVenue.id],
       name: "kalakriti_competition_session_edition_venue_fk",
     }).onDelete("restrict"),
-    check(
-      "kalakriti_competition_session_capacity_chk",
-      sql`${table.capacity} > 0`
-    ),
     check(
       "kalakriti_competition_session_time_range_chk",
       sql`${table.endAt} > ${table.startAt}`
@@ -585,40 +612,40 @@ export const kalakritiCompetitionEntry = pgTable(
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
+    divisionId: uuid("division_id").notNull(),
     editionId: uuid("edition_id").notNull(),
     id: uuid("id").primaryKey(),
     participationMode:
       kalakritiParticipationModeEnum("participation_mode").notNull(),
-    sessionId: uuid("session_id").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     updatedBy: text("updated_by")
       .notNull()
       .references(() => user.id),
   },
   (table) => [
-    unique("kalakriti_competition_entry_edition_center_session_id_uq").on(
+    unique("kalakriti_competition_entry_edition_center_division_id_uq").on(
       table.editionId,
       table.centerId,
-      table.sessionId,
+      table.divisionId,
       table.id
     ),
     index("kalakriti_competition_entry_editionId_centerId_idx").on(
       table.editionId,
       table.centerId
     ),
-    index("kalakriti_competition_entry_sessionId_idx").on(table.sessionId),
+    index("kalakriti_competition_entry_divisionId_idx").on(table.divisionId),
     foreignKey({
       columns: [table.editionId, table.centerId],
       foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
       name: "kalakriti_competition_entry_edition_center_fk",
     }).onDelete("restrict"),
     foreignKey({
-      columns: [table.editionId, table.sessionId],
+      columns: [table.editionId, table.divisionId],
       foreignColumns: [
-        kalakritiCompetitionSession.editionId,
-        kalakritiCompetitionSession.id,
+        kalakritiCompetitionDivision.editionId,
+        kalakritiCompetitionDivision.id,
       ],
-      name: "kalakriti_competition_entry_edition_session_fk",
+      name: "kalakriti_competition_entry_edition_division_fk",
     }).onDelete("restrict"),
   ]
 );
@@ -631,10 +658,10 @@ export const kalakritiEntryMember = pgTable(
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
+    divisionId: uuid("division_id").notNull(),
     editionId: uuid("edition_id").notNull(),
     entryId: uuid("entry_id").notNull(),
     id: uuid("id").primaryKey(),
-    sessionId: uuid("session_id").notNull(),
     studentId: uuid("student_id").notNull(),
   },
   (table) => [
@@ -642,8 +669,8 @@ export const kalakritiEntryMember = pgTable(
       table.entryId,
       table.studentId
     ),
-    uniqueIndex("kalakriti_entry_member_sessionId_studentId_uidx").on(
-      table.sessionId,
+    uniqueIndex("kalakriti_entry_member_divisionId_studentId_uidx").on(
+      table.divisionId,
       table.studentId
     ),
     index("kalakriti_entry_member_editionId_centerId_idx").on(
@@ -655,13 +682,13 @@ export const kalakritiEntryMember = pgTable(
       columns: [
         table.editionId,
         table.centerId,
-        table.sessionId,
+        table.divisionId,
         table.entryId,
       ],
       foreignColumns: [
         kalakritiCompetitionEntry.editionId,
         kalakritiCompetitionEntry.centerId,
-        kalakritiCompetitionEntry.sessionId,
+        kalakritiCompetitionEntry.divisionId,
         kalakritiCompetitionEntry.id,
       ],
       name: "kalakriti_entry_member_entry_scope_fk",
@@ -835,6 +862,7 @@ export const kalakritiEditionRelations = relations(
     auditEntries: many(kalakritiAuditEntry),
     centers: many(kalakritiCenter),
     competitionCategories: many(kalakritiCompetitionCategory),
+    competitionDivisions: many(kalakritiCompetitionDivision),
     competitionEntries: many(kalakritiCompetitionEntry),
     competitionSessions: many(kalakritiCompetitionSession),
     competitions: many(kalakritiCompetition),
@@ -911,6 +939,7 @@ export const kalakritiCenterRelations = relations(
 export const kalakritiAgeCategoryRelations = relations(
   kalakritiAgeCategory,
   ({ many, one }) => ({
+    competitionDivisions: many(kalakritiCompetitionDivision),
     derivedStudents: many(kalakritiStudent, {
       relationName: "kalakriti_student_derived_age_category",
     }),
@@ -918,7 +947,6 @@ export const kalakritiAgeCategoryRelations = relations(
       fields: [kalakritiAgeCategory.editionId],
       references: [kalakritiEdition.id],
     }),
-    sessions: many(kalakritiCompetitionSession),
     students: many(kalakritiStudent, {
       relationName: "kalakriti_student_age_category",
     }),
@@ -981,10 +1009,30 @@ export const kalakritiCompetitionRelations = relations(
       fields: [kalakritiCompetition.competitionCategoryId],
       references: [kalakritiCompetitionCategory.id],
     }),
+    divisions: many(kalakritiCompetitionDivision),
     edition: one(kalakritiEdition, {
       fields: [kalakritiCompetition.editionId],
       references: [kalakritiEdition.id],
     }),
+  })
+);
+
+export const kalakritiCompetitionDivisionRelations = relations(
+  kalakritiCompetitionDivision,
+  ({ many, one }) => ({
+    ageCategory: one(kalakritiAgeCategory, {
+      fields: [kalakritiCompetitionDivision.ageCategoryId],
+      references: [kalakritiAgeCategory.id],
+    }),
+    competition: one(kalakritiCompetition, {
+      fields: [kalakritiCompetitionDivision.competitionId],
+      references: [kalakritiCompetition.id],
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiCompetitionDivision.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    entries: many(kalakritiCompetitionEntry),
     sessions: many(kalakritiCompetitionSession),
   })
 );
@@ -1002,20 +1050,15 @@ export const kalakritiVenueRelations = relations(
 
 export const kalakritiCompetitionSessionRelations = relations(
   kalakritiCompetitionSession,
-  ({ many, one }) => ({
-    ageCategory: one(kalakritiAgeCategory, {
-      fields: [kalakritiCompetitionSession.ageCategoryId],
-      references: [kalakritiAgeCategory.id],
-    }),
-    competition: one(kalakritiCompetition, {
-      fields: [kalakritiCompetitionSession.competitionId],
-      references: [kalakritiCompetition.id],
+  ({ one }) => ({
+    division: one(kalakritiCompetitionDivision, {
+      fields: [kalakritiCompetitionSession.divisionId],
+      references: [kalakritiCompetitionDivision.id],
     }),
     edition: one(kalakritiEdition, {
       fields: [kalakritiCompetitionSession.editionId],
       references: [kalakritiEdition.id],
     }),
-    entries: many(kalakritiCompetitionEntry),
     venue: one(kalakritiVenue, {
       fields: [kalakritiCompetitionSession.venueId],
       references: [kalakritiVenue.id],
@@ -1030,15 +1073,15 @@ export const kalakritiCompetitionEntryRelations = relations(
       fields: [kalakritiCompetitionEntry.centerId],
       references: [kalakritiCenter.id],
     }),
+    division: one(kalakritiCompetitionDivision, {
+      fields: [kalakritiCompetitionEntry.divisionId],
+      references: [kalakritiCompetitionDivision.id],
+    }),
     edition: one(kalakritiEdition, {
       fields: [kalakritiCompetitionEntry.editionId],
       references: [kalakritiEdition.id],
     }),
     members: many(kalakritiEntryMember),
-    session: one(kalakritiCompetitionSession, {
-      fields: [kalakritiCompetitionEntry.sessionId],
-      references: [kalakritiCompetitionSession.id],
-    }),
   })
 );
 

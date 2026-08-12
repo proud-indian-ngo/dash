@@ -35,8 +35,8 @@ export const kalakritiEligibilityQueries = {
               )
           )
         ),
-        exists("sessions", (session) =>
-          session.whereExists("competition", (competition) =>
+        exists("competitionDivisions", (division) =>
+          division.whereExists("competition", (competition) =>
             competition.whereExists("category", (category) =>
               category.whereExists("assignments", (assignment) =>
                 assignment

@@ -114,10 +114,6 @@ export function CompetitionSessionDetailSheet({
                 label={`Ends (${timeZone})`}
                 value={formatter.format(session.endAt)}
               />
-              <DetailRow
-                label="Entry capacity"
-                value={String(session.capacity)}
-              />
             </div>
           </div>
 

@@ -52,7 +52,9 @@ export const kalakritiCompetitionQueries = {
   }),
 
   competitions: defineQuery(editionInput, ({ args, ctx }) => {
-    let query = zql.kalakritiCompetition.where("editionId", args.editionId);
+    let query = zql.kalakritiCompetition
+      .where("editionId", args.editionId)
+      .related("divisions", (division) => division.related("ageCategory"));
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("name", "asc");
     }
@@ -126,16 +128,18 @@ export const kalakritiCompetitionQueries = {
               )
           )
         ),
-        exists("competition", (competition) =>
-          competition.whereExists("category", (category) =>
-            category.whereExists("assignments", (assignment) =>
-              assignment
-                .where("responsibility", "competition_category_lead")
-                .whereExists("membership", (membership) =>
-                  membership
-                    .where("userId", ctx.userId)
-                    .where("state", "active")
-                )
+        exists("division", (division) =>
+          division.whereExists("competition", (competition) =>
+            competition.whereExists("category", (category) =>
+              category.whereExists("assignments", (assignment) =>
+                assignment
+                  .where("responsibility", "competition_category_lead")
+                  .whereExists("membership", (membership) =>
+                    membership
+                      .where("userId", ctx.userId)
+                      .where("state", "active")
+                  )
+              )
             )
           )
         )
@@ -174,16 +178,18 @@ export const kalakritiCompetitionQueries = {
           )
         ),
         exists("sessions", (session) =>
-          session.whereExists("competition", (competition) =>
-            competition.whereExists("category", (category) =>
-              category.whereExists("assignments", (assignment) =>
-                assignment
-                  .where("responsibility", "competition_category_lead")
-                  .whereExists("membership", (membership) =>
-                    membership
-                      .where("userId", ctx.userId)
-                      .where("state", "active")
-                  )
+          session.whereExists("division", (division) =>
+            division.whereExists("competition", (competition) =>
+              competition.whereExists("category", (category) =>
+                category.whereExists("assignments", (assignment) =>
+                  assignment
+                    .where("responsibility", "competition_category_lead")
+                    .whereExists("membership", (membership) =>
+                      membership
+                        .where("userId", ctx.userId)
+                        .where("state", "active")
+                    )
+                )
               )
             )
           )

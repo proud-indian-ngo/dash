@@ -8,7 +8,7 @@ function queryAst(query: unknown): string {
 }
 
 describe("kalakritiEntry queries", () => {
-  it.each(["availableSessionsByCenter", "visibleByCenter"] as const)(
+  it.each(["availableDivisionsByCenter", "visibleByCenter"] as const)(
     "scopes %s to registration roles for the requested Center",
     (queryName) => {
       const ast = queryAst(
@@ -32,9 +32,9 @@ describe("kalakritiEntry queries", () => {
     }
   );
 
-  it("loads only active Session configuration and capacity rows", () => {
+  it("loads active Competition Divisions with schedule context", () => {
     const ast = queryAst(
-      kalakritiEntryQueries.availableSessionsByCenter.fn({
+      kalakritiEntryQueries.availableDivisionsByCenter.fn({
         args: input,
         ctx: {
           permissions: ["kalakriti.admin"],
@@ -48,12 +48,11 @@ describe("kalakritiEntry queries", () => {
     expect(ast).toContain('"table":"kalakritiCompetitionCategory"');
     expect(ast).toContain('"table":"kalakritiAgeCategory"');
     expect(ast).toContain('"table":"kalakritiVenue"');
-    expect(ast).toContain('"table":"kalakritiCompetitionEntry"');
     expect(ast).not.toContain('"value":"individual"');
     expect(ast).not.toContain('"value":"group"');
   });
 
-  it.each(["availableSessionsByCenter", "visibleByCenter"] as const)(
+  it.each(["availableDivisionsByCenter", "visibleByCenter"] as const)(
     "denies %s without coarse Kalakriti access",
     (queryName) => {
       const ast = queryAst(

@@ -45,7 +45,7 @@ export function Breadcrumbs() {
     ? requestedCenterId
     : centers[0]?.id;
   const [sessions] = useQuery(
-    queries.kalakritiEntry.availableSessionsByCenter({
+    queries.kalakritiEntry.availableDivisionsByCenter({
       centerId: entryCenterId ?? "",
       editionId: edition?.id ?? "",
     }),

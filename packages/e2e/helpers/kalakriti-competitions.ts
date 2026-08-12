@@ -6,6 +6,7 @@ import {
   kalakritiAuditEntry,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionSession,
   kalakritiEdition,
   kalakritiEditionMembership,
@@ -55,6 +56,9 @@ async function cleanup(kind: FixtureKind): Promise<void> {
   await db
     .delete(kalakritiCompetitionSession)
     .where(eq(kalakritiCompetitionSession.editionId, fixture.editionId));
+  await db
+    .delete(kalakritiCompetitionDivision)
+    .where(eq(kalakritiCompetitionDivision.editionId, fixture.editionId));
   await db
     .delete(kalakritiCompetition)
     .where(eq(kalakritiCompetition.editionId, fixture.editionId));
@@ -205,13 +209,31 @@ async function setup(kind: FixtureKind, actorEmail: string) {
         updatedAt: now,
       },
     ]);
-    await db.insert(kalakritiCompetitionSession).values([
+    await db.insert(kalakritiCompetitionDivision).values([
       {
         ageCategoryId: fixture.ageCategoryId,
-        capacity: 30,
         competitionId: VOLUNTEER_SCOPE.assignedCompetitionId,
         createdAt: now,
         createdBy: actor.id,
+        editionId: fixture.editionId,
+        id: VOLUNTEER_SCOPE.assignedSessionId,
+        updatedAt: now,
+      },
+      {
+        ageCategoryId: fixture.ageCategoryId,
+        competitionId: VOLUNTEER_SCOPE.unassignedCompetitionId,
+        createdAt: now,
+        createdBy: actor.id,
+        editionId: fixture.editionId,
+        id: VOLUNTEER_SCOPE.unassignedSessionId,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(kalakritiCompetitionSession).values([
+      {
+        createdAt: now,
+        createdBy: actor.id,
+        divisionId: VOLUNTEER_SCOPE.assignedSessionId,
         editionId: fixture.editionId,
         endAt: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
         id: VOLUNTEER_SCOPE.assignedSessionId,
@@ -220,11 +242,9 @@ async function setup(kind: FixtureKind, actorEmail: string) {
         venueId: VOLUNTEER_SCOPE.assignedVenueId,
       },
       {
-        ageCategoryId: fixture.ageCategoryId,
-        capacity: 20,
-        competitionId: VOLUNTEER_SCOPE.unassignedCompetitionId,
         createdAt: now,
         createdBy: actor.id,
+        divisionId: VOLUNTEER_SCOPE.unassignedSessionId,
         editionId: fixture.editionId,
         endAt: new Date(`${fixture.year}-11-21T05:30:00.000Z`),
         id: VOLUNTEER_SCOPE.unassignedSessionId,

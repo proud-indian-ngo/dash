@@ -52,6 +52,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiCredential,
@@ -1028,13 +1029,24 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
     .onConflictDoNothing();
 
   await db
-    .insert(kalakritiCompetitionSession)
+    .insert(kalakritiCompetitionDivision)
     .values({
       ageCategoryId: ID.kalakritiAgeCategory,
-      capacity: 20,
       competitionId: ID.kalakritiCompetition,
       createdAt: now,
       createdBy: adminId,
+      editionId: ID.kalakritiEdition,
+      id: ID.kalakritiCompetitionSession,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(kalakritiCompetitionSession)
+    .values({
+      createdAt: now,
+      createdBy: adminId,
+      divisionId: ID.kalakritiCompetitionSession,
       editionId: ID.kalakritiEdition,
       endAt: new Date("2027-11-21T10:00:00+05:30"),
       id: ID.kalakritiCompetitionSession,
@@ -1050,10 +1062,10 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       centerId: ID.kalakritiCenter,
       createdAt: now,
       createdBy: adminId,
+      divisionId: ID.kalakritiCompetitionSession,
       editionId: ID.kalakritiEdition,
       id: ID.kalakritiCompetitionEntry,
       participationMode: "individual",
-      sessionId: ID.kalakritiCompetitionSession,
       updatedAt: now,
       updatedBy: adminId,
     })
@@ -1065,10 +1077,10 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       centerId: ID.kalakritiCenter,
       createdAt: now,
       createdBy: adminId,
+      divisionId: ID.kalakritiCompetitionSession,
       editionId: ID.kalakritiEdition,
       entryId: ID.kalakritiCompetitionEntry,
       id: ID.kalakritiEntryMember,
-      sessionId: ID.kalakritiCompetitionSession,
       studentId: ID.kalakritiStudent,
     })
     .onConflictDoNothing();

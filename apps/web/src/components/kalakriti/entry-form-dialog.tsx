@@ -55,7 +55,6 @@ export interface KalakritiEntryStudent {
 export interface KalakritiEntrySession {
   ageCategory: { name: string };
   ageCategoryId: string;
-  capacity: number;
   competition: {
     category: { name: string };
     competitionCategoryId: string;
@@ -67,8 +66,8 @@ export interface KalakritiEntrySession {
     participationMode: "group" | "individual";
   };
   endAt: number;
-  entries: readonly { id: string }[];
   id: string;
+  scheduleActive?: boolean;
   startAt: number;
   venue: { name: string };
 }
@@ -182,7 +181,6 @@ function sessionOptionLabel(
   session: KalakritiEntrySession,
   includeCompetition: boolean
 ): string {
-  const remaining = Math.max(0, session.capacity - session.entries.length);
   return [
     ...(includeCompetition ? [session.competition.name] : []),
     session.competition.participationMode === "group"
@@ -191,7 +189,6 @@ function sessionOptionLabel(
     session.ageCategory.name,
     `${format(new Date(session.startAt), "dd MMM, h:mm a")}–${format(new Date(session.endAt), "h:mm a")}`,
     session.venue.name,
-    `${remaining} ${remaining === 1 ? "place" : "places"} left`,
   ].join(" · ");
 }
 
@@ -211,13 +208,6 @@ function getIndividualSelectionIssue({
   session: KalakritiEntrySession;
   students: readonly KalakritiEntryStudent[];
 }): EntryValidationIssue | null {
-  const remainingCapacity = session.capacity - session.entries.length;
-  if (students.length > remainingCapacity) {
-    return {
-      message: `This Session only has ${Math.max(0, remainingCapacity)} places left`,
-      path: "studentIds",
-    };
-  }
   for (const student of students) {
     const message = getIndividualEntryValidationError({
       entries,
@@ -527,6 +517,7 @@ function EntryForm({
       mutators.kalakritiEntry.createGroup({
         auditEntryId: uuidv7(),
         centerId,
+        divisionId: sessionId,
         editionId,
         entryId: uuidv7(),
         members: studentIds.map((studentId) => ({
@@ -534,7 +525,6 @@ function EntryForm({
           studentId,
         })),
         now,
-        sessionId,
       })
     ).server;
     finishMutation(result, {
@@ -557,11 +547,11 @@ function EntryForm({
             mutators.kalakritiEntry.createIndividual({
               auditEntryId: uuidv7(),
               centerId,
+              divisionId: sessionId,
               editionId,
               entryId: uuidv7(),
               memberId: uuidv7(),
               now,
-              sessionId,
               studentId,
             })
           ).server
@@ -585,7 +575,6 @@ function EntryForm({
     <FormLayout form={form} showSubmitError>
       {fixedSession || entry ? null : (
         <SelectField
-          description="Availability is rechecked when you submit, so a place cannot be overbooked."
           isRequired
           label="Competition Session"
           name="sessionId"
@@ -604,10 +593,7 @@ function EntryForm({
           const isGroup = session?.competition.participationMode === "group";
           const maximum = isGroup
             ? (session?.competition.maximumGroupSize ?? 1)
-            : Math.max(
-                1,
-                (session?.capacity ?? 1) - (session?.entries.length ?? 0)
-              );
+            : Math.max(1, students.length);
           const options = session
             ? students.flatMap((student): StudentComboboxOption[] => {
                 const eligibility = getEntryStudentOptionEligibility({

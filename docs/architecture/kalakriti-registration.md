@@ -28,7 +28,7 @@ Guardians use the technical `external_user` role and a persistent `kalakritiExte
 
 The Drizzle schema is grouped in `packages/db/src/schema/kalakriti.ts`. Registration commands and queries live under `packages/zero/src/mutators/kalakriti-*` and `packages/zero/src/queries/kalakriti-*`; pure registration rules remain in focused `packages/zero/src/kalakriti-*` modules.
 
-Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Session, Student, Entry, or Assignment from crossing Edition boundaries. PostgreSQL row locks serialize quota, Student-ID sequence, Session-capacity, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Session, one active Credential, and one live Edition invariants.
+Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Competition Division, Session, Student, Entry, or Assignment from crossing Edition boundaries. A Competition Division pairs one Competition with one Age Category and owns Entries and future Result ranking; a Competition Session only assigns that Division a time and Venue. PostgreSQL row locks serialize quota, Student-ID sequence, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Division, one Session per Division, one active Credential, and one live Edition invariants.
 
 The lifecycle edges exposed by this release are:
 
@@ -40,7 +40,7 @@ Opening or reopening requires a complete readiness snapshot. Center Student and 
 
 ## Public and server-only projections
 
-`/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns capacity, staffing, contacts, Students, submissions, or evidence.
+`/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, or evidence.
 
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
 
@@ -48,7 +48,7 @@ Audit reads apply Edition and responsibility scopes before returning privacy-saf
 
 ## Release verification
 
-`packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota/capacity/duplicate races.
+`packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
 
 `docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019, including the explicit checks deferred until later modules introduce transport, Credential reissue, and operational dependencies.
 

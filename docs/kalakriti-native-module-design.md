@@ -118,7 +118,7 @@ Opening registration requires:
 - an age cutoff date, defaulting to the event date;
 - at least one non-overlapping Age Category;
 - at least one Center;
-- Competition rules, session capacities, and age-specific registration limits;
+- Competition rules, scheduled Divisions, and age-specific registration limits;
 - valid Competition Sessions and Venues for anything exposed for registration.
 
 Going live requires:
@@ -165,20 +165,18 @@ Changing date of birth or gender is blocked when it would invalidate an existing
 
 ### Competitions and sessions
 
-A Competition defines its Competition Category, participation mode, gender eligibility, and group-size rules. A Competition Session combines that definition with one Age Category, time range, Venue, and capacity.
-
-Capacity counts Competition Entries. An individual entry consumes one unit and a group entry also consumes one unit. There is no waitlist.
+A Competition defines its Competition Category, participation mode, gender eligibility, and group-size rules. A Competition Division pairs that definition with one Age Category, while a Competition Session assigns the Division a time range and Venue.
 
 Each Age Category configures:
 
 - the maximum total Competitions per Student;
 - the maximum Competitions from one Competition Category per Student.
 
-The Registration command also enforces gender eligibility, active configuration, group size, same-Center membership, session capacity, and the rule that one Student appears at most once in a Competition Session. Any overlapping Competition Sessions for the same Student are rejected with no administrator override.
+The Registration command also enforces gender eligibility, active configuration, group size, same-Center membership, and the rule that one Student appears at most once in a Competition Division. Any overlapping Competition Sessions for the same Student are rejected with no administrator override.
 
 Valid registrations are accepted immediately. There is no approval workflow.
 
-Structural fields such as eligibility, capacity, Age Category, participation mode, and group rules become immutable after registration closes. A Competition with entries may be cancelled but not deleted; affected users are notified and history remains. Referenced Centers, Age Categories, Competition Categories, Competitions, Sessions, and Venues are protected from deletion and must be retired, cancelled, or detached where allowed.
+Structural fields such as eligibility, Age Category, participation mode, and group rules become immutable after registration closes. A Competition with entries may be cancelled but not deleted; affected users are notified and history remains. Referenced Centers, Age Categories, Competition Categories, Competitions, Sessions, and Venues are protected from deletion and must be retired, cancelled, or detached where allowed.
 
 ### Group entries
 
@@ -266,7 +264,7 @@ changeEntryMembers(entryId, studentIds)
 removeEntry(entryId)
 ```
 
-This interface hides lifecycle and Center controls, Age Category derivation, gender and capacity checks, count limits, group rules, and schedule-conflict detection.
+This interface hides lifecycle and Center controls, Age Category derivation, gender checks, count limits, group rules, and schedule-conflict detection.
 
 ### Event-day Operations
 
@@ -311,7 +309,7 @@ This interface hides signed balance arithmetic, required Competition links, reve
 
 ### Read models
 
-Edition dashboards, readiness checks, public schedule, public Results, Center capacity, and leaderboard queries should use edition-filtered projections and aggregate queries. They must not load the full Edition dataset into the browser and derive permissions or totals there.
+Edition dashboards, readiness checks, public schedule, public Results, Center registration totals, and leaderboard queries should use edition-filtered projections and aggregate queries. They must not load the full Edition dataset into the browser and derive permissions or totals there.
 
 ## Data model
 
@@ -339,7 +337,8 @@ Do not use a generic `scopeType/scopeId` pair without foreign keys. Nullable typ
 | `kalakriti_competition_category` | Edition-owned category, ordering, and retirement state. |
 | `kalakriti_competition` | Competition definition, participation mode, gender eligibility, group rules, and cancellation state. |
 | `kalakriti_venue` | Edition-owned room or performance location with retirement state. |
-| `kalakriti_competition_session` | Unique Competition and Age Category pairing where required, start/end time, Venue, and entry capacity. Same-day and Venue overlap checks apply. |
+| `kalakriti_competition_division` | Pairs one Competition with one Age Category and owns Entries and future Result ranking. |
+| `kalakriti_competition_session` | Assigns a Division a start/end time and Venue. Same-day and Venue overlap checks apply. |
 
 Configuration cloning copies only Age Categories, limits, Competition Categories, Competition definitions, and Venues. It never copies Centers, Competition Sessions, people, registrations, assignments, Results, files, operations, or inventory.
 
@@ -348,7 +347,7 @@ Configuration cloning copies only Age Categories, limits, Competition Categories
 | Table | Purpose and key constraints |
 | --- | --- |
 | `kalakriti_student` | Edition and Center ownership, yearly human ID, name, DOB, gender, derived and optional overridden Age Category, duplicate confirmation, and operational dependency state. |
-| `kalakriti_competition_entry` | One capacity unit in one Session, owned by one Center, with individual or group mode. |
+| `kalakriti_competition_entry` | One individual or group registration in one Division, owned by one Center. |
 | `kalakriti_entry_member` | Connects Students to an Entry. Enforces one occurrence of a Student per Session and same-Edition, same-Center ownership. |
 | `kalakriti_credential` | Edition-bound subject, stable human ID, hashed opaque QR token, issue/revoke metadata, and at most one active Credential per subject. |
 
@@ -520,9 +519,9 @@ This is the first public production milestone.
 
 1. Build Center management, Guardian and Liaison Center assignment, independent Center controls, and bulk lock.
 2. Build Age Categories, cutoff derivation, shared gender limits, Competition limits, override audit, and duplicate warnings.
-3. Build Competition Categories, Competitions, group rules, Venues, Competition Sessions, capacities, cancellation, and protected deletion behavior.
+3. Build Competition Categories, Competitions, Age Category Divisions, group rules, Venues, Competition Sessions, cancellation, and protected deletion behavior.
 4. Build Student create, edit, hard delete, dependency blocking, generated yearly IDs, and automatic Credential creation.
-5. Build individual and group Competition Entry commands with all limits, eligibility, same-Center, capacity, duplicate-session, and schedule-conflict checks.
+5. Build individual and group Competition Entry commands with all limits, eligibility, same-Center, duplicate-Division, and schedule-conflict checks.
 6. Build the live public schedule projection and affected-user schedule notifications.
 7. Build registration-open, reminder, and close notifications.
 8. Build assignment-scoped dashboards needed for registration, administrator and scoped CSV exports, and the audit views needed to support registration corrections.
@@ -532,7 +531,7 @@ Release acceptance criteria:
 
 - An administrator can move a ready Edition from `draft` to `registration_open` and later lock it.
 - A Guardian or Liaison can manage Students and Entries only for assigned Centers and only when the relevant Center control and lifecycle permit it.
-- Student limits, capacities, gender, Age Category, per-Student counts, group membership, and time conflicts remain correct under concurrent submissions.
+- Student limits, gender, Age Category, per-Student counts, group membership, and time conflicts remain correct under concurrent submissions.
 - Closing one Center does not close another; bulk lock closes both controls everywhere; every reopen is explicit and audited.
 - Public schedule access reveals no staffing, contacts, Student names, Scoresheets, or submission photos.
 - CSV import is unavailable; scoped export returns no out-of-scope rows.
@@ -597,7 +596,7 @@ Test through the deep command interfaces, not private rule helpers or table-shap
 - one-live-Edition concurrency;
 - cross-Edition reference and authorization rejection;
 - central volunteer and external Guardian identity paths;
-- Student-limit and capacity races using authoritative Postgres transactions;
+- Student-limit and duplicate-entry races using authoritative Postgres transactions;
 - Age Category boundaries, gaps, overrides, and mutation invalidation;
 - group-size, same-Center, duplicate-session, and schedule-conflict invariants;
 - idempotent operation replay and correction authorization;
@@ -635,7 +634,7 @@ Inspect generated migrations before applying them. Major released flows also req
 | External Guardians trigger volunteer onboarding or orientation automation | Give them a minimal technical role, use a dedicated invitation path, make auth hooks marker-aware, and test that no volunteer group or default dashboard is assigned. |
 | `user.isActive` does not enforce dormancy | Use Better Auth ban or a dedicated sign-in guard, revoke sessions, and never apply external dormancy to a central user. |
 | Edition filters are missed in a query or mutation | Put authorization and Edition resolution in shared command/query entry checks, repeat `editionId` on sensitive joins, and add adversarial cross-Edition tests. |
-| Optimistic registration accepts a write later rejected by the server | Run the same pure validation client and server, display authoritative rejection clearly, and use database constraints or locking for capacity and quota races. |
+| Optimistic registration accepts a write later rejected by the server | Run the same pure validation client and server, display authoritative rejection clearly, and use database constraints or locking for quota and duplicate-entry races. |
 | Generic assignment scope loses referential integrity | Use typed nullable scope FKs plus responsibility-specific check constraints, hidden behind one command interface. |
 | The Registration Release becomes a temporary implementation | Include the permanent Edition, identity, access, lifecycle, registration, audit, and Credential boundaries in Phase 0 and Phase 1. |
 | Offline scans toggle or reorder state | Store immutable idempotent operations, derive state, expose queue outcomes, and keep corrections online-only. |

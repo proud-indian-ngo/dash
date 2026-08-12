@@ -133,7 +133,9 @@ jobs:
       - name: Enable logical replication
         run: |
           docker exec ${{ job.services.postgres.id }} \
-            psql -U postgres -c "ALTER SYSTEM SET wal_level = 'logical';"
+            psql -U postgres \
+              -c "ALTER SYSTEM SET wal_level = 'logical';" \
+              -c "ALTER SYSTEM SET max_connections = 300;"
           docker restart ${{ job.services.postgres.id }}
           # Wait for postgres to be ready again
           for _ in $(seq 1 30); do

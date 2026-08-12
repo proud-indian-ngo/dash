@@ -27,7 +27,6 @@ interface EntryValidationStudent {
 interface EntryValidationSession {
   ageCategory: { name: string };
   ageCategoryId: string;
-  capacity: number;
   competition: {
     category: { name: string };
     competitionCategoryId: string;
@@ -37,8 +36,8 @@ interface EntryValidationSession {
     participationMode: "group" | "individual";
   };
   endAt: number;
-  entries: readonly { id: string }[];
   id: string;
+  scheduleActive?: boolean;
   startAt: number;
 }
 
@@ -92,6 +91,7 @@ function getStudentEntryValidationError({
   if (
     existing.some(
       (entry) =>
+        entry.session.scheduleActive !== false &&
         entry.session.startAt < session.endAt &&
         entry.session.endAt > session.startAt
     )
@@ -131,12 +131,6 @@ export function getEntryStudentOptionEligibility({
   ) {
     return { status: "hidden" };
   }
-  const sessionEntryCount = session.entries.filter(
-    (entry) => entry.id !== editingEntryId
-  ).length;
-  if (sessionEntryCount >= session.capacity) {
-    return { reason: "This Session is full", status: "disabled" };
-  }
   const reason = getStudentEntryValidationError({
     entries: otherEntries,
     session,
@@ -157,9 +151,6 @@ export function getIndividualEntryValidationError({
   const { competition } = session;
   if (competition.participationMode !== "individual") {
     return "Choose an individual Competition Session";
-  }
-  if (session.entries.length >= session.capacity) {
-    return "This Session is full. Choose another Session.";
   }
   return getStudentEntryValidationError({ entries, session, student });
 }
@@ -191,12 +182,6 @@ export function getGroupEntryValidationErrors({
   }
   if (new Set(students.map((student) => student.id)).size !== students.length) {
     return ["Each Student can appear only once in a group"];
-  }
-  const sessionEntryCount = session.entries.filter(
-    (entry) => entry.id !== editingEntryId
-  ).length;
-  if (sessionEntryCount >= session.capacity) {
-    return ["This Session is full. Choose another Session."];
   }
   const otherEntries = editingEntryId
     ? entries.filter((entry) => entry.id !== editingEntryId)

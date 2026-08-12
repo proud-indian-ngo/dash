@@ -310,7 +310,7 @@ describe("kalakritiEligibility commands", () => {
     }> = [];
     const { lockedResults, tx } = createTx([
       { editionId: edition.id },
-      [{ competitionId: "competition-1" }],
+      [{ division: { competitionId: "competition-1" } }],
       [{ centerId }],
     ]);
     lockedResults.push(

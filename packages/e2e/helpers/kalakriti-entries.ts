@@ -8,6 +8,7 @@ import {
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
+  kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiCredential,
@@ -96,6 +97,9 @@ async function cleanup(kind: FixtureKind): Promise<void> {
     .delete(kalakritiCompetitionSession)
     .where(eq(kalakritiCompetitionSession.editionId, fixture.editionId));
   await db
+    .delete(kalakritiCompetitionDivision)
+    .where(eq(kalakritiCompetitionDivision.editionId, fixture.editionId));
+  await db
     .delete(kalakritiCompetition)
     .where(eq(kalakritiCompetition.editionId, fixture.editionId));
   await db
@@ -122,7 +126,7 @@ async function cleanup(kind: FixtureKind): Promise<void> {
   await db.delete(teamEvent).where(eq(teamEvent.id, fixture.eventId));
 }
 
-async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
+async function setup(kind: FixtureKind, actorEmail: string) {
   const fixture = FIXTURES[kind];
   await cleanup(kind);
   const [actor, owningTeam] = await Promise.all([
@@ -272,12 +276,30 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     normalizedName: "main stage",
     updatedAt: now,
   });
+  await db.insert(kalakritiCompetitionDivision).values([
+    {
+      ageCategoryId: fixture.ageCategoryId,
+      competitionId: fixture.competitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixture.editionId,
+      id: fixture.sessionId,
+      updatedAt: now,
+    },
+    {
+      ageCategoryId: fixture.ageCategoryId,
+      competitionId: fixture.groupCompetitionId,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: fixture.editionId,
+      id: fixture.groupSessionId,
+      updatedAt: now,
+    },
+  ]);
   await db.insert(kalakritiCompetitionSession).values({
-    ageCategoryId: fixture.ageCategoryId,
-    capacity,
-    competitionId: fixture.competitionId,
     createdAt: now,
     createdBy: actor.id,
+    divisionId: fixture.sessionId,
     editionId: fixture.editionId,
     endAt: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
     id: fixture.sessionId,
@@ -286,11 +308,9 @@ async function setup(kind: FixtureKind, actorEmail: string, capacity: number) {
     venueId: fixture.venueId,
   });
   await db.insert(kalakritiCompetitionSession).values({
-    ageCategoryId: fixture.ageCategoryId,
-    capacity,
-    competitionId: fixture.groupCompetitionId,
     createdAt: now,
     createdBy: actor.id,
+    divisionId: fixture.groupSessionId,
     editionId: fixture.editionId,
     endAt: new Date(`${fixture.year}-11-21T06:30:00.000Z`),
     id: fixture.groupSessionId,
@@ -346,7 +366,7 @@ async function readState(kind: FixtureKind) {
   return { audits, entries, members };
 }
 
-const [action, kindArgument, email, capacityArgument] = process.argv.slice(2);
+const [action, kindArgument, email] = process.argv.slice(2);
 const fixtureKind = kindArgument as FixtureKind;
 if (!(fixtureKind in FIXTURES)) {
   throw new Error(`Unsupported Entry fixture kind: ${kindArgument ?? ""}`);
@@ -354,7 +374,7 @@ if (!(fixtureKind in FIXTURES)) {
 
 let result: unknown;
 if (action === "setup" && email) {
-  result = await setup(fixtureKind, email, Number(capacityArgument ?? 2));
+  result = await setup(fixtureKind, email);
 } else if (action === "state") {
   result = await readState(fixtureKind);
 } else if (action === "cleanup") {

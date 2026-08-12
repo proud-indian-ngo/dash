@@ -21,19 +21,11 @@ interface EntryState {
 async function fixture<T>(
   action: "cleanup" | "setup" | "state",
   kind: FixtureKind,
-  email?: string,
-  capacity?: number
+  email?: string
 ): Promise<T> {
   const { stdout } = await execFileAsync(
     "bun",
-    [
-      "run",
-      helperPath,
-      action,
-      kind,
-      ...(email ? [email] : []),
-      ...(capacity === undefined ? [] : [String(capacity)]),
-    ],
+    ["run", helperPath, action, kind, ...(email ? [email] : [])],
     { env: process.env }
   );
   return JSON.parse(stdout.trim()) as T;
@@ -88,8 +80,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const { year } = await fixture<{ year: number }>(
       "setup",
       "liaison",
-      volunteerEmail,
-      2
+      volunteerEmail
     );
     const entriesPage = new KalakritiEntriesPage(page);
 
@@ -143,8 +134,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const { year } = await fixture<{ year: number }>(
       "setup",
       "liaison",
-      volunteerEmail,
-      2
+      volunteerEmail
     );
     const entriesPage = new KalakritiEntriesPage(page);
 
@@ -238,56 +228,6 @@ test.describe("Kalakriti Competition Entry registration", () => {
     }
   });
 
-  test("serializes concurrent submissions at Session capacity", async ({
-    page,
-    superAdminEmail,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "super_admin",
-      "Super-admin Entry capacity race"
-    );
-    test.slow();
-    const { year } = await fixture<{ year: number }>(
-      "setup",
-      "admin",
-      superAdminEmail,
-      1
-    );
-    const secondPage = await page.context().newPage();
-    const firstEntriesPage = new KalakritiEntriesPage(page);
-    const secondEntriesPage = new KalakritiEntriesPage(secondPage);
-
-    try {
-      await Promise.all([
-        firstEntriesPage.goto(year),
-        secondEntriesPage.goto(year),
-      ]);
-      const [firstDialog, secondDialog] = await Promise.all([
-        firstEntriesPage.openRegistrationForm(),
-        secondEntriesPage.openRegistrationForm(),
-      ]);
-      await Promise.all([
-        firstEntriesPage.fillEntry(firstDialog, "Entry Student A"),
-        secondEntriesPage.fillEntry(secondDialog, "Entry Student B"),
-      ]);
-      await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Entries" }).click(),
-        secondDialog.getByRole("button", { name: "Register Entries" }).click(),
-      ]);
-      await Promise.all([
-        waitForSubmissionSettled(firstDialog, "Register Entries"),
-        waitForSubmissionSettled(secondDialog, "Register Entries"),
-      ]);
-
-      const state = await waitForEntryCount("admin", 1);
-      expect(state.entries).toHaveLength(1);
-    } finally {
-      await secondPage.close();
-      await page.goto("about:blank");
-      await fixture("cleanup", "admin");
-    }
-  });
-
   test("serializes duplicate submissions for one Student and Session", async ({
     page,
     superAdminEmail,
@@ -300,8 +240,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const { year } = await fixture<{ year: number }>(
       "setup",
       "admin",
-      superAdminEmail,
-      2
+      superAdminEmail
     );
     const secondPage = await page.context().newPage();
     const firstEntriesPage = new KalakritiEntriesPage(page);
@@ -332,62 +271,6 @@ test.describe("Kalakriti Competition Entry registration", () => {
       const state = await waitForEntryCount("admin", 1);
       expect(state.entries).toHaveLength(1);
       expect(state.members).toHaveLength(1);
-    } finally {
-      await secondPage.close();
-      await page.goto("about:blank");
-      await fixture("cleanup", "admin");
-    }
-  });
-
-  test("serializes concurrent group submissions at Session capacity", async ({
-    page,
-    superAdminEmail,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "super_admin",
-      "Super-admin group Entry capacity race"
-    );
-    test.slow();
-    const { year } = await fixture<{ year: number }>(
-      "setup",
-      "admin",
-      superAdminEmail,
-      1
-    );
-    const secondPage = await page.context().newPage();
-    const firstEntriesPage = new KalakritiEntriesPage(page);
-    const secondEntriesPage = new KalakritiEntriesPage(secondPage);
-
-    try {
-      await Promise.all([
-        firstEntriesPage.goto(year, "Group Dance"),
-        secondEntriesPage.goto(year, "Group Dance"),
-      ]);
-      const [firstDialog, secondDialog] = await Promise.all([
-        firstEntriesPage.openRegistrationForm(),
-        secondEntriesPage.openRegistrationForm(),
-      ]);
-      await Promise.all([
-        firstEntriesPage.fillGroup(firstDialog, [
-          "Entry Student A",
-          "Entry Student B",
-        ]),
-        secondEntriesPage.fillGroup(secondDialog, [
-          "Entry Student C",
-          "Entry Student D",
-        ]),
-      ]);
-      await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Group" }).click(),
-        secondDialog.getByRole("button", { name: "Register Group" }).click(),
-      ]);
-      await Promise.all([
-        waitForSubmissionSettled(firstDialog, "Register Group"),
-        waitForSubmissionSettled(secondDialog, "Register Group"),
-      ]);
-
-      const state = await waitForEntryCount("admin", 1);
-      expect(state.entries).toHaveLength(1);
     } finally {
       await secondPage.close();
       await page.goto("about:blank");
