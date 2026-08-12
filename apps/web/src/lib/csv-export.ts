@@ -69,18 +69,3 @@ export function createCsvDownload(
     filename: archiveFilename,
   };
 }
-
-export function downloadCsvFiles(
-  files: CsvFile[],
-  archiveFilename: string
-): void {
-  const artifact = createCsvDownload(files, archiveFilename);
-  const url = URL.createObjectURL(artifact.blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = artifact.filename;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}

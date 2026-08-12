@@ -1,6 +1,31 @@
+import type { Download } from "@playwright/test";
+import { strFromU8, unzipSync } from "fflate";
 import { expect, test } from "../../fixtures/test";
 
-test.describe("Export CSV (admin)", () => {
+async function readZip(download: Download) {
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return unzipSync(new Uint8Array(Buffer.concat(chunks)));
+}
+
+function readCsv(
+  archive: ReturnType<typeof unzipSync>,
+  filenamePrefix: string
+): string {
+  const filename = Object.keys(archive).find(
+    (entry) => entry.startsWith(filenamePrefix) && entry.endsWith(".csv")
+  );
+  const csv = filename ? archive[filename] : undefined;
+  if (!(filename && csv)) {
+    throw new Error(`Missing CSV with prefix: ${filenamePrefix}`);
+  }
+  return strFromU8(csv);
+}
+
+test.describe("Export ZIP (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
@@ -31,7 +56,7 @@ test.describe("Export CSV (admin)", () => {
       page.getByRole("combobox", { name: "Financial Year" })
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Export CSV" })
+      page.getByRole("button", { name: "Export ZIP" })
     ).toBeVisible();
   });
 
@@ -42,7 +67,7 @@ test.describe("Export CSV (admin)", () => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
 
     await expect(
-      page.getByRole("button", { name: "Export CSV" })
+      page.getByRole("button", { name: "Export ZIP" })
     ).toBeDisabled();
   });
 
@@ -54,27 +79,26 @@ test.describe("Export CSV (admin)", () => {
     await page.getByRole("checkbox", { name: "Rejected" }).click();
 
     await expect(
-      page.getByRole("button", { name: "Export CSV" })
+      page.getByRole("button", { name: "Export ZIP" })
     ).toBeDisabled();
   });
 
-  test("downloads CSV file with expected headers", async ({ page }) => {
+  test("downloads ZIP with expected CSV headers", async ({ page }) => {
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export CSV" }).click();
+    await page.getByRole("button", { name: "Export ZIP" }).click();
 
     const download = await downloadPromise;
     const filename = download.suggestedFilename();
 
     expect(filename).toMatch(
-      /reimbursements_advance-payments_all-statuses_FY\d{4}-\d{2}_\d{4}-\d{2}-\d{2}\.csv/
+      /^financial-exports_FY\d{4}-\d{2}_\d{4}-\d{2}-\d{2}\.zip$/
     );
 
-    const stream = await download.createReadStream();
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    const content = Buffer.concat(chunks).toString();
+    const archive = await readZip(download);
+    const content = readCsv(
+      archive,
+      "reimbursements_advance-payments_all-statuses_FY"
+    );
     const [headerLine] = content.split("\n");
     expect(headerLine).toContain("Type");
     expect(headerLine).toContain("Title");
@@ -83,14 +107,19 @@ test.describe("Export CSV (admin)", () => {
     await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 
-  test("downloads CSV with single type selected", async ({ page }) => {
+  test("downloads ZIP with single type selected", async ({ page }) => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export CSV" }).click();
+    await page.getByRole("button", { name: "Export ZIP" }).click();
     const download = await downloadPromise;
 
-    expect(download.suggestedFilename()).toMatch(/^reimbursements_/);
+    expect(download.suggestedFilename()).toMatch(/^financial-exports_FY/);
+    expect(Object.keys(await readZip(download))).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^reimbursements_all-statuses_FY.*\.csv$/),
+      ])
+    );
     await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 
@@ -103,26 +132,24 @@ test.describe("Export CSV (admin)", () => {
     }
 
     await expect(
-      page.getByRole("button", { name: "Export CSV" })
+      page.getByRole("button", { name: "Export ZIP" })
     ).toBeEnabled();
   });
 
   test("filters reimbursements by expense date", async ({ page }) => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
+    await page.getByRole("checkbox", { name: "Pending" }).click();
+    await page.getByRole("checkbox", { name: "Rejected" }).click();
     await page.getByRole("combobox", { name: "Financial Year" }).click();
     await page.getByRole("option", { name: "FY 2025-26" }).click();
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export CSV" }).click();
+    await page.getByRole("button", { name: "Export ZIP" }).click();
     const download = await downloadPromise;
-    const stream = await download.createReadStream();
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    const content = Buffer.concat(chunks).toString();
+    const content = readCsv(await readZip(download), "reimbursements_");
 
-    expect(content).toContain("E2E Seed Reimbursement");
+    expect(content).toContain("E2E Upcoming Event Reimbursement");
+    expect(content).not.toContain("E2E Seed Reimbursement");
     expect(content).toContain("2026-01-15");
   });
 
@@ -192,11 +219,11 @@ test.describe("Export CSV (admin)", () => {
     }, Promise.resolve());
 
     await expect(
-      page.getByRole("button", { name: "Export CSV" })
+      page.getByRole("button", { name: "Export ZIP" })
     ).toBeDisabled();
   });
 
-  test("downloads vendor payment CSV", async ({ page }) => {
+  test("downloads ZIP with vendor payment CSV", async ({ page }) => {
     // Uncheck request types, check vendor payments only
     await page.getByRole("checkbox", { name: "Reimbursements" }).click();
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
@@ -205,18 +232,13 @@ test.describe("Export CSV (admin)", () => {
     await page.getByRole("option", { name: "FY 2025-26" }).click();
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export CSV" }).click();
+    await page.getByRole("button", { name: "Export ZIP" }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(
-      /^vendor-payments_FY2025-26_\d{4}-\d{2}-\d{2}\.csv$/
+      /^financial-exports_FY2025-26_\d{4}-\d{2}-\d{2}\.zip$/
     );
-    const stream = await download.createReadStream();
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    const content = Buffer.concat(chunks).toString();
+    const content = readCsv(await readZip(download), "vendor-payments_FY");
 
     expect(content).toContain("E2E Export Vendor Payment");
     expect(content).toContain("2026-01-20");
@@ -227,27 +249,32 @@ test.describe("Export CSV (admin)", () => {
   test("downloads mixed exports as one ZIP", async ({ page }) => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
     await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+    const requestStatusGroup = page.getByRole("group", {
+      name: "Reimbursement status",
+    });
+    await requestStatusGroup
+      .getByRole("checkbox", { exact: true, name: "Pending" })
+      .click();
+    await requestStatusGroup
+      .getByRole("checkbox", { exact: true, name: "Rejected" })
+      .click();
     await page.getByRole("combobox", { name: "Financial Year" }).click();
     await page.getByRole("option", { name: "FY 2025-26" }).click();
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export CSV" }).click();
+    await page.getByRole("button", { name: "Export ZIP" }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(
       /^financial-exports_FY2025-26_\d{4}-\d{2}-\d{2}\.zip$/
     );
-    const stream = await download.createReadStream();
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    const archive = Buffer.concat(chunks);
-    const archiveText = archive.toString("latin1");
-
-    expect(archive.subarray(0, 2).toString()).toBe("PK");
-    expect(archiveText).toContain("reimbursements_all-statuses_FY2025-26_");
-    expect(archiveText).toContain("vendor-payments_FY2025-26_");
+    const archive = await readZip(download);
+    expect(Object.keys(archive)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^reimbursements_approved_FY2025-26_.*\.csv$/),
+        expect.stringMatching(/^vendor-payments_FY2025-26_.*\.csv$/),
+      ])
+    );
     await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 });
