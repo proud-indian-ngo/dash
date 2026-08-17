@@ -21,6 +21,7 @@ import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 interface EventCardProps {
+  featured?: boolean;
   myInterests: readonly EventInterest[];
   myTeamIds: ReadonlySet<string>;
   row: PublicDisplayRow;
@@ -75,6 +76,7 @@ function deriveCardActionState(opts: {
 }
 
 export function EventCard({
+  featured = false,
   myInterests,
   myTeamIds,
   row,
@@ -204,6 +206,7 @@ export function EventCard({
     <Card
       className={cn(
         "cursor-pointer transition-colors hover:bg-muted/50",
+        featured && "border-primary/30 bg-primary/5 hover:bg-primary/10",
         hasStarted && !isMember && "opacity-60"
       )}
       onClick={handleCardClick}
@@ -234,6 +237,7 @@ export function EventCard({
             </Link>
           </CardTitle>
           <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {featured ? <Badge variant="outline">Kalakriti</Badge> : null}
             {row.team ? <span>{row.team.name}</span> : null}
             {Boolean(row.location) && (
               <span className="max-w-48 truncate">{row.location}</span>

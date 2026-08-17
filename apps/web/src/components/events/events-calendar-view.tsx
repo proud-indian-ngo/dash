@@ -21,12 +21,17 @@ import {
 import capitalize from "lodash/capitalize";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import React, { useCallback, useMemo, useRef, useState } from "react";
+import { EventCard } from "@/components/events/event-card";
 import { EventDateGroup } from "@/components/events/event-date-group";
 import { MobileWeekStrip } from "@/components/events/mobile-week-strip";
 import {
   buildPublicDisplayRows,
   type PublicDisplayRow,
+  type PublicEventFilter,
   type PublicEventRow,
+  rowMatchesPublicFilters,
+  selectUpcomingPublicKalakritiEvent,
+  toPublicDisplayRow,
 } from "@/components/events/public-events-table";
 
 const DatesWithEventsContext = React.createContext<Set<string>>(new Set());
@@ -39,7 +44,7 @@ interface EventsCalendarViewProps {
   userId: string;
 }
 
-type EventFilter = "all" | "my-teams" | "public";
+type EventFilter = PublicEventFilter;
 
 const FILTERS: { label: string; value: EventFilter }[] = [
   { label: "All", value: "all" },
@@ -57,17 +62,6 @@ const TIME_SCOPES: { label: string; value: TimeScope }[] = [
 
 function parseLocalDate(dateStr: string): Date {
   return parse(dateStr, "yyyy-MM-dd", new Date());
-}
-
-function searchRow(row: PublicDisplayRow, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return true;
-  }
-  return [row.name, row.location, row.team?.name, row.city]
-    .join(" ")
-    .toLowerCase()
-    .includes(q);
 }
 
 function EventCalendarDayButton({
@@ -223,21 +217,25 @@ export function EventsCalendarView({
   const hasMultipleCities =
     new Set(allDisplayRows.map((r) => r.city).filter(Boolean)).size > 1;
 
-  const displayRows = useMemo(() => {
-    let rows = allDisplayRows;
-    if (filter === "my-teams") {
-      rows = rows.filter((r) => myTeamIds.has(r.teamId));
-    } else if (filter === "public") {
-      rows = rows.filter((r) => r.isPublic);
+  const displayRows = useMemo(
+    () =>
+      allDisplayRows.filter((row) =>
+        rowMatchesPublicFilters(row, filter, cityFilter, search, myTeamIds)
+      ),
+    [allDisplayRows, cityFilter, filter, myTeamIds, search]
+  );
+
+  const featuredRow = useMemo(() => {
+    const event = selectUpcomingPublicKalakritiEvent(data, now.getTime());
+    if (!event) {
+      return null;
     }
-    if (cityFilter !== "all") {
-      rows = rows.filter((r) => r.city === cityFilter);
+    const row = toPublicDisplayRow(event);
+    if (!rowMatchesPublicFilters(row, filter, cityFilter, search, myTeamIds)) {
+      return null;
     }
-    if (search.trim()) {
-      rows = rows.filter((r) => searchRow(r, search));
-    }
-    return rows;
-  }, [allDisplayRows, filter, cityFilter, myTeamIds, search]);
+    return row;
+  }, [cityFilter, data, filter, myTeamIds, now, search]);
 
   const datesWithEvents = useMemo(
     () => new Set(displayRows.map((r) => format(r.startTime, "yyyy-MM-dd"))),
@@ -477,11 +475,22 @@ export function EventsCalendarView({
           type="search"
           value={search}
         />
-        {dateEntries.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground text-sm">
-            {emptyMessage(filter, timeScope)}
-          </p>
-        ) : (
+        {featuredRow ? (
+          <section className="space-y-2">
+            <h2 className="font-medium text-sm">Upcoming Kalakriti</h2>
+            <p className="text-muted-foreground text-xs">
+              Volunteer for the upcoming edition
+            </p>
+            <EventCard
+              featured
+              myInterests={myInterests}
+              myTeamIds={myTeamIds}
+              row={featuredRow}
+              userId={userId}
+            />
+          </section>
+        ) : null}
+        {dateEntries.length > 0 ? (
           <div className="space-y-6">
             {upcomingEntries.map(([dateStr, rows]) => (
               <ReferencedEventDateGroup
@@ -513,7 +522,12 @@ export function EventsCalendarView({
               </>
             )}
           </div>
-        )}
+        ) : null}
+        {dateEntries.length === 0 && !featuredRow ? (
+          <p className="py-8 text-center text-muted-foreground text-sm">
+            {emptyMessage(filter, timeScope)}
+          </p>
+        ) : null}
       </main>
     </div>
   );
