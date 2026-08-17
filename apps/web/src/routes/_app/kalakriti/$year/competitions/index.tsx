@@ -7,6 +7,7 @@ import {
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { StatsCards } from "@/components/stats/stats-cards";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/competitions/")({
@@ -55,16 +56,6 @@ function CompetitionOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">
-          Competition overview
-        </h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          A summary of Categories, Competitions, Venues, and the event-day
-          Schedule.
-        </p>
-      </div>
-
       <StatsCards
         className="lg:grid-cols-4"
         isLoading={isLoading}
@@ -101,10 +92,10 @@ function CompetitionOverviewPage() {
       />
 
       {kalakritiCompetitionAccess.configurationLocked ? (
-        <p className="border-primary border-l-2 pl-4 text-muted-foreground text-sm">
+        <KalakritiLockNotice>
           Configuration is locked while this Edition is {edition.lifecycle}. The
           tables remain available for reference.
-        </p>
+        </KalakritiLockNotice>
       ) : null}
     </div>
   );

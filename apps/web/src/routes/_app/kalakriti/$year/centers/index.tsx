@@ -13,6 +13,8 @@ import {
   CentersTable,
   type CenterTableRow,
 } from "@/components/kalakriti/centers-table";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -222,20 +224,17 @@ function KalakritiCentersPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">Centers</h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          Registration access and operational assignments are scoped to this
-          Edition.
-        </p>
-      </div>
+      <KalakritiPageHeader
+        kicker={`Kalakriti · ${edition.year}`}
+        title="Centers"
+      />
 
       {canManageCenters && centerStructureLocked ? (
-        <p className="text-muted-foreground text-sm">
+        <KalakritiLockNotice>
           Center structure is locked while this Edition is {edition.lifecycle}.
           Assignments remain available; registration controls remain available
           until the Edition goes live.
-        </p>
+        </KalakritiLockNotice>
       ) : null}
 
       <CentersTable

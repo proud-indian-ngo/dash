@@ -43,7 +43,10 @@ test("configures the Competition catalog and rejects an invalid schedule", async
     await competitions.goto(year);
     await waitForZeroReady(page);
     await expect(
-      page.getByRole("heading", { name: "Competition overview" })
+      page.getByRole("heading", { exact: true, name: "Competitions" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Overview", selected: true })
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { exact: true, name: `Kalakriti ${year}` })

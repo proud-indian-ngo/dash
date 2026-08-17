@@ -53,28 +53,22 @@ describe("Kalakriti navigation", () => {
     ]);
   });
 
-  it("adds visible Centers as nested navigation", () => {
+  it("does not nest Centers, Entries, or Competitions", () => {
     const groups = buildKalakritiNavGroups({
-      centers: [
-        { id: "center-1", name: "Asha Center" },
-        { id: "center-2", name: "Bala Center" },
-      ],
+      canViewCompetitions: true,
+      canViewEntries: true,
       year: 2026,
     });
-    const centersItem = groups
-      .flatMap((group) => group.items)
-      .find((item) => item.title === "Centers");
-
-    expect(centersItem?.subItems).toEqual([
-      {
-        title: "Asha Center",
-        url: "/kalakriti/2026/centers/center-1",
-      },
-      {
-        title: "Bala Center",
-        url: "/kalakriti/2026/centers/center-2",
-      },
-    ]);
+    const items = groups.flatMap((group) => group.items);
+    expect(items.find((item) => item.title === "Centers")?.subItems).toBe(
+      undefined
+    );
+    expect(items.find((item) => item.title === "Entries")?.subItems).toBe(
+      undefined
+    );
+    expect(items.find((item) => item.title === "Competitions")?.subItems).toBe(
+      undefined
+    );
   });
 
   it("hides Guardians from users who cannot manage them", () => {
@@ -119,59 +113,6 @@ describe("Kalakriti navigation", () => {
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
     ).toEqual(["Dashboard", "Overview", "Centers", "Audit"]);
-  });
-
-  it("adds active Sessions as nested Entry navigation", () => {
-    const entriesItem = buildKalakritiNavGroups({
-      canViewEntries: true,
-      entrySessions: [
-        {
-          id: "session-1",
-          title: "Solo Dance · Junior · All Students",
-        },
-        {
-          id: "session-2",
-          title: "Drawing · Senior · Female Students",
-        },
-      ],
-      year: 2026,
-    })
-      .flatMap((group) => group.items)
-      .find((item) => item.title === "Entries");
-
-    expect(entriesItem?.subItems).toEqual([
-      {
-        title: "Solo Dance · Junior · All Students",
-        url: "/kalakriti/2026/entries/session-1",
-      },
-      {
-        title: "Drawing · Senior · Female Students",
-        url: "/kalakriti/2026/entries/session-2",
-      },
-    ]);
-  });
-
-  it("adds Competition configuration pages as nested navigation", () => {
-    const competitionItem = buildKalakritiNavGroups({
-      canViewCompetitions: true,
-      year: 2026,
-    })
-      .flatMap((group) => group.items)
-      .find((item) => item.title === "Competitions");
-
-    expect(competitionItem?.subItems).toEqual([
-      { title: "Overview", url: "/kalakriti/2026/competitions" },
-      {
-        title: "Categories",
-        url: "/kalakriti/2026/competitions/categories",
-      },
-      {
-        title: "Competitions",
-        url: "/kalakriti/2026/competitions/catalog",
-      },
-      { title: "Venues", url: "/kalakriti/2026/competitions/venues" },
-      { title: "Schedule", url: "/kalakriti/2026/competitions/schedule" },
-    ]);
   });
 
   it("keeps external Guardians in Kalakriti navigation", () => {

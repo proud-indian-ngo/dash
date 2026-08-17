@@ -185,13 +185,8 @@ export function CenterAssignments({
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       {canManageGuardians ? (
-        <section className="space-y-4 rounded-lg border p-4">
-          <div>
-            <h3 className="font-medium">Guardians</h3>
-            <p className="text-muted-foreground text-sm">
-              Student registration access for this Center.
-            </p>
-          </div>
+        <section className="space-y-4 p-4 ring-1 ring-foreground/15">
+          <h3 className="font-medium">Guardians</h3>
           <AssignmentList
             assignments={guardianAssignments}
             label="Guardians"
@@ -206,13 +201,8 @@ export function CenterAssignments({
         </section>
       ) : null}
       {canManageLiaisons ? (
-        <section className="space-y-4 rounded-lg border p-4">
-          <div>
-            <h3 className="font-medium">Liaisons</h3>
-            <p className="text-muted-foreground text-sm">
-              Operational access for this Center.
-            </p>
-          </div>
+        <section className="space-y-4 p-4 ring-1 ring-foreground/15">
+          <h3 className="font-medium">Liaisons</h3>
           <AssignmentList
             assignments={liaisonAssignments}
             label="Liaisons"

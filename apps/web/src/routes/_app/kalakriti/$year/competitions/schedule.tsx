@@ -34,7 +34,6 @@ function CompetitionSchedulePage() {
   const zero = useZero();
   const {
     kalakritiCompetitionAccess: {
-      actorCanManage,
       canManage,
       canManageCancellations,
       structuralLocked,
@@ -194,17 +193,6 @@ function CompetitionSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">
-          Competition schedule
-        </h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          {actorCanManage
-            ? "Plan event-day Sessions without overlapping a Venue."
-            : "Schedule for Competitions in your assigned Categories."}
-        </p>
-      </div>
-
       <CompetitionSessionsTable
         canDelete={canManage}
         canManage={canManageCancellations}

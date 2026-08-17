@@ -1,6 +1,7 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack dynamic route parameters use $ in filenames.
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScheduleAction } from "@/components/kalakriti/public-schedule/schedule-action";
 import { ScheduleItem } from "@/components/kalakriti/public-schedule/schedule-item";
 import { ScheduleNotFound } from "@/components/kalakriti/public-schedule/schedule-not-found";
@@ -74,29 +75,28 @@ function PublicSchedulePage() {
 
   return (
     <main className="min-h-svh bg-background text-foreground">
-      <header className="border-b bg-muted/30">
-        <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="font-medium text-muted-foreground text-sm uppercase tracking-[0.16em]">
-              Public schedule
-            </p>
-            <h1 className="mt-3 text-balance font-semibold text-3xl tracking-tight sm:text-4xl">
-              {edition.name}
-            </h1>
-            <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-              <time dateTime={edition.eventDate}>
+      <div className="border-b bg-muted/30">
+        <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
+          <KalakritiPageHeader
+            actions={
+              <ScheduleAction
+                eventId={edition.eventId}
+                hasKalakritiAccess={scheduleViewer.hasKalakritiAccess}
+                isAuthenticated={scheduleViewer.isAuthenticated}
+                year={edition.year}
+              />
+            }
+            kicker="Public schedule"
+            meta={
+              <time className="tabular-nums" dateTime={edition.eventDate}>
                 {formatEventDate(edition.eventDate)}
               </time>
-            </p>
-          </div>
-          <ScheduleAction
-            eventId={edition.eventId}
-            hasKalakritiAccess={scheduleViewer.hasKalakritiAccess}
-            isAuthenticated={scheduleViewer.isAuthenticated}
-            year={edition.year}
+            }
+            title={edition.name}
+            variant="public"
           />
         </div>
-      </header>
+      </div>
 
       <section
         aria-labelledby="competition-schedule-heading"
@@ -114,7 +114,7 @@ function PublicSchedulePage() {
               Times are shown in {edition.timezone}.
             </p>
           </div>
-          <p className="shrink-0 text-muted-foreground text-sm">
+          <p className="shrink-0 text-muted-foreground text-sm tabular-nums">
             {sessions.length} {sessions.length === 1 ? "event" : "events"}
           </p>
         </div>

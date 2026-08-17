@@ -33,7 +33,7 @@ export const Route = createFileRoute(
 function CompetitionCategoriesPage() {
   const zero = useZero();
   const {
-    kalakritiCompetitionAccess: { actorCanManage, canManage },
+    kalakritiCompetitionAccess: { canManage },
     kalakritiEditionAccess: { edition },
   } = Route.useRouteContext();
   const [categories, categoryResult] = useQuery(
@@ -158,17 +158,6 @@ function CompetitionCategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">
-          Competition Categories
-        </h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          {actorCanManage
-            ? "Manage Competition groupings and Category Lead scope."
-            : "Read-only Categories assigned to you as a Category Lead."}
-        </p>
-      </div>
-
       <CompetitionCategoriesTable
         canManage={canManage}
         data={rows}

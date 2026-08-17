@@ -25,6 +25,8 @@ import {
 import { CenterFormDialog } from "@/components/kalakriti/center-form-dialog";
 import { CenterRegistrationDialog } from "@/components/kalakriti/center-registration-dialog";
 import type { CenterListItem } from "@/components/kalakriti/centers-table";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { PickerUser } from "@/functions/users-for-picker";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -152,9 +154,9 @@ export function CenterDetail({
   const handleDelete = useEventCallback(() => deleteAction.trigger(center));
 
   return (
-    <div className="space-y-6 pt-6">
+    <div className="space-y-6">
       <Link
-        className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+        className="inline-flex min-h-10 items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
         params={{ year }}
         to="/kalakriti/$year/centers"
       >
@@ -166,87 +168,82 @@ export function CenterDetail({
         Back to Centers
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display font-semibold text-2xl">
-              {center.name}
-            </h1>
-            <Badge variant={isRetired ? "outline" : "secondary"}>
-              {isRetired ? "Retired" : "Active"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Registration access and operational assignments for this Center.
-          </p>
-        </div>
-
-        {configureCenters || manageRegistrationControls ? (
-          <div className="flex flex-wrap gap-2">
-            {isRetired ? null : (
-              <>
-                {manageRegistrationControls ? (
-                  <Button
-                    onClick={handleControls}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    Registration controls
-                  </Button>
-                ) : null}
-                {configureCenters ? (
-                  <>
+      <KalakritiPageHeader
+        actions={
+          configureCenters || manageRegistrationControls ? (
+            <div className="flex flex-wrap gap-2">
+              {isRetired ? null : (
+                <>
+                  {manageRegistrationControls ? (
                     <Button
-                      onClick={handleEdit}
+                      onClick={handleControls}
                       size="sm"
                       type="button"
                       variant="outline"
                     >
-                      <HugeiconsIcon
-                        className="size-4"
-                        icon={Edit02Icon}
-                        strokeWidth={2}
-                      />
-                      Edit
+                      Registration controls
                     </Button>
-                    <Button
-                      onClick={handleRetire}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Retire
-                    </Button>
-                  </>
-                ) : null}
-              </>
-            )}
-            {configureCenters ? (
-              <Button
-                onClick={handleDelete}
-                size="sm"
-                type="button"
-                variant="destructive"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                />
-                Delete
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+                  ) : null}
+                  {configureCenters ? (
+                    <>
+                      <Button
+                        onClick={handleEdit}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <HugeiconsIcon
+                          className="size-4"
+                          icon={Edit02Icon}
+                          strokeWidth={2}
+                        />
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={handleRetire}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Retire
+                      </Button>
+                    </>
+                  ) : null}
+                </>
+              )}
+              {configureCenters ? (
+                <Button
+                  onClick={handleDelete}
+                  size="sm"
+                  type="button"
+                  variant="destructive"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Delete02Icon}
+                    strokeWidth={2}
+                  />
+                  Delete
+                </Button>
+              ) : null}
+            </div>
+          ) : undefined
+        }
+        badge={
+          <Badge variant={isRetired ? "outline" : "secondary"}>
+            {isRetired ? "Retired" : "Active"}
+          </Badge>
+        }
+        kicker="Center"
+        title={center.name}
+      />
 
       {manageCenters && configurationLocked ? (
-        <p className="border-primary border-l-2 pl-4 text-muted-foreground text-sm">
+        <KalakritiLockNotice>
           Center configuration is locked while this Edition is{" "}
           {editionLifecycle}. Assignments remain available; registration
           controls remain available until the Edition goes live.
-        </p>
+        </KalakritiLockNotice>
       ) : null}
 
       <Card>
@@ -273,12 +270,7 @@ export function CenterDetail({
 
       {manageGuardians || manageLiaisons ? (
         <div className="space-y-4">
-          <div>
-            <h3 className="font-display font-semibold text-xl">Assignments</h3>
-            <p className="mt-1 text-muted-foreground text-sm">
-              Manage the people responsible for this Center.
-            </p>
-          </div>
+          <h3 className="font-display font-semibold text-xl">Assignments</h3>
           <CenterAssignments
             allowNewAssignments={!isRetired}
             canManageGuardians={manageGuardians}

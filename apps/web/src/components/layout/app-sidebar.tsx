@@ -12,7 +12,6 @@ import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
-import { KALAKRITI_GENDER_ELIGIBILITY_LABELS } from "@/lib/kalakriti-competition-labels";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -20,35 +19,6 @@ import {
 import { NavMainGrouped } from "./nav-main";
 
 const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
-
-function getEntrySessions(
-  sessions: readonly {
-    ageCategory?: { name: string };
-    competition?: {
-      genderEligibility: "both" | "female" | "male";
-      id: string;
-      name: string;
-    };
-    id: string;
-  }[]
-): { id: string; title: string }[] {
-  return sessions.flatMap((session) =>
-    session.competition && session.ageCategory
-      ? [
-          {
-            id: session.id,
-            title: [
-              session.competition.name,
-              session.ageCategory.name,
-              KALAKRITI_GENDER_ELIGIBILITY_LABELS[
-                session.competition.genderEligibility
-              ],
-            ].join(" · "),
-          },
-        ]
-      : []
-  );
-}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, navGroups, user } = useApp();
@@ -64,12 +34,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     editions[0];
   const [membership] = useQuery(
     queries.kalakritiAssignment.myAccess({
-      editionId: activeEdition?.id ?? "",
-    }),
-    { enabled: canViewKalakriti && Boolean(activeEdition) }
-  );
-  const [centers] = useQuery(
-    queries.kalakritiCenter.visible({
       editionId: activeEdition?.id ?? "",
     }),
     { enabled: canViewKalakriti && Boolean(activeEdition) }
@@ -107,20 +71,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           (assignment.responsibility === "competition_category_lead" &&
             Boolean(assignment.competitionCategoryId))
       ) === true);
-  const [entrySessions] = useQuery(
-    queries.kalakritiEntry.availableDivisionsByCenter({
-      centerId: centers[0]?.id ?? "",
-      editionId: activeEdition?.id ?? "",
-    }),
-    {
-      enabled:
-        canViewKalakriti &&
-        canViewEntries &&
-        Boolean(activeEdition) &&
-        centers.length > 0,
-    }
-  );
-  const entrySessionItems = getEntrySessions(entrySessions);
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
@@ -128,8 +78,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     canViewCompetitions,
     canViewEntries,
     canViewStudents,
-    centers,
-    entrySessions: entrySessionItems,
     year: activeEdition?.year,
   });
 

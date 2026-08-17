@@ -15,6 +15,7 @@ import {
   type GuardianRosterItem,
   GuardiansTable,
 } from "@/components/kalakriti/guardians-table";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   archiveKalakritiGuardian,
@@ -167,14 +168,10 @@ function KalakritiGuardiansPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">Guardians</h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          Manage login access for this Edition. Archived external accounts
-          remain dormant until an administrator reuses their verified email in a
-          later Edition.
-        </p>
-      </div>
+      <KalakritiPageHeader
+        kicker={`Kalakriti · ${edition.year}`}
+        title="Guardians"
+      />
 
       <GuardiansTable
         data={guardianRows}

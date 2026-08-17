@@ -11,8 +11,17 @@ import {
   AgeCategoryFormDialog,
   type AgeCategoryFormValue,
 } from "@/components/kalakriti/age-category-form-dialog";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+
+const ageCutoffFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Asia/Kolkata",
+  year: "numeric",
+});
 
 export const Route = createFileRoute("/_app/kalakriti/$year/eligibility")({
   beforeLoad: ({ context }) => {
@@ -129,22 +138,25 @@ function KalakritiEligibilityPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display font-semibold text-2xl">Eligibility</h1>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Configure inclusive age ranges, shared Student limits for every
-            Center, and Competition limits. Ages are calculated on{" "}
-            {edition.ageCutoffDate}.
+      <KalakritiPageHeader
+        kicker={`Kalakriti · ${edition.year}`}
+        meta={
+          <p>
+            Ages are calculated on{" "}
+            <time className="tabular-nums" dateTime={edition.ageCutoffDate}>
+              {ageCutoffFormatter.format(new Date(edition.ageCutoffDate))}
+            </time>
+            .
           </p>
-        </div>
-      </div>
+        }
+        title="Eligibility"
+      />
 
       {configurationLocked ? (
-        <p className="text-muted-foreground text-sm">
+        <KalakritiLockNotice>
           Age Categories and Center quotas are locked while registration is
           locked or this Edition is {edition.lifecycle}.
-        </p>
+        </KalakritiLockNotice>
       ) : null}
 
       <AgeCategoriesTable

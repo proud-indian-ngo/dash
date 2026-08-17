@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { KalakritiEditionPage } from "../../pages/kalakriti-edition-page";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -46,7 +47,9 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
       page.getByRole("button", { name: "Open registration" })
     ).toBeDisabled();
 
-    await page.getByRole("button", { name: "Clone configuration" }).click();
+    await new KalakritiEditionPage(page).chooseAdminAction(
+      "Clone configuration"
+    );
     const sourceDialog = page.getByRole("dialog", {
       name: "Clone Edition configuration",
     });

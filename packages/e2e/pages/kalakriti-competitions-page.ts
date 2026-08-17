@@ -33,10 +33,7 @@ export class KalakritiCompetitionsPage {
   }
 
   async goto(year: number) {
-    await this.gotoPage(
-      `/kalakriti/${year}/competitions`,
-      "Competition overview"
-    );
+    await this.gotoPage(`/kalakriti/${year}/competitions`, "Overview");
   }
 
   async gotoCatalog(year: number) {
@@ -49,27 +46,27 @@ export class KalakritiCompetitionsPage {
   async gotoCategories(year: number) {
     await this.gotoPage(
       `/kalakriti/${year}/competitions/categories`,
-      "Competition Categories"
+      "Categories"
     );
   }
 
   async gotoSchedule(year: number) {
-    await this.gotoPage(
-      `/kalakriti/${year}/competitions/schedule`,
-      "Competition schedule"
-    );
+    await this.gotoPage(`/kalakriti/${year}/competitions/schedule`, "Schedule");
   }
 
   async gotoVenues(year: number) {
     await this.gotoPage(`/kalakriti/${year}/competitions/venues`, "Venues");
   }
 
-  private async gotoPage(path: string, heading: string) {
+  private async gotoPage(path: string, tab: string) {
     await expect(async () => {
       await this.page.goto(path);
       await waitForZeroReady(this.page, 10_000);
       await expect(
-        this.page.getByRole("heading", { exact: true, name: heading })
+        this.page.getByRole("heading", { exact: true, name: "Competitions" })
+      ).toBeVisible({ timeout: 5000 });
+      await expect(
+        this.page.getByRole("tab", { name: tab, selected: true })
       ).toBeVisible({ timeout: 5000 });
     }).toPass({ timeout: 45_000 });
   }

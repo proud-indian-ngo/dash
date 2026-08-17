@@ -141,8 +141,6 @@ export function buildKalakritiNavGroups({
   canViewCompetitions = false,
   canViewEntries = false,
   canViewStudents = false,
-  centers = [],
-  entrySessions = [],
   year,
 }: {
   canManageEligibility?: boolean;
@@ -151,8 +149,6 @@ export function buildKalakritiNavGroups({
   canViewCompetitions?: boolean;
   canViewEntries?: boolean;
   canViewStudents?: boolean;
-  centers?: readonly { id: string; name: string }[];
-  entrySessions?: readonly { id: string; title: string }[];
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
@@ -166,10 +162,6 @@ export function buildKalakritiNavGroups({
   if (year) {
     editionItems.push({
       icon: UserGroupIcon,
-      subItems: centers.map((center) => ({
-        title: center.name,
-        url: `/kalakriti/${year}/centers/${center.id}`,
-      })),
       title: "Centers",
       url: `/kalakriti/${year}/centers`,
     });
@@ -192,31 +184,18 @@ export function buildKalakritiNavGroups({
   }
 
   if (year && canViewEntries) {
-    const entriesPath = `/kalakriti/${year}/entries`;
     editionItems.push({
       icon: TaskDaily02Icon,
-      subItems: entrySessions.map((session) => ({
-        title: session.title,
-        url: `${entriesPath}/${session.id}`,
-      })),
       title: "Entries",
-      url: entriesPath,
+      url: `/kalakriti/${year}/entries`,
     });
   }
 
   if (year && canViewCompetitions) {
-    const competitionPath = `/kalakriti/${year}/competitions`;
     editionItems.push({
       icon: Calendar03Icon,
-      subItems: [
-        { title: "Overview", url: competitionPath },
-        { title: "Categories", url: `${competitionPath}/categories` },
-        { title: "Competitions", url: `${competitionPath}/catalog` },
-        { title: "Venues", url: `${competitionPath}/venues` },
-        { title: "Schedule", url: `${competitionPath}/schedule` },
-      ],
       title: "Competitions",
-      url: competitionPath,
+      url: `/kalakriti/${year}/competitions`,
     });
   }
 

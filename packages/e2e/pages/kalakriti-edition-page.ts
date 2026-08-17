@@ -1,4 +1,6 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { errors, expect, type Locator, type Page } from "@playwright/test";
+
+const { TimeoutError } = errors;
 
 export class KalakritiEditionPage {
   private readonly page: Page;
@@ -63,8 +65,48 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
+  async chooseAdminAction(name: string) {
+    const trigger = this.page.getByRole("button", { name: "Admin actions" });
+    const menuItem = this.page.getByRole("menuitem", { name });
+
+    const tryClick = async (attempt: number): Promise<boolean> => {
+      try {
+        await trigger.click({ timeout: 5000 });
+        await expect(menuItem).toBeVisible({ timeout: 3000 });
+        await menuItem.click({ timeout: 3000 });
+        return true;
+      } catch (caughtError) {
+        if (this.page.isClosed()) {
+          throw new Error("Page closed during retry", { cause: caughtError });
+        }
+        if (!(caughtError instanceof TimeoutError)) {
+          throw caughtError;
+        }
+        await this.page.keyboard.press("Escape").catch(() => {
+          // Ignore — page may have navigated
+        });
+        await this.page.waitForTimeout(500);
+        if (attempt >= 4) {
+          return false;
+        }
+        return tryClick(attempt + 1);
+      }
+    };
+    if (await tryClick(0)) {
+      return;
+    }
+    await trigger.click();
+    await menuItem.click();
+  }
+
+  async expectAdminAction(name: string) {
+    await this.page.getByRole("button", { name: "Admin actions" }).click();
+    await expect(this.page.getByRole("menuitem", { name })).toBeVisible();
+    await this.page.keyboard.press("Escape");
+  }
+
   async editMinimumCompetitions(minimum: number) {
-    await this.page.getByRole("button", { name: "Edit minimum" }).click();
+    await this.page.getByRole("button", { name: /^Min \d+$/ }).click();
     const dialog = this.page.getByRole("dialog", {
       name: "Edit minimum Competitions",
     });
@@ -76,6 +118,9 @@ export class KalakritiEditionPage {
       this.page.getByText("Minimum Competitions updated", { exact: true })
     ).toBeVisible();
     await expect(dialog).toHaveCount(0);
+    await expect(
+      this.page.getByRole("button", { name: `Min ${minimum}` })
+    ).toBeVisible();
   }
 
   async editDetails({ name, year }: { name: string; year: number }) {
@@ -108,6 +153,7 @@ export class KalakritiEditionPage {
   }
 
   async assignVolunteer(volunteerName: string, responsibility: string) {
+    await this.expandVolunteerAssignments();
     const picker = this.page
       .getByPlaceholder("Search central volunteers...")
       .first();
@@ -136,7 +182,21 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
+  private async expandVolunteerAssignments() {
+    const trigger = this.page.getByRole("button", {
+      name: "Volunteer assignments",
+    });
+    const picker = this.page
+      .getByPlaceholder("Search central volunteers...")
+      .first();
+    if (!(await picker.isVisible())) {
+      await trigger.click();
+    }
+    await expect(picker).toBeVisible();
+  }
+
   async removeVolunteer(volunteerName: string, responsibility: string) {
+    await this.expandVolunteerAssignments();
     await this.page
       .getByRole("button", {
         name: `Remove ${responsibility} from ${volunteerName}`,
