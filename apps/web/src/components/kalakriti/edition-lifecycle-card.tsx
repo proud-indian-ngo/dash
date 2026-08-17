@@ -1,12 +1,4 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { getKalakritiRegistrationReadiness } from "@pi-dash/zero/kalakriti-registration-readiness";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -15,6 +7,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -121,6 +114,52 @@ function useRegistrationLifecycleTransition({
   };
 }
 
+function useEditionLifecycle({
+  canManage,
+  editionId,
+}: {
+  canManage: boolean;
+  editionId: string;
+}) {
+  const [snapshot, result] = useQuery(
+    queries.kalakritiEdition.readiness({ editionId }),
+    { enabled: canManage }
+  );
+  const isLoading =
+    canManage &&
+    !snapshot &&
+    result.type !== "complete" &&
+    result.type !== "error";
+  const readinessUnavailable = result.type !== "complete" || !snapshot;
+  const lifecycle = snapshot?.lifecycle as RegistrationLifecycle | undefined;
+  const blockers = snapshot
+    ? getKalakritiRegistrationReadiness({
+        ageCategories: snapshot.ageCategories.map((category) => ({
+          ...category,
+          femaleStudentLimit: category.femaleStudentLimit ?? 0,
+          maleStudentLimit: category.maleStudentLimit ?? 0,
+        })),
+        centers: snapshot.centers,
+        competitionCategories: snapshot.competitionCategories,
+        competitions: snapshot.competitions,
+        divisions: snapshot.competitionDivisions,
+        edition: snapshot,
+        sessions: snapshot.competitionSessions,
+        venues: snapshot.venues,
+      })
+    : [];
+  const target = lifecycle ? nextLifecycle(lifecycle) : null;
+  const action = useRegistrationLifecycleTransition({ editionId, target });
+  return {
+    ...action,
+    blockers,
+    isLoading,
+    lifecycle,
+    readinessUnavailable,
+    result,
+  };
+}
+
 function RegistrationReadinessBlockers({
   blockers,
   lifecycle,
@@ -157,149 +196,123 @@ function RegistrationReadinessBlockers({
   );
 }
 
-export function EditionLifecycleCard({
+export function EditionLifecycleAction({
   canManage,
   editionId,
 }: {
   canManage: boolean;
   editionId: string;
 }) {
-  const [snapshot, result] = useQuery(
-    queries.kalakritiEdition.readiness({ editionId }),
-    { enabled: canManage }
-  );
-  const isLoading =
-    canManage &&
-    !snapshot &&
-    result.type !== "complete" &&
-    result.type !== "error";
-  const readinessUnavailable = result.type !== "complete" || !snapshot;
-  const lifecycle = snapshot?.lifecycle as RegistrationLifecycle | undefined;
-  const blockers = snapshot
-    ? getKalakritiRegistrationReadiness({
-        ageCategories: snapshot.ageCategories.map((category) => ({
-          ...category,
-          femaleStudentLimit: category.femaleStudentLimit ?? 0,
-          maleStudentLimit: category.maleStudentLimit ?? 0,
-        })),
-        centers: snapshot.centers,
-        competitionCategories: snapshot.competitionCategories,
-        competitions: snapshot.competitions,
-        divisions: snapshot.competitionDivisions,
-        edition: snapshot,
-        sessions: snapshot.competitionSessions,
-        venues: snapshot.venues,
-      })
-    : [];
-  const target = lifecycle ? nextLifecycle(lifecycle) : null;
   const {
+    blockers,
     confirmationTarget,
     copy,
     handleOpenChange,
     handleTrigger,
+    readinessUnavailable,
     transition,
-  } = useRegistrationLifecycleTransition({ editionId, target });
+  } = useEditionLifecycle({ canManage, editionId });
+
+  if (!(canManage && copy)) {
+    return null;
+  }
+
+  return (
+    <>
+      <Button
+        disabled={
+          readinessUnavailable || blockers.length > 0 || transition.isLoading
+        }
+        onClick={handleTrigger}
+        type="button"
+        variant={
+          confirmationTarget === "registration_locked"
+            ? "destructive"
+            : "default"
+        }
+      >
+        {copy.confirmLabel}
+      </Button>
+      <ConfirmDialog
+        confirmLabel={copy.confirmLabel}
+        description={copy.description}
+        loading={transition.isLoading}
+        onConfirm={transition.confirm}
+        onOpenChange={handleOpenChange}
+        open={transition.isOpen}
+        title={copy.title}
+        variant={
+          confirmationTarget === "registration_locked"
+            ? "destructive"
+            : "default"
+        }
+      />
+    </>
+  );
+}
+
+export function EditionLifecycleAlerts({
+  canManage,
+  editionId,
+}: {
+  canManage: boolean;
+  editionId: string;
+}) {
+  const { blockers, isLoading, lifecycle, result } = useEditionLifecycle({
+    canManage,
+    editionId,
+  });
 
   if (!canManage) {
     return null;
   }
 
+  if (result.type === "error") {
+    return (
+      <div className="space-y-3" role="alert">
+        <p className="font-medium">
+          Registration readiness could not be loaded.
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Check your connection and try again.
+        </p>
+        <Button onClick={result.retry} type="button" variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div
+        aria-label="Loading registration readiness"
+        className="flex min-h-12 items-center"
+        role="status"
+      >
+        <Loader />
+      </div>
+    );
+  }
+
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>Registration lifecycle</CardTitle>
-            <CardDescription>
-              Readiness is checked again by the server when registration opens
-              or locks.
-            </CardDescription>
-          </div>
-          {lifecycle ? (
-            <Badge className="capitalize" variant="outline">
-              {lifecycle.replaceAll("_", " ")}
-            </Badge>
-          ) : null}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {result.type === "error" ? (
-          <div className="space-y-3" role="alert">
-            <p className="font-medium">
-              Registration readiness could not be loaded.
-            </p>
-            <p className="text-muted-foreground text-sm">
-              Check your connection and try again.
-            </p>
-            <Button onClick={result.retry} type="button" variant="outline">
-              Retry
-            </Button>
-          </div>
-        ) : null}
-
-        {isLoading ? (
-          <div
-            aria-label="Loading registration readiness"
-            className="flex min-h-20 items-center justify-center"
-            role="status"
-          >
-            <Loader />
-          </div>
-        ) : null}
-
-        <RegistrationReadinessBlockers
-          blockers={blockers}
-          lifecycle={lifecycle}
-        />
-
-        {lifecycle === "registration_open" ? (
-          <p className="text-muted-foreground text-sm">
-            Registration commands also require the relevant Center control to be
-            enabled.
-          </p>
-        ) : null}
-        {lifecycle === "registration_locked" ? (
-          <p className="text-muted-foreground text-sm">
-            Structural eligibility and Competition rules are frozen. Schedule
-            times and Venues can still be corrected safely.
-          </p>
-        ) : null}
-
-        {copy ? (
-          <Button
-            disabled={
-              readinessUnavailable ||
-              blockers.length > 0 ||
-              transition.isLoading
-            }
-            onClick={handleTrigger}
-            variant={
-              confirmationTarget === "registration_locked"
-                ? "destructive"
-                : "default"
-            }
-          >
-            {copy.confirmLabel}
-          </Button>
-        ) : null}
-      </CardContent>
-
-      {copy ? (
-        <ConfirmDialog
-          confirmLabel={copy.confirmLabel}
-          description={copy.description}
-          loading={transition.isLoading}
-          onConfirm={transition.confirm}
-          onOpenChange={handleOpenChange}
-          open={transition.isOpen}
-          title={copy.title}
-          variant={
-            confirmationTarget === "registration_locked"
-              ? "destructive"
-              : "default"
-          }
-        />
+    <div className="space-y-3">
+      <RegistrationReadinessBlockers
+        blockers={blockers}
+        lifecycle={lifecycle}
+      />
+      {lifecycle === "registration_open" ? (
+        <KalakritiLockNotice>
+          Registration commands also require the relevant Center control to be
+          enabled.
+        </KalakritiLockNotice>
       ) : null}
-    </Card>
+      {lifecycle === "registration_locked" ? (
+        <KalakritiLockNotice>
+          Structural eligibility and Competition rules are frozen. Schedule
+          times and Venues can still be corrected safely.
+        </KalakritiLockNotice>
+      ) : null}
+    </div>
   );
 }

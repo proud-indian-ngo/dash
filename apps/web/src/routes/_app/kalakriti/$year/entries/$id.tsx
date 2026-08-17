@@ -13,7 +13,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import {
@@ -27,6 +27,8 @@ import {
   buildKalakritiEntryRows,
   buildKalakritiEntrySessions,
 } from "@/components/kalakriti/entry-view";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -85,7 +87,7 @@ function getInitialState({
 }) {
   if (results.some((result) => result.type === "error")) {
     return (
-      <div className="space-y-3 pt-6" role="alert">
+      <div className="space-y-3" role="alert">
         <p className="font-medium">Session Entries could not be loaded.</p>
         <p className="text-muted-foreground text-sm">
           Check your connection and try again.
@@ -109,8 +111,8 @@ function getInitialState({
   }
   if (centerCount === 0) {
     return (
-      <div className="space-y-2 pt-6">
-        <h2 className="font-display font-semibold text-2xl">Session Entries</h2>
+      <div className="space-y-2">
+        <KalakritiPageHeader title="Session Entries" />
         <p className="text-muted-foreground text-sm">
           You have not been assigned to a Center for Competition Entry
           registration.
@@ -161,39 +163,42 @@ function countVisibleStudentOptions({
 }
 
 function SessionSummary({
+  actions,
   centerName,
   participantCount,
   session,
 }: {
+  actions?: ReactNode;
   centerName?: string;
   participantCount: number;
   session?: KalakritiEntrySession;
 }) {
   return (
-    <div>
-      <p className="font-medium text-muted-foreground text-sm">
-        {session?.competition.category.name}
-      </p>
-      <h2 className="font-display font-semibold text-2xl">
-        {session?.competition.name ?? "Loading Session"}
-      </h2>
-      <p className="mt-1 text-muted-foreground text-sm">
-        {participantCount} {participantCount === 1 ? "Student" : "Students"}{" "}
-        registered for {centerName}.
-      </p>
-      {session ? (
-        <p className="mt-2 text-muted-foreground text-sm">
-          {session.ageCategory.name} ·{" "}
-          {
-            KALAKRITI_GENDER_ELIGIBILITY_LABELS[
-              session.competition.genderEligibility
-            ]
-          }{" "}
-          · {format(new Date(session.startAt), "dd MMM, h:mm a")}–
-          {format(new Date(session.endAt), "h:mm a")} · {session.venue.name}
-        </p>
-      ) : null}
-    </div>
+    <KalakritiPageHeader
+      actions={actions}
+      kicker={session?.competition.category.name ?? "Session"}
+      meta={
+        <>
+          <p>
+            {participantCount} {participantCount === 1 ? "Student" : "Students"}{" "}
+            registered for {centerName}.
+          </p>
+          {session ? (
+            <p className="mt-1">
+              {session.ageCategory.name} ·{" "}
+              {
+                KALAKRITI_GENDER_ELIGIBILITY_LABELS[
+                  session.competition.genderEligibility
+                ]
+              }{" "}
+              · {format(new Date(session.startAt), "dd MMM, h:mm a")}–
+              {format(new Date(session.endAt), "h:mm a")} · {session.venue.name}
+            </p>
+          ) : null}
+        </>
+      }
+      title={session?.competition.name ?? "Loading Session"}
+    />
   );
 }
 
@@ -316,7 +321,7 @@ function KalakritiSessionEntriesPage() {
 
   if (isSessionUnavailable(session, sessionsResult.type)) {
     return (
-      <div className="space-y-4 pt-6">
+      <div className="space-y-4">
         <Button
           nativeButton={false}
           render={
@@ -331,14 +336,11 @@ function KalakritiSessionEntriesPage() {
           <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
           Back to Sessions
         </Button>
-        <div>
-          <h2 className="font-display font-semibold text-2xl">
-            Session unavailable
-          </h2>
-          <p className="mt-1 text-muted-foreground text-sm">
-            This Competition Session is no longer active.
-          </p>
-        </div>
+        <KalakritiPageHeader
+          kicker="Entries"
+          meta={<p>This Competition Session is no longer active.</p>}
+          title="Session unavailable"
+        />
       </div>
     );
   }
@@ -356,7 +358,7 @@ function KalakritiSessionEntriesPage() {
     lifecycle: edition.lifecycle,
   });
   return (
-    <div className="space-y-6 pt-6">
+    <div className="space-y-6">
       <Button
         nativeButton={false}
         render={
@@ -371,42 +373,42 @@ function KalakritiSessionEntriesPage() {
         <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
         Back to Sessions
       </Button>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <SessionSummary
-          centerName={selectedCenter?.name}
-          participantCount={sessionEntries.reduce(
-            (count, entry) => count + entry.members.length,
-            0
-          )}
-          session={session}
-        />
-        <div className="min-w-52">
-          <label
-            className="mb-1 block font-medium text-sm"
-            htmlFor="entry-center"
-          >
-            Center
-          </label>
-          <Select onValueChange={handleCenterChange} value={centerId ?? ""}>
-            <SelectTrigger id="entry-center">
-              <span data-slot="select-value">
-                {selectedCenter?.name ?? "Choose Center"}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {selectableCenters.map((center) => (
-                <SelectItem key={center.id} value={center.id}>
-                  {center.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <SessionSummary
+        actions={
+          <div className="min-w-52">
+            <label
+              className="mb-1 block font-medium text-sm"
+              htmlFor="entry-center"
+            >
+              Center
+            </label>
+            <Select onValueChange={handleCenterChange} value={centerId ?? ""}>
+              <SelectTrigger id="entry-center">
+                <span data-slot="select-value">
+                  {selectedCenter?.name ?? "Choose Center"}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {selectableCenters.map((center) => (
+                  <SelectItem key={center.id} value={center.id}>
+                    {center.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+        centerName={selectedCenter?.name}
+        participantCount={sessionEntries.reduce(
+          (count, entry) => count + entry.members.length,
+          0
+        )}
+        session={session}
+      />
       {availability === "open" ? null : (
-        <p className="border border-dashed p-3 text-muted-foreground text-sm">
+        <KalakritiLockNotice>
           {availabilityMessage(availability)}
-        </p>
+        </KalakritiLockNotice>
       )}
       <EntryTable
         activeSessionIds={completeSessions.map(

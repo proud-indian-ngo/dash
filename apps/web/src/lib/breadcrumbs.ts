@@ -89,7 +89,7 @@ function buildKalakritiBreadcrumbs(
     items.push({ path: competitionsPath, title: "Competitions" });
     if (entityId) {
       const subsectionTitles: Record<string, string> = {
-        catalog: "Catalog",
+        catalog: "Competitions",
         categories: "Categories",
         schedule: "Schedule",
         venues: "Venues",

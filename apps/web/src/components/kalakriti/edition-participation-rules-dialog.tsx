@@ -82,9 +82,11 @@ function ParticipationRulesForm({
 export function EditionParticipationRulesDialog({
   editionId,
   minTotalCompetitions,
+  variant = "button",
 }: {
   editionId: string;
   minTotalCompetitions: number;
+  variant?: "button" | "inline";
 }) {
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -98,9 +100,25 @@ export function EditionParticipationRulesDialog({
 
   return (
     <>
-      <Button onClick={handleTrigger} size="sm" type="button" variant="outline">
-        Edit minimum
-      </Button>
+      {variant === "inline" ? (
+        <Button
+          className="h-auto p-0 tabular-nums"
+          onClick={handleTrigger}
+          type="button"
+          variant="link"
+        >
+          Min {minTotalCompetitions}
+        </Button>
+      ) : (
+        <Button
+          onClick={handleTrigger}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Edit minimum
+        </Button>
+      )}
       <Dialog onOpenChange={handleOpenChange} open={open}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

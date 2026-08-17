@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@pi-dash/design-system/components/ui/tabs", () => ({
+  Tabs: () => null,
+  TabsList: () => null,
+  TabsTrigger: () => null,
+}));
+
 import { Route } from "@/routes/_app/kalakriti/$year/competitions/route";
 
 function runBeforeLoad(access: {

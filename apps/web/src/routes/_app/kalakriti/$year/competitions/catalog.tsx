@@ -21,6 +21,7 @@ import {
   type CompetitionFormValue,
 } from "@/components/kalakriti/competition-form-dialog";
 import { CompetitionsTable } from "@/components/kalakriti/competitions-table";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -34,7 +35,6 @@ function CompetitionCatalogPage() {
   const zero = useZero();
   const {
     kalakritiCompetitionAccess: {
-      actorCanManage,
       canManage,
       canManageCancellations,
       structuralLocked,
@@ -169,21 +169,13 @@ function CompetitionCatalogPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">Competitions</h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          {actorCanManage
-            ? "Manage participation rules and Competition lifecycle."
-            : "Read-only Competitions in your assigned Categories."}
-        </p>
-        {structuralLocked ? (
-          <p className="mt-2 text-muted-foreground text-sm">
-            {edition.lifecycle === "registration_locked"
-              ? "Competition structure is locked. Existing Competitions can still be cancelled or restored."
-              : `Configuration is locked while this Edition is ${edition.lifecycle}.`}
-          </p>
-        ) : null}
-      </div>
+      {structuralLocked ? (
+        <KalakritiLockNotice>
+          {edition.lifecycle === "registration_locked"
+            ? "Competition structure is locked. Existing Competitions can still be cancelled or restored."
+            : `Configuration is locked while this Edition is ${edition.lifecycle}.`}
+        </KalakritiLockNotice>
+      ) : null}
 
       <CompetitionsTable
         canManageCancellations={canManageCancellations}

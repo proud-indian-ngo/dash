@@ -1,12 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -19,7 +12,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
@@ -91,26 +84,15 @@ function CloneCardUnavailable({
     return null;
   }
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>Reuse yearly structure</CardTitle>
-        <CardDescription>
-          Start from a prior Edition without copying Centers, Sessions, people,
-          assignments, or registrations.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3" role="alert">
-        <p className="font-medium">
-          Edition configuration could not be loaded.
-        </p>
-        <p className="text-muted-foreground text-sm">
-          Check your connection and try again.
-        </p>
-        <Button onClick={onRetry} type="button" variant="outline">
-          Retry
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="space-y-3" role="alert">
+      <p className="font-medium">Edition configuration could not be loaded.</p>
+      <p className="text-muted-foreground text-sm">
+        Check your connection and try again.
+      </p>
+      <Button onClick={onRetry} type="button" variant="outline">
+        Retry
+      </Button>
+    </div>
   );
 }
 
@@ -177,9 +159,15 @@ function CloneSourceForm({
 }
 
 export function EditionCloneCard({
+  children,
   editionId,
   lifecycle,
 }: {
+  children?: (api: {
+    availability: CloneCardAvailability;
+    open: () => void;
+    retry: () => void;
+  }) => ReactNode;
   editionId: string;
   lifecycle: string;
 }) {
@@ -319,7 +307,16 @@ export function EditionCloneCard({
     targetResultType: targetResult.type,
   });
 
+  const trigger = children?.({
+    availability,
+    open: handleOpen,
+    retry: retryBaseQueries,
+  });
+
   if (availability !== "ready") {
+    if (children) {
+      return trigger;
+    }
     return (
       <CloneCardUnavailable
         availability={availability}
@@ -329,24 +326,13 @@ export function EditionCloneCard({
   }
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>Reuse yearly structure</CardTitle>
-        <CardDescription>
-          Start from a prior Edition without copying Centers, Sessions, people,
-          assignments, or registrations.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Button onClick={handleOpen} variant="outline">
-          Clone configuration
-        </Button>
-        <CloneSourceError
-          editionName={sourceEdition?.name ?? "Source Edition"}
-          onRetry={retrySource}
-          visible={sourceFailed}
-        />
-      </CardContent>
+    <>
+      {trigger}
+      <CloneSourceError
+        editionName={sourceEdition?.name ?? "Source Edition"}
+        onRetry={retrySource}
+        visible={sourceFailed}
+      />
 
       <Dialog onOpenChange={handleDialogChange} open={dialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -386,6 +372,6 @@ export function EditionCloneCard({
         }
         variant="default"
       />
-    </Card>
+    </>
   );
 }

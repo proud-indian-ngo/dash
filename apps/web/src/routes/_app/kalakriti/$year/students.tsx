@@ -12,6 +12,8 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import {
   type KalakritiStudentRow,
   StudentFormDialog,
@@ -151,7 +153,7 @@ function KalakritiStudentsPage() {
   );
   if (queryFailed) {
     return (
-      <div className="space-y-3 pt-6" role="alert">
+      <div className="space-y-3" role="alert">
         <p className="font-medium">Students could not be loaded.</p>
         <p className="text-muted-foreground text-sm">
           Check your connection and try again.
@@ -187,8 +189,11 @@ function KalakritiStudentsPage() {
 
   if (selectableCenters.length === 0) {
     return (
-      <div className="space-y-2 pt-6">
-        <h2 className="font-display font-semibold text-2xl">Students</h2>
+      <div className="space-y-2">
+        <KalakritiPageHeader
+          kicker={`Kalakriti · ${edition.year}`}
+          title="Students"
+        />
         <p className="text-muted-foreground text-sm">
           You have not been assigned to a Center for student registration.
         </p>
@@ -205,41 +210,39 @@ function KalakritiStudentsPage() {
   const registrationOpen = registrationAvailability === "open";
 
   return (
-    <div className="space-y-6 pt-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-display font-semibold text-2xl">Students</h2>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Register and maintain Students for one Center at a time.
-          </p>
-        </div>
-        <div className="min-w-52">
-          <label
-            className="mb-1 block font-medium text-sm"
-            htmlFor="student-center"
-          >
-            Center
-          </label>
-          <Select onValueChange={handleCenterChange} value={centerId ?? ""}>
-            <SelectTrigger id="student-center">
-              <span data-slot="select-value">
-                {selectedCenter?.name ?? "Choose Center"}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {selectableCenters.map((center) => (
-                <SelectItem key={center.id} value={center.id}>
-                  {center.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <KalakritiPageHeader
+        actions={
+          <div className="min-w-52">
+            <label
+              className="mb-1 block font-medium text-sm"
+              htmlFor="student-center"
+            >
+              Center
+            </label>
+            <Select onValueChange={handleCenterChange} value={centerId ?? ""}>
+              <SelectTrigger id="student-center">
+                <span data-slot="select-value">
+                  {selectedCenter?.name ?? "Choose Center"}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {selectableCenters.map((center) => (
+                  <SelectItem key={center.id} value={center.id}>
+                    {center.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+        kicker={`Kalakriti · ${edition.year}`}
+        title="Students"
+      />
       {registrationAvailability === "open" ? null : (
-        <p className="border border-dashed p-3 text-muted-foreground text-sm">
+        <KalakritiLockNotice>
           {registrationAvailabilityMessage(registrationAvailability)}
-        </p>
+        </KalakritiLockNotice>
       )}
       <StudentTable
         canManage={registrationOpen}

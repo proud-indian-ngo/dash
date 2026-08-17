@@ -1,10 +1,10 @@
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import {
   KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
   KALAKRITI_RESPONSIBILITY_LABELS,
@@ -221,15 +221,16 @@ export function VolunteerAssignmentsCard({ editionId }: { editionId: string }) {
   }
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>Volunteer assignments</CardTitle>
-        <CardDescription>
-          Assign central volunteers explicitly for this Edition. Linked event
-          access follows their active responsibilities.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Collapsible className="group/assignments ring-1 ring-foreground/15">
+      <CollapsibleTrigger className="flex min-h-10 w-full items-center justify-between gap-3 px-4 py-3 text-left">
+        <span className="font-medium text-sm">Volunteer assignments</span>
+        <HugeiconsIcon
+          className="size-4 text-muted-foreground transition-transform duration-200 ease-(--ease-out-expo) group-data-open/assignments:rotate-180"
+          icon={ArrowDown01Icon}
+          strokeWidth={2}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-6 border-t px-4 py-4">
         {rosterResult.type === "complete" ? (
           <VolunteerAssignmentRoster
             actorResponsibilities={actorResponsibilityValues}
@@ -279,7 +280,7 @@ export function VolunteerAssignmentsCard({ editionId }: { editionId: string }) {
             users={pickerUsers}
           />
         </div>
-      </CardContent>
+      </CollapsibleContent>
 
       <ConfirmDialog
         confirmLabel="Remove responsibility"
@@ -295,6 +296,6 @@ export function VolunteerAssignmentsCard({ editionId }: { editionId: string }) {
         open={removeAction.isOpen}
         title="Remove volunteer responsibility?"
       />
-    </Card>
+    </Collapsible>
   );
 }

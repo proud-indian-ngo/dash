@@ -52,7 +52,7 @@ export function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="truncate font-display font-semibold text-2xl tracking-tight">
+        <div className="truncate font-display font-semibold text-2xl tabular-nums tracking-tight">
           {item.value}
         </div>
         {Boolean(item.description) && (

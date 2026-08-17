@@ -32,7 +32,7 @@ export const Route = createFileRoute(
 function VenuesPage() {
   const zero = useZero();
   const {
-    kalakritiCompetitionAccess: { actorCanManage, canManage },
+    kalakritiCompetitionAccess: { canManage },
     kalakritiEditionAccess: { edition },
   } = Route.useRouteContext();
   const [venues, venueResult] = useQuery(
@@ -142,15 +142,6 @@ function VenuesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-semibold text-2xl">Venues</h1>
-        <p className="mt-1 text-muted-foreground text-sm">
-          {actorCanManage
-            ? "Manage event-day locations and inspect their scheduled usage."
-            : "Venues used by the Schedule for your assigned Categories."}
-        </p>
-      </div>
-
       <VenuesTable
         canManage={canManage}
         data={rows}

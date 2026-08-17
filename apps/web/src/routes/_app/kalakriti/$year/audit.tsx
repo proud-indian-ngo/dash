@@ -1,13 +1,6 @@
 import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -24,6 +17,7 @@ import {
   type KalakritiAuditRow,
   KalakritiAuditTable,
 } from "@/components/kalakriti/audit-table";
+import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import {
   formatAuditLabel,
@@ -228,53 +222,45 @@ function KalakritiAuditPage({
   }));
 
   return (
-    <div className="pt-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit trail</CardTitle>
-          <CardDescription>
-            {scope.fullEdition
-              ? "Review security-sensitive changes across this Edition."
-              : "Review changes within your assigned Kalakriti domain."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && !isLoading ? (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
-              <p role="alert">{error}</p>
-              <Button onClick={handleRefresh} size="sm" variant="outline">
-                Retry
-              </Button>
-            </div>
-          ) : null}
-          <KalakritiAuditTable
-            hasActiveFilters={Boolean(requestedDomain)}
-            isLoading={isLoading}
-            onClearFilters={handleClearFilters}
-            rowCount={total}
-            rows={rows}
-            timeZone={access.edition.timezone}
-            toolbarActions={
-              <Button onClick={handleRefresh} size="sm" variant="outline">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={ArrowReloadHorizontalIcon}
-                  strokeWidth={2}
-                />
-                Refresh
-              </Button>
-            }
-            toolbarFilters={
-              <TableFilterSelect
-                label="Domain"
-                onChange={handleDomainChange}
-                options={domainOptions}
-                value={requestedDomain}
-              />
-            }
+    <div className="space-y-4">
+      <KalakritiPageHeader
+        kicker={`Kalakriti · ${access.edition.year}`}
+        title="Audit"
+      />
+      {error && !isLoading ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border border-destructive/30 bg-destructive/5 p-3">
+          <p role="alert">{error}</p>
+          <Button onClick={handleRefresh} size="sm" variant="outline">
+            Retry
+          </Button>
+        </div>
+      ) : null}
+      <KalakritiAuditTable
+        hasActiveFilters={Boolean(requestedDomain)}
+        isLoading={isLoading}
+        onClearFilters={handleClearFilters}
+        rowCount={total}
+        rows={rows}
+        timeZone={access.edition.timezone}
+        toolbarActions={
+          <Button onClick={handleRefresh} size="sm" variant="outline">
+            <HugeiconsIcon
+              className="size-4"
+              icon={ArrowReloadHorizontalIcon}
+              strokeWidth={2}
+            />
+            Refresh
+          </Button>
+        }
+        toolbarFilters={
+          <TableFilterSelect
+            label="Domain"
+            onChange={handleDomainChange}
+            options={domainOptions}
+            value={requestedDomain}
           />
-        </CardContent>
-      </Card>
+        }
+      />
     </div>
   );
 }
