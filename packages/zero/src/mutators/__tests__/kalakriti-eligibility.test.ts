@@ -11,6 +11,7 @@ const edition = {
   eventDate: "2027-11-21",
   id: "edition-1",
   lifecycle: "draft",
+  minTotalCompetitions: 2,
   timezone: "Asia/Kolkata",
 };
 const category = {
@@ -383,5 +384,36 @@ describe("kalakritiEligibility commands", () => {
       >[0])
     ).rejects.toThrow("Age ranges overlap");
     expect(spies.updateAgeCategory).not.toHaveBeenCalled();
+  });
+
+  it("rejects an Age Category whose total limit is below the Edition minimum", async () => {
+    const { lockedResults, spies, tx } = createTx();
+    lockedResults.push([edition], []);
+
+    await expect(
+      kalakritiEligibilityMutators.createAgeCategory.fn({
+        args: {
+          ageCategoryId: "category-2",
+          auditEntryId: "audit-2",
+          editionId: "edition-1",
+          femaleStudentLimit: 20,
+          maleStudentLimit: 20,
+          maxCompetitionsPerCategory: 1,
+          maximumAge: 15,
+          maxTotalCompetitions: 1,
+          minimumAge: 11,
+          name: "Senior",
+          now: 1,
+          sortOrder: 1,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEligibilityMutators.createAgeCategory.fn
+      >[0])
+    ).rejects.toThrow(
+      "Total Competition limit cannot be below the Edition minimum of 2"
+    );
+    expect(spies.insertAgeCategory).not.toHaveBeenCalled();
   });
 });

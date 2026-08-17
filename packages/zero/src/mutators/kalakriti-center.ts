@@ -38,15 +38,13 @@ interface CenterTx extends LockableKalakritiTx {
   };
 }
 
-async function assertEditionConfigurable(
-  tx: CenterTx,
-  editionId: string
-): Promise<void> {
+async function requireConfigurableEdition(tx: CenterTx, editionId: string) {
   const edition = await getEditionForUpdate(tx, editionId);
   if (!edition) {
     throw new Error("Edition not found");
   }
   assertKalakritiEditionConfigurable(edition.lifecycle);
+  return edition;
 }
 
 async function assertEditionStructurallyConfigurable(
@@ -70,7 +68,8 @@ async function requireLockedCenter(tx: CenterTx, centerId: string) {
 
 async function assertParticipatingStudentsMeetMinimum(
   tx: CenterTx,
-  centerId: string
+  centerId: string,
+  minTotalCompetitions: number
 ): Promise<void> {
   const students = (await tx.run(
     zql.kalakritiStudent.where("centerId", centerId).related("entryMemberships")
@@ -79,12 +78,13 @@ async function assertParticipatingStudentsMeetMinimum(
     humanId: string;
     name: string;
   }>;
-  const incomplete = students.find(
-    (student) => student.entryMemberships.length === 1
-  );
+  const incomplete = students.find((student) => {
+    const entryCount = student.entryMemberships.length;
+    return entryCount > 0 && entryCount < minTotalCompetitions;
+  });
   if (incomplete) {
     throw new Error(
-      `${incomplete.humanId} · ${incomplete.name} must be registered for at least 2 Competitions`
+      `${incomplete.humanId} · ${incomplete.name} must be registered for at least ${minTotalCompetitions} Competitions`
     );
   }
 }
@@ -293,7 +293,7 @@ export const kalakritiCenterMutators = {
     kalakritiCenterBulkLockSchema,
     async ({ tx, ctx, args }) => {
       await assertCanManageKalakritiConfiguration(tx, ctx, args.editionId);
-      await assertEditionConfigurable(tx, args.editionId);
+      const edition = await requireConfigurableEdition(tx, args.editionId);
       assertIsLoggedIn(ctx);
       const centers = await getEditionCentersForUpdate(tx, args.editionId);
       const enabledCenters = centers.filter(
@@ -307,7 +307,11 @@ export const kalakritiCenterMutators = {
       for (const center of enabledCenters) {
         if (center.competitionEntryRegistrationEnabled) {
           // biome-ignore lint/performance/noAwaitInLoops: each Center is validated while its row lock is held
-          await assertParticipatingStudentsMeetMinimum(tx, center.id);
+          await assertParticipatingStudentsMeetMinimum(
+            tx,
+            center.id,
+            edition.minTotalCompetitions
+          );
         }
       }
 
@@ -435,7 +439,7 @@ export const kalakritiCenterMutators = {
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
       await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
-      await assertEditionConfigurable(tx, center.editionId);
+      const edition = await requireConfigurableEdition(tx, center.editionId);
       assertIsLoggedIn(ctx);
       if (center.retiredAt !== null) {
         throw new Error("Retired Centers cannot reopen registration");
@@ -459,7 +463,11 @@ export const kalakritiCenterMutators = {
         center.competitionEntryRegistrationEnabled &&
         !args.competitionEntryRegistrationEnabled
       ) {
-        await assertParticipatingStudentsMeetMinimum(tx, center.id);
+        await assertParticipatingStudentsMeetMinimum(
+          tx,
+          center.id,
+          edition.minTotalCompetitions
+        );
       }
 
       await tx.mutate.kalakritiCenter.update({

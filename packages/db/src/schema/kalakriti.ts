@@ -74,6 +74,9 @@ export const kalakritiEdition = pgTable(
     lifecycle: kalakritiEditionLifecycleEnum("lifecycle")
       .default("draft")
       .notNull(),
+    minTotalCompetitions: integer("min_total_competitions")
+      .default(2)
+      .notNull(),
     name: text("name").notNull(),
     nextStudentSequence: integer("next_student_sequence").default(1).notNull(),
     plannedRegistrationCloseAt: timestamp("planned_registration_close_at", {
@@ -97,6 +100,10 @@ export const kalakritiEdition = pgTable(
     check(
       "kalakriti_edition_year_chk",
       sql`${table.year} BETWEEN 2000 AND 2200`
+    ),
+    check(
+      "kalakriti_edition_minTotalCompetitions_chk",
+      sql`${table.minTotalCompetitions} >= 1`
     ),
     check(
       "kalakriti_edition_points_chk",

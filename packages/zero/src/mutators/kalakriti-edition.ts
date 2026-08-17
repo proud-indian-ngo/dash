@@ -8,8 +8,12 @@ import {
 } from "../kalakriti-registration-readiness";
 import { assertHasPermission, assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
-import { assertCanManageKalakritiConfiguration } from "./kalakriti-config-access";
 import {
+  assertCanManageKalakritiConfiguration,
+  assertKalakritiEditionStructurallyConfigurable,
+} from "./kalakriti-config-access";
+import {
+  getEditionAgeCategoriesForUpdate,
   getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
@@ -56,6 +60,13 @@ export const kalakritiEditionUpdateMetadataSchema = z.object({
   name: z.string().trim().min(1),
   now: z.number(),
   plannedRegistrationCloseAt: z.number(),
+});
+
+export const kalakritiEditionUpdateParticipationRulesSchema = z.object({
+  auditEntryId: z.string(),
+  editionId: z.string(),
+  minTotalCompetitions: z.number().int().min(1),
+  now: z.number(),
 });
 
 export const kalakritiEditionTransitionSchema = z.object({
@@ -133,6 +144,20 @@ function getMappedId(
     throw new Error(`${label} ID map is incomplete`);
   }
   return targetId;
+}
+
+function assertEditionMinimumFitsAgeCategories(
+  minTotalCompetitions: number,
+  categories: readonly { maxTotalCompetitions: number; name: string }[]
+): void {
+  const blocking = categories.find(
+    (category) => category.maxTotalCompetitions < minTotalCompetitions
+  );
+  if (blocking) {
+    throw new Error(
+      `Minimum cannot exceed the ${blocking.name} total Competition limit of ${blocking.maxTotalCompetitions}`
+    );
+  }
 }
 
 function pushRegistrationNotificationTasks(
@@ -252,6 +277,7 @@ export const kalakritiEditionMutators = {
       if (args.sourceEditionId === args.targetEditionId) {
         throw new Error("Source and target Editions must differ");
       }
+      let sourceMinTotalCompetitions = 2;
       for (const editionId of [
         args.sourceEditionId,
         args.targetEditionId,
@@ -261,6 +287,9 @@ export const kalakritiEditionMutators = {
         const edition = await getEditionForUpdate(tx as EditionTx, editionId);
         if (!edition) {
           throw new Error("Edition not found");
+        }
+        if (editionId === args.sourceEditionId) {
+          sourceMinTotalCompetitions = edition.minTotalCompetitions;
         }
       }
       await assertCanManageKalakritiConfiguration(
@@ -472,6 +501,11 @@ export const kalakritiEditionMutators = {
           updatedAt: args.now,
         });
       }
+      await (tx as EditionTx).mutate.kalakritiEdition.update({
+        id: args.targetEditionId,
+        minTotalCompetitions: sourceMinTotalCompetitions,
+        updatedAt: args.now,
+      });
       await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
         action: "configuration_cloned",
         actorUserId: ctx.userId,
@@ -551,6 +585,7 @@ export const kalakritiEditionMutators = {
         eventDate,
         id: args.editionId,
         lifecycle: "draft",
+        minTotalCompetitions: 2,
         name: args.name,
         nextStudentSequence: 1,
         plannedRegistrationCloseAt: args.plannedRegistrationCloseAt,
@@ -711,6 +746,55 @@ export const kalakritiEditionMutators = {
             "brandingKey",
           ],
           teamEventId: edition.teamEventId,
+        },
+        reason: null,
+        targetId: args.editionId,
+        targetType: "edition",
+      });
+    }
+  ),
+
+  updateParticipationRules: defineMutator(
+    kalakritiEditionUpdateParticipationRulesSchema,
+    async ({ tx, ctx, args }) => {
+      const edition = await getEditionForUpdate(
+        tx as EditionTx,
+        args.editionId
+      );
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      await assertCanManageKalakritiConfiguration(
+        tx as EditionTx,
+        ctx,
+        args.editionId
+      );
+      assertIsLoggedIn(ctx);
+      assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
+      const ageCategories = await getEditionAgeCategoriesForUpdate(
+        tx as EditionTx,
+        args.editionId
+      );
+      assertEditionMinimumFitsAgeCategories(
+        args.minTotalCompetitions,
+        ageCategories
+      );
+
+      await (tx as EditionTx).mutate.kalakritiEdition.update({
+        id: args.editionId,
+        minTotalCompetitions: args.minTotalCompetitions,
+        updatedAt: args.now,
+      });
+      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
+        action: "updated",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "edition",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: {
+          fields: ["minTotalCompetitions"],
+          minTotalCompetitions: args.minTotalCompetitions,
         },
         reason: null,
         targetId: args.editionId,

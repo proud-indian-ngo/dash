@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiEditionPage } from "../../pages/kalakriti-edition-page";
 
 const execFileAsync = promisify(execFile);
@@ -71,6 +71,8 @@ test("creates and updates an Edition with its protected linked event", async ({
 
   try {
     await editionPage.create({ name: `Kalakriti ${YEAR}`, year: YEAR });
+    await waitForZeroReady(page);
+    await editionPage.editMinimumCompetitions(3);
     await editionPage.editDetails({
       name: `Kalakriti ${YEAR} Revised`,
       year: YEAR,
@@ -83,6 +85,7 @@ test("creates and updates an Edition with its protected linked event", async ({
       eventName: string;
       eventStartTime: string;
       managementDomain: string;
+      minTotalCompetitions: number;
       name: string;
       plannedRegistrationCloseAt: string;
       teamEventId: string;
@@ -95,6 +98,7 @@ test("creates and updates an Edition with its protected linked event", async ({
       eventName: `Kalakriti ${YEAR} Revised`,
       eventStartTime: `${YEAR}-11-20T18:30:00.000Z`,
       managementDomain: "kalakriti",
+      minTotalCompetitions: 3,
       name: `Kalakriti ${YEAR} Revised`,
       plannedRegistrationCloseAt: `${YEAR}-10-31T12:30:00.000Z`,
       year: YEAR,

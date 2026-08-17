@@ -52,6 +52,10 @@ function KalakritiEligibilityPage() {
   const [categories, categoryResult] = useQuery(
     queries.kalakritiEligibility.ageCategories({ editionId: edition.id })
   );
+  const [editionDetails] = useQuery(
+    queries.kalakritiEdition.byYear({ year: edition.year })
+  );
+  const minTotalCompetitions = editionDetails?.minTotalCompetitions ?? 2;
   const configurationLocked =
     edition.lifecycle === "registration_locked" ||
     edition.lifecycle === "live" ||
@@ -160,6 +164,7 @@ function KalakritiEligibilityPage() {
         category={editingCategory}
         editionId={edition.id}
         existingCategories={categoryRows}
+        minTotalCompetitions={minTotalCompetitions}
         onOpenChange={handleCategoryDialogChange}
         open={categoryDialogOpen}
       />

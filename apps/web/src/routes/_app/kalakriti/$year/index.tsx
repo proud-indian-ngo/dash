@@ -12,6 +12,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
 import { EditionLifecycleCard } from "@/components/kalakriti/edition-lifecycle-card";
 import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
+import { EditionParticipationRulesDialog } from "@/components/kalakriti/edition-participation-rules-dialog";
 import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
 import { RegistrationExportCard } from "@/components/kalakriti/registration-export-card";
 import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
@@ -60,6 +61,12 @@ function KalakritiEditionOverview() {
   const [editionDetails] = useQuery(
     queries.kalakritiEdition.byYear({ year: edition.year })
   );
+  const canEditParticipationRules =
+    canManageLifecycle &&
+    editionDetails !== undefined &&
+    editionDetails.lifecycle !== "registration_locked" &&
+    editionDetails.lifecycle !== "live" &&
+    editionDetails.lifecycle !== "archived";
 
   return (
     <div>
@@ -129,6 +136,20 @@ function KalakritiEditionOverview() {
             {editionTimestampFormatter.format(
               new Date(edition.plannedRegistrationCloseAt)
             )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Minimum competitions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-3">
+            {editionDetails?.minTotalCompetitions ?? 2}
+            {canEditParticipationRules ? (
+              <EditionParticipationRulesDialog
+                editionId={editionDetails.id}
+                minTotalCompetitions={editionDetails.minTotalCompetitions ?? 2}
+              />
+            ) : null}
           </CardContent>
         </Card>
       </div>

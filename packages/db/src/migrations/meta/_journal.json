@@ -449,6 +449,13 @@
       "when": 1786466218719,
       "tag": "0063_concerned_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1786939168066,
+      "tag": "0064_lying_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

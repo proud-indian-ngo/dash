@@ -16,6 +16,7 @@ describe("getEditionForUpdate", () => {
       eventDate: "2027-11-21",
       id: "edition-1",
       lifecycle: "draft",
+      minTotalCompetitions: 2,
       timezone: "Asia/Kolkata",
     });
   });

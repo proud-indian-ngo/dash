@@ -63,6 +63,21 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
+  async editMinimumCompetitions(minimum: number) {
+    await this.page.getByRole("button", { name: "Edit minimum" }).click();
+    const dialog = this.page.getByRole("dialog", {
+      name: "Edit minimum Competitions",
+    });
+    const input = dialog.getByLabel("Minimum Competitions");
+    await expect(input).toHaveValue("2");
+    await input.fill(String(minimum));
+    await dialog.getByRole("button", { name: "Save minimum" }).click();
+    await expect(
+      this.page.getByText("Minimum Competitions updated", { exact: true })
+    ).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+  }
+
   async editDetails({ name, year }: { name: string; year: number }) {
     await this.page
       .getByRole("button", { name: "Edit Edition details" })

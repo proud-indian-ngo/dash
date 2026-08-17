@@ -6,6 +6,7 @@ import {
   kalakritiEditionMutators,
   kalakritiEditionTransitionSchema,
   kalakritiEditionUpdateMetadataSchema,
+  kalakritiEditionUpdateParticipationRulesSchema,
 } from "../kalakriti-edition";
 
 const validArgs = {
@@ -974,7 +975,7 @@ describe("Kalakriti Edition registration readiness", () => {
       retiredAt: null,
     };
     const { spies, tx } = createEditionCommandTx([
-      { ...edition, id: "source" },
+      { ...edition, id: "source", minTotalCompetitions: 3 },
       { ...edition, id: "target" },
       { ...edition, id: "target" },
       [],
@@ -1036,6 +1037,11 @@ describe("Kalakriti Edition registration readiness", () => {
       })
     );
     expect(spies.insertVenue).toHaveBeenCalledOnce();
+    expect(spies.updateEdition).toHaveBeenCalledWith({
+      id: "target",
+      minTotalCompetitions: 3,
+      updatedAt: 1,
+    });
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({
@@ -1133,5 +1139,123 @@ describe("Kalakriti Edition registration readiness", () => {
     ).rejects.toThrow("Target Edition must have no structural configuration");
     expect(spies.insertAgeCategory).not.toHaveBeenCalled();
     expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+});
+
+describe("kalakritiEdition.updateParticipationRules", () => {
+  const updateArgs = {
+    auditEntryId: "audit-rules-1",
+    editionId: "edition-1",
+    minTotalCompetitions: 3,
+    now: 1_700_000_100_000,
+  };
+  const draftEdition = {
+    eventDate: "2028-11-19",
+    id: "edition-1",
+    lifecycle: "draft",
+    minTotalCompetitions: 2,
+    teamEventId: "event-1",
+    timezone: "Asia/Kolkata",
+  };
+
+  it("rejects callers without Edition administration", async () => {
+    const { spies, tx } = createEditionCommandTx([draftEdition, undefined]);
+
+    await expect(
+      kalakritiEditionMutators.updateParticipationRules.fn({
+        args: updateArgs,
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "ordinary-member-1",
+        },
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.updateParticipationRules.fn
+      >[0])
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects participation-rule edits after registration is locked", async () => {
+    const { spies, tx } = createEditionCommandTx([
+      { ...draftEdition, lifecycle: "registration_locked" },
+    ]);
+
+    await expect(
+      kalakritiEditionMutators.updateParticipationRules.fn({
+        args: updateArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.updateParticipationRules.fn
+      >[0])
+    ).rejects.toThrow("Structural configuration cannot be changed");
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+  });
+
+  it("rejects a minimum above any Age Category total limit", async () => {
+    const { spies, tx } = createEditionCommandTx([
+      draftEdition,
+      [
+        {
+          maxTotalCompetitions: 2,
+          name: "Junior",
+        },
+      ],
+    ]);
+
+    await expect(
+      kalakritiEditionMutators.updateParticipationRules.fn({
+        args: updateArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.updateParticipationRules.fn
+      >[0])
+    ).rejects.toThrow(
+      "Minimum cannot exceed the Junior total Competition limit of 2"
+    );
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+  });
+
+  it("updates the Edition minimum while registration is open", async () => {
+    const { spies, tx } = createEditionCommandTx([
+      { ...draftEdition, lifecycle: "registration_open" },
+      [{ maxTotalCompetitions: 4, name: "Junior" }],
+    ]);
+
+    await kalakritiEditionMutators.updateParticipationRules.fn({
+      args: updateArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.updateParticipationRules.fn
+    >[0]);
+
+    expect(spies.updateEdition).toHaveBeenCalledWith({
+      id: updateArgs.editionId,
+      minTotalCompetitions: 3,
+      updatedAt: updateArgs.now,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "updated",
+        metadata: {
+          fields: ["minTotalCompetitions"],
+          minTotalCompetitions: 3,
+        },
+      })
+    );
+  });
+
+  it("rejects a minimum below 1 at the command boundary", () => {
+    expect(
+      kalakritiEditionUpdateParticipationRulesSchema.safeParse({
+        ...updateArgs,
+        minTotalCompetitions: 0,
+      }).success
+    ).toBe(false);
   });
 });

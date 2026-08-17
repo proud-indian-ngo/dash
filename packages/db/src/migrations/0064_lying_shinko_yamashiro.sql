@@ -1,0 +1,2 @@
+ALTER TABLE "kalakriti_edition" ADD COLUMN "min_total_competitions" integer DEFAULT 2 NOT NULL;--> statement-breakpoint
+ALTER TABLE "kalakriti_edition" ADD CONSTRAINT "kalakriti_edition_minTotalCompetitions_chk" CHECK ("kalakriti_edition"."min_total_competitions" >= 1);
