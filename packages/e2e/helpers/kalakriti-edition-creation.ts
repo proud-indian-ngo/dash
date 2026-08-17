@@ -34,6 +34,7 @@ async function state() {
       brandingKey: true,
       eventDate: true,
       id: true,
+      minTotalCompetitions: true,
       name: true,
       plannedRegistrationCloseAt: true,
       teamEventId: true,
@@ -51,6 +52,7 @@ async function state() {
         eventName: edition.teamEvent.name,
         eventStartTime: edition.teamEvent.startTime.toISOString(),
         managementDomain: edition.teamEvent.managementDomain,
+        minTotalCompetitions: edition.minTotalCompetitions,
         name: edition.name,
         plannedRegistrationCloseAt:
           edition.plannedRegistrationCloseAt.toISOString(),

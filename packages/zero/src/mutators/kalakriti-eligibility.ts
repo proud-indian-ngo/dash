@@ -110,11 +110,26 @@ function assertNoOverlap(
   }
 }
 
+function assertAgeCategoryMeetsEditionMinimum(
+  maxTotalCompetitions: number,
+  minTotalCompetitions: number
+): void {
+  if (maxTotalCompetitions < minTotalCompetitions) {
+    throw new Error(
+      `Total Competition limit cannot be below the Edition minimum of ${minTotalCompetitions}`
+    );
+  }
+}
+
 export const kalakritiEligibilityMutators = {
   createAgeCategory: defineMutator(
     kalakritiAgeCategoryCreateSchema,
     async ({ tx, ctx, args }) => {
-      await lockConfigurableEdition(tx, ctx, args.editionId);
+      const edition = await lockConfigurableEdition(tx, ctx, args.editionId);
+      assertAgeCategoryMeetsEditionMinimum(
+        args.maxTotalCompetitions,
+        edition.minTotalCompetitions
+      );
       const categories = await getEditionAgeCategoriesForUpdate(
         tx,
         args.editionId
@@ -232,6 +247,10 @@ export const kalakritiEligibilityMutators = {
           name: normalized.name,
         },
       ]);
+      assertAgeCategoryMeetsEditionMinimum(
+        args.maxTotalCompetitions,
+        edition.minTotalCompetitions
+      );
       await tx.mutate.kalakritiAgeCategory.update({
         femaleStudentLimit: args.femaleStudentLimit,
         id: category.id,

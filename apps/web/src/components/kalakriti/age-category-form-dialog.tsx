@@ -57,34 +57,42 @@ interface AgeCategoryFormDialogProps {
   category: AgeCategoryFormValue | null;
   editionId: string;
   existingCategories: readonly AgeCategoryFormValue[];
+  minTotalCompetitions: number;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
 
 function createAgeCategoryFormSchema(
   categories: readonly AgeCategoryFormValue[],
-  editingId: string | undefined
+  editingId: string | undefined,
+  minTotalCompetitions: number
 ) {
-  return ageCategoryValuesSchema.superRefine((value, context) => {
-    const overlap = findKalakritiAgeCategoryOverlap([
-      ...categories.filter((category) => category.id !== editingId),
-      { ...value, id: editingId ?? "new-age-category" },
-    ]);
-    if (overlap) {
-      const otherName = overlap.find((name) => name !== value.name);
-      context.addIssue({
-        code: "custom",
-        message: `Age range overlaps ${otherName ?? "another category"}`,
-        path: ["maximumAge"],
-      });
-    }
-  });
+  return ageCategoryValuesSchema
+    .refine((value) => value.maxTotalCompetitions >= minTotalCompetitions, {
+      message: `Cannot be below the Edition minimum of ${minTotalCompetitions}`,
+      path: ["maxTotalCompetitions"],
+    })
+    .superRefine((value, context) => {
+      const overlap = findKalakritiAgeCategoryOverlap([
+        ...categories.filter((category) => category.id !== editingId),
+        { ...value, id: editingId ?? "new-age-category" },
+      ]);
+      if (overlap) {
+        const otherName = overlap.find((name) => name !== value.name);
+        context.addIssue({
+          code: "custom",
+          message: `Age range overlaps ${otherName ?? "another category"}`,
+          path: ["maximumAge"],
+        });
+      }
+    });
 }
 
 function AgeCategoryForm({
   category,
   editionId,
   existingCategories,
+  minTotalCompetitions,
   onOpenChange,
 }: Omit<AgeCategoryFormDialogProps, "open">) {
   const zero = useZero();
@@ -96,7 +104,8 @@ function AgeCategoryForm({
     ) + 1;
   const formSchema = createAgeCategoryFormSchema(
     existingCategories,
-    category?.id
+    category?.id,
+    minTotalCompetitions
   );
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const form = useForm({
@@ -105,7 +114,8 @@ function AgeCategoryForm({
       maleStudentLimit: category?.maleStudentLimit ?? 20,
       maxCompetitionsPerCategory: category?.maxCompetitionsPerCategory ?? 1,
       maximumAge: category?.maximumAge ?? 10,
-      maxTotalCompetitions: category?.maxTotalCompetitions ?? 2,
+      maxTotalCompetitions:
+        category?.maxTotalCompetitions ?? Math.max(2, minTotalCompetitions),
       minimumAge: category?.minimumAge ?? 6,
       name: category?.name ?? "",
       sortOrder: category?.sortOrder ?? nextSortOrder,
@@ -195,7 +205,7 @@ function AgeCategoryForm({
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <InputField
-          description="Maximum Competitions a Student may enter."
+          description={`Maximum Competitions a Student may enter. Must be at least the Edition minimum of ${minTotalCompetitions}.`}
           isRequired
           label="Total Competition limit"
           name="maxTotalCompetitions"

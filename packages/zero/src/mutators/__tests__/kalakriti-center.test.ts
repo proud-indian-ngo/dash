@@ -17,7 +17,7 @@ const center = {
 
 function createTx(results: unknown[]) {
   const lifecycleResult = results.find(
-    (result): result is { lifecycle: string } =>
+    (result): result is { lifecycle: string; minTotalCompetitions?: number } =>
       typeof result === "object" && result !== null && "lifecycle" in result
   );
   const runResults = results.filter((result) => result !== lifecycleResult);
@@ -41,6 +41,8 @@ function createTx(results: unknown[]) {
                   eventDate: "2028-11-19",
                   id: "edition-1",
                   lifecycle: lifecycleResult?.lifecycle ?? "draft",
+                  minTotalCompetitions:
+                    lifecycleResult?.minTotalCompetitions ?? 2,
                   timezone: "Asia/Kolkata",
                 },
               ]
@@ -252,6 +254,88 @@ describe("kalakritiCenter commands", () => {
     expect(spies.insertAudit).toHaveBeenCalledOnce();
   });
 
+  it("rejects closing participation when a Student is below the Edition minimum", async () => {
+    const closingCenter = {
+      ...center,
+      competitionEntryRegistrationEnabled: true,
+    };
+    const { lockedResults, spies, tx } = createTx([
+      { lifecycle: "registration_open", minTotalCompetitions: 3 },
+      [
+        {
+          entryMemberships: [{ id: "member-1" }, { id: "member-2" }],
+          humanId: "KAL-2026-0001",
+          name: "Aarohi Rao",
+        },
+      ],
+    ]);
+    lockedResults.splice(0, 1, [closingCenter]);
+
+    await expect(
+      kalakritiCenterMutators.setRegistrationControls.fn({
+        args: {
+          auditEntryId: "audit-1",
+          centerId: closingCenter.id,
+          competitionEntryRegistrationEnabled: false,
+          confirmReopen: false,
+          now: 1_700_000_000_000,
+          studentRegistrationEnabled: false,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCenterMutators.setRegistrationControls.fn
+      >[0])
+    ).rejects.toThrow(
+      "KAL-2026-0001 · Aarohi Rao must be registered for at least 3 Competitions"
+    );
+    expect(spies.updateCenter).not.toHaveBeenCalled();
+  });
+
+  it("allows closing participation when every participating Student meets the Edition minimum", async () => {
+    const closingCenter = {
+      ...center,
+      competitionEntryRegistrationEnabled: true,
+    };
+    const { lockedResults, spies, tx } = createTx([
+      { lifecycle: "registration_open", minTotalCompetitions: 3 },
+      [
+        {
+          entryMemberships: [],
+          humanId: "KAL-2026-0001",
+          name: "Aarohi Rao",
+        },
+        {
+          entryMemberships: [
+            { id: "member-1" },
+            { id: "member-2" },
+            { id: "member-3" },
+          ],
+          humanId: "KAL-2026-0002",
+          name: "Arjun Kumar",
+        },
+      ],
+    ]);
+    lockedResults.splice(0, 1, [closingCenter]);
+
+    await kalakritiCenterMutators.setRegistrationControls.fn({
+      args: {
+        auditEntryId: "audit-1",
+        centerId: closingCenter.id,
+        competitionEntryRegistrationEnabled: false,
+        confirmReopen: false,
+        now: 1_700_000_000_000,
+        studentRegistrationEnabled: false,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiCenterMutators.setRegistrationControls.fn
+    >[0]);
+
+    expect(spies.updateCenter).toHaveBeenCalledOnce();
+  });
+
   it("audits an explicit reopen without changing another Center", async () => {
     const { spies, tx } = createTx([{ lifecycle: "draft" }]);
 
@@ -365,6 +449,42 @@ describe("kalakritiCenter commands", () => {
     ).rejects.toThrow("must be registered for at least 2 Competitions");
     expect(spies.updateCenter).not.toHaveBeenCalled();
     expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects bulk locking when a participating Student is below the Edition minimum", async () => {
+    const closingCenter = {
+      ...center,
+      competitionEntryRegistrationEnabled: true,
+    };
+    const { lockedResults, spies, tx } = createTx([
+      { lifecycle: "registration_open", minTotalCompetitions: 3 },
+      [
+        {
+          entryMemberships: [{ id: "member-1" }, { id: "member-2" }],
+          humanId: "KAL-2026-0001",
+          name: "Aarohi Rao",
+        },
+      ],
+    ]);
+    lockedResults.splice(0, 1, [closingCenter]);
+
+    await expect(
+      kalakritiCenterMutators.lockAllRegistration.fn({
+        args: {
+          auditEntryId: "audit-1",
+          confirmLock: true,
+          editionId: "edition-1",
+          now: 1_700_000_000_000,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCenterMutators.lockAllRegistration.fn
+      >[0])
+    ).rejects.toThrow(
+      "KAL-2026-0001 · Aarohi Rao must be registered for at least 3 Competitions"
+    );
+    expect(spies.updateCenter).not.toHaveBeenCalled();
   });
 
   it("protects a Center with Guardian or Liaison dependencies", async () => {

@@ -36,7 +36,7 @@ The lifecycle edges exposed by this release are:
 draft -> registration_open <-> registration_locked
 ```
 
-Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control.
+Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration requires every participating Student to meet the Edition `minTotalCompetitions` floor; Students with no Entries remain non-participants.
 
 ## Public and server-only projections
 

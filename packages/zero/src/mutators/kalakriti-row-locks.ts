@@ -28,6 +28,7 @@ export interface LockedEdition {
   eventDate: string;
   id: string;
   lifecycle: string;
+  minTotalCompetitions: number;
   teamEventId: string;
   timezone: string;
 }
@@ -111,6 +112,7 @@ function normalizeEdition(edition: {
   eventDate: Date | number | string;
   id: string;
   lifecycle: string;
+  minTotalCompetitions?: number;
   teamEventId: string;
   nextStudentSequence?: number;
   timezone: string;
@@ -132,6 +134,7 @@ function normalizeEdition(edition: {
     eventDate: normalizeEditionEventDate(edition.eventDate),
     id: edition.id,
     lifecycle: edition.lifecycle,
+    minTotalCompetitions: edition.minTotalCompetitions ?? 2,
     ...nextStudentSequence,
     teamEventId: edition.teamEventId,
     timezone: edition.timezone,
@@ -216,6 +219,7 @@ export async function getEditionForUpdate(
       eventDate: kalakritiEdition.eventDate,
       id: kalakritiEdition.id,
       lifecycle: kalakritiEdition.lifecycle,
+      minTotalCompetitions: kalakritiEdition.minTotalCompetitions,
       nextStudentSequence: kalakritiEdition.nextStudentSequence,
       teamEventId: kalakritiEdition.teamEventId,
       timezone: kalakritiEdition.timezone,
