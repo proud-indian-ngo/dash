@@ -2,8 +2,8 @@ import { GitForkIcon, RepeatIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
 import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
@@ -101,9 +101,7 @@ export function createEventsTableColumns({
   onDuplicateEvent,
   onEditEvent,
   onSelectEvent,
-}: ColumnCallbacks): (ColumnDef<EventDisplayRow> & {
-  enableColumnOrdering?: boolean;
-})[] {
+}: ColumnCallbacks): DataGridColumnDef<EventDisplayRow>[] {
   return [
     {
       accessorFn: (row) => row.event.name,
@@ -295,13 +293,16 @@ export function createEventsTableColumns({
           row={row.original}
         />
       ),
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
       header: "",
       id: "actions",
-      meta: { cellClassName: "text-center", stopRowClick: true },
+      meta: {
+        cellClassName: "text-center",
+        enableColumnOrdering: false,
+        stopRowClick: true,
+      },
       minSize: 52,
       size: 52,
     },

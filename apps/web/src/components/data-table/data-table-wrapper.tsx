@@ -8,6 +8,13 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-grid";
 import { DataGridColumnVisibility } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-visibility";
+import {
+  type DataGridColumnDef,
+  type DataGridFeatures,
+  type DataGridRow,
+  type DataGridTableInstance,
+  useDataGridTable,
+} from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { DataGridPagination } from "@pi-dash/design-system/components/reui/data-grid/data-grid-pagination";
 import { DataGridTable } from "@pi-dash/design-system/components/reui/data-grid/data-grid-table";
 import { DataGridTableDnd } from "@pi-dash/design-system/components/reui/data-grid/data-grid-table-dnd";
@@ -31,23 +38,13 @@ import {
 } from "@pi-dash/design-system/components/ui/scroll-area";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
-  ColumnDef,
   ColumnPinningState,
+  ColumnVisibilityState,
   ExpandedState,
   FilterFn,
   PaginationState,
-  Row,
   SortingState,
   Updater,
-  VisibilityState,
-} from "@tanstack/react-table";
-import {
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
 } from "@tanstack/react-table";
 import debounce from "lodash/debounce";
 import { parseAsString, useQueryState } from "nuqs";
@@ -58,14 +55,14 @@ import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
 
 export interface DataTableWrapperProps<TData extends object> {
-  columns: ColumnDef<TData>[];
+  columns: DataGridColumnDef<TData>[];
   data: TData[];
   defaultColumnPinning?: ColumnPinningState;
-  defaultColumnVisibility?: VisibilityState;
+  defaultColumnVisibility?: ColumnVisibilityState;
   defaultPageSize?: number;
   emptyMessage?: string;
   enableRowSelection?: boolean;
-  getRowCanExpand?: (row: Row<TData>) => boolean;
+  getRowCanExpand?: (row: DataGridRow<TData>) => boolean;
   getRowId: (row: TData) => string;
   hasActiveFilters?: boolean;
   isLoading?: boolean;
@@ -94,8 +91,8 @@ export interface DataTableWrapperProps<TData extends object> {
 }
 
 const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
-  left: ["select"],
-  right: ["actions"],
+  end: ["actions"],
+  start: ["select"],
 };
 
 export function DataTableWrapper<TData extends object>({
@@ -202,8 +199,11 @@ export function DataTableWrapper<TData extends object>({
     setLocalSearch(searchQuery);
   }, [searchQuery]);
 
-  const globalFilterFn: FilterFn<TData> = (row, _columnId, value) =>
-    searchFn(row.original, String(value));
+  const globalFilterFn: FilterFn<DataGridFeatures, TData> = (
+    row,
+    _columnId,
+    value
+  ) => searchFn(row.original, String(value));
 
   const onPaginationChange = (updater: Updater<PaginationState>) => {
     const nextPagination = resolveUpdater(updater, pagination);
@@ -216,44 +216,40 @@ export function DataTableWrapper<TData extends object>({
     setSorting(nextSorting);
   };
 
-  const table = useReactTable({
-    autoResetPageIndex: false,
-    columnResizeMode: "onChange",
-    columns,
-    data,
-    enableRowSelection,
-    getRowId,
-    globalFilterFn,
-    manualPagination,
-    onColumnOrderChange: setColumnOrder,
-    onColumnPinningChange: setColumnPinning,
-    onColumnSizingChange: setColumnSizing,
-    onColumnVisibilityChange: setColumnVisibility,
-    onExpandedChange: setExpanded,
-    onPaginationChange,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange,
-    state: {
-      columnOrder,
-      columnPinning,
-      columnSizing,
-      columnVisibility,
-      expanded,
-      globalFilter: localSearch,
-      pagination,
-      rowSelection,
-      sorting,
+  const table = useDataGridTable(
+    {
+      autoResetPageIndex: false,
+      columnResizeMode: "onChange",
+      columns,
+      data,
+      enableRowSelection,
+      getRowId,
+      globalFilterFn,
+      manualPagination,
+      onColumnOrderChange: setColumnOrder,
+      onColumnPinningChange: setColumnPinning,
+      onColumnSizingChange: setColumnSizing,
+      onColumnVisibilityChange: setColumnVisibility,
+      onExpandedChange: setExpanded,
+      onPaginationChange,
+      onRowSelectionChange: setRowSelection,
+      onSortingChange,
+      state: {
+        columnOrder,
+        columnPinning,
+        columnSizing,
+        columnVisibility,
+        expanded,
+        globalFilter: localSearch,
+        pagination,
+        rowSelection,
+        sorting,
+      },
+      ...(rowCount !== undefined && { rowCount }),
+      ...(getRowCanExpand && { getRowCanExpand }),
     },
-    ...(rowCount !== undefined && { rowCount }),
-    ...(getRowCanExpand && { getRowCanExpand }),
-    getCoreRowModel: getCoreRowModel(),
-    ...(getRowCanExpand && { getExpandedRowModel: getExpandedRowModel() }),
-    getFilteredRowModel: getFilteredRowModel(),
-    ...(!manualPagination && {
-      getPaginationRowModel: getPaginationRowModel(),
-    }),
-    getSortedRowModel: getSortedRowModel(),
-  });
+    () => null
+  ) as unknown as DataGridTableInstance<TData>;
 
   const handleColumnDragEnd = useEventCallback((event: DragEndEvent) => {
     const { active, over } = event;

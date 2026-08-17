@@ -10,8 +10,8 @@
     "check:types": "tsc --noEmit"
   },
   "dependencies": {
-    "@ariakit/react": "^0.4.34",
-    "@base-ui/react": "^1.6.0",
+    "@ariakit/react": "^0.4.37",
+    "@base-ui/react": "^1.7.0",
     "@emoji-mart/data": "1.2.1",
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
@@ -34,7 +34,7 @@
     "@platejs/slash-command": "catalog:",
     "@platejs/table": "catalog:",
     "@platejs/toggle": "catalog:",
-    "@radix-ui/react-toolbar": "^1.1.15",
+    "@radix-ui/react-toolbar": "^1.1.19",
     "@udecode/cn": "^52.3.4",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",

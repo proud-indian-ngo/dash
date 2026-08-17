@@ -1,26 +1,13 @@
-"use no memo"
-
 import { createContext, type ReactNode, useContext } from "react"
-import {
-  type ColumnFiltersState,
-  type RowData,
-  type SortingState,
-  type Table,
+import type {
+  ColumnFiltersState,
+  SortingState,
 } from "@tanstack/react-table"
 
 import { cn } from "@pi-dash/design-system/lib/utils"
-
-declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
-    headerTitle?: string
-    headerClassName?: string
-    cellClassName?: string
-    skeleton?: ReactNode
-    expandedContent?: (row: TData) => ReactNode
-    stopRowClick?: boolean
-  }
-}
+import type {
+  DataGridTableInstance,
+} from "@pi-dash/design-system/components/reui/data-grid/data-grid-features"
 
 export type DataGridApiFetchParams = {
   pageIndex: number
@@ -41,7 +28,7 @@ export type DataGridApiResponse<T> = {
 
 export interface DataGridContextProps<TData extends object> {
   props: DataGridProps<TData>
-  table: Table<TData>
+  table: DataGridTableInstance<TData>
   recordCount: number
   isLoading: boolean
 }
@@ -55,7 +42,7 @@ export type DataGridRequestParams = {
 
 export interface DataGridProps<TData extends object> {
   className?: string
-  table?: Table<TData>
+  table?: DataGridTableInstance<TData>
   recordCount: number
   children?: ReactNode
   onRowClick?: (row: TData) => void
@@ -97,27 +84,29 @@ const DataGridContext = createContext<
   DataGridContextProps<any> | undefined
 >(undefined)
 
-function useDataGrid() {
+function useDataGrid<TData extends object = object>() {
   const context = useContext(DataGridContext)
   if (!context) {
     throw new Error("useDataGrid must be used within a DataGridProvider")
   }
-  return context
+  return context as DataGridContextProps<TData>
 }
 
 function DataGridProvider<TData extends object>({
   children,
   table,
   ...props
-}: DataGridProps<TData> & { table: Table<TData> }) {
+}: DataGridProps<TData> & { table: DataGridTableInstance<TData> }) {
   return (
     <DataGridContext.Provider
-      value={{
-        props,
-        table,
-        recordCount: props.recordCount,
-        isLoading: props.isLoading || false,
-      }}
+      value={
+        {
+          props,
+          table,
+          recordCount: props.recordCount,
+          isLoading: props.isLoading || false,
+        } as unknown as DataGridContextProps<object>
+      }
     >
       {children}
     </DataGridContext.Provider>
@@ -173,7 +162,6 @@ function DataGrid<TData extends object>({
     },
   }
 
-  // Ensure table is provided
   if (!table) {
     throw new Error('DataGrid requires a "table" prop')
   }

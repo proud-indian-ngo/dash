@@ -1,8 +1,6 @@
-"use no memo"
-
 import { type HTMLAttributes, memo, type ReactNode, useMemo } from "react"
 import { useDataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-grid"
-import { type Column } from "@tanstack/react-table"
+import type { DataGridColumn } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features"
 
 import { cn } from "@pi-dash/design-system/lib/utils"
 import { Button } from "@pi-dash/design-system/components/ui/button"
@@ -23,10 +21,10 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown02Icon, ArrowUp02Icon, UnfoldMoreIcon, Tick02Icon, ArrowLeft03Icon, ArrowRight03Icon, ArrowLeft02Icon, ArrowRight02Icon, SlidersHorizontalIcon, PinOffIcon } from "@hugeicons/core-free-icons"
 
 interface DataGridColumnHeaderProps<
-  TData,
+  TData extends object,
   TValue,
 > extends HTMLAttributes<HTMLDivElement> {
-  column: Column<TData, TValue>
+  column: DataGridColumn<TData, TValue>
   title?: string
   icon?: ReactNode
   pinnable?: boolean
@@ -34,7 +32,7 @@ interface DataGridColumnHeaderProps<
   visibility?: boolean
 }
 
-function DataGridColumnHeaderInner<TData, TValue>({
+function DataGridColumnHeaderInner<TData extends object, TValue>({
   column,
   title = "",
   icon,
@@ -44,8 +42,54 @@ function DataGridColumnHeaderInner<TData, TValue>({
 }: DataGridColumnHeaderProps<TData, TValue>) {
   const { isLoading, table, props, recordCount } = useDataGrid()
 
-  const columnOrder = table.getState().columnOrder
-  const columnVisibilityKey = JSON.stringify(table.getState().columnVisibility)
+  return (
+    <table.Subscribe
+      selector={(state) => ({
+        columnOrder: state.columnOrder,
+        columnPinning: state.columnPinning,
+        columnVisibility: state.columnVisibility,
+        sorting: state.sorting,
+      })}
+    >
+      {(slice) => (
+        <DataGridColumnHeaderControls
+          className={className}
+          column={column}
+          columnOrder={slice.columnOrder}
+          filter={filter}
+          icon={icon}
+          isLoading={isLoading}
+          props={props}
+          recordCount={recordCount}
+          table={table}
+          title={title}
+          visibility={visibility}
+        />
+      )}
+    </table.Subscribe>
+  )
+}
+
+function DataGridColumnHeaderControls<TData extends object, TValue>({
+  className,
+  column,
+  columnOrder,
+  filter,
+  icon,
+  isLoading,
+  props,
+  recordCount,
+  table,
+  title,
+  visibility,
+}: DataGridColumnHeaderProps<TData, TValue> & {
+  columnOrder: string[]
+  isLoading: boolean
+  props: ReturnType<typeof useDataGrid>["props"]
+  recordCount: number
+  table: ReturnType<typeof useDataGrid>["table"]
+  title: string
+}) {
   const isSorted = column.getIsSorted()
   const isPinned = column.getIsPinned()
   const canSort = column.getCanSort()
@@ -55,6 +99,11 @@ function DataGridColumnHeaderInner<TData, TValue>({
   const columnIndex = columnOrder.indexOf(column.id)
   const canMoveLeft = columnIndex > 0
   const canMoveRight = columnIndex < columnOrder.length - 1
+  const columnVisibilityKey = JSON.stringify(
+    Object.fromEntries(
+      table.getAllColumns().map((col) => [col.id, col.getIsVisible()])
+    )
+  )
 
   const handleSort = () => {
     if (isSorted === "asc") {
@@ -157,22 +206,22 @@ function DataGridColumnHeaderInner<TData, TValue>({
       }
       items.push(
         <DropdownMenuItem
-          key="pin-left"
-          onClick={() => column.pin(isPinned === "left" ? false : "left")}
+          key="pin-start"
+          onClick={() => column.pin(isPinned === "start" ? false : "start")}
         >
           <HugeiconsIcon icon={ArrowLeft03Icon} strokeWidth={2} className="size-3.5!" aria-hidden="true" />
           <span className="grow">Pin to left</span>
-          {isPinned === "left" && (
+          {isPinned === "start" && (
             <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="text-primary size-4 opacity-100!" />
           )}
         </DropdownMenuItem>,
         <DropdownMenuItem
-          key="pin-right"
-          onClick={() => column.pin(isPinned === "right" ? false : "right")}
+          key="pin-end"
+          onClick={() => column.pin(isPinned === "end" ? false : "end")}
         >
           <HugeiconsIcon icon={ArrowRight03Icon} strokeWidth={2} className="size-3.5!" aria-hidden="true" />
           <span className="grow">Pin to right</span>
-          {isPinned === "right" && (
+          {isPinned === "end" && (
             <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="text-primary size-4 opacity-100!" />
           )}
         </DropdownMenuItem>

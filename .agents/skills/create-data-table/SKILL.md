@@ -18,7 +18,9 @@ description: Use when creating, modifying, refactoring, or fixing data tables �
 ## Column Definition Pattern
 
 ```tsx
-const columns = useMemo<ColumnDef<MyEntity>[]>(() => [
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+
+const columns = useMemo<DataGridColumnDef<MyEntity>[]>(() => [
   {
     id: "name",
     accessorFn: (row) => row.name,
@@ -33,7 +35,11 @@ const columns = useMemo<ColumnDef<MyEntity>[]>(() => [
   {
     id: "actions",
     cell: ({ row }) => <RowActions row={row.original} />,
-    meta: { headerTitle: "", skeleton: <Skeleton className="size-7" /> },
+    meta: {
+      enableColumnOrdering: false,
+      headerTitle: "",
+      skeleton: <Skeleton className="size-7" />,
+    },
     size: 48,
   },
 ], []);
@@ -119,9 +125,14 @@ function searchFn(row: MyEntity, query: string): boolean {
 }
 ```
 
+## Pinning
+
+Default pinning in `DataTableWrapper` is `{ start: ["select"], end: ["actions"] }`. Use `start`/`end`, never `left`/`right`. Opt a column out of drag-reorder with `meta.enableColumnOrdering: false`, not a root column-def flag.
+
 ## Anti-Patterns
 
-- **Never** use `useReactTable` directly for main tables — use `DataTableWrapper`
+- **Never** use `useReactTable` directly — use `DataTableWrapper` (it calls `useDataGridTable`)
+- **Never** type columns as `ColumnDef<T>` — use `DataGridColumnDef<T>`
 - **Never** use manual `useState` for delete confirmation — use `useConfirmAction`
 - **Never** use inline `Intl.NumberFormat` — use `formatINR`
 - **Never** omit `data-testid="row-actions"` on action menu triggers

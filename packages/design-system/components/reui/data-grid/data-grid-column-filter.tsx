@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Badge } from "@pi-dash/design-system/components/reui/badge"
-import { type Column } from "@tanstack/react-table"
+import type { DataGridColumn } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features"
 
 import { cn } from "@pi-dash/design-system/lib/utils"
 import { Button } from "@pi-dash/design-system/components/ui/button"
@@ -14,8 +14,8 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { AddCircleIcon, Tick02Icon } from "@hugeicons/core-free-icons"
 
-interface DataGridColumnFilterProps<TData, TValue> {
-  column?: Column<TData, TValue>
+interface DataGridColumnFilterProps<TData extends object, TValue> {
+  column?: DataGridColumn<TData, TValue>
   title?: string
   options: {
     label: string
@@ -24,7 +24,7 @@ interface DataGridColumnFilterProps<TData, TValue> {
   }[]
 }
 
-function DataGridColumnFilter<TData, TValue>({
+function DataGridColumnFilter<TData extends object, TValue>({
   column,
   title,
   options,

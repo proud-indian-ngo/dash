@@ -2,9 +2,10 @@ import type {
   ColumnOrderState,
   ColumnPinningState,
   ColumnSizingState,
+  ColumnVisibilityState,
   PaginationState,
+  RowSelectionState,
   SortingState,
-  VisibilityState,
 } from "@tanstack/react-table";
 import {
   parseAsIndex,
@@ -17,13 +18,27 @@ import { type SetStateAction, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { resolveUpdater } from "@/lib/table-utils";
 
+type LegacyColumnPinningState = Partial<ColumnPinningState> & {
+  left?: string[];
+  right?: string[];
+};
+
+export function migrateColumnPinning(
+  pinning: LegacyColumnPinningState | undefined
+): ColumnPinningState {
+  return {
+    end: pinning?.end ?? pinning?.right ?? [],
+    start: pinning?.start ?? pinning?.left ?? [],
+  };
+}
+
 interface UseTableStateDefaultState {
   columnOrder?: ColumnOrderState;
   columnPinning?: ColumnPinningState;
   columnSizing?: ColumnSizingState;
-  columnVisibility?: VisibilityState;
+  columnVisibility?: ColumnVisibilityState;
   pagination?: PaginationState;
-  rowSelection?: Record<string, boolean>;
+  rowSelection?: RowSelectionState;
   sorting?: SortingState;
 }
 
@@ -99,7 +114,7 @@ export function useTableState(
     options.storageKey,
     {
       columnOrder: defaultState.columnOrder ?? [],
-      columnPinning: defaultState.columnPinning ?? {},
+      columnPinning: migrateColumnPinning(defaultState.columnPinning),
       columnSizing: defaultState.columnSizing ?? {},
       columnVisibility: defaultState.columnVisibility ?? {},
     }
@@ -118,8 +133,9 @@ export function useTableState(
     // Insert new columns before the last persisted column (usually "actions")
     return [...persisted.slice(0, -1), ...missing, ...persisted.slice(-1)];
   })();
-  const { columnPinning, columnSizing, columnVisibility } = persistedState;
-  const [rowSelection, setRowSelection] = useState(
+  const columnPinning = migrateColumnPinning(persistedState.columnPinning);
+  const { columnSizing, columnVisibility } = persistedState;
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>(
     defaultState.rowSelection ?? {}
   );
   const [pagination, setPagination] = useQueryStates(
@@ -154,7 +170,10 @@ export function useTableState(
   const setColumnPinning = (updater: SetStateAction<ColumnPinningState>) => {
     setPersistedState((previous) => ({
       ...previous,
-      columnPinning: resolveUpdater(updater, previous.columnPinning),
+      columnPinning: resolveUpdater(
+        updater,
+        migrateColumnPinning(previous.columnPinning)
+      ),
     }));
   };
 
@@ -165,7 +184,9 @@ export function useTableState(
     }));
   };
 
-  const setColumnVisibility = (updater: SetStateAction<VisibilityState>) => {
+  const setColumnVisibility = (
+    updater: SetStateAction<ColumnVisibilityState>
+  ) => {
     setPersistedState((previous) => ({
       ...previous,
       columnVisibility: resolveUpdater(updater, previous.columnVisibility),

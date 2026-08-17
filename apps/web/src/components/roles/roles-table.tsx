@@ -2,6 +2,7 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -13,7 +14,6 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useNavigate } from "@tanstack/react-router";
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -133,7 +133,7 @@ export function RolesTable({
     })
   );
 
-  const columns: ColumnDef<RoleListItem>[] = [
+  const columns: DataGridColumnDef<RoleListItem>[] = [
     {
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
@@ -223,7 +223,6 @@ export function RolesTable({
           roleId={row.original.id}
         />
       ),
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -232,6 +231,7 @@ export function RolesTable({
       maxSize: 52,
       meta: {
         cellClassName: "text-center",
+        enableColumnOrdering: false,
         headerTitle: "",
         skeleton: SKELETON_ACTIONS,
         stopRowClick: true,

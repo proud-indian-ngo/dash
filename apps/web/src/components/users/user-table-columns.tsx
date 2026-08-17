@@ -1,7 +1,7 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { User } from "@pi-dash/zero/schema";
-import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
@@ -25,7 +25,7 @@ import { SHORT_DATE, SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
 export function createUserColumns(
   renderActions: (row: User) => ReactNode
-): (ColumnDef<User> & { enableColumnOrdering?: boolean })[] {
+): DataGridColumnDef<User>[] {
   return [
     {
       accessorFn: (row) => row.name,
@@ -295,7 +295,6 @@ export function createUserColumns(
     },
     {
       cell: ({ row }) => renderActions(row.original),
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -303,6 +302,7 @@ export function createUserColumns(
       id: "actions",
       meta: {
         cellClassName: "text-center",
+        enableColumnOrdering: false,
         stopRowClick: true,
       },
       minSize: 52,

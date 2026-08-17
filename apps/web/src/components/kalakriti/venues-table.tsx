@@ -1,6 +1,7 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
@@ -12,7 +13,6 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import type {
@@ -129,7 +129,7 @@ export function VenuesTable({
   onView: (venue: VenueTableRow) => void;
   toolbarActions?: ReactNode;
 }) {
-  const columns: ColumnDef<VenueTableRow>[] = [
+  const columns: DataGridColumnDef<VenueTableRow>[] = [
     {
       accessorKey: "name",
       cell: ({ row }) => (
@@ -186,7 +186,6 @@ export function VenuesTable({
           venue={row.original}
         />
       ),
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -194,6 +193,7 @@ export function VenuesTable({
       id: "actions",
       meta: {
         cellClassName: "text-center",
+        enableColumnOrdering: false,
         headerTitle: "",
         skeleton: SKELETON_ACTIONS,
         stopRowClick: true,

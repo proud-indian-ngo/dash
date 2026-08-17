@@ -10,7 +10,7 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { User } from "@pi-dash/zero/schema";
-import type { VisibilityState } from "@tanstack/react-table";
+import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -96,7 +96,7 @@ interface UserActionsCellProps {
   user: User;
 }
 
-const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = {
   banExpires: false,
   banReason: false,
   dob: false,
