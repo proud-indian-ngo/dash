@@ -541,6 +541,20 @@ export const kalakritiEditionMutators = {
         throw new Error(`Kalakriti ${args.year} already exists`);
       }
 
+      const existingEdition = await tx.run(
+        zql.kalakritiEdition.where("id", args.editionId).one()
+      );
+      if (existingEdition) {
+        throw new Error("Edition already exists");
+      }
+
+      const existingLinkedEvent = await tx.run(
+        zql.teamEvent.where("id", args.teamEventId).one()
+      );
+      if (existingLinkedEvent) {
+        throw new Error("Linked event already exists");
+      }
+
       const team = await tx.run(zql.team.where("id", args.teamId).one());
       if (!team) {
         throw new Error("Owning team not found");
