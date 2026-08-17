@@ -1,5 +1,6 @@
 import { strFromU8, unzipSync } from "fflate";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { KalakritiEditionPage } from "../../pages/kalakriti-edition-page";
 
 const YEAR = 2186;
 
@@ -23,9 +24,7 @@ test.describe("Kalakriti Registration Release authorization", () => {
     await expect(
       page.getByRole("heading", { name: `Kalakriti ${YEAR}` })
     ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Create Edition" })
-    ).toBeVisible();
+    await new KalakritiEditionPage(page).expectAdminAction("Create Edition");
 
     const cases = [
       {
@@ -42,13 +41,13 @@ test.describe("Kalakriti Registration Release authorization", () => {
       },
       {
         actor: kalakritiActors.overallEventsLead,
-        expectedHeading: "Competition Categories",
+        expectedHeading: "Competitions",
         expectedText: "Performing Arts",
         path: `/kalakriti/${YEAR}/competitions/categories`,
       },
       {
         actor: kalakritiActors.categoryLead,
-        expectedHeading: "Competition Categories",
+        expectedHeading: "Competitions",
         expectedText: "Performing Arts",
         path: `/kalakriti/${YEAR}/competitions/categories`,
       },
