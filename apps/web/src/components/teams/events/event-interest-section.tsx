@@ -4,6 +4,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
 
@@ -94,7 +95,8 @@ export function VolunteerInterestSection({
           ) : null}
         </div>
       ) : null}
-      {canManage && interests ? (
+      {shouldRenderInterestRequests(canManageInterest, interests) &&
+      interests ? (
         <InterestRequests interests={interests} />
       ) : null}
     </>

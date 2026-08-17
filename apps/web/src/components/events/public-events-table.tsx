@@ -26,6 +26,76 @@ export interface PublicDisplayRow {
   teamId: string;
 }
 
+export type PublicEventFilter = "all" | "my-teams" | "public";
+
+export function selectUpcomingPublicKalakritiEvent(
+  events: readonly PublicEventRow[],
+  now = Date.now()
+): PublicEventRow | null {
+  let soonest: PublicEventRow | null = null;
+  for (const event of events) {
+    if (event.managementDomain !== "kalakriti") {
+      continue;
+    }
+    if (!event.isPublic) {
+      continue;
+    }
+    if (event.cancelledAt) {
+      continue;
+    }
+    if (event.startTime < now) {
+      continue;
+    }
+    if (!soonest || event.startTime < soonest.startTime) {
+      soonest = event;
+    }
+  }
+  return soonest;
+}
+
+export function toPublicDisplayRow(event: PublicEventRow): PublicDisplayRow {
+  return {
+    city: event.city ?? null,
+    endTime: event.endTime ?? null,
+    eventId: event.id,
+    isPublic: event.isPublic ?? null,
+    isVirtualOccurrence: false,
+    location: event.location ?? null,
+    members: event.members,
+    name: event.name,
+    occDate: null,
+    startTime: event.startTime,
+    team: event.team,
+    teamId: event.teamId,
+  };
+}
+
+export function rowMatchesPublicFilters(
+  row: PublicDisplayRow,
+  filter: PublicEventFilter,
+  cityFilter: string,
+  search: string,
+  myTeamIds: ReadonlySet<string>
+): boolean {
+  if (filter === "my-teams" && !myTeamIds.has(row.teamId)) {
+    return false;
+  }
+  if (filter === "public" && !row.isPublic) {
+    return false;
+  }
+  if (cityFilter !== "all" && row.city !== cityFilter) {
+    return false;
+  }
+  const query = search.trim().toLowerCase();
+  if (!query) {
+    return true;
+  }
+  return [row.name, row.location, row.team?.name, row.city]
+    .join(" ")
+    .toLowerCase()
+    .includes(query);
+}
+
 function expandSeriesRows(
   event: PublicEventRow,
   base: Omit<PublicDisplayRow, "startTime" | "occDate" | "isVirtualOccurrence">,
