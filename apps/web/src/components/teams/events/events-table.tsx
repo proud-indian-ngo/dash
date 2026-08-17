@@ -72,7 +72,7 @@ export function EventsTable({
     <DataTableWrapper<EventDisplayRow>
       columns={columns}
       data={displayRows}
-      defaultColumnPinning={{ right: ["actions"] }}
+      defaultColumnPinning={{ end: ["actions"], start: [] }}
       emptyMessage="No events found."
       getRowId={stableGetRowId0}
       hasActiveFilters={hasActiveFilters}

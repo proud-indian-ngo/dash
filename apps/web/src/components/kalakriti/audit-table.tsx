@@ -1,7 +1,7 @@
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import type { ColumnDef } from "@tanstack/react-table";
 import { type ReactNode, useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { formatAuditLabel } from "@/lib/kalakriti-audit-policy";
@@ -24,7 +24,7 @@ const BADGE_SKELETON = <Skeleton className="h-5 w-24" />;
 
 function createColumns(
   dateTimeFormatter: Intl.DateTimeFormat
-): ColumnDef<KalakritiAuditRow>[] {
+): DataGridColumnDef<KalakritiAuditRow>[] {
   return [
     {
       accessorFn: (row) => row.createdAt,

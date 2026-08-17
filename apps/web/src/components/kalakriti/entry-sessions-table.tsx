@@ -1,10 +1,10 @@
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
-import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -56,7 +56,7 @@ export function EntrySessionsTable({
   isLoading: boolean;
   year: number;
 }) {
-  const columns: ColumnDef<EntrySessionRow>[] = [
+  const columns: DataGridColumnDef<EntrySessionRow>[] = [
     {
       accessorKey: "competitionName",
       cell: ({ row }) => (
@@ -210,7 +210,6 @@ export function EntrySessionsTable({
           />
         </Button>
       ),
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -218,6 +217,7 @@ export function EntrySessionsTable({
       id: "actions",
       meta: {
         cellClassName: "text-center",
+        enableColumnOrdering: false,
         headerTitle: "",
         skeleton: <Skeleton className="mx-auto size-7" />,
         stopRowClick: true,

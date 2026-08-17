@@ -10,6 +10,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -27,7 +28,6 @@ import type {
   ScheduledMessage,
   ScheduledMessageRecipient,
 } from "@pi-dash/zero/schema";
-import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import type { MouseEvent, ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -89,7 +89,7 @@ function createColumns(
   onCancel: (row: ScheduledMessageRow) => void,
   onDelete: (row: ScheduledMessageRow) => void,
   onRetry: (recipientId: string) => void
-): ColumnDef<ScheduledMessageRow>[] {
+): DataGridColumnDef<ScheduledMessageRow>[] {
   return [
     {
       cell: ({ row }) => (
@@ -98,13 +98,13 @@ function createColumns(
           onToggle={row.toggleExpanded}
         />
       ),
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
       header: "",
       id: "expand",
       meta: {
+        enableColumnOrdering: false,
         expandedContent: (row: ScheduledMessageRow) => (
           <RecipientSubTable onRetry={onRetry} recipients={row.recipients} />
         ),
@@ -222,7 +222,6 @@ function createColumns(
           />
         );
       },
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -230,6 +229,7 @@ function createColumns(
       id: "actions",
       meta: {
         cellClassName: "text-center",
+        enableColumnOrdering: false,
         skeleton: SKELETON_ACTIONS,
         stopRowClick: true,
       },

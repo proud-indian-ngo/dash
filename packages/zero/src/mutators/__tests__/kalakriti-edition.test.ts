@@ -128,11 +128,65 @@ describe("kalakritiEdition.create", () => {
     expect(insertEvent).not.toHaveBeenCalled();
   });
 
+  it("rejects a reused Edition ID before inserting a linked event", async () => {
+    const insertEvent = vi.fn();
+    const insertEdition = vi.fn();
+    const insertAudit = vi.fn();
+    const results = [undefined, { id: "edition-1" }];
+    const tx = {
+      location: "server",
+      mutate: {
+        kalakritiAuditEntry: { insert: insertAudit },
+        kalakritiEdition: { insert: insertEdition },
+        teamEvent: { insert: insertEvent },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+
+    await expect(
+      kalakritiEditionMutators.create.fn({
+        args: validArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiEditionMutators.create.fn>[0])
+    ).rejects.toThrow("Edition already exists");
+    expect(insertEvent).not.toHaveBeenCalled();
+    expect(insertEdition).not.toHaveBeenCalled();
+    expect(insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reused linked event ID before inserting an Edition", async () => {
+    const insertEvent = vi.fn();
+    const insertEdition = vi.fn();
+    const insertAudit = vi.fn();
+    const results = [undefined, undefined, { id: "event-1" }];
+    const tx = {
+      location: "server",
+      mutate: {
+        kalakritiAuditEntry: { insert: insertAudit },
+        kalakritiEdition: { insert: insertEdition },
+        teamEvent: { insert: insertEvent },
+      },
+      run: vi.fn(async () => results.shift()),
+    };
+
+    await expect(
+      kalakritiEditionMutators.create.fn({
+        args: validArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiEditionMutators.create.fn>[0])
+    ).rejects.toThrow("Linked event already exists");
+    expect(insertEvent).not.toHaveBeenCalled();
+    expect(insertEdition).not.toHaveBeenCalled();
+    expect(insertAudit).not.toHaveBeenCalled();
+  });
+
   it("rejects an unknown owning team before inserting records", async () => {
     const insertEvent = vi.fn();
     const insertEdition = vi.fn();
     const insertAudit = vi.fn();
-    const results = [undefined, undefined];
+    const results = [undefined, undefined, undefined, undefined];
     const tx = {
       location: "server",
       mutate: {
@@ -159,7 +213,7 @@ describe("kalakritiEdition.create", () => {
     const insertEvent = vi.fn();
     const insertEdition = vi.fn();
     const insertAudit = vi.fn();
-    const results = [undefined, { id: "team-1" }];
+    const results = [undefined, undefined, undefined, { id: "team-1" }];
     const tx = {
       location: "server",
       mutate: {
@@ -191,7 +245,7 @@ describe("kalakritiEdition.create", () => {
     const insertAudit = vi.fn();
     const insertEdition = vi.fn();
     const insertEvent = vi.fn();
-    const results = [undefined, { id: "team-1" }];
+    const results = [undefined, undefined, undefined, { id: "team-1" }];
     const tx = {
       location: "server",
       mutate: {

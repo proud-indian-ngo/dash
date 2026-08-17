@@ -1,6 +1,7 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -11,7 +12,6 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
@@ -103,7 +103,7 @@ export function StudentTable({
   onEdit,
   onRegister,
 }: StudentTableProps) {
-  const columns: ColumnDef<KalakritiStudentRow>[] = [
+  const columns: DataGridColumnDef<KalakritiStudentRow>[] = [
     {
       accessorFn: (row) => row.humanId,
       cell: ({ row }) => (
@@ -210,7 +210,6 @@ export function StudentTable({
                 student={row.original}
               />
             ),
-            enableColumnOrdering: false,
             enableHiding: false,
             enableResizing: false,
             enableSorting: false,
@@ -218,12 +217,13 @@ export function StudentTable({
             id: "actions",
             meta: {
               cellClassName: "text-center",
+              enableColumnOrdering: false,
               headerTitle: "",
               skeleton: <Skeleton className="size-7" />,
               stopRowClick: true,
             },
             size: 52,
-          } satisfies ColumnDef<KalakritiStudentRow>,
+          } satisfies DataGridColumnDef<KalakritiStudentRow>,
         ]
       : []),
   ];

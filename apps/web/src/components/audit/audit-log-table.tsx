@@ -1,8 +1,8 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { formatTimestamp } from "@/lib/date-formats";
@@ -38,7 +38,7 @@ function outcomeVariant(outcome: AuditLogRow["outcome"]) {
   }
 }
 
-const columns: ColumnDef<AuditLogRow>[] = [
+const columns: DataGridColumnDef<AuditLogRow>[] = [
   {
     accessorFn: (row) => row.attemptedAt,
     cell: ({ row }) => formatTimestamp(row.original.attemptedAt),

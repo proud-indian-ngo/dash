@@ -1,5 +1,3 @@
-"use no memo"
-
 import React, { type ReactNode } from "react"
 import { useDataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-grid"
 
@@ -36,6 +34,35 @@ interface DataGridPaginationProps {
 function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
   const { table, recordCount, isLoading } = useDataGrid()
 
+  return (
+    <table.Subscribe source={table.atoms.pagination}>
+      {(pagination) => (
+        <DataGridPaginationControls
+          isLoading={isLoading}
+          pagination={pagination}
+          props={props}
+          recordCount={recordCount}
+          table={table}
+        />
+      )}
+    </table.Subscribe>
+  )
+}
+
+function DataGridPaginationControls({
+  isLoading,
+  pagination,
+  props,
+  recordCount,
+  table,
+}: {
+  isLoading: boolean
+  pagination: { pageIndex: number; pageSize: number }
+  props: DataGridPaginationProps
+  recordCount: number
+  table: ReturnType<typeof useDataGrid>["table"]
+}): React.JSX.Element {
+
   const defaultProps: Partial<DataGridPaginationProps> = {
     sizes: [5, 10, 25, 50, 100],
     sizesLabel: "Show",
@@ -55,8 +82,8 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
 
   const btnBaseClasses = "size-7 p-0 text-sm"
   const btnArrowClasses = btnBaseClasses + " rtl:transform rtl:rotate-180"
-  const pageIndex = table.getState().pagination.pageIndex
-  const pageSize = table.getState().pagination.pageSize
+  const pageIndex = pagination.pageIndex
+  const pageSize = pagination.pageSize
   const from = pageIndex * pageSize + 1
   const to = Math.min((pageIndex + 1) * pageSize, recordCount)
   const pageCount = table.getPageCount()

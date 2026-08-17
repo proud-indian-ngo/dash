@@ -7,6 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -16,7 +17,6 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { ColumnDef } from "@tanstack/react-table";
 import type { MouseEvent, ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
@@ -40,7 +40,7 @@ function createJobColumns(
   onView: (job: JobRow) => void,
   onCancel: (job: JobRow) => void,
   onRetry: (job: JobRow) => void
-): ColumnDef<JobRow>[] {
+): DataGridColumnDef<JobRow>[] {
   return [
     {
       accessorFn: (row) => row.name,
@@ -138,7 +138,6 @@ function createJobColumns(
           />
         );
       },
-      enableColumnOrdering: false,
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
@@ -146,6 +145,7 @@ function createJobColumns(
       id: "actions",
       meta: {
         cellClassName: "text-center",
+        enableColumnOrdering: false,
         skeleton: SKELETON_ACTIONS,
         stopRowClick: true,
       },
