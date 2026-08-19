@@ -53,4 +53,68 @@ test.describe("Reimbursements list", () => {
     await expect(cards.getByText("Approved")).toBeVisible();
     await expect(cards.getByText("Rejected")).toBeVisible();
   });
+
+  test("status filter hides non-matching rows and clear restores them", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      !["super_admin", "admin", "finance_admin"].includes(
+        testInfo.project.name
+      ),
+      "Seed reimbursements are only visible to view-all roles"
+    );
+    await reimbursements.list.waitForTableData();
+    const table = reimbursements.list.getTable();
+    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
+    await expect(
+      table.getByText("E2E Upcoming Event Reimbursement")
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Add filter" }).click();
+    await page.getByRole("option", { name: "Status" }).click();
+    await page.getByRole("option", { exact: true, name: "is" }).click();
+    await page.getByRole("option", { name: "Pending" }).click();
+
+    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
+    await expect(
+      table.getByText("E2E Upcoming Event Reimbursement")
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(
+      table.getByText("E2E Upcoming Event Reimbursement")
+    ).toBeVisible();
+  });
+
+  test("event filter hides non-matching rows and clear restores them", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      !["super_admin", "admin", "finance_admin"].includes(
+        testInfo.project.name
+      ),
+      "Seed reimbursements are only visible to view-all roles"
+    );
+    await reimbursements.list.waitForTableData();
+    const table = reimbursements.list.getTable();
+    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
+    await expect(
+      table.getByText("E2E Upcoming Event Reimbursement")
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Add filter" }).click();
+    await page.getByRole("option", { exact: true, name: "Event" }).click();
+    await page.getByRole("option", { exact: true, name: "is" }).click();
+    await page
+      .getByRole("option", { name: "E2E Upcoming Public Bangalore" })
+      .click();
+
+    await expect(
+      table.getByText("E2E Upcoming Event Reimbursement")
+    ).toBeVisible();
+    await expect(table.getByText("E2E Seed Reimbursement")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
+  });
 });

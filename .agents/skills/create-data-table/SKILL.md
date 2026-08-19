@@ -14,6 +14,7 @@ description: Use when creating, modifying, refactoring, or fixing data tables â€
 - [ ] Row actions use `DropdownMenu` with standard props
 - [ ] Delete confirmations use `useConfirmAction` hook
 - [ ] Currency formatted with `formatINR` from `@/lib/form-schemas`
+- [ ] New tables use ReUI Filters via `filter={{ fields, getValue }}` instead of `TableFilterSelect`
 
 ## Column Definition Pattern
 
@@ -111,6 +112,10 @@ const deleteAction = useConfirmAction<string>({
     columnsPinnable: true,
   }}
   toolbarActions={<Button>...</Button>}
+  filter={{
+    fields: entityFilterFields,
+    getValue: getEntityFilterValue,
+  }}
 />
 ```
 
@@ -123,6 +128,17 @@ function searchFn(row: MyEntity, query: string): boolean {
   const q = query.toLowerCase();
   return [row.name, row.email].join(" ").toLowerCase().includes(q);
 }
+```
+
+## ReUI Filters
+
+Pass unfiltered `data`. Define a module-level `getValue(row, path)` and a `FilterField[]` schema. Date fields use `editor: "date"` with `DATE_FILTER_OPERATORS` from `@/components/data-table/filter-date-editor`. Do not pre-filter in the route. Do not add `TableFilterSelect` to new tables.
+
+```tsx
+filter={{
+  fields: createEntityFilterFields(data),
+  getValue: getEntityFilterValue,
+}}
 ```
 
 ## Pinning

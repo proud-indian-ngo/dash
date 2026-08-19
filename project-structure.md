@@ -150,7 +150,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | Directory | Contents |
 |---|---|
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
-| `components/data-table/` | data-table-wrapper (generic DataTableWithFilters), table-filter-select (reusable filter dropdown) |
+| `components/data-table/` | data-table-wrapper, ReUI Filters adapter (`compile-filter-query`, `use-data-table-filters`, `filter-date-editor`), table-filter-select (legacy dropdown still used by unmigrated tables) |
 | `components/audit/` | audit-log table, row detail sheet, and API response types |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
@@ -356,7 +356,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 ### DataTableWrapper
 
-Generic `DataTableWithFilters<TData>` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, reimbursements-table) are thin wrappers that pass columns, data, and filter config.
+Generic `DataTableWrapper` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, reimbursements-table) are thin wrappers that pass columns, data, and optional ReUI `filter={{ fields, getValue }}`. Reimbursements uses ReUI Filters. Other tables still pass `toolbarFilters` with `TableFilterSelect` until they migrate.
+
+Pass **unfiltered** `data` when using `filter`. Search stays `searchFn`. Filter state lives in the `filters` URL param as a `FilterQuery` tree.
 
 ### Adding a New Table
 
@@ -377,7 +379,14 @@ Every feature table follows the same structure. Use existing tables (reimburseme
      columnsPinnable: true,
    }}
    ```
-   Use `defaultColumnPinning` to pin non-reorderable columns (e.g., expand on left, actions/interest on right).
+   Use `defaultColumnPinning` to pin non-reorderable columns (e.g., expand on left, actions/interest on right). For ReUI Filters, pass unfiltered `data` plus:
+   ```tsx
+   filter={{
+     fields: createFooFilterFields(data),
+     getValue: getFooFilterValue,
+   }}
+   ```
+   Define `fields` and `getValue` next to the table (see `reimbursement-filters.ts`). Do not pre-filter rows in the route, and do not use `TableFilterSelect` on new tables.
 8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, passes data + callbacks as props.
 9. **Delete confirmation**: Localize in a `RowActions` component inside the table file using `useConfirmAction` + `ConfirmDialog`. No dialog state at the table level.
 
