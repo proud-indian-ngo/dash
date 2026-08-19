@@ -18,6 +18,11 @@ import {
 import { DataGridPagination } from "@pi-dash/design-system/components/reui/data-grid/data-grid-pagination";
 import { DataGridTable } from "@pi-dash/design-system/components/reui/data-grid/data-grid-table";
 import { DataGridTableDnd } from "@pi-dash/design-system/components/reui/data-grid/data-grid-table-dnd";
+import { Filters } from "@pi-dash/design-system/components/reui/filters/filters";
+import type {
+  FilterField,
+  FilterQuery,
+} from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Card,
@@ -49,10 +54,22 @@ import type {
 import debounce from "lodash/debounce";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import {
+  compileFilterQuery,
+  type FilterValueGetter,
+} from "@/components/data-table/compile-filter-query";
+import { DATA_TABLE_FILTER_EDITORS } from "@/components/data-table/filter-date-editor";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
+
+export interface DataTableFilterConfig<TData extends object> {
+  fields: FilterField[];
+  getValue: FilterValueGetter<TData>;
+  queryKey?: string;
+}
 
 export interface DataTableWrapperProps<TData extends object> {
   columns: DataGridColumnDef<TData>[];
@@ -62,6 +79,7 @@ export interface DataTableWrapperProps<TData extends object> {
   defaultPageSize?: number;
   emptyMessage?: string;
   enableRowSelection?: boolean;
+  filter?: DataTableFilterConfig<TData>;
   getRowCanExpand?: (row: DataGridRow<TData>) => boolean;
   getRowId: (row: TData) => string;
   hasActiveFilters?: boolean;
@@ -95,7 +113,82 @@ const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
   start: ["select"],
 };
 
-export function DataTableWrapper<TData extends object>({
+function DataTableFiltersBar({
+  fields,
+  onQueryChange,
+  query,
+}: {
+  fields: FilterField[];
+  onQueryChange: (query: FilterQuery) => void;
+  query: FilterQuery;
+}) {
+  const [variant, setVariant] = useState<"advanced" | "basic">("basic");
+  const handleQueryChange = useEventCallback((next: FilterQuery) => {
+    onQueryChange(next);
+  });
+  const handleConvertToAdvanced = useEventCallback(() => {
+    setVariant("advanced");
+  });
+
+  return (
+    <Filters
+      editors={DATA_TABLE_FILTER_EDITORS}
+      fields={fields}
+      onConvertToAdvanced={handleConvertToAdvanced}
+      onQueryChange={handleQueryChange}
+      query={query}
+      showClear
+      size="sm"
+      variant={variant}
+    />
+  );
+}
+
+export function DataTableWrapper<TData extends object>(
+  props: DataTableWrapperProps<TData>
+) {
+  if (props.filter) {
+    return <DataTableWrapperWithFilters {...props} filter={props.filter} />;
+  }
+  return <DataTableWrapperBase {...props} />;
+}
+
+function DataTableWrapperWithFilters<TData extends object>({
+  data,
+  filter,
+  toolbarFilters,
+  ...rest
+}: DataTableWrapperProps<TData> & { filter: DataTableFilterConfig<TData> }) {
+  const { query, setQuery } = useDataTableFilters(filter.queryKey);
+  const matches = useMemo(
+    () => compileFilterQuery(query, filter.getValue),
+    [filter.getValue, query]
+  );
+  const filteredData = useMemo(() => data.filter(matches), [data, matches]);
+  const handleQueryChange = useEventCallback((next: FilterQuery) => {
+    setQuery(next);
+  });
+
+  return (
+    <DataTableWrapperBase
+      {...rest}
+      data={filteredData}
+      pageResetKey={JSON.stringify(query)}
+      toolbarFilters={
+        <>
+          <DataTableFiltersBar
+            fields={filter.fields}
+            onQueryChange={handleQueryChange}
+            query={query}
+          />
+          {toolbarFilters}
+        </>
+      }
+    />
+  );
+}
+
+function DataTableWrapperBase<TData extends object>({
   storageKey,
   columns,
   data,
@@ -110,6 +203,7 @@ export function DataTableWrapper<TData extends object>({
   manualPagination,
   onFilteredDataChange,
   onRowClick,
+  pageResetKey,
   paginationSizes = [10, 20, 50],
   rowCount,
   searchFn,
@@ -120,7 +214,7 @@ export function DataTableWrapper<TData extends object>({
   toolbarFilters,
   hasActiveFilters,
   onClearFilters,
-}: DataTableWrapperProps<TData>) {
+}: DataTableWrapperProps<TData> & { pageResetKey?: string }) {
   const initialColumnOrder = columns
     .map((column) => column.id)
     .filter((id): id is string => typeof id === "string");
@@ -198,6 +292,20 @@ export function DataTableWrapper<TData extends object>({
   useEffect(() => {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (pageResetKey === undefined) {
+      return;
+    }
+    setPagination((current) =>
+      current.pageIndex === 0
+        ? current
+        : {
+            ...current,
+            pageIndex: 0,
+          }
+    );
+  }, [pageResetKey, setPagination]);
 
   const globalFilterFn: FilterFn<DataGridFeatures, TData> = (
     row,

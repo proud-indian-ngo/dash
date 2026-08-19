@@ -17,9 +17,14 @@ import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createReimbursementFilterFields,
+  getReimbursementFilterValue,
+  useMigrateLegacyReimbursementFilterParams,
+} from "@/components/reimbursements/reimbursement-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
@@ -56,13 +61,10 @@ const SKELETON_TYPE = <Skeleton className="h-6 w-24" />;
 
 interface ReimbursementsTableProps {
   data: RequestRow[];
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
-  onClearFilters?: () => void;
   onDelete: (row: RequestRow) => Promise<void>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 function RowActions({
@@ -160,10 +162,8 @@ export function ReimbursementsTable({
   onDelete,
   onNavigate,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: ReimbursementsTableProps) {
+  useMigrateLegacyReimbursementFilterParams();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
@@ -421,6 +421,10 @@ export function ReimbursementsTable({
       setDeleteTarget(null);
     }
   });
+  const filterFields = useMemo(
+    () => createReimbursementFilterFields(data),
+    [data]
+  );
 
   return (
     <>
@@ -429,10 +433,12 @@ export function ReimbursementsTable({
         data={data}
         defaultColumnVisibility={{ event: false }}
         emptyMessage="No reimbursements found."
+        filter={{
+          fields: filterFields,
+          getValue: getReimbursementFilterValue,
+        }}
         getRowId={stableGetRowId1}
-        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
-        onClearFilters={onClearFilters}
         onRowClick={stableOnRowClick2}
         searchFn={searchReimbursement}
         searchPlaceholder="Search reimbursements..."
@@ -444,7 +450,6 @@ export function ReimbursementsTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
-        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete"

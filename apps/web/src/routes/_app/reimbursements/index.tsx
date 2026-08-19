@@ -8,30 +8,16 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
-import { parseAsString, useQueryState } from "nuqs";
 import { toast } from "sonner";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
-import { cityOptions } from "@/lib/form-schemas";
 import {
   normalizeToRequestRows,
   REQUEST_TYPE_LABELS,
   type RequestRow,
 } from "@/lib/reimbursement-types";
-
-const STATUS_OPTIONS = [
-  { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
-  { label: "Rejected", value: "rejected" },
-];
-
-const TYPE_OPTIONS = [
-  { label: "Reimbursement", value: "reimbursement" },
-  { label: "Advance Payment", value: "advance_payment" },
-];
 
 export const Route = createFileRoute("/_app/reimbursements/")({
   component: ReimbursementsRouteComponent,
@@ -64,37 +50,10 @@ function ReimbursementsRouteComponent() {
     r1.type !== "complete" &&
     r2.type !== "complete";
 
-  const [statusFilter, setStatusFilter] = useQueryState(
-    "status",
-    parseAsString.withDefault("")
-  );
-  const [typeFilter, setTypeFilter] = useQueryState(
-    "type",
-    parseAsString.withDefault("")
-  );
-  const [cityFilter, setCityFilter] = useQueryState(
-    "city",
-    parseAsString.withDefault("")
-  );
-
   const allData = normalizeToRequestRows(
     reimbursements ?? [],
     advancePayments ?? []
   );
-
-  const filteredData = (() => {
-    let result = allData;
-    if (statusFilter) {
-      result = result.filter((r) => r.status === statusFilter);
-    }
-    if (typeFilter) {
-      result = result.filter((r) => r.type === typeFilter);
-    }
-    if (cityFilter) {
-      result = result.filter((r) => r.city === cityFilter);
-    }
-    return result;
-  })();
 
   const handleDelete = useEventCallback(async (row: RequestRow) => {
     const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
@@ -112,11 +71,6 @@ function ReimbursementsRouteComponent() {
       });
       toast.error(`Failed to delete ${typeLabel}`);
     }
-  });
-  const stableOnClearFilters0 = useEventCallback(() => {
-    setStatusFilter("");
-    setTypeFilter("");
-    setCityFilter("");
   });
   const stableOnNavigate1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/reimbursements/$id" });
@@ -137,10 +91,8 @@ function ReimbursementsRouteComponent() {
           items={computeReimbursementStats(allData)}
         />
         <ReimbursementsTable
-          data={filteredData}
-          hasActiveFilters={!!(statusFilter || typeFilter || cityFilter)}
+          data={allData}
           isLoading={isLoading}
-          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
           toolbarActions={
@@ -154,28 +106,6 @@ function ReimbursementsRouteComponent() {
                 Add reimbursement
               </Button>
             ) : null
-          }
-          toolbarFilters={
-            <>
-              <TableFilterSelect
-                label="City"
-                onChange={setCityFilter}
-                options={cityOptions}
-                value={cityFilter}
-              />
-              <TableFilterSelect
-                label="Type"
-                onChange={setTypeFilter}
-                options={TYPE_OPTIONS}
-                value={typeFilter}
-              />
-              <TableFilterSelect
-                label="Status"
-                onChange={setStatusFilter}
-                options={STATUS_OPTIONS}
-                value={statusFilter}
-              />
-            </>
           }
         />
       </div>
