@@ -11,9 +11,6 @@ vi.mock("@pi-dash/design-system/components/ui/card", () => ({
   CardHeader: () => null,
   CardTitle: () => null,
 }));
-vi.mock("@/components/data-table/table-filter-select", () => ({
-  TableFilterSelect: () => null,
-}));
 vi.mock("@/components/kalakriti/audit-table", () => ({
   KalakritiAuditTable: () => null,
 }));

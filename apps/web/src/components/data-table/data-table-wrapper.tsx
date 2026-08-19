@@ -66,8 +66,10 @@ import { useTableState } from "@/hooks/use-table-state";
 import { resolveUpdater } from "@/lib/table-utils";
 
 export interface DataTableFilterConfig<TData extends object> {
+  /** When false, persist and render the query but do not filter `data` locally. */
+  applyLocally?: boolean;
   fields: FilterField[];
-  getValue: FilterValueGetter<TData>;
+  getValue?: FilterValueGetter<TData>;
   queryKey?: string;
 }
 
@@ -82,11 +84,9 @@ export interface DataTableWrapperProps<TData extends object> {
   filter?: DataTableFilterConfig<TData>;
   getRowCanExpand?: (row: DataGridRow<TData>) => boolean;
   getRowId: (row: TData) => string;
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
   /** Server-side pagination: delegates page slicing to the caller */
   manualPagination?: boolean;
-  onClearFilters?: () => void;
   onFilteredDataChange?: (filteredData: TData[]) => void;
   onRowClick?: (row: TData) => void;
   paginationSizes?: number[];
@@ -113,11 +113,14 @@ const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
   start: ["select"],
 };
 
-function DataTableFiltersBar({
+export function DataTableFiltersBar({
+  allowAdvanced = true,
   fields,
   onQueryChange,
   query,
 }: {
+  /** When false, hide chip kebab "Convert to advanced". Server-paginated chips only honor `is`. */
+  allowAdvanced?: boolean;
   fields: FilterField[];
   onQueryChange: (query: FilterQuery) => void;
   query: FilterQuery;
@@ -134,12 +137,12 @@ function DataTableFiltersBar({
     <Filters
       editors={DATA_TABLE_FILTER_EDITORS}
       fields={fields}
-      onConvertToAdvanced={handleConvertToAdvanced}
+      onConvertToAdvanced={allowAdvanced ? handleConvertToAdvanced : undefined}
       onQueryChange={handleQueryChange}
       query={query}
       showClear
       size="sm"
-      variant={variant}
+      variant={allowAdvanced ? variant : "basic"}
     />
   );
 }
@@ -159,12 +162,23 @@ function DataTableWrapperWithFilters<TData extends object>({
   toolbarFilters,
   ...rest
 }: DataTableWrapperProps<TData> & { filter: DataTableFilterConfig<TData> }) {
-  const { query, setQuery } = useDataTableFilters(filter.queryKey);
+  const {
+    applyLocally: applyLocallyOption,
+    fields,
+    getValue,
+    queryKey,
+  } = filter;
+  const { query, setQuery } = useDataTableFilters(queryKey);
+  const applyLocally = applyLocallyOption !== false && Boolean(getValue);
   const matches = useMemo(
-    () => compileFilterQuery(query, filter.getValue),
-    [filter.getValue, query]
+    () =>
+      applyLocally && getValue ? compileFilterQuery(query, getValue) : null,
+    [applyLocally, getValue, query]
   );
-  const filteredData = useMemo(() => data.filter(matches), [data, matches]);
+  const filteredData = useMemo(
+    () => (matches ? data.filter(matches) : data),
+    [data, matches]
+  );
   const handleQueryChange = useEventCallback((next: FilterQuery) => {
     setQuery(next);
   });
@@ -177,7 +191,8 @@ function DataTableWrapperWithFilters<TData extends object>({
       toolbarFilters={
         <>
           <DataTableFiltersBar
-            fields={filter.fields}
+            allowAdvanced={applyLocally}
+            fields={fields}
             onQueryChange={handleQueryChange}
             query={query}
           />
@@ -212,8 +227,6 @@ function DataTableWrapperBase<TData extends object>({
   tableLayout,
   toolbarActions,
   toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: DataTableWrapperProps<TData> & { pageResetKey?: string }) {
   const initialColumnOrder = columns
     .map((column) => column.id)
@@ -459,21 +472,6 @@ function DataTableWrapperBase<TData extends object>({
                   ) : null}
                 </InputGroup>
                 {toolbarFilters}
-                {hasActiveFilters && onClearFilters ? (
-                  <Button
-                    className="h-8 text-xs"
-                    onClick={onClearFilters}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <HugeiconsIcon
-                      className="size-3.5"
-                      icon={Cancel01Icon}
-                      strokeWidth={2}
-                    />
-                    Clear filters
-                  </Button>
-                ) : null}
               </div>
 
               <CardAction className="justify-self-start! @lg/card-header:justify-self-end! col-auto! @lg/card-header:col-start-2! @lg/card-header:row-span-2! row-auto! @lg/card-header:row-start-1! flex flex-wrap items-center gap-1">

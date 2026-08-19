@@ -16,11 +16,17 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import {
+  createVendorPaymentFilterFields,
+  getVendorPaymentFilterValue,
+  useMigrateLegacyVendorPaymentFilterParams,
+} from "@/components/vendor-payments/vendor-payment-filters";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
@@ -71,15 +77,12 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
 interface VendorPaymentsTableProps {
   canDelete?: boolean;
   data: VendorPaymentWithRelations[];
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
-  onClearFilters?: () => void;
   onDelete?: (
     id: string
   ) => Promise<{ type: string; error?: { message?: string } }>;
   onNavigate: (id: string) => void;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 function VendorPaymentRowActions({
@@ -162,10 +165,12 @@ export function VendorPaymentsTable({
   onDelete,
   onNavigate,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: VendorPaymentsTableProps) {
+  useMigrateLegacyVendorPaymentFilterParams();
+  const filterFields = useMemo(
+    () => createVendorPaymentFilterFields(data),
+    [data]
+  );
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
@@ -390,10 +395,12 @@ export function VendorPaymentsTable({
         data={data}
         defaultColumnVisibility={{ event: false }}
         emptyMessage="No vendor payments found."
+        filter={{
+          fields: filterFields,
+          getValue: getVendorPaymentFilterValue,
+        }}
         getRowId={stableGetRowId0}
-        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
-        onClearFilters={onClearFilters}
         onRowClick={stableOnRowClick1}
         searchFn={searchFn}
         searchPlaceholder="Search vendor payments..."
@@ -405,7 +412,6 @@ export function VendorPaymentsTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
-        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete payment"

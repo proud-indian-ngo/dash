@@ -1,13 +1,19 @@
 import { Invoice01Icon } from "@hugeicons/core-free-icons";
-import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { lazy, Suspense } from "react";
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
+import { readSelectEquality } from "@/components/data-table/compile-filter-query";
+import { DataTableFiltersBar } from "@/components/data-table/data-table-wrapper";
+import {
+  SELECT_IS_ONLY_OPERATORS,
+  selectField,
+} from "@/components/data-table/filter-fields";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
+import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import { StatsCards } from "@/components/stats/stats-cards";
 import {
   dateRangeSearchParams,
@@ -70,6 +76,13 @@ export const Route = createFileRoute("/_app/analytics")({
   },
 });
 
+const ANALYTICS_CITY_FILTER_FIELDS = [
+  selectField("city", "City", cityOptions, SELECT_IS_ONLY_OPERATORS),
+];
+const LEGACY_ANALYTICS_FILTER_PARAMS = [
+  { param: "city", path: "city" },
+] as const;
+
 function AnalyticsPage() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -87,7 +100,9 @@ function AnalyticsPage() {
     r1.type === "complete" || r2.type === "complete" || r3.type === "complete";
 
   const [dateParams] = useQueryStates(dateRangeSearchParams);
-  const [cityFilter, setCityFilter] = useQueryState("city", parseAsString);
+  useMigrateLegacyFilterParams(LEGACY_ANALYTICS_FILTER_PARAMS);
+  const { query, setQuery } = useDataTableFilters();
+  const cityFilter = readSelectEquality(query, "city");
   const dateRange = resolveDateRange(
     dateParams.range,
     dateParams.from,
@@ -151,9 +166,6 @@ function AnalyticsPage() {
   const vendorData = computeVendorData(
     filteredVendorPayments as unknown as Parameters<typeof computeVendorData>[0]
   );
-  const stableOnChange0 = useEventCallback((val: string | null) =>
-    setCityFilter(val || null)
-  );
   const eventData = computeEventData(
     allFiltered as unknown as Parameters<typeof computeEventData>[0]
   );
@@ -169,11 +181,11 @@ function AnalyticsPage() {
         </h1>
         <div className="flex items-center gap-2">
           {hasMultipleCities ? (
-            <TableFilterSelect
-              label="City"
-              onChange={stableOnChange0}
-              options={cityOptions}
-              value={cityFilter ?? ""}
+            <DataTableFiltersBar
+              allowAdvanced={false}
+              fields={ANALYTICS_CITY_FILTER_FIELDS}
+              onQueryChange={setQuery}
+              query={query}
             />
           ) : null}
           <DateRangeFilter />

@@ -15,6 +15,10 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { type ReactNode, useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createCompetitionSessionFilterFields,
+  getCompetitionSessionFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 import type {
   ConfigurationDeletePayload,
   ConfigurationStatePayload,
@@ -156,6 +160,10 @@ export function CompetitionSessionsTable({
       }),
     [timeZone]
   );
+  const filterFields = useMemo(
+    () => createCompetitionSessionFilterFields(data),
+    [data]
+  );
   const columns: DataGridColumnDef<ScheduleTableRow>[] = [
     {
       accessorKey: "competitionName",
@@ -274,6 +282,10 @@ export function CompetitionSessionsTable({
       columns={columns}
       data={data}
       emptyMessage="No Competition Sessions scheduled."
+      filter={{
+        fields: filterFields,
+        getValue: getCompetitionSessionFilterValue,
+      }}
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={handleRowClick}

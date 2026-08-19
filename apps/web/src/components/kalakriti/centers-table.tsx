@@ -15,6 +15,10 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createCenterFilterFields,
+  getCenterFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 
 export interface CenterListItem {
   competitionEntryRegistrationEnabled: boolean;
@@ -307,6 +311,10 @@ export function CentersTable({
       columns={columns}
       data={data}
       emptyMessage={emptyMessage}
+      filter={{
+        fields: createCenterFilterFields(),
+        getValue: getCenterFilterValue,
+      }}
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={handleRowClick}

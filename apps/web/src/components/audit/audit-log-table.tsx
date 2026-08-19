@@ -4,9 +4,11 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { formatTimestamp } from "@/lib/date-formats";
-import type { AuditLogRow } from "./audit-types";
+import { createAuditLogFilterFields } from "./audit-filters";
+import type { AuditLogResponse, AuditLogRow } from "./audit-types";
 
 const SKELETON_TEXT = <Skeleton className="h-4 w-28" />;
 const SKELETON_BADGE = <Skeleton className="h-5 w-16" />;
@@ -120,23 +122,25 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
 
 interface AuditLogTableProps {
   entries: AuditLogRow[];
-  hasActiveFilters: boolean;
+  facets: AuditLogResponse["facets"];
   isLoading: boolean;
-  onClearFilters: () => void;
   onView: (entry: AuditLogRow) => void;
   rowCount: number;
-  toolbarFilters: ReactNode;
+  toolbarFilters?: ReactNode;
 }
 
 export function AuditLogTable({
   entries,
-  hasActiveFilters,
+  facets,
   isLoading,
-  onClearFilters,
   onView,
   rowCount,
   toolbarFilters,
 }: AuditLogTableProps) {
+  const filterFields = useMemo(
+    () => createAuditLogFilterFields(facets),
+    [facets]
+  );
   const getRowId = useEventCallback((row: AuditLogRow) => row.id);
 
   return (
@@ -145,11 +149,13 @@ export function AuditLogTable({
       data={entries}
       defaultPageSize={20}
       emptyMessage="No audit entries found."
+      filter={{
+        applyLocally: false,
+        fields: filterFields,
+      }}
       getRowId={getRowId}
-      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       manualPagination
-      onClearFilters={onClearFilters}
       onRowClick={onView}
       paginationSizes={[20, 50, 100]}
       rowCount={rowCount}

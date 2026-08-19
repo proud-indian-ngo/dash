@@ -3,6 +3,7 @@ import {
   resolveFilterDate,
 } from "@pi-dash/design-system/components/reui/filters/filters-date";
 import {
+  flattenFilterRules,
   isFilterGroup,
   isFilterQueryEmpty,
   isFilterRule,
@@ -439,4 +440,45 @@ export function compileFilterQuery<T>(
     return () => true;
   }
   return (row: T) => matchNode(query, row, getValue, now);
+}
+
+export function readSelectEquality(
+  query: FilterQuery,
+  path: string
+): string | undefined {
+  for (const rule of flattenFilterRules(query)) {
+    if (
+      !isFilterRuleComplete(rule) ||
+      rule.operator !== "is" ||
+      rule.negated ||
+      rule.path[0] !== path ||
+      typeof rule.value !== "string" ||
+      rule.value === ""
+    ) {
+      continue;
+    }
+    return rule.value;
+  }
+}
+
+function stripFilterPath(node: FilterNode, path: string): FilterNode[] {
+  if (isFilterRule(node)) {
+    return node.path[0] === path ? [] : [node];
+  }
+  if (!isFilterGroup(node)) {
+    return [];
+  }
+  const rules = node.rules.flatMap((child) => stripFilterPath(child, path));
+  if (rules.length === 0) {
+    return [];
+  }
+  return [{ ...node, rules }];
+}
+
+export function removeFilterPath(
+  query: FilterQuery,
+  path: string
+): FilterQuery {
+  const rules = query.rules.flatMap((node) => stripFilterPath(node, path));
+  return { ...query, rules };
 }

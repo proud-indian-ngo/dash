@@ -7,24 +7,11 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { parseAsString, useQueryState } from "nuqs";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-payment-stats";
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
 import { VendorPaymentsTable } from "@/components/vendor-payments/vendor-payments-table";
 import { useApp } from "@/context/app-context";
-import { cityOptions } from "@/lib/form-schemas";
-
-const STATUS_OPTIONS = [
-  { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
-  { label: "Rejected", value: "rejected" },
-  { label: "Partially Paid", value: "partially_paid" },
-  { label: "Paid", value: "paid" },
-  { label: "Invoice Pending", value: "invoice_pending" },
-  { label: "Completed", value: "completed" },
-];
 
 export const Route = createFileRoute("/_app/vendor-payments/")({
   component: VendorPaymentsRouteComponent,
@@ -47,41 +34,14 @@ function VendorPaymentsRouteComponent() {
       await zero.mutate(mutators.vendorPayment.delete({ id })).server
   );
   const [vendorPayments, result] = useQuery(queries.vendorPayment.all());
-  const [statusFilter, setStatusFilter] = useQueryState(
-    "status",
-    parseAsString
-  );
-  const [cityFilter, setCityFilter] = useQueryState("city", parseAsString);
 
   const data = vendorPayments as VendorPaymentWithRelations[];
-
-  const filtered = (() => {
-    let filteredData = data;
-    if (statusFilter) {
-      filteredData = filteredData.filter((vp) => vp.status === statusFilter);
-    }
-    if (cityFilter) {
-      filteredData = filteredData.filter((vp) => vp.city === cityFilter);
-    }
-    return filteredData;
-  })();
-
   const isLoading = data.length === 0 && result.type !== "complete";
-  const stableOnClearFilters0 = useEventCallback(() => {
-    setStatusFilter(null);
-    setCityFilter(null);
-  });
   const stableOnNavigate1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/vendor-payments/$id" });
   });
   const stableOnClick2 = useEventCallback(() =>
     navigate({ to: "/vendor-payments/new" })
-  );
-  const stableOnChange3 = useEventCallback((val: string | null) =>
-    setCityFilter(val || null)
-  );
-  const stableOnChange4 = useEventCallback((val: string | null) =>
-    setStatusFilter(val || null)
   );
 
   return (
@@ -97,10 +57,8 @@ function VendorPaymentsRouteComponent() {
         />
         <VendorPaymentsTable
           canDelete={canDelete}
-          data={filtered}
-          hasActiveFilters={!!(statusFilter || cityFilter)}
+          data={data}
           isLoading={isLoading}
-          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
           toolbarActions={
@@ -114,22 +72,6 @@ function VendorPaymentsRouteComponent() {
                 Add vendor payment
               </Button>
             ) : null
-          }
-          toolbarFilters={
-            <>
-              <TableFilterSelect
-                label="City"
-                onChange={stableOnChange3}
-                options={cityOptions}
-                value={cityFilter ?? ""}
-              />
-              <TableFilterSelect
-                label="Status"
-                onChange={stableOnChange4}
-                options={STATUS_OPTIONS}
-                value={statusFilter ?? ""}
-              />
-            </>
           }
         />
       </div>

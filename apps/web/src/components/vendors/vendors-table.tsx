@@ -17,6 +17,11 @@ import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import {
+  createVendorFilterFields,
+  getVendorFilterValue,
+  useMigrateLegacyVendorFilterParams,
+} from "@/components/vendors/vendor-filters";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { formatINR } from "@/lib/form-schemas";
 import type { VendorRow } from "@/lib/vendor-types";
@@ -125,16 +130,13 @@ function searchVendor(row: VendorRow, query: string): boolean {
 
 interface VendorsTableProps {
   data: VendorRow[];
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
   onApprove?: (vendor: VendorRow) => void;
-  onClearFilters?: () => void;
   onDelete: (id: string) => Promise<{ type: string }>;
   onEdit: (vendor: VendorRow) => void;
   onUnapprove?: (vendor: VendorRow) => void;
   onView: (vendor: VendorRow) => void;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 export function VendorsTable({
@@ -146,10 +148,8 @@ export function VendorsTable({
   onUnapprove,
   onView,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: VendorsTableProps) {
+  useMigrateLegacyVendorFilterParams();
   const deleteAction = useConfirmAction<string>({
     onConfirm: async (id) => {
       const res = await onDelete(id);
@@ -428,10 +428,12 @@ export function VendorsTable({
           rejectedCount: false,
         }}
         emptyMessage="No vendors found."
+        filter={{
+          fields: createVendorFilterFields(),
+          getValue: getVendorFilterValue,
+        }}
         getRowId={stableGetRowId1}
-        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
-        onClearFilters={onClearFilters}
         onRowClick={onView}
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
@@ -443,7 +445,6 @@ export function VendorsTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
-        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete"

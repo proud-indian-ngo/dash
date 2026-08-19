@@ -12,12 +12,17 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import type { User } from "@pi-dash/zero/schema";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { BanUserForm } from "@/components/users/ban-user-form";
 import { PasswordForm } from "@/components/users/password-form";
+import {
+  createUserFilterFields,
+  getUserFilterValue,
+  useMigrateLegacyUserFilterParams,
+} from "@/components/users/user-filters";
 import {
   type EditUserFormValues,
   toEditUserFormValues,
@@ -35,14 +40,12 @@ type RowFormAction = {
 } | null;
 
 interface UsersTableProps {
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
   onBanUser: (
     userId: string,
     banReason: string,
     banExpires?: string
   ) => Promise<void>;
-  onClearFilters?: () => void;
   onDelete: (userId: string) => Promise<void>;
   onRowClick?: (user: User) => void;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
@@ -50,7 +53,6 @@ interface UsersTableProps {
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
   roleOptions?: { label: string; value: string }[];
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
   users: User[];
 }
 
@@ -412,11 +414,13 @@ export function UsersTable({
   onUpdateUser,
   roleOptions,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
   users,
 }: UsersTableProps) {
+  useMigrateLegacyUserFilterParams();
+  const filterFields = useMemo(
+    () => createUserFilterFields(roleOptions ?? []),
+    [roleOptions]
+  );
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
   const [banningUserId, setBanningUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -499,10 +503,12 @@ export function UsersTable({
         data={users}
         defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
         emptyMessage="No users found."
+        filter={{
+          fields: filterFields,
+          getValue: getUserFilterValue,
+        }}
         getRowId={stableGetRowId18}
-        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
-        onClearFilters={onClearFilters}
         onFilteredDataChange={handleFilteredDataChange}
         onRowClick={onRowClick}
         paginationSizes={[10, 20, 50]}
@@ -517,7 +523,6 @@ export function UsersTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
-        toolbarFilters={toolbarFilters}
       />
       {activeUser ? (
         <UserRowActionDialogs

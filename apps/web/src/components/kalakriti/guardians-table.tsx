@@ -15,6 +15,10 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createGuardianFilterFields,
+  getGuardianFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 
 export interface GuardianRosterItem {
   id: string;
@@ -203,6 +207,10 @@ export function GuardiansTable({
       columns={columns}
       data={data}
       emptyMessage="No Guardians found."
+      filter={{
+        fields: createGuardianFilterFields(),
+        getValue: getGuardianFilterValue,
+      }}
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={handleRowClick}

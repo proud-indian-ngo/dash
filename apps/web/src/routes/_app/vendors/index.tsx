@@ -8,9 +8,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
@@ -18,11 +16,6 @@ import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
-
-const VENDOR_STATUS_OPTIONS = [
-  { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
-];
 
 export const Route = createFileRoute("/_app/vendors/")({
   component: VendorsRouteComponent,
@@ -50,15 +43,6 @@ function VendorsRouteComponent() {
     vendorPayments ?? []
   );
   const stats = computeVendorPaymentStats(vendorPayments ?? []);
-
-  const [statusFilter, setStatusFilter] = useQueryState(
-    "status",
-    parseAsString.withDefault("")
-  );
-
-  const filteredVendorRows = statusFilter
-    ? vendorRows.filter((v) => v.status === statusFilter)
-    : vendorRows;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
@@ -110,7 +94,6 @@ function VendorsRouteComponent() {
   const handleView = useEventCallback((vendor: VendorRow) => {
     setViewingVendorId(vendor.id);
   });
-  const stableOnClearFilters0 = useEventCallback(() => setStatusFilter(""));
   const stableOnClick1 = useEventCallback(() => {
     setEditingVendor(null);
     setFormOpen(true);
@@ -136,11 +119,9 @@ function VendorsRouteComponent() {
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={stats} />
         <VendorsTable
-          data={filteredVendorRows}
-          hasActiveFilters={!!statusFilter}
+          data={vendorRows}
           isLoading={isLoading}
           onApprove={handleApprove}
-          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
           onEdit={handleEdit}
           onUnapprove={handleUnapprove}
@@ -154,14 +135,6 @@ function VendorsRouteComponent() {
               />
               Add vendor
             </Button>
-          }
-          toolbarFilters={
-            <TableFilterSelect
-              label="Status"
-              onChange={setStatusFilter}
-              options={VENDOR_STATUS_OPTIONS}
-              value={statusFilter}
-            />
           }
         />
       </div>

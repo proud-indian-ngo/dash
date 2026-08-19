@@ -5,17 +5,13 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
-import {
-  parseAsIndex,
-  parseAsInteger,
-  parseAsString,
-  useQueryState,
-  useQueryStates,
-} from "nuqs";
+import { parseAsIndex, parseAsInteger, useQueryStates } from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
+import { readSelectEquality } from "@/components/data-table/compile-filter-query";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { JobDetailSheet } from "@/components/jobs/job-detail-sheet";
+import { useMigrateLegacyJobFilterParams } from "@/components/jobs/job-filters";
 import {
   computeJobStats,
   type JobRow,
@@ -29,15 +25,6 @@ import { assertPermission } from "@/lib/route-guards";
 
 const POLL_INTERVAL_MS = 10_000;
 const DEFAULT_PAGE_SIZE = 10;
-
-const STATE_OPTIONS = [
-  { label: "Created", value: "created" },
-  { label: "Retry", value: "retry" },
-  { label: "Active", value: "active" },
-  { label: "Completed", value: "completed" },
-  { label: "Failed", value: "failed" },
-  { label: "Cancelled", value: "cancelled" },
-];
 
 export const Route = createFileRoute("/_app/jobs")({
   beforeLoad: ({ context }) => assertPermission(context, "jobs.manage"),
@@ -104,16 +91,12 @@ function JobsRouteComponent() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [stateFilter, setStateFilter] = useQueryState(
-    "state",
-    parseAsString.withDefault("")
-  );
-  const [queueFilter, setQueueFilter] = useQueryState(
-    "queue",
-    parseAsString.withDefault("")
-  );
+  useMigrateLegacyJobFilterParams();
+  const { query } = useDataTableFilters();
+  const stateFilter = readSelectEquality(query, "state") ?? "";
+  const queueFilter = readSelectEquality(query, "queue") ?? "";
   // Read pagination from URL — shared with DataTableWrapper via useTableState
-  const [{ pageIndex, pageSize }, setPagination] = useQueryStates(
+  const [{ pageIndex, pageSize }] = useQueryStates(
     {
       pageIndex: parseAsIndex.withDefault(0),
       pageSize: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
@@ -175,17 +158,6 @@ function JobsRouteComponent() {
     .map((q) => ({ label: q.queue, value: q.queue }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  // Reset page when filter changes
-  const handleFilterChange = useEventCallback((value: string) => {
-    setPagination({ pageIndex: 0 });
-    setStateFilter(value);
-  });
-
-  const handleQueueFilterChange = useEventCallback((value: string) => {
-    setPagination({ pageIndex: 0 });
-    setQueueFilter(value);
-  });
-
   const handleRefresh = useEventCallback(() => {
     setIsLoading(true);
     setRefreshKey((k) => k + 1);
@@ -198,10 +170,6 @@ function JobsRouteComponent() {
 
   const handleCancelRequest = useEventCallback((job: JobRow) => {
     setCancelTarget(job);
-  });
-  const stableOnClearFilters0 = useEventCallback(() => {
-    handleFilterChange("");
-    handleQueueFilterChange("");
   });
   const stableOnOpenChange1 = useEventCallback((open: boolean) => {
     if (!open) {
@@ -289,14 +257,13 @@ function JobsRouteComponent() {
           items={computeJobStats(queues, stateCounts)}
         />
         <JobsTable
-          hasActiveFilters={!!(stateFilter || queueFilter)}
           isLoading={isLoading}
           jobs={jobs}
           manualPagination
           onCancel={handleCancelRequest}
-          onClearFilters={stableOnClearFilters0}
           onRetry={handleRetryRequest}
           onView={handleView}
+          queueOptions={queueOptions}
           rowCount={total}
           toolbarActions={
             <Button onClick={handleRefresh} size="sm" variant="outline">
@@ -307,22 +274,6 @@ function JobsRouteComponent() {
               />
               Refresh
             </Button>
-          }
-          toolbarFilters={
-            <>
-              <TableFilterSelect
-                label="State"
-                onChange={handleFilterChange}
-                options={STATE_OPTIONS}
-                value={stateFilter}
-              />
-              <TableFilterSelect
-                label="Queue"
-                onChange={handleQueueFilterChange}
-                options={queueOptions}
-                value={queueFilter}
-              />
-            </>
           }
         />
       </div>

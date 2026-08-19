@@ -35,11 +35,9 @@ test.describe("Vendor Payments list (admin)", () => {
   });
 
   test("status filter dropdown is present", async ({ page }) => {
-    // TableFilterSelect renders a select for status
-    const statusFilter = page
-      .getByRole("combobox", { name: "Status" })
-      .or(page.getByRole("button", { name: /Status/ }));
-    await expect(statusFilter.first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add filter" })
+    ).toBeVisible();
   });
 });
 

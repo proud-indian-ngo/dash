@@ -1,6 +1,18 @@
+import type { Page } from "@playwright/test";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const TEAM_NAME = "E2E Updates Team";
+
+async function applySelectFilter(page: Page, field: string, value: string) {
+  await page.getByRole("button", { name: "Add filter" }).click();
+  await page.getByRole("option", { exact: true, name: field }).click();
+  await page.getByRole("option", { exact: true, name: "is" }).click();
+  await page.getByRole("option", { exact: true, name: value }).click();
+}
+
+async function clearFilters(page: Page) {
+  await page.getByRole("button", { name: "Clear" }).click();
+}
 
 test.describe("Team events list filters (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
@@ -44,10 +56,7 @@ test.describe("Team events list filters (admin)", () => {
   test("Upcoming status filter shows only future non-cancelled events", async ({
     page,
   }) => {
-    const statusCombobox = page.getByRole("combobox", { name: "Status" });
-    await statusCombobox.click();
-    await page.getByRole("option", { name: "Upcoming" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Status", "Upcoming");
 
     const table = page.getByRole("table");
     const upcomingBadges = table.getByText("Upcoming", { exact: true });
@@ -62,10 +71,7 @@ test.describe("Team events list filters (admin)", () => {
   test("Past status filter shows only past non-cancelled events", async ({
     page,
   }) => {
-    const statusCombobox = page.getByRole("combobox", { name: "Status" });
-    await statusCombobox.click();
-    await page.getByRole("option", { name: "Past" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Status", "Past");
 
     const table = page.getByRole("table");
     const pastBadges = table.getByText("Past", { exact: true });
@@ -78,10 +84,7 @@ test.describe("Team events list filters (admin)", () => {
   test("Cancelled status filter shows empty state", async ({ page }) => {
     // Note: the byTeam Zero query filters out cancelled events (cancelledAt IS NULL),
     // so the Cancelled filter should show "No events found" empty state.
-    const statusCombobox = page.getByRole("combobox", { name: "Status" });
-    await statusCombobox.click();
-    await page.getByRole("option", { name: "Cancelled" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Status", "Cancelled");
 
     await expect(page.getByText("No events found")).toBeVisible();
   });
@@ -89,10 +92,7 @@ test.describe("Team events list filters (admin)", () => {
   test("Public visibility filter shows only public events", async ({
     page,
   }) => {
-    const visCombobox = page.getByRole("combobox", { name: "Visibility" });
-    await visCombobox.click();
-    await page.getByRole("option", { name: "Public" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Visibility", "Public");
 
     const table = page.getByRole("table");
     const publicBadges = table
@@ -108,10 +108,7 @@ test.describe("Team events list filters (admin)", () => {
   test("Private visibility filter shows only private events", async ({
     page,
   }) => {
-    const visCombobox = page.getByRole("combobox", { name: "Visibility" });
-    await visCombobox.click();
-    await page.getByRole("option", { name: "Private" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Visibility", "Private");
 
     const table = page.getByRole("table");
     const privateBadges = table
@@ -137,10 +134,7 @@ test.describe("Team events list filters (admin)", () => {
       return;
     }
 
-    const recCombobox = page.getByRole("combobox", { name: "Recurrence" });
-    await recCombobox.click();
-    await page.getByRole("option", { name: "Recurring" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Recurrence", "Recurring");
 
     // Recurring event should still be visible after filter
     await expect(recurringText.first()).toBeVisible();
@@ -152,10 +146,7 @@ test.describe("Team events list filters (admin)", () => {
   });
 
   test("One-time filter hides recurring events", async ({ page }) => {
-    const recCombobox = page.getByRole("combobox", { name: "Recurrence" });
-    await recCombobox.click();
-    await page.getByRole("option", { name: "One-time" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Recurrence", "One-time");
 
     const table = page.getByRole("table");
     // Non-recurring events should be visible
@@ -172,17 +163,8 @@ test.describe("Team events list filters (admin)", () => {
   test("combined Status + Visibility filter intersection works", async ({
     page,
   }) => {
-    // Set Status = Upcoming
-    const statusCombobox = page.getByRole("combobox", { name: "Status" });
-    await statusCombobox.click();
-    await page.getByRole("option", { name: "Upcoming" }).click();
-    await page.waitForTimeout(300);
-
-    // Set Visibility = Public
-    const visCombobox = page.getByRole("combobox", { name: "Visibility" });
-    await visCombobox.click();
-    await page.getByRole("option", { name: "Public" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Status", "Upcoming");
+    await applySelectFilter(page, "Visibility", "Public");
 
     const table = page.getByRole("table");
     // Should have at least "E2E Upcoming Public Bangalore"
@@ -205,21 +187,14 @@ test.describe("Team events list filters (admin)", () => {
 
     const initialRows = await table.getByRole("row").count();
 
-    // Apply Status = Past (fewer rows than total)
-    const statusCombobox = page.getByRole("combobox", { name: "Status" });
-    await statusCombobox.click();
-    await page.getByRole("option", { name: "Past" }).click();
-    await page.waitForTimeout(500);
+    await applySelectFilter(page, "Status", "Past");
 
     // Upcoming event should be hidden
     await expect(
       table.getByText("E2E Upcoming Public Bangalore")
     ).not.toBeVisible();
 
-    // Clear by selecting "All" in status
-    await statusCombobox.click();
-    await page.getByRole("option", { name: "All" }).click();
-    await page.waitForTimeout(500);
+    await clearFilters(page);
 
     // Full list restored
     await expect(

@@ -4,19 +4,18 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
-import {
-  parseAsIndex,
-  parseAsInteger,
-  parseAsString,
-  useQueryState,
-  useQueryStates,
-} from "nuqs";
+import { parseAsIndex, parseAsInteger, useQueryStates } from "nuqs";
 import { useEffect, useRef, useState } from "react";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
+import {
+  readSelectEquality,
+  removeFilterPath,
+} from "@/components/data-table/compile-filter-query";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import {
   type KalakritiAuditRow,
   KalakritiAuditTable,
 } from "@/components/kalakriti/audit-table";
+import { useMigrateLegacyKalakritiAuditFilterParams } from "@/components/kalakriti/kalakriti-audit-filters";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import {
@@ -78,10 +77,9 @@ function KalakritiAuditPage({
   );
   const snapshotVersionRef = useRef<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [domain, setDomain] = useQueryState(
-    "auditDomain",
-    parseAsString.withDefault("")
-  );
+  useMigrateLegacyKalakritiAuditFilterParams();
+  const { query, setQuery } = useDataTableFilters();
+  const domain = readSelectEquality(query, "domain") ?? "";
   const [{ pageIndex, pageSize }, setPagination] = useQueryStates(
     {
       pageIndex: parseAsIndex.withDefault(0),
@@ -93,8 +91,21 @@ function KalakritiAuditPage({
   const requestedDomain = scope.domains.some((value) => value === domain)
     ? domain
     : "";
+  const domainOutOfScope = domain !== "" && requestedDomain === "";
   const requestKey = `${viewKey}:${requestedDomain}:${pageIndex}:${pageSize}:${refreshKey}`;
   const isLoading = resolvedRequestKey !== requestKey;
+  const dropOutOfScopeDomain = useEventCallback(() => {
+    snapshotVersionRef.current = null;
+    setPagination({ pageIndex: 0 });
+    setQuery(removeFilterPath(query, "domain"));
+  });
+
+  useEffect(() => {
+    if (!domainOutOfScope) {
+      return;
+    }
+    dropOutOfScopeDomain();
+  }, [domainOutOfScope, dropOutOfScopeDomain]);
 
   useEffect(() => {
     if (isViewReady) {
@@ -128,16 +139,13 @@ function KalakritiAuditPage({
     };
   }, [isViewReady, setPagination]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset snapshot when the domain chip changes
   useEffect(() => {
-    if (domain && !requestedDomain) {
-      snapshotVersionRef.current = null;
-      setPagination({ pageIndex: 0 });
-      setDomain("");
-    }
-  }, [domain, requestedDomain, setDomain, setPagination]);
+    snapshotVersionRef.current = null;
+  }, [requestedDomain]);
 
   useEffect(() => {
-    if (!isViewReady) {
+    if (!isViewReady || domainOutOfScope) {
       return;
     }
     let cancelled = false;
@@ -202,19 +210,14 @@ function KalakritiAuditPage({
     requestKey,
     requestedDomain,
     isViewReady,
+    domainOutOfScope,
   ]);
 
-  const handleDomainChange = useEventCallback((value: string) => {
-    snapshotVersionRef.current = null;
-    setPagination({ pageIndex: 0 });
-    setDomain(value);
-  });
   const handleRefresh = useEventCallback(() => {
     snapshotVersionRef.current = null;
     setPagination({ pageIndex: 0 });
     setRefreshKey((current) => current + 1);
   });
-  const handleClearFilters = useEventCallback(() => handleDomainChange(""));
 
   const domainOptions = scope.domains.map((value) => ({
     label: formatAuditLabel(value),
@@ -236,9 +239,8 @@ function KalakritiAuditPage({
         </div>
       ) : null}
       <KalakritiAuditTable
-        hasActiveFilters={Boolean(requestedDomain)}
+        domainOptions={domainOptions}
         isLoading={isLoading}
-        onClearFilters={handleClearFilters}
         rowCount={total}
         rows={rows}
         timeZone={access.edition.timezone}
@@ -251,14 +253,6 @@ function KalakritiAuditPage({
             />
             Refresh
           </Button>
-        }
-        toolbarFilters={
-          <TableFilterSelect
-            label="Domain"
-            onChange={handleDomainChange}
-            options={domainOptions}
-            value={requestedDomain}
-          />
         }
       />
     </div>

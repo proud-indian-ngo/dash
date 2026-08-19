@@ -17,6 +17,11 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createRoleFilterFields,
+  getRoleFilterValue,
+  useMigrateLegacyRoleFilterParams,
+} from "@/components/roles/role-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { RoleListItem } from "@/functions/role-admin";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -100,15 +105,12 @@ function searchRole(row: RoleListItem, query: string): boolean {
 
 interface RolesTableProps {
   data: RoleListItem[];
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
-  onClearFilters?: () => void;
   onDelete: (payload: {
     id: string;
     name: string;
   }) => Promise<{ type: "success" | "error"; error?: { message?: string } }>;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 export function RolesTable({
@@ -116,10 +118,8 @@ export function RolesTable({
   isLoading,
   onDelete,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: RolesTableProps) {
+  useMigrateLegacyRoleFilterParams();
   const navigate = useNavigate();
   const deleteAction = useConfirmAction<{ id: string; name: string }>({
     onConfirm: (payload) => onDelete(payload),
@@ -259,10 +259,12 @@ export function RolesTable({
         columns={columns}
         data={data}
         emptyMessage="No roles found."
+        filter={{
+          fields: createRoleFilterFields(),
+          getValue: getRoleFilterValue,
+        }}
         getRowId={stableGetRowId2}
-        hasActiveFilters={hasActiveFilters}
         isLoading={isLoading}
-        onClearFilters={onClearFilters}
         onRowClick={stableOnRowClick3}
         searchFn={searchRole}
         searchPlaceholder="Search roles..."
@@ -275,7 +277,6 @@ export function RolesTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
-        toolbarFilters={toolbarFilters}
       />
       <ConfirmDialog
         confirmLabel="Delete role"

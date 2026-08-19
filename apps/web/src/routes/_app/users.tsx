@@ -9,10 +9,8 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormModal } from "@/components/form/form-modal";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { UserDetailSheet } from "@/components/users/user-detail-sheet";
@@ -45,19 +43,6 @@ export const Route = createFileRoute("/_app/users")({
     context.zero?.preload(queries.user.all());
   },
 });
-
-const ACTIVE_OPTIONS = [
-  { label: "Active", value: "yes" },
-  { label: "Inactive", value: "no" },
-];
-const GENDER_OPTIONS = [
-  { label: "Male", value: "male" },
-  { label: "Female", value: "female" },
-];
-const BANNED_OPTIONS = [
-  { label: "Banned", value: "yes" },
-  { label: "Not Banned", value: "no" },
-];
 
 function UsersRouteComponent() {
   const createUser = useServerFn(createUserAdmin);
@@ -96,58 +81,6 @@ function UsersRouteComponent() {
         });
       });
   }, []);
-
-  const [roleFilter, setRoleFilter] = useQueryState(
-    "role",
-    parseAsString.withDefault("")
-  );
-  const [activeFilter, setActiveFilter] = useQueryState(
-    "active",
-    parseAsString.withDefault("")
-  );
-  const [genderFilter, setGenderFilter] = useQueryState(
-    "gender",
-    parseAsString.withDefault("")
-  );
-  const [bannedFilter, setBannedFilter] = useQueryState(
-    "banned",
-    parseAsString.withDefault("")
-  );
-
-  const users = (() => {
-    let filtered = allUsers;
-    if (roleFilter) {
-      filtered = filtered.filter((u) => u.role === roleFilter);
-    }
-    if (activeFilter) {
-      filtered = filtered.filter((u) =>
-        activeFilter === "yes" ? u.isActive : !u.isActive
-      );
-    }
-    if (genderFilter) {
-      filtered = filtered.filter((u) => u.gender === genderFilter);
-    }
-    if (bannedFilter) {
-      filtered = filtered.filter((u) =>
-        bannedFilter === "yes" ? u.banned : !u.banned
-      );
-    }
-    return filtered;
-  })();
-
-  const hasActiveFilters = !!(
-    roleFilter ||
-    activeFilter ||
-    genderFilter ||
-    bannedFilter
-  );
-
-  const clearFilters = useEventCallback(() => {
-    setRoleFilter("");
-    setActiveFilter("");
-    setGenderFilter("");
-    setBannedFilter("");
-  });
 
   const handleCreateUser = useEventCallback(
     async (value: CreateUserFormValues) => {
@@ -295,10 +228,8 @@ function UsersRouteComponent() {
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
         <UsersTable
-          hasActiveFilters={hasActiveFilters}
           isLoading={isLoading}
           onBanUser={handleBanUser}
-          onClearFilters={clearFilters}
           onDelete={handleDeleteUser}
           onRowClick={stableOnRowClick0}
           onSetPassword={handleResetPassword}
@@ -315,35 +246,7 @@ function UsersRouteComponent() {
               Add user
             </Button>
           }
-          toolbarFilters={
-            <>
-              <TableFilterSelect
-                label="Role"
-                onChange={setRoleFilter}
-                options={roleSelectOptions}
-                value={roleFilter}
-              />
-              <TableFilterSelect
-                label="Active"
-                onChange={setActiveFilter}
-                options={ACTIVE_OPTIONS}
-                value={activeFilter}
-              />
-              <TableFilterSelect
-                label="Gender"
-                onChange={setGenderFilter}
-                options={GENDER_OPTIONS}
-                value={genderFilter}
-              />
-              <TableFilterSelect
-                label="Banned"
-                onChange={setBannedFilter}
-                options={BANNED_OPTIONS}
-                value={bannedFilter}
-              />
-            </>
-          }
-          users={users}
+          users={allUsers}
         />
         <UserDetailSheet
           onOpenChange={stableOnOpenChange2}

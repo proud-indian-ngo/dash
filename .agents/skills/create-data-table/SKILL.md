@@ -14,7 +14,7 @@ description: Use when creating, modifying, refactoring, or fixing data tables â€
 - [ ] Row actions use `DropdownMenu` with standard props
 - [ ] Delete confirmations use `useConfirmAction` hook
 - [ ] Currency formatted with `formatINR` from `@/lib/form-schemas`
-- [ ] New tables use ReUI Filters via `filter={{ fields, getValue }}` instead of `TableFilterSelect`
+- [ ] New tables use ReUI Filters via `filter={{ fields, getValue }}`; server-paginated tables set `applyLocally: false`
 
 ## Column Definition Pattern
 
@@ -132,12 +132,23 @@ function searchFn(row: MyEntity, query: string): boolean {
 
 ## ReUI Filters
 
-Pass unfiltered `data`. Define a module-level `getValue(row, path)` and a `FilterField[]` schema. Date fields use `editor: "date"` with `DATE_FILTER_OPERATORS` from `@/components/data-table/filter-date-editor`. Do not pre-filter in the route. Do not add `TableFilterSelect` to new tables.
+Pass unfiltered `data`. Define a module-level `getValue(row, path)` and a `FilterField[]` schema next to the table. Date fields use `dateField()` from `@/components/data-table/filter-fields`. Do not pre-filter in the route. ReUI is the only table filter; do not add combobox filters.
+
+Client-paginated:
 
 ```tsx
 filter={{
   fields: createEntityFilterFields(data),
   getValue: getEntityFilterValue,
+}}
+```
+
+Server-paginated (jobs, audit log): persist chips but do not slice the current page. Map `is` rules with `readSelectEquality`. `applyLocally: false` hides Convert to advanced â€” those APIs only honor the first complete `is` equality:
+
+```tsx
+filter={{
+  applyLocally: false,
+  fields: createEntityFilterFields(options),
 }}
 ```
 
