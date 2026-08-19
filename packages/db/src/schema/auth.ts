@@ -8,11 +8,15 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { notification } from "./notification";
 import { role } from "./permission";
 
 export type UserRole = string;
+
+/** Better Auth 1.7 credential issuer (`createLocalAccountIssuer("credential")`). */
+export const CREDENTIAL_ACCOUNT_ISSUER = "local:credential";
 
 const userGenderEnumValues = ["male", "female"] as const;
 export type UserGender = (typeof userGenderEnumValues)[number];
@@ -72,6 +76,7 @@ export const account = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),
     idToken: text("id_token"),
+    issuer: text("issuer").notNull(),
     password: text("password"),
     providerId: text("provider_id").notNull(),
     refreshToken: text("refresh_token"),
@@ -84,7 +89,13 @@ export const account = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [index("account_userId_idx").on(table.userId)]
+  (table) => [
+    uniqueIndex("account_issuer_accountId_uidx").on(
+      table.issuer,
+      table.accountId
+    ),
+    index("account_userId_idx").on(table.userId),
+  ]
 );
 
 export const verification = pgTable(
