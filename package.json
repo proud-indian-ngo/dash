@@ -33,7 +33,7 @@
       "@vitejs/plugin-react": "^6.0.5",
       "babel-plugin-react-compiler": "^1.0.0",
       "sonner": "^2.0.8",
-      "better-auth": "^1.6.29",
+      "better-auth": "^1.7.1",
       "uuidv7": "^1.2.1",
       "tailwindcss": "^4.3.3",
       "@tailwindcss/vite": "^4.3.3",
@@ -110,12 +110,12 @@
     "@types/node": "^26.2.0",
     "knip": "^6.32.2",
     "lefthook": "2.1.10",
-    "turbo": "^2.10.10",
+    "turbo": "^2.10.11",
     "typescript": "^7.0.2",
     "ultracite": "7.9.4",
     "uuidv7": "^1.2.1",
     "vite-bundle-analyzer": "^1.3.9",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "packageManager": "bun@1.3.14",
   "trustedDependencies": [
