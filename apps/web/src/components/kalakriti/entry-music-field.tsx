@@ -138,7 +138,7 @@ function MusicFileInput({
     <>
       <input
         accept={MUSIC_ACCEPT}
-        className="sr-only"
+        className="hidden"
         data-testid="entry-music-upload"
         disabled={isUploading}
         onChange={handleChange}

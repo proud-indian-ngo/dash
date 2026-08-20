@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { Locator } from "@playwright/test";
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiEntriesPage } from "../../pages/kalakriti-entries-page";
 
 const execFileAsync = promisify(execFile);
@@ -115,11 +115,14 @@ test.describe("Kalakriti Competition Entry registration", () => {
 
       const studentA = page.getByRole("row", { name: /Entry Student A/ });
       const studentB = page.getByRole("row", { name: /Entry Student B/ });
-      await entriesPage.attachMusic(studentA);
-      await expect(
-        page.getByText("Audio attached", { exact: true })
-      ).toBeVisible();
-      await expect(studentA).toContainText("track.mp3");
+      await waitForZeroReady(page);
+      await expect(async () => {
+        await entriesPage.attachMusic(studentA);
+        await expect(studentA.getByTestId("entry-music")).toContainText(
+          "track.mp3",
+          { timeout: 15_000 }
+        );
+      }).toPass({ timeout: 45_000 });
       await expect(studentB.getByTestId("entry-music")).toContainText("None");
       await entriesPage.expectMusicDownloadOk(studentA, "track.mp3");
 

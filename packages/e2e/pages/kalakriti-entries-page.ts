@@ -89,7 +89,12 @@ export class KalakritiEntriesPage {
   }
 
   async attachMusic(locator: Locator, fileName = "track.mp3"): Promise<void> {
-    await locator.getByTestId("entry-music-upload").setInputFiles({
+    const input = locator.getByTestId("entry-music-upload");
+    await locator
+      .getByRole("button", { name: "Upload audio" })
+      .scrollIntoViewIfNeeded();
+    await expect(input).toBeEnabled();
+    await input.setInputFiles({
       buffer: TINY_MP3,
       mimeType: "audio/mpeg",
       name: fileName,
