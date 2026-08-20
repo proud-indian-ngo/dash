@@ -1,5 +1,6 @@
 import {
   canManageKalakritiResponsibility,
+  isKalakritiAssignableUserRole,
   KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
   KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
@@ -50,9 +51,6 @@ async function assertCanManageResponsibility(
   if (can(ctx, "kalakriti.admin")) {
     return;
   }
-  if (!can(ctx, "kalakriti.view")) {
-    throw new Error("Unauthorized");
-  }
 
   const membership = (await tx.run(
     zql.kalakritiEditionMembership
@@ -75,28 +73,6 @@ async function assertCanManageResponsibility(
     )
   ) {
     throw new Error("Unauthorized");
-  }
-}
-
-async function assertVolunteerHasKalakritiAccess(
-  tx: AssignmentTx,
-  role: string | null
-): Promise<void> {
-  if (tx.location === "client") {
-    return;
-  }
-  if (!role) {
-    throw new Error("Volunteer does not have Kalakriti access");
-  }
-
-  const volunteerAccess = await tx.run(
-    zql.rolePermission
-      .where("roleId", role)
-      .where("permissionId", "kalakriti.view")
-      .one()
-  );
-  if (!volunteerAccess) {
-    throw new Error("Volunteer does not have Kalakriti access");
   }
 }
 
@@ -278,7 +254,9 @@ async function getAssignableVolunteer(
   if (volunteer.role === "external_user" || externalIdentity) {
     throw new Error("External identities cannot be volunteer assignments");
   }
-  await assertVolunteerHasKalakritiAccess(tx, volunteer.role);
+  if (!isKalakritiAssignableUserRole(volunteer.role)) {
+    throw new Error("Unoriented volunteers cannot receive assignments");
+  }
   return volunteer;
 }
 

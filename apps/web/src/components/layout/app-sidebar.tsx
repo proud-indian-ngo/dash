@@ -15,6 +15,7 @@ import { useApp } from "@/context/app-context";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
+  withKalakritiNavItem,
 } from "@/lib/nav-items";
 import { NavMainGrouped } from "./nav-main";
 
@@ -23,10 +24,7 @@ const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, navGroups, user } = useApp();
   const { pathname } = useLocation();
-  const canViewKalakriti = hasPermission("kalakriti.view");
-  const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
-    enabled: canViewKalakriti,
-  });
+  const [editions] = useQuery(queries.kalakritiEdition.accessible());
   const showKalakriti = hasPermission("kalakriti.admin") || editions.length > 0;
   const routeYear = pathname.match(KALAKRITI_YEAR_PATH)?.[1];
   const activeEdition =
@@ -36,7 +34,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     queries.kalakritiAssignment.myAccess({
       editionId: activeEdition?.id ?? "",
     }),
-    { enabled: canViewKalakriti && Boolean(activeEdition) }
+    { enabled: Boolean(activeEdition) }
   );
   const canManageEdition =
     hasPermission("kalakriti.admin") ||
@@ -68,6 +66,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         "competition_coordinator",
       ].includes(assignment.responsibility)
     ) === true;
+  const canManageVolunteers =
+    hasPermission("kalakriti.admin") ||
+    membership?.assignments.some((assignment) =>
+      ["edition_admin", "volunteer_coordinator"].includes(
+        assignment.responsibility
+      )
+    ) === true;
   const canViewAudit =
     hasPermission("kalakriti.admin") ||
     (activeEdition?.lifecycle !== "archived" &&
@@ -82,6 +87,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
+    canManageVolunteers,
     canViewAudit,
     canViewCompetitions,
     canViewEntries,
@@ -90,14 +96,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   });
 
   if (!shouldUseKalakritiNav(pathname, user.role)) {
-    visibleNavGroups = navGroups;
-
-    if (!showKalakriti) {
-      visibleNavGroups = navGroups.flatMap((group) => {
-        const items = group.items.filter((item) => item.title !== "Kalakriti");
-        return items.length > 0 ? [{ ...group, items }] : [];
-      });
-    }
+    visibleNavGroups = showKalakriti
+      ? withKalakritiNavItem(navGroups)
+      : navGroups.flatMap((group) => {
+          const items = group.items.filter(
+            (item) => item.title !== "Kalakriti"
+          );
+          return items.length > 0 ? [{ ...group, items }] : [];
+        });
   }
 
   return (

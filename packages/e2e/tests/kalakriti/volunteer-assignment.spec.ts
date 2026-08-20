@@ -37,7 +37,7 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
   const editionPage = new KalakritiEditionPage(page);
 
   try {
-    await editionPage.goto(year);
+    await editionPage.gotoVolunteers(year);
     await waitForZeroReady(page);
     await editionPage.assignVolunteer(VOLUNTEER_NAME, RESPONSIBILITY);
     expect(await fixture("state")).toEqual({

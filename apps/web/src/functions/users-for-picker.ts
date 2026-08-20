@@ -6,10 +6,9 @@ import {
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
 } from "@pi-dash/db/schema/kalakriti";
-import { rolePermission } from "@pi-dash/db/schema/permission";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, notInArray } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 import { canAccessKalakritiVolunteerPicker } from "@/lib/kalakriti-volunteer-picker-policy";
@@ -131,13 +130,6 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
         role: user.role,
       })
       .from(user)
-      .innerJoin(
-        rolePermission,
-        and(
-          eq(rolePermission.roleId, user.role),
-          eq(rolePermission.permissionId, "kalakriti.view")
-        )
-      )
       .leftJoin(
         kalakritiExternalIdentity,
         eq(kalakritiExternalIdentity.userId, user.id)
@@ -145,7 +137,7 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
       .where(
         and(
           eq(user.isActive, true),
-          ne(user.role, "external_user"),
+          notInArray(user.role, ["external_user", "unoriented_volunteer"]),
           isNull(kalakritiExternalIdentity.userId)
         )
       )

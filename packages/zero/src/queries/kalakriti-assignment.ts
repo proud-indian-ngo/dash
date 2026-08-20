@@ -20,7 +20,7 @@ function restrictToVolunteerManagers(
   if (ctx !== null && can(ctx, "kalakriti.admin")) {
     return query;
   }
-  if (!(ctx && can(ctx, "kalakriti.view"))) {
+  if (!ctx?.userId) {
     return query.where("id", "00000000-0000-0000-0000-000000000000");
   }
 
@@ -50,7 +50,7 @@ export const kalakritiAssignmentQueries = {
       .related("assignments", (assignment) =>
         assignment.orderBy("createdAt", "asc")
       );
-    return ctx && can(ctx, "kalakriti.view")
+    return ctx?.userId
       ? query.one()
       : query.where("id", "00000000-0000-0000-0000-000000000000").one();
   }),

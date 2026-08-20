@@ -7,16 +7,12 @@ function withEditionDetails(q: typeof zql.kalakritiEdition) {
   return q;
 }
 
-function accessibleEditions(
-  userId: string | undefined,
-  isAdmin: boolean,
-  canView: boolean
-) {
+function accessibleEditions(userId: string | undefined, isAdmin: boolean) {
   const query = withEditionDetails(zql.kalakritiEdition);
   if (isAdmin) {
     return query;
   }
-  if (!canView) {
+  if (!userId) {
     return query.where("year", -1);
   }
   return query.whereExists("memberships", (membership) =>
@@ -86,8 +82,7 @@ export const kalakritiEditionQueries = {
   accessible: defineQuery(({ ctx }) =>
     accessibleEditions(
       ctx?.userId,
-      ctx !== null && can(ctx, "kalakriti.admin"),
-      ctx !== null && can(ctx, "kalakriti.view")
+      ctx !== null && can(ctx, "kalakriti.admin")
     ).orderBy("year", "desc")
   ),
   byTeamEventId: defineQuery(
@@ -95,18 +90,13 @@ export const kalakritiEditionQueries = {
     ({ args, ctx }) =>
       accessibleEditions(
         ctx?.userId,
-        ctx !== null && can(ctx, "kalakriti.admin"),
-        ctx !== null && can(ctx, "kalakriti.view")
+        ctx !== null && can(ctx, "kalakriti.admin")
       )
         .where("teamEventId", args.teamEventId)
         .one()
   ),
   byYear: defineQuery(z.object({ year: z.number().int() }), ({ args, ctx }) =>
-    accessibleEditions(
-      ctx?.userId,
-      ctx !== null && can(ctx, "kalakriti.admin"),
-      ctx !== null && can(ctx, "kalakriti.view")
-    )
+    accessibleEditions(ctx?.userId, ctx !== null && can(ctx, "kalakriti.admin"))
       .where("year", args.year)
       .one()
   ),

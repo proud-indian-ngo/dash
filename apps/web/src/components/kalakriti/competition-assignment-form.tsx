@@ -84,11 +84,15 @@ export function CompetitionAssignmentForm({
   categories,
   competitions,
   editionId,
+  onAssigned,
+  onCancel,
   users,
 }: {
   categories: readonly ScopeOption[];
   competitions: readonly ScopeOption[];
   editionId: string;
+  onAssigned?: () => void;
+  onCancel?: () => void;
   users: readonly PickerUser[];
 }) {
   const zero = useZero();
@@ -144,6 +148,7 @@ export function CompetitionAssignmentForm({
         successMsg: "Competition responsibility assigned",
       });
       if (result.type !== "error") {
+        onAssigned?.();
         form.reset();
       }
     },
@@ -197,6 +202,7 @@ export function CompetitionAssignmentForm({
       />
       <FormActions
         className="md:col-span-2"
+        onCancel={onCancel}
         submitLabel="Assign Competition responsibility"
         submittingLabel="Assigning..."
       />

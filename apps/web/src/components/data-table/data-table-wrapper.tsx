@@ -63,7 +63,11 @@ import {
 import { DATA_TABLE_FILTER_EDITORS } from "@/components/data-table/filter-date-editor";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useTableState } from "@/hooks/use-table-state";
-import { resolveUpdater } from "@/lib/table-utils";
+import {
+  mergeColumnOrder,
+  resolveColumnDefId,
+  resolveUpdater,
+} from "@/lib/table-utils";
 
 export interface DataTableFilterConfig<TData extends object> {
   /** When false, persist and render the query but do not filter `data` locally. */
@@ -229,7 +233,7 @@ function DataTableWrapperBase<TData extends object>({
   toolbarFilters,
 }: DataTableWrapperProps<TData> & { pageResetKey?: string }) {
   const initialColumnOrder = columns
-    .map((column) => column.id)
+    .map(resolveColumnDefId)
     .filter((id): id is string => typeof id === "string");
 
   const {
@@ -388,14 +392,18 @@ function DataTableWrapperBase<TData extends object>({
       return;
     }
 
-    const oldIndex = columnOrder.indexOf(activeColumnId);
-    const newIndex = columnOrder.indexOf(overColumnId);
+    const visibleColumnIds = table
+      .getVisibleLeafColumns()
+      .map((column) => column.id);
+    const orderedColumnIds = mergeColumnOrder(columnOrder, visibleColumnIds);
+    const oldIndex = orderedColumnIds.indexOf(activeColumnId);
+    const newIndex = orderedColumnIds.indexOf(overColumnId);
 
     if (oldIndex < 0 || newIndex < 0) {
       return;
     }
 
-    setColumnOrder(arrayMove(columnOrder, oldIndex, newIndex));
+    setColumnOrder(arrayMove(orderedColumnIds, oldIndex, newIndex));
   });
 
   const filteredRows = table.getFilteredRowModel().rows;

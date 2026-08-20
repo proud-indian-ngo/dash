@@ -137,6 +137,7 @@ const kalakritiNavItem: NavItem = {
 export function buildKalakritiNavGroups({
   canManageEligibility = false,
   canManageGuardians = false,
+  canManageVolunteers = false,
   canViewAudit = false,
   canViewCompetitions = false,
   canViewEntries = false,
@@ -145,6 +146,7 @@ export function buildKalakritiNavGroups({
 }: {
   canManageEligibility?: boolean;
   canManageGuardians?: boolean;
+  canManageVolunteers?: boolean;
   canViewAudit?: boolean;
   canViewCompetitions?: boolean;
   canViewEntries?: boolean;
@@ -164,6 +166,14 @@ export function buildKalakritiNavGroups({
       icon: UserGroupIcon,
       title: "Centers",
       url: `/kalakriti/${year}/centers`,
+    });
+  }
+
+  if (year && canManageVolunteers) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      title: "Volunteers",
+      url: `/kalakriti/${year}/volunteers`,
     });
   }
 
@@ -219,6 +229,27 @@ export function buildKalakritiNavGroups({
     { items: [homeNavItem] },
     { items: editionItems, label: "Kalakriti" },
   ];
+}
+
+export function withKalakritiNavItem(groups: NavGroup[]): NavGroup[] {
+  if (
+    groups.some((group) =>
+      group.items.some((item) => item.title === "Kalakriti")
+    )
+  ) {
+    return groups;
+  }
+  const organizationIndex = groups.findIndex(
+    (group) => group.label === "Organization"
+  );
+  if (organizationIndex === -1) {
+    return [...groups, { items: [kalakritiNavItem], label: "Organization" }];
+  }
+  return groups.map((group, index) =>
+    index === organizationIndex
+      ? { ...group, items: [...group.items, kalakritiNavItem] }
+      : group
+  );
 }
 
 export function isKalakritiPath(pathname: string): boolean {

@@ -135,6 +135,22 @@ export function canManageKalakritiResponsibility(
   );
 }
 
+const KALAKRITI_UNASSIGNABLE_USER_ROLES = new Set([
+  "external_user",
+  "unoriented_volunteer",
+]);
+
+export function isKalakritiAssignableUserRole(
+  role: string | null | undefined
+): boolean {
+  return (
+    role !== null &&
+    role !== undefined &&
+    role !== "" &&
+    !KALAKRITI_UNASSIGNABLE_USER_ROLES.has(role)
+  );
+}
+
 function normalizeKalakritiName(name: string): {
   name: string;
   normalizedName: string;

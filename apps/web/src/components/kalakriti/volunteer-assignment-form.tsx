@@ -26,6 +26,8 @@ const assignmentFormSchema = z.object({
 
 interface VolunteerAssignmentFormProps {
   editionId: string;
+  onAssigned?: () => void;
+  onCancel?: () => void;
   responsibilities: readonly KalakritiEditionScopedResponsibility[];
   users: readonly PickerUser[];
 }
@@ -63,6 +65,8 @@ function SingleVolunteerPicker({
 
 export function VolunteerAssignmentForm({
   editionId,
+  onAssigned,
+  onCancel,
   responsibilities,
   users,
 }: VolunteerAssignmentFormProps) {
@@ -99,6 +103,7 @@ export function VolunteerAssignmentForm({
         successMsg: "Volunteer assigned",
       });
       if (res.type !== "error") {
+        onAssigned?.();
         form.reset();
       }
     },
@@ -136,6 +141,7 @@ export function VolunteerAssignmentForm({
       />
       <FormActions
         className="md:col-span-2"
+        onCancel={onCancel}
         submitLabel="Assign volunteer"
         submittingLabel="Assigning..."
       />

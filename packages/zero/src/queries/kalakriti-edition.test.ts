@@ -64,15 +64,27 @@ describe("Kalakriti Edition query privacy", () => {
     expect(ast).not.toContain('"table":"kalakritiEditionMembership"');
   });
 
-  it("denies active memberships without coarse Kalakriti access", () => {
+  it("denies anonymous callers", () => {
     const query = kalakritiEditionQueries.byYear.fn({
       args: { year: 2028 },
-      ctx: { permissions: [], role: "custom", userId: "member-1" },
+      ctx: { permissions: [], role: "volunteer", userId: "" },
     });
 
     expect(
       JSON.stringify((query as unknown as { ast: unknown }).ast)
     ).toContain('"value":-1');
+  });
+
+  it("lets an assigned member without coarse Kalakriti access sync their Editions", () => {
+    const query = kalakritiEditionQueries.byYear.fn({
+      args: { year: 2028 },
+      ctx: { permissions: [], role: "custom", userId: "member-1" },
+    });
+    const ast = JSON.stringify((query as unknown as { ast: unknown }).ast);
+
+    expect(ast).toContain('"value":"member-1"');
+    expect(ast).toContain('"table":"kalakritiEditionMembership"');
+    expect(ast).not.toContain('"value":-1');
   });
 
   it("limits configuration sources to active Edition Administrators", () => {

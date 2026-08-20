@@ -5,6 +5,7 @@ import {
   findKalakritiAgeCategoryOverlap,
   formatKalakritiStudentHumanId,
   hasValidKalakritiGroupRules,
+  isKalakritiAssignableUserRole,
   KALAKRITI_ASSIGNMENT_SCOPES,
   KALAKRITI_EDITION_LIFECYCLES,
   KALAKRITI_MEMBERSHIP_KINDS,
@@ -85,6 +86,23 @@ describe("canManageKalakritiResponsibility", () => {
         "overall_events_lead"
       )
     ).toBe(true);
+  });
+});
+
+describe("isKalakritiAssignableUserRole", () => {
+  it("accepts oriented volunteer, admin-tier, and custom roles", () => {
+    expect(isKalakritiAssignableUserRole("volunteer")).toBe(true);
+    expect(isKalakritiAssignableUserRole("admin")).toBe(true);
+    expect(isKalakritiAssignableUserRole("finance_admin")).toBe(true);
+    expect(isKalakritiAssignableUserRole("team_lead")).toBe(true);
+  });
+
+  it("rejects unoriented, external, and missing roles", () => {
+    expect(isKalakritiAssignableUserRole("unoriented_volunteer")).toBe(false);
+    expect(isKalakritiAssignableUserRole("external_user")).toBe(false);
+    expect(isKalakritiAssignableUserRole(null)).toBe(false);
+    expect(isKalakritiAssignableUserRole(undefined)).toBe(false);
+    expect(isKalakritiAssignableUserRole("")).toBe(false);
   });
 });
 
