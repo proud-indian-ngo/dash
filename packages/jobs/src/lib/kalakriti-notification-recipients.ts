@@ -6,6 +6,7 @@ import {
   kalakritiEditionMembership,
   kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
+import { KALAKRITI_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
 import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 
 export interface KalakritiNotificationEdition {
@@ -149,8 +150,7 @@ export async function resolveKalakritiScheduleRecipients({
       ? and(
           inArray(kalakritiAssignment.centerId, centerIds),
           inArray(kalakritiAssignment.responsibility, [
-            "liaison",
-            "transport_coordinator",
+            ...KALAKRITI_LIAISON_RESPONSIBILITIES,
           ])
         )
       : undefined;

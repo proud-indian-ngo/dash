@@ -18,9 +18,6 @@ export async function resolveKalakritiEditionAccess({
   year: number;
 }): Promise<KalakritiEditionAccess | null> {
   const permissions = await resolvePermissions(role);
-  if (!permissions.includes("kalakriti.view")) {
-    return null;
-  }
 
   const editionRow = await db
     .select({
@@ -104,9 +101,6 @@ export async function resolveCurrentKalakritiEditionAccess({
   userId: string;
 }) {
   const permissions = await resolvePermissions(role);
-  if (!permissions.includes("kalakriti.view")) {
-    return null;
-  }
   const isGlobalAdmin = permissions.includes("kalakriti.admin");
   const years = isGlobalAdmin
     ? await db

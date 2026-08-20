@@ -29,15 +29,15 @@ test.describe("Kalakriti Registration Release authorization", () => {
     const cases = [
       {
         actor: kalakritiActors.editionAdmin,
-        expectedHeading: `Kalakriti ${YEAR}`,
-        expectedText: "Volunteer assignments",
-        path: `/kalakriti/${YEAR}`,
+        expectedHeading: "Volunteers",
+        expectedText: "Assign role",
+        path: `/kalakriti/${YEAR}/volunteers`,
       },
       {
         actor: kalakritiActors.volunteerCoordinator,
-        expectedHeading: `Kalakriti ${YEAR}`,
-        expectedText: "Volunteer assignments",
-        path: `/kalakriti/${YEAR}`,
+        expectedHeading: "Volunteers",
+        expectedText: "Assign role",
+        path: `/kalakriti/${YEAR}/volunteers`,
       },
       {
         actor: kalakritiActors.overallEventsLead,
@@ -94,6 +94,20 @@ test.describe("Kalakriti Registration Release authorization", () => {
       } finally {
         await context.close();
       }
+    }
+
+    const deniedVolunteerPageContext = await browser.newContext({
+      baseURL,
+      storageState: kalakritiActors.overallEventsLead.storageState,
+    });
+    const deniedVolunteerPage = await deniedVolunteerPageContext.newPage();
+    try {
+      await deniedVolunteerPage.goto(`/kalakriti/${YEAR}/volunteers`);
+      await expect(
+        deniedVolunteerPage.getByRole("heading", { name: "Page not found" })
+      ).toBeVisible();
+    } finally {
+      await deniedVolunteerPageContext.close();
     }
 
     const categoryLeadCenterContext = await browser.newContext({

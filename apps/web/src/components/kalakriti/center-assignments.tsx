@@ -1,5 +1,9 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import {
+  KALAKRITI_RESPONSIBILITY_LABELS,
+  type KalakritiResponsibility,
+} from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { type ReactNode, useCallback } from "react";
@@ -17,6 +21,7 @@ export interface CenterPersonAssignment {
   id: string;
   membershipId: string;
   name: string;
+  responsibility?: KalakritiResponsibility;
 }
 
 function AssignmentList({
@@ -58,12 +63,20 @@ function AssignmentRow({
   label: string;
   onRemove: (assignment: CenterPersonAssignment) => void;
 }) {
+  const roleLabel = assignment.responsibility
+    ? KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]
+    : label;
   const handleRemove = useEventCallback(() => onRemove(assignment));
   return (
     <li className="flex items-center justify-between gap-3 py-2">
-      <span className="min-w-0 truncate text-sm">{assignment.name}</span>
+      <div className="min-w-0">
+        <p className="truncate text-sm">{assignment.name}</p>
+        {assignment.responsibility ? (
+          <p className="text-muted-foreground text-xs">{roleLabel}</p>
+        ) : null}
+      </div>
       <Button
-        aria-label={`Remove ${assignment.name} as ${label}`}
+        aria-label={`Remove ${assignment.name} as ${roleLabel}`}
         onClick={handleRemove}
         size="sm"
         type="button"

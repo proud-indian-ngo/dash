@@ -2,6 +2,7 @@ import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 import { can } from "../permissions";
 import { zql } from "../schema";
+import { buildKalakritiLiaisonResponsibilityOr } from "./kalakriti-liaison-scope";
 
 const centerInput = z.object({
   centerId: z.string(),
@@ -34,7 +35,9 @@ export const kalakritiStudentQueries = {
                 ),
                 exists("assignments", (assignment) =>
                   assignment
-                    .where("responsibility", "liaison")
+                    .where(({ or: liaisonOr, cmp }) =>
+                      buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
+                    )
                     .where("centerId", args.centerId)
                 )
               )
@@ -80,7 +83,9 @@ export const kalakritiStudentQueries = {
           exists("center", (center) =>
             center.whereExists("assignments", (assignment) =>
               assignment
-                .where("responsibility", "liaison")
+                .where(({ or: liaisonOr, cmp }) =>
+                  buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
+                )
                 .whereExists("membership", (membership) =>
                   membership
                     .where("userId", ctx.userId)

@@ -3,6 +3,7 @@ import {
   buildKalakritiNavGroups,
   isKalakritiPath,
   shouldUseKalakritiNav,
+  withKalakritiNavItem,
 } from "./nav-items";
 
 describe("Kalakriti navigation", () => {
@@ -32,6 +33,7 @@ describe("Kalakriti navigation", () => {
       buildKalakritiNavGroups({
         canManageEligibility: true,
         canManageGuardians: true,
+        canManageVolunteers: true,
         canViewAudit: true,
         canViewCompetitions: true,
         canViewEntries: true,
@@ -44,6 +46,7 @@ describe("Kalakriti navigation", () => {
       { title: "Dashboard", url: "/" },
       { title: "Overview", url: "/kalakriti/2026" },
       { title: "Centers", url: "/kalakriti/2026/centers" },
+      { title: "Volunteers", url: "/kalakriti/2026/volunteers" },
       { title: "Eligibility", url: "/kalakriti/2026/eligibility" },
       { title: "Students", url: "/kalakriti/2026/students" },
       { title: "Entries", url: "/kalakriti/2026/entries" },
@@ -113,6 +116,35 @@ describe("Kalakriti navigation", () => {
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
     ).toEqual(["Dashboard", "Overview", "Centers", "Audit"]);
+  });
+
+  it("shows Volunteers to volunteer managers", () => {
+    expect(
+      buildKalakritiNavGroups({
+        canManageVolunteers: true,
+        year: 2026,
+      }).flatMap((group) => group.items.map(({ title }) => title))
+    ).toEqual(["Dashboard", "Overview", "Centers", "Volunteers"]);
+  });
+
+  it("injects Kalakriti into organization navigation when Editions are visible", () => {
+    expect(
+      withKalakritiNavItem([
+        { items: [{ title: "Dashboard", url: "/" }] },
+      ]).flatMap((group) => group.items.map(({ title }) => title))
+    ).toEqual(["Dashboard", "Kalakriti"]);
+    expect(
+      withKalakritiNavItem([
+        { items: [{ title: "Dashboard", url: "/" }] },
+        {
+          items: [
+            { title: "Teams", url: "/teams" },
+            { title: "Kalakriti", url: "/kalakriti" },
+          ],
+          label: "Organization",
+        },
+      ]).flatMap((group) => group.items.map(({ title }) => title))
+    ).toEqual(["Dashboard", "Teams", "Kalakriti"]);
   });
 
   it("keeps external Guardians in Kalakriti navigation", () => {

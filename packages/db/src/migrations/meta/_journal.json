@@ -470,6 +470,20 @@
       "when": 1787204094239,
       "tag": "0066_acoustic_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1787232785202,
+      "tag": "0067_soft_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1787233232402,
+      "tag": "0068_chubby_bloodaxe",
+      "breakpoints": true
     }
   ]
 }

@@ -53,10 +53,11 @@ export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "competition_coordinator",
   "competition_volunteer",
   "liaison",
+  "liaison_lead",
+  "liaison_volunteer",
   "food_lead",
   "food_member",
   "transport_lead",
-  "transport_coordinator",
   "logistics_lead",
   "logistics_member",
   "awards_lead",
@@ -80,6 +81,43 @@ export const KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES = [
 
 export type KalakritiEditionScopedResponsibility =
   (typeof KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES)[number];
+
+export const KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES = [
+  "food_lead",
+  "transport_lead",
+  "logistics_lead",
+  "awards_lead",
+  "venue_lead",
+  "hospitality_lead",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiOperationalLeadResponsibility =
+  (typeof KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES)[number];
+
+export const KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES = [
+  ...KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
+  ...KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES,
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiVolunteerEditionAssignmentResponsibility =
+  (typeof KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES)[number];
+
+export const KALAKRITI_LIAISON_RESPONSIBILITIES = [
+  "liaison",
+  "liaison_lead",
+  "liaison_volunteer",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiLiaisonResponsibility =
+  (typeof KALAKRITI_LIAISON_RESPONSIBILITIES)[number];
+
+export const KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES = [
+  "liaison_lead",
+  "liaison_volunteer",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiCenterVolunteerResponsibility =
+  (typeof KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES)[number];
 
 export const KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES = [
   "competition_category_lead",
@@ -109,16 +147,31 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   hospitality_lead: "Hospitality Lead",
   hospitality_member: "Hospitality Member",
   liaison: "Liaison",
+  liaison_lead: "Liaison Lead",
+  liaison_volunteer: "Liaison Volunteer",
   logistics_lead: "Logistics Lead",
   logistics_member: "Logistics Member",
   media_member: "Media Member",
   overall_events_lead: "Overall Events Lead",
-  transport_coordinator: "Transport Coordinator",
   transport_lead: "Transport Lead",
   venue_lead: "Venue Lead",
   venue_member: "Venue Member",
   volunteer_coordinator: "Volunteer Coordinator",
 } satisfies Record<KalakritiResponsibility, string>;
+
+export function isKalakritiLiaisonResponsibility(
+  responsibility: string
+): responsibility is KalakritiLiaisonResponsibility {
+  return (KALAKRITI_LIAISON_RESPONSIBILITIES as readonly string[]).includes(
+    responsibility
+  );
+}
+
+export function membershipHasKalakritiLiaisonAccess(
+  responsibilities: readonly string[]
+): boolean {
+  return responsibilities.some(isKalakritiLiaisonResponsibility);
+}
 
 export function canManageKalakritiResponsibility(
   actorResponsibilities: readonly KalakritiResponsibility[],
@@ -132,6 +185,122 @@ export function canManageKalakritiResponsibility(
     actorResponsibilities.includes("volunteer_coordinator") &&
     targetResponsibility !== "edition_admin" &&
     targetResponsibility !== "volunteer_coordinator"
+  );
+}
+
+export type KalakritiAssignmentScopeKind =
+  | "center"
+  | "competition"
+  | "competition_category"
+  | "edition";
+
+export function getKalakritiResponsibilityScopeKind(
+  responsibility: KalakritiResponsibility
+): KalakritiAssignmentScopeKind {
+  if (
+    (KALAKRITI_LIAISON_RESPONSIBILITIES as readonly string[]).includes(
+      responsibility
+    )
+  ) {
+    return "center";
+  }
+  if (
+    (
+      KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES as readonly string[]
+    ).includes(responsibility)
+  ) {
+    return "competition_category";
+  }
+  if (
+    (
+      KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES as readonly string[]
+    ).includes(responsibility)
+  ) {
+    return "competition";
+  }
+  return "edition";
+}
+
+export interface KalakritiResponsibilityGroup {
+  label: string;
+  responsibilities: readonly KalakritiResponsibility[];
+}
+
+export function buildKalakritiAssignableResponsibilityGroups(options: {
+  actorResponsibilities: readonly KalakritiResponsibility[];
+  isGlobalAdmin: boolean;
+}): KalakritiResponsibilityGroup[] {
+  const { actorResponsibilities, isGlobalAdmin } = options;
+  const canAssign = (responsibility: KalakritiResponsibility) =>
+    isGlobalAdmin ||
+    canManageKalakritiResponsibility(actorResponsibilities, responsibility);
+  const groups: KalakritiResponsibilityGroup[] = [];
+
+  const editionLeadership = (
+    [
+      "edition_admin",
+      "volunteer_coordinator",
+      "overall_events_lead",
+    ] as const satisfies readonly KalakritiResponsibility[]
+  ).filter(canAssign);
+  if (editionLeadership.length > 0) {
+    groups.push({
+      label: "Edition leadership",
+      responsibilities: editionLeadership,
+    });
+  }
+
+  const operationalLeads =
+    KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES.filter(canAssign);
+  if (operationalLeads.length > 0) {
+    groups.push({
+      label: "Operational leads",
+      responsibilities: operationalLeads,
+    });
+  }
+
+  const competitionResponsibilities = [
+    ...KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
+    ...KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
+  ].filter(canAssign);
+  if (competitionResponsibilities.length > 0) {
+    groups.push({
+      label: "Competition",
+      responsibilities: competitionResponsibilities,
+    });
+  }
+
+  const centerResponsibilities =
+    KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES.filter(canAssign);
+  if (centerResponsibilities.length > 0) {
+    groups.push({
+      label: "Center",
+      responsibilities: centerResponsibilities,
+    });
+  }
+
+  return groups;
+}
+
+export function flattenKalakritiAssignableResponsibilities(
+  groups: readonly KalakritiResponsibilityGroup[]
+): KalakritiResponsibility[] {
+  return groups.flatMap((group) => [...group.responsibilities]);
+}
+
+const KALAKRITI_UNASSIGNABLE_USER_ROLES = new Set([
+  "external_user",
+  "unoriented_volunteer",
+]);
+
+export function isKalakritiAssignableUserRole(
+  role: string | null | undefined
+): boolean {
+  return (
+    role !== null &&
+    role !== undefined &&
+    role !== "" &&
+    !KALAKRITI_UNASSIGNABLE_USER_ROLES.has(role)
   );
 }
 

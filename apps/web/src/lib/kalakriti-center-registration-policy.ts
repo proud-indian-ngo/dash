@@ -1,3 +1,8 @@
+import {
+  isKalakritiLiaisonResponsibility,
+  membershipHasKalakritiLiaisonAccess,
+} from "@pi-dash/shared/kalakriti";
+
 export interface KalakritiCenterRegistrationAccess {
   isGlobalAdmin: boolean;
   membership: {
@@ -17,7 +22,9 @@ export function canAccessKalakritiCenterRegistration(
     access.isGlobalAdmin ||
     access.membership?.kind === "guardian" ||
     access.membership?.responsibilities.includes("edition_admin") === true ||
-    access.membership?.responsibilities.includes("liaison") === true
+    membershipHasKalakritiLiaisonAccess(
+      access.membership?.responsibilities ?? []
+    )
   );
 }
 
@@ -44,7 +51,7 @@ export function selectKalakritiCenterRegistrationCenters<
   const liaisonCenterIds = new Set<string>();
   for (const assignment of access.membership?.assignments ?? []) {
     if (
-      assignment.responsibility === "liaison" &&
+      isKalakritiLiaisonResponsibility(assignment.responsibility) &&
       assignment.centerId !== null
     ) {
       liaisonCenterIds.add(assignment.centerId);

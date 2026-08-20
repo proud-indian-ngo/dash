@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildKalakritiAssignableResponsibilityGroups,
   canManageKalakritiResponsibility,
   deriveKalakritiAgeCategory,
   findKalakritiAgeCategoryOverlap,
+  flattenKalakritiAssignableResponsibilities,
   formatKalakritiStudentHumanId,
+  getKalakritiResponsibilityScopeKind,
   hasValidKalakritiGroupRules,
+  isKalakritiAssignableUserRole,
   KALAKRITI_ASSIGNMENT_SCOPES,
   KALAKRITI_EDITION_LIFECYCLES,
   KALAKRITI_MEMBERSHIP_KINDS,
@@ -80,11 +84,80 @@ describe("canManageKalakritiResponsibility", () => {
 
   it("allows Volunteer Coordinators to assign operational roles", () => {
     expect(
-      canManageKalakritiResponsibility(
-        ["volunteer_coordinator"],
-        "overall_events_lead"
-      )
+      canManageKalakritiResponsibility(["volunteer_coordinator"], "food_lead")
     ).toBe(true);
+  });
+});
+
+describe("Kalakriti assignment helpers", () => {
+  it("maps responsibilities to scope kinds", () => {
+    expect(getKalakritiResponsibilityScopeKind("overall_events_lead")).toBe(
+      "edition"
+    );
+    expect(getKalakritiResponsibilityScopeKind("food_lead")).toBe("edition");
+    expect(getKalakritiResponsibilityScopeKind("liaison")).toBe("center");
+    expect(getKalakritiResponsibilityScopeKind("liaison_lead")).toBe("center");
+    expect(getKalakritiResponsibilityScopeKind("liaison_volunteer")).toBe(
+      "center"
+    );
+    expect(
+      getKalakritiResponsibilityScopeKind("competition_category_lead")
+    ).toBe("competition_category");
+    expect(getKalakritiResponsibilityScopeKind("competition_volunteer")).toBe(
+      "competition"
+    );
+  });
+
+  it("builds grouped assignable responsibilities for Volunteer Coordinators", () => {
+    const groups = buildKalakritiAssignableResponsibilityGroups({
+      actorResponsibilities: ["volunteer_coordinator"],
+      isGlobalAdmin: false,
+    });
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Edition leadership",
+      "Operational leads",
+      "Competition",
+      "Center",
+    ]);
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "overall_events_lead"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "food_lead"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
+      "edition_admin"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "transport_lead"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "liaison_lead"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "liaison_volunteer"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
+      "liaison"
+    );
+  });
+});
+
+describe("isKalakritiAssignableUserRole", () => {
+  it("accepts oriented volunteer, admin-tier, and custom roles", () => {
+    expect(isKalakritiAssignableUserRole("volunteer")).toBe(true);
+    expect(isKalakritiAssignableUserRole("admin")).toBe(true);
+    expect(isKalakritiAssignableUserRole("finance_admin")).toBe(true);
+    expect(isKalakritiAssignableUserRole("team_lead")).toBe(true);
+  });
+
+  it("rejects unoriented, external, and missing roles", () => {
+    expect(isKalakritiAssignableUserRole("unoriented_volunteer")).toBe(false);
+    expect(isKalakritiAssignableUserRole("external_user")).toBe(false);
+    expect(isKalakritiAssignableUserRole(null)).toBe(false);
+    expect(isKalakritiAssignableUserRole(undefined)).toBe(false);
+    expect(isKalakritiAssignableUserRole("")).toBe(false);
   });
 });
 

@@ -21,7 +21,6 @@ import { KalakritiLifecycleBadge } from "@/components/kalakriti/kalakriti-lifecy
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
 import { useRegistrationExport } from "@/components/kalakriti/registration-export-card";
-import { VolunteerAssignmentsCard } from "@/components/kalakriti/volunteer-assignments-card";
 import { useApp } from "@/context/app-context";
 import { getKalakritiRegistrationDashboard } from "@/functions/kalakriti-registration-dashboard";
 
@@ -209,7 +208,6 @@ function KalakritiEditionOverview() {
         editionId={edition.id}
       />
       <RegistrationDashboard projections={dashboard?.projections ?? []} />
-      <VolunteerAssignmentsCard editionId={edition.id} />
     </div>
   );
 }

@@ -90,8 +90,9 @@ describe("resolveKalakritiEditionAccess", () => {
     resolvePermissions.mockReset();
   });
 
-  it("rejects a role without Kalakriti view permission before querying data", async () => {
+  it("rejects a user without Kalakriti view and without an Edition membership", async () => {
     resolvePermissions.mockResolvedValue([]);
+    dbMocks.results.push([edition], []);
 
     await expect(
       resolveKalakritiEditionAccess({
@@ -100,7 +101,38 @@ describe("resolveKalakritiEditionAccess", () => {
         year: edition.year,
       })
     ).resolves.toBeNull();
-    expect(dbMocks.select).not.toHaveBeenCalled();
+    expect(selectedWhereParams(0)).toEqual([edition.year]);
+    expect(selectedWhereParams(1)).toEqual([edition.id, "user-1", "active"]);
+  });
+
+  it("allows an assigned member whose global role lacks Kalakriti view", async () => {
+    resolvePermissions.mockResolvedValue([]);
+    dbMocks.results.push(
+      [edition],
+      [{ id: "membership-1", kind: "volunteer" }],
+      [
+        {
+          centerId: null,
+          competitionCategoryId: null,
+          competitionId: null,
+          responsibility: "competition_volunteer",
+        },
+      ]
+    );
+
+    await expect(
+      resolveKalakritiEditionAccess({
+        role: "team_lead",
+        userId: "user-1",
+        year: edition.year,
+      })
+    ).resolves.toMatchObject({
+      edition: { id: edition.id },
+      isGlobalAdmin: false,
+      membership: {
+        responsibilities: ["competition_volunteer"],
+      },
+    });
   });
 
   it("rejects a user without an active membership in the requested Edition", async () => {

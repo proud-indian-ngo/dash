@@ -37,9 +37,27 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 
-import { Button } from "@pi-dash/design-system/components/ui/button"
+import { cn } from "@pi-dash/design-system/lib/utils"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { DragDropVerticalIcon } from "@hugeicons/core-free-icons"
+
+function mergeSortableColumnIds(
+  columnOrder: readonly string[],
+  visibleColumnIds: readonly string[]
+): string[] {
+  if (visibleColumnIds.length === 0) {
+    return [...columnOrder]
+  }
+  if (columnOrder.length === 0) {
+    return [...visibleColumnIds]
+  }
+
+  const visibleSet = new Set(visibleColumnIds)
+  const ordered = columnOrder.filter((id) => visibleSet.has(id))
+  const orderedSet = new Set(ordered)
+  const missing = visibleColumnIds.filter((id) => !orderedSet.has(id))
+  return [...ordered, ...missing]
+}
 
 function DataGridTableDndHeader<TData extends object>({
   header,
@@ -78,20 +96,26 @@ function DataGridTableDndHeader<TData extends object>({
       dndStyle={style}
       dndRef={setNodeRef}
     >
-      <div className="flex items-center justify-start gap-0.5">
+      <div className="flex min-w-0 items-center justify-start gap-0.5">
         {canOrder && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="-ms-2 size-6 cursor-move"
+          <button
+            aria-label="Drag to reorder"
+            className={cn(
+              "inline-flex size-6 shrink-0 cursor-grab items-center justify-center rounded-none border border-transparent bg-transparent text-secondary-foreground/80 hover:bg-muted hover:text-foreground active:cursor-grabbing"
+            )}
+            type="button"
             {...attributes}
             {...listeners}
-            aria-label="Drag to reorder"
           >
-            <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} className="opacity-60 hover:opacity-100" aria-hidden="true" />
-          </Button>
+            <HugeiconsIcon
+              aria-hidden="true"
+              className="opacity-60 hover:opacity-100"
+              icon={DragDropVerticalIcon}
+              strokeWidth={2}
+            />
+          </button>
         )}
-        <span className="grow truncate">
+        <span className="min-w-0 grow truncate">
           {header.isPlaceholder ? null : <table.FlexRender header={header} />}
         </span>
         {props.tableLayout?.columnsResizable && column.getCanResize() && (
@@ -141,8 +165,17 @@ function DataGridTableDnd({
   const dndId = useId()
 
   const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {})
   )
 
@@ -172,7 +205,13 @@ function DataGridTableDnd({
     <table.Subscribe selector={(state) => state}>
       {(state) => {
         const pagination = state.pagination
-        const columnOrder = state.columnOrder
+        const visibleColumnIds = table
+          .getVisibleLeafColumns()
+          .map((column) => column.id)
+        const sortableColumnIds = mergeSortableColumnIds(
+          state.columnOrder,
+          visibleColumnIds
+        )
 
         return (
           <DndContext
@@ -194,7 +233,7 @@ function DataGridTableDnd({
                           key={index}
                         >
                           <SortableContext
-                            items={columnOrder}
+                            items={sortableColumnIds}
                             strategy={horizontalListSortingStrategy}
                           >
                             {headerGroup.headers.map((header) => (
@@ -243,7 +282,7 @@ function DataGridTableDnd({
                               return (
                                 <SortableContext
                                   key={cell.id}
-                                  items={columnOrder}
+                                  items={sortableColumnIds}
                                   strategy={horizontalListSortingStrategy}
                                 >
                                   <DataGridTableDndCell cell={cell} />

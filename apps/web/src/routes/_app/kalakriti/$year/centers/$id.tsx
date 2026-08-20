@@ -133,6 +133,7 @@ function KalakritiCenterDetailPage() {
               id: item.id,
               membershipId: item.membershipId,
               name: item.membership?.snapshotName ?? "Unknown Liaison",
+              responsibility: item.responsibility,
             },
           ]
         : []

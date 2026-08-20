@@ -1,4 +1,5 @@
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
+import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
 import {
   dateField,
   numberField,
@@ -16,6 +17,7 @@ import {
 import type { EntrySessionRow } from "@/components/kalakriti/entry-sessions-table";
 import type { GuardianRosterItem } from "@/components/kalakriti/guardians-table";
 import type { KalakritiStudentRow } from "@/components/kalakriti/student-form-dialog";
+import type { VolunteerRosterItem } from "@/components/kalakriti/volunteers-table";
 import {
   KALAKRITI_GENDER_ELIGIBILITY_LABELS,
   type KalakritiGenderEligibility,
@@ -32,6 +34,10 @@ const RETIRED_STATUS_OPTIONS = [
 const OPEN_CLOSED_OPTIONS = [
   { label: "Open", value: "open" },
   { label: "Closed", value: "closed" },
+];
+const PRIMARY_ROLE_OPTIONS = [
+  { label: "Primary", value: "primary" },
+  { label: "Not primary", value: "secondary" },
 ];
 const GUARDIAN_STATE_OPTIONS = [
   { label: "Active", value: "active" },
@@ -224,6 +230,43 @@ export function getGuardianFilterValue(
 
 export function createGuardianFilterFields(): FilterField[] {
   return [selectField("state", "Status", GUARDIAN_STATE_OPTIONS)];
+}
+
+export function getVolunteerFilterValue(
+  row: VolunteerRosterItem,
+  path: string[]
+): unknown {
+  const [key] = path;
+  switch (key) {
+    case "primary":
+      return row.assignments.some((assignment) => assignment.isPrimary)
+        ? "primary"
+        : "secondary";
+    case "responsibilities":
+      return row.assignments.map((assignment) => assignment.responsibility);
+    default:
+      return;
+  }
+}
+
+export function createVolunteerFilterFields(
+  rows: readonly VolunteerRosterItem[]
+): FilterField[] {
+  return [
+    {
+      defaultOperator: "has_any_of",
+      id: "responsibilities",
+      label: "Responsibility",
+      options: optionsFromRows(
+        rows.flatMap((row) => row.assignments),
+        (assignment) => assignment.responsibility,
+        (assignment) =>
+          KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]
+      ),
+      type: "multiselect",
+    },
+    selectField("primary", "Primary role", PRIMARY_ROLE_OPTIONS),
+  ];
 }
 
 export function getCompetitionFilterValue(

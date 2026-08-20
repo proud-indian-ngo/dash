@@ -1,8 +1,10 @@
 import {
   canManageKalakritiResponsibility,
+  isKalakritiAssignableUserRole,
+  KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
-  KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
+  KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
@@ -50,9 +52,6 @@ async function assertCanManageResponsibility(
   if (can(ctx, "kalakriti.admin")) {
     return;
   }
-  if (!can(ctx, "kalakriti.view")) {
-    throw new Error("Unauthorized");
-  }
 
   const membership = (await tx.run(
     zql.kalakritiEditionMembership
@@ -78,28 +77,6 @@ async function assertCanManageResponsibility(
   }
 }
 
-async function assertVolunteerHasKalakritiAccess(
-  tx: AssignmentTx,
-  role: string | null
-): Promise<void> {
-  if (tx.location === "client") {
-    return;
-  }
-  if (!role) {
-    throw new Error("Volunteer does not have Kalakriti access");
-  }
-
-  const volunteerAccess = await tx.run(
-    zql.rolePermission
-      .where("roleId", role)
-      .where("permissionId", "kalakriti.view")
-      .one()
-  );
-  if (!volunteerAccess) {
-    throw new Error("Volunteer does not have Kalakriti access");
-  }
-}
-
 export const kalakritiAssignmentCreateSchema = z.object({
   assignmentId: z.string(),
   auditEntryId: z.string(),
@@ -107,7 +84,9 @@ export const kalakritiAssignmentCreateSchema = z.object({
   makePrimary: z.boolean(),
   membershipId: z.string(),
   now: z.number(),
-  responsibility: z.enum(KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES),
+  responsibility: z.enum(
+    KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES
+  ),
   teamEventMemberId: z.string(),
   userId: z.string(),
 });
@@ -120,6 +99,7 @@ export const kalakritiLiaisonAssignmentCreateSchema = z.object({
   makePrimary: z.boolean(),
   membershipId: z.string(),
   now: z.number(),
+  responsibility: z.enum(KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES),
   teamEventMemberId: z.string(),
   userId: z.string(),
 });
@@ -278,7 +258,9 @@ async function getAssignableVolunteer(
   if (volunteer.role === "external_user" || externalIdentity) {
     throw new Error("External identities cannot be volunteer assignments");
   }
-  await assertVolunteerHasKalakritiAccess(tx, volunteer.role);
+  if (!isKalakritiAssignableUserRole(volunteer.role)) {
+    throw new Error("Unoriented volunteers cannot receive assignments");
+  }
   return volunteer;
 }
 
@@ -480,7 +462,6 @@ export const kalakritiAssignmentMutators = {
         ...args,
         competitionCategoryId: null,
         competitionId: null,
-        responsibility: "liaison",
       })
   ),
   assignVolunteer: defineMutator(

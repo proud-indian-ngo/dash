@@ -152,67 +152,56 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
+  async gotoVolunteers(year: number) {
+    await this.page.goto(`/kalakriti/${year}/volunteers`);
+    await expect(
+      this.page.getByRole("heading", { name: "Volunteers" })
+    ).toBeVisible();
+  }
+
   async assignVolunteer(volunteerName: string, responsibility: string) {
-    await this.expandVolunteerAssignments();
-    const picker = this.page
-      .getByPlaceholder("Search central volunteers...")
-      .first();
+    await this.page.getByRole("button", { name: "Assign role" }).click();
+    const dialog = this.page.getByRole("dialog", { name: "Assign role" });
+    const picker = dialog.getByPlaceholder("Search central volunteers...");
     await picker.fill(volunteerName);
     await this.page
       .getByRole("option", { name: new RegExp(volunteerName) })
       .first()
       .click();
-    await this.page
-      .getByRole("combobox")
-      .filter({ hasText: "Edition Administrator" })
-      .click();
+    await dialog.locator("#responsibility").click();
     await this.page
       .getByRole("option", { exact: true, name: responsibility })
       .click();
-    await this.page
-      .getByRole("button", { exact: true, name: "Assign volunteer" })
+    await dialog
+      .getByRole("button", { exact: true, name: "Assign role" })
       .click();
     await expect(
-      this.page.getByText("Volunteer assigned", { exact: true })
+      this.page.getByText("Role assigned", { exact: true })
     ).toBeVisible({ timeout: 30_000 });
+    await expect(dialog).toHaveCount(0);
     await expect(
-      this.page.getByRole("button", {
-        name: `Remove ${responsibility} from ${volunteerName}`,
-      })
+      this.page.getByText(volunteerName, { exact: true })
     ).toBeVisible();
   }
 
-  private async expandVolunteerAssignments() {
-    const trigger = this.page.getByRole("button", {
-      name: "Volunteer assignments",
-    });
-    const picker = this.page
-      .getByPlaceholder("Search central volunteers...")
-      .first();
-    if (!(await picker.isVisible())) {
-      await trigger.click();
-    }
-    await expect(picker).toBeVisible();
-  }
-
   async removeVolunteer(volunteerName: string, responsibility: string) {
-    await this.expandVolunteerAssignments();
     await this.page
-      .getByRole("button", {
-        name: `Remove ${responsibility} from ${volunteerName}`,
-      })
+      .getByRole("button", { name: `Actions for ${volunteerName}` })
       .click();
-    const dialog = this.page.getByRole("alertdialog", {
+    await this.page
+      .getByRole("menuitem", { name: `Remove ${responsibility}` })
+      .click();
+    const confirm = this.page.getByRole("alertdialog", {
       name: "Remove volunteer responsibility?",
     });
-    await dialog.getByRole("button", { name: "Remove responsibility" }).click();
+    await confirm
+      .getByRole("button", { name: "Remove responsibility" })
+      .click();
     await expect(
       this.page.getByText("Responsibility removed", { exact: true })
     ).toBeVisible();
     await expect(
-      this.page.getByRole("button", {
-        name: `Remove ${responsibility} from ${volunteerName}`,
-      })
+      this.page.getByRole("menuitem", { name: `Remove ${responsibility}` })
     ).toHaveCount(0);
   }
 }

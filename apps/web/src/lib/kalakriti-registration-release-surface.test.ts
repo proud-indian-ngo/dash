@@ -64,6 +64,7 @@ describe("Kalakriti Registration Release surface", () => {
       "index.tsx",
       "route.tsx",
       "students.tsx",
+      "volunteers.tsx",
     ]);
     expect(
       routeSources(

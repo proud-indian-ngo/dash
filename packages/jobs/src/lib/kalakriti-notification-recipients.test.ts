@@ -113,7 +113,7 @@ describe("Kalakriti schedule recipient resolution", () => {
         ["center-1"],
         ["competition-1"],
         ["category-1"],
-        ["liaison", "transport_coordinator"],
+        ["liaison", "liaison_lead", "liaison_volunteer"],
         ["competition_coordinator", "competition_volunteer"],
       ])
     );

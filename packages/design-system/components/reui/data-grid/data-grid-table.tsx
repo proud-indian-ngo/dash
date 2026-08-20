@@ -175,7 +175,7 @@ function DataGridTableHeadRowCell<TData extends object>({
         props.tableLayout?.cellBorder && "border-e",
         props.tableLayout?.columnsResizable &&
           column.getCanResize() &&
-          "truncate",
+          "overflow-visible",
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
           pinnedColumnClassName,
@@ -530,9 +530,18 @@ function DataGridTable() {
 
                         return (
                           <DataGridTableHeadRowCell header={header} key={index}>
-                            {header.isPlaceholder ? null : (
-                              <table.FlexRender header={header} />
-                            )}
+                            <div
+                              className={cn(
+                                "flex h-full min-w-0 items-center",
+                                props.tableLayout?.columnsResizable &&
+                                  column.getCanResize() &&
+                                  "truncate pe-4"
+                              )}
+                            >
+                              {header.isPlaceholder ? null : (
+                                <table.FlexRender header={header} />
+                              )}
+                            </div>
                             {props.tableLayout?.columnsResizable &&
                               column.getCanResize() && (
                                 <DataGridTableHeadRowCellResize

@@ -1,16 +1,22 @@
 import { db } from "@pi-dash/db";
 import {
   kalakritiAgeCategory,
+  kalakritiAssignment,
   kalakritiAuditEntry,
   kalakritiCenter,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
   kalakritiCompetitionDivision,
+  kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiEdition,
+  kalakritiEditionMembership,
+  kalakritiEntryMember,
+  kalakritiGuardianCenter,
+  kalakritiStudent,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
-import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { inArray } from "drizzle-orm";
 
 const fixtures = {
@@ -48,6 +54,21 @@ const eventIds = Object.values(fixtures).map((fixture) => fixture.eventId);
 
 async function cleanup() {
   await db
+    .delete(kalakritiEntryMember)
+    .where(inArray(kalakritiEntryMember.editionId, editionIds));
+  await db
+    .delete(kalakritiCompetitionEntry)
+    .where(inArray(kalakritiCompetitionEntry.editionId, editionIds));
+  await db
+    .delete(kalakritiStudent)
+    .where(inArray(kalakritiStudent.editionId, editionIds));
+  await db
+    .delete(kalakritiGuardianCenter)
+    .where(inArray(kalakritiGuardianCenter.editionId, editionIds));
+  await db
+    .delete(kalakritiAssignment)
+    .where(inArray(kalakritiAssignment.editionId, editionIds));
+  await db
     .delete(kalakritiCompetitionSession)
     .where(inArray(kalakritiCompetitionSession.editionId, editionIds));
   await db
@@ -66,6 +87,9 @@ async function cleanup() {
     .delete(kalakritiAgeCategory)
     .where(inArray(kalakritiAgeCategory.editionId, editionIds));
   await db
+    .delete(kalakritiEditionMembership)
+    .where(inArray(kalakritiEditionMembership.editionId, editionIds));
+  await db
     .delete(kalakritiCenter)
     .where(inArray(kalakritiCenter.editionId, editionIds));
   await db
@@ -74,6 +98,9 @@ async function cleanup() {
   await db
     .delete(kalakritiEdition)
     .where(inArray(kalakritiEdition.id, editionIds));
+  await db
+    .delete(teamEventMember)
+    .where(inArray(teamEventMember.eventId, eventIds));
   await db.delete(teamEvent).where(inArray(teamEvent.id, eventIds));
 }
 

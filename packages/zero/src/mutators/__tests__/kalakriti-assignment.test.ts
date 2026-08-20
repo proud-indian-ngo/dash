@@ -135,7 +135,6 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         role: "volunteer",
       },
       undefined,
-      { permissionId: "kalakriti.view", roleId: "volunteer" },
       undefined,
       [],
       undefined,
@@ -184,7 +183,6 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         role: "volunteer",
       },
       undefined,
-      { permissionId: "kalakriti.view", roleId: "volunteer" },
       {
         id: "membership-1",
         kind: "volunteer",
@@ -259,7 +257,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     expect(spies.insertAssignment).not.toHaveBeenCalled();
   });
 
-  it("rejects a volunteer whose role lacks Kalakriti access", async () => {
+  it("rejects an unoriented volunteer", async () => {
     const { tx, spies } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
@@ -267,7 +265,6 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         isActive: true,
         role: "unoriented_volunteer",
       },
-      undefined,
       undefined,
     ]);
 
@@ -279,9 +276,76 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       } as unknown as Parameters<
         typeof kalakritiAssignmentMutators.assignVolunteer.fn
       >[0])
-    ).rejects.toThrow("Volunteer does not have Kalakriti access");
+    ).rejects.toThrow("Unoriented volunteers cannot receive assignments");
     expect(spies.insertAssignment).not.toHaveBeenCalled();
     expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+
+  it("assigns a custom oriented role without Kalakriti view", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "lead@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Team Lead",
+        phone: null,
+        role: "team_lead",
+      },
+      undefined,
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: assignArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertMembership).toHaveBeenCalledOnce();
+    expect(spies.insertAssignment).toHaveBeenCalledOnce();
+  });
+
+  it("assigns an operational lead at Edition scope", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "food@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Food Lead",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: {
+        ...assignArgs,
+        responsibility: "food_lead",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        centerId: null,
+        competitionCategoryId: null,
+        competitionId: null,
+        responsibility: "food_lead",
+      })
+    );
   });
 });
 
@@ -300,7 +364,6 @@ describe("kalakritiAssignment.assignLiaison", () => {
         role: "volunteer",
       },
       undefined,
-      { permissionId: "kalakriti.view", roleId: "volunteer" },
       undefined,
       [],
       undefined,
@@ -315,6 +378,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
         makePrimary: false,
         membershipId: "liaison-membership-1",
         now: 1_700_000_000_000,
+        responsibility: "liaison_volunteer",
         teamEventMemberId: "event-member-1",
         userId: "volunteer-1",
       },
@@ -331,7 +395,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
     expect(spies.insertAssignment).toHaveBeenCalledWith(
       expect.objectContaining({
         centerId: "center-1",
-        responsibility: "liaison",
+        responsibility: "liaison_volunteer",
       })
     );
     expect(spies.insertMembership).toHaveBeenCalledOnce();
@@ -352,13 +416,12 @@ describe("kalakritiAssignment.assignLiaison", () => {
       centerId: "center-1",
       id: "liaison-assignment-1",
       isPrimary: true,
-      responsibility: "liaison",
+      responsibility: "liaison_volunteer",
     };
     const { lockedCenters, spies, tx } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       volunteer,
       undefined,
-      { permissionId: "kalakriti.view", roleId: "volunteer" },
       { id: "liaison-membership-1", kind: "volunteer", state: "active" },
       [existingAssignment],
       { id: "event-member-1" },
@@ -376,6 +439,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
         makePrimary: false,
         membershipId: "unused-membership",
         now: 1_700_000_000_001,
+        responsibility: "liaison_volunteer",
         teamEventMemberId: "unused-event-member",
         userId: "volunteer-1",
       },
@@ -393,7 +457,6 @@ describe("kalakritiAssignment.assignLiaison", () => {
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       volunteer,
       undefined,
-      { permissionId: "kalakriti.view", roleId: "volunteer" },
       { id: "liaison-membership-1", kind: "volunteer", state: "active" },
       [{ ...existingAssignment, centerId: "center-2" }],
     ]);
@@ -411,6 +474,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
           makePrimary: false,
           membershipId: "unused-membership",
           now: 1_700_000_000_002,
+          responsibility: "liaison_volunteer",
           teamEventMemberId: "unused-event-member",
           userId: "volunteer-1",
         },
@@ -440,7 +504,6 @@ describe("Kalakriti Competition assignments", () => {
         role: "volunteer",
       },
       undefined,
-      { permissionId: "kalakriti.view", roleId: "volunteer" },
       undefined,
       [],
       undefined,
