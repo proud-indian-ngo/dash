@@ -7,35 +7,31 @@ import {
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import { cityOptions } from "@/lib/form-schemas";
-import {
-  isReimbursement,
-  REQUEST_TYPE_LABELS,
-  type RequestRow,
-} from "@/lib/reimbursement-types";
+import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
 const STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
   { label: "Approved", value: "approved" },
   { label: "Rejected", value: "rejected" },
+  { label: "Partially Paid", value: "partially_paid" },
+  { label: "Paid", value: "paid" },
+  { label: "Invoice Pending", value: "invoice_pending" },
+  { label: "Completed", value: "completed" },
 ];
 
-const TYPE_OPTIONS = [
-  { label: REQUEST_TYPE_LABELS.reimbursement, value: "reimbursement" },
-  { label: REQUEST_TYPE_LABELS.advance_payment, value: "advance_payment" },
-];
-
-const LEGACY_REIMBURSEMENT_FILTER_PARAMS = [
-  { param: "status", path: "status" },
-  { param: "type", path: "type" },
+const LEGACY_VENDOR_PAYMENT_FILTER_PARAMS = [
   { param: "city", path: "city" },
+  { param: "status", path: "status" },
 ] as const;
 
-function computeTotal(lineItems: RequestRow["lineItems"]): number {
+function computeTotal(
+  lineItems: VendorPaymentWithRelations["lineItems"]
+): number {
   return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
 }
 
-export function getReimbursementFilterValue(
-  row: RequestRow,
+export function getVendorPaymentFilterValue(
+  row: VendorPaymentWithRelations,
   path: string[]
 ): unknown {
   const [key] = path;
@@ -45,37 +41,42 @@ export function getReimbursementFilterValue(
     case "createdBy":
       return row.userId;
     case "event":
-      return isReimbursement(row) ? (row.eventId ?? null) : null;
-    case "expenseDate":
-      return isReimbursement(row) ? row.expenseDate : null;
+      return row.eventId ?? null;
     case "status":
       return row.status;
     case "submittedAt":
       return row.submittedAt;
     case "total":
       return computeTotal(row.lineItems);
-    case "type":
-      return row.type;
+    case "vendor":
+      return row.vendorId;
     default:
       return;
   }
 }
 
-export function createReimbursementFilterFields(
-  rows: readonly RequestRow[]
+export function createVendorPaymentFilterFields(
+  rows: readonly VendorPaymentWithRelations[]
 ): FilterField[] {
   return [
-    selectField("status", "Status", STATUS_OPTIONS),
-    selectField("type", "Type", TYPE_OPTIONS),
     selectField("city", "City", cityOptions),
+    selectField("status", "Status", STATUS_OPTIONS),
+    selectField(
+      "vendor",
+      "Vendor",
+      optionsFromRows(
+        rows,
+        (row) => row.vendorId,
+        (row) => row.vendor?.name ?? row.vendorId
+      )
+    ),
     selectField(
       "event",
       "Event",
       optionsFromRows(
         rows,
-        (row) => (isReimbursement(row) ? row.eventId : null),
-        (row) =>
-          isReimbursement(row) ? (row.event?.name ?? row.eventId ?? "") : ""
+        (row) => row.eventId,
+        (row) => row.event?.name ?? row.eventId ?? ""
       )
     ),
     selectField(
@@ -88,11 +89,10 @@ export function createReimbursementFilterFields(
       )
     ),
     numberField("total", "Total"),
-    dateField("expenseDate", "Expense date"),
     dateField("submittedAt", "Submitted"),
   ];
 }
 
-export function useMigrateLegacyReimbursementFilterParams() {
-  useMigrateLegacyFilterParams(LEGACY_REIMBURSEMENT_FILTER_PARAMS);
+export function useMigrateLegacyVendorPaymentFilterParams() {
+  useMigrateLegacyFilterParams(LEGACY_VENDOR_PAYMENT_FILTER_PARAMS);
 }

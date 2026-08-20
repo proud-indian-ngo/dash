@@ -61,6 +61,15 @@ test("manages independent Center registration and scoped Liaison access", async 
     await centers.addCenter("Basavanagudi");
     await centers.addCenter("Indiranagar");
     await centers.addCenter("Unassigned Center");
+
+    await page.getByRole("button", { name: "Add filter" }).click();
+    await page.getByRole("option", { exact: true, name: "Status" }).click();
+    await page.getByRole("option", { exact: true, name: "is" }).click();
+    await page.getByRole("option", { exact: true, name: "Retired" }).click();
+    await expect(centers.center("Basavanagudi")).toHaveCount(0);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(centers.center("Basavanagudi")).toBeVisible();
+
     await centers.configureRegistration("Basavanagudi", {
       participation: false,
       students: true,

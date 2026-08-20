@@ -150,7 +150,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | Directory | Contents |
 |---|---|
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
-| `components/data-table/` | data-table-wrapper, ReUI Filters adapter (`compile-filter-query`, `use-data-table-filters`, `filter-date-editor`), table-filter-select (legacy dropdown still used by unmigrated tables) |
+| `components/data-table/` | data-table-wrapper, ReUI Filters adapter (`compile-filter-query`, `use-data-table-filters`, `filter-fields`, `filter-date-editor`, `use-migrate-legacy-filter-params`) |
 | `components/audit/` | audit-log table, row detail sheet, and API response types |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
@@ -356,9 +356,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 
 ### DataTableWrapper
 
-Generic `DataTableWrapper` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables (users-table, reimbursements-table) are thin wrappers that pass columns, data, and optional ReUI `filter={{ fields, getValue }}`. Reimbursements uses ReUI Filters. Other tables still pass `toolbarFilters` with `TableFilterSelect` until they migrate.
+Generic `DataTableWrapper` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables are thin wrappers that pass columns, data, and ReUI `filter={{ fields, getValue }}`. ReUI chip filters are the only table filter UI. Search stays `searchFn`. Filter state lives in the `filters` URL param as a `FilterQuery` tree.
 
-Pass **unfiltered** `data` when using `filter`. Search stays `searchFn`. Filter state lives in the `filters` URL param as a `FilterQuery` tree.
+Pass **unfiltered** `data` when using `filter`. Server-paginated tables (jobs, audit log, Kalakriti audit) set `applyLocally: false`, persist the same `?filters=` query, and map `is` rules onto existing API params via `readSelectEquality`. `applyLocally: false` omits Convert to advanced because those APIs do not compile OR or extra `is` rules. Do not run `compileFilterQuery` on the current page. Extra toolbar controls such as `DateRangeFilter` still go through `toolbarFilters` beside the chips. Analytics uses `DataTableFiltersBar` with `allowAdvanced={false}` for the same reason.
 
 ### Adding a New Table
 
@@ -386,7 +386,7 @@ Every feature table follows the same structure. Use existing tables (reimburseme
      getValue: getFooFilterValue,
    }}
    ```
-   Define `fields` and `getValue` next to the table (see `reimbursement-filters.ts`). Do not pre-filter rows in the route, and do not use `TableFilterSelect` on new tables.
+   Define `fields` and `getValue` next to the table (see `reimbursement-filters.ts` and `filter-fields.ts`). Do not pre-filter rows in the route. Server-paginated tables must set `applyLocally: false` and omit `getValue`; map equality rules to existing APIs instead.
 8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, passes data + callbacks as props.
 9. **Delete confirmation**: Localize in a `RowActions` component inside the table file using `useConfirmAction` + `ConfirmDialog`. No dialog state at the table level.
 

@@ -32,6 +32,11 @@ import { format } from "date-fns";
 import type { MouseEvent, ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
+import {
+  createScheduledMessageFilterFields,
+  getScheduledMessageFilterValue,
+  useMigrateLegacyScheduledMessageFilterParams,
+} from "@/components/scheduled-messages/scheduled-message-filters";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
 type ScheduledMessageRow = ScheduledMessage & {
@@ -358,34 +363,29 @@ function ScheduledMessageActions({
 }
 
 interface ScheduledMessagesTableProps {
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
   messages: ScheduledMessageRow[];
   onCancel: (row: ScheduledMessageRow) => void;
-  onClearFilters?: () => void;
   onDelete: (row: ScheduledMessageRow) => void;
   onEdit: (row: ScheduledMessageRow) => void;
   onRetry: (recipientId: string) => void;
   onView: (row: ScheduledMessageRow) => void;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 export type { ScheduledMessageRow };
 
 export function ScheduledMessagesTable({
-  hasActiveFilters,
   isLoading,
   messages,
   onCancel,
-  onClearFilters,
   onDelete,
   onEdit,
   onRetry,
   onView,
   toolbarActions,
-  toolbarFilters,
 }: ScheduledMessagesTableProps) {
+  useMigrateLegacyScheduledMessageFilterParams();
   const columns = createColumns(onView, onEdit, onCancel, onDelete, onRetry);
   const stableGetRowCanExpand0 = useEventCallback(() => true);
   const stableGetRowId1 = useEventCallback((row: { id: string }) => row.id);
@@ -395,11 +395,13 @@ export function ScheduledMessagesTable({
       columns={columns}
       data={messages}
       emptyMessage="No scheduled messages."
+      filter={{
+        fields: createScheduledMessageFilterFields(messages),
+        getValue: getScheduledMessageFilterValue,
+      }}
       getRowCanExpand={stableGetRowCanExpand0}
       getRowId={stableGetRowId1}
-      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
-      onClearFilters={onClearFilters}
       onRowClick={onView}
       searchFn={searchMessage}
       searchPlaceholder="Search messages..."
@@ -412,7 +414,6 @@ export function ScheduledMessagesTable({
         columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
-      toolbarFilters={toolbarFilters}
     />
   );
 }

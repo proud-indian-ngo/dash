@@ -22,13 +22,9 @@ test.describe("Jobs dashboard (admin)", () => {
   });
 
   test("state filter dropdown is present", async ({ page }) => {
-    // TableFilterSelect for job state
-    await expect(
-      page
-        .getByRole("combobox", { name: /State/ })
-        .or(page.getByRole("button", { name: /State/ }))
-        .first()
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "Add filter" })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("refresh button is visible", async ({ page }) => {

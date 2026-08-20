@@ -4,7 +4,11 @@ import {
   createFilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { describe, expect, it } from "vitest";
-import { compileFilterQuery } from "./compile-filter-query";
+import {
+  compileFilterQuery,
+  readSelectEquality,
+  removeFilterPath,
+} from "./compile-filter-query";
 
 interface Row {
   amount: number;
@@ -281,5 +285,107 @@ describe("compileFilterQuery", () => {
       }),
     ]);
     expect(filterRows(query).map((row) => row.title)).toEqual(["Snacks"]);
+  });
+});
+
+describe("readSelectEquality", () => {
+  it("returns the first complete is rule for a path", () => {
+    const query = createFilterQuery([
+      createFilterRule({
+        id: "r1",
+        operator: "is",
+        path: ["status"],
+        value: "pending",
+      }),
+      createFilterRule({
+        id: "r2",
+        operator: "is",
+        path: ["city"],
+        value: "mumbai",
+      }),
+    ]);
+    expect(readSelectEquality(query, "status")).toBe("pending");
+    expect(readSelectEquality(query, "city")).toBe("mumbai");
+  });
+
+  it("ignores incomplete, negated, and non-is rules", () => {
+    const query = createFilterQuery([
+      createFilterRule({
+        id: "r1",
+        operator: "is",
+        path: ["status"],
+      }),
+      createFilterRule({
+        id: "r2",
+        negated: true,
+        operator: "is",
+        path: ["status"],
+        value: "pending",
+      }),
+      createFilterRule({
+        id: "r3",
+        operator: "is_not",
+        path: ["status"],
+        value: "approved",
+      }),
+    ]);
+    expect(readSelectEquality(query, "status")).toBeUndefined();
+  });
+
+  it("returns undefined for an empty query", () => {
+    expect(readSelectEquality(createFilterQuery(), "status")).toBeUndefined();
+  });
+});
+
+describe("removeFilterPath", () => {
+  it("drops matching rules and keeps others", () => {
+    const query = createFilterQuery([
+      createFilterRule({
+        id: "r1",
+        operator: "is",
+        path: ["domain"],
+        value: "entries",
+      }),
+      createFilterRule({
+        id: "r2",
+        operator: "is",
+        path: ["status"],
+        value: "pending",
+      }),
+    ]);
+    expect(removeFilterPath(query, "domain")).toEqual(
+      createFilterQuery([
+        createFilterRule({
+          id: "r2",
+          operator: "is",
+          path: ["status"],
+          value: "pending",
+        }),
+      ])
+    );
+  });
+
+  it("drops nested groups that become empty", () => {
+    const query = createFilterQuery([
+      createFilterGroup({
+        combinator: "or",
+        id: "g1",
+        rules: [
+          createFilterRule({
+            id: "r1",
+            operator: "is",
+            path: ["domain"],
+            value: "entries",
+          }),
+        ],
+      }),
+    ]);
+    expect(removeFilterPath(query, "domain")).toEqual(createFilterQuery());
+  });
+
+  it("leaves an empty query unchanged", () => {
+    expect(removeFilterPath(createFilterQuery(), "domain")).toEqual(
+      createFilterQuery()
+    );
   });
 });

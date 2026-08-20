@@ -6,7 +6,12 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createEntrySessionFilterFields,
+  getEntrySessionFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 import {
   KALAKRITI_GENDER_ELIGIBILITY_LABELS,
   type KalakritiGenderEligibility,
@@ -56,6 +61,10 @@ export function EntrySessionsTable({
   isLoading: boolean;
   year: number;
 }) {
+  const filterFields = useMemo(
+    () => createEntrySessionFilterFields(data),
+    [data]
+  );
   const columns: DataGridColumnDef<EntrySessionRow>[] = [
     {
       accessorKey: "competitionName",
@@ -231,6 +240,10 @@ export function EntrySessionsTable({
       columns={columns}
       data={data}
       emptyMessage="No active individual Sessions are available."
+      filter={{
+        fields: filterFields,
+        getValue: getEntrySessionFilterValue,
+      }}
       getRowId={getSessionRowId}
       isLoading={isLoading}
       searchFn={searchSessions}

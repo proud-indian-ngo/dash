@@ -15,6 +15,10 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createCompetitionCategoryFilterFields,
+  getCompetitionCategoryFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 import type {
   CompetitionCategoryTableRow,
   ConfigurationDeletePayload,
@@ -236,6 +240,10 @@ export function CompetitionCategoriesTable({
       columns={columns}
       data={data}
       emptyMessage="No Competition Categories configured."
+      filter={{
+        fields: createCompetitionCategoryFilterFields(),
+        getValue: getCompetitionCategoryFilterValue,
+      }}
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={handleRowClick}

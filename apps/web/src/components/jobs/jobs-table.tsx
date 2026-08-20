@@ -18,8 +18,10 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { MouseEvent, ReactNode } from "react";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
+import { createJobFilterFields } from "@/components/jobs/job-filters";
 import type { JobRow } from "@/components/jobs/job-stats";
 import { formatTimestamp } from "@/lib/date-formats";
 
@@ -233,17 +235,15 @@ function JobActions({
 }
 
 interface JobsTableProps {
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
   jobs: JobRow[];
   manualPagination?: boolean;
   onCancel: (job: JobRow) => void;
-  onClearFilters?: () => void;
   onRetry: (job: JobRow) => void;
   onView: (job: JobRow) => void;
+  queueOptions: { label: string; value: string }[];
   rowCount?: number;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 export function JobsTable({
@@ -253,12 +253,14 @@ export function JobsTable({
   onCancel,
   onRetry,
   onView,
+  queueOptions,
   rowCount,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: JobsTableProps) {
+  const filterFields = useMemo(
+    () => createJobFilterFields(queueOptions),
+    [queueOptions]
+  );
   const columns = createJobColumns(onView, onCancel, onRetry);
   const stableGetRowId0 = useEventCallback((row: { id: string }) => row.id);
 
@@ -267,11 +269,13 @@ export function JobsTable({
       columns={columns}
       data={jobs}
       emptyMessage="No jobs found."
+      filter={{
+        applyLocally: false,
+        fields: filterFields,
+      }}
       getRowId={stableGetRowId0}
-      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       manualPagination={manualPagination}
-      onClearFilters={onClearFilters}
       onRowClick={onView}
       rowCount={rowCount}
       searchFn={searchJob}
@@ -285,7 +289,6 @@ export function JobsTable({
         columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
-      toolbarFilters={toolbarFilters}
     />
   );
 }

@@ -13,7 +13,12 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createStudentFilterFields,
+  getStudentFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 import type { KalakritiStudentRow } from "./student-form-dialog";
 
@@ -103,6 +108,7 @@ export function StudentTable({
   onEdit,
   onRegister,
 }: StudentTableProps) {
+  const filterFields = useMemo(() => createStudentFilterFields(data), [data]);
   const columns: DataGridColumnDef<KalakritiStudentRow>[] = [
     {
       accessorFn: (row) => row.humanId,
@@ -233,6 +239,10 @@ export function StudentTable({
       columns={columns}
       data={data}
       emptyMessage="No Students have been registered for this Center."
+      filter={{
+        fields: filterFields,
+        getValue: getStudentFilterValue,
+      }}
       getRowId={getStudentRowId}
       isLoading={isLoading}
       searchFn={searchStudents}

@@ -7,11 +7,9 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
@@ -45,11 +43,6 @@ const createRoleFormSchema = z.object({
 
 type CreateRoleFormValues = z.infer<typeof createRoleFormSchema>;
 
-const TYPE_OPTIONS = [
-  { label: "System", value: "system" },
-  { label: "Custom", value: "custom" },
-];
-
 const defaultValues: CreateRoleFormValues = {
   description: "",
   id: "",
@@ -64,10 +57,6 @@ function RolesPage() {
   const [roles, setRoles] = useState<RoleListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useQueryState(
-    "type",
-    parseAsString.withDefault("")
-  );
 
   const loadRoles = useCallback(async () => {
     try {
@@ -136,7 +125,6 @@ function RolesPage() {
       }
     }
   );
-  const stableOnClearFilters0 = useEventCallback(() => setTypeFilter(""));
   const stableOnClick1 = useEventCallback(() => setCreateOpen(true));
   const stableOnCancel2 = useEventCallback(() => setCreateOpen(false));
 
@@ -147,16 +135,8 @@ function RolesPage() {
       </h1>
       <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
         <RolesTable
-          data={
-            typeFilter
-              ? roles.filter((r) =>
-                  typeFilter === "system" ? r.isSystem : !r.isSystem
-                )
-              : roles
-          }
-          hasActiveFilters={!!typeFilter}
+          data={roles}
           isLoading={loading}
-          onClearFilters={stableOnClearFilters0}
           onDelete={handleDelete}
           toolbarActions={
             <Button onClick={stableOnClick1} size="sm" type="button">
@@ -167,14 +147,6 @@ function RolesPage() {
               />
               Add role
             </Button>
-          }
-          toolbarFilters={
-            <TableFilterSelect
-              label="Type"
-              onChange={setTypeFilter}
-              options={TYPE_OPTIONS}
-              value={typeFilter}
-            />
           }
         />
       </div>

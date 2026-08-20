@@ -4,6 +4,7 @@ import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { type ReactNode, useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { createKalakritiAuditFilterFields } from "@/components/kalakriti/kalakriti-audit-filters";
 import { formatAuditLabel } from "@/lib/kalakriti-audit-policy";
 
 export interface KalakritiAuditRow {
@@ -166,23 +167,19 @@ function getAuditRowId(row: KalakritiAuditRow) {
 }
 
 export function KalakritiAuditTable({
-  hasActiveFilters,
+  domainOptions,
   isLoading,
-  onClearFilters,
   rowCount,
   rows,
   timeZone,
   toolbarActions,
-  toolbarFilters,
 }: {
-  hasActiveFilters: boolean;
+  domainOptions: { label: string; value: string }[];
   isLoading: boolean;
-  onClearFilters: () => void;
   rowCount: number;
   rows: KalakritiAuditRow[];
   timeZone: string;
   toolbarActions: ReactNode;
-  toolbarFilters: ReactNode;
 }) {
   const columns = useMemo(() => {
     const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
@@ -196,6 +193,10 @@ export function KalakritiAuditTable({
     });
     return createColumns(dateTimeFormatter);
   }, [timeZone]);
+  const filterFields = useMemo(
+    () => createKalakritiAuditFilterFields(domainOptions),
+    [domainOptions]
+  );
 
   return (
     <DataTableWrapper
@@ -203,11 +204,13 @@ export function KalakritiAuditTable({
       data={rows}
       defaultPageSize={25}
       emptyMessage="No audit entries found for this scope."
+      filter={{
+        applyLocally: false,
+        fields: filterFields,
+      }}
       getRowId={getAuditRowId}
-      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
       manualPagination
-      onClearFilters={onClearFilters}
       paginationSizes={[10, 25, 50, 100]}
       rowCount={rowCount}
       searchFn={searchAuditRow}
@@ -220,7 +223,6 @@ export function KalakritiAuditTable({
         columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
-      toolbarFilters={toolbarFilters}
     />
   );
 }

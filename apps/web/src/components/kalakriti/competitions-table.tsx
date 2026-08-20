@@ -14,7 +14,12 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createCompetitionFilterFields,
+  getCompetitionFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 import {
   type CompetitionTableRow,
   type ConfigurationDeletePayload,
@@ -176,6 +181,10 @@ export function CompetitionsTable({
   onView: (competition: CompetitionTableRow) => void;
   toolbarActions?: ReactNode;
 }) {
+  const filterFields = useMemo(
+    () => createCompetitionFilterFields(data),
+    [data]
+  );
   const columns: DataGridColumnDef<CompetitionTableRow>[] = [
     {
       accessorKey: "name",
@@ -338,6 +347,10 @@ export function CompetitionsTable({
       columns={columns}
       data={data}
       emptyMessage="No Competitions configured."
+      filter={{
+        fields: filterFields,
+        getValue: getCompetitionFilterValue,
+      }}
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={handleRowClick}

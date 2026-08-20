@@ -3,16 +3,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
-import { deriveMessageStatus } from "@pi-dash/shared/scheduled-message";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
-import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
-import { TableFilterSelect } from "@/components/data-table/table-filter-select";
 import type { MediaAttachment } from "@/components/scheduled-messages/media-upload";
 import type { Recipient } from "@/components/scheduled-messages/recipient-picker";
 import { ScheduleMessageFormDialog } from "@/components/scheduled-messages/schedule-message-form-dialog";
@@ -38,30 +35,11 @@ type DialogMode =
   | { kind: "edit"; message: ScheduledMessageRow }
   | null;
 
-const STATUS_OPTIONS = [
-  { label: "Pending", value: "pending" },
-  { label: "Sent", value: "sent" },
-  { label: "Failed", value: "failed" },
-  { label: "Cancelled", value: "cancelled" },
-  { label: "Partial", value: "partial" },
-];
-
 function ScheduledMessagesPage() {
   const zero = useZero();
   const [messagesData, queryResult] = useQuery(queries.scheduledMessage.all());
   const allMessages = (messagesData ?? []) as ScheduledMessageRow[];
   const isLoading = allMessages.length === 0 && queryResult.type !== "complete";
-
-  const [statusFilter, setStatusFilter] = useQueryState(
-    "status",
-    parseAsString.withDefault("")
-  );
-
-  const messages = statusFilter
-    ? allMessages.filter(
-        (m) => deriveMessageStatus(m.recipients) === statusFilter
-      )
-    : allMessages;
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -233,7 +211,6 @@ function ScheduledMessagesPage() {
       setIsDeleting(false);
     }
   });
-  const stableOnClearFilters0 = useEventCallback(() => setStatusFilter(""));
   const stableOnClick1 = useEventCallback(() =>
     setDialogMode({ kind: "create" })
   );
@@ -272,11 +249,9 @@ function ScheduledMessagesPage() {
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <ScheduledMessagesTable
-          hasActiveFilters={!!statusFilter}
           isLoading={isLoading}
-          messages={messages}
+          messages={allMessages}
           onCancel={handleCancelRequest}
-          onClearFilters={stableOnClearFilters0}
           onDelete={handleDeleteRequest}
           onEdit={handleEdit}
           onRetry={handleRetryRecipient}
@@ -290,14 +265,6 @@ function ScheduledMessagesPage() {
               />
               Schedule message
             </Button>
-          }
-          toolbarFilters={
-            <TableFilterSelect
-              label="Status"
-              onChange={setStatusFilter}
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-            />
           }
         />
       </div>

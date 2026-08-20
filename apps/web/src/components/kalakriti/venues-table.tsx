@@ -15,6 +15,10 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createVenueFilterFields,
+  getVenueFilterValue,
+} from "@/components/kalakriti/kalakriti-filters";
 import type {
   ConfigurationDeletePayload,
   ConfigurationStatePayload,
@@ -209,6 +213,10 @@ export function VenuesTable({
       columns={columns}
       data={data}
       emptyMessage="No Venues configured."
+      filter={{
+        fields: createVenueFilterFields(),
+        getValue: getVenueFilterValue,
+      }}
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={handleRowClick}

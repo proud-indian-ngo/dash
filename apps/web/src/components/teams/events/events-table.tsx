@@ -1,6 +1,11 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import {
+  createEventFilterFields,
+  getEventFilterValue,
+  useMigrateLegacyEventFilterParams,
+} from "@/components/teams/events/event-filters";
 import { createEventsTableColumns } from "@/components/teams/events/events-table-columns";
 import type {
   EventDisplayRow,
@@ -21,17 +26,13 @@ interface EventsTableProps {
   canCancelPast: boolean;
   canCreate: boolean;
   canManage: boolean;
-  displayRowFilter?: (row: EventDisplayRow) => boolean;
   events: EventRow[];
-  hasActiveFilters?: boolean;
   isLoading?: boolean;
   onCancelEvent: (row: EventDisplayRow) => void;
-  onClearFilters?: () => void;
   onDuplicateEvent: (row: EventDisplayRow) => void;
   onEditEvent: (row: EventDisplayRow) => void;
   onSelectEvent: (row: EventDisplayRow) => void;
   toolbarActions?: ReactNode;
-  toolbarFilters?: ReactNode;
 }
 
 export function EventsTable({
@@ -39,23 +40,16 @@ export function EventsTable({
   canCancelPast,
   canCreate,
   canManage,
-  displayRowFilter,
   isLoading,
   onSelectEvent,
   onEditEvent,
   onDuplicateEvent,
   onCancelEvent,
   toolbarActions,
-  toolbarFilters,
-  hasActiveFilters,
-  onClearFilters,
 }: EventsTableProps) {
+  useMigrateLegacyEventFilterParams();
   const { end } = getDefaultDateRange();
-  const allDisplayRows = buildEventDisplayRows(events, end);
-
-  const displayRows = displayRowFilter
-    ? allDisplayRows.filter(displayRowFilter)
-    : allDisplayRows;
+  const displayRows = buildEventDisplayRows(events, end);
 
   const columns = createEventsTableColumns({
     canCancelPast,
@@ -74,10 +68,12 @@ export function EventsTable({
       data={displayRows}
       defaultColumnPinning={{ end: ["actions"], start: [] }}
       emptyMessage="No events found."
+      filter={{
+        fields: createEventFilterFields(),
+        getValue: getEventFilterValue,
+      }}
       getRowId={stableGetRowId0}
-      hasActiveFilters={hasActiveFilters}
       isLoading={isLoading}
-      onClearFilters={onClearFilters}
       onRowClick={onSelectEvent}
       searchFn={searchDisplayRow}
       searchPlaceholder="Search events..."
@@ -89,7 +85,6 @@ export function EventsTable({
         columnsVisibility: true,
       }}
       toolbarActions={toolbarActions}
-      toolbarFilters={toolbarFilters}
     />
   );
 }
