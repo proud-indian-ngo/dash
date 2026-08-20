@@ -164,7 +164,9 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("button", { name: "Remove Guardian" })
       .click();
     await assignedCenter
-      .getByRole("button", { name: "Remove Test Volunteer as Liaisons" })
+      .getByRole("button", {
+        name: "Remove Test Volunteer as Liaison Volunteer",
+      })
       .click();
     await page
       .getByRole("alertdialog", { name: "Remove Liaison assignment?" })
